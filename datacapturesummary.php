@@ -5858,7 +5858,8 @@ function getCurrentProcessId() {
                 console.log('Base numbers from newSourceData:', numbers);
                 
                 // Validate that we have matching base number counts (excluding structure numbers)
-                // We only check count, not values, because value changes are expected when Data Capture Table data changes
+                // ⚠ 这里不再把「数量不一致」当成致命错误，而是尽量做“部分替换”，
+                // 这样可以最大程度保留用户手动输入的结构（例如 *0.6/5 等）。
                 if (savedNumbers.length !== numbers.length) {
                     console.warn('Base number count mismatch:', {
                         savedNumbers: savedNumbers.length,
@@ -5866,25 +5867,20 @@ function getCurrentProcessId() {
                         savedFormulaPart: formulaPart,
                         newSourceData: newSourceData
                     });
-                    // IMPORTANT: If percent is inside parentheses (e.g., (5.6*0.1)+0), 
-                    // we should try to update numbers even if count doesn't match.
-                    // This allows formula to reflect current Data Capture Table data.
-                    // We'll use the minimum count and try to replace as many numbers as possible.
-                    if (isPercentInsideParens) {
-                        console.log('Base number count mismatch but percent is inside parentheses, attempting to update numbers with available data');
-                        // Continue with number replacement using minimum count
-                        // This will replace as many numbers as possible while preserving structure
-                    } else {
-                        // If counts don't match, return null to signal that formula should be recalculated
-                        // This happens when Data Capture Table data changes and formula structure no longer matches
-                        console.log('Base number count mismatch detected, returning null to trigger formula recalculation');
-                        return null; // Return null to signal recalculation needed
+                    // 如果两边至少各有一个基础数字，就继续往下做替换：
+                    // - 当 isPercentInsideParens 为 true 时，之前也是允许部分替换；
+                    // - 现在即使为 false 也不再 return null，而是按能对得上的最小数量替换。
+                    if (!(savedNumbers.length > 0 && numbers.length > 0)) {
+                        // 没有可以对齐的基础数字时，直接回退到用新结构
+                        return newSourceData;
                     }
+                    // 继续执行下面的替换逻辑（使用当前 numbers / formulaPart），
+                    // 不再 return null 触发整条公式重算。
                 }
                 
                 // Note: We don't check if values match because value changes are expected when Data Capture Table data changes
                 // For example, if Data Capture Table data changes from 862500 to 1, we want to update the formula
-                console.log('Base number counts match, proceeding with number replacement');
+                console.log('Base number counts match or partially match, proceeding with number replacement');
                 
                 // Replace numbers in formula part with numbers from new sourceData
                 // Preserve the structure (parentheses, operators, etc.) and structure numbers (*0.008, /0.90, etc.)
