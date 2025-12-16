@@ -150,6 +150,7 @@ if (isset($_COOKIE['remember_token'])) {
             border-radius: 30px;
             background: linear-gradient(135deg, #004ff9, #56ccf2);
             position: relative;
+            margin-bottom: 20px;
         }
 
         .maintenance-marquee-inner {
