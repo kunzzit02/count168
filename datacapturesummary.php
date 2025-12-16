@@ -9125,6 +9125,11 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Otherwise, recalculate formula from current Data Capture Table
             let formulaDisplay = '';
             const savedFormulaDisplay = mainTemplate.formula_display || '';
+            // 检查公式里是否包含类似 *0.6/5 这种「手动常数」结构
+            // 规则：在 * 或 / 之后跟一个数字，再跟 * 或 /（中间允许空格）
+            // 例如：*0.6/5、/2*0.3 等都会被视为“手动常数”
+            const manualConstantPattern = /[*\/]\s*\d+\.?\d*\s*[\/\*]/;
+            const hasManualConstantInSavedFormula = manualConstantPattern.test(savedFormulaDisplay);
             const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
             
             if (isBatchSelectedTemplate) {
@@ -9212,7 +9217,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2, *0.6/5)
                         // 如果检测到这种「手动常数」结构，则完全信任用户的公式，不再尝试根据当前表格数据重建，
                         // 避免刷新时把诸如 *0.6/5 这样的常数意外丢失或还原成旧结构。
-                        const hasManualInput = /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
+                        const hasManualInput = hasManualConstantInSavedFormula;
                         
                         if (hasManualInput) {
                             // 公式中包含手动常数（例如 *0.6/5），直接使用用户上次保存的公式展示
@@ -9256,49 +9261,67 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 }
             }
 
-            // Always recalculate processed amount from current formula
+            // Always recalculate processed amount from current formula（如果没有手动常数）
             let processedAmount = 0;
-            if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
-                try {
-                    console.log('Calculating processed amount from formulaDisplay (current data):', formulaDisplay);
-                    const cleanFormula = removeThousandsSeparators(formulaDisplay);
-                    const formulaResult = evaluateExpression(cleanFormula);
-                    
-                    if (mainTemplate.enable_input_method == 1 && mainTemplate.input_method) {
-                        processedAmount = applyInputMethodTransformation(formulaResult, mainTemplate.input_method);
-                        console.log('Applied input method transformation:', processedAmount);
-                    } else {
-                        processedAmount = formulaResult;
+            if (!hasManualConstantInSavedFormula) {
+                if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
+                    try {
+                        console.log('Calculating processed amount from formulaDisplay (current data):', formulaDisplay);
+                        const cleanFormula = removeThousandsSeparators(formulaDisplay);
+                        const formulaResult = evaluateExpression(cleanFormula);
+                        
+                        if (mainTemplate.enable_input_method == 1 && mainTemplate.input_method) {
+                            processedAmount = applyInputMethodTransformation(formulaResult, mainTemplate.input_method);
+                            console.log('Applied input method transformation:', processedAmount);
+                        } else {
+                            processedAmount = formulaResult;
+                        }
+                        console.log('Final processed amount from formulaDisplay:', processedAmount);
+                    } catch (error) {
+                        console.error('Error calculating from formulaDisplay:', error, 'formulaDisplay:', formulaDisplay);
+                        if ((resolvedSourceExpression && resolvedSourceExpression.trim() !== '') || (replacementForFormula && replacementForFormula.trim() !== '')) {
+                            console.log('Falling back to calculateFormulaResultFromExpression');
+                            processedAmount = calculateFormulaResultFromExpression(
+                                resolvedSourceExpression || replacementForFormula,
+                                percentValue,
+                                mainTemplate.input_method || '',
+                                mainTemplate.enable_input_method == 1,
+                                enableSourcePercent
+                            );
+                        } else {
+                            processedAmount = 0;
+                        }
                     }
-                    console.log('Final processed amount from formulaDisplay:', processedAmount);
-                } catch (error) {
-                    console.error('Error calculating from formulaDisplay:', error, 'formulaDisplay:', formulaDisplay);
-                    if ((resolvedSourceExpression && resolvedSourceExpression.trim() !== '') || (replacementForFormula && replacementForFormula.trim() !== '')) {
-                        console.log('Falling back to calculateFormulaResultFromExpression');
-                        processedAmount = calculateFormulaResultFromExpression(
-                            resolvedSourceExpression || replacementForFormula,
-                            percentValue,
-                            mainTemplate.input_method || '',
-                            mainTemplate.enable_input_method == 1,
-                            enableSourcePercent
-                        );
-                    } else {
+                } else if ((resolvedSourceExpression && resolvedSourceExpression.trim() !== '') || (replacementForFormula && replacementForFormula.trim() !== '')) {
+                    console.log('Calculating processed amount from source expression (current data):', resolvedSourceExpression || replacementForFormula);
+                    processedAmount = calculateFormulaResultFromExpression(
+                        resolvedSourceExpression || replacementForFormula,
+                        percentValue,
+                        mainTemplate.input_method || '',
+                        mainTemplate.enable_input_method == 1,
+                        enableSourcePercent
+                    );
+                    console.log('Calculated processed amount from source expression:', processedAmount);
+                } else {
+                    console.warn('No source expression or formulaDisplay available, using 0');
+                    processedAmount = 0;
+                }
+            } else {
+                // 如果公式里包含 *0.6/5 这类手动常数，则**完全信任已保存的模板值**：
+                // 1）公式直接使用数据库里的 formula_display
+                // 2）处理金额直接使用 last_processed_amount，避免因为当前表格数据结构变化而把常数弄丢
+                console.log('Manual constant detected in saved formula_display, using saved formula and last_processed_amount directly:', savedFormulaDisplay, mainTemplate.last_processed_amount);
+                if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '') {
+                    formulaDisplay = savedFormulaDisplay;
+                }
+                if (mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
+                    processedAmount = Number(mainTemplate.last_processed_amount);
+                    if (isNaN(processedAmount) || !isFinite(processedAmount)) {
                         processedAmount = 0;
                     }
+                } else {
+                    processedAmount = 0;
                 }
-            } else if ((resolvedSourceExpression && resolvedSourceExpression.trim() !== '') || (replacementForFormula && replacementForFormula.trim() !== '')) {
-                console.log('Calculating processed amount from source expression (current data):', resolvedSourceExpression || replacementForFormula);
-                processedAmount = calculateFormulaResultFromExpression(
-                    resolvedSourceExpression || replacementForFormula,
-                    percentValue,
-                    mainTemplate.input_method || '',
-                    mainTemplate.enable_input_method == 1,
-                    enableSourcePercent
-                );
-                console.log('Calculated processed amount from source expression:', processedAmount);
-            } else {
-                console.warn('No source expression or formulaDisplay available, using 0');
-                processedAmount = 0;
             }
             
             // Ensure processedAmount is a valid number
