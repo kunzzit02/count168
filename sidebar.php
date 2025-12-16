@@ -1108,7 +1108,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
                     <div class="submenu" id="report-submenu">
                         <div class="submenu-content">
                             <a href="customer_report.php" class="submenu-item">
-                                <span>Customer Reportss</span>
+                                <span>Customer Report</span>
                             </a>
                             <a href="domain_report.php" class="submenu-item">
                                 <span>Domain Report</span>
