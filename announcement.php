@@ -133,6 +133,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             border: 1px solid #cbd5e1;
             border-radius: 8px;
             font-size: clamp(11px, 0.73vw, 14px);
+            font-weight: 700;
             font-family: inherit;
             box-sizing: border-box;
             transition: border-color 0.3s;
