@@ -878,6 +878,19 @@ function getCurrentProcessId() {
                     return newSourceData || savedSourceExpression || '';
                 }
 
+                // 如果新旧表达式在去掉千分符和空白后完全一样，直接返回原来的表达式，
+                // 避免因为统计数字个数时出现差异而触发「Base number count mismatch」，导致结构被重算。
+                try {
+                    const normalizedSaved = removeThousandsSeparators(savedSourceExpression).replace(/\s+/g, '');
+                    const normalizedNew = removeThousandsSeparators(newSourceData).replace(/\s+/g, '');
+                    if (normalizedSaved === normalizedNew) {
+                        console.log('preserveSourceStructure: normalized savedSourceExpression equals newSourceData, keeping saved expression to preserve manual inputs');
+                        return savedSourceExpression;
+                    }
+                } catch (e) {
+                    console.warn('preserveSourceStructure: normalization comparison failed, continue with default logic', e);
+                }
+
                 // Extract numbers from newSourceData (remove thousands separators first)
                 const cleanSourceData = removeThousandsSeparators(newSourceData);
                 const numberMatches = getFormulaNumberMatches(cleanSourceData);
