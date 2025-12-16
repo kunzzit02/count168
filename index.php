@@ -78,16 +78,19 @@ if (isset($_COOKIE['remember_token'])) {
 
 <body class="bg">
 
-    <!-- 整个登录表单上方的跑马灯维护提示（不在 form 里面） -->
-    <div class="maintenance-marquee-wrapper">
-            <div class="maintenance-marquee-inner">
-                <span class="maintenance-marquee-dot"></span>
-                <span class="maintenance-marquee-label">系统维护中：</span>
-                <span>Transaction 页面正在维护，预计完成时间约 30 分钟，如有影响请稍后再试，感谢您的理解与支持。</span>
-            </div>
-    </div>
+    
 
     <div class="login-container">
+
+        <!-- 整个登录表单上方的跑马灯维护提示（不在 form 里面） -->
+        <div class="maintenance-marquee-wrapper">
+                <div class="maintenance-marquee-inner">
+                    <span class="maintenance-marquee-dot"></span>
+                    <span class="maintenance-marquee-label">系统维护中：</span>
+                    <span>Transaction 页面正在维护，预计完成时间约 30 分钟，如有影响请稍后再试，感谢您的理解与支持。</span>
+                </div>
+        </div>
+    
         <div class="role-tabs">
                 <button class="role-tab <?php echo (!isset($_GET['role']) || $_GET['role'] === 'admin') ? 'active' : ''; ?>" id="admin-tab">Admin</button>
                 <button class="role-tab <?php echo (isset($_GET['role']) && $_GET['role'] === 'member') ? 'active' : ''; ?>" id="member-tab">Member</button>
