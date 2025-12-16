@@ -4589,11 +4589,19 @@ function getCurrentProcessId() {
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
             } else {
                 const trimmedFormula = formulaValue.trim();
-                // 统一由 Source Percent 控制百分比，不再从公式中自动识别 *0.1 这一类“内置百分比”
-                // 这样就可以保证：只要勾选了 Enable，并填写了 Source Percent，
-                // 整个公式的结果都会再乘上 Source Percent，而不会因为公式里含有 *0.2 等运算而被误判为“已含百分比”
-                formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                console.log('Created formulaDisplay from expression (always use Source Percent):', formulaDisplay);
+                // 在编辑模式下，直接把用户输入的公式原样作为展示用的 formulaDisplay，
+                // 不再在结尾自动追加 *Source Percent，避免出现 5+4*0.6/3 被显示成 5+4*(1) 的情况，
+                // 也避免后续从模板恢复时丢失用户在公式里加入的常数或结构。
+                // Source Percent 仍然会在计算 processedAmount 时生效，只是不会强行体现在公式展示字符串里。
+                if (isEditMode) {
+                    formulaDisplay = trimmedFormula;
+                    console.log('Edit mode: using raw formula as formulaDisplay:', formulaDisplay);
+                } else {
+                    // 非编辑模式（例如自动生成模板）仍然保持原有行为：
+                    // 由 Source Percent 控制统一的 *百分比 展示，便于区分整体乘数
+                    formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    console.log('Created formulaDisplay from expression (with Source Percent):', formulaDisplay);
+                }
             }
             
             // Calculate processed amount
