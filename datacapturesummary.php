@@ -936,6 +936,8 @@ function getCurrentProcessId() {
                         newSourceData: newSourceData
                     });
                     // If counts don't match, try to preserve structure but update what we can
+                    // 而不是直接放弃原有结构（返回 null 触发整串重算），这样可以最大程度保留
+                    // 用户手动输入的公式片段（例如 *0.6/5 这一类表达式）。
                     if (numbers.length > 0 && baseSavedNumbers.length > 0) {
                         // Try to replace only the base numbers we can match
                         let numberIndex = 0;
