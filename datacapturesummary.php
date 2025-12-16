@@ -9209,16 +9209,29 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         }
                         console.log('Using reference format from resolvedSourceExpression:', formulaDisplay);
                     } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
-                        // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2, *0.6/5)
-                        // 如果检测到这种「手动常数」结构，则完全信任用户的公式，不再尝试根据当前表格数据重建，
-                        // 避免刷新时把诸如 *0.6/5 这样的常数意外丢失或还原成旧结构。
+                        // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2)
+                        // If it does, we should preserve the entire formula structure including manual inputs
                         const hasManualInput = /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
                         
                         if (hasManualInput) {
-                            // 公式中包含手动常数（例如 *0.6/5），直接使用用户上次保存的公式展示
-                            // 不再调用 preserveFormulaStructure，以免在数字数量不匹配时回退成基于表格数据的新公式
-                            console.log('Saved formula_display contains manual input, keeping saved formulaDisplay exactly (no auto-rebuild):', savedFormulaDisplay);
-                            formulaDisplay = savedFormulaDisplay;
+                            // Formula contains manually entered parts (e.g., *0.9/2), preserve it as-is
+                            // Only update numbers that come from data capture table, not manual inputs
+                            console.log('Saved formula_display contains manual input, preserving structure:', savedFormulaDisplay);
+                            const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
+                            
+                            if (preservedFormula === null) {
+                                // If preserveFormulaStructure returns null, use saved formula as-is to preserve manual inputs
+                                console.log('preserveFormulaStructure returned null, using saved formula_display as-is to preserve manual inputs');
+                                formulaDisplay = savedFormulaDisplay;
+                            } else if (preservedFormula === savedFormulaDisplay) {
+                                // If preserved formula is same as saved, use it as-is
+                                formulaDisplay = savedFormulaDisplay;
+                                console.log('Using saved formula_display as-is (preserves manual inputs and structure):', formulaDisplay);
+                            } else {
+                                // Use preserved formula (numbers updated but manual inputs preserved)
+                                formulaDisplay = preservedFormula;
+                                console.log('Preserved saved formula_display structure with updated source data (manual inputs preserved):', formulaDisplay);
+                            }
                         } else {
                             // No manual input detected, proceed with normal preservation logic
                             // IMPORTANT: Even if formula contains percentage part, we should still update numbers
