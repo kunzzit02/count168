@@ -5864,25 +5864,24 @@ function getCurrentProcessId() {
                         savedFormulaPart: formulaPart,
                         newSourceData: newSourceData
                     });
-                    // IMPORTANT: If percent is inside parentheses (e.g., (5.6*0.1)+0), 
-                    // we should try to update numbers even if count doesn't match.
-                    // This allows formula to reflect current Data Capture Table data.
-                    // We'll use the minimum count and try to replace as many numbers as possible.
-                    if (isPercentInsideParens) {
-                        console.log('Base number count mismatch but percent is inside parentheses, attempting to update numbers with available data');
-                        // Continue with number replacement using minimum count
-                        // This will replace as many numbers as possible while preserving structure
-                    } else {
-                        // If counts don't match, return null to signal that formula should be recalculated
-                        // This happens when Data Capture Table data changes and formula structure no longer matches
-                        console.log('Base number count mismatch detected, returning null to trigger formula recalculation');
-                        return null; // Return null to signal recalculation needed
-                    }
+                    // IMPORTANT: Instead of returning null when counts don't match, we should try to preserve
+                    // as much of the original formula structure as possible, including manually entered parts.
+                    // This prevents losing user's manual inputs (e.g., "0.6/5", "*0.9/2") when page refreshes.
+                    // We'll use the minimum count and try to replace as many numbers as possible while preserving
+                    // the rest of the formula structure.
+                    console.log('Base number count mismatch detected, will attempt to preserve original formula structure and replace only matching numbers');
+                    // Continue with number replacement using minimum count
+                    // This will replace as many numbers as possible while preserving structure and manual inputs
                 }
                 
                 // Note: We don't check if values match because value changes are expected when Data Capture Table data changes
                 // For example, if Data Capture Table data changes from 862500 to 1, we want to update the formula
-                console.log('Base number counts match, proceeding with number replacement');
+                const numberCountMatch = savedNumbers.length === numbers.length;
+                if (numberCountMatch) {
+                    console.log('Base number counts match, proceeding with number replacement');
+                } else {
+                    console.log(`Base number counts don't match (saved: ${savedNumbers.length}, new: ${numbers.length}), will replace ${Math.min(savedNumbers.length, numbers.length)} numbers while preserving rest of formula structure`);
+                }
                 
                 // Replace numbers in formula part with numbers from new sourceData
                 // Preserve the structure (parentheses, operators, etc.) and structure numbers (*0.008, /0.90, etc.)
@@ -7224,11 +7223,12 @@ function getCurrentProcessId() {
                 // Use preserveFormulaStructure to update numbers while keeping formula structure
                 // Use resolvedSourceExpression (which has *0.008, etc.) instead of simple currentSourceData
                 const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, sourcePercentText, enableSourcePercent);
-                // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
+                // IMPORTANT: preserveFormulaStructure should never return null now - it will preserve
+                // as much of the original formula as possible even when number counts don't match.
+                // If it somehow returns null, use saved formula to preserve user's manual inputs.
                 if (preservedFormula === null) {
-                    console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                    formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent);
-                    console.log('Recalculated formula from current source data:', formulaDisplay);
+                    console.log('preserveFormulaStructure returned null (unexpected), using saved formula_display as-is to preserve user inputs');
+                    formulaDisplay = savedFormulaDisplay;
                 } else {
                     formulaDisplay = preservedFormula;
                     console.log('Preserved saved formula_display structure with updated source data:', formulaDisplay);
@@ -9142,18 +9142,12 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                         // Always try to preserve the structure from saved formula, whether it has parentheses or not
                         const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                        // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
+                        // IMPORTANT: preserveFormulaStructure should never return null now - it will preserve
+                        // as much of the original formula as possible even when number counts don't match.
+                        // If it somehow returns null, use saved formula to preserve user's manual inputs.
                         if (preservedFormula === null) {
-                            console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                            // Recalculate formula from current Data Capture Table
-                            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                            } else if (percentValue && resolvedSourceExpression) {
-                                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
-                            } else {
-                                formulaDisplay = resolvedSourceExpression || 'Formula';
-                            }
-                            console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
+                            console.log('Batch template: preserveFormulaStructure returned null (unexpected), using saved formula_display as-is to preserve user inputs');
+                            formulaDisplay = savedFormulaDisplay;
                         } else if (preservedFormula === savedFormulaDisplay) {
                             // 如果返回的结果与原始 formula_display 相同，说明替换后结果相同，使用保存的值
                             console.log('Batch template: preserveFormulaStructure returned unchanged formula, using saved formula_display as-is to preserve structure (e.g., parentheses)');
@@ -9232,26 +9226,21 @@ function applyTemplateToSummaryRow(idProduct, template) {
                                 formulaDisplay = preservedFormula;
                                 console.log('Preserved saved formula_display structure with updated source data (manual inputs preserved):', formulaDisplay);
                             }
-                        } else {
-                            // No manual input detected, proceed with normal preservation logic
-                            // IMPORTANT: Even if formula contains percentage part, we should still update numbers
-                            // from current Data Capture Table data, while preserving the formula structure
-                            // This ensures formula reflects current table data (e.g., (-4014.6*0.1)+0 -> (1*0.1)+1)
-                            // 非 Batch 行仍然优先保留用户自定义的公式结构
-                            const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                            // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
-                            if (preservedFormula === null) {
-                                console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                                // Recalculate formula from current Data Capture Table
-                                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                                } else if (percentValue && resolvedSourceExpression) {
-                                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
-                                } else {
-                                    formulaDisplay = resolvedSourceExpression || 'Formula';
-                                }
-                                console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
-                            } else if (preservedFormula === savedFormulaDisplay) {
+                    } else {
+                        // No manual input detected, proceed with normal preservation logic
+                        // IMPORTANT: Even if formula contains percentage part, we should still update numbers
+                        // from current Data Capture Table data, while preserving the formula structure
+                        // This ensures formula reflects current table data (e.g., (-4014.6*0.1)+0 -> (1*0.1)+1)
+                        // 非 Batch 行仍然优先保留用户自定义的公式结构
+                        const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
+                        // IMPORTANT: preserveFormulaStructure should never return null now - it will preserve
+                        // as much of the original formula as possible even when number counts don't match.
+                        // If it somehow returns null, use saved formula to preserve user's manual inputs.
+                        if (preservedFormula === null) {
+                            console.log('preserveFormulaStructure returned null (unexpected), using saved formula_display as-is to preserve user inputs');
+                            // Use saved formula to preserve user's manual inputs (e.g., "0.6/5")
+                            formulaDisplay = savedFormulaDisplay;
+                        } else if (preservedFormula === savedFormulaDisplay) {
                                 // 如果返回的结果与原始 formula_display 相同，说明替换后结果相同，使用保存的值
                                 console.log('preserveFormulaStructure returned unchanged formula, using saved formula_display as-is to preserve structure (e.g., parentheses)');
                                 formulaDisplay = savedFormulaDisplay;
@@ -9650,16 +9639,17 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                     // Use enableSourcePercent=false to prevent preserveFormulaStructure from adding Source %
                     const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
+                    // IMPORTANT: preserveFormulaStructure should never return null now - it will preserve
+                    // as much of the original formula as possible even when number counts don't match.
+                    // If it somehow returns null, use base expression to preserve user's manual inputs.
                     if (preservedFormula === null) {
-                        console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                        if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                        } else if (percentValue && resolvedSourceExpression) {
-                            formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                        console.log('Batch template: preserveFormulaStructure returned null (unexpected), using base expression as-is to preserve user inputs');
+                        // Apply current Source % to base expression
+                        if (percentValue && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
                         } else {
-                            formulaDisplay = resolvedSourceExpression || 'Formula';
+                            formulaDisplay = baseExpression;
                         }
-                        console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
                     } else {
                         // preservedFormula does NOT contain Source % (because enableSourcePercent=false)
                         // Now apply current Source % to preserved formula
@@ -9735,34 +9725,16 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     // Use current source data if available
                     const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
                     // Note: preserveFormulaStructure with enableSourcePercent=false will NOT add Source % to the result
+                    // IMPORTANT: preserveFormulaStructure should never return null now - it will preserve
+                    // as much of the original formula as possible even when number counts don't match.
+                    // If it somehow returns null, use base expression to preserve user's manual inputs.
                     if (preservedFormula === null) {
-                        console.log('preserveFormulaStructure returned null, using current source data directly');
-                        // IMPORTANT: resolvedSourceExpression might already contain Source % (e.g., "107.82+84.31*(1)")
-                        // Extract base expression from resolvedSourceExpression before applying Source % again
-                        let cleanSourceExpression = resolvedSourceExpression;
-                        let previousExpr = '';
-                        while (cleanSourceExpression !== previousExpr) {
-                            previousExpr = cleanSourceExpression;
-                            const trailingPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                            const match = cleanSourceExpression.match(trailingPattern);
-                            if (match) {
-                                cleanSourceExpression = match[1].trim();
-                                continue;
-                            }
-                            const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                            const simpleMatch = cleanSourceExpression.match(simplePattern);
-                            if (simpleMatch) {
-                                cleanSourceExpression = simpleMatch[1].trim();
-                                continue;
-                            }
-                            break;
-                        }
-                        if (percentValue && cleanSourceExpression && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(cleanSourceExpression, percentValue, enableSourcePercent);
-                        } else if (percentValue && cleanSourceExpression) {
-                            formulaDisplay = createFormulaDisplay(cleanSourceExpression, percentValue);
+                        console.log('preserveFormulaStructure returned null (unexpected), using base expression as-is to preserve user inputs');
+                        // Apply current Source % to base expression
+                        if (percentValue && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
                         } else {
-                            formulaDisplay = cleanSourceExpression || 'Formula';
+                            formulaDisplay = baseExpression;
                         }
                     } else {
                         // preservedFormula does NOT contain Source % (because enableSourcePercent=false)
@@ -9785,36 +9757,12 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 // Formula doesn't contain Source %, use preserveFormulaStructure as before
             if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                 const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
+                // IMPORTANT: preserveFormulaStructure should never return null now - it will preserve
+                // as much of the original formula as possible even when number counts don't match.
+                // If it somehow returns null, use saved formula to preserve user's manual inputs.
                 if (preservedFormula === null) {
-                    console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                        // IMPORTANT: resolvedSourceExpression might already contain Source % (e.g., "107.82+84.31*(1)")
-                        // Extract base expression from resolvedSourceExpression before applying Source % again
-                        let cleanSourceExpression = resolvedSourceExpression;
-                        let previousExpr = '';
-                        while (cleanSourceExpression !== previousExpr) {
-                            previousExpr = cleanSourceExpression;
-                            const trailingPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                            const match = cleanSourceExpression.match(trailingPattern);
-                            if (match) {
-                                cleanSourceExpression = match[1].trim();
-                                continue;
-                            }
-                            const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                            const simpleMatch = cleanSourceExpression.match(simplePattern);
-                            if (simpleMatch) {
-                                cleanSourceExpression = simpleMatch[1].trim();
-                                continue;
-                            }
-                            break;
-                        }
-                        if (percentValue && cleanSourceExpression && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(cleanSourceExpression, percentValue, enableSourcePercent);
-                        } else if (percentValue && cleanSourceExpression) {
-                            formulaDisplay = createFormulaDisplay(cleanSourceExpression, percentValue);
-                    } else {
-                            formulaDisplay = cleanSourceExpression || 'Formula';
-                    }
-                    console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
+                    console.log('preserveFormulaStructure returned null (unexpected), using saved formula_display as-is to preserve user inputs');
+                    formulaDisplay = savedFormulaDisplay;
                 } else if (preservedFormula === savedFormulaDisplay) {
                     console.log('preserveFormulaStructure returned unchanged formula, using saved formula_display as-is to preserve structure');
                     formulaDisplay = savedFormulaDisplay;
@@ -10433,36 +10381,16 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                         // Always try to preserve the structure from saved formula, whether it has parentheses or not
                         // Use enableSourcePercent=false to prevent preserveFormulaStructure from adding Source %
                         const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
-                        // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
+                        // IMPORTANT: preserveFormulaStructure should never return null now - it will preserve
+                        // as much of the original formula as possible even when number counts don't match.
+                        // If it somehow returns null, use base expression to preserve user's manual inputs.
                         if (preservedFormula === null) {
-                            console.log('Batch sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                            // IMPORTANT: resolvedSourceExpression might already contain Source % (e.g., "107.82+84.31*(1)")
-                            // Extract base expression from resolvedSourceExpression before applying Source % again
-                            let cleanSourceExpression = resolvedSourceExpression;
-                            let previousExpr = '';
-                            while (cleanSourceExpression !== previousExpr) {
-                                previousExpr = cleanSourceExpression;
-                                const trailingPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                                const match = cleanSourceExpression.match(trailingPattern);
-                                if (match) {
-                                    cleanSourceExpression = match[1].trim();
-                                    continue;
-                                }
-                                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                                const simpleMatch = cleanSourceExpression.match(simplePattern);
-                                if (simpleMatch) {
-                                    cleanSourceExpression = simpleMatch[1].trim();
-                                    continue;
-                                }
-                                break;
-                            }
-                            // Recalculate formula from current Data Capture Table
-                            if (percentValue && cleanSourceExpression && enableSourcePercent) {
-                                formulaDisplay = createFormulaDisplayFromExpression(cleanSourceExpression, percentValue, enableSourcePercent);
-                            } else if (percentValue && cleanSourceExpression) {
-                                formulaDisplay = createFormulaDisplay(cleanSourceExpression, percentValue);
+                            console.log('Batch sub-template: preserveFormulaStructure returned null (unexpected), using base expression as-is to preserve user inputs');
+                            // Apply current Source % to base expression
+                            if (percentValue && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
                             } else {
-                                formulaDisplay = cleanSourceExpression || 'Formula';
+                                formulaDisplay = baseExpression;
                             }
                             console.log('Batch sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
                         } else {
@@ -10561,15 +10489,17 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     // Use current source data if available
                     const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
                     // Note: preserveFormulaStructure with enableSourcePercent=false will NOT add Source % to the result
+                    // IMPORTANT: preserveFormulaStructure should never return null now - it will preserve
+                    // as much of the original formula as possible even when number counts don't match.
+                    // If it somehow returns null, use base expression to preserve user's manual inputs.
                     if (preservedFormula === null) {
-                        console.log('Sub-template: preserveFormulaStructure returned null, using current source data directly');
-                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                } else if (percentValue && resolvedSourceExpression) {
-                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
-                } else {
-                    formulaDisplay = resolvedSourceExpression || 'Formula';
-                }
+                        console.log('Sub-template: preserveFormulaStructure returned null (unexpected), using base expression as-is to preserve user inputs');
+                        // Apply current Source % to base expression
+                        if (percentValue && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
+                        } else {
+                            formulaDisplay = baseExpression;
+                        }
                     } else {
                         // preservedFormula does NOT contain Source % (because enableSourcePercent=false)
                         // Now apply current Source % to preserved formula
@@ -10592,16 +10522,12 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                     // 非 Batch 子行保留历史公式结构，但优先使用当前数据重新计算
                 const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
+                // IMPORTANT: preserveFormulaStructure should never return null now - it will preserve
+                // as much of the original formula as possible even when number counts don't match.
+                // If it somehow returns null, use saved formula to preserve user's manual inputs.
                 if (preservedFormula === null) {
-                    console.log('Sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                    if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                        formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                    } else if (percentValue && resolvedSourceExpression) {
-                        formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
-                    } else {
-                        formulaDisplay = resolvedSourceExpression || 'Formula';
-                    }
-                    console.log('Sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
+                    console.log('Sub-template: preserveFormulaStructure returned null (unexpected), using saved formula_display as-is to preserve user inputs');
+                    formulaDisplay = savedFormulaDisplay;
                 } else if (preservedFormula === savedFormulaDisplay) {
                         console.log('Sub-template: preserveFormulaStructure returned unchanged formula, recalculating to ensure current data');
                         if (percentValue && resolvedSourceExpression && enableSourcePercent) {
