@@ -87,7 +87,7 @@ if (isset($_COOKIE['remember_token'])) {
                 <div class="maintenance-marquee-inner">
                     <span class="maintenance-marquee-dot"></span>
                     <span class="maintenance-marquee-label">系统维护中：</span>
-                    <span>Transaction 页面正在维护，预计完成时间约 30 分钟，如有影响请稍后再试，感谢您的理解与支持。</span>
+                    <span>Data Capture 页面正在维护，预计完成时间约 1个星期，如有影响请稍后再试，感谢您的理解与支持。</span>
                 </div>
         </div>
     
