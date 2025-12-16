@@ -983,7 +983,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                     </svg>
-                    Homeee
+                    Home
                 </div>
             </div>
 
@@ -1108,7 +1108,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
                     <div class="submenu" id="report-submenu">
                         <div class="submenu-content">
                             <a href="customer_report.php" class="submenu-item">
-                                <span>Customer Report</span>
+                                <span>Customer Reportss</span>
                             </a>
                             <a href="domain_report.php" class="submenu-item">
                                 <span>Domain Report</span>
