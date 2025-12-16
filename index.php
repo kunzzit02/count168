@@ -86,6 +86,15 @@ if (isset($_COOKIE['remember_token'])) {
         <div class="login-card">
             
             <div class="form-content">
+                <!-- 登录表单上方跑马灯维护提示（可修改文字内容） -->
+                <div class="maintenance-marquee-wrapper">
+                    <div class="maintenance-marquee-inner">
+                        <span class="maintenance-marquee-dot"></span>
+                        <span class="maintenance-marquee-label">系统维护中：</span>
+                        <span>Transaction 页面正在维护，预计完成时间约 30 分钟，如有影响请稍后再试，感谢您的理解与支持。</span>
+                    </div>
+                </div>
+
                 <form class="login-form" id="loginForm" method="POST">
                     <div class="input-group">
                         <i class="fas fa-building input-icon"></i>
@@ -130,69 +139,54 @@ if (isset($_COOKIE['remember_token'])) {
     <img src="images/telegram.png" alt="Telegram" class="telegram-icon" />
 
     <style>
-        /* 维护提示小卡片 - 固定在登录界面右侧中部 */
-        .maintenance-badge {
-            position: fixed;
-            top: 50%;
-            right: 20px;
-            transform: translateY(-50%);
-            min-width: 180px;
-            max-width: 220px;
-            padding: 12px 14px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.96);
-            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
-            border: 1px solid rgba(148, 163, 184, 0.4);
-            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            z-index: 950;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            backdrop-filter: blur(6px);
+        /* 登录表单上方跑马灯维护提示 */
+        .maintenance-marquee-wrapper {
+            width: 100%;
+            overflow: hidden;
+            border-radius: 10px 10px 0 0;
+            background: #f97316;
+            position: relative;
         }
 
-        .maintenance-badge-header {
+        .maintenance-marquee-inner {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
+            padding: 6px 14px;
+            white-space: nowrap;
+            color: #ffffff;
             font-size: 13px;
-            font-weight: 600;
-            color: #0f172a;
-        }
-
-        .maintenance-dot {
-            width: 9px;
-            height: 9px;
-            border-radius: 999px;
-            background: #f97316;
-            box-shadow: 0 0 0 6px rgba(248, 156, 88, 0.35);
-        }
-
-        .maintenance-badge-body {
-            font-size: 12px;
-            color: #475569;
-            line-height: 1.4;
-        }
-
-        .maintenance-badge-body span.label {
-            color: #0f172a;
             font-weight: 500;
+            animation: maintenance-scroll 18s linear infinite;
         }
 
-        .maintenance-badge-footer {
-            margin-top: 2px;
-            font-size: 11px;
-            color: #64748b;
+        .maintenance-marquee-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35);
+            flex-shrink: 0;
+        }
+
+        .maintenance-marquee-label {
+            opacity: 0.9;
+            margin-right: 8px;
+        }
+
+        @keyframes maintenance-scroll {
+            0% {
+                transform: translateX(100%);
+            }
+            100% {
+                transform: translateX(-100%);
+            }
         }
 
         @media (max-width: 768px) {
-            .maintenance-badge {
-                right: 12px;
-                top: auto;
-                bottom: 90px;
-                transform: none;
-                max-width: 180px;
-                padding: 10px 12px;
+            .maintenance-marquee-inner {
+                font-size: 12px;
+                padding: 6px 10px;
             }
         }
 
@@ -391,21 +385,6 @@ if (isset($_COOKIE['remember_token'])) {
             window.location.href = `/cn/index.php?role=${currentRole}`;
         });
     </script>
-    
-    <!-- 维护提示小卡片：可按需要修改页面名称和预计时间 -->
-    <div class="maintenance-badge">
-        <div class="maintenance-badge-header">
-            <span class="maintenance-dot"></span>
-            <span>系统维护中</span>
-        </div>
-        <div class="maintenance-badge-body">
-            <div><span class="label">维护页面：</span>Transaction 页面</div>
-            <div><span class="label">预计完成：</span>约 30 分钟</div>
-        </div>
-        <div class="maintenance-badge-footer">
-            如已完成可隐藏此提示或修改内容。
-        </div>
-    </div>
 </body>
 
 </html>
