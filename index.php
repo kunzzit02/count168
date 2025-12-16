@@ -147,8 +147,8 @@ if (isset($_COOKIE['remember_token'])) {
         .maintenance-marquee-wrapper {
             width: 100%;
             overflow: hidden;
-            border-radius: 10px 10px 0 0;
-            background: #f97316;
+            border-radius: 30px;
+            background: linear-gradient(135deg, #004ff9, #56ccf2);
             position: relative;
         }
 
@@ -159,8 +159,8 @@ if (isset($_COOKIE['remember_token'])) {
             padding: 6px 14px;
             white-space: nowrap;
             color: #ffffff;
-            font-size: 13px;
-            font-weight: 500;
+            font-size: 18px;
+            font-weight: 700;
             animation: maintenance-scroll 18s linear infinite;
         }
 
