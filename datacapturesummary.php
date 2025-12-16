@@ -5563,6 +5563,21 @@ function getCurrentProcessId() {
                 // This preserves negative signs when extracting numbers from source data
                 // But we should only extract base numbers (excluding structure numbers like 0.008, 0.002, 0.90)
                 const cleanSourceData = removeThousandsSeparators(newSourceData);
+                
+                // 如果新的来源表达式和已保存的公式在去掉分隔符和空白后完全相同，
+                // 直接返回已保存的公式，避免因为数字统计差异而触发「number count mismatch」
+                // 这种情况通常是用户手动输入了类似 5+4*0.6/5 的公式，而底层来源数据并没有发生结构性变化。
+                try {
+                    const normalizedSaved = removeThousandsSeparators(savedFormulaDisplay).replace(/\s+/g, '');
+                    const normalizedNew = cleanSourceData.replace(/\s+/g, '');
+                    if (normalizedSaved === normalizedNew) {
+                        console.log('preserveFormulaStructure: normalized saved formula equals new source data, keeping saved formula to preserve manual inputs');
+                        return savedFormulaDisplay;
+                    }
+                } catch (e) {
+                    console.warn('preserveFormulaStructure: normalization comparison failed, continue with default logic', e);
+                }
+                
                 const numberMatches = getFormulaNumberMatches(cleanSourceData);
                 const structurePatterns = [/\*0\.\d+/, /\/0\.\d+/, /\*\(0\.\d+/, /\/\(0\.\d+/];
                 
