@@ -9078,6 +9078,30 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 console.log('No source data available (main)');
             }
 
+            // If the template has no source column mapping (纯手动公式，和表格数据无关)，直接使用已保存的公式
+            // 避免刷新后因缺少表格数据而清空展示
+            if ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
+                (!formulaOperatorsValue || formulaOperatorsValue.trim() === '') &&
+                savedFormulaDisplay && savedFormulaDisplay.trim() !== '') {
+                const formulaCell = targetRow.querySelector('td:nth-child(5)');
+                if (formulaCell) {
+                    formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
+                }
+                // 直接还原上次的处理结果
+                const processedCell = targetRow.querySelector('td:nth-child(8)');
+                if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
+                    const val = Number(mainTemplate.last_processed_amount);
+                    processedCell.textContent = formatNumberWithThousands(val);
+                    processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                }
+                // 更新存储的原始值，保持后续计算一致
+                targetRow.setAttribute('data-formula-display', savedFormulaDisplay);
+                targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
+                targetRow.setAttribute('data-source-percent', mainTemplate.source_percent || '1');
+                updateProcessedAmountTotal();
+                return;
+            }
+
             const sourcePercentRaw = mainTemplate.source_percent || '';
             let percentValue = sourcePercentRaw.toString();
             // Convert old percentage format to new decimal format if needed
@@ -9101,42 +9125,6 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Otherwise, recalculate formula from current Data Capture Table
             let formulaDisplay = '';
             const savedFormulaDisplay = mainTemplate.formula_display || '';
-            // 检测公式中是否包含类似 “*0.6/5” 这种手动输入的乘除结构
-            // 一旦检测到这种结构，就认为用户对公式做了「手动微调」，刷新时应完全保留该结构
-            const hasManualFormulaInput =
-                savedFormulaDisplay &&
-                /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
-
-            // If the template has no source column mapping (纯手动公式，和表格数据无关)，
-            // 或者检测到公式中包含手动输入的乘除结构（例如 *0.6/5），
-            // 直接使用已保存的公式和处理结果，避免刷新后手动部分被丢失（例如 5+4*0.6/5 变回 5+4）。
-            if (
-                savedFormulaDisplay && savedFormulaDisplay.trim() !== '' &&
-                (
-                    ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
-                     (!formulaOperatorsValue || formulaOperatorsValue.trim() === '')) ||
-                    hasManualFormulaInput
-                )
-            ) {
-                const formulaCell = targetRow.querySelector('td:nth-child(5)');
-                if (formulaCell) {
-                    formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
-                }
-                // 直接还原上次的处理结果
-                const processedCell = targetRow.querySelector('td:nth-child(8)');
-                if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
-                    const val = Number(mainTemplate.last_processed_amount);
-                    processedCell.textContent = formatNumberWithThousands(val);
-                    processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                }
-                // 更新存储的原始值，保持后续计算一致
-                targetRow.setAttribute('data-formula-display', savedFormulaDisplay);
-                targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
-                targetRow.setAttribute('data-source-percent', mainTemplate.source_percent || '1');
-                updateProcessedAmountTotal();
-                return;
-            }
-
             const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
             
             if (isBatchSelectedTemplate) {
