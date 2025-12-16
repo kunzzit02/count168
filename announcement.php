@@ -50,6 +50,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             padding: 0;
             min-height: 100vh;
             height: 100vh;
+            font-weight: 700;
             background-color: #e9f1ff;
             background-image:
                 radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -79,7 +80,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             margin-bottom: clamp(16px, 1.35vw, 26px);
             font-size: clamp(26px, 2.08vw, 40px);
             font-family: 'Amaranth';
-            font-weight: 500;
+            font-weight: 700;
             letter-spacing: -0.025em;
         }
 
@@ -120,7 +121,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
         .form-group label {
             display: block;
             margin-bottom: clamp(4px, 0.42vw, 8px);
-            font-weight: 600;
+            font-weight: 700;
             color: #334155;
             font-size: clamp(12px, 0.95vw, 14px);
         }
@@ -157,7 +158,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             border: none;
             border-radius: 8px;
             font-size: clamp(12px, 0.83vw, 16px);
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
