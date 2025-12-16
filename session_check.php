@@ -1,0 +1,127 @@
+<?php
+/**
+ * 统一的Session检查和管理文件
+ * 所有需要登录的页面都应该在开头包含此文件
+ */
+
+// 确保session已启动
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// 检测是否为API请求（通过文件路径或请求头）
+$currentFile = basename($_SERVER['PHP_SELF']);
+$isApiRequest = (
+    !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest'
+) || (
+    strpos($currentFile, 'api') !== false
+);
+
+require_once 'config.php';
+
+// 统一的超时时间（秒）- 1小时
+define('SESSION_TIMEOUT', 3600);
+
+// 检查remember me cookie自动登录
+if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token'])) {
+    $remember_token = $_COOKIE['remember_token'];
+    
+    try {
+        // 验证remember token - 支持user表
+        $stmt = $pdo->prepare("SELECT * FROM user WHERE remember_token = ? AND remember_token_expires > NOW() AND status = 'active'");
+        $stmt->execute([$remember_token]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user) {
+            // 重新建立session
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['login_id'] = $user['login_id'];
+            $_SESSION['name'] = $user['name'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['user_type'] = 'user';
+            
+            // 获取用户的 company_id（从 user_company_map 获取第一个，或使用 user 表中的 company_id）
+            $company_id = null;
+            try {
+                // 优先从 user_company_map 获取第一个 company
+                $stmt2 = $pdo->prepare("
+                    SELECT c.id 
+                    FROM company c
+                    INNER JOIN user_company_map ucm ON c.id = ucm.company_id
+                    WHERE ucm.user_id = ?
+                    ORDER BY c.company_id ASC
+                    LIMIT 1
+                ");
+                $stmt2->execute([$user['id']]);
+                $company_id = $stmt2->fetchColumn();
+            } catch (PDOException $e) {
+                error_log("获取用户 company 失败: " . $e->getMessage());
+            }
+            
+            // 如果 user_company_map 中没有，尝试使用 user 表中的 company_id（向后兼容）
+            if (!$company_id && isset($user['company_id'])) {
+                $company_id = $user['company_id'];
+            }
+            
+            $_SESSION['company_id'] = $company_id ? (int)$company_id : null;
+            $_SESSION['last_activity'] = time();
+            
+            // 更新最后登录时间
+            $stmt = $pdo->prepare("UPDATE user SET last_login = NOW() WHERE id = ?");
+            $stmt->execute([$user['id']]);
+        } else {
+            // Token无效或过期，清除cookie
+            setcookie('remember_token', '', time() - 3600, "/", "", false, true);
+        }
+    } catch (PDOException $e) {
+        error_log("Remember me check error: " . $e->getMessage());
+    }
+}
+
+// 检查用户是否已登录
+if (isset($_SESSION['user_id'])) {
+    // 检查session超时（如果没有remember me的话）
+    if (
+        isset($_SESSION['last_activity']) &&
+        (time() - $_SESSION['last_activity'] > SESSION_TIMEOUT) &&
+        !isset($_COOKIE['remember_token'])
+    ) {
+        // 清除 session
+        session_unset();
+        session_destroy();
+        
+        // 如果是API请求，返回JSON错误
+        if ($isApiRequest) {
+            if (!headers_sent()) {
+                header('Content-Type: application/json');
+            }
+            echo json_encode(['status' => 'error', 'message' => 'Session expired. Please login again.', 'redirect' => 'index.php']);
+            exit();
+        }
+        
+        // 重定向到登录页
+        header("Location: index.php");
+        exit();
+    }
+    
+    // 更新活动时间戳 - 每次页面访问都更新
+    $_SESSION['last_activity'] = time();
+    
+} else {
+    // 未登录
+    // 如果是API请求，返回JSON错误
+    if ($isApiRequest) {
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+        }
+        echo json_encode(['status' => 'error', 'message' => 'Please login first.', 'redirect' => 'index.php']);
+        exit();
+    }
+    
+    // 重定向到登录页
+    header("Location: index.php");
+    exit();
+}
+?>
+

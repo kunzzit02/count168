@@ -1,0 +1,135 @@
+2025-09-08 11:44:21 - UserList API: API called with method: GET
+2025-09-08 11:44:21 - UserList API: fetchUsers called
+2025-09-08 11:44:21 - UserList API: Count SQL: SELECT COUNT(*) as total FROM user WHERE company_id = 'c168'
+2025-09-08 11:44:21 - UserList API: Search params: Array
+(
+)
+
+2025-09-08 11:44:21 - UserList API: Main SQL: SELECT 
+                id, 
+                login_id, 
+                name, 
+                email, 
+                role, 
+                status,
+                created_by,
+                created_at,
+                last_login
+            FROM user 
+            WHERE company_id = 'c168' 
+            ORDER BY created_at DESC, id DESC 
+            LIMIT ? OFFSET ?
+2025-09-08 11:44:21 - UserList API: All params: Array
+(
+    [0] => 10
+    [1] => 0
+)
+
+2025-09-08 11:44:22 - UserList API: API called with method: GET
+2025-09-08 11:44:22 - UserList API: fetchUsers called
+2025-09-08 11:44:22 - UserList API: Count SQL: SELECT COUNT(*) as total FROM user WHERE company_id = 'c168'
+2025-09-08 11:44:22 - UserList API: Search params: Array
+(
+)
+
+2025-09-08 11:44:22 - UserList API: Main SQL: SELECT 
+                id, 
+                login_id, 
+                name, 
+                email, 
+                role, 
+                status,
+                created_by,
+                created_at,
+                last_login
+            FROM user 
+            WHERE company_id = 'c168' 
+            ORDER BY created_at DESC, id DESC 
+            LIMIT ? OFFSET ?
+2025-09-08 11:44:22 - UserList API: All params: Array
+(
+    [0] => 10
+    [1] => 0
+)
+
+2025-09-08 11:44:22 - UserList API: API called with method: GET
+2025-09-08 11:44:22 - UserList API: fetchUsers called
+2025-09-08 11:44:22 - UserList API: Count SQL: SELECT COUNT(*) as total FROM user WHERE company_id = 'c168'
+2025-09-08 11:44:22 - UserList API: Search params: Array
+(
+)
+
+2025-09-08 11:44:22 - UserList API: Main SQL: SELECT 
+                id, 
+                login_id, 
+                name, 
+                email, 
+                role, 
+                status,
+                created_by,
+                created_at,
+                last_login
+            FROM user 
+            WHERE company_id = 'c168' 
+            ORDER BY created_at DESC, id DESC 
+            LIMIT ? OFFSET ?
+2025-09-08 11:44:22 - UserList API: All params: Array
+(
+    [0] => 10
+    [1] => 0
+)
+
+2025-09-08 11:44:23 - UserList API: API called with method: GET
+2025-09-08 11:44:23 - UserList API: fetchUsers called
+2025-09-08 11:44:23 - UserList API: Count SQL: SELECT COUNT(*) as total FROM user WHERE company_id = 'c168'
+2025-09-08 11:44:23 - UserList API: Search params: Array
+(
+)
+
+2025-09-08 11:44:23 - UserList API: Main SQL: SELECT 
+                id, 
+                login_id, 
+                name, 
+                email, 
+                role, 
+                status,
+                created_by,
+                created_at,
+                last_login
+            FROM user 
+            WHERE company_id = 'c168' 
+            ORDER BY created_at DESC, id DESC 
+            LIMIT ? OFFSET ?
+2025-09-08 11:44:23 - UserList API: All params: Array
+(
+    [0] => 10
+    [1] => 0
+)
+
+2025-09-08 11:44:24 - UserList API: API called with method: GET
+2025-09-08 11:44:24 - UserList API: fetchUsers called
+2025-09-08 11:44:24 - UserList API: Count SQL: SELECT COUNT(*) as total FROM user WHERE company_id = 'c168'
+2025-09-08 11:44:24 - UserList API: Search params: Array
+(
+)
+
+2025-09-08 11:44:24 - UserList API: Main SQL: SELECT 
+                id, 
+                login_id, 
+                name, 
+                email, 
+                role, 
+                status,
+                created_by,
+                created_at,
+                last_login
+            FROM user 
+            WHERE company_id = 'c168' 
+            ORDER BY created_at DESC, id DESC 
+            LIMIT ? OFFSET ?
+2025-09-08 11:44:24 - UserList API: All params: Array
+(
+    [0] => 10
+    [1] => 0
+)
+
