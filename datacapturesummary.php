@@ -877,22 +877,7 @@ function getCurrentProcessId() {
                     console.log('Missing savedSourceExpression or newSourceData, using newSourceData');
                     return newSourceData || savedSourceExpression || '';
                 }
-            
-                // 先做一次「表达式本身」的比较：
-                // 如果去掉千分位和空白后，老的 savedSourceExpression 和新的 newSourceData 完全一样，
-                // 说明结构和数字都没有变化（例如 edit formula 只是重新保存了同一个表达式），
-                // 这时直接返回原来的 savedSourceExpression，避免因为统计 base numbers 差异而触发 number count mismatch。
-                try {
-                    const normalizedSaved = removeThousandsSeparators(savedSourceExpression).replace(/\s+/g, '');
-                    const normalizedNew = removeThousandsSeparators(newSourceData).replace(/\s+/g, '');
-                    if (normalizedSaved === normalizedNew) {
-                        console.log('preserveSourceStructure: normalized savedSourceExpression equals newSourceData, keeping saved expression to preserve manual formula');
-                        return savedSourceExpression;
-                    }
-                } catch (e) {
-                    console.warn('preserveSourceStructure: normalization comparison failed, continue with default logic', e);
-                }
-            
+
                 // Extract numbers from newSourceData (remove thousands separators first)
                 const cleanSourceData = removeThousandsSeparators(newSourceData);
                 const numberMatches = getFormulaNumberMatches(cleanSourceData);
@@ -4589,19 +4574,11 @@ function getCurrentProcessId() {
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
             } else {
                 const trimmedFormula = formulaValue.trim();
-                // 在编辑模式下，直接把用户输入的公式原样作为展示用的 formulaDisplay，
-                // 不再在结尾自动追加 *Source Percent，避免出现 5+4*0.6/3 被显示成 5+4*(1) 的情况，
-                // 也避免后续从模板恢复时丢失用户在公式里加入的常数或结构。
-                // Source Percent 仍然会在计算 processedAmount 时生效，只是不会强行体现在公式展示字符串里。
-                if (isEditMode) {
-                    formulaDisplay = trimmedFormula;
-                    console.log('Edit mode: using raw formula as formulaDisplay:', formulaDisplay);
-                } else {
-                    // 非编辑模式（例如自动生成模板）仍然保持原有行为：
-                    // 由 Source Percent 控制统一的 *百分比 展示，便于区分整体乘数
-                    formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                    console.log('Created formulaDisplay from expression (with Source Percent):', formulaDisplay);
-                }
+                // 统一由 Source Percent 控制百分比，不再从公式中自动识别 *0.1 这一类“内置百分比”
+                // 这样就可以保证：只要勾选了 Enable，并填写了 Source Percent，
+                // 整个公式的结果都会再乘上 Source Percent，而不会因为公式里含有 *0.2 等运算而被误判为“已含百分比”
+                formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+                console.log('Created formulaDisplay from expression (always use Source Percent):', formulaDisplay);
             }
             
             // Calculate processed amount
@@ -5586,21 +5563,6 @@ function getCurrentProcessId() {
                 // This preserves negative signs when extracting numbers from source data
                 // But we should only extract base numbers (excluding structure numbers like 0.008, 0.002, 0.90)
                 const cleanSourceData = removeThousandsSeparators(newSourceData);
-                
-                // 如果新的来源表达式和已保存的公式在去掉分隔符和空白后完全相同，
-                // 直接返回已保存的公式，避免因为数字统计差异而触发「number count mismatch」
-                // 这种情况通常是用户手动输入了类似 5+4*0.6/5 的公式，而底层来源数据并没有发生结构性变化。
-                try {
-                    const normalizedSaved = removeThousandsSeparators(savedFormulaDisplay).replace(/\s+/g, '');
-                    const normalizedNew = cleanSourceData.replace(/\s+/g, '');
-                    if (normalizedSaved === normalizedNew) {
-                        console.log('preserveFormulaStructure: normalized saved formula equals new source data, keeping saved formula to preserve manual inputs');
-                        return savedFormulaDisplay;
-                    }
-                } catch (e) {
-                    console.warn('preserveFormulaStructure: normalization comparison failed, continue with default logic', e);
-                }
-                
                 const numberMatches = getFormulaNumberMatches(cleanSourceData);
                 const structurePatterns = [/\*0\.\d+/, /\/0\.\d+/, /\*\(0\.\d+/, /\/\(0\.\d+/];
                 
@@ -5902,20 +5864,18 @@ function getCurrentProcessId() {
                         savedFormulaPart: formulaPart,
                         newSourceData: newSourceData
                     });
-                    // 分两种情况处理：
-                    // 1) 如果百分比在括号里（isPercentInsideParens=true），继续尝试用最小数量替换，保留结构；
-                    // 2) 如果新表达式的基础数字「比原来多」（常见于你手工加了 *0.6/5 之类的结构），
-                    //    说明是用户有意增加常数/结构，这种情况下不要强行重算，直接保留原来的公式。
+                    // IMPORTANT: If percent is inside parentheses (e.g., (5.6*0.1)+0), 
+                    // we should try to update numbers even if count doesn't match.
+                    // This allows formula to reflect current Data Capture Table data.
+                    // We'll use the minimum count and try to replace as many numbers as possible.
                     if (isPercentInsideParens) {
                         console.log('Base number count mismatch but percent is inside parentheses, attempting to update numbers with available data');
                         // Continue with number replacement using minimum count
                         // This will replace as many numbers as possible while preserving structure
-                    } else if (numbers.length > savedNumbers.length) {
-                        console.log('Base number count mismatch where newNumbers > savedNumbers; likely manual constants added, keeping saved formulaDisplay as-is to preserve user edits.');
-                        return savedFormulaDisplay;
                     } else {
-                        // 如果新数字更少，说明 Data Capture Table 结构真的变了，这种情况下仍然触发重算
-                        console.log('Base number count mismatch with fewer/new numbers, returning null to trigger formula recalculation');
+                        // If counts don't match, return null to signal that formula should be recalculated
+                        // This happens when Data Capture Table data changes and formula structure no longer matches
+                        console.log('Base number count mismatch detected, returning null to trigger formula recalculation');
                         return null; // Return null to signal recalculation needed
                     }
                 }
