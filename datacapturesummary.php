@@ -877,7 +877,22 @@ function getCurrentProcessId() {
                     console.log('Missing savedSourceExpression or newSourceData, using newSourceData');
                     return newSourceData || savedSourceExpression || '';
                 }
-
+            
+                // 先做一次「表达式本身」的比较：
+                // 如果去掉千分位和空白后，老的 savedSourceExpression 和新的 newSourceData 完全一样，
+                // 说明结构和数字都没有变化（例如 edit formula 只是重新保存了同一个表达式），
+                // 这时直接返回原来的 savedSourceExpression，避免因为统计 base numbers 差异而触发 number count mismatch。
+                try {
+                    const normalizedSaved = removeThousandsSeparators(savedSourceExpression).replace(/\s+/g, '');
+                    const normalizedNew = removeThousandsSeparators(newSourceData).replace(/\s+/g, '');
+                    if (normalizedSaved === normalizedNew) {
+                        console.log('preserveSourceStructure: normalized savedSourceExpression equals newSourceData, keeping saved expression to preserve manual formula');
+                        return savedSourceExpression;
+                    }
+                } catch (e) {
+                    console.warn('preserveSourceStructure: normalization comparison failed, continue with default logic', e);
+                }
+            
                 // Extract numbers from newSourceData (remove thousands separators first)
                 const cleanSourceData = removeThousandsSeparators(newSourceData);
                 const numberMatches = getFormulaNumberMatches(cleanSourceData);
