@@ -7312,8 +7312,8 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             // Check if table has data
-            // 目前的表格判定格式仅在选择 CITIBET 时强制生效
-            if (currentDataCaptureType === 'CITIBET') {
+            // 目前的表格判定格式仅在选择 CITIBET / CITIBET MAJOR 时强制生效
+            if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
                 const tableData = captureTableData();
                 const hasTableData = tableData.rows.some(row => {
                     return row.some(cell => {
@@ -7340,9 +7340,9 @@ if ($current_user_id && count($user_companies) > 0) {
             const descriptions = window.selectedDescriptions || [];
             
             // Check if table has data - more thorough check
-            // 目前的表格判定格式仅在选择 CITIBET 时强制生效
+            // 目前的表格判定格式仅在选择 CITIBET / CITIBET MAJOR 时强制生效
             let hasTableData = false;
-            if (currentDataCaptureType === 'CITIBET') {
+            if (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR') {
                 const tableData = captureTableData();
                 if (tableData.rows && tableData.rows.length > 0) {
                     hasTableData = tableData.rows.some(row => {
