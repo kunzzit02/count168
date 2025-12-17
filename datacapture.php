@@ -3419,8 +3419,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 优先从右往左找数值/金额，避免把标题列当成金额
                 let amountCell = null;
                 let amountValue = '';
+                
+                // 对于 MY EARNINGS 行，需要检查所有列包括第11列
+                const isMyEarnings = firstText.includes('MY EARNINGS');
+                const skipCols = isMyEarnings ? [] : [10, 11, 12, 13, 14]; // MY EARNINGS 不跳过第11列
+                
                 for (let i = cells.length - 1; i >= 0; i--) {
-                    if (i >= 10 && i <= 14) continue; // 跳过第11-15列（索引10-14），这些列将用于合并显示
+                    if (skipCols.includes(i)) continue; // 跳过指定列（TOTAL 行跳过第11-15列）
                     const t = (cells[i].textContent || '').trim();
                     if (t === '') continue;
                     const looksNumber = /[\d\)]$/.test(t) || /[\d\.,]/.test(t) || /^\(\$?[-\d\.]/.test(t);
@@ -3433,7 +3438,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 如果没找到数字样式，退回最后一个非空
                 if (!amountCell) {
                     for (let i = cells.length - 1; i >= 0; i--) {
-                        if (i >= 10 && i <= 14) continue;
+                        if (skipCols.includes(i)) continue;
                         const t = (cells[i].textContent || '').trim();
                         if (t !== '') {
                             amountCell = cells[i];
@@ -3443,8 +3448,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 如果没有找到金额，检查第11列是否已经有金额
-                if (!amountCell && cells[10]) {
+                // 对于 MY EARNINGS 行，如果没有找到金额，检查第11列是否已经有金额
+                if (isMyEarnings && !amountCell && cells[10]) {
                     const existingAmount = (cells[10].textContent || '').trim();
                     if (existingAmount && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(existingAmount)) {
                         amountValue = existingAmount;
@@ -3452,9 +3457,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                if (!amountValue) return;
+                // 对于 MY EARNINGS 行，如果没有金额，仍然继续处理（可能金额在标签文本中）
+                if (!isMyEarnings && !amountValue) return;
 
-                // 对于 MY EARNINGS 行：标签在列1，金额在列10
+                // 对于 MY EARNINGS 行：标签在列1，金额在列11
                 if (firstText.includes('MY EARNINGS')) {
                     // 确保有足够的列
                     const minCols = 11;
@@ -3486,15 +3492,51 @@ if ($current_user_id && count($user_companies) > 0) {
                         cells.push(newCell);
                     }
                     
-                    // 获取第一列的标签文本（如果标签和金额混在一起，需要分离）
-                    let labelText = (cells[0]?.textContent || '').trim();
-                    // 如果第一列包含金额，尝试分离
+                    // 在所有列中查找包含 "MY EARNINGS" 的单元格
+                    let labelText = '';
+                    let labelCellIndex = -1;
+                    
+                    for (let i = 0; i < cells.length; i++) {
+                        const cellText = (cells[i]?.textContent || '').trim();
+                        if (cellText.toUpperCase().includes('MY EARNINGS')) {
+                            labelCellIndex = i;
+                            labelText = cellText;
+                            break;
+                        }
+                    }
+                    
+                    // 如果没找到，使用第一列
+                    if (labelCellIndex === -1) {
+                        labelText = (cells[0]?.textContent || '').trim();
+                        labelCellIndex = 0;
+                    }
+                    
+                    // 从标签文本中分离标签和金额
                     const labelAmountMatch = labelText.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
                     if (labelAmountMatch) {
                         labelText = labelAmountMatch[1].trim();
+                        // 如果还没找到金额，使用分离出的金额
                         if (!amountValue) {
                             amountValue = labelAmountMatch[2];
                         }
+                    }
+                    
+                    // 如果还没找到金额，从其他列查找
+                    if (!amountValue) {
+                        for (let i = cells.length - 1; i >= 0; i--) {
+                            if (i === labelCellIndex) continue; // 跳过标签所在的列
+                            const cellText = (cells[i]?.textContent || '').trim();
+                            if (cellText && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(cellText)) {
+                                amountValue = cellText;
+                                amountCell = cells[i];
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 清除标签原来所在列的内容（如果不是第一列）
+                    if (labelCellIndex >= 0 && labelCellIndex !== 0 && cells[labelCellIndex]) {
+                        cells[labelCellIndex].textContent = '';
                     }
                     
                     // 确保标签在第一列（列1，索引0）
@@ -3507,7 +3549,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         amountCell.textContent = '';
                     }
                     if (cells[10]) {
-                        cells[10].textContent = amountValue;
+                        cells[10].textContent = amountValue || '';
                     }
                     
                     return; // MY EARNINGS 处理完成
