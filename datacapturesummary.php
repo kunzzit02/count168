@@ -910,16 +910,7 @@ function getCurrentProcessId() {
                 // But we should only match the base numbers (excluding structure numbers like 0.008, 0.002, 0.90)
                 // Extract only base numbers from saved expression (numbers that are not part of *0.008, /0.90, etc.)
                 const baseSavedNumbers = [];
-                // 结构性数字（例如 *0.008、/0.90、*(0.008/2) 里的 0.008 和 2）
-                // 注意：这里也要把类似 *0.9/5 里的 5 当成结构数字（0.9/5 这一整段是比例）
-                const structurePatterns = [
-                    /\*0\.\d+/,      // *0.008
-                    /\/0\.\d+/,      // /0.90
-                    /\*\(0\.\d+/,    // *(0.008
-                    /\/\(0\.\d+/,    // /(0.008
-                    /0\.\d+\/\d+/,   // 0.9/5 这样的分母数字一起视为结构
-                    /\/\d+\)/        // /(5) 或 .../5) 的 5 视为结构
-                ];
+                const structurePatterns = [/\*0\.\d+/, /\/0\.\d+/, /\*\(0\.\d+/, /\/\(0\.\d+/];
                 
                 savedNumberMatches.forEach((matchObj) => {
                     const numValue = matchObj.displayValue;
@@ -5736,16 +5727,7 @@ function getCurrentProcessId() {
                 // But we should only extract base numbers (excluding structure numbers like 0.008, 0.002, 0.90)
                 const cleanSourceData = removeThousandsSeparators(newSourceData);
                 const numberMatches = getFormulaNumberMatches(cleanSourceData);
-                // 结构性数字（例如 *0.008、/0.90、*(0.008/2) 里的 0.008 和 2）
-                // 注意：这里也要把类似 *0.9/5 里的 5 当成结构数字（0.9/5 这一整段是比例）
-                const structurePatterns = [
-                    /\*0\.\d+/,      // *0.008
-                    /\/0\.\d+/,      // /0.90
-                    /\*\(0\.\d+/,    // *(0.008
-                    /\/\(0\.\d+/,    // /(0.008
-                    /0\.\d+\/\d+/,   // 0.9/5 这样的分母数字一起视为结构
-                    /\/\d+\)/        // /(5) 或 .../5) 的 5 视为结构
-                ];
+                const structurePatterns = [/\*0\.\d+/, /\/0\.\d+/, /\*\(0\.\d+/, /\/\(0\.\d+/];
                 
                 // Filter out structure numbers, only keep base numbers
                 const numbers = [];
@@ -9323,22 +9305,14 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Auto-enable if source percent has value
             const enableSourcePercent = percentValue && percentValue.trim() !== '';
             
-            // Priority: 默认直接使用数据库里保存的 formula_display
-            // 尤其是 main row：用户已经在 Data Capture Summary 里手动调好公式（如 4+3*0.9/5），
-            // 再次打开页面时应当「原样还原」，而不是重新根据当前表格数据去重算一遍。
-            // 只有在 Batch Selection 模板或本身没有保存公式时，才走后面的重算/结构保留逻辑。
+            // Priority: Use saved formula_display if available (preserves user's manual edits like *0.1)
+            // If formula_display exists, preserve its structure but update numbers from current source data
+            // Otherwise, recalculate formula from current Data Capture Table
             let formulaDisplay = '';
             const savedFormulaDisplay = mainTemplate.formula_display || '';
             const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
             
-            // 非 Batch 模板且数据库中已有 formula_display 时，直接使用数据库里的公式，不做结构替换
-            if (!isBatchSelectedTemplate &&
-                savedFormulaDisplay &&
-                savedFormulaDisplay.trim() !== '' &&
-                savedFormulaDisplay !== 'Formula') {
-                formulaDisplay = savedFormulaDisplay;
-                console.log('Using saved formula_display directly for main template (no recomputation):', formulaDisplay);
-            } else if (isBatchSelectedTemplate) {
+            if (isBatchSelectedTemplate) {
                 // 对于 Batch Selection 的模板，优先使用保存的 formula_display（如果包含括号）
                 // 如果保存的 formula_display 包含括号，使用 preserveFormulaStructure 来保留括号结构
                 // 否则，重新从当前的 resolvedSourceExpression 计算
