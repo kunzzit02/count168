@@ -3269,8 +3269,8 @@ function getCurrentProcessId() {
                             const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
                             this.setSelectionRange(newCursorPos, newCursorPos);
                             previousValue = newValue;
-                            // Use this.value to get the latest value after update
-                            // Don't try to reassign const formulaValue - use this.value instead
+                            // Continue processing with the updated value
+                            formulaValue = newValue;
                         } else {
                             previousValue = formulaValue;
                         }
@@ -3278,12 +3278,9 @@ function getCurrentProcessId() {
                         previousValue = formulaValue;
                     }
                     
-                    // Get current value (may have been updated above)
-                    const currentFormulaValue = this.value;
-                    
                     // Handle empty formula: clear all related attributes
                     // BUT: In edit mode, preserve existing columns even if formula is cleared
-                    if (!currentFormulaValue || currentFormulaValue.trim() === '') {
+                    if (!formulaValue || formulaValue.trim() === '') {
                         const isEditMode = !!window.currentEditRow;
                         if (isEditMode) {
                             // In edit mode, preserve existing columns when formula is cleared
@@ -3301,8 +3298,7 @@ function getCurrentProcessId() {
                     
                     if (processValue) {
                         // Extract numbers from formula (handles unary minus vs subtraction)
-                        // Use currentFormulaValue which may have been updated above
-                        const numberMatches = getFormulaNumberMatches(currentFormulaValue);
+                        const numberMatches = getFormulaNumberMatches(formulaValue);
                         if (numberMatches.length === 0) {
                             // If no numbers in formula, clear clicked columns
                             // BUT: In edit mode, preserve existing columns
@@ -3493,12 +3489,11 @@ function getCurrentProcessId() {
                         
                         // Check if formula contains percentage part (e.g., *0.1, *(0.1), *0.0085/2)
                         // We need to skip numbers that are part of the percentage expression
-                        // Use currentFormulaValue which may have been updated above
-                        const hasPercentPattern = /\*\(?([0-9.]+)/.test(currentFormulaValue);
+                        const hasPercentPattern = /\*\(?([0-9.]+)/.test(formulaValue);
                         let percentStartIndex = -1;
                         if (hasPercentPattern) {
                             // Find the position where percentage part starts (after the last *)
-                            const lastStarIndex = currentFormulaValue.lastIndexOf('*');
+                            const lastStarIndex = formulaValue.lastIndexOf('*');
                             if (lastStarIndex >= 0) {
                                 percentStartIndex = lastStarIndex;
                             }
