@@ -9922,14 +9922,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     continue;
                 }
                 
-                // Try pattern without parentheses: ...*number at the end
-                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                const simpleMatch = baseExpression.match(simplePattern);
-                if (simpleMatch) {
-                    baseExpression = simpleMatch[1].trim();
-                    continue;
-                }
-                
                 // No more patterns found, break
                 break;
             }
@@ -9956,12 +9948,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                             const match = cleanSourceExpression.match(trailingPattern);
                             if (match) {
                                 cleanSourceExpression = match[1].trim();
-                                continue;
-                            }
-                            const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                            const simpleMatch = cleanSourceExpression.match(simplePattern);
-                            if (simpleMatch) {
-                                cleanSourceExpression = simpleMatch[1].trim();
                                 continue;
                             }
                             break;
@@ -10006,12 +9992,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                             const match = cleanSourceExpression.match(trailingPattern);
                             if (match) {
                                 cleanSourceExpression = match[1].trim();
-                                continue;
-                            }
-                            const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                            const simpleMatch = cleanSourceExpression.match(simplePattern);
-                            if (simpleMatch) {
-                                cleanSourceExpression = simpleMatch[1].trim();
                                 continue;
                             }
                             break;
