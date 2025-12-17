@@ -3847,42 +3847,18 @@ if ($current_user_id && count($user_companies) > 0) {
             const myAmount = myEarnTokens[myEarnTokens.length - 1];
             const myLabel = myEarnTokens.slice(0, -1).join(' ').toUpperCase();
 
-            // Row2: Upline MG 汇总行（例如：m99m06  m06-KZ  MG  WIN/PLC  740  $14.80  518  $13.47  $28.27  -$957.31）
-            // 从 Upline MG 区块提取用户名 + 详细数据
+            // Row2: 上线用户名行（例如 M99M06）
+            // 从 Upline MG 区块提取用户名
             const mgHeaderIdx = nonEmpty.findIndex(l => /^mg\b/i.test(l));
-            const row2 = makeRow();
+            let parentUser = '';
             if (mgHeaderIdx !== -1) {
                 const mgHeaderTokens = splitLine(nonEmpty[mgHeaderIdx]); // MG m99m06
-                let parentUser = '';
                 if (mgHeaderTokens.length >= 2) {
                     parentUser = mgHeaderTokens[1] || '';
                 }
-
-                // Upline MG 明细行在 MG 标题行之后
-                let uplineMgDataIdx = mgHeaderIdx + 1;
-                while (uplineMgDataIdx < nonEmpty.length && nonEmpty[uplineMgDataIdx] === '') uplineMgDataIdx++;
-                if (uplineMgDataIdx < nonEmpty.length) {
-                    const uplineMgTokens = splitLine(nonEmpty[uplineMgDataIdx]); // m06-KZ Major 740 $14.80 518 $13.47 $28.27 ($957.31) $28.27 ($957.31)
-                    if (uplineMgTokens.length >= 8) {
-                        row2[0] = (parentUser || '').toUpperCase(); // Username m99m06
-                        row2[1] = uplineMgTokens[0] || '';          // Code m06-KZ
-                        row2[2] = (uplineMgTokens[1] || '').toUpperCase(); // MG
-                        row2[3] = 'WIN/PLC';
-                        row2[4] = uplineMgTokens[2] || ''; // Bet 740
-                        row2[5] = uplineMgTokens[3] || ''; // Bet Tax $14.80
-                        row2[6] = uplineMgTokens[4] || ''; // Eat 518
-                        row2[7] = uplineMgTokens[5] || ''; // Eat Tax $13.47
-                        row2[8] = uplineMgTokens[6] || ''; // Tax $28.27
-                        row2[9] = uplineMgTokens[7] || ''; // Profit/Loss -$957.31（第10列）
-                        // 第 11 列先留空，后续如果你需要 Total Profit/Loss 再补
-                    } else if (parentUser) {
-                        // 兜底：至少把用户名放在第一列
-                        row2[0] = parentUser.toUpperCase();
-                    }
-                } else if (parentUser) {
-                    row2[0] = parentUser.toUpperCase();
-                }
             }
+            const row2 = makeRow();
+            if (parentUser) row2[0] = parentUser.toUpperCase();
             rows.push(row2);
 
             // Row3: MY EARNINGS
@@ -4905,22 +4881,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (successCount > 0) {
                     setTimeout(() => {
-                        // 对于 CITIBET MAJOR，我们在解析阶段已经生成了最终想要的 6 行结构
-                        // 不再做任何「格式转换」，避免把 MG / PL 等行重新折叠掉
-                        if (typeof currentDataCaptureType !== 'undefined') {
-                            if (currentDataCaptureType === 'CITIBET') {
-                                // 旧的 CITIBET 逻辑：先做结构转换，再把金额移到第 11 列
-                                convertTableFormatOnSubmit();
-                                fixCitibetAmountColumns();
-                            } else if (currentDataCaptureType === 'CITIBET_MAJOR') {
-                                // CITIBET MAJOR：只更新按钮状态，不动表格结构
-                                updateSubmitButtonState();
-                            } else {
-                                // 其他类型沿用通用转换（如果有需要）
-                                convertTableFormatOnSubmit();
-                            }
-                        } else {
-                            convertTableFormatOnSubmit();
+                        convertTableFormatOnSubmit();
+                        // 只有在 CITIBET 模式下，才需要把 MY EARNINGS / TOTAL 金额强制移到第 11 列
+                        if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET') {
+                            fixCitibetAmountColumns();
                         }
                     }, 100);
                 }
