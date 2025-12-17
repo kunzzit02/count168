@@ -111,7 +111,7 @@ if ($current_user_id && count($user_companies) > 0) {
     </style>
     <?php include 'sidebar.php'; ?>
 </head>
-<body>
+<body class="page-ready">
     <div class="container">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
             <h1 style="margin: 0;">Data Capture</h1>
