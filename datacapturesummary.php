@@ -3231,32 +3231,17 @@ function getCurrentProcessId() {
         
         // Add input validation for Formula field - no restrictions, allow all characters
         function addFormulaValidation() {
-            let formulaInput = document.getElementById('formula');
-            if (!formulaInput) return;
-            
-            // Remove existing event listeners by cloning and replacing the element
-            // This prevents duplicate event listeners when form is opened multiple times
-            if (formulaInput.hasAttribute('data-formula-validation-bound')) {
-                // Clone the input to remove all event listeners
-                const newInput = formulaInput.cloneNode(true);
-                formulaInput.parentNode.replaceChild(newInput, formulaInput);
-                // Get reference to the new input element
-                formulaInput = document.getElementById('formula');
-                if (!formulaInput) return;
-            }
-            
-            // Mark as bound to prevent duplicate binding
-            formulaInput.setAttribute('data-formula-validation-bound', 'true');
-            
-            // No input restrictions - allow all characters
-            // User can input any formula expression they want
-            
-            // Store previous value to detect changes
-            let previousValue = formulaInput.value;
-            
-            // When user manually edits formula, update columns based on current formula numbers
-            // This ensures Columns reflects the columns actually used in the current formula
-            formulaInput.addEventListener('input', function() {
+            const formulaInput = document.getElementById('formula');
+            if (formulaInput) {
+                // No input restrictions - allow all characters
+                // User can input any formula expression they want
+                
+                // Store previous value to detect changes
+                let previousValue = formulaInput.value;
+                
+                // When user manually edits formula, update columns based on current formula numbers
+                // This ensures Columns reflects the columns actually used in the current formula
+                formulaInput.addEventListener('input', function() {
                     let formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
@@ -3269,42 +3254,21 @@ function getCurrentProcessId() {
                         return;
                     }
                     
-                    // Skip if this is a programmatic update (to prevent infinite loop from multiple event listeners)
-                    if (this.getAttribute('data-programmatic-update') === 'true') {
-                        previousValue = formulaValue;
-                        return;
-                    }
-                    
-                    // Skip if value hasn't changed (prevents duplicate processing)
-                    if (formulaValue === previousValue) {
-                        return;
-                    }
-                    
                     // Process manual keyboard input: replace numbers with column values based on preceding operator
                     // Numbers after + or - (or at start) should be replaced with column values
                     // Numbers after * or / should remain as literal numbers
-                    if (processValue) {
+                    if (processValue && formulaValue !== previousValue) {
                         const cursorPos = this.selectionStart || this.value.length;
                         const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
                         if (newValue !== formulaValue) {
-                            // Mark as programmatic update to prevent re-processing by other event listeners
-                            this.setAttribute('data-programmatic-update', 'true');
-                            
                             // Update the value
                             const oldCursorPos = this.selectionStart || this.value.length;
                             this.value = newValue;
-                            
                             // Restore cursor position (adjust for length change)
                             const lengthDiff = newValue.length - formulaValue.length;
                             const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
                             this.setSelectionRange(newCursorPos, newCursorPos);
-                            
-                            // Update previousValue and remove flag after a short delay
                             previousValue = newValue;
-                            setTimeout(() => {
-                                this.removeAttribute('data-programmatic-update');
-                            }, 10);
-                            
                             // Continue processing with the updated value
                             formulaValue = newValue;
                         } else {
