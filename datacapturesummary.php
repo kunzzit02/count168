@@ -5639,7 +5639,9 @@ function getCurrentProcessId() {
                 const isStarInsideParens = openParens > closeParens;
 
                 // Only strip when the last * is not inside parentheses and looks like the appended source percent
-                const trailingPattern = /^\*\s*\(?([0-9.+\-*/]+)\)?\s*$/;
+                // Appended source percent 一定是 "*(" 开头、")" 结尾，例如 "*(1)"、"*(0.5/2)"
+                // 像 "*0.9" 这种是正常公式的一部分（例如 4+3*0.9），不能被当成 Source % 删掉
+                const trailingPattern = /^\*\s*\(([0-9.\+\-*/\s]+)\)\s*$/;
                 if (!isStarInsideParens && trailingPattern.test(afterStar)) {
                     result = beforeStar.trim();
                     continue;
@@ -9920,14 +9922,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     continue;
                 }
                 
-                // Try pattern without parentheses: ...*number at the end
-                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                const simpleMatch = baseExpression.match(simplePattern);
-                if (simpleMatch) {
-                    baseExpression = simpleMatch[1].trim();
-                    continue;
-                }
-                
                 // No more patterns found, break
                 break;
             }
@@ -9954,12 +9948,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                             const match = cleanSourceExpression.match(trailingPattern);
                             if (match) {
                                 cleanSourceExpression = match[1].trim();
-                                continue;
-                            }
-                            const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                            const simpleMatch = cleanSourceExpression.match(simplePattern);
-                            if (simpleMatch) {
-                                cleanSourceExpression = simpleMatch[1].trim();
                                 continue;
                             }
                             break;
@@ -10004,12 +9992,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                             const match = cleanSourceExpression.match(trailingPattern);
                             if (match) {
                                 cleanSourceExpression = match[1].trim();
-                                continue;
-                            }
-                            const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                            const simpleMatch = cleanSourceExpression.match(simplePattern);
-                            if (simpleMatch) {
-                                cleanSourceExpression = simpleMatch[1].trim();
                                 continue;
                             }
                             break;
