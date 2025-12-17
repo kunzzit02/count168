@@ -3238,10 +3238,18 @@ function getCurrentProcessId() {
                 
                 // Store previous value to detect changes
                 let previousValue = formulaInput.value;
+                // Flag to prevent recursive processing when programmatically updating the value
+                let isProcessing = false;
                 
                 // When user manually edits formula, update columns based on current formula numbers
                 // This ensures Columns reflects the columns actually used in the current formula
                 formulaInput.addEventListener('input', function() {
+                    // Prevent recursive processing when programmatically updating the value
+                    if (isProcessing) {
+                        previousValue = this.value;
+                        return;
+                    }
+                    
                     let formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
@@ -3251,6 +3259,7 @@ function getCurrentProcessId() {
                     const fromCellClick = this.getAttribute('data-from-cell-click') === 'true';
                     if (fromCellClick) {
                         previousValue = formulaValue;
+                        this.removeAttribute('data-from-cell-click');
                         return;
                     }
                     
@@ -3261,16 +3270,25 @@ function getCurrentProcessId() {
                         const cursorPos = this.selectionStart || this.value.length;
                         const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
                         if (newValue !== formulaValue) {
-                            // Update the value
-                            const oldCursorPos = this.selectionStart || this.value.length;
-                            this.value = newValue;
-                            // Restore cursor position (adjust for length change)
-                            const lengthDiff = newValue.length - formulaValue.length;
-                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
-                            this.setSelectionRange(newCursorPos, newCursorPos);
-                            previousValue = newValue;
-                            // Continue processing with the updated value
-                            formulaValue = newValue;
+                            // Set flag to prevent recursive processing
+                            isProcessing = true;
+                            try {
+                                // Update the value
+                                const oldCursorPos = this.selectionStart || this.value.length;
+                                this.value = newValue;
+                                // Restore cursor position (adjust for length change)
+                                const lengthDiff = newValue.length - formulaValue.length;
+                                const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
+                                this.setSelectionRange(newCursorPos, newCursorPos);
+                                previousValue = newValue;
+                            } finally {
+                                // Reset flag after a short delay to allow the input event to complete
+                                setTimeout(() => {
+                                    isProcessing = false;
+                                }, 10);
+                            }
+                            // Return early to prevent further processing of this event
+                            return;
                         } else {
                             previousValue = formulaValue;
                         }
