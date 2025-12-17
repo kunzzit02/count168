@@ -10050,6 +10050,13 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
         }
 
+        // 最终兜底：如果模板里有保存的 formula_display，就直接覆盖前面计算出的结果，
+        // 确保界面显示与数据库中的 formula_display 完全一致（包括 *0.9/5 这类手动部分）。
+        if (mainTemplate.formula_display && mainTemplate.formula_display.trim() !== '' && mainTemplate.formula_display !== 'Formula') {
+            formulaDisplay = mainTemplate.formula_display;
+            console.log('applyMainTemplateToRow: Overriding with saved formula_display from template:', formulaDisplay);
+        }
+
         // Always recalculate processed amount from current formula
         let processedAmount = 0;
         if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
