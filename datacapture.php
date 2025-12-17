@@ -3419,12 +3419,9 @@ if ($current_user_id && count($user_companies) > 0) {
             const rows = Array.from(tableBody.children);
 
             // 根据当前类型决定金额应该落在哪一列（0-based index，不含行号）
-            // CITIBET      -> 第 11 列 -> index 10
-            // CITIBET MAJOR-> 第 10 列 -> index 9
-            const amountTargetIndex =
-                (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR')
-                    ? 9
-                    : 10;
+            // 目前仅在 CITIBET 模式下启用自动调整；
+            // CITIBET MAJOR 已在解析阶段直接生成正确列，不再二次移动，避免干扰。
+            const amountTargetIndex = 10; // index 10 -> 第 11 列（仅 CITIBET 使用）
             rows.forEach((row) => {
                 const cells = Array.from(row.children).slice(1); // 去掉行号
                 const firstText = (cells[0]?.textContent || '').toUpperCase().trim();
@@ -4727,7 +4724,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (successCount > 0) {
                     setTimeout(() => {
                         convertTableFormatOnSubmit();
-                        fixCitibetAmountColumns();
+                        // 只有在 CITIBET 模式下，才需要把 MY EARNINGS / TOTAL 金额强制移到第 11 列
+                        if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET') {
+                            fixCitibetAmountColumns();
+                        }
                     }, 100);
                 }
 
