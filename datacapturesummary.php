@@ -3800,12 +3800,15 @@ function getCurrentProcessId() {
                 console.log('Added clicked cell:', cellPosition, 'All clicked cells:', cellsArray, 'Value-cell map:', mapEntries);
             }
             
-            // Get cursor position
+            // Get cursor position and selection range
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
+            const selectionEnd = formulaInput.selectionEnd || cursorPos;
+            const hasSelection = cursorPos !== selectionEnd;
             
-            // Insert value at cursor position
+            // Insert value at cursor position, replacing selection if any
             const currentValue = formulaInput.value;
-            const newValue = currentValue.slice(0, cursorPos) + numValue + currentValue.slice(cursorPos);
+            // If there's a selection, replace it; otherwise insert at cursor position
+            const newValue = currentValue.slice(0, cursorPos) + numValue + currentValue.slice(selectionEnd);
             
             // Set a flag to indicate this value came from a cell click, not manual input
             // This prevents processManualFormulaInput from re-processing it based on column
@@ -7221,14 +7224,24 @@ function getCurrentProcessId() {
                 formulaDisplay = savedFormulaDisplay;
                 console.log('Using saved formula_display with reference format:', formulaDisplay);
             } else if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+                // Check if saved formula contains multiply/divide operators (* or /)
+                // If it does, we should preserve it even if preserveFormulaStructure returns null
+                const hasMultiplyOrDivide = /[*/]/.test(savedFormulaDisplay);
+                
                 // Use preserveFormulaStructure to update numbers while keeping formula structure
                 // Use resolvedSourceExpression (which has *0.008, etc.) instead of simple currentSourceData
                 const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, sourcePercentText, enableSourcePercent);
-                // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
+                // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配
                 if (preservedFormula === null) {
-                    console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                    formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent);
-                    console.log('Recalculated formula from current source data:', formulaDisplay);
+                    // 如果保存的公式包含乘除运算符，优先使用保存的公式，不要重新计算
+                    if (hasMultiplyOrDivide) {
+                        console.log('preserveFormulaStructure returned null but saved formula contains multiply/divide operators, using saved formula_display to preserve structure:', savedFormulaDisplay);
+                        formulaDisplay = savedFormulaDisplay;
+                    } else {
+                        console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                        formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent);
+                        console.log('Recalculated formula from current source data:', formulaDisplay);
+                    }
                 } else {
                     formulaDisplay = preservedFormula;
                     console.log('Preserved saved formula_display structure with updated source data:', formulaDisplay);
@@ -9142,18 +9155,25 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                         // Always try to preserve the structure from saved formula, whether it has parentheses or not
                         const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                        // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
+                        // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配
                         if (preservedFormula === null) {
-                            console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                            // Recalculate formula from current Data Capture Table
-                            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                            } else if (percentValue && resolvedSourceExpression) {
-                                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                            // 如果保存的公式包含乘除运算符，优先使用保存的公式，不要重新计算
+                            const hasMultiplyOrDivide = /[*/]/.test(savedFormulaDisplay);
+                            if (hasMultiplyOrDivide) {
+                                console.log('Batch template: preserveFormulaStructure returned null but saved formula contains multiply/divide operators, using saved formula_display to preserve structure:', savedFormulaDisplay);
+                                formulaDisplay = savedFormulaDisplay;
                             } else {
-                                formulaDisplay = resolvedSourceExpression || 'Formula';
+                                console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                                // Recalculate formula from current Data Capture Table
+                                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                                } else if (percentValue && resolvedSourceExpression) {
+                                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                                } else {
+                                    formulaDisplay = resolvedSourceExpression || 'Formula';
+                                }
+                                console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
                             }
-                            console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
                         } else if (preservedFormula === savedFormulaDisplay) {
                             // 如果返回的结果与原始 formula_display 相同，说明替换后结果相同，使用保存的值
                             console.log('Batch template: preserveFormulaStructure returned unchanged formula, using saved formula_display as-is to preserve structure (e.g., parentheses)');
@@ -9239,18 +9259,25 @@ function applyTemplateToSummaryRow(idProduct, template) {
                             // This ensures formula reflects current table data (e.g., (-4014.6*0.1)+0 -> (1*0.1)+1)
                             // 非 Batch 行仍然优先保留用户自定义的公式结构
                             const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                            // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
+                            // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配
                             if (preservedFormula === null) {
-                                console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                                // Recalculate formula from current Data Capture Table
-                                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                                } else if (percentValue && resolvedSourceExpression) {
-                                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                                // 如果保存的公式包含乘除运算符，优先使用保存的公式，不要重新计算
+                                const hasMultiplyOrDivide = /[*/]/.test(savedFormulaDisplay);
+                                if (hasMultiplyOrDivide) {
+                                    console.log('preserveFormulaStructure returned null but saved formula contains multiply/divide operators, using saved formula_display to preserve structure:', savedFormulaDisplay);
+                                    formulaDisplay = savedFormulaDisplay;
                                 } else {
-                                    formulaDisplay = resolvedSourceExpression || 'Formula';
+                                    console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                                    // Recalculate formula from current Data Capture Table
+                                    if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                                        formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                                    } else if (percentValue && resolvedSourceExpression) {
+                                        formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                                    } else {
+                                        formulaDisplay = resolvedSourceExpression || 'Formula';
+                                    }
+                                    console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
                                 }
-                                console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
                             } else if (preservedFormula === savedFormulaDisplay) {
                                 // 如果返回的结果与原始 formula_display 相同，说明替换后结果相同，使用保存的值
                                 console.log('preserveFormulaStructure returned unchanged formula, using saved formula_display as-is to preserve structure (e.g., parentheses)');
@@ -9786,7 +9813,13 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                 const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
                 if (preservedFormula === null) {
-                    console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                    // 如果保存的公式包含乘除运算符，优先使用保存的公式，不要重新计算
+                    const hasMultiplyOrDivide = /[*/]/.test(savedFormulaDisplay);
+                    if (hasMultiplyOrDivide) {
+                        console.log('preserveFormulaStructure returned null but saved formula contains multiply/divide operators, using saved formula_display to preserve structure:', savedFormulaDisplay);
+                        formulaDisplay = savedFormulaDisplay;
+                    } else {
+                        console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
                         // IMPORTANT: resolvedSourceExpression might already contain Source % (e.g., "107.82+84.31*(1)")
                         // Extract base expression from resolvedSourceExpression before applying Source % again
                         let cleanSourceExpression = resolvedSourceExpression;
@@ -9811,10 +9844,11 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                             formulaDisplay = createFormulaDisplayFromExpression(cleanSourceExpression, percentValue, enableSourcePercent);
                         } else if (percentValue && cleanSourceExpression) {
                             formulaDisplay = createFormulaDisplay(cleanSourceExpression, percentValue);
-                    } else {
+                        } else {
                             formulaDisplay = cleanSourceExpression || 'Formula';
+                        }
+                        console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
                     }
-                    console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
                 } else if (preservedFormula === savedFormulaDisplay) {
                     console.log('preserveFormulaStructure returned unchanged formula, using saved formula_display as-is to preserve structure');
                     formulaDisplay = savedFormulaDisplay;
@@ -10433,9 +10467,20 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                         // Always try to preserve the structure from saved formula, whether it has parentheses or not
                         // Use enableSourcePercent=false to prevent preserveFormulaStructure from adding Source %
                         const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
-                        // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
+                        // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配
                         if (preservedFormula === null) {
-                            console.log('Batch sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                            // 如果保存的公式包含乘除运算符，优先使用保存的公式，不要重新计算
+                            const hasMultiplyOrDivide = /[*/]/.test(baseExpression);
+                            if (hasMultiplyOrDivide) {
+                                console.log('Batch sub-template: preserveFormulaStructure returned null but base expression contains multiply/divide operators, using base expression to preserve structure:', baseExpression);
+                                // Apply current Source % to base expression
+                                if (percentValue && enableSourcePercent) {
+                                    formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
+                                } else {
+                                    formulaDisplay = baseExpression;
+                                }
+                            } else {
+                                console.log('Batch sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
                             // IMPORTANT: resolvedSourceExpression might already contain Source % (e.g., "107.82+84.31*(1)")
                             // Extract base expression from resolvedSourceExpression before applying Source % again
                             let cleanSourceExpression = resolvedSourceExpression;
@@ -10562,14 +10607,26 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
                     // Note: preserveFormulaStructure with enableSourcePercent=false will NOT add Source % to the result
                     if (preservedFormula === null) {
-                        console.log('Sub-template: preserveFormulaStructure returned null, using current source data directly');
-                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                } else if (percentValue && resolvedSourceExpression) {
-                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
-                } else {
-                    formulaDisplay = resolvedSourceExpression || 'Formula';
-                }
+                        // 如果保存的公式包含乘除运算符，优先使用保存的公式，不要重新计算
+                        const hasMultiplyOrDivide = /[*/]/.test(baseExpression);
+                        if (hasMultiplyOrDivide) {
+                            console.log('Sub-template: preserveFormulaStructure returned null but base expression contains multiply/divide operators, using base expression to preserve structure:', baseExpression);
+                            // Apply current Source % to base expression
+                            if (percentValue && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
+                            } else {
+                                formulaDisplay = baseExpression;
+                            }
+                        } else {
+                            console.log('Sub-template: preserveFormulaStructure returned null, using current source data directly');
+                            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                            } else if (percentValue && resolvedSourceExpression) {
+                                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                            } else {
+                                formulaDisplay = resolvedSourceExpression || 'Formula';
+                            }
+                        }
                     } else {
                         // preservedFormula does NOT contain Source % (because enableSourcePercent=false)
                         // Now apply current Source % to preserved formula
@@ -10593,15 +10650,22 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     // 非 Batch 子行保留历史公式结构，但优先使用当前数据重新计算
                 const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
                 if (preservedFormula === null) {
-                    console.log('Sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                    if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                        formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                    } else if (percentValue && resolvedSourceExpression) {
-                        formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                    // 如果保存的公式包含乘除运算符，优先使用保存的公式，不要重新计算
+                    const hasMultiplyOrDivide = /[*/]/.test(savedFormulaDisplay);
+                    if (hasMultiplyOrDivide) {
+                        console.log('Sub-template: preserveFormulaStructure returned null but saved formula contains multiply/divide operators, using saved formula_display to preserve structure:', savedFormulaDisplay);
+                        formulaDisplay = savedFormulaDisplay;
                     } else {
-                        formulaDisplay = resolvedSourceExpression || 'Formula';
+                        console.log('Sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                        if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                        } else if (percentValue && resolvedSourceExpression) {
+                            formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                        } else {
+                            formulaDisplay = resolvedSourceExpression || 'Formula';
+                        }
+                        console.log('Sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
                     }
-                    console.log('Sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
                 } else if (preservedFormula === savedFormulaDisplay) {
                         console.log('Sub-template: preserveFormulaStructure returned unchanged formula, recalculating to ensure current data');
                         if (percentValue && resolvedSourceExpression && enableSourcePercent) {
