@@ -3238,26 +3238,11 @@ function getCurrentProcessId() {
                 
                 // Store previous value to detect changes
                 let previousValue = formulaInput.value;
-                let isProcessing = false; // Flag to prevent recursive processing
                 
                 // When user manually edits formula, update columns based on current formula numbers
                 // This ensures Columns reflects the columns actually used in the current formula
                 formulaInput.addEventListener('input', function() {
-                    // Skip if already processing to prevent recursive calls
-                    if (isProcessing) {
-                        return;
-                    }
-                    
-                    // Skip if this is a programmatic update (set by our code, not user input)
-                    if (this.getAttribute('data-programmatic-update') === 'true') {
-                        // Update previousValue to current value to prevent duplicate processing
-                        previousValue = this.value;
-                        // Remove flag immediately
-                        this.removeAttribute('data-programmatic-update');
-                        return;
-                    }
-                    
-                    let formulaValue = this.value;
+                    const formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
                     // Skip processing if this value came from a cell click
@@ -3266,47 +3251,30 @@ function getCurrentProcessId() {
                     const fromCellClick = this.getAttribute('data-from-cell-click') === 'true';
                     if (fromCellClick) {
                         previousValue = formulaValue;
-                        this.removeAttribute('data-from-cell-click');
-                        return;
-                    }
-                    
-                    // Skip if value hasn't changed (prevents duplicate processing)
-                    if (formulaValue === previousValue) {
                         return;
                     }
                     
                     // Process manual keyboard input: replace numbers with column values based on preceding operator
                     // Numbers after + or - (or at start) should be replaced with column values
                     // Numbers after * or / should remain as literal numbers
-                    if (processValue) {
-                        isProcessing = true; // Set flag to prevent recursive processing
-                        try {
-                            const cursorPos = this.selectionStart || this.value.length;
-                            const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
-                            if (newValue !== formulaValue) {
-                                // Update the value (this will trigger another input event)
-                                const oldCursorPos = this.selectionStart || this.value.length;
-                                // Set flag BEFORE updating value to prevent the triggered input event from processing
-                                this.setAttribute('data-programmatic-update', 'true');
-                                // Update previousValue BEFORE setting value to prevent the triggered event from processing
-                                previousValue = newValue;
-                                this.value = newValue;
-                                // Restore cursor position (adjust for length change)
-                                const lengthDiff = newValue.length - formulaValue.length;
-                                const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
-                                this.setSelectionRange(newCursorPos, newCursorPos);
-                                // Return early to avoid processing column updates for programmatic changes
-                                // The triggered input event will be skipped due to data-programmatic-update flag
-                                return;
-                            } else {
-                                // No change, just update previousValue
-                                previousValue = formulaValue;
-                            }
-                        } finally {
-                            isProcessing = false; // Clear flag after processing
+                    if (processValue && formulaValue !== previousValue) {
+                        const cursorPos = this.selectionStart || this.value.length;
+                        const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
+                        if (newValue !== formulaValue) {
+                            // Update the value
+                            const oldCursorPos = this.selectionStart || this.value.length;
+                            this.value = newValue;
+                            // Restore cursor position (adjust for length change)
+                            const lengthDiff = newValue.length - formulaValue.length;
+                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
+                            this.setSelectionRange(newCursorPos, newCursorPos);
+                            previousValue = newValue;
+                            // Continue processing with the updated value
+                            formulaValue = newValue;
+                        } else {
+                            previousValue = formulaValue;
                         }
                     } else {
-                        // No processValue, just update previousValue
                         previousValue = formulaValue;
                     }
                     
