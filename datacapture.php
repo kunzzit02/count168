@@ -3443,16 +3443,86 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 如果没有找到金额，检查第11列是否已经有金额
-                if (!amountCell && cells[10]) {
-                    const existingAmount = (cells[10].textContent || '').trim();
-                    if (existingAmount) {
-                        amountValue = existingAmount;
+                // 如果没有找到金额，检查第10列或第11列是否已经有金额
+                if (!amountCell) {
+                    if (cells[9]) {
+                        const existingAmount = (cells[9].textContent || '').trim();
+                        if (existingAmount && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(existingAmount)) {
+                            amountValue = existingAmount;
+                            amountCell = cells[9];
+                        }
+                    }
+                    if (!amountValue && cells[10]) {
+                        const existingAmount = (cells[10].textContent || '').trim();
+                        if (existingAmount && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(existingAmount)) {
+                            amountValue = existingAmount;
+                            amountCell = cells[10];
+                        }
                     }
                 }
                 
                 if (!amountValue) return;
 
+                // 对于 MY EARNINGS 行：标签在列1，金额在列10
+                if (firstText.includes('MY EARNINGS')) {
+                    // 确保有足够的列
+                    const minCols = 11;
+                    while (cells.length < minCols) {
+                        const newCell = document.createElement('td');
+                        newCell.contentEditable = true;
+                        newCell.dataset.col = cells.length;
+                        newCell.addEventListener('mousedown', handleCellMouseDown);
+                        newCell.addEventListener('mouseover', handleCellMouseOver);
+                        newCell.addEventListener('focus', function() { this.classList.add('selected'); });
+                        newCell.addEventListener('blur', function() { this.classList.remove('selected'); });
+                        newCell.addEventListener('keydown', handleCellKeydown);
+                        newCell.addEventListener('paste', handleCellPaste);
+                        newCell.addEventListener('click', function(e) {
+                            const hasFocus = document.activeElement === this;
+                            if (hasFocus) {
+                                moveCaretToClickPosition(this, e);
+                            } else {
+                                setActiveCellCore(this);
+                                this.focus();
+                                setTimeout(() => moveCaretToClickPosition(this, e), 0);
+                            }
+                        });
+                        newCell.addEventListener('contextmenu', function(e) {
+                            e.preventDefault();
+                            showContextMenu(e, this);
+                        });
+                        row.appendChild(newCell);
+                        cells.push(newCell);
+                    }
+                    
+                    // 获取第一列的标签文本（如果标签和金额混在一起，需要分离）
+                    let labelText = (cells[0]?.textContent || '').trim();
+                    // 如果第一列包含金额，尝试分离
+                    const labelAmountMatch = labelText.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                    if (labelAmountMatch) {
+                        labelText = labelAmountMatch[1].trim();
+                        if (!amountValue) {
+                            amountValue = labelAmountMatch[2];
+                        }
+                    }
+                    
+                    // 确保标签在第一列（列1，索引0）
+                    if (cells[0]) {
+                        cells[0].textContent = labelText.toUpperCase();
+                    }
+                    
+                    // 将金额放在第10列（索引9）
+                    if (amountCell && amountCell !== cells[9]) {
+                        amountCell.textContent = '';
+                    }
+                    if (cells[9]) {
+                        cells[9].textContent = amountValue;
+                    }
+                    
+                    return; // MY EARNINGS 处理完成
+                }
+                
+                // 对于 TOTAL 行：保持原来的逻辑（合并显示在第11列）
                 // 清除之前可能存在的金额（从其他列）
                 if (amountCell) {
                     amountCell.textContent = '';
@@ -3815,12 +3885,56 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
-            // 2) My Earnings 行：也原样保留
+            // 2) My Earnings 行：将标签放在第1列，金额放在第10列
             const myIdx = lowerAll.findIndex(l => l.startsWith('my earnings'));
             if (myIdx >= 0) {
-                const t = rawLines[myIdx].split('\t').map(s => s.trim());
-                if (t.some(x => x !== '')) {
-                    matrix.push(t);
+                const line = rawLines[myIdx];
+                // 先尝试用制表符分割
+                let tokens = line.split('\t').map(s => s.trim()).filter(s => s !== '');
+                // 如果没有制表符，尝试用多个空格分割
+                if (tokens.length <= 1) {
+                    tokens = line.split(/\s{2,}/).map(s => s.trim()).filter(s => s !== '');
+                }
+                // 如果还是只有一个，尝试分割出金额（最后一个类似 $0.00 的部分）
+                if (tokens.length <= 1) {
+                    const fullText = tokens[0] || line.trim();
+                    // 尝试匹配金额模式（如 $0.00, ($123.45), -$50.00 等）
+                    const amountMatch = fullText.match(/([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                    if (amountMatch) {
+                        const amount = amountMatch[1];
+                        const label = fullText.substring(0, amountMatch.index).trim();
+                        tokens = [label, amount];
+                    }
+                }
+                
+                if (tokens.length >= 2) {
+                    // 标签部分是除了最后一个 token 之外的所有内容
+                    const label = tokens.slice(0, -1).join(' ').toUpperCase();
+                    // 金额是最后一个 token
+                    const amount = tokens[tokens.length - 1];
+                    // 创建11列的行（索引0-10，对应列1-11）
+                    const myEarningsRow = new Array(11).fill('');
+                    myEarningsRow[0] = label;  // 列1（索引0）：MY EARNINGS : (RINGGIT MALAYSIA (RM))
+                    myEarningsRow[9] = amount; // 列10（索引9）：金额如 $0.00
+                    matrix.push(myEarningsRow);
+                } else if (tokens.length === 1 && tokens[0]) {
+                    // 如果只有一个token，尝试分割出金额
+                    const fullText = tokens[0];
+                    // 匹配金额模式：$0.00, ($123.45), -$50.00 等
+                    const amountMatch = fullText.match(/([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                    if (amountMatch) {
+                        const amount = amountMatch[1];
+                        const label = fullText.substring(0, amountMatch.index).trim();
+                        const myEarningsRow = new Array(11).fill('');
+                        myEarningsRow[0] = label.toUpperCase(); // 列1
+                        myEarningsRow[9] = amount;              // 列10
+                        matrix.push(myEarningsRow);
+                    } else {
+                        // 如果无法分割，放在第一列
+                        const myEarningsRow = new Array(11).fill('');
+                        myEarningsRow[0] = tokens[0].toUpperCase();
+                        matrix.push(myEarningsRow);
+                    }
                 }
             }
             
@@ -4835,16 +4949,48 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 处理 My Earnings 行（如果存在）
+                // 处理 My Earnings 行（如果存在）：将标签放在第1列，金额放在第10列
                 for (let i = 0; i < rows.length; i++) {
                     const rowCells = rows[i].split('\t').map(c => c.trim());
                     const first = (rowCells[0] || '').toString().toUpperCase();
                     if (first.includes('MY EARNINGS') || first.includes('RINGGIT MALAYSIA')) {
-                        const earningsRow = [];
-                        for (let j = 0; j < Math.min(11, rowCells.length); j++) {
-                            earningsRow.push(rowCells[j] || '');
+                        const earningsRow = new Array(11).fill('');
+                        
+                        // 尝试从第一列中分离标签和金额
+                        const firstCell = rowCells[0] || '';
+                        // 匹配金额模式（如 $0.00, ($123.45), -$50.00 等）
+                        const amountMatch = firstCell.match(/([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                        
+                        if (amountMatch) {
+                            // 找到金额，分离标签和金额
+                            const amount = amountMatch[1];
+                            const label = firstCell.substring(0, amountMatch.index).trim().toUpperCase();
+                            earningsRow[0] = label;  // 列1：MY EARNINGS : (RINGGIT MALAYSIA (RM))
+                            earningsRow[9] = amount; // 列10：金额如 $0.00
+                        } else {
+                            // 如果第一列没有金额，尝试从其他列找金额
+                            // 先放标签到第一列
+                            earningsRow[0] = firstCell.toUpperCase();
+                            
+                            // 从右往左找金额（跳过可能的空列）
+                            let foundAmount = false;
+                            for (let j = rowCells.length - 1; j >= 1; j--) {
+                                const cell = rowCells[j] || '';
+                                if (cell && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(cell)) {
+                                    earningsRow[9] = cell; // 列10：金额
+                                    foundAmount = true;
+                                    break;
+                                }
+                            }
+                            
+                            // 如果没找到金额，保持其他列的位置（向后兼容）
+                            if (!foundAmount) {
+                                for (let j = 1; j < Math.min(11, rowCells.length); j++) {
+                                    earningsRow[j] = rowCells[j] || '';
+                                }
+                            }
                         }
-                        while (earningsRow.length < 11) earningsRow.push('');
+                        
                         filteredRows.push(earningsRow.join('\t'));
                         break;
                     }
