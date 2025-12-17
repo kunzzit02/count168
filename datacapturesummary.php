@@ -9305,18 +9305,16 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Auto-enable if source percent has value
             const enableSourcePercent = percentValue && percentValue.trim() !== '';
             
-            // Priority: 如果有保存的 formula_display，**直接使用数据库里的值**，
-            // 不再尝试根据当前表格数据去“保留结构并替换数字”，
-            // 避免在数字数量不一致时被强制重算成简化公式（例如从 `4+3*0.9/5*(1)` 变成 `4+3`）。
-            // 只有在 formula_display 为空或为占位符时，才根据当前数据重新生成。
             let formulaDisplay = '';
             const savedFormulaDisplay = mainTemplate.formula_display || '';
             const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
 
-            // 如果数据库里已经有 formula_display，就完全按原样显示
-            if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+            // 如果没有当前表格数据（resolvedSourceExpression 为空），但数据库里已经有 formula_display，
+            // 可以直接按原样显示；否则优先使用当前表格数据并结合 preserveFormulaStructure 更新数字。
+            if ((!resolvedSourceExpression || resolvedSourceExpression.trim() === '') &&
+                savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
                 formulaDisplay = savedFormulaDisplay;
-                console.log('Using saved formula_display directly (main):', formulaDisplay);
+                console.log('Using saved formula_display directly (main, no current source data):', formulaDisplay);
             } else if (isBatchSelectedTemplate) {
                 // 对于 Batch Selection 的模板，优先使用保存的 formula_display（如果包含括号）
                 // 如果保存的 formula_display 包含括号，使用 preserveFormulaStructure 来保留括号结构
@@ -10048,13 +10046,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 formulaDisplay = resolvedSourceExpression || 'Formula';
             }
             console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
-        }
-
-        // 最终兜底：如果模板里有保存的 formula_display，就直接覆盖前面计算出的结果，
-        // 确保界面显示与数据库中的 formula_display 完全一致（包括 *0.9/5 这类手动部分）。
-        if (mainTemplate.formula_display && mainTemplate.formula_display.trim() !== '' && mainTemplate.formula_display !== 'Formula') {
-            formulaDisplay = mainTemplate.formula_display;
-            console.log('applyMainTemplateToRow: Overriding with saved formula_display from template:', formulaDisplay);
         }
 
         // Always recalculate processed amount from current formula
