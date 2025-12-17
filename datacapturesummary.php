@@ -5639,7 +5639,9 @@ function getCurrentProcessId() {
                 const isStarInsideParens = openParens > closeParens;
 
                 // Only strip when the last * is not inside parentheses and looks like the appended source percent
-                const trailingPattern = /^\*\s*\(?([0-9.+\-*/]+)\)?\s*$/;
+                // Appended source percent 一定是 "*(" 开头、")" 结尾，例如 "*(1)"、"*(0.5/2)"
+                // 像 "*0.9" 这种是正常公式的一部分（例如 4+3*0.9），不能被当成 Source % 删掉
+                const trailingPattern = /^\*\s*\(([0-9.\+\-*/\s]+)\)\s*$/;
                 if (!isStarInsideParens && trailingPattern.test(afterStar)) {
                     result = beforeStar.trim();
                     continue;
