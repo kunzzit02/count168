@@ -1034,8 +1034,11 @@ function getCurrentProcessId() {
             }
         }
 
-        // Get cell value from data capture table by cell position (e.g., A7, B5)
-        function getCellValueFromPosition(cellPosition) {
+        // Get cell value from data capture table by cell position or relative column index
+        // Supports two formats:
+        // 1. Absolute position (e.g., "A7", "B5") - backward compatibility
+        // 2. Relative column index (e.g., "3", "5") - new format, requires id_product context
+        function getCellValueFromPosition(cellPosition, idProduct = null) {
             try {
                 const capturedTableBody = document.getElementById('capturedTableBody');
                 if (!capturedTableBody) {
@@ -1043,50 +1046,116 @@ function getCurrentProcessId() {
                     return null;
                 }
                 
-                // Parse cell position (e.g., "A7" -> rowLabel="A", columnIndex=7)
-                const match = cellPosition.match(/^([A-Z]+)(\d+)$/);
-                if (!match) {
-                    console.error('Invalid cell position format:', cellPosition);
+                // Check if it's a relative column index (pure number)
+                const isRelativeIndex = /^\d+$/.test(cellPosition.trim());
+                
+                if (isRelativeIndex) {
+                    // New format: relative column index (e.g., "3", "5")
+                    // Need to find the row by id_product
+                    if (!idProduct) {
+                        console.error('Relative column index requires id_product context');
+                        return null;
+                    }
+                    
+                    const relativeColumnIndex = parseInt(cellPosition.trim());
+                    if (isNaN(relativeColumnIndex) || relativeColumnIndex < 1) {
+                        console.error('Invalid relative column index:', cellPosition);
+                        return null;
+                    }
+                    
+                    // Find row by id_product (column A, index 1)
+                    const rows = capturedTableBody.querySelectorAll('tr');
+                    let targetRow = null;
+                    for (const row of rows) {
+                        const cells = row.querySelectorAll('td');
+                        if (cells.length > 1) {
+                            const rowHeaderCell = cells[0];
+                            if (rowHeaderCell && rowHeaderCell.classList.contains('row-header')) {
+                                // Column A is at index 1 (index 0 is row header)
+                                const idProductCell = cells[1];
+                                if (idProductCell) {
+                                    const cellValue = idProductCell.textContent.trim();
+                                    // Normalize for comparison
+                                    const normalizedCellValue = normalizeIdProductText(cellValue);
+                                    const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                    if (cellValue === idProduct || (normalizedCellValue && normalizedCellValue === normalizedIdProduct)) {
+                                        targetRow = row;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (!targetRow) {
+                        console.error('Row not found for id_product:', idProduct);
+                        return null;
+                    }
+                    
+                    // Get cell value by relative column index
+                    // relativeColumnIndex is 1-based: 1=Column A, 2=Column B, etc.
+                    const cells = targetRow.querySelectorAll('td');
+                    // cellIndex 0 is row header, cellIndex 1 is Column A (column 1)
+                    // So if relativeColumnIndex is 3, we need cells[3]
+                    const cellIndex = relativeColumnIndex;
+                    if (cellIndex >= 1 && cellIndex < cells.length) {
+                        const cell = cells[cellIndex];
+                        if (!cell.classList.contains('row-header')) {
+                            const cellValue = cell.textContent.trim();
+                            // Extract numeric value (remove formatting)
+                            const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                            return numericValue || cellValue;
+                        }
+                    }
+                    
+                    console.error('Cell not found at relative column index:', relativeColumnIndex);
+                    return null;
+                } else {
+                    // Old format: absolute position (e.g., "A7", "B5") - backward compatibility
+                    const match = cellPosition.match(/^([A-Z]+)(\d+)$/);
+                    if (!match) {
+                        console.error('Invalid cell position format:', cellPosition);
+                        return null;
+                    }
+                    
+                    const rowLabel = match[1]; // e.g., "A"
+                    const columnIndex = parseInt(match[2]); // e.g., 7
+                    
+                    // Find row by row label
+                    const rows = capturedTableBody.querySelectorAll('tr');
+                    let targetRow = null;
+                    for (const row of rows) {
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        if (rowHeaderCell && rowHeaderCell.textContent.trim() === rowLabel) {
+                            targetRow = row;
+                            break;
+                        }
+                    }
+                    
+                    if (!targetRow) {
+                        console.error('Row not found for label:', rowLabel);
+                        return null;
+                    }
+                    
+                    // Get cell value by column index
+                    // Column index 1 = Column A (first data column), so columnIndex corresponds to cellIndex
+                    const cells = targetRow.querySelectorAll('td');
+                    // cellIndex 0 is row header, cellIndex 1 is Column A (column 1)
+                    // So if columnIndex is 7, we need cells[7]
+                    const cellIndex = columnIndex;
+                    if (cellIndex >= 0 && cellIndex < cells.length) {
+                        const cell = cells[cellIndex];
+                        if (!cell.classList.contains('row-header')) {
+                            const cellValue = cell.textContent.trim();
+                            // Extract numeric value (remove formatting)
+                            const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                            return numericValue || cellValue;
+                        }
+                    }
+                    
+                    console.error('Cell not found at column index:', columnIndex);
                     return null;
                 }
-                
-                const rowLabel = match[1]; // e.g., "A"
-                const columnIndex = parseInt(match[2]); // e.g., 7
-                
-                // Find row by row label
-                const rows = capturedTableBody.querySelectorAll('tr');
-                let targetRow = null;
-                for (const row of rows) {
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    if (rowHeaderCell && rowHeaderCell.textContent.trim() === rowLabel) {
-                        targetRow = row;
-                        break;
-                    }
-                }
-                
-                if (!targetRow) {
-                    console.error('Row not found for label:', rowLabel);
-                    return null;
-                }
-                
-                // Get cell value by column index
-                // Column index 1 = Column A (first data column), so columnIndex corresponds to cellIndex
-                const cells = targetRow.querySelectorAll('td');
-                // cellIndex 0 is row header, cellIndex 1 is Column A (column 1)
-                // So if columnIndex is 7, we need cells[7]
-                const cellIndex = columnIndex;
-                if (cellIndex >= 0 && cellIndex < cells.length) {
-                    const cell = cells[cellIndex];
-                    if (!cell.classList.contains('row-header')) {
-                        const cellValue = cell.textContent.trim();
-                        // Extract numeric value (remove formatting)
-                        const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
-                        return numericValue || cellValue;
-                    }
-                }
-                
-                console.error('Cell not found at column index:', columnIndex);
-                return null;
             } catch (error) {
                 console.error('Error getting cell value from position:', error);
                 return null;
@@ -1101,22 +1170,39 @@ function getCurrentProcessId() {
             
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             
-            // Check if sourceColumnsValue contains cell positions (e.g., "A7 B5") or column numbers (e.g., "7 5")
-            const cellPositions = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
-            const isCellPositionFormat = cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
+            // Check format: relative column index (e.g., "3 5"), cell positions (e.g., "A7 B5"), or column numbers (e.g., "7 5")
+            const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+            if (parts.length === 0) {
+                return '';
+            }
             
-            if (isCellPositionFormat) {
-                // Cell position format (e.g., "A7 B5")
-                // Build reference format expression: [id_product : A7] + [id_product : B5]
-                let expression = `[${processValue} : ${cellPositions[0]}]`;
-                for (let i = 1; i < cellPositions.length; i++) {
+            // Check if it's relative column index format (all parts are pure numbers)
+            const isRelativeIndexFormat = parts.every(part => /^\d+$/.test(part.trim()));
+            
+            // Check if it's cell position format (e.g., "A7 B5")
+            const isCellPositionFormat = parts.length > 0 && /^[A-Z]+\d+$/.test(parts[0]);
+            
+            if (isRelativeIndexFormat) {
+                // Relative column index format (e.g., "3 5") - new format, resilient to table changes
+                // Build reference format expression: [processValue : 3] + [processValue : 5]
+                let expression = `[${processValue} : ${parts[0]}]`;
+                for (let i = 1; i < parts.length; i++) {
                     const operator = operatorsString[i - 1] || '+';
-                    expression += ` ${operator} [${processValue} : ${cellPositions[i]}]`;
+                    expression += ` ${operator} [${processValue} : ${parts[i]}]`;
+                }
+                return expression;
+            } else if (isCellPositionFormat) {
+                // Cell position format (e.g., "A7 B5") - backward compatibility
+                // Build reference format expression: [id_product : A7] + [id_product : B5]
+                let expression = `[${processValue} : ${parts[0]}]`;
+                for (let i = 1; i < parts.length; i++) {
+                    const operator = operatorsString[i - 1] || '+';
+                    expression += ` ${operator} [${processValue} : ${parts[i]}]`;
                 }
                 return expression;
             } else {
                 // Column number format (e.g., "7 5") - backward compatibility
-                const columnNumbers = sourceColumnsValue.split(/\s+/).map(col => parseInt(col.trim())).filter(col => !isNaN(col));
+                const columnNumbers = parts.map(col => parseInt(col.trim())).filter(col => !isNaN(col));
 
                 if (columnNumbers.length === 0) {
                     return '';
@@ -3765,19 +3851,47 @@ function getCurrentProcessId() {
             }
             
             if (cellPosition && columnIndex !== null && rowLabel) {
-                // Store cell positions (e.g., "A7 B5") instead of just column numbers
-                // This allows reading from specific cells instead of columns
+                // Calculate relative column index based on id_product row
+                // This makes the reference resilient to table structure changes
+                let relativeColumnIndex = null;
+                try {
+                    // Get the id_product value from the row (column A, index 1)
+                    const row = cell.closest('tr');
+                    if (row) {
+                        const cells = row.querySelectorAll('td');
+                        // Column A is at index 1 (index 0 is row header)
+                        if (cells.length > 1 && cells[1].type !== 'header') {
+                            const idProductValue = cells[1].textContent.trim();
+                            // Calculate relative column index: columnIndex is already the absolute column index
+                            // For relative index, we use the columnIndex directly (it's already 1-based: 1=Column A, 2=Column B, etc.)
+                            relativeColumnIndex = parseInt(columnIndex);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to calculate relative column index:', e);
+                }
+                
+                // Store both formats for backward compatibility:
+                // 1. Absolute position (C4) - for backward compatibility
+                // 2. Relative column index (3) - new format, resilient to table changes
                 let clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
                 const cellsArray = clickedCells ? clickedCells.split(' ').filter(c => c.trim() !== '') : [];
-                // Always add cell position (allow duplicates to preserve multiple clicks of same cell)
-                // Preserve click order, don't sort
+                // Store absolute position for backward compatibility
                 if (!cellsArray.includes(cellPosition)) {
                     cellsArray.push(cellPosition);
                 }
-                // Store back as space-separated string, preserving click order
                 formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
                 
-                // Also keep column index for backward compatibility (but prefer cell positions)
+                // Store relative column indices (new format, preferred)
+                // Format: "3 5" (space-separated relative column indices)
+                let clickedRelativeColumns = formulaInput.getAttribute('data-clicked-relative-columns') || '';
+                const relativeColumnsArray = clickedRelativeColumns ? clickedRelativeColumns.split(/\s+/).map(c => parseInt(c.trim())).filter(c => !isNaN(c)) : [];
+                if (relativeColumnIndex !== null && !relativeColumnsArray.includes(relativeColumnIndex)) {
+                    relativeColumnsArray.push(relativeColumnIndex);
+                }
+                formulaInput.setAttribute('data-clicked-relative-columns', relativeColumnsArray.join(' '));
+                
+                // Also keep absolute column index for backward compatibility
                 let clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
                 const columnsArray = clickedColumns ? clickedColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
                 const colIndex = parseInt(columnIndex);
@@ -3797,7 +3911,7 @@ function getCurrentProcessId() {
                 }
                 formulaInput.setAttribute('data-value-cell-map', mapEntries.join(','));
                 
-                console.log('Added clicked cell:', cellPosition, 'All clicked cells:', cellsArray, 'Value-cell map:', mapEntries);
+                console.log('Added clicked cell:', cellPosition, 'Relative column index:', relativeColumnIndex, 'All clicked cells:', cellsArray, 'Relative columns:', relativeColumnsArray);
             }
             
             // Get cursor position
@@ -5256,7 +5370,15 @@ function getCurrentProcessId() {
                 return '';
             }
             
-            // Priority: Use cell positions (e.g., "A7 B5") instead of column numbers
+            // Priority 1: Use relative column indices (new format, resilient to table changes)
+            // Format: "3 5" (space-separated relative column indices)
+            const clickedRelativeColumns = formulaInput.getAttribute('data-clicked-relative-columns') || '';
+            if (clickedRelativeColumns && clickedRelativeColumns.trim() !== '') {
+                // Return relative column indices as space-separated string (e.g., "3 5")
+                return clickedRelativeColumns.trim();
+            }
+            
+            // Priority 2: Use cell positions (e.g., "A7 B5") for backward compatibility
             // This allows reading from specific cells instead of columns
             const clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
             if (clickedCells && clickedCells.trim() !== '') {
@@ -5264,7 +5386,7 @@ function getCurrentProcessId() {
                 return clickedCells.trim();
             }
             
-            // Fallback to column numbers for backward compatibility
+            // Priority 3: Fallback to column numbers for backward compatibility
             const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
             if (!clickedColumns) {
                 return '';
@@ -6459,14 +6581,23 @@ function getCurrentProcessId() {
                     return sourceColumnValue; // Fallback to original value
                 }
                 
-                // Parse source columns: check if it's cell position format (e.g., "A7 B5") or column number format (e.g., "7 5")
+                // Parse source columns: check format - relative index (e.g., "3 5"), cell position (e.g., "A7 B5"), or column number (e.g., "7 5")
                 const sourceParts = sourceColumnValue.split(/\s+/).filter(c => c.trim() !== '');
+                const isRelativeIndexFormat = sourceParts.length > 0 && sourceParts.every(part => /^\d+$/.test(part.trim()));
                 const isCellPositionFormat = sourceParts.length > 0 && /^[A-Z]+\d+$/.test(sourceParts[0]);
                 
                 const columnValues = [];
                 
-                if (isCellPositionFormat) {
-                    // Cell position format (e.g., "A7 B5") - read from specific cells
+                if (isRelativeIndexFormat) {
+                    // Relative column index format (e.g., "3 5") - new format, resilient to table changes
+                    sourceParts.forEach(relativeIndex => {
+                        const cellValue = getCellValueFromPosition(relativeIndex, processValue);
+                        if (cellValue !== null && cellValue !== '') {
+                            columnValues.push(cellValue);
+                        }
+                    });
+                } else if (isCellPositionFormat) {
+                    // Cell position format (e.g., "A7 B5") - backward compatibility
                     sourceParts.forEach(cellPosition => {
                         const cellValue = getCellValueFromPosition(cellPosition);
                         if (cellValue !== null && cellValue !== '') {
@@ -8974,9 +9105,10 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Always prefer the latest numbers from Data Capture Table when available
             let resolvedSourceExpression = '';
             const savedSourceValue = mainTemplate.last_source_value || '';
-            // Check if sourceColumnsValue is cell position format (e.g., "A7 B5")
-            const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
-            const isCellPositionFormat = cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
+            // Check format: relative index (e.g., "3 5"), cell position (e.g., "A7 B5"), or column number (e.g., "7 5")
+            const parts = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
+            const isRelativeIndexFormat = parts.length > 0 && parts.every(part => /^\d+$/.test(part.trim()));
+            const isCellPositionFormat = parts.length > 0 && /^[A-Z]+\d+$/.test(parts[0]);
             
             // Check if formulaOperatorsValue is a reference format (contains [id_product : column])
             // or a complete expression (contains operators and numbers)
@@ -8984,11 +9116,36 @@ function applyTemplateToSummaryRow(idProduct, template) {
             const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
             let currentSourceData;
             
-            if (isCellPositionFormat) {
-                // Cell position format (e.g., "A7 B5") - read actual cell values
+            if (isRelativeIndexFormat) {
+                // Relative column index format (e.g., "3 5") - new format, resilient to table changes
                 const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
                 const cellValues = [];
-                cellPositions.forEach((cellPosition, index) => {
+                parts.forEach((relativeIndex, index) => {
+                    const cellValue = getCellValueFromPosition(relativeIndex, idProduct);
+                    if (cellValue !== null && cellValue !== '') {
+                        cellValues.push(cellValue);
+                    }
+                });
+                
+                if (cellValues.length > 0) {
+                    // Build expression with actual cell values (e.g., "17+16")
+                    let expression = cellValues[0];
+                    for (let i = 1; i < cellValues.length; i++) {
+                        const operator = operatorsString[i - 1] || '+';
+                        expression += operator + cellValues[i];
+                    }
+                    currentSourceData = expression;
+                    console.log('Read cell values from relative indices:', parts, 'Values:', cellValues, 'Expression:', currentSourceData);
+                } else {
+                    // Fallback to reference format if cells not found
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('Cell values not found, using reference format:', currentSourceData);
+                }
+            } else if (isCellPositionFormat) {
+                // Cell position format (e.g., "A7 B5") - backward compatibility
+                const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+                const cellValues = [];
+                parts.forEach((cellPosition, index) => {
                     const cellValue = getCellValueFromPosition(cellPosition);
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
@@ -9003,7 +9160,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         expression += operator + cellValues[i];
                     }
                     currentSourceData = expression;
-                    console.log('Read cell values from positions:', cellPositions, 'Values:', cellValues, 'Expression:', currentSourceData);
+                    console.log('Read cell values from positions:', parts, 'Values:', cellValues, 'Expression:', currentSourceData);
                 } else {
                     // Fallback to reference format if cells not found
                     currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -9475,9 +9632,10 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         let resolvedSourceExpression = '';
         const savedSourceValue = mainTemplate.last_source_value || '';
         
-        // Check if sourceColumnsValue is cell position format (e.g., "A7 B5")
-        const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
-        const isCellPositionFormat = cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
+        // Check format: relative index (e.g., "3 5"), cell position (e.g., "A7 B5"), or column number (e.g., "7 5")
+        const parts = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
+        const isRelativeIndexFormat = parts.length > 0 && parts.every(part => /^\d+$/.test(part.trim()));
+        const isCellPositionFormat = parts.length > 0 && /^[A-Z]+\d+$/.test(parts[0]);
         
         // Check if formulaOperatorsValue is a complete expression (contains operators and numbers)
         // If so, use it directly instead of rebuilding from columns
@@ -9486,11 +9644,36 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
         let currentSourceData;
         
-        if (isCellPositionFormat) {
-            // Cell position format (e.g., "A7 B5") - read actual cell values
+        if (isRelativeIndexFormat) {
+            // Relative column index format (e.g., "3 5") - new format, resilient to table changes
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             const cellValues = [];
-            cellPositions.forEach((cellPosition, index) => {
+            parts.forEach((relativeIndex, index) => {
+                const cellValue = getCellValueFromPosition(relativeIndex, idProduct);
+                if (cellValue !== null && cellValue !== '') {
+                    cellValues.push(cellValue);
+                }
+            });
+            
+            if (cellValues.length > 0) {
+                // Build expression with actual cell values (e.g., "17+16")
+                let expression = cellValues[0];
+                for (let i = 1; i < cellValues.length; i++) {
+                    const operator = operatorsString[i - 1] || '+';
+                    expression += operator + cellValues[i];
+                }
+                currentSourceData = expression;
+                console.log('Read cell values from relative indices (main):', parts, 'Values:', cellValues, 'Expression:', currentSourceData);
+            } else {
+                // Fallback to reference format if cells not found
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Cell values not found (main), using reference format:', currentSourceData);
+            }
+        } else if (isCellPositionFormat) {
+            // Cell position format (e.g., "A7 B5") - backward compatibility
+            const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+            const cellValues = [];
+            parts.forEach((cellPosition, index) => {
                 const cellValue = getCellValueFromPosition(cellPosition);
                 if (cellValue !== null && cellValue !== '') {
                     cellValues.push(cellValue);
@@ -9505,7 +9688,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     expression += operator + cellValues[i];
                 }
                 currentSourceData = expression;
-                console.log('Read cell values from positions (main):', cellPositions, 'Values:', cellValues, 'Expression:', currentSourceData);
+                console.log('Read cell values from positions (main):', parts, 'Values:', cellValues, 'Expression:', currentSourceData);
             } else {
                 // Fallback to reference format if cells not found
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -10256,9 +10439,10 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         let resolvedSourceExpression = '';
         const savedSourceValue = template.last_source_value || '';
         
-        // Check if sourceColumnsValue is cell position format (e.g., "A7 B5")
-        const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
-        const isCellPositionFormat = cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
+        // Check format: relative index (e.g., "3 5"), cell position (e.g., "A7 B5"), or column number (e.g., "7 5")
+        const parts = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
+        const isRelativeIndexFormat = parts.length > 0 && parts.every(part => /^\d+$/.test(part.trim()));
+        const isCellPositionFormat = parts.length > 0 && /^[A-Z]+\d+$/.test(parts[0]);
         
         // Check if formulaOperatorsValue is a complete expression (contains operators and numbers)
         // If so, use it directly instead of rebuilding from columns
@@ -10267,11 +10451,36 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
         let currentSourceData;
         
-        if (isCellPositionFormat) {
-            // Cell position format (e.g., "A7 B5") - read actual cell values
+        if (isRelativeIndexFormat) {
+            // Relative column index format (e.g., "3 5") - new format, resilient to table changes
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             const cellValues = [];
-            cellPositions.forEach((cellPosition, index) => {
+            parts.forEach((relativeIndex, index) => {
+                const cellValue = getCellValueFromPosition(relativeIndex, idProduct);
+                if (cellValue !== null && cellValue !== '') {
+                    cellValues.push(cellValue);
+                }
+            });
+            
+            if (cellValues.length > 0) {
+                // Build expression with actual cell values (e.g., "17+16")
+                let expression = cellValues[0];
+                for (let i = 1; i < cellValues.length; i++) {
+                    const operator = operatorsString[i - 1] || '+';
+                    expression += operator + cellValues[i];
+                }
+                currentSourceData = expression;
+                console.log('Read cell values from relative indices (sub):', parts, 'Values:', cellValues, 'Expression:', currentSourceData);
+            } else {
+                // Fallback to reference format if cells not found
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Cell values not found (sub), using reference format:', currentSourceData);
+            }
+        } else if (isCellPositionFormat) {
+            // Cell position format (e.g., "A7 B5") - backward compatibility
+            const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+            const cellValues = [];
+            parts.forEach((cellPosition, index) => {
                 const cellValue = getCellValueFromPosition(cellPosition);
                 if (cellValue !== null && cellValue !== '') {
                     cellValues.push(cellValue);
@@ -10286,7 +10495,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     expression += operator + cellValues[i];
                 }
                 currentSourceData = expression;
-                console.log('Read cell values from positions (sub):', cellPositions, 'Values:', cellValues, 'Expression:', currentSourceData);
+                console.log('Read cell values from positions (sub):', parts, 'Values:', cellValues, 'Expression:', currentSourceData);
             } else {
                 // Fallback to reference format if cells not found
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
