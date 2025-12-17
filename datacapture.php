@@ -4462,6 +4462,154 @@ if ($current_user_id && count($user_companies) > 0) {
             };
         }
 
+        // 新增：处理Excel导出格式（MY EARNINGS金额在列10）
+        // 这个函数专门处理从Excel下载后粘贴的格式
+        function parseExcelFormatPaymentReport(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            
+            const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const rawLines = norm.split('\n');
+            const lines = rawLines.map(l => l.trim()).filter(l => l !== '');
+            
+            if (lines.length === 0) return null;
+            
+            const lowerAll = lines.map(l => l.toLowerCase());
+            const hasOverall = lowerAll.some(l => l.startsWith('overall'));
+            const hasMyEarnings = lowerAll.some(l => l.includes('my earnings'));
+            
+            // Excel格式特征：有Overall和My Earnings，且My Earnings的金额在列10
+            if (!hasOverall || !hasMyEarnings) return null;
+            
+            // 检查My Earnings行的格式：标签在列1，金额在列10（不是列11）
+            const myEarningsIndex = lowerAll.findIndex(l => l.includes('my earnings'));
+            if (myEarningsIndex === -1) return null;
+            
+            const myEarningsLine = rawLines[myEarningsIndex];
+            const myEarningsTokens = myEarningsLine.split('\t').map(s => s.trim());
+            
+            // Excel格式：My Earnings标签在列1，金额在列10（索引9）
+            // 检查是否有10列或11列，且第10列（索引9）有金额
+            if (myEarningsTokens.length >= 10) {
+                const col10Value = (myEarningsTokens[9] || '').trim();
+                const col11Value = (myEarningsTokens[10] || '').trim();
+                
+                // 如果列10有金额格式，且列11为空或不是金额，这是Excel格式
+                const col10HasAmount = col10Value && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(col10Value);
+                const col11HasAmount = col11Value && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(col11Value);
+                
+                // Excel格式：金额在列10，不在列11
+                if (col10HasAmount && !col11HasAmount) {
+                    console.log('Detected Excel format: MY EARNINGS amount in column 10');
+                    
+                    const matrix = [];
+                    const colCount = 11; // 输出11列
+                    
+                    // 处理所有行
+                    rawLines.forEach(raw => {
+                        const line = raw.trim();
+                        if (line === '') return;
+                        
+                        const tokens = line.split('\t').map(s => s.trim());
+                        const first = (tokens[0] || '').toUpperCase();
+                        const lower = line.toLowerCase();
+                        
+                        // 处理Overall行
+                        if (lower.startsWith('overall')) {
+                            const row = new Array(colCount).fill('');
+                            for (let i = 0; i < Math.min(colCount, tokens.length); i++) {
+                                row[i] = tokens[i] || '';
+                            }
+                            matrix.push(row);
+                            return;
+                        }
+                        
+                        // 处理My Earnings行：标签在列1，金额从列10移到列11
+                        if (lower.includes('my earnings')) {
+                            const row = new Array(colCount).fill('');
+                            const label = (tokens[0] || '').trim();
+                            const amount = (tokens[9] || '').trim(); // Excel格式：金额在列10（索引9）
+                            
+                            // 如果标签和金额混在一起，尝试分离
+                            let finalLabel = label;
+                            let finalAmount = amount;
+                            
+                            if (label && !amount) {
+                                // 标签可能在列1，但金额可能在标签文本中
+                                const labelAmountMatch = label.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                                if (labelAmountMatch) {
+                                    finalLabel = labelAmountMatch[1].trim();
+                                    finalAmount = labelAmountMatch[2];
+                                }
+                            }
+                            
+                            row[0] = finalLabel.toUpperCase();  // 列1：标签
+                            row[10] = finalAmount;              // 列11：金额（从列10移过来）
+                            matrix.push(row);
+                            return;
+                        }
+                        
+                        // 处理Total行：标签在列1，金额在列10或列11
+                        if (lower.includes('total') && (lower.includes('ringgit') || lower.includes('rm') || lower.includes('malaysia'))) {
+                            const row = new Array(colCount).fill('');
+                            let label = '';
+                            let amount = '';
+                            
+                            // 查找标签和金额
+                            for (let i = 0; i < tokens.length; i++) {
+                                const token = tokens[i] || '';
+                                const tokenLower = token.toLowerCase();
+                                if (tokenLower.includes('total') && (tokenLower.includes('ringgit') || tokenLower.includes('rm') || tokenLower.includes('malaysia'))) {
+                                    const labelAmountMatch = token.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                                    if (labelAmountMatch) {
+                                        label = labelAmountMatch[1].trim();
+                                        amount = labelAmountMatch[2];
+                                    } else {
+                                        label = token;
+                                    }
+                                } else if (token && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(token)) {
+                                    if (!amount) {
+                                        amount = token;
+                                    }
+                                }
+                            }
+                            
+                            // 如果金额在列10，移到列11
+                            if (tokens.length > 9 && tokens[9] && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(tokens[9])) {
+                                amount = tokens[9];
+                            } else if (tokens.length > 10 && tokens[10] && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(tokens[10])) {
+                                amount = tokens[10];
+                            }
+                            
+                            row[0] = label.toUpperCase();  // 列1：标签
+                            row[10] = amount;              // 列11：金额
+                            matrix.push(row);
+                            return;
+                        }
+                        
+                        // 处理其他数据行（IPHSP3, m99m06等）
+                        if (tokens.length >= 3) {
+                            const row = new Array(colCount).fill('');
+                            for (let i = 0; i < Math.min(colCount, tokens.length); i++) {
+                                row[i] = tokens[i] || '';
+                            }
+                            matrix.push(row);
+                        }
+                    });
+                    
+                    if (matrix.length === 0) return null;
+                    
+                    const maxCols = Math.max(...matrix.map(r => r.length));
+                    return {
+                        dataMatrix: matrix,
+                        maxRows: matrix.length,
+                        maxCols
+                    };
+                }
+            }
+            
+            return null; // 不是Excel格式
+        }
+
         // 处理单元格粘贴事件
         function handleCellPaste(e) {
             // 获取单元格元素（支持文本节点和元素节点）
@@ -4579,6 +4727,78 @@ if ($current_user_id && count($user_companies) > 0) {
             console.log('=== PASTE DEBUG START ===');
             console.log('Pasted data length:', pastedData.length);
             console.log('Pasted data raw (first 500 chars):', JSON.stringify(pastedData.substring(0, 500)));
+
+            // 新增：先尝试Excel格式解析（MY EARNINGS金额在列10的格式）
+            const excelFormatParsed = parseExcelFormatPaymentReport(pastedData);
+            if (excelFormatParsed) {
+                const { dataMatrix, maxRows, maxCols } = excelFormatParsed;
+
+                const startCell = e.target;
+                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                const startCol = parseInt(startCell.dataset.col);
+
+                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+
+                const requiredRows = startRow + maxRows;
+                const requiredCols = startCol + maxCols;
+
+                if (requiredRows > currentRows || requiredCols > currentCols) {
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                    const targetCols = Math.max(currentCols, requiredCols);
+                    initializeTable(targetRows, targetCols);
+                }
+
+                const tableBody = document.getElementById('tableBody');
+                const currentPasteChanges = [];
+                let successCount = 0;
+
+                dataMatrix.forEach((rowData, rowIndex) => {
+                    const actualRowIndex = startRow + rowIndex;
+                    const tableRow = tableBody.children[actualRowIndex];
+                    if (!tableRow) return;
+
+                    rowData.forEach((cellData, colIndex) => {
+                        const actualColIndex = startCol + colIndex;
+                        const cell = tableRow.children[actualColIndex + 1];
+                        if (cell && cell.contentEditable === 'true') {
+                            currentPasteChanges.push({
+                                row: actualRowIndex,
+                                col: actualColIndex,
+                                oldValue: cell.textContent,
+                                newValue: cellData
+                            });
+                            const finalValue = (cellData || '').toUpperCase();
+                            cell.textContent = finalValue;
+                            successCount++;
+                        }
+                    });
+                });
+
+                if (currentPasteChanges.length > 0) {
+                    pasteHistory.push(currentPasteChanges);
+                    if (pasteHistory.length > maxHistorySize) {
+                        pasteHistory.shift();
+                    }
+                }
+
+                if (successCount > 0) {
+                    showNotification('Success', `Successfully pasted Excel format (${successCount} cells, ${maxRows} rows x ${maxCols} cols)!`, 'success');
+                } else {
+                    showNotification('Warning', 'No cells were pasted from Excel format.', 'error');
+                }
+
+                setTimeout(updateSubmitButtonState, 0);
+                
+                if (successCount > 0) {
+                    setTimeout(() => {
+                        convertTableFormatOnSubmit();
+                        fixCitibetAmountColumns();
+                    }, 100);
+                }
+
+                return;
+            }
 
             // 先尝试使用「完整 Payment Report 解析」，专门处理 riding formula.txt 这一类结构
             const fullPayment = parseFullPaymentReport(pastedData);
