@@ -3242,14 +3242,7 @@ function getCurrentProcessId() {
                 // When user manually edits formula, update columns based on current formula numbers
                 // This ensures Columns reflects the columns actually used in the current formula
                 formulaInput.addEventListener('input', function() {
-                    // Skip if this is a programmatic update (to prevent recursive calls)
-                    if (this.getAttribute('data-programmatic-update') === 'true') {
-                        this.removeAttribute('data-programmatic-update');
-                        previousValue = this.value;
-                        return;
-                    }
-                    
-                    let formulaValue = this.value;
+                    const formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
                     // Skip processing if this value came from a cell click
@@ -3268,8 +3261,6 @@ function getCurrentProcessId() {
                         const cursorPos = this.selectionStart || this.value.length;
                         const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
                         if (newValue !== formulaValue) {
-                            // Mark as programmatic update to prevent recursive processing
-                            this.setAttribute('data-programmatic-update', 'true');
                             // Update the value
                             const oldCursorPos = this.selectionStart || this.value.length;
                             this.value = newValue;
