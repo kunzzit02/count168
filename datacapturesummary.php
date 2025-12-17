@@ -9369,76 +9369,14 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     console.log('Batch template: recalculated formula from current Data Capture Table (no saved formula):', formulaDisplay);
                 }
             } else {
-                // Not batch selection template
-                // IMPORTANT: If saved formula_display is empty, don't regenerate formula from sourceColumns
-                // This ensures that when user clears formula, it stays cleared after page refresh
+                // 非 Batch 模板：完全相信用户在模板里保存的 formula_display，
+                // 不再尝试根据当前数据表去替换或重算数字，避免把 "4+3*0.9/5" 变成 "4+3*(1)" 等情况。
                 if (!savedFormulaDisplay || savedFormulaDisplay.trim() === '' || savedFormulaDisplay === 'Formula') {
-                    // Formula was explicitly cleared, keep it empty
                     formulaDisplay = '';
-                    console.log('Saved formula_display is empty, keeping formula empty (not regenerating from sourceColumns)');
+                    console.log('Non-batch template: saved formula_display is empty, keep formula empty (not regenerating from sourceColumns)');
                 } else {
-                    // Check if resolvedSourceExpression or savedFormulaDisplay is reference format
-                    const isResolvedReferenceFormat = resolvedSourceExpression && /\[[^\]]+\s*:\s*\d+\]/.test(resolvedSourceExpression);
-                    const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
-                    
-                    // If saved formula has reference format, use it directly
-                    if (savedHasReferenceFormat) {
-                        formulaDisplay = savedFormulaDisplay;
-                        console.log('Using saved formula_display with reference format:', formulaDisplay);
-                    } else if (isResolvedReferenceFormat) {
-                        // Current data is reference format, use it directly
-                        if (percentValue && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                        } else {
-                            formulaDisplay = resolvedSourceExpression;
-                        }
-                        console.log('Using reference format from resolvedSourceExpression:', formulaDisplay);
-                    } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
-                        // IMPORTANT: Check if saved formula contains manually entered parts (e.g., 4+3*0.9/5)
-                        // 如果检测到类似 *0.9/5 这样的「手动附加系数」，说明整条公式更偏向纯手动维护，
-                        // 这类公式不应该在刷新后被重新生成为简单的 "4+3" 之类的表达式。
-                        const hasManualInput = /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
-                        
-                        if (hasManualInput) {
-                            // 对包含手动输入部分的公式（例如 4+3*0.9/5）：
-                            // 直接使用用户上次保存的公式，不再尝试用当前表格数据去「重建」公式，
-                            // 避免把公式简化成只有加减法，导致 *0.9/5 这类手动比例被吃掉。
-                            console.log('Saved formula_display contains manual input (e.g. *0.9/5), using saved formula_display as-is:', savedFormulaDisplay);
-                            formulaDisplay = savedFormulaDisplay;
-                        } else {
-                            // No manual input detected, proceed with normal preservation logic
-                            // IMPORTANT: Even if formula contains percentage part, we should still update numbers
-                            // from current Data Capture Table data, while preserving the formula structure
-                            // This ensures formula reflects current table data (e.g., (-4014.6*0.1)+0 -> (1*0.1)+1)
-                            // 非 Batch 行仍然优先保留用户自定义的公式结构
-                            const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                            // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
-                            if (preservedFormula === null) {
-                                console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                                // Recalculate formula from current Data Capture Table
-                                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                                } else if (percentValue && resolvedSourceExpression) {
-                                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
-                                } else {
-                                    formulaDisplay = resolvedSourceExpression || 'Formula';
-                                }
-                                console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
-                            } else if (preservedFormula === savedFormulaDisplay) {
-                                // 如果返回的结果与原始 formula_display 相同，说明替换后结果相同，使用保存的值
-                                console.log('preserveFormulaStructure returned unchanged formula, using saved formula_display as-is to preserve structure (e.g., parentheses)');
-                                formulaDisplay = savedFormulaDisplay;
-                                console.log('Using saved formula_display as-is (preserves structure like parentheses):', formulaDisplay);
-                            } else {
-                                formulaDisplay = preservedFormula;
-                                console.log('Preserved saved formula_display structure with updated source data:', formulaDisplay);
-                            }
-                        }
-                    } else {
-                        // If no current source data, use saved formula as-is
-                        formulaDisplay = savedFormulaDisplay;
-                        console.log('Using saved formula_display as-is (no current source data):', formulaDisplay);
-                    }
+                    formulaDisplay = savedFormulaDisplay;
+                    console.log('Non-batch template: using saved formula_display as-is:', formulaDisplay);
                 }
             }
 
