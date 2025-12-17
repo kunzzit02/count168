@@ -9394,29 +9394,17 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         }
                         console.log('Using reference format from resolvedSourceExpression:', formulaDisplay);
                     } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
-                        // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2)
-                        // If it does, we should preserve the entire formula structure including manual inputs
+                        // IMPORTANT: Check if saved formula contains manually entered parts (e.g., 4+3*0.9/5)
+                        // 如果检测到类似 *0.9/5 这样的「手动附加系数」，说明整条公式更偏向纯手动维护，
+                        // 这类公式不应该在刷新后被重新生成为简单的 "4+3" 之类的表达式。
                         const hasManualInput = /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
                         
                         if (hasManualInput) {
-                            // Formula contains manually entered parts (e.g., *0.9/2), preserve it as-is
-                            // Only update numbers that come from data capture table, not manual inputs
-                            console.log('Saved formula_display contains manual input, preserving structure:', savedFormulaDisplay);
-                            const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                            
-                            if (preservedFormula === null) {
-                                // If preserveFormulaStructure returns null, use saved formula as-is to preserve manual inputs
-                                console.log('preserveFormulaStructure returned null, using saved formula_display as-is to preserve manual inputs');
-                                formulaDisplay = savedFormulaDisplay;
-                            } else if (preservedFormula === savedFormulaDisplay) {
-                                // If preserved formula is same as saved, use it as-is
-                                formulaDisplay = savedFormulaDisplay;
-                                console.log('Using saved formula_display as-is (preserves manual inputs and structure):', formulaDisplay);
-                            } else {
-                                // Use preserved formula (numbers updated but manual inputs preserved)
-                                formulaDisplay = preservedFormula;
-                                console.log('Preserved saved formula_display structure with updated source data (manual inputs preserved):', formulaDisplay);
-                            }
+                            // 对包含手动输入部分的公式（例如 4+3*0.9/5）：
+                            // 直接使用用户上次保存的公式，不再尝试用当前表格数据去「重建」公式，
+                            // 避免把公式简化成只有加减法，导致 *0.9/5 这类手动比例被吃掉。
+                            console.log('Saved formula_display contains manual input (e.g. *0.9/5), using saved formula_display as-is:', savedFormulaDisplay);
+                            formulaDisplay = savedFormulaDisplay;
                         } else {
                             // No manual input detected, proceed with normal preservation logic
                             // IMPORTANT: Even if formula contains percentage part, we should still update numbers
