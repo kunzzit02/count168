@@ -3254,13 +3254,22 @@ function getCurrentProcessId() {
                         return;
                     }
                     
+                    // Prevent recursive processing when we update the value programmatically
+                    if (this.getAttribute('data-processing-input') === 'true') {
+                        return;
+                    }
+                    
                     // Process manual keyboard input: replace numbers with column values based on preceding operator
                     // Numbers after + or - (or at start) should be replaced with column values
                     // Numbers after * or / should remain as literal numbers
+                    let currentFormulaValue = formulaValue;
                     if (processValue && formulaValue !== previousValue) {
                         const cursorPos = this.selectionStart || this.value.length;
                         const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
                         if (newValue !== formulaValue) {
+                            // Set flag to prevent recursive processing
+                            this.setAttribute('data-processing-input', 'true');
+                            
                             // Update the value
                             const oldCursorPos = this.selectionStart || this.value.length;
                             this.value = newValue;
@@ -3269,8 +3278,12 @@ function getCurrentProcessId() {
                             const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
                             this.setSelectionRange(newCursorPos, newCursorPos);
                             previousValue = newValue;
-                            // Continue processing with the updated value
-                            formulaValue = newValue;
+                            currentFormulaValue = newValue;
+                            
+                            // Remove flag after a short delay to allow the input event to complete
+                            setTimeout(() => {
+                                this.removeAttribute('data-processing-input');
+                            }, 0);
                         } else {
                             previousValue = formulaValue;
                         }
@@ -3280,7 +3293,7 @@ function getCurrentProcessId() {
                     
                     // Handle empty formula: clear all related attributes
                     // BUT: In edit mode, preserve existing columns even if formula is cleared
-                    if (!formulaValue || formulaValue.trim() === '') {
+                    if (!currentFormulaValue || currentFormulaValue.trim() === '') {
                         const isEditMode = !!window.currentEditRow;
                         if (isEditMode) {
                             // In edit mode, preserve existing columns when formula is cleared
@@ -3298,7 +3311,7 @@ function getCurrentProcessId() {
                     
                     if (processValue) {
                         // Extract numbers from formula (handles unary minus vs subtraction)
-                        const numberMatches = getFormulaNumberMatches(formulaValue);
+                        const numberMatches = getFormulaNumberMatches(currentFormulaValue);
                         if (numberMatches.length === 0) {
                             // If no numbers in formula, clear clicked columns
                             // BUT: In edit mode, preserve existing columns
