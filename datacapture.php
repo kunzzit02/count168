@@ -3651,9 +3651,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // 针对 Citibet 的 Upline/Downline 报表：直接生成 11 列矩阵
-        // 需求：
-        //   - CITIBET      : MY EARNINGS 与 TOTAL 的金额放在第 11 列
-        //   - CITIBET MAJOR: MY EARNINGS 与 TOTAL 的金额放在第 10 列
+        // 通用版本（用于普通 CITIBET），尽量完整还原原始结构
         function parseCitibetPaymentReport(pastedData) {
             if (!pastedData || typeof pastedData !== 'string') return null;
 
@@ -3680,14 +3678,6 @@ if ($current_user_id && count($user_companies) > 0) {
             const colCount = 11;
             let section = '';
 
-            // 根据当前类型决定「金额目标列」索引（0-based）
-            // CITIBET      -> index 10 (第 11 列)
-            // CITIBET MAJOR-> index 9  (第 10 列)
-            const amountTargetIndex =
-                (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR')
-                    ? 9
-                    : 10;
-
             const pushRow = (arr) => {
                 const row = [...arr];
                 while (row.length < colCount) row.push('');
@@ -3709,7 +3699,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 if (lower.includes('username') && lower.includes('type')) return;
 
-                // My Earnings 行（金额放在金额目标列）
+                // My Earnings 行（金额固定放在第 11 列）
                 if (lower.includes('my earnings')) {
                     const tokens = splitLine(line);
                     if (tokens.length >= 2) {
@@ -3717,15 +3707,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         const amount = tokens[tokens.length - 1];
                         const row = new Array(colCount).fill('');
                         row[0] = label;
-                        if (amountTargetIndex >= 0 && amountTargetIndex < colCount) {
-                            row[amountTargetIndex] = amount;
-                        }
+                        row[10] = amount;
                         pushRow(row);
                     }
                     return;
                 }
 
-                // Total : (Ringgit Malaysia (RM)) 行（金额放在金额目标列）
+                // Total : (Ringgit Malaysia (RM)) 行（金额固定放在第 11 列）
                 if (lower.includes('total :') || lower.startsWith('total')) {
                     const tokens = splitLine(line);
                     if (tokens.length >= 1) {
@@ -3733,9 +3721,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const amount = tokens[tokens.length - 1];
                         const row = new Array(colCount).fill('');
                         row[0] = label;
-                        if (amountTargetIndex >= 0 && amountTargetIndex < colCount) {
-                            row[amountTargetIndex] = amount;
-                        }
+                        row[10] = amount;
                         pushRow(row);
                     }
                     return;
@@ -3782,6 +3768,172 @@ if ($current_user_id && count($user_companies) > 0) {
                     pushRow(row);
                 }
             });
+
+            if (rows.length === 0) return null;
+
+            return {
+                dataMatrix: rows,
+                maxRows: rows.length,
+                maxCols: colCount
+            };
+        }
+
+        // 针对 CITIBET MAJOR 的专用解析器：
+        // 只保留你截图里红框的几行，并直接生成「最终想要」的 6 行结构：
+        // Row1: OVERALL 行
+        // Row2: 上线用户名（如 M99M06）
+        // Row3: MY EARNINGS : (RINGGIT MALAYSIA (RM))
+        // Row4: MG 明细行
+        // Row5: PL 明细行
+        // Row6: TOTALS : RINGGIT MALAYSIA (RM)
+        function parseCitibetMajorPaymentReport(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+
+            const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const rawLines = norm.split('\n').map(l => l.trim());
+
+            if (!rawLines.some(l => l.toLowerCase().includes('upline payment')) ||
+                !rawLines.some(l => l.toLowerCase().includes('downline payment'))) {
+                return null;
+            }
+
+            const colCount = 11;
+            const makeRow = () => new Array(colCount).fill('');
+
+            const nonEmpty = rawLines.filter(l => l !== '');
+
+            // 工具：按制表符或多个空格/单空格拆列
+            const splitLine = (line) => {
+                if (line.includes('\t')) {
+                    return line.split('\t').map(c => (c || '').trim()).filter(c => c !== '');
+                }
+                const byDoubleSpace = line.split(/\s{2,}/).map(c => (c || '').trim()).filter(c => c !== '');
+                if (byDoubleSpace.length > 1) return byDoubleSpace;
+                return line.split(/\s+/).map(c => (c || '').trim()).filter(c => c !== '');
+            };
+
+            // 1) Upline 部分：Overall / MG / My Earnings
+            const overallIdx = nonEmpty.findIndex(l => /^overall\b/i.test(l));
+            if (overallIdx === -1) return null;
+
+            const overallTokens = splitLine(nonEmpty[overallIdx]); // Overall 740 $5.18 518 $13.47 ... $18.65 ($947.69)
+            if (overallTokens.length < 3) return null;
+
+            const rows = [];
+
+            // Row1: OVERALL 行
+            const row1 = makeRow();
+            row1[0] = 'OVERALL';
+            // 尽量按顺序映射：Bet, Bet Tax, Eat, Eat Tax, Tax, Profit/Loss, Total Tax, Total Profit/Loss
+            // 这里我们只用 Bet / BetTax / Eat / EatTax / ProfitLoss / TotalProfitLoss
+            const oNums = overallTokens.slice(1);
+            row1[4] = oNums[0] || ''; // Bet
+            row1[5] = oNums[1] || ''; // Bet Tax
+            row1[6] = oNums[2] || ''; // Eat
+            row1[7] = oNums[3] || ''; // Eat Tax
+            // 最后两个认为是 Profit/Loss 与 Total Profit/Loss
+            if (oNums.length >= 2) {
+                row1[9]  = oNums[oNums.length - 2] || ''; // Column 10
+                row1[10] = oNums[oNums.length - 1] || ''; // Column 11
+            }
+            rows.push(row1);
+
+            // 找 My Earnings 行
+            const myEarnIdx = nonEmpty.findIndex(l => l.toLowerCase().includes('my earnings'));
+            if (myEarnIdx === -1) return null;
+            const myEarnTokens = splitLine(nonEmpty[myEarnIdx]);
+            if (myEarnTokens.length < 2) return null;
+
+            const myAmount = myEarnTokens[myEarnTokens.length - 1];
+            const myLabel = myEarnTokens.slice(0, -1).join(' ').toUpperCase();
+
+            // Row2: 上线用户名行（例如 M99M06）
+            // 从 Upline MG 区块提取用户名
+            const mgHeaderIdx = nonEmpty.findIndex(l => /^mg\b/i.test(l));
+            let parentUser = '';
+            if (mgHeaderIdx !== -1) {
+                const mgHeaderTokens = splitLine(nonEmpty[mgHeaderIdx]); // MG m99m06
+                if (mgHeaderTokens.length >= 2) {
+                    parentUser = mgHeaderTokens[1] || '';
+                }
+            }
+            const row2 = makeRow();
+            if (parentUser) row2[0] = parentUser.toUpperCase();
+            rows.push(row2);
+
+            // Row3: MY EARNINGS
+            const row3 = makeRow();
+            row3[0] = myLabel;
+            row3[9] = myAmount; // 金额在第 10 列
+            rows.push(row3);
+
+            // 2) Downline MG / PL 两行
+            const downlineStart = nonEmpty.findIndex(l => /^downline payment/i.test(l));
+            if (downlineStart === -1) return null;
+
+            // MG 区块
+            const mgIdx2 = nonEmpty.findIndex((l, idx) => idx > downlineStart && /^mg\b/i.test(l));
+            if (mgIdx2 === -1) return null;
+            const mgIdTokens = splitLine(nonEmpty[mgIdx2]); // MG m99m06
+
+            let mgDataIdx = mgIdx2 + 1;
+            while (mgDataIdx < nonEmpty.length && nonEmpty[mgDataIdx] === '') mgDataIdx++;
+            if (mgDataIdx >= nonEmpty.length) return null;
+            const mgDataTokens = splitLine(nonEmpty[mgDataIdx]); // m06-KZ Major 0 $0.00 ...
+            if (mgDataTokens.length < 10) return null;
+
+            const row4 = makeRow();
+            row4[0] = (mgIdTokens[1] || '').toUpperCase(); // Username
+            row4[1] = mgDataTokens[0] || '';               // Code (m06-KZ)
+            row4[2] = (mgDataTokens[1] || '').toUpperCase(); // MG
+            row4[3] = 'WIN/PLC';
+            row4[4] = mgDataTokens[2] || ''; // Bet
+            row4[5] = mgDataTokens[3] || ''; // Bet Tax
+            row4[6] = mgDataTokens[4] || ''; // Eat
+            row4[7] = mgDataTokens[5] || ''; // Eat Tax
+            row4[8] = mgDataTokens[6] || ''; // Tax
+            row4[9] = mgDataTokens[7] || ''; // Profit/Loss
+            row4[10] = mgDataTokens[9] || mgDataTokens[8] || ''; // Total Profit/Loss
+            rows.push(row4);
+
+            // PL 区块
+            const plHeaderIdx = nonEmpty.findIndex((l, idx) => idx > downlineStart && /\bpl\b/i.test(l));
+            if (plHeaderIdx === -1) return null;
+            const plHeaderTokens = splitLine(nonEmpty[plHeaderIdx]); // 1 PL yong
+
+            let plDataIdx = plHeaderIdx + 1;
+            while (plDataIdx < nonEmpty.length && nonEmpty[plDataIdx] === '') plDataIdx++;
+            if (plDataIdx >= nonEmpty.length) return null;
+            const plDataTokens = splitLine(nonEmpty[plDataIdx]); // yong Major 740 ...
+            if (plDataTokens.length < 10) return null;
+
+            const row5 = makeRow();
+            row5[0] = (plHeaderTokens[2] || '').toUpperCase(); // Username yong
+            row5[1] = plDataTokens[0] || '';                   // Code yong
+            row5[2] = (plDataTokens[1] || '').toUpperCase();   // PL
+            row5[3] = 'WIN/PLC';
+            row5[4] = plDataTokens[2] || ''; // Bet
+            row5[5] = plDataTokens[3] || ''; // Bet Tax
+            row5[6] = plDataTokens[4] || ''; // Eat
+            row5[7] = plDataTokens[5] || ''; // Eat Tax
+            row5[8] = plDataTokens[6] || ''; // Tax
+            row5[9] = plDataTokens[7] || ''; // Profit/Loss
+            row5[10] = plDataTokens[9] || plDataTokens[8] || ''; // Total Profit/Loss
+            rows.push(row5);
+
+            // 3) Total 行
+            const totalIdx = nonEmpty.findIndex(l => l.toLowerCase().startsWith('total :'));
+            if (totalIdx !== -1) {
+                const totalTokens = splitLine(nonEmpty[totalIdx]);
+                if (totalTokens.length >= 2) {
+                    const totalAmount = totalTokens[totalTokens.length - 1];
+                    const totalLabel = totalTokens.slice(0, -1).join(' ').toUpperCase();
+                    const row6 = makeRow();
+                    row6[0] = totalLabel;
+                    row6[9] = totalAmount; // 金额在第 10 列
+                    rows.push(row6);
+                }
+            }
 
             if (rows.length === 0) return null;
 
@@ -4660,7 +4812,13 @@ if ($current_user_id && count($user_companies) > 0) {
             const pastedData = (e.clipboardData || window.clipboardData).getData('text');
             
             // Citibet 专用解析（先于通用 Payment 逻辑）
-            const citibetParsed = parseCitibetPaymentReport(pastedData);
+            let citibetParsed = null;
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR') {
+                // CITIBET MAJOR 使用更严格的专用解析器，只保留红框中的关键几行
+                citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+            } else {
+                citibetParsed = parseCitibetPaymentReport(pastedData);
+            }
             if (citibetParsed) {
                 const { dataMatrix, maxRows, maxCols } = citibetParsed;
 
