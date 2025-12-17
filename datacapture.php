@@ -3443,21 +3443,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 如果没有找到金额，检查第10列或第11列是否已经有金额
-                if (!amountCell) {
-                    if (cells[9]) {
-                        const existingAmount = (cells[9].textContent || '').trim();
-                        if (existingAmount && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(existingAmount)) {
-                            amountValue = existingAmount;
-                            amountCell = cells[9];
-                        }
-                    }
-                    if (!amountValue && cells[10]) {
-                        const existingAmount = (cells[10].textContent || '').trim();
-                        if (existingAmount && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(existingAmount)) {
-                            amountValue = existingAmount;
-                            amountCell = cells[10];
-                        }
+                // 如果没有找到金额，检查第11列是否已经有金额
+                if (!amountCell && cells[10]) {
+                    const existingAmount = (cells[10].textContent || '').trim();
+                    if (existingAmount && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(existingAmount)) {
+                        amountValue = existingAmount;
+                        amountCell = cells[10];
                     }
                 }
                 
@@ -3511,25 +3502,21 @@ if ($current_user_id && count($user_companies) > 0) {
                         cells[0].textContent = labelText.toUpperCase();
                     }
                     
-                    // 将金额放在第10列（索引9）
-                    if (amountCell && amountCell !== cells[9]) {
+                    // 将金额放在第11列（索引10）
+                    if (amountCell && amountCell !== cells[10]) {
                         amountCell.textContent = '';
                     }
-                    if (cells[9]) {
-                        cells[9].textContent = amountValue;
+                    if (cells[10]) {
+                        cells[10].textContent = amountValue;
                     }
                     
                     return; // MY EARNINGS 处理完成
                 }
                 
-                // 对于 TOTAL 行：保持原来的逻辑（合并显示在第11列）
-                // 清除之前可能存在的金额（从其他列）
-                if (amountCell) {
-                    amountCell.textContent = '';
-                }
-
-                // 确保有足够的列（至少15列）
-                while (cells.length < requiredCols) {
+                // 对于 TOTAL 行：标签在列1，金额在列11
+                // 确保有足够的列（至少11列）
+                const minCols = 11;
+                while (cells.length < minCols) {
                     const newCell = document.createElement('td');
                     newCell.contentEditable = true;
                     newCell.dataset.col = cells.length;
@@ -3556,38 +3543,52 @@ if ($current_user_id && count($user_companies) > 0) {
                     row.appendChild(newCell);
                     cells.push(newCell);
                 }
-
-                // 合并第11-15列（索引10-14）来显示标签和金额
-                // 清除第11-15列的内容
-                for (let i = 10; i <= 14; i++) {
-                    if (cells[i]) {
-                        cells[i].textContent = '';
-                        // 移除之前的colspan属性
-                        cells[i].removeAttribute('colspan');
+                
+                // 获取第一列的标签文本（如果标签和金额混在一起，需要分离）
+                let labelText = (cells[0]?.textContent || '').trim();
+                // 如果第一列包含金额，尝试分离
+                const labelAmountMatch = labelText.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                if (labelAmountMatch) {
+                    labelText = labelAmountMatch[1].trim();
+                    if (!amountValue) {
+                        amountValue = labelAmountMatch[2];
                     }
                 }
-
-                // 在第11列设置合并单元格，显示完整文本（标签 + 金额）
-                const targetCell = cells[10];
-                if (targetCell) {
-                    // 获取第一列的标签文本
-                    const labelText = (cells[0]?.textContent || '').trim();
-                    // 组合标签和金额
-                    const fullText = labelText + ' ' + amountValue;
-                    targetCell.textContent = fullText;
-                    targetCell.setAttribute('colspan', '5'); // 合并第11-15列（5列）
-                    
-                    // 隐藏第12-15列（因为已经合并到第11列）
-                    for (let i = 11; i <= 14; i++) {
-                        if (cells[i]) {
-                            cells[i].style.display = 'none';
+                
+                // 如果第一列没有标签文本，尝试从其他列找
+                if (!labelText || labelText === '') {
+                    // 尝试从第一列或其他列找 TOTAL 标签
+                    for (let i = 0; i < Math.min(11, cells.length); i++) {
+                        const cellText = (cells[i]?.textContent || '').trim();
+                        if (cellText.toUpperCase().includes('TOTAL') && (cellText.toUpperCase().includes('RINGGIT') || cellText.toUpperCase().includes('RM') || cellText.toUpperCase().includes('MALAYSIA'))) {
+                            // 尝试从这个单元格分离标签和金额
+                            const cellMatch = cellText.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                            if (cellMatch) {
+                                labelText = cellMatch[1].trim();
+                                if (!amountValue) {
+                                    amountValue = cellMatch[2];
+                                }
+                            } else {
+                                labelText = cellText;
+                            }
+                            // 清除原单元格
+                            cells[i].textContent = '';
+                            break;
                         }
                     }
-                    
-                    // 清除第一列的内容（因为已经移到合并单元格中）
-                    if (cells[0]) {
-                        cells[0].textContent = '';
-                    }
+                }
+                
+                // 确保标签在第一列（列1，索引0）
+                if (cells[0]) {
+                    cells[0].textContent = labelText.toUpperCase();
+                }
+                
+                // 将金额放在第11列（索引10）
+                if (amountCell && amountCell !== cells[10]) {
+                    amountCell.textContent = '';
+                }
+                if (cells[10]) {
+                    cells[10].textContent = amountValue;
                 }
             });
         }
@@ -3914,8 +3915,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     const amount = tokens[tokens.length - 1];
                     // 创建11列的行（索引0-10，对应列1-11）
                     const myEarningsRow = new Array(11).fill('');
-                    myEarningsRow[0] = label;  // 列1（索引0）：MY EARNINGS : (RINGGIT MALAYSIA (RM))
-                    myEarningsRow[9] = amount; // 列10（索引9）：金额如 $0.00
+                    myEarningsRow[0] = label;   // 列1（索引0）：MY EARNINGS : (RINGGIT MALAYSIA (RM))
+                    myEarningsRow[10] = amount;  // 列11（索引10）：金额如 $0.00
                     matrix.push(myEarningsRow);
                 } else if (tokens.length === 1 && tokens[0]) {
                     // 如果只有一个token，尝试分割出金额
@@ -3927,7 +3928,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const label = fullText.substring(0, amountMatch.index).trim();
                         const myEarningsRow = new Array(11).fill('');
                         myEarningsRow[0] = label.toUpperCase(); // 列1
-                        myEarningsRow[9] = amount;              // 列10
+                        myEarningsRow[10] = amount;              // 列11
                         matrix.push(myEarningsRow);
                     } else {
                         // 如果无法分割，放在第一列
@@ -4297,12 +4298,70 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 如果包含 Total 和 (Ringgit/RM/Malaysia 或金额)，则认为是 Total 行
                     if (hasTotal && (hasRinggit || hasAmount)) {
-                        // 保留 Total 行
-                        const totalRow = [];
-                        for (let k = 0; k < Math.min(11, tokens.length); k++) {
-                            totalRow.push(tokens[k] || '');
+                        // 处理 Total 行：标签在列1，金额在列11
+                        const totalRow = new Array(11).fill('');
+                        
+                        // 尝试分离标签和金额
+                        let label = '';
+                        let amount = '';
+                        
+                        // 查找包含 TOTAL 和 RINGGIT 的 token
+                        let labelTokenIndex = -1;
+                        for (let k = 0; k < tokens.length; k++) {
+                            const token = (tokens[k] || '').toLowerCase();
+                            if (token.includes('total') && (token.includes('ringgit') || token.includes('rm') || token.includes('malaysia'))) {
+                                labelTokenIndex = k;
+                                break;
+                            }
                         }
-                        while (totalRow.length < 11) totalRow.push('');
+                        
+                        if (labelTokenIndex >= 0) {
+                            // 从标签 token 中分离标签和金额
+                            const labelToken = tokens[labelTokenIndex];
+                            const labelAmountMatch = labelToken.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                            if (labelAmountMatch) {
+                                label = labelAmountMatch[1].trim();
+                                amount = labelAmountMatch[2];
+                            } else {
+                                label = labelToken;
+                                // 从其他 token 找金额
+                                for (let k = tokens.length - 1; k >= 0; k--) {
+                                    if (k !== labelTokenIndex) {
+                                        const token = tokens[k] || '';
+                                        if (token && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(token)) {
+                                            amount = token;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // 如果没找到包含 TOTAL 和 RINGGIT 的 token，尝试从第一个 token 分离
+                            if (tokens.length > 0) {
+                                const firstToken = tokens[0];
+                                const labelAmountMatch = firstToken.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                                if (labelAmountMatch) {
+                                    label = labelAmountMatch[1].trim();
+                                    amount = labelAmountMatch[2];
+                                } else {
+                                    // 组合所有包含 TOTAL 和 RINGGIT 的 tokens 作为标签
+                                    const labelTokens = [];
+                                    for (let k = 0; k < tokens.length; k++) {
+                                        const token = tokens[k] || '';
+                                        if (token.toLowerCase().includes('total') || token.toLowerCase().includes('ringgit') || token.toLowerCase().includes('rm') || token.toLowerCase().includes('malaysia')) {
+                                            labelTokens.push(token);
+                                        } else if (token && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(token)) {
+                                            amount = token;
+                                        }
+                                    }
+                                    label = labelTokens.join(' ');
+                                }
+                            }
+                        }
+                        
+                        totalRow[0] = label.toUpperCase();  // 列1：TOTAL : (RINGGIT MALAYSIA (RM))
+                        totalRow[10] = amount;               // 列11：金额
+                        
                         if (totalRow.some(v => (v || '').toString().trim() !== '')) {
                             matrix.push(totalRow);
                         }
@@ -4315,11 +4374,31 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (hasTotal && tokens.length >= 2) {
                         // 检查是否有金额格式（包含 $ 或括号）
                         if (hasAmount) {
-                            const totalRow = [];
-                            for (let k = 0; k < Math.min(11, tokens.length); k++) {
-                                totalRow.push(tokens[k] || '');
+                            const totalRow = new Array(11).fill('');
+                            // 尝试分离标签和金额
+                            let label = '';
+                            let amount = '';
+                            
+                            // 查找包含 TOTAL 的 token
+                            let labelTokens = [];
+                            for (let k = 0; k < tokens.length; k++) {
+                                const token = tokens[k] || '';
+                                if (token.toLowerCase().includes('total')) {
+                                    labelTokens.push(token);
+                                } else if (token && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(token)) {
+                                    amount = token;
+                                }
                             }
-                            while (totalRow.length < 11) totalRow.push('');
+                            
+                            if (labelTokens.length > 0) {
+                                label = labelTokens.join(' ');
+                            } else if (tokens.length > 0) {
+                                label = tokens[0];
+                            }
+                            
+                            totalRow[0] = label.toUpperCase();  // 列1
+                            totalRow[10] = amount;               // 列11
+                            
                             if (totalRow.some(v => (v || '').toString().trim() !== '')) {
                                 matrix.push(totalRow);
                             }
@@ -4965,8 +5044,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 找到金额，分离标签和金额
                             const amount = amountMatch[1];
                             const label = firstCell.substring(0, amountMatch.index).trim().toUpperCase();
-                            earningsRow[0] = label;  // 列1：MY EARNINGS : (RINGGIT MALAYSIA (RM))
-                            earningsRow[9] = amount; // 列10：金额如 $0.00
+                            earningsRow[0] = label;   // 列1：MY EARNINGS : (RINGGIT MALAYSIA (RM))
+                            earningsRow[10] = amount;  // 列11：金额如 $0.00
                         } else {
                             // 如果第一列没有金额，尝试从其他列找金额
                             // 先放标签到第一列
@@ -4977,7 +5056,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             for (let j = rowCells.length - 1; j >= 1; j--) {
                                 const cell = rowCells[j] || '';
                                 if (cell && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(cell)) {
-                                    earningsRow[9] = cell; // 列10：金额
+                                    earningsRow[10] = cell; // 列11：金额
                                     foundAmount = true;
                                     break;
                                 }
@@ -5094,12 +5173,48 @@ if ($current_user_id && count($user_companies) > 0) {
                             
                             // 检查是否是 Total 行
                             if (nextFirst.includes('TOTAL') && (nextFirst.includes('RINGGIT') || nextFirst.includes('RM') || nextFirst.includes('MALAYSIA') || nextRowCells.some(c => c.includes('$') || c.includes('(')))) {
-                                // 处理 Total 行
-                                const totalRow = [];
-                                for (let k = 0; k < Math.min(11, nextRowCells.length); k++) {
-                                    totalRow.push(nextRowCells[k] || '');
+                                // 处理 Total 行：标签在列1，金额在列11
+                                const totalRow = new Array(11).fill('');
+                                
+                                // 尝试分离标签和金额
+                                let label = '';
+                                let amount = '';
+                                
+                                // 查找包含 TOTAL 和 RINGGIT 的单元格
+                                for (let k = 0; k < nextRowCells.length; k++) {
+                                    const cell = (nextRowCells[k] || '').trim();
+                                    const cellLower = cell.toLowerCase();
+                                    if (cellLower.includes('total') && (cellLower.includes('ringgit') || cellLower.includes('rm') || cellLower.includes('malaysia'))) {
+                                        // 尝试从这个单元格分离标签和金额
+                                        const labelAmountMatch = cell.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                                        if (labelAmountMatch) {
+                                            label = labelAmountMatch[1].trim();
+                                            amount = labelAmountMatch[2];
+                                        } else {
+                                            label = cell;
+                                        }
+                                    } else if (cell && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(cell)) {
+                                        if (!amount) {
+                                            amount = cell;
+                                        }
+                                    }
                                 }
-                                while (totalRow.length < 11) totalRow.push('');
+                                
+                                // 如果没找到标签，组合所有包含 TOTAL 的单元格
+                                if (!label) {
+                                    const labelCells = [];
+                                    for (let k = 0; k < nextRowCells.length; k++) {
+                                        const cell = (nextRowCells[k] || '').trim();
+                                        if (cell.toLowerCase().includes('total') || cell.toLowerCase().includes('ringgit') || cell.toLowerCase().includes('rm') || cell.toLowerCase().includes('malaysia')) {
+                                            labelCells.push(cell);
+                                        }
+                                    }
+                                    label = labelCells.join(' ');
+                                }
+                                
+                                totalRow[0] = label.toUpperCase();  // 列1：TOTAL : (RINGGIT MALAYSIA (RM))
+                                totalRow[10] = amount;               // 列11：金额
+                                
                                 filteredRows.push(totalRow.join('\t'));
                                 processedIndices.add(j);
                                 j++;
@@ -5143,11 +5258,48 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 检查是否是 Total 行（不在 MG 组内的）
                     if (first.includes('TOTAL') && (first.includes('RINGGIT') || first.includes('RM') || first.includes('MALAYSIA') || rowCells.some(c => c.includes('$') || c.includes('(')))) {
-                        const totalRow = [];
-                        for (let k = 0; k < Math.min(11, rowCells.length); k++) {
-                            totalRow.push(rowCells[k] || '');
+                        // 处理 Total 行：标签在列1，金额在列11
+                        const totalRow = new Array(11).fill('');
+                        
+                        // 尝试分离标签和金额
+                        let label = '';
+                        let amount = '';
+                        
+                        // 查找包含 TOTAL 和 RINGGIT 的单元格
+                        for (let k = 0; k < rowCells.length; k++) {
+                            const cell = (rowCells[k] || '').trim();
+                            const cellLower = cell.toLowerCase();
+                            if (cellLower.includes('total') && (cellLower.includes('ringgit') || cellLower.includes('rm') || cellLower.includes('malaysia'))) {
+                                // 尝试从这个单元格分离标签和金额
+                                const labelAmountMatch = cell.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                                if (labelAmountMatch) {
+                                    label = labelAmountMatch[1].trim();
+                                    amount = labelAmountMatch[2];
+                                } else {
+                                    label = cell;
+                                }
+                            } else if (cell && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(cell)) {
+                                if (!amount) {
+                                    amount = cell;
+                                }
+                            }
                         }
-                        while (totalRow.length < 11) totalRow.push('');
+                        
+                        // 如果没找到标签，组合所有包含 TOTAL 的单元格
+                        if (!label) {
+                            const labelCells = [];
+                            for (let k = 0; k < rowCells.length; k++) {
+                                const cell = (rowCells[k] || '').trim();
+                                if (cell.toLowerCase().includes('total') || cell.toLowerCase().includes('ringgit') || cell.toLowerCase().includes('rm') || cell.toLowerCase().includes('malaysia')) {
+                                    labelCells.push(cell);
+                                }
+                            }
+                            label = labelCells.join(' ');
+                        }
+                        
+                        totalRow[0] = label.toUpperCase();  // 列1：TOTAL : (RINGGIT MALAYSIA (RM))
+                        totalRow[10] = amount;             // 列11：金额
+                        
                         filteredRows.push(totalRow.join('\t'));
                         processedIndices.add(i);
                         continue;
