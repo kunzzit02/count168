@@ -3239,6 +3239,11 @@ function getCurrentProcessId() {
         function addFormulaValidation() {
             const formulaInput = document.getElementById('formula');
             if (formulaInput) {
+                // Remove existing event listener if any (prevent duplicate bindings)
+                if (formulaInput._formulaInputHandler) {
+                    formulaInput.removeEventListener('input', formulaInput._formulaInputHandler);
+                }
+                
                 // No input restrictions - allow all characters
                 // User can input any formula expression they want
                 
@@ -3247,9 +3252,8 @@ function getCurrentProcessId() {
                 // Flag to prevent concurrent processing
                 let isProcessingInput = false;
                 
-                // When user manually edits formula, update columns based on current formula numbers
-                // This ensures Columns reflects the columns actually used in the current formula
-                formulaInput.addEventListener('input', function() {
+                // Named function for event handler (allows removal if needed)
+                const inputHandler = function() {
                     // Skip if already processing to prevent concurrent calls
                     if (isProcessingInput) {
                         return;
@@ -3277,7 +3281,16 @@ function getCurrentProcessId() {
                     // Process manual keyboard input: replace numbers with column values based on preceding operator
                     // Numbers after + or - (or at start) should be replaced with column values
                     // Numbers after * or / should remain as literal numbers
-                    if (processValue && formulaValue !== previousValue) {
+                    // Only process if value actually changed and we have a process value
+                    if (processValue && formulaValue !== previousValue && formulaValue.length > previousValue.length) {
+                        // Double-check that current value matches what we're processing (prevent race conditions)
+                        const currentActualValue = this.value;
+                        if (currentActualValue !== formulaValue) {
+                            // Value changed during processing, update and return
+                            previousValue = currentActualValue;
+                            return;
+                        }
+                        
                         isProcessingInput = true;
                         try {
                             const cursorPos = this.selectionStart || this.value.length;
@@ -3292,19 +3305,18 @@ function getCurrentProcessId() {
                                 const lengthDiff = newValue.length - formulaValue.length;
                                 const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
                                 this.setSelectionRange(newCursorPos, newCursorPos);
+                                // Update previousValue to match the new value
                                 previousValue = newValue;
-                                // Continue processing with the updated value
-                                formulaValue = newValue;
                             } else {
+                                // No change, just update previousValue
                                 previousValue = formulaValue;
                             }
                         } finally {
-                            // Use setTimeout to ensure flag is reset after all events are processed
-                            setTimeout(() => {
-                                isProcessingInput = false;
-                            }, 0);
+                            // Reset flag immediately after processing
+                            isProcessingInput = false;
                         }
                     } else {
+                        // Value didn't change or decreased (deletion), just update previousValue
                         previousValue = formulaValue;
                     }
                     
@@ -3760,7 +3772,13 @@ function getCurrentProcessId() {
                             }
                         }
                     }
-                });
+                };
+                
+                // Store handler reference for potential removal
+                formulaInput._formulaInputHandler = inputHandler;
+                
+                // Add event listener
+                formulaInput.addEventListener('input', inputHandler);
                 
                 // 添加额外的键盘事件监听器，确保全选删除时也能正确更新
                 // 处理 Backspace 和 Delete 键
