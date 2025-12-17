@@ -5766,62 +5766,78 @@ function getCurrentProcessId() {
                 let isPercentInsideParens = false;
                 let trailingSourcePercent = '';
                 let hadOriginalSourcePercent = false; // Track if original formula had source percent
-                
-                // First, check if formula ends with source percent pattern: *(number) or *(expression)
-                // This is the source percent added by createFormulaDisplayFromExpression
-                const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                const trailingMatch = savedFormulaDisplay.match(trailingSourcePercentPattern);
-                if (trailingMatch) {
-                    // Formula ends with source percent, mark that original formula had source percent
-                    hadOriginalSourcePercent = true;
-                    // Formula ends with source percent, temporarily remove it for analysis
-                    const baseFormula = trailingMatch[1];
-                    trailingSourcePercent = trailingMatch[0].substring(baseFormula.length);
-                    
-                    // Now check if base formula has * inside parentheses
-                    const baseLastStarIndex = baseFormula.lastIndexOf('*');
-                    if (baseLastStarIndex >= 0) {
-                        const beforeStar = baseFormula.substring(0, baseLastStarIndex);
-                        const openParens = (beforeStar.match(/\(/g) || []).length;
-                        const closeParens = (beforeStar.match(/\)/g) || []).length;
-                        isPercentInsideParens = openParens > closeParens;
+
+                // 只有在启用了 Source % 且有有效的 sourcePercentValue 时，才解析尾部的 *0.x 为 Source %
+                const shouldParsePercent =
+                    !!enableSourcePercent &&
+                    sourcePercentValue !== undefined &&
+                    sourcePercentValue !== null &&
+                    String(sourcePercentValue).trim() !== '';
+
+                if (shouldParsePercent) {
+                    // First, check if formula ends with source percent pattern: *(number) or *(expression)
+                    // This is the source percent added by createFormulaDisplayFromExpression
+                    const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
+                    const trailingMatch = savedFormulaDisplay.match(trailingSourcePercentPattern);
+                    if (trailingMatch) {
+                        // Formula ends with source percent, mark that original formula had source percent
+                        hadOriginalSourcePercent = true;
+                        // Formula ends with source percent, temporarily remove it for analysis
+                        const baseFormula = trailingMatch[1];
+                        trailingSourcePercent = trailingMatch[0].substring(baseFormula.length);
                         
-                        if (isPercentInsideParens) {
-                            console.log('Base formula has * inside parentheses, treating entire base formula as formulaPart (will preserve *0.1 structure):', baseFormula);
-                            // Use base formula as formulaPart, and trailing source percent will be re-added later
-                            lastStarIndex = -1; // Reset to indicate no percent part extraction from base
+                        // Now check if base formula has * inside parentheses
+                        const baseLastStarIndex = baseFormula.lastIndexOf('*');
+                        if (baseLastStarIndex >= 0) {
+                            const beforeStar = baseFormula.substring(0, baseLastStarIndex);
+                            const openParens = (beforeStar.match(/\(/g) || []).length;
+                            const closeParens = (beforeStar.match(/\)/g) || []).length;
+                            isPercentInsideParens = openParens > closeParens;
+                            
+                            if (isPercentInsideParens) {
+                                console.log('Base formula has * inside parentheses, treating entire base formula as formulaPart (will preserve *0.1 structure):', baseFormula);
+                                // Use base formula as formulaPart, and trailing source percent will be re-added later
+                                lastStarIndex = -1; // Reset to indicate no percent part extraction from base
+                            } else {
+                                // Base formula doesn't have * inside parentheses, but ends with source percent
+                                // Extract the trailing source percent as percentPart
+                                lastStarIndex = baseFormula.length; // Position where trailing source percent starts
+                                percentPart = trailingSourcePercent;
+                                console.log('Formula ends with source percent, extracted as percentPart:', percentPart);
+                            }
                         } else {
-                            // Base formula doesn't have * inside parentheses, but ends with source percent
-                            // Extract the trailing source percent as percentPart
-                            lastStarIndex = baseFormula.length; // Position where trailing source percent starts
+                            // Base formula has no *, so trailing source percent is the only percent part
+                            lastStarIndex = baseFormula.length;
                             percentPart = trailingSourcePercent;
-                            console.log('Formula ends with source percent, extracted as percentPart:', percentPart);
+                            console.log('Base formula has no *, extracted trailing source percent as percentPart:', percentPart);
                         }
                     } else {
-                        // Base formula has no *, so trailing source percent is the only percent part
-                        lastStarIndex = baseFormula.length;
-                        percentPart = trailingSourcePercent;
-                        console.log('Base formula has no *, extracted trailing source percent as percentPart:', percentPart);
-                    }
-                } else {
-                    // Formula doesn't end with source percent pattern, check normally
-                    // Find the last occurrence of *
-                    lastStarIndex = savedFormulaDisplay.lastIndexOf('*');
-                    if (lastStarIndex >= 0) {
-                        // Check if this * is inside parentheses
-                        const beforeStar = savedFormulaDisplay.substring(0, lastStarIndex);
-                        const openParens = (beforeStar.match(/\(/g) || []).length;
-                        const closeParens = (beforeStar.match(/\)/g) || []).length;
-                        isPercentInsideParens = openParens > closeParens;
-                        
-                        // If * is inside parentheses, don't extract it as percent part
-                        // The entire formula should be treated as formulaPart
-                        if (isPercentInsideParens) {
-                            console.log('Last * is inside parentheses, treating entire formula as formulaPart (will preserve *0.1 structure):', savedFormulaDisplay);
-                            percentPart = ''; // Don't extract percent part
-                            lastStarIndex = -1; // Reset to indicate no percent part extraction
+                        // Formula doesn't end with source percent pattern, check normally
+                        // Find the last occurrence of *
+                        lastStarIndex = savedFormulaDisplay.lastIndexOf('*');
+                        if (lastStarIndex >= 0) {
+                            // Check if this * is inside parentheses
+                            const beforeStar = savedFormulaDisplay.substring(0, lastStarIndex);
+                            const openParens = (beforeStar.match(/\(/g) || []).length;
+                            const closeParens = (beforeStar.match(/\)/g) || []).length;
+                            isPercentInsideParens = openParens > closeParens;
+                            
+                            // If * is inside parentheses, don't extract it as percent part
+                            // The entire formula should be treated as formulaPart
+                            if (isPercentInsideParens) {
+                                console.log('Last * is inside parentheses, treating entire formula as formulaPart (will preserve *0.1 structure):', savedFormulaDisplay);
+                                percentPart = ''; // Don't extract percent part
+                                lastStarIndex = -1; // Reset to indicate no percent part extraction
+                            }
                         }
                     }
+                } else {
+                    // 未启用 Source % 或没有有效的 sourcePercentValue，
+                    // 不要把尾部的 *0.x 当成百分比，整条公式都当普通公式处理
+                    percentPart = '';
+                    lastStarIndex = -1;
+                    hadOriginalSourcePercent = false;
+                    isPercentInsideParens = false;
                 }
                 
                 // Only extract percent part if * is NOT inside parentheses
