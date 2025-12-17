@@ -707,16 +707,25 @@ function getCurrentProcessId() {
                         td.style.minWidth = '40px';
                         td.style.cursor = 'pointer';
                         td.classList.add('clickable-table-cell');
-                        // Store column index: colIndex 0 is row header, colIndex 1 is Column A (column 1)
-                        // So column number = colIndex (first data column is colIndex 1, which is column 1)
-                        const columnIndex = colIndex; // colIndex 1 = Column A = column 1
+                        // Store column index: colIndex 0 is row header, colIndex 1 is id_product, colIndex 2+ are data columns
+                        const columnIndex = colIndex; // colIndex 1 = id_product, colIndex 2 = first data column (column 1)
                         td.setAttribute('data-column-index', columnIndex);
                         // Store row label for cell position identification (e.g., A7, B5)
                         if (rowLabel) {
                             td.setAttribute('data-row-label', rowLabel);
-                            // Store cell position (e.g., A7, B5) combining row label and column index
+                            // Store cell position (e.g., A7, B5) combining row label and column index (for backward compatibility)
                             const cellPosition = rowLabel + columnIndex;
                             td.setAttribute('data-cell-position', cellPosition);
+                        }
+                        // Store id_product for this row (colIndex 1 contains the id_product value)
+                        if (colIndex === 1 && rowData[1] && rowData[1].type === 'data') {
+                            const idProduct = rowData[1].value;
+                            // Store id_product in all cells of this row for easy access
+                            tr.setAttribute('data-id-product', idProduct);
+                        }
+                        // If this row has id_product stored, add it to this cell
+                        if (tr.getAttribute('data-id-product')) {
+                            td.setAttribute('data-id-product', tr.getAttribute('data-id-product'));
                         }
                         // Add click listener to insert value into formula
                         td.addEventListener('click', function() {
@@ -1034,7 +1043,92 @@ function getCurrentProcessId() {
             }
         }
 
-        // Get cell value from data capture table by cell position (e.g., A7, B5)
+        // Check if sourceColumnsValue is in new format (id_product:column_index)
+        function isNewIdProductColumnFormat(sourceColumnsValue) {
+            if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
+                return false;
+            }
+            const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+            if (parts.length === 0) {
+                return false;
+            }
+            // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
+            const newFormatPattern = /^[^:]+:\d+$/;
+            return newFormatPattern.test(parts[0]);
+        }
+        
+        // Parse new format source_columns and get cell values
+        function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
+            if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
+                return [];
+            }
+            
+            const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+            const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+            const cellValues = [];
+            
+            parts.forEach(part => {
+                const match = part.match(/^([^:]+):(\d+)$/);
+                if (match) {
+                    const idProduct = match[1];
+                    const columnIndex = parseInt(match[2]);
+                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
+                    if (cellValue !== null && cellValue !== '') {
+                        cellValues.push(cellValue);
+                    }
+                }
+            });
+            
+            return cellValues;
+        }
+        
+        // Get cell value from data capture table by id_product and column index (new format: "id_product:column_index")
+        function getCellValueByIdProductAndColumn(idProduct, columnIndex) {
+            try {
+                // Use transformed table data if available, otherwise get from localStorage
+                let parsedTableData;
+                if (window.transformedTableData) {
+                    parsedTableData = window.transformedTableData;
+                } else {
+                    const tableData = localStorage.getItem('capturedTableData');
+                    if (!tableData) {
+                        console.error('No captured table data found');
+                        return null;
+                    }
+                    parsedTableData = JSON.parse(tableData);
+                }
+                
+                // Find the row that matches the id_product
+                const processRow = findProcessRow(parsedTableData, idProduct);
+                if (!processRow) {
+                    console.error('Process row not found for id_product:', idProduct);
+                    return null;
+                }
+                
+                // columnIndex is 1-based data column index (1 = first data column)
+                // In processRow: index 0 = row header, index 1 = id_product, index 2 = first data column (column 1)
+                // So: columnIndex 1 -> processRow index 2, columnIndex 2 -> processRow index 3, etc.
+                const processRowIndex = columnIndex + 1; // Convert 1-based column index to processRow index
+                
+                if (processRowIndex >= 2 && processRowIndex < processRow.length) {
+                    const cellData = processRow[processRowIndex];
+                    if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
+                        // Extract numeric value (remove formatting)
+                        const cellValue = cellData.value.toString();
+                        const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                        return numericValue || cellValue;
+                    }
+                }
+                
+                console.error('Cell not found for id_product:', idProduct, 'column:', columnIndex);
+                return null;
+            } catch (error) {
+                console.error('Error getting cell value by id_product and column:', error);
+                return null;
+            }
+        }
+        
+        // Get cell value from data capture table by cell position (e.g., A7, B5) - backward compatibility
         function getCellValueFromPosition(cellPosition) {
             try {
                 const capturedTableBody = document.getElementById('capturedTableBody');
@@ -1094,15 +1188,43 @@ function getCurrentProcessId() {
         }
         
         function buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, currentEditRow = null) {
-            // Build reference format formula: [id_product : column_number] or [id_product : cell_position]
+            // Build reference format formula: [id_product : column_number] or [id_product : cell_position] or [id_product : column_index] (new format)
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 return '';
             }
             
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             
-            // Check if sourceColumnsValue contains cell positions (e.g., "A7 B5") or column numbers (e.g., "7 5")
-            const cellPositions = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+            // Check for new format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
+            const newFormatPattern = /^[^:]+:\d+$/;
+            const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+            const isNewFormat = parts.length > 0 && newFormatPattern.test(parts[0]);
+            
+            if (isNewFormat) {
+                // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
+                // Build reference format expression: [ABC123 : 3] + [DEF456 : 4]
+                const references = [];
+                parts.forEach(part => {
+                    const match = part.match(/^([^:]+):(\d+)$/);
+                    if (match) {
+                        const idProduct = match[1];
+                        const columnIndex = match[2];
+                        references.push(`[${idProduct} : ${columnIndex}]`);
+                    }
+                });
+                
+                if (references.length > 0) {
+                    let expression = references[0];
+                    for (let i = 1; i < references.length; i++) {
+                        const operator = operatorsString[i - 1] || '+';
+                        expression += ` ${operator} ${references[i]}`;
+                    }
+                    return expression;
+                }
+            }
+            
+            // Check if sourceColumnsValue contains cell positions (e.g., "A7 B5") - backward compatibility
+            const cellPositions = parts;
             const isCellPositionFormat = cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
             
             if (isCellPositionFormat) {
@@ -3120,7 +3242,14 @@ function getCurrentProcessId() {
                 // When user manually edits formula, update columns based on current formula numbers
                 // This ensures Columns reflects the columns actually used in the current formula
                 formulaInput.addEventListener('input', function() {
-                    const formulaValue = this.value;
+                    // Skip if this is a programmatic update (to prevent recursive calls)
+                    if (this.getAttribute('data-programmatic-update') === 'true') {
+                        this.removeAttribute('data-programmatic-update');
+                        previousValue = this.value;
+                        return;
+                    }
+                    
+                    let formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
                     // Skip processing if this value came from a cell click
@@ -3139,6 +3268,8 @@ function getCurrentProcessId() {
                         const cursorPos = this.selectionStart || this.value.length;
                         const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
                         if (newValue !== formulaValue) {
+                            // Mark as programmatic update to prevent recursive processing
+                            this.setAttribute('data-programmatic-update', 'true');
                             // Update the value
                             const oldCursorPos = this.selectionStart || this.value.length;
                             this.value = newValue;
@@ -3737,67 +3868,89 @@ function getCurrentProcessId() {
                 }).replace(/\s+/g, ' ').trim();
             }
             
-            // Get cell position (e.g., A7, B5) from data attribute or calculate from position
-            let cellPosition = cell.getAttribute('data-cell-position');
+            // Get cell information: id_product and column index
+            const row = cell.closest('tr');
+            let idProduct = cell.getAttribute('data-id-product');
             let columnIndex = cell.getAttribute('data-column-index');
-            let rowLabel = cell.getAttribute('data-row-label');
             
-            if (!cellPosition || columnIndex === null || !rowLabel) {
-                // Calculate cell position from cell position: cellIndex 0 is row header, cellIndex 1 is Column A (column 1)
-                const row = cell.closest('tr');
-                if (row) {
-                    // Get row label from row header (first cell)
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    if (rowHeaderCell && !rowLabel) {
-                        rowLabel = rowHeaderCell.textContent.trim();
-                    }
-                    
+            // If id_product not found on cell, try to get from row
+            if (!idProduct && row) {
+                idProduct = row.getAttribute('data-id-product');
+                // If still not found, try to get from colIndex 1 (id_product column)
+                if (!idProduct) {
                     const cells = row.querySelectorAll('td');
-                    const cellIndex = Array.from(cells).indexOf(cell);
-                    if (cellIndex >= 1 && rowLabel) {
-                        columnIndex = cellIndex.toString(); // cellIndex 1 = Column A = column 1
-                        cellPosition = rowLabel + columnIndex; // e.g., A7, B5
-                        cell.setAttribute('data-column-index', columnIndex);
-                        cell.setAttribute('data-row-label', rowLabel);
-                        cell.setAttribute('data-cell-position', cellPosition);
+                    if (cells.length > 1 && cells[1]) {
+                        idProduct = cells[1].textContent.trim();
+                        // Store it for future use
+                        row.setAttribute('data-id-product', idProduct);
                     }
                 }
             }
             
-            if (cellPosition && columnIndex !== null && rowLabel) {
-                // Store cell positions (e.g., "A7 B5") instead of just column numbers
-                // This allows reading from specific cells instead of columns
-                let clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
-                const cellsArray = clickedCells ? clickedCells.split(' ').filter(c => c.trim() !== '') : [];
-                // Always add cell position (allow duplicates to preserve multiple clicks of same cell)
-                // Preserve click order, don't sort
-                if (!cellsArray.includes(cellPosition)) {
-                    cellsArray.push(cellPosition);
+            // Calculate column index if not available
+            if (columnIndex === null && row) {
+                const cells = row.querySelectorAll('td');
+                const cellIndex = Array.from(cells).indexOf(cell);
+                if (cellIndex >= 0) {
+                    columnIndex = cellIndex.toString();
+                    cell.setAttribute('data-column-index', columnIndex);
                 }
-                // Store back as space-separated string, preserving click order
-                formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
-                
-                // Also keep column index for backward compatibility (but prefer cell positions)
-                let clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
-                const columnsArray = clickedColumns ? clickedColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
-                const colIndex = parseInt(columnIndex);
-                if (!columnsArray.includes(colIndex)) {
-                    columnsArray.push(colIndex);
+            }
+            
+            // Calculate data column number (colIndex 1 = id_product, colIndex 2 = data column 1, etc.)
+            // Data column index starts from 1: colIndex 2 = column 1, colIndex 3 = column 2, etc.
+            let dataColumnIndex = null;
+            if (columnIndex !== null) {
+                const colIdx = parseInt(columnIndex);
+                if (colIdx >= 2) {
+                    // colIndex 2 = data column 1, colIndex 3 = data column 2, etc.
+                    dataColumnIndex = colIdx - 1; // Convert to 1-based data column index
+                } else if (colIdx === 1) {
+                    // This is the id_product column itself, skip it
+                    console.warn('Clicked on id_product column, skipping');
+                    return;
                 }
-                formulaInput.setAttribute('data-clicked-columns', columnsArray.join(','));
+            }
+            
+            // Store id_product:column_index reference (new format)
+            if (idProduct && dataColumnIndex !== null) {
+                // Format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
+                const cellReference = `${idProduct}:${dataColumnIndex}`;
                 
-                // Store value-to-cell mapping for this specific insertion
-                // Format: "value1:A7,value2:B5" to track which value came from which cell
-                let valueCellMap = formulaInput.getAttribute('data-value-cell-map') || '';
-                const mapEntries = valueCellMap ? valueCellMap.split(',') : [];
-                // Add this value-cell mapping (allow duplicates)
-                const mapKey = `${numValue}:${cellPosition}`;
-                if (!mapEntries.includes(mapKey)) {
-                    mapEntries.push(mapKey);
+                // Store clicked cell references in new format
+                let clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+                const refsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
+                // Preserve click order, don't add duplicates
+                if (!refsArray.includes(cellReference)) {
+                    refsArray.push(cellReference);
                 }
-                formulaInput.setAttribute('data-value-cell-map', mapEntries.join(','));
+                formulaInput.setAttribute('data-clicked-cell-refs', refsArray.join(' '));
                 
-                console.log('Added clicked cell:', cellPosition, 'All clicked cells:', cellsArray, 'Value-cell map:', mapEntries);
+                // Also keep backward compatibility with old format (cell positions)
+                let cellPosition = cell.getAttribute('data-cell-position');
+                let rowLabel = cell.getAttribute('data-row-label');
+                if (!cellPosition && row) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    if (rowHeaderCell) {
+                        rowLabel = rowHeaderCell.textContent.trim();
+                        cellPosition = rowLabel + columnIndex;
+                        cell.setAttribute('data-row-label', rowLabel);
+                        cell.setAttribute('data-cell-position', cellPosition);
+                    }
+                }
+                
+                if (cellPosition) {
+                    let clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
+                    const cellsArray = clickedCells ? clickedCells.split(' ').filter(c => c.trim() !== '') : [];
+                    if (!cellsArray.includes(cellPosition)) {
+                        cellsArray.push(cellPosition);
+                    }
+                    formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
+                }
+                
+                console.log('Added clicked cell reference:', cellReference, 'All references:', refsArray);
+            } else {
+                console.warn('Could not determine id_product or column index for cell');
             }
             
             // Get cursor position
@@ -5256,15 +5409,21 @@ function getCurrentProcessId() {
                 return '';
             }
             
-            // Priority: Use cell positions (e.g., "A7 B5") instead of column numbers
-            // This allows reading from specific cells instead of columns
+            // Priority 1: Use new format (id_product:column_index) - e.g., "ABC123:3 DEF456:4"
+            const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+            if (clickedCellRefs && clickedCellRefs.trim() !== '') {
+                // Return new format as space-separated string (e.g., "ABC123:3 DEF456:4")
+                return clickedCellRefs.trim();
+            }
+            
+            // Priority 2: Use cell positions (e.g., "A7 B5") for backward compatibility
             const clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
             if (clickedCells && clickedCells.trim() !== '') {
                 // Return cell positions as space-separated string (e.g., "A7 B5")
                 return clickedCells.trim();
             }
             
-            // Fallback to column numbers for backward compatibility
+            // Priority 3: Fallback to column numbers for backward compatibility
             const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
             if (!clickedColumns) {
                 return '';
@@ -8974,9 +9133,12 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Always prefer the latest numbers from Data Capture Table when available
             let resolvedSourceExpression = '';
             const savedSourceValue = mainTemplate.last_source_value || '';
-            // Check if sourceColumnsValue is cell position format (e.g., "A7 B5")
+            // Check if sourceColumnsValue is in new format (id_product:column_index)
+            const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
+            
+            // Check if sourceColumnsValue is cell position format (e.g., "A7 B5") - backward compatibility
             const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
-            const isCellPositionFormat = cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
+            const isCellPositionFormat = !isNewFormat && cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
             
             // Check if formulaOperatorsValue is a reference format (contains [id_product : column])
             // or a complete expression (contains operators and numbers)
@@ -8984,8 +9146,27 @@ function applyTemplateToSummaryRow(idProduct, template) {
             const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
             let currentSourceData;
             
-            if (isCellPositionFormat) {
-                // Cell position format (e.g., "A7 B5") - read actual cell values
+            if (isNewFormat) {
+                // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
+                const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+                const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+                
+                if (cellValues.length > 0) {
+                    // Build expression with actual cell values (e.g., "17+16")
+                    let expression = cellValues[0];
+                    for (let i = 1; i < cellValues.length; i++) {
+                        const operator = operatorsString[i - 1] || '+';
+                        expression += operator + cellValues[i];
+                    }
+                    currentSourceData = expression;
+                    console.log('Read cell values from new format:', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
+                } else {
+                    // Fallback to reference format if cells not found
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('Cell values not found (new format), using reference format:', currentSourceData);
+                }
+            } else if (isCellPositionFormat) {
+                // Cell position format (e.g., "A7 B5") - read actual cell values (backward compatibility)
                 const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
                 const cellValues = [];
                 cellPositions.forEach((cellPosition, index) => {
@@ -9475,9 +9656,12 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         let resolvedSourceExpression = '';
         const savedSourceValue = mainTemplate.last_source_value || '';
         
-        // Check if sourceColumnsValue is cell position format (e.g., "A7 B5")
+        // Check if sourceColumnsValue is in new format (id_product:column_index)
+        const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
+        
+        // Check if sourceColumnsValue is cell position format (e.g., "A7 B5") - backward compatibility
         const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
-        const isCellPositionFormat = cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
+        const isCellPositionFormat = !isNewFormat && cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
         
         // Check if formulaOperatorsValue is a complete expression (contains operators and numbers)
         // If so, use it directly instead of rebuilding from columns
@@ -9486,8 +9670,27 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
         let currentSourceData;
         
-        if (isCellPositionFormat) {
-            // Cell position format (e.g., "A7 B5") - read actual cell values
+        if (isNewFormat) {
+            // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
+            const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+            
+            if (cellValues.length > 0) {
+                // Build expression with actual cell values (e.g., "17+16")
+                let expression = cellValues[0];
+                for (let i = 1; i < cellValues.length; i++) {
+                    const operator = operatorsString[i - 1] || '+';
+                    expression += operator + cellValues[i];
+                }
+                currentSourceData = expression;
+                console.log('Read cell values from new format (main):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
+            } else {
+                // Fallback to reference format if cells not found
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Cell values not found (new format, main), using reference format:', currentSourceData);
+            }
+        } else if (isCellPositionFormat) {
+            // Cell position format (e.g., "A7 B5") - read actual cell values (backward compatibility)
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             const cellValues = [];
             cellPositions.forEach((cellPosition, index) => {
@@ -10256,9 +10459,12 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         let resolvedSourceExpression = '';
         const savedSourceValue = template.last_source_value || '';
         
-        // Check if sourceColumnsValue is cell position format (e.g., "A7 B5")
+        // Check if sourceColumnsValue is in new format (id_product:column_index)
+        const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
+        
+        // Check if sourceColumnsValue is cell position format (e.g., "A7 B5") - backward compatibility
         const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
-        const isCellPositionFormat = cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
+        const isCellPositionFormat = !isNewFormat && cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
         
         // Check if formulaOperatorsValue is a complete expression (contains operators and numbers)
         // If so, use it directly instead of rebuilding from columns
@@ -10267,8 +10473,27 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
         let currentSourceData;
         
-        if (isCellPositionFormat) {
-            // Cell position format (e.g., "A7 B5") - read actual cell values
+        if (isNewFormat) {
+            // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
+            const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+            
+            if (cellValues.length > 0) {
+                // Build expression with actual cell values (e.g., "17+16")
+                let expression = cellValues[0];
+                for (let i = 1; i < cellValues.length; i++) {
+                    const operator = operatorsString[i - 1] || '+';
+                    expression += operator + cellValues[i];
+                }
+                currentSourceData = expression;
+                console.log('Read cell values from new format (sub):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
+            } else {
+                // Fallback to reference format if cells not found
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Cell values not found (new format, sub), using reference format:', currentSourceData);
+            }
+        } else if (isCellPositionFormat) {
+            // Cell position format (e.g., "A7 B5") - read actual cell values (backward compatibility)
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             const cellValues = [];
             cellPositions.forEach((cellPosition, index) => {
@@ -11718,6 +11943,21 @@ function formatPercentValue(value) {
                         currencyId = getCurrencyIdByCode(currencyText);
                     }
                     
+                    // IMPORTANT: Apply rate multiplication to processedAmount if rate checkbox is checked
+                    // 重要：如果 rate checkbox 被勾选，将 processedAmount 乘以 rate
+                    let finalProcessedAmount = parseFloat(processedAmountValue) || 0;
+                    if (rateChecked && rateValue) {
+                        const rateNum = parseFloat(rateValue);
+                        if (!isNaN(rateNum) && rateNum !== 0) {
+                            finalProcessedAmount = finalProcessedAmount * rateNum;
+                            console.log('Applied rate to processedAmount:', {
+                                baseAmount: processedAmountValue,
+                                rate: rateNum,
+                                finalAmount: finalProcessedAmount
+                            });
+                        }
+                    }
+                    
                     // Debug log
                     console.log('Row data extracted:', {
                         cleanIdProductMain,
@@ -11776,7 +12016,7 @@ function formatPercentValue(value) {
                         enableSourcePercent: enableSourcePercentAttr ? 1 : 0,
                         formulaOperators: formulaOperatorsAttr, // Now stores the full formula expression
                         formula: formula,
-                        processedAmount: parseFloat(processedAmountValue) || 0,
+                        processedAmount: finalProcessedAmount, // Use finalProcessedAmount (with rate applied if checked)
                         inputMethod: inputMethodAttr,
                         enableInputMethod: enableInputMethodAttr ? 1 : 0,
                         batchSelection: batchSelectionValue ? 1 : 0,
