@@ -9134,61 +9134,6 @@ function applyTemplateToSummaryRow(idProduct, template) {
             const sourceColumnsValue = mainTemplate.source_columns || '';
             const formulaOperatorsValue = mainTemplate.formula_operators || '';
 
-            // ---------------------------
-            // Simple restore path for main rows:
-            // 对于已经在模板里保存好的 formula_display（比如 4+3*0.9/5*(1)），
-            // 直接按数据库里的公式还原到主行，避免在解析/重建公式时把手动的 *0.9/5 这类结构弄丢。
-            // 注意：只对 main 行生效（此函数本身就是 main 行的模板应用逻辑），
-            // 且只在 formula_display 非空时启用。
-            // ---------------------------
-            const savedFormulaDisplayForMain = (mainTemplate.formula_display || '').trim();
-            if (savedFormulaDisplayForMain && savedFormulaDisplayForMain !== 'Formula') {
-                const formulaCell = targetRow.querySelector('td:nth-child(5)');
-                if (formulaCell) {
-                    formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplayForMain}</span>`;
-                }
-
-                // 同步数据属性，方便后续编辑 / 自动保存
-                targetRow.setAttribute('data-formula-operators', formulaOperatorsValue || '');
-                targetRow.setAttribute('data-source-columns', sourceColumnsValue || '');
-                targetRow.setAttribute('data-last-source-value', mainTemplate.last_source_value || '');
-                targetRow.setAttribute('data-source-percent', mainTemplate.source_percent || '1');
-
-                // 直接从保存的公式重新计算 Processed Amount
-                let processedAmount = 0;
-                try {
-                    const cleanFormula = removeThousandsSeparators(savedFormulaDisplayForMain);
-                    const formulaResult = evaluateExpression(cleanFormula);
-                    if (mainTemplate.enable_input_method == 1 && mainTemplate.input_method) {
-                        processedAmount = applyInputMethodTransformation(formulaResult, mainTemplate.input_method);
-                    } else {
-                        processedAmount = formulaResult;
-                    }
-                } catch (error) {
-                    console.error('Error calculating processed amount from savedFormulaDisplayForMain:', error, 'formula:', savedFormulaDisplayForMain);
-                    processedAmount = 0;
-                }
-
-                if (isNaN(processedAmount) || !isFinite(processedAmount)) {
-                    processedAmount = 0;
-                }
-
-                const processedCell = targetRow.querySelector('td:nth-child(8)');
-                if (processedCell) {
-                    processedCell.textContent = formatNumberWithThousands(processedAmount);
-                    processedCell.style.color = processedAmount > 0 ? '#0D60FF' : (processedAmount < 0 ? '#A91215' : '#000000');
-                }
-
-                // 更新属性，保持和模板一致
-                targetRow.setAttribute('data-input-method', mainTemplate.input_method || '');
-                targetRow.setAttribute('data-enable-input-method', mainTemplate.enable_input_method == 1 ? '1' : '0');
-
-                updateProcessedAmountTotal();
-                // 主行已经完全根据模板还原，后面就不用再走复杂的 source_columns 解析逻辑了
-                // 子行(subTemplates) 会在后面单独处理，不受影响
-                return;
-            }
-
             // Always prefer the latest numbers from Data Capture Table when available
             let resolvedSourceExpression = '';
             const savedSourceValue = mainTemplate.last_source_value || '';
@@ -9818,8 +9763,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     resolvedSourceExpression = currentSourceData;
                 }
             } else {
-                    resolvedSourceExpression = currentSourceData;
-                    console.log('Using current source data (main):', resolvedSourceExpression);
+                resolvedSourceExpression = currentSourceData;
+                console.log('Using current source data (main):', resolvedSourceExpression);
             }
         } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
             resolvedSourceExpression = savedSourceValue;
@@ -9828,24 +9773,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             resolvedSourceExpression = '';
             console.log('No source data available (main)');
         }
-
-            // 防止在包含手动「* /」结构时丢失结构（例如 4+3*0.9/5 被简化成 4+3）
-            // 如果数据库中保存的 last_source_value 含有乘除，而当前解析后的表达式没有乘除，
-            // 说明在从表格数据重建公式的过程中把手动结构丢掉了，这里回退到保存的表达式。
-            if (
-                savedSourceValue &&
-                savedSourceValue.trim() !== '' &&
-                /[*/]/.test(savedSourceValue) &&
-                resolvedSourceExpression &&
-                resolvedSourceExpression.trim() !== '' &&
-                !/[*/]/.test(resolvedSourceExpression)
-            ) {
-                console.warn('Resolved source expression lost * or / operators, falling back to saved last_source_value (main).', {
-                    savedSourceValue,
-                    resolvedSourceExpressionBeforeFallback: resolvedSourceExpression
-                });
-                resolvedSourceExpression = savedSourceValue;
-            }
 
             // 如果模板没有绑定任何表格列（纯手动公式），直接用保存的公式，不尝试从表格重建
             if ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
