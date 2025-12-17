@@ -3242,7 +3242,7 @@ function getCurrentProcessId() {
                 // When user manually edits formula, update columns based on current formula numbers
                 // This ensures Columns reflects the columns actually used in the current formula
                 formulaInput.addEventListener('input', function() {
-                    const formulaValue = this.value;
+                    let formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
                     // Skip processing if this value came from a cell click
