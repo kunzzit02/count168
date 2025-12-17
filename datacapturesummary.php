@@ -3239,9 +3239,17 @@ function getCurrentProcessId() {
                 // Store previous value to detect changes
                 let previousValue = formulaInput.value;
                 
+                // Add processing flag to prevent duplicate processing when input events fire rapidly
+                let isProcessing = false;
+                
                 // When user manually edits formula, update columns based on current formula numbers
                 // This ensures Columns reflects the columns actually used in the current formula
                 formulaInput.addEventListener('input', function() {
+                    // Prevent duplicate processing when input events fire rapidly (e.g., fast typing same character)
+                    if (isProcessing) {
+                        return;
+                    }
+                    
                     const formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
@@ -3258,23 +3266,34 @@ function getCurrentProcessId() {
                     // Numbers after + or - (or at start) should be replaced with column values
                     // Numbers after * or / should remain as literal numbers
                     if (processValue && formulaValue !== previousValue) {
-                        const cursorPos = this.selectionStart || this.value.length;
-                        const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
-                        if (newValue !== formulaValue) {
-                            // Update the value
-                            const oldCursorPos = this.selectionStart || this.value.length;
-                            this.value = newValue;
-                            // Restore cursor position (adjust for length change)
-                            const lengthDiff = newValue.length - formulaValue.length;
-                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
-                            this.setSelectionRange(newCursorPos, newCursorPos);
-                            previousValue = newValue;
-                            // Continue processing with the updated value
-                            formulaValue = newValue;
-                        } else {
-                            previousValue = formulaValue;
+                        // Set processing flag to prevent duplicate processing
+                        isProcessing = true;
+                        
+                        try {
+                            const cursorPos = this.selectionStart || this.value.length;
+                            const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
+                            if (newValue !== formulaValue) {
+                                // Update the value
+                                const oldCursorPos = this.selectionStart || this.value.length;
+                                this.value = newValue;
+                                // Restore cursor position (adjust for length change)
+                                const lengthDiff = newValue.length - formulaValue.length;
+                                const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
+                                this.setSelectionRange(newCursorPos, newCursorPos);
+                                // Immediately update previousValue to prevent duplicate processing
+                                previousValue = newValue;
+                            } else {
+                                // No change, but still update previousValue to prevent duplicate processing
+                                previousValue = formulaValue;
+                            }
+                        } finally {
+                            // Reset processing flag immediately after processing completes
+                            // This allows the next input event to be processed, but prevents
+                            // duplicate processing within the same input event handler
+                            isProcessing = false;
                         }
                     } else {
+                        // No processing needed, but update previousValue to keep it in sync
                         previousValue = formulaValue;
                     }
                     
