@@ -1509,7 +1509,6 @@ function getCurrentProcessId() {
                     
                     if (action === 'clear') {
                         // Clear the formula input
-                        formulaInput.setAttribute('data-programmatic-update', 'true');
                         formulaInput.value = '';
                         formulaInput.focus();
                     } else if (action === 'equals') {
@@ -1520,7 +1519,6 @@ function getCurrentProcessId() {
                                 // Replace formula with evaluated result if valid
                                 const result = eval(formula.replace(/[^0-9+\-*/().\s]/g, ''));
                                 if (!isNaN(result) && isFinite(result)) {
-                                    formulaInput.setAttribute('data-programmatic-update', 'true');
                                     formulaInput.value = result.toString();
                                 }
                             }
@@ -1580,7 +1578,6 @@ function getCurrentProcessId() {
                                 if (columnValue !== null) {
                                     // Insert the column value at cursor position
                                     const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                                    formulaInput.setAttribute('data-programmatic-update', 'true');
                                     formulaInput.value = textBefore + columnValue + textAfter;
                                     
                                     // Set cursor position after inserted value
@@ -1601,7 +1598,6 @@ function getCurrentProcessId() {
                                 } else {
                                     // If no row selected, just insert the number
                                     const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                                    formulaInput.setAttribute('data-programmatic-update', 'true');
                                     formulaInput.value = textBefore + value + textAfter;
                                     
                                     const newCursorPos = cursorPos + value.length;
@@ -1610,7 +1606,6 @@ function getCurrentProcessId() {
                             } else {
                                 // If last operator is *, /, or ., or after + or - with decimal, just insert the number directly
                                 const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                                formulaInput.setAttribute('data-programmatic-update', 'true');
                                 formulaInput.value = textBefore + value + textAfter;
                                 
                                 const newCursorPos = cursorPos + value.length;
@@ -1621,7 +1616,6 @@ function getCurrentProcessId() {
                             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
                             const textBefore = formulaInput.value.substring(0, cursorPos);
                             const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                            formulaInput.setAttribute('data-programmatic-update', 'true');
                             formulaInput.value = textBefore + value + textAfter;
                             
                             const newCursorPos = cursorPos + value.length;
@@ -3239,34 +3233,16 @@ function getCurrentProcessId() {
         function addFormulaValidation() {
             const formulaInput = document.getElementById('formula');
             if (formulaInput) {
-                // Remove existing event listener if any (prevent duplicate bindings)
-                if (formulaInput._formulaInputHandler) {
-                    formulaInput.removeEventListener('input', formulaInput._formulaInputHandler);
-                }
-                
                 // No input restrictions - allow all characters
                 // User can input any formula expression they want
                 
                 // Store previous value to detect changes
                 let previousValue = formulaInput.value;
-                // Flag to prevent concurrent processing
-                let isProcessingInput = false;
                 
-                // Named function for event handler (allows removal if needed)
-                const inputHandler = function() {
-                    // Skip if already processing to prevent concurrent calls
-                    if (isProcessingInput) {
-                        return;
-                    }
-                    
-                    // Skip if this is a programmatic update (to prevent recursive calls)
-                    if (this.getAttribute('data-programmatic-update') === 'true') {
-                        this.removeAttribute('data-programmatic-update');
-                        previousValue = this.value;
-                        return;
-                    }
-                    
-                    let formulaValue = this.value;
+                // When user manually edits formula, update columns based on current formula numbers
+                // This ensures Columns reflects the columns actually used in the current formula
+                formulaInput.addEventListener('input', function() {
+                    const formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
                     // Skip processing if this value came from a cell click
@@ -3281,42 +3257,24 @@ function getCurrentProcessId() {
                     // Process manual keyboard input: replace numbers with column values based on preceding operator
                     // Numbers after + or - (or at start) should be replaced with column values
                     // Numbers after * or / should remain as literal numbers
-                    // Only process if value actually changed and we have a process value
-                    if (processValue && formulaValue !== previousValue && formulaValue.length > previousValue.length) {
-                        // Double-check that current value matches what we're processing (prevent race conditions)
-                        const currentActualValue = this.value;
-                        if (currentActualValue !== formulaValue) {
-                            // Value changed during processing, update and return
-                            previousValue = currentActualValue;
-                            return;
-                        }
-                        
-                        isProcessingInput = true;
-                        try {
-                            const cursorPos = this.selectionStart || this.value.length;
-                            const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
-                            if (newValue !== formulaValue) {
-                                // Mark as programmatic update to prevent recursive processing
-                                this.setAttribute('data-programmatic-update', 'true');
-                                // Update the value
-                                const oldCursorPos = this.selectionStart || this.value.length;
-                                this.value = newValue;
-                                // Restore cursor position (adjust for length change)
-                                const lengthDiff = newValue.length - formulaValue.length;
-                                const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
-                                this.setSelectionRange(newCursorPos, newCursorPos);
-                                // Update previousValue to match the new value
-                                previousValue = newValue;
-                            } else {
-                                // No change, just update previousValue
-                                previousValue = formulaValue;
-                            }
-                        } finally {
-                            // Reset flag immediately after processing
-                            isProcessingInput = false;
+                    if (processValue && formulaValue !== previousValue) {
+                        const cursorPos = this.selectionStart || this.value.length;
+                        const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
+                        if (newValue !== formulaValue) {
+                            // Update the value
+                            const oldCursorPos = this.selectionStart || this.value.length;
+                            this.value = newValue;
+                            // Restore cursor position (adjust for length change)
+                            const lengthDiff = newValue.length - formulaValue.length;
+                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
+                            this.setSelectionRange(newCursorPos, newCursorPos);
+                            previousValue = newValue;
+                            // Continue processing with the updated value
+                            formulaValue = newValue;
+                        } else {
+                            previousValue = formulaValue;
                         }
                     } else {
-                        // Value didn't change or decreased (deletion), just update previousValue
                         previousValue = formulaValue;
                     }
                     
@@ -3772,13 +3730,7 @@ function getCurrentProcessId() {
                             }
                         }
                     }
-                };
-                
-                // Store handler reference for potential removal
-                formulaInput._formulaInputHandler = inputHandler;
-                
-                // Add event listener
-                formulaInput.addEventListener('input', inputHandler);
+                });
                 
                 // 添加额外的键盘事件监听器，确保全选删除时也能正确更新
                 // 处理 Backspace 和 Delete 键
@@ -4002,7 +3954,6 @@ function getCurrentProcessId() {
             // Set a flag to indicate this value came from a cell click, not manual input
             // This prevents processManualFormulaInput from re-processing it based on column
             formulaInput.setAttribute('data-from-cell-click', 'true');
-            formulaInput.setAttribute('data-programmatic-update', 'true');
             formulaInput.value = newValue;
             
             // Set cursor position after inserted value
@@ -4164,7 +4115,6 @@ function getCurrentProcessId() {
                     const formulaInput = document.getElementById('formula');
                     if (formulaInput) {
                         console.log('populateFormWithData - Setting formula value:', data.formula);
-                        formulaInput.setAttribute('data-programmatic-update', 'true');
                         formulaInput.value = data.formula || '';
                         // Restore clicked columns if provided
                         if (data.clickedColumns) {
