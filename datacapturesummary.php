@@ -10481,42 +10481,43 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                                 }
                             } else {
                                 console.log('Batch sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                            // IMPORTANT: resolvedSourceExpression might already contain Source % (e.g., "107.82+84.31*(1)")
-                            // Extract base expression from resolvedSourceExpression before applying Source % again
-                            let cleanSourceExpression = resolvedSourceExpression;
-                            let previousExpr = '';
-                            while (cleanSourceExpression !== previousExpr) {
-                                previousExpr = cleanSourceExpression;
-                                const trailingPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                                const match = cleanSourceExpression.match(trailingPattern);
-                                if (match) {
-                                    cleanSourceExpression = match[1].trim();
-                                    continue;
+                                // IMPORTANT: resolvedSourceExpression might already contain Source % (e.g., "107.82+84.31*(1)")
+                                // Extract base expression from resolvedSourceExpression before applying Source % again
+                                let cleanSourceExpression = resolvedSourceExpression;
+                                let previousExpr = '';
+                                while (cleanSourceExpression !== previousExpr) {
+                                    previousExpr = cleanSourceExpression;
+                                    const trailingPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
+                                    const match = cleanSourceExpression.match(trailingPattern);
+                                    if (match) {
+                                        cleanSourceExpression = match[1].trim();
+                                        continue;
+                                    }
+                                    const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
+                                    const simpleMatch = cleanSourceExpression.match(simplePattern);
+                                    if (simpleMatch) {
+                                        cleanSourceExpression = simpleMatch[1].trim();
+                                        continue;
+                                    }
+                                    break;
                                 }
-                                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                                const simpleMatch = cleanSourceExpression.match(simplePattern);
-                                if (simpleMatch) {
-                                    cleanSourceExpression = simpleMatch[1].trim();
-                                    continue;
+                                // Recalculate formula from current Data Capture Table
+                                if (percentValue && cleanSourceExpression && enableSourcePercent) {
+                                    formulaDisplay = createFormulaDisplayFromExpression(cleanSourceExpression, percentValue, enableSourcePercent);
+                                } else if (percentValue && cleanSourceExpression) {
+                                    formulaDisplay = createFormulaDisplay(cleanSourceExpression, percentValue);
+                                } else {
+                                    formulaDisplay = cleanSourceExpression || 'Formula';
                                 }
-                                break;
+                                console.log('Batch sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
                             }
-                            // Recalculate formula from current Data Capture Table
-                            if (percentValue && cleanSourceExpression && enableSourcePercent) {
-                                formulaDisplay = createFormulaDisplayFromExpression(cleanSourceExpression, percentValue, enableSourcePercent);
-                            } else if (percentValue && cleanSourceExpression) {
-                                formulaDisplay = createFormulaDisplay(cleanSourceExpression, percentValue);
-                            } else {
-                                formulaDisplay = cleanSourceExpression || 'Formula';
-                            }
-                            console.log('Batch sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
                         } else {
                             // preservedFormula does NOT contain Source % (because enableSourcePercent=false)
                             // Now apply current Source % to preserved formula
                             if (percentValue && enableSourcePercent) {
                                 formulaDisplay = createFormulaDisplayFromExpression(preservedFormula, percentValue, enableSourcePercent);
-                        } else {
-                            formulaDisplay = preservedFormula;
+                            } else {
+                                formulaDisplay = preservedFormula;
                             }
                             if (hasParentheses) {
                                 console.log('Batch sub-template: preserved formula_display with parentheses, updated numbers:', formulaDisplay);
