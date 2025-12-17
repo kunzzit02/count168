@@ -1023,23 +1023,23 @@ if ($current_user_id && count($user_companies) > 0) {
             const maxCol = Math.max(...cols);
             
             // Create data matrix
-            var dataMatrix = [];
+            var tableDataMatrix = [];
             for (let r = minRow; r <= maxRow; r++) {
                 const row = [];
                 for (let c = minCol; c <= maxCol; c++) {
                     const cellPos = cellPositions.find(pos => pos.row === r && pos.col === c);
                     row.push(cellPos ? cellPos.value : '');
                 }
-                dataMatrix.push(row);
+                tableDataMatrix.push(row);
             }
             
             // Convert to tab-separated string
-            const textData = dataMatrix.map(row => row.join('\t')).join('\n');
+            const textData = tableDataMatrix.map(row => row.join('\t')).join('\n');
             
             // Copy to clipboard
             navigator.clipboard.writeText(textData).then(() => {
                 console.log('Data copied to clipboard:', textData);
-                copiedData = { data: dataMatrix, minRow, maxRow, minCol, maxCol };
+                copiedData = { data: tableDataMatrix, minRow, maxRow, minCol, maxCol };
             }).catch(err => {
                 console.error('Failed to copy to clipboard:', err);
             });
@@ -2447,7 +2447,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 console.log('Detected HTML table format, parsing...');
                 
-                var dataMatrix = [];
+                var dcDataMatrix = [];
                 
                 // 处理表头（如果有）
                 const thead = table.querySelector('thead');
@@ -2472,7 +2472,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         });
                         if (row.length > 0) {
-                            dataMatrix.push(row);
+                            dcDataMatrix.push(row);
                         }
                     });
                 }
@@ -2519,17 +2519,17 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     if (row.length > 0) {
-                        dataMatrix.push(row);
+                        dcDataMatrix.push(row);
                     }
                 });
                 
-                if (dataMatrix.length === 0) {
+                if (dcDataMatrix.length === 0) {
                     return null;
                 }
                 
                 // 确保所有行的列数相同（用空字符串填充）
-                const maxCols = Math.max(...dataMatrix.map(row => row.length));
-                dataMatrix.forEach(row => {
+                const maxCols = Math.max(...dcDataMatrix.map(row => row.length));
+                dcDataMatrix.forEach(row => {
                     while (row.length < maxCols) {
                         row.push('');
                     }
@@ -2543,9 +2543,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     let subTotalRowIndex = -1;
                     let grandTotalRowIndex = -1;
                     
-                    for (let i = 0; i < dataMatrix.length; i++) {
-                        const firstCell = (dataMatrix[i][0] || '').toString().toUpperCase().trim();
-                        const secondCell = (dataMatrix[i][1] || '').toString().toUpperCase().trim();
+                    for (let i = 0; i < dcDataMatrix.length; i++) {
+                        const firstCell = (dcDataMatrix[i][0] || '').toString().toUpperCase().trim();
+                        const secondCell = (dcDataMatrix[i][1] || '').toString().toUpperCase().trim();
                         
                         // 检查第一列或第二列是否包含 SUB TOTAL
                         if (firstCell === 'SUB TOTAL' || firstCell.includes('SUB TOTAL') || 
@@ -2567,11 +2567,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 获取预期列数（参考前面的数据行）
                     let expectedCols = maxCols;
-                    if (dataMatrix.length > 0) {
+                    if (dcDataMatrix.length > 0) {
                         // 找到第一个数据行（不是 SUB TOTAL 或 GRAND TOTAL）的列数
                         for (let i = 0; i < Math.min(subTotalRowIndex >= 0 ? subTotalRowIndex : dataMatrix.length, 
                                                       grandTotalRowIndex >= 0 ? grandTotalRowIndex : dataMatrix.length); i++) {
-                            const row = dataMatrix[i];
+                            const row = dcDataMatrix[i];
                             const nonEmptyCount = row.filter(cell => (cell || '').toString().trim() !== '').length;
                             if (nonEmptyCount > expectedCols / 2) {
                                 expectedCols = row.length;
@@ -2583,7 +2583,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 特殊处理：如果 SUB TOTAL 和 GRAND TOTAL 在同一行（第一列是 SUB TOTAL，第二列是 GRAND TOTAL）
                     // 并且后续行只有2列数据，说明数据被垂直排列了
                     if (subTotalRowIndex >= 0 && subTotalRowIndex === grandTotalRowIndex) {
-                        const headerRow = dataMatrix[subTotalRowIndex];
+                        const headerRow = dcDataMatrix[subTotalRowIndex];
                         const firstCell = (headerRow[0] || '').toString().toUpperCase().trim();
                         const secondCell = (headerRow[1] || '').toString().toUpperCase().trim();
                         
@@ -2597,8 +2597,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             const grandTotalCells = ['GRAND TOTAL'];
                             let currentRow = subTotalRowIndex + 1;
                             
-                            while (currentRow < dataMatrix.length) {
-                                const row = dataMatrix[currentRow];
+                            while (currentRow < dcDataMatrix.length) {
+                                const row = dcDataMatrix[currentRow];
                                 const rowNonEmpty = row.filter(cell => (cell || '').toString().trim() !== '');
                                 
                                 // 如果这一行只有2个非空单元格，可能是 SUB TOTAL / GRAND TOTAL 的数据
@@ -2658,16 +2658,16 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                                 
                                 // 替换原来的行
-                                dataMatrix[subTotalRowIndex] = newSubTotalRow;
+                                dcDataMatrix[subTotalRowIndex] = newSubTotalRow;
                                 
                                 // 删除被合并的行
                                 const rowsToRemove = currentRow - subTotalRowIndex - 1;
                                 if (rowsToRemove > 0) {
-                                    dataMatrix.splice(subTotalRowIndex + 1, rowsToRemove);
+                                    dcDataMatrix.splice(subTotalRowIndex + 1, rowsToRemove);
                                 }
                                 
                                 // 插入 GRAND TOTAL 行（在 SUB TOTAL 行之后）
-                                dataMatrix.splice(subTotalRowIndex + 1, 0, newGrandTotalRow);
+                                dcDataMatrix.splice(subTotalRowIndex + 1, 0, newGrandTotalRow);
                                 
                                 console.log('Fixed SUB TOTAL and GRAND TOTAL rows, merged', rowsToRemove, 'rows');
                                 console.log('SUB TOTAL cells:', subTotalCells.length, 'GRAND TOTAL cells:', grandTotalCells.length);
@@ -2680,7 +2680,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 修复单独的 SUB TOTAL 行
                     if (subTotalRowIndex >= 0 && subTotalRowIndex !== grandTotalRowIndex) {
-                        const subTotalRow = dataMatrix[subTotalRowIndex];
+                        const subTotalRow = dcDataMatrix[subTotalRowIndex];
                         const nonEmptyCells = subTotalRow.filter(cell => (cell || '').toString().trim() !== '');
                         
                         // 如果 SUB TOTAL 行的非空单元格很少（比如只有2个），可能是被拆分了
@@ -2690,7 +2690,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 收集从 SUB TOTAL 行开始的所有数据，直到遇到 GRAND TOTAL 或数据结束
                             const allCells = [];
                             let currentRow = subTotalRowIndex;
-                            let endRow = grandTotalRowIndex >= 0 ? grandTotalRowIndex : dataMatrix.length;
+                            let endRow = grandTotalRowIndex >= 0 ? grandTotalRowIndex : dcDataMatrix.length;
                             
                             // 先收集 SUB TOTAL 行本身的数据
                             subTotalRow.forEach(cell => {
@@ -2703,7 +2703,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 收集后续行的数据（这些行可能只有2列，是 SUB TOTAL 数据的延续）
                             currentRow++;
                             while (currentRow < endRow) {
-                                const row = dataMatrix[currentRow];
+                                const row = dcDataMatrix[currentRow];
                                 const rowNonEmpty = row.filter(cell => (cell || '').toString().trim() !== '');
                                 
                                 // 如果这一行只有少量非空单元格（可能是 SUB TOTAL 的延续）
@@ -2737,12 +2737,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                                 
                                 // 替换原来的 SUB TOTAL 行
-                                dataMatrix[subTotalRowIndex] = newSubTotalRow;
+                                dcDataMatrix[subTotalRowIndex] = newSubTotalRow;
                                     
                                 // 删除被合并的行
                                 const rowsToRemove = currentRow - subTotalRowIndex - 1;
                                 if (rowsToRemove > 0) {
-                                    dataMatrix.splice(subTotalRowIndex + 1, rowsToRemove);
+                                    dcDataMatrix.splice(subTotalRowIndex + 1, rowsToRemove);
                                     // 更新 GRAND TOTAL 的索引
                                     if (grandTotalRowIndex > subTotalRowIndex) {
                                         grandTotalRowIndex -= rowsToRemove;
@@ -2755,7 +2755,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 修复 GRAND TOTAL 行（使用更新后的索引）
                     if (grandTotalRowIndex >= 0) {
-                        const grandTotalRow = dataMatrix[grandTotalRowIndex];
+                        const grandTotalRow = dcDataMatrix[grandTotalRowIndex];
                         const nonEmptyCells = grandTotalRow.filter(cell => (cell || '').toString().trim() !== '');
                         
                         // 如果 GRAND TOTAL 行的非空单元格很少，可能是被拆分了
@@ -2776,8 +2776,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             
                             // 收集后续行的数据
                             currentRow++;
-                            while (currentRow < dataMatrix.length) {
-                                const row = dataMatrix[currentRow];
+                            while (currentRow < dcDataMatrix.length) {
+                                const row = dcDataMatrix[currentRow];
                                 const rowNonEmpty = row.filter(cell => (cell || '').toString().trim() !== '');
                                 
                                 // 如果这一行只有少量非空单元格，继续收集
@@ -2808,12 +2808,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                                 
                                 // 替换原来的 GRAND TOTAL 行
-                                dataMatrix[grandTotalRowIndex] = newGrandTotalRow;
+                                dcDataMatrix[grandTotalRowIndex] = newGrandTotalRow;
                                     
                                 // 删除被合并的行
                                 const rowsToRemove = currentRow - grandTotalRowIndex - 1;
                                 if (rowsToRemove > 0) {
-                                    dataMatrix.splice(grandTotalRowIndex + 1, rowsToRemove);
+                                    dcDataMatrix.splice(grandTotalRowIndex + 1, rowsToRemove);
                                     console.log('Fixed GRAND TOTAL row, merged', rowsToRemove, 'rows, total cells:', allCells.length);
                                 }
                             }
@@ -2825,17 +2825,17 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 后处理结束 =====
                 
                 // 再次确保所有行的列数相同（修复后可能列数不一致）
-                const finalMaxCols = Math.max(...dataMatrix.map(row => row.length));
-                dataMatrix.forEach(row => {
+                const finalMaxCols = Math.max(...dcDataMatrix.map(row => row.length));
+                dcDataMatrix.forEach(row => {
                     while (row.length < finalMaxCols) {
                         row.push('');
                     }
                 });
                 
                 // 转换为制表符分隔的文本格式
-                const textFormat = dataMatrix.map(row => row.join('\t')).join('\n');
+                const textFormat = dcDataMatrix.map(row => row.join('\t')).join('\n');
                 console.log('Converted HTML table to text format:', textFormat.substring(0, 200));
-                console.log('HTML table dimensions:', dataMatrix.length, 'rows x', finalMaxCols, 'columns');
+                console.log('HTML table dimensions:', dcDataMatrix.length, 'rows x', finalMaxCols, 'columns');
                 
                 return textFormat;
             } catch (error) {
@@ -2881,7 +2881,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 console.log('Parsing HTML table and filling directly...');
                 
-                var dataMatrix = [];
+                var dcHtmlDataMatrix = [];
                 
                 // 处理表头（如果有）
                 const thead = table.querySelector('thead');
@@ -2929,17 +2929,20 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     if (row.length > 0) {
-                        dataMatrix.push(row);
+                        dcHtmlDataMatrix.push(row);
+                    }
+                    if (row.length > 0) {
+                        dcHtmlDataMatrix.push(row);
                     }
                 });
                 
-                if (dataMatrix.length === 0) {
+                if (dcHtmlDataMatrix.length === 0) {
                     return false;
                 }
                 
                 // 确保所有行的列数相同
-                let maxCols = Math.max(...dataMatrix.map(row => row.length));
-                dataMatrix.forEach(row => {
+                let maxCols = Math.max(...dcHtmlDataMatrix.map(row => row.length));
+                dcHtmlDataMatrix.forEach(row => {
                     while (row.length < maxCols) {
                         row.push('');
                     }
@@ -2948,7 +2951,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 专用解析：Downline Payment 报表（忽略 No/Lvl/Minor 行） =====
                 try {
                     // 在单元格里找是否有 Downline Payment 抬头或典型列名
-                    const flatCells = dataMatrix.flat().map(v => (v || '').toString().toLowerCase().trim());
+                    const flatCells = dcHtmlDataMatrix.flat().map(v => (v || '').toString().toLowerCase().trim());
                     const looksLikeDownlineHeader =
                         flatCells.includes('downline payment') &&
                         flatCells.includes('username') &&
@@ -2956,12 +2959,12 @@ if ($current_user_id && count($user_companies) > 0) {
 
                     // 另一种情况：已经是「简化版」表格（第一行是 IPHSP3, IPHSP3, MAJOR 这种；下面有 MG 行）
                     let looksLikeSheetDownline = false;
-                    if (dataMatrix.length >= 2) {
-                        const r0 = dataMatrix[0].map(c => (c || '').toString().trim());
+                    if (dcHtmlDataMatrix.length >= 2) {
+                        const r0 = dcHtmlDataMatrix[0].map(c => (c || '').toString().trim());
                         const r0a = (r0[0] || '').toString().toUpperCase();
                         const r0b = (r0[1] || '').toString().toUpperCase();
                         const r0c = (r0[2] || '').toString().toUpperCase();
-                        const hasMGRow = dataMatrix.some(row => ((row[0] || '').toString().toUpperCase() === 'MG'));
+                        const hasMGRow = dcHtmlDataMatrix.some(row => ((row[0] || '').toString().toUpperCase() === 'MG'));
                         if (r0a && r0a === r0b && r0c === 'MAJOR' && hasMGRow) {
                             looksLikeSheetDownline = true;
                         }
@@ -3342,7 +3345,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
             // 4) 组装成固定 10 列矩阵，对应你 Excel 模板 A~J
             const colCount = 10;
-            var dataMatrix = [];
+            var dcSimpleDataMatrix = [];
 
             // Row1：Overall 摆在 A~G（从第一个 column 开始）
             const overallRow = new Array(colCount).fill('');
@@ -3353,7 +3356,7 @@ if ($current_user_id && count($user_companies) > 0) {
             overallRow[4] = overallTokens[4] || '';                 // E: Eat Tax
             overallRow[5] = overallTokens[5] || '';                 // F: Tax / Total
             overallRow[6] = overallTokens[6] || '';                 // G: Profit/Loss
-            dataMatrix.push(overallRow);
+            dcSimpleDataMatrix.push(overallRow);
 
             // Row2：My Earnings（如果报表里有这一行，否则保持为空行）
             const row2 = new Array(colCount).fill('');
@@ -3364,7 +3367,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 row2[0] = label.toUpperCase(); // A: MY EARNINGS : (RINGGIT MALAYSIA (RM))
                 row2[1] = amount;              // B: 金额，如 $13.39
             }
-            dataMatrix.push(row2);
+            dcSimpleDataMatrix.push(row2);
 
             // Row3：MG 上线
             const mgRow = new Array(colCount).fill('');
@@ -3378,7 +3381,7 @@ if ($current_user_id && count($user_companies) > 0) {
             mgRow[7] = mgDataTokens[5] || '';        // H: Eat Tax
             mgRow[8] = mgDataTokens[6] || '';        // I: Tax
             mgRow[9] = mgDataTokens[7] || '';        // J: Profit/Loss
-            dataMatrix.push(mgRow);
+            dcSimpleDataMatrix.push(mgRow);
 
             // Row4：PL 下线
             const plRow = new Array(colCount).fill('');
@@ -3392,11 +3395,11 @@ if ($current_user_id && count($user_companies) > 0) {
             plRow[7] = plDataTokens[5] || '';        // H: Eat Tax
             plRow[8] = plDataTokens[6] || '';        // I: Tax
             plRow[9] = plDataTokens[7] || '';        // J: Profit/Loss
-            dataMatrix.push(plRow);
+            dcSimpleDataMatrix.push(plRow);
 
             return {
-                dataMatrix,
-                maxRows: dataMatrix.length,
+                dataMatrix: dcSimpleDataMatrix,
+                maxRows: dcSimpleDataMatrix.length,
                 maxCols: colCount
             };
         }
@@ -6014,7 +6017,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('Detected ROW-MAJOR format (standard table format)');
             }
             
-            var dataMatrix = [];
+            var dcParsedDataMatrix = [];
             
             // 处理特殊格式：每个单元格占一行的格式
             // 这种情况下，数据可能是行优先的（第一行所有列，然后第二行所有列）
