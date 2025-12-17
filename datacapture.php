@@ -4905,10 +4905,22 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (successCount > 0) {
                     setTimeout(() => {
-                        convertTableFormatOnSubmit();
-                        // 只有在 CITIBET 模式下，才需要把 MY EARNINGS / TOTAL 金额强制移到第 11 列
-                        if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET') {
-                            fixCitibetAmountColumns();
+                        // 对于 CITIBET MAJOR，我们在解析阶段已经生成了最终想要的 6 行结构
+                        // 不再做任何「格式转换」，避免把 MG / PL 等行重新折叠掉
+                        if (typeof currentDataCaptureType !== 'undefined') {
+                            if (currentDataCaptureType === 'CITIBET') {
+                                // 旧的 CITIBET 逻辑：先做结构转换，再把金额移到第 11 列
+                                convertTableFormatOnSubmit();
+                                fixCitibetAmountColumns();
+                            } else if (currentDataCaptureType === 'CITIBET_MAJOR') {
+                                // CITIBET MAJOR：只更新按钮状态，不动表格结构
+                                updateSubmitButtonState();
+                            } else {
+                                // 其他类型沿用通用转换（如果有需要）
+                                convertTableFormatOnSubmit();
+                            }
+                        } else {
+                            convertTableFormatOnSubmit();
                         }
                     }, 100);
                 }
