@@ -9763,8 +9763,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     resolvedSourceExpression = currentSourceData;
                 }
             } else {
-                    resolvedSourceExpression = currentSourceData;
-                    console.log('Using current source data (main):', resolvedSourceExpression);
+                resolvedSourceExpression = currentSourceData;
+                console.log('Using current source data (main):', resolvedSourceExpression);
             }
         } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
             resolvedSourceExpression = savedSourceValue;
@@ -9773,24 +9773,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             resolvedSourceExpression = '';
             console.log('No source data available (main)');
         }
-
-            // 防止在包含手动「* /」结构时丢失结构（例如 4+3*0.9/5 被简化成 4+3）
-            // 如果数据库中保存的 last_source_value 含有乘除，而当前解析后的表达式没有乘除，
-            // 说明在从表格数据重建公式的过程中把手动结构丢掉了，这里回退到保存的表达式。
-            if (
-                savedSourceValue &&
-                savedSourceValue.trim() !== '' &&
-                /[*/]/.test(savedSourceValue) &&
-                resolvedSourceExpression &&
-                resolvedSourceExpression.trim() !== '' &&
-                !/[*/]/.test(resolvedSourceExpression)
-            ) {
-                console.warn('Resolved source expression lost * or / operators, falling back to saved last_source_value (main).', {
-                    savedSourceValue,
-                    resolvedSourceExpressionBeforeFallback: resolvedSourceExpression
-                });
-                resolvedSourceExpression = savedSourceValue;
-            }
 
             // 如果模板没有绑定任何表格列（纯手动公式），直接用保存的公式，不尝试从表格重建
             if ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
