@@ -1023,7 +1023,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const maxCol = Math.max(...cols);
             
             // Create data matrix
-            const dataMatrix = [];
+            var dataMatrix = [];
             for (let r = minRow; r <= maxRow; r++) {
                 const row = [];
                 for (let c = minCol; c <= maxCol; c++) {
@@ -2447,7 +2447,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 console.log('Detected HTML table format, parsing...');
                 
-                const dataMatrix = [];
+                var dataMatrix = [];
                 
                 // 处理表头（如果有）
                 const thead = table.querySelector('thead');
@@ -2881,7 +2881,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 console.log('Parsing HTML table and filling directly...');
                 
-                let dataMatrix = [];
+                var dataMatrix = [];
                 
                 // 处理表头（如果有）
                 const thead = table.querySelector('thead');
@@ -3342,7 +3342,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
             // 4) 组装成固定 10 列矩阵，对应你 Excel 模板 A~J
             const colCount = 10;
-            const dataMatrix = [];
+            var dataMatrix = [];
 
             // Row1：Overall 摆在 A~G（从第一个 column 开始）
             const overallRow = new Array(colCount).fill('');
@@ -6014,7 +6014,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('Detected ROW-MAJOR format (standard table format)');
             }
             
-            let dataMatrix = [];
+            var dataMatrix = [];
             
             // 处理特殊格式：每个单元格占一行的格式
             // 这种情况下，数据可能是行优先的（第一行所有列，然后第二行所有列）
