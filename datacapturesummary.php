@@ -3248,6 +3248,15 @@ function getCurrentProcessId() {
                         return;
                     }
                     
+                    // Skip if this is a programmatic update (set by our code, not user input)
+                    if (this.getAttribute('data-programmatic-update') === 'true') {
+                        // Update previousValue to current value to prevent duplicate processing
+                        previousValue = this.value;
+                        // Remove flag immediately
+                        this.removeAttribute('data-programmatic-update');
+                        return;
+                    }
+                    
                     let formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
@@ -3275,16 +3284,20 @@ function getCurrentProcessId() {
                             const cursorPos = this.selectionStart || this.value.length;
                             const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
                             if (newValue !== formulaValue) {
-                                // Update the value (this will trigger another input event, but isProcessing flag will prevent recursion)
+                                // Update the value (this will trigger another input event)
                                 const oldCursorPos = this.selectionStart || this.value.length;
+                                // Set flag BEFORE updating value to prevent the triggered input event from processing
+                                this.setAttribute('data-programmatic-update', 'true');
+                                // Update previousValue BEFORE setting value to prevent the triggered event from processing
+                                previousValue = newValue;
                                 this.value = newValue;
                                 // Restore cursor position (adjust for length change)
                                 const lengthDiff = newValue.length - formulaValue.length;
                                 const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
                                 this.setSelectionRange(newCursorPos, newCursorPos);
-                                // Update previousValue to the new value to prevent duplicate processing
-                                previousValue = newValue;
-                                formulaValue = newValue;
+                                // Return early to avoid processing column updates for programmatic changes
+                                // The triggered input event will be skipped due to data-programmatic-update flag
+                                return;
                             } else {
                                 // No change, just update previousValue
                                 previousValue = formulaValue;
