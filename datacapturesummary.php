@@ -9121,149 +9121,133 @@ function applyTemplateToSummaryRow(idProduct, template) {
             const sourceColumnsValue = mainTemplate.source_columns || '';
             const formulaOperatorsValue = mainTemplate.formula_operators || '';
 
-            // 先尝试直接使用数据库里保存的完整公式（不依赖当前 Data Capture Table）
+            // Always prefer the latest numbers from Data Capture Table when available
             let resolvedSourceExpression = '';
             const savedSourceValue = mainTemplate.last_source_value || '';
-
-            // 1) 优先使用 last_source_value（Edit Formula 中用户输入的完整表达式）
-            if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
-                resolvedSourceExpression = savedSourceValue.trim();
-                console.log('Using saved last_source_value as resolvedSourceExpression (applyTemplateToSummaryRow):', resolvedSourceExpression);
-            }
-            // 2) 否则如果 formula_operators 看起来是完整表达式 / 引用格式，则直接使用它
-            else if (formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue)) {
-                resolvedSourceExpression = formulaOperatorsValue.trim();
-                console.log('Using saved formula_operators as resolvedSourceExpression (applyTemplateToSummaryRow):', resolvedSourceExpression);
-            }
-
-            // 3) 如果没有保存的完整公式（旧数据），才回退到基于 Data Capture Table 的重建逻辑
-            if (!resolvedSourceExpression) {
-                // Always prefer the latest numbers from Data Capture Table when available
-                // Check if sourceColumnsValue is in new format (id_product:column_index)
-                const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
+            // Check if sourceColumnsValue is in new format (id_product:column_index)
+            const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
+            
+            // Check if sourceColumnsValue is cell position format (e.g., "A7 B5") - backward compatibility
+            const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
+            const isCellPositionFormat = !isNewFormat && cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
+            
+            // Check if formulaOperatorsValue is a reference format (contains [id_product : column])
+            // or a complete expression (contains operators and numbers)
+            const isReferenceFormat = formulaOperatorsValue && /\[[^\]]+\s*:\s*[A-Z]?\d+\]/.test(formulaOperatorsValue);
+            const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
+            let currentSourceData;
+            
+            if (isNewFormat) {
+                // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
+                const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+                const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
                 
-                // Check if sourceColumnsValue is cell position format (e.g., "A7 B5") - backward compatibility
-                const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
-                const isCellPositionFormat = !isNewFormat && cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
-                
-                // Check if formulaOperatorsValue is a reference format (contains [id_product : column])
-                // or a complete expression (contains operators and numbers)
-                const isReferenceFormat = formulaOperatorsValue && /\[[^\]]+\s*:\s*[A-Z]?\d+\]/.test(formulaOperatorsValue);
-                const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
-                let currentSourceData;
-                
-                if (isNewFormat) {
-                    // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
-                    const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-                    const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
-                    
-                    if (cellValues.length > 0) {
-                        // Build expression with actual cell values (e.g., "17+16")
-                        let expression = cellValues[0];
-                        for (let i = 1; i < cellValues.length; i++) {
-                            const operator = operatorsString[i - 1] || '+';
-                            expression += operator + cellValues[i];
-                        }
-                        currentSourceData = expression;
-                        console.log('Read cell values from new format:', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
-                    } else {
-                        // Fallback to reference format if cells not found
-                        currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
-                        console.log('Cell values not found (new format), using reference format:', currentSourceData);
+                if (cellValues.length > 0) {
+                    // Build expression with actual cell values (e.g., "17+16")
+                    let expression = cellValues[0];
+                    for (let i = 1; i < cellValues.length; i++) {
+                        const operator = operatorsString[i - 1] || '+';
+                        expression += operator + cellValues[i];
                     }
-                } else if (isCellPositionFormat) {
-                    // Cell position format (e.g., "A7 B5") - read actual cell values (backward compatibility)
-                    const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-                    const cellValues = [];
-                    cellPositions.forEach((cellPosition, index) => {
-                        const cellValue = getCellValueFromPosition(cellPosition);
-                        if (cellValue !== null && cellValue !== '') {
-                            cellValues.push(cellValue);
-                        }
-                    });
-                    
-                    if (cellValues.length > 0) {
-                        // Build expression with actual cell values (e.g., "17+16")
-                        let expression = cellValues[0];
-                        for (let i = 1; i < cellValues.length; i++) {
-                            const operator = operatorsString[i - 1] || '+';
-                            expression += operator + cellValues[i];
-                        }
-                        currentSourceData = expression;
-                        console.log('Read cell values from positions:', cellPositions, 'Values:', cellValues, 'Expression:', currentSourceData);
-                    } else {
-                        // Fallback to reference format if cells not found
-                        currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
-                        console.log('Cell values not found, using reference format:', currentSourceData);
-                    }
-                } else if (isReferenceFormat) {
-                    // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
-                    currentSourceData = formulaOperatorsValue;
-                    console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
-                } else if (isCompleteExpression) {
-                    // Use the saved formula expression directly (preserves values from other id product rows)
-                    currentSourceData = formulaOperatorsValue;
-                    console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+                    currentSourceData = expression;
+                    console.log('Read cell values from new format:', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
                 } else {
-                    // Build reference format from columns
+                    // Fallback to reference format if cells not found
                     currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('Cell values not found (new format), using reference format:', currentSourceData);
                 }
-
-                // If source_columns is empty but formula_operators exists (user manually entered formula),
-                // try to extract numbers from formula and find corresponding columns from Data Capture Table
-                if (!currentSourceData && !sourceColumnsValue && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
-                    console.log('source_columns is empty but formula_operators exists, trying to find columns from formula:', formulaOperatorsValue);
-                    const processValue = idProduct;
-                    const foundColumns = findColumnsFromFormula(formulaOperatorsValue, processValue);
-                    if (foundColumns && foundColumns.length > 0) {
-                        // Found columns, try to build source expression from these columns
-                        const columnNumbers = foundColumns.join(' ');
-                        // Extract operators from formula_operators (remove numbers and keep operators)
-                        const operatorsString = formulaOperatorsValue.replace(/[0-9.+\-*/()\s]/g, '').replace(/\*/g, '*').replace(/\//g, '/');
-                        // Default to '+' if no operators found
-                        const operators = operatorsString || '+'.repeat(foundColumns.length - 1);
-                        currentSourceData = buildSourceExpressionFromTable(idProduct, columnNumbers, operators, targetRow);
-                        console.log('Found columns from formula, built source expression:', currentSourceData);
+            } else if (isCellPositionFormat) {
+                // Cell position format (e.g., "A7 B5") - read actual cell values (backward compatibility)
+                const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+                const cellValues = [];
+                cellPositions.forEach((cellPosition, index) => {
+                    const cellValue = getCellValueFromPosition(cellPosition);
+                    if (cellValue !== null && cellValue !== '') {
+                        cellValues.push(cellValue);
                     }
-                }
-
-                // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
-                // 但是，如果 currentSourceData 是引用格式，直接使用它，不要解析
-                // Support both column number format ([id_product : 7]) and cell position format ([id_product : A7])
-                const isCurrentDataReferenceFormat = currentSourceData && /\[[^\]]+\s*:\s*[A-Z]?\d+\]/.test(currentSourceData);
-                if (currentSourceData && currentSourceData.trim() !== '') {
-                    // 如果是引用格式，直接使用，不要调用 preserveSourceStructure
-                    if (isCurrentDataReferenceFormat) {
-                        resolvedSourceExpression = currentSourceData;
-                        console.log('Using reference format directly (main):', resolvedSourceExpression);
-                    } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source' && /[*/]/.test(savedSourceValue)) {
-                    // 当已保存的 source 含有乘除等复杂结构时，用新数字替换旧结构中的数字
-                        try {
-                            const preserved = preserveSourceStructure(savedSourceValue, currentSourceData);
-                            if (preserved && preserved.trim() !== '') {
-                                resolvedSourceExpression = preserved;
-                                console.log('Using preserveSourceStructure with current source data (main):', resolvedSourceExpression);
-                            } else {
-                                resolvedSourceExpression = currentSourceData;
-                                console.log('preserveSourceStructure returned empty, fallback to current source data (main):', resolvedSourceExpression);
-                            }
-                        } catch (e) {
-                            console.error('preserveSourceStructure failed (main), fallback to current source data:', e);
-                            resolvedSourceExpression = currentSourceData;
-                        }
-                    } else {
-                        // 没有复杂结构，或者没有保存值，直接用当前数据
-                        resolvedSourceExpression = currentSourceData;
-                        console.log('Using current source data (main):', resolvedSourceExpression);
+                });
+                
+                if (cellValues.length > 0) {
+                    // Build expression with actual cell values (e.g., "17+16")
+                    let expression = cellValues[0];
+                    for (let i = 1; i < cellValues.length; i++) {
+                        const operator = operatorsString[i - 1] || '+';
+                        expression += operator + cellValues[i];
                     }
-                } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
-                    // 没有当前表格数据时，再退回到已保存的表达式
-                    resolvedSourceExpression = savedSourceValue;
-                    console.log('Using saved last_source_value (main):', resolvedSourceExpression);
+                    currentSourceData = expression;
+                    console.log('Read cell values from positions:', cellPositions, 'Values:', cellValues, 'Expression:', currentSourceData);
                 } else {
-                    resolvedSourceExpression = '';
-                    console.log('No source data available (main)');
+                    // Fallback to reference format if cells not found
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('Cell values not found, using reference format:', currentSourceData);
                 }
+            } else if (isReferenceFormat) {
+                // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
+            } else if (isCompleteExpression) {
+                // Use the saved formula expression directly (preserves values from other id product rows)
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+            } else {
+                // Build reference format from columns
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+            }
+
+            // If source_columns is empty but formula_operators exists (user manually entered formula),
+            // try to extract numbers from formula and find corresponding columns from Data Capture Table
+            if (!currentSourceData && !sourceColumnsValue && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+                console.log('source_columns is empty but formula_operators exists, trying to find columns from formula:', formulaOperatorsValue);
+                const processValue = idProduct;
+                const foundColumns = findColumnsFromFormula(formulaOperatorsValue, processValue);
+                if (foundColumns && foundColumns.length > 0) {
+                    // Found columns, try to build source expression from these columns
+                    const columnNumbers = foundColumns.join(' ');
+                    // Extract operators from formula_operators (remove numbers and keep operators)
+                    const operatorsString = formulaOperatorsValue.replace(/[0-9.+\-*/()\s]/g, '').replace(/\*/g, '*').replace(/\//g, '/');
+                    // Default to '+' if no operators found
+                    const operators = operatorsString || '+'.repeat(foundColumns.length - 1);
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, columnNumbers, operators, targetRow);
+                    console.log('Found columns from formula, built source expression:', currentSourceData);
+                }
+            }
+
+            // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
+            // 但是，如果 currentSourceData 是引用格式，直接使用它，不要解析
+            // Support both column number format ([id_product : 7]) and cell position format ([id_product : A7])
+            const isCurrentDataReferenceFormat = currentSourceData && /\[[^\]]+\s*:\s*[A-Z]?\d+\]/.test(currentSourceData);
+            if (currentSourceData && currentSourceData.trim() !== '') {
+                // 如果是引用格式，直接使用，不要调用 preserveSourceStructure
+                if (isCurrentDataReferenceFormat) {
+                    resolvedSourceExpression = currentSourceData;
+                    console.log('Using reference format directly (main):', resolvedSourceExpression);
+                } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source' && /[*/]/.test(savedSourceValue)) {
+                // 当已保存的 source 含有乘除等复杂结构时，用新数字替换旧结构中的数字
+                    try {
+                        const preserved = preserveSourceStructure(savedSourceValue, currentSourceData);
+                        if (preserved && preserved.trim() !== '') {
+                            resolvedSourceExpression = preserved;
+                            console.log('Using preserveSourceStructure with current source data (main):', resolvedSourceExpression);
+                        } else {
+                            resolvedSourceExpression = currentSourceData;
+                            console.log('preserveSourceStructure returned empty, fallback to current source data (main):', resolvedSourceExpression);
+                        }
+                    } catch (e) {
+                        console.error('preserveSourceStructure failed (main), fallback to current source data:', e);
+                        resolvedSourceExpression = currentSourceData;
+                    }
+                } else {
+                    // 没有复杂结构，或者没有保存值，直接用当前数据
+                    resolvedSourceExpression = currentSourceData;
+                    console.log('Using current source data (main):', resolvedSourceExpression);
+                }
+            } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
+                // 没有当前表格数据时，再退回到已保存的表达式
+                resolvedSourceExpression = savedSourceValue;
+                console.log('Using saved last_source_value (main):', resolvedSourceExpression);
+            } else {
+                resolvedSourceExpression = '';
+                console.log('No source data available (main)');
             }
 
             // If the template has no source column mapping (纯手动公式，和表格数据无关)，直接使用已保存的公式
@@ -9659,137 +9643,122 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const sourceColumnsValue = mainTemplate.source_columns || '';
         const formulaOperatorsValue = mainTemplate.formula_operators || '';
 
-        // 先尝试直接使用数据库里保存的完整公式（不依赖当前 Data Capture Table）
+        // Always prefer the latest numbers from Data Capture Table when available
         let resolvedSourceExpression = '';
         const savedSourceValue = mainTemplate.last_source_value || '';
-
-        // 1) 优先使用 last_source_value（Edit Formula 中用户输入的完整表达式）
-        if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
-            resolvedSourceExpression = savedSourceValue.trim();
-            console.log('Using saved last_source_value as resolvedSourceExpression (applyMainTemplateToRow):', resolvedSourceExpression);
-        }
-        // 2) 否则如果 formula_operators 看起来是完整表达式 / 引用格式，则直接使用它
-        else if (formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue)) {
-            resolvedSourceExpression = formulaOperatorsValue.trim();
-            console.log('Using saved formula_operators as resolvedSourceExpression (applyMainTemplateToRow):', resolvedSourceExpression);
-        }
-
-        // 3) 如果没有保存的完整公式（旧数据），才回退到基于 Data Capture Table 的重建逻辑
-        if (!resolvedSourceExpression) {
-            // Always prefer the latest numbers from Data Capture Table when available
-            // Check if sourceColumnsValue is in new format (id_product:column_index)
-            const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
+        
+        // Check if sourceColumnsValue is in new format (id_product:column_index)
+        const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
+        
+        // Check if sourceColumnsValue is cell position format (e.g., "A7 B5") - backward compatibility
+        const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
+        const isCellPositionFormat = !isNewFormat && cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
+        
+        // Check if formulaOperatorsValue is a complete expression (contains operators and numbers)
+        // If so, use it directly instead of rebuilding from columns
+        // Check if formulaOperatorsValue is a reference format (contains [id_product : column])
+        const isReferenceFormat = formulaOperatorsValue && /\[[^\]]+\s*:\s*[A-Z]?\d+\]/.test(formulaOperatorsValue);
+        const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
+        let currentSourceData;
+        
+        if (isNewFormat) {
+            // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
+            const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
             
-            // Check if sourceColumnsValue is cell position format (e.g., "A7 B5") - backward compatibility
-            const cellPositions = sourceColumnsValue ? sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '') : [];
-            const isCellPositionFormat = !isNewFormat && cellPositions.length > 0 && /^[A-Z]+\d+$/.test(cellPositions[0]);
-            
-            // Check if formulaOperatorsValue is a complete expression (contains operators and numbers)
-            // If so, use it directly instead of rebuilding from columns
-            // Check if formulaOperatorsValue is a reference format (contains [id_product : column])
-            const isReferenceFormat = formulaOperatorsValue && /\[[^\]]+\s*:\s*[A-Z]?\d+\]/.test(formulaOperatorsValue);
-            const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
-            let currentSourceData;
-            
-            if (isNewFormat) {
-                // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
-                const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-                const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
-                
-                if (cellValues.length > 0) {
-                    // Build expression with actual cell values (e.g., "17+16")
-                    let expression = cellValues[0];
-                    for (let i = 1; i < cellValues.length; i++) {
-                        const operator = operatorsString[i - 1] || '+';
-                        expression += operator + cellValues[i];
-                    }
-                    currentSourceData = expression;
-                    console.log('Read cell values from new format (main):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
-                } else {
-                    // Fallback to reference format if cells not found
-                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
-                    console.log('Cell values not found (new format, main), using reference format:', currentSourceData);
+            if (cellValues.length > 0) {
+                // Build expression with actual cell values (e.g., "17+16")
+                let expression = cellValues[0];
+                for (let i = 1; i < cellValues.length; i++) {
+                    const operator = operatorsString[i - 1] || '+';
+                    expression += operator + cellValues[i];
                 }
-            } else if (isCellPositionFormat) {
-                // Cell position format (e.g., "A7 B5") - read actual cell values (backward compatibility)
-                const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-                const cellValues = [];
-                cellPositions.forEach((cellPosition, index) => {
-                    const cellValue = getCellValueFromPosition(cellPosition);
-                    if (cellValue !== null && cellValue !== '') {
-                        cellValues.push(cellValue);
-                    }
-                });
-                
-                if (cellValues.length > 0) {
-                    // Build expression with actual cell values (e.g., "17+16")
-                    let expression = cellValues[0];
-                    for (let i = 1; i < cellValues.length; i++) {
-                        const operator = operatorsString[i - 1] || '+';
-                        expression += operator + cellValues[i];
-                    }
-                    currentSourceData = expression;
-                    console.log('Read cell values from positions (main):', cellPositions, 'Values:', cellValues, 'Expression:', currentSourceData);
-                } else {
-                    // Fallback to reference format if cells not found
-                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
-                    console.log('Cell values not found (main), using reference format:', currentSourceData);
-                }
-            } else if (isReferenceFormat) {
-                // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
-                currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
-            } else if (isCompleteExpression) {
-                // Use the saved formula expression directly (preserves values from other id product rows)
-                currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+                currentSourceData = expression;
+                console.log('Read cell values from new format (main):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
             } else {
-                // Build reference format from columns
+                // Fallback to reference format if cells not found
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Cell values not found (new format, main), using reference format:', currentSourceData);
             }
-
-            // If source_columns is empty but formula_operators exists (user manually entered formula),
-            // try to extract numbers from formula and find corresponding columns from Data Capture Table
-            if (!currentSourceData && !sourceColumnsValue && formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && !isCompleteExpression) {
-                console.log('source_columns is empty but formula_operators exists, trying to find columns from formula:', formulaOperatorsValue);
-                const processValue = idProduct;
-                const foundColumns = findColumnsFromFormula(formulaOperatorsValue, processValue);
-                if (foundColumns && foundColumns.length > 0) {
-                    const columnNumbers = foundColumns.join(' ');
-                    const operatorsString = formulaOperatorsValue.replace(/[0-9.+\-*/()\s]/g, '').replace(/\*/g, '*').replace(/\//g, '/');
-                    const operators = operatorsString || '+'.repeat(foundColumns.length - 1);
-                    currentSourceData = buildSourceExpressionFromTable(idProduct, columnNumbers, operators, targetRow);
-                    console.log('Found columns from formula, built source expression:', currentSourceData);
+        } else if (isCellPositionFormat) {
+            // Cell position format (e.g., "A7 B5") - read actual cell values (backward compatibility)
+            const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+            const cellValues = [];
+            cellPositions.forEach((cellPosition, index) => {
+                const cellValue = getCellValueFromPosition(cellPosition);
+                if (cellValue !== null && cellValue !== '') {
+                    cellValues.push(cellValue);
                 }
-            }
-
-            // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
-            if (currentSourceData && currentSourceData.trim() !== '') {
-                if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source' && /[*/]/.test(savedSourceValue)) {
-                    try {
-                        const preserved = preserveSourceStructure(savedSourceValue, currentSourceData);
-                        if (preserved && preserved.trim() !== '') {
-                            resolvedSourceExpression = preserved;
-                            console.log('Using preserveSourceStructure with current source data (main):', resolvedSourceExpression);
-                        } else {
-                            resolvedSourceExpression = currentSourceData;
-                            console.log('preserveSourceStructure returned empty, fallback to current source data (main):', resolvedSourceExpression);
-                        }
-                    } catch (e) {
-                        console.error('preserveSourceStructure failed (main), fallback to current source data:', e);
-                        resolvedSourceExpression = currentSourceData;
-                    }
-                } else {
-                    resolvedSourceExpression = currentSourceData;
-                    console.log('Using current source data (main):', resolvedSourceExpression);
+            });
+            
+            if (cellValues.length > 0) {
+                // Build expression with actual cell values (e.g., "17+16")
+                let expression = cellValues[0];
+                for (let i = 1; i < cellValues.length; i++) {
+                    const operator = operatorsString[i - 1] || '+';
+                    expression += operator + cellValues[i];
                 }
-            } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
-                resolvedSourceExpression = savedSourceValue;
-                console.log('Using saved last_source_value (main):', resolvedSourceExpression);
+                currentSourceData = expression;
+                console.log('Read cell values from positions (main):', cellPositions, 'Values:', cellValues, 'Expression:', currentSourceData);
             } else {
-                resolvedSourceExpression = '';
-                console.log('No source data available (main)');
+                // Fallback to reference format if cells not found
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Cell values not found (main), using reference format:', currentSourceData);
             }
+        } else if (isReferenceFormat) {
+            // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
+            currentSourceData = formulaOperatorsValue;
+            console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
+        } else if (isCompleteExpression) {
+            // Use the saved formula expression directly (preserves values from other id product rows)
+            currentSourceData = formulaOperatorsValue;
+            console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+        } else {
+            // Build reference format from columns
+            currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+        }
+
+        // If source_columns is empty but formula_operators exists (user manually entered formula),
+        // try to extract numbers from formula and find corresponding columns from Data Capture Table
+        if (!currentSourceData && !sourceColumnsValue && formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && !isCompleteExpression) {
+            console.log('source_columns is empty but formula_operators exists, trying to find columns from formula:', formulaOperatorsValue);
+            const processValue = idProduct;
+            const foundColumns = findColumnsFromFormula(formulaOperatorsValue, processValue);
+            if (foundColumns && foundColumns.length > 0) {
+                const columnNumbers = foundColumns.join(' ');
+                const operatorsString = formulaOperatorsValue.replace(/[0-9.+\-*/()\s]/g, '').replace(/\*/g, '*').replace(/\//g, '/');
+                const operators = operatorsString || '+'.repeat(foundColumns.length - 1);
+                currentSourceData = buildSourceExpressionFromTable(idProduct, columnNumbers, operators, targetRow);
+                console.log('Found columns from formula, built source expression:', currentSourceData);
+            }
+        }
+
+        // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
+        if (currentSourceData && currentSourceData.trim() !== '') {
+            if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source' && /[*/]/.test(savedSourceValue)) {
+                try {
+                    const preserved = preserveSourceStructure(savedSourceValue, currentSourceData);
+                    if (preserved && preserved.trim() !== '') {
+                        resolvedSourceExpression = preserved;
+                        console.log('Using preserveSourceStructure with current source data (main):', resolvedSourceExpression);
+                    } else {
+                        resolvedSourceExpression = currentSourceData;
+                        console.log('preserveSourceStructure returned empty, fallback to current source data (main):', resolvedSourceExpression);
+                    }
+                } catch (e) {
+                    console.error('preserveSourceStructure failed (main), fallback to current source data:', e);
+                    resolvedSourceExpression = currentSourceData;
+                }
+            } else {
+                resolvedSourceExpression = currentSourceData;
+                console.log('Using current source data (main):', resolvedSourceExpression);
+            }
+        } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
+            resolvedSourceExpression = savedSourceValue;
+            console.log('Using saved last_source_value (main):', resolvedSourceExpression);
+        } else {
+            resolvedSourceExpression = '';
+            console.log('No source data available (main)');
         }
 
             // 如果模板没有绑定任何表格列（纯手动公式），直接用保存的公式，不尝试从表格重建
