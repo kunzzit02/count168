@@ -77,14 +77,17 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     <tr>
                         <th>No.</th>
                         <th>Dts Created</th>
+                        <th>Process</th>
                         <th>Account</th>
-                        <th>From</th>
-                        <th>Currency</th>
                         <th>Description</th>
                         <th>Remark</th>
+                        <th>Source</th>
+                        <th>Percent</th>
+                        <th>Currency</th>
+                        <th>Rate</th>
                         <th>Cr</th>
                         <th>Dr</th>
-                        <th>Submitted By</th>
+                        <th>Created By</th>
                         <th>Deleted By</th>
                     </tr>
                 </thead>
@@ -606,7 +609,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 const emptyRow = document.createElement('tr');
                 emptyRow.className = 'maintenance-row-empty';
                 emptyRow.innerHTML = `
-                    <td class="maintenance-table-cell" colspan="10" style="text-align: center; padding: 16px;">
+                    <td class="maintenance-table-cell" colspan="14" style="text-align: center; padding: 16px;">
                         No data
                     </td>
                 `;
@@ -619,11 +622,14 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 tr.className = 'maintenance-row';
                 
                 const dtsCreatedDisplay = row.dts_created ? escapeHtml(row.dts_created) : '-';
+                const processDisplay = row.process ? escapeHtml(row.process) : '-';
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
-                const fromDisplay = row.from_account ? escapeHtml(row.from_account) : '-';
-                const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
                 const descriptionDisplay = row.description ? escapeHtml(row.description) : '-';
                 const remarkDisplay = row.remark ? escapeHtml(row.remark) : '-';
+                const sourceDisplay = row.source ? escapeHtml(row.source) : '-';
+                const percentDisplay = (row.percent !== null && row.percent !== undefined && row.percent !== '') ? escapeHtml(row.percent) : '-';
+                const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
+                const rateDisplay = (row.rate !== null && row.rate !== undefined && row.rate !== '') ? escapeHtml(row.rate) : '-';
                 const crDisplay = row.cr !== null && row.cr !== undefined && row.cr !== '' ? escapeHtml(row.cr) : '-';
                 const drDisplay = row.dr !== null && row.dr !== undefined && row.dr !== '' ? escapeHtml(row.dr) : '-';
                 const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
@@ -644,10 +650,14 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 tr.innerHTML = `
                     <td class="maintenance-table-cell">${row.no || index + 1}</td>
                     <td class="maintenance-table-cell">${dtsCreatedDisplay}</td>
+                    <td class="maintenance-table-cell">${processDisplay}</td>
                     <td class="maintenance-table-cell">${accountDisplay}</td>
-                    <td class="maintenance-table-cell maintenance-cell-currency">${currencyDisplay}</td>
                     <td class="maintenance-table-cell">${descriptionDisplay}</td>
                     <td class="maintenance-table-cell">${remarkDisplay}</td>
+                    <td class="maintenance-table-cell">${sourceDisplay}</td>
+                    <td class="maintenance-table-cell">${percentDisplay}</td>
+                    <td class="maintenance-table-cell maintenance-cell-currency">${currencyDisplay}</td>
+                    <td class="maintenance-table-cell">${rateDisplay}</td>
                     <td class="maintenance-table-cell">${crDisplay}</td>
                     <td class="maintenance-table-cell">${drDisplay}</td>
                     <td class="maintenance-table-cell">${createdByDisplay}</td>
@@ -1131,55 +1141,70 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         .maintenance-table td:nth-child(1) {
             width: 4%;   /* No. */
         }
-
+        
         .maintenance-table th:nth-child(2),
         .maintenance-table td:nth-child(2) {
-            width: 12%;  /* Dts Created */
+            width: 10%;  /* Dts Created */
         }
-
+        
         .maintenance-table th:nth-child(3),
         .maintenance-table td:nth-child(3) {
-            width: 12%;  /* Account */
+            width: 10%;  /* Process */
         }
-
+        
         .maintenance-table th:nth-child(4),
         .maintenance-table td:nth-child(4) {
-            width: 12%;  /* From */
+            width: 10%;  /* Account */
         }
-
+        
         .maintenance-table th:nth-child(5),
         .maintenance-table td:nth-child(5) {
-            width: 8%;   /* Currency */
+            width: 14%;   /* Description */
         }
-
+        
         .maintenance-table th:nth-child(6),
         .maintenance-table td:nth-child(6) {
-            width: 18%;  /* Description */
+            width: 12%;  /* Remark */
         }
-
+        
         .maintenance-table th:nth-child(7),
         .maintenance-table td:nth-child(7) {
-            width: 14%;  /* Remark */
+            width: 8%;  /* Source */
         }
-
+        
         .maintenance-table th:nth-child(8),
         .maintenance-table td:nth-child(8) {
-            width: 6%;   /* Cr */
+            width: 6%;   /* Percent */
         }
-
+        
         .maintenance-table th:nth-child(9),
         .maintenance-table td:nth-child(9) {
-            width: 6%;   /* Dr */
+            width: 6%;   /* Currency */
         }
-
+        
         .maintenance-table th:nth-child(10),
         .maintenance-table td:nth-child(10) {
-            width: 10%;   /* Submitted By */
+            width: 6%;   /* Rate */
         }
-
+        
         .maintenance-table th:nth-child(11),
         .maintenance-table td:nth-child(11) {
-            width: 10%;   /* Deleted By */
+            width: 6%;   /* Cr */
+        }
+        
+        .maintenance-table th:nth-child(12),
+        .maintenance-table td:nth-child(12) {
+            width: 6%;   /* Dr */
+        }
+        
+        .maintenance-table th:nth-child(13),
+        .maintenance-table td:nth-child(13) {
+            width: 8%;   /* Created By */
+        }
+        
+        .maintenance-table th:nth-child(14),
+        .maintenance-table td:nth-child(14) {
+            width: 8%;   /* Deleted By */
         }
 
         .maintenance-table-cell {
