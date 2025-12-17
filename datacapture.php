@@ -3675,7 +3675,7 @@ if ($current_user_id && count($user_companies) > 0) {
             };
 
             const rows = [];
-            const colCount = 11;
+            const colCount = 12;
             let section = '';
 
             const pushRow = (arr) => {
@@ -3824,18 +3824,18 @@ if ($current_user_id && count($user_companies) > 0) {
             // Row1: OVERALL 行
             const row1 = makeRow();
             row1[0] = 'OVERALL';
-            // 尽量按顺序映射：Bet, Bet Tax, Eat, Eat Tax, Tax, Profit/Loss, Total Tax, Total Profit/Loss
-            // 这里我们只用 Bet / BetTax / Eat / EatTax / ProfitLoss / TotalProfitLoss
-            const oNums = overallTokens.slice(1);
+            // 目标结构：Overall | | | | 740 | $5.18 | 518 | $13.47 |  |  | $18.65 | -$947.69
+            const oNums = overallTokens.slice(1); // [740, 5.18, 518, 13.47, 18.65, -947.69]
             row1[4] = oNums[0] || ''; // Bet
             row1[5] = oNums[1] || ''; // Bet Tax
             row1[6] = oNums[2] || ''; // Eat
             row1[7] = oNums[3] || ''; // Eat Tax
-            // 最后两个认为是 Profit/Loss 与 Total Profit/Loss
-            if (oNums.length >= 2) {
-                row1[9]  = oNums[oNums.length - 2] || ''; // Column 10
-                row1[10] = oNums[oNums.length - 1] || ''; // Column 11
-            }
+            // Tax & Profit/Loss 空
+            row1[8]  = '';            // Tax (empty)
+            row1[9]  = '';            // Profit/Loss (empty)
+            // Total Tax & Total Profit/Loss
+            row1[10] = oNums[4] || ''; // Total Tax
+            row1[11] = oNums[5] || ''; // Total Profit/Loss
             rows.push(row1);
 
             // 找 My Earnings 行
@@ -3847,7 +3847,8 @@ if ($current_user_id && count($user_companies) > 0) {
             const myAmount = myEarnTokens[myEarnTokens.length - 1];
             const myLabel = myEarnTokens.slice(0, -1).join(' ').toUpperCase();
 
-            // Row2: Upline MG 汇总行（例如：m99m06  m06-KZ  MG  WIN/PLC  740  $14.80  518  $13.47  $28.27  -$957.31）
+            // Row2: Upline MG 汇总行
+            // 目标结构：m99m06 | m06-KZ | MG | WIN/PLC | 740 | $14.80 | 518 | $13.47 | $28.27 | -$957.31 | $28.27 | -$957.31
             // 从 Upline MG 区块提取用户名 + 详细数据
             const mgHeaderIdx = nonEmpty.findIndex(l => /^mg\b/i.test(l));
             const row2 = makeRow();
@@ -3872,9 +3873,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         row2[5] = uplineMgTokens[3] || ''; // Bet Tax $14.80
                         row2[6] = uplineMgTokens[4] || ''; // Eat 518
                         row2[7] = uplineMgTokens[5] || ''; // Eat Tax $13.47
-                        row2[8] = uplineMgTokens[6] || ''; // Tax $28.27
-                        row2[9] = uplineMgTokens[7] || ''; // Profit/Loss -$957.31（第10列）
-                        // 第 11 列先留空，后续如果你需要 Total Profit/Loss 再补
+                        row2[8]  = uplineMgTokens[6] || ''; // Tax $28.27
+                        row2[9]  = uplineMgTokens[7] || ''; // Profit/Loss -$957.31
+                        row2[10] = uplineMgTokens[8] || ''; // Total Tax $28.27
+                        row2[11] = uplineMgTokens[9] || ''; // Total Profit/Loss -$957.31
                     } else if (parentUser) {
                         // 兜底：至少把用户名放在第一列
                         row2[0] = parentUser.toUpperCase();
@@ -3888,7 +3890,8 @@ if ($current_user_id && count($user_companies) > 0) {
             // Row3: MY EARNINGS
             const row3 = makeRow();
             row3[0] = myLabel;
-            row3[9] = myAmount; // 金额在第 10 列
+            // 目标：金额在第 12 列，其余为空
+            row3[11] = myAmount;
             rows.push(row3);
 
             // 2) Downline MG / PL 两行
@@ -3911,13 +3914,15 @@ if ($current_user_id && count($user_companies) > 0) {
             row4[1] = mgDataTokens[0] || '';               // Code (m06-KZ)
             row4[2] = (mgDataTokens[1] || '').toUpperCase(); // MG
             row4[3] = 'WIN/PLC';
-            row4[4] = mgDataTokens[2] || ''; // Bet
-            row4[5] = mgDataTokens[3] || ''; // Bet Tax
-            row4[6] = mgDataTokens[4] || ''; // Eat
-            row4[7] = mgDataTokens[5] || ''; // Eat Tax
-            row4[8] = mgDataTokens[6] || ''; // Tax
-            row4[9] = mgDataTokens[7] || ''; // Profit/Loss
-            row4[10] = mgDataTokens[9] || mgDataTokens[8] || ''; // Total Profit/Loss
+            // 目标：m99m06 | m06-KZ | MG | WIN/PLC | 0 | $0.00 | 518 | $13.47 | $13.47 | $2,154.30 | $13.47 | $2,154.30
+            row4[4]  = mgDataTokens[2] || ''; // Bet
+            row4[5]  = mgDataTokens[3] || ''; // Bet Tax
+            row4[6]  = mgDataTokens[4] || ''; // Eat
+            row4[7]  = mgDataTokens[5] || ''; // Eat Tax
+            row4[8]  = mgDataTokens[6] || ''; // Tax
+            row4[9]  = mgDataTokens[7] || ''; // Profit/Loss
+            row4[10] = mgDataTokens[8] || ''; // Total Tax
+            row4[11] = mgDataTokens[9] || ''; // Total Profit/Loss
             rows.push(row4);
 
             // PL 区块
@@ -3936,13 +3941,15 @@ if ($current_user_id && count($user_companies) > 0) {
             row5[1] = plDataTokens[0] || '';                   // Code yong
             row5[2] = (plDataTokens[1] || '').toUpperCase();   // PL
             row5[3] = 'WIN/PLC';
-            row5[4] = plDataTokens[2] || ''; // Bet
-            row5[5] = plDataTokens[3] || ''; // Bet Tax
-            row5[6] = plDataTokens[4] || ''; // Eat
-            row5[7] = plDataTokens[5] || ''; // Eat Tax
-            row5[8] = plDataTokens[6] || ''; // Tax
-            row5[9] = plDataTokens[7] || ''; // Profit/Loss
-            row5[10] = plDataTokens[9] || plDataTokens[8] || ''; // Total Profit/Loss
+            // 目标：yong | yong | PL | WIN/PLC | 740 | $14.80 | 0 | $0.00 | $14.80 | -$3,111.62 | $14.80 | -$3,111.62
+            row5[4]  = plDataTokens[2] || ''; // Bet
+            row5[5]  = plDataTokens[3] || ''; // Bet Tax
+            row5[6]  = plDataTokens[4] || ''; // Eat
+            row5[7]  = plDataTokens[5] || ''; // Eat Tax
+            row5[8]  = plDataTokens[6] || ''; // Tax
+            row5[9]  = plDataTokens[7] || ''; // Profit/Loss
+            row5[10] = plDataTokens[8] || ''; // Total Tax
+            row5[11] = plDataTokens[9] || ''; // Total Profit/Loss
             rows.push(row5);
 
             // 3) Total 行
@@ -3954,7 +3961,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     const totalLabel = totalTokens.slice(0, -1).join(' ').toUpperCase();
                     const row6 = makeRow();
                     row6[0] = totalLabel;
-                    row6[9] = totalAmount; // 金额在第 10 列
+                    // 金额在第 12 列
+                    row6[11] = totalAmount;
                     rows.push(row6);
                 }
             }
@@ -4905,10 +4913,17 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (successCount > 0) {
                     setTimeout(() => {
-                        convertTableFormatOnSubmit();
-                        // 只有在 CITIBET 模式下，才需要把 MY EARNINGS / TOTAL 金额强制移到第 11 列
-                        if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET') {
-                            fixCitibetAmountColumns();
+                        // 根据当前类型决定是否进行后续格式转换
+                        if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR') {
+                            // CITIBET MAJOR：已经在解析阶段生成最终 6 行 / 12 列结构，这里不再做结构重排
+                            updateSubmitButtonState();
+                        } else {
+                            // 其他类型沿用原有逻辑
+                            convertTableFormatOnSubmit();
+                            // 只有在 CITIBET 模式下，才需要把 MY EARNINGS / TOTAL 金额强制移到第 11 列
+                            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET') {
+                                fixCitibetAmountColumns();
+                            }
                         }
                     }, 100);
                 }
