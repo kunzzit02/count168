@@ -1494,136 +1494,149 @@ function getCurrentProcessId() {
         
         // Store the current selected row for calculator keypad
         let currentSelectedRowForCalculator = null;
-        
+
+        // 通用的公式输入处理函数：无论是点击 keypad 还是键盘输入，统一走这里
+        function handleFormulaValueInput(formulaInput, value) {
+            if (!formulaInput || !value) return;
+
+            // 数字 0-9：按列号去当前行找对应 column 的值
+            if (/^\d$/.test(value)) {
+                const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
+                const textBefore = formulaInput.value.substring(0, cursorPos);
+
+                // 判断当前位置是否应该用「列值」而不是字面数字
+                const trimmedBefore = textBefore.trim();
+                let shouldUseColumnValue = false;
+
+                if (trimmedBefore.length === 0) {
+                    // 开头直接输数字：按列找值
+                    shouldUseColumnValue = true;
+                } else {
+                    // 从后往前找最近的运算符或小数点
+                    let lastOperatorIndex = -1;
+                    let lastOperator = '';
+                    for (let i = trimmedBefore.length - 1; i >= 0; i--) {
+                        const char = trimmedBefore[i];
+                        if (char === '+' || char === '-' || char === '*' || char === '/' || char === '.') {
+                            lastOperatorIndex = i;
+                            lastOperator = char;
+                            break;
+                        }
+                    }
+
+                    if (lastOperatorIndex === -1) {
+                        // 没找到运算符，当成开头
+                        shouldUseColumnValue = true;
+                    } else if (lastOperator === '.') {
+                        // 小数点后面直接输入数字，按普通数字处理
+                        shouldUseColumnValue = false;
+                    } else if (lastOperator === '*' || lastOperator === '/') {
+                        // 乘除后面输入数字，按普通数字处理
+                        shouldUseColumnValue = false;
+                    } else if (lastOperator === '+' || lastOperator === '-') {
+                        // + / - 后面，如果中间没有小数点，就按列号处理
+                        const afterOperator = trimmedBefore.substring(lastOperatorIndex + 1).trim();
+                        shouldUseColumnValue = !afterOperator.includes('.');
+                    }
+                }
+
+                if (shouldUseColumnValue) {
+                    // 使用当前选中行的列值
+                    const columnValue = getColumnValueFromSelectedRow(parseInt(value));
+                    if (columnValue !== null) {
+                        const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
+                        formulaInput.value = textBefore + columnValue + textAfter;
+
+                        const newCursorPos = cursorPos + columnValue.length;
+                        formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+
+                        // 记录被使用的列号
+                        let clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
+                        const columnsArray = clickedColumns ? clickedColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
+                        columnsArray.push(parseInt(value));
+                        formulaInput.setAttribute('data-clicked-columns', columnsArray.join(','));
+
+                        // 记录「值 -> 列号」的映射
+                        let valueColumnMap = formulaInput.getAttribute('data-value-column-map') || '';
+                        const mapEntries = valueColumnMap ? valueColumnMap.split(',') : [];
+                        mapEntries.push(`${columnValue}:${value}`);
+                        formulaInput.setAttribute('data-value-column-map', mapEntries.join(','));
+
+                        formulaInput.focus();
+                        return;
+                    }
+                }
+
+                // 没有选中行或没找到列，就按普通数字插入
+                const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
+                formulaInput.value = textBefore + value + textAfter;
+
+                const newCursorPos = cursorPos + value.length;
+                formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+                formulaInput.focus();
+                return;
+            }
+
+            // 运算符、小括号、小数点：直接插入
+            const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
+            const textBefore = formulaInput.value.substring(0, cursorPos);
+            const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
+            formulaInput.value = textBefore + value + textAfter;
+
+            const newCursorPos = cursorPos + value.length;
+            formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+            formulaInput.focus();
+        }
+
         // Initialize calculator keypad functionality
         function initializeCalculatorKeypad() {
             const calcButtons = document.querySelectorAll('.calc-btn[data-value], .calc-btn[data-action]');
             const formulaInput = document.getElementById('formula');
-            
+
             if (!formulaInput) return;
-            
+
+            // 1）鼠标点击 keypad 按钮
             calcButtons.forEach(button => {
                 button.addEventListener('click', function() {
                     const value = this.getAttribute('data-value');
                     const action = this.getAttribute('data-action');
-                    
+
                     if (action === 'clear') {
-                        // Clear the formula input
+                        // 清空
                         formulaInput.value = '';
                         formulaInput.focus();
                     } else if (action === 'equals') {
-                        // Calculate the result (optional - can be used to evaluate formula)
+                        // 计算结果（可选）
                         try {
                             const formula = formulaInput.value;
                             if (formula) {
-                                // Replace formula with evaluated result if valid
                                 const result = eval(formula.replace(/[^0-9+\-*/().\s]/g, ''));
                                 if (!isNaN(result) && isFinite(result)) {
                                     formulaInput.value = result.toString();
                                 }
                             }
                         } catch (e) {
-                            // If evaluation fails, just keep the formula as is
+                            // 计算失败就保持原公式
                         }
                         formulaInput.focus();
                     } else if (value) {
-                        // Check if value is a number (0-9)
-                        if (/^\d$/.test(value)) {
-                            // Get cursor position and text before cursor
-                            const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
-                            const textBefore = formulaInput.value.substring(0, cursorPos);
-                            
-                            // Check if we should use column value
-                            // Only use column value if the last operator is + or -, and not after a decimal point
-                            const trimmedBefore = textBefore.trim();
-                            let shouldUseColumnValue = false;
-                            
-                            if (trimmedBefore.length === 0) {
-                                // At the start, use column value
-                                shouldUseColumnValue = true;
-                            } else {
-                                // Find the last operator or decimal point
-                                // Look backwards from the end to find the last +, -, *, /, or .
-                                let lastOperatorIndex = -1;
-                                let lastOperator = '';
-                                for (let i = trimmedBefore.length - 1; i >= 0; i--) {
-                                    const char = trimmedBefore[i];
-                                    if (char === '+' || char === '-' || char === '*' || char === '/' || char === '.') {
-                                        lastOperatorIndex = i;
-                                        lastOperator = char;
-                                        break;
-                                    }
-                                }
-                                
-                                if (lastOperatorIndex === -1) {
-                                    // No operator found, use column value (at start of expression)
-                                    shouldUseColumnValue = true;
-                                } else if (lastOperator === '.') {
-                                    // Last character is decimal point, don't use column value
-                                    shouldUseColumnValue = false;
-                                } else if (lastOperator === '*' || lastOperator === '/') {
-                                    // Last operator is * or /, don't use column value
-                                    shouldUseColumnValue = false;
-                                } else if (lastOperator === '+' || lastOperator === '-') {
-                                    // Last operator is + or -, check if there's a decimal point after it
-                                    const afterOperator = trimmedBefore.substring(lastOperatorIndex + 1).trim();
-                                    // If there's a decimal point after + or -, don't use column value
-                                    shouldUseColumnValue = !afterOperator.includes('.');
-                                }
-                            }
-                            
-                            if (shouldUseColumnValue) {
-                                // For numbers after +, -, or at start, get the column value from the current selected row
-                                const columnValue = getColumnValueFromSelectedRow(parseInt(value));
-                                if (columnValue !== null) {
-                                    // Insert the column value at cursor position
-                                    const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                                    formulaInput.value = textBefore + columnValue + textAfter;
-                                    
-                                    // Set cursor position after inserted value
-                                    const newCursorPos = cursorPos + columnValue.length;
-                                    formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-                                    
-                                    // Track the clicked column
-                                    let clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
-                                    const columnsArray = clickedColumns ? clickedColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
-                                    columnsArray.push(parseInt(value));
-                                    formulaInput.setAttribute('data-clicked-columns', columnsArray.join(','));
-                                    
-                                    // Store value-to-column mapping
-                                    let valueColumnMap = formulaInput.getAttribute('data-value-column-map') || '';
-                                    const mapEntries = valueColumnMap ? valueColumnMap.split(',') : [];
-                                    mapEntries.push(`${columnValue}:${value}`);
-                                    formulaInput.setAttribute('data-value-column-map', mapEntries.join(','));
-                                } else {
-                                    // If no row selected, just insert the number
-                                    const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                                    formulaInput.value = textBefore + value + textAfter;
-                                    
-                                    const newCursorPos = cursorPos + value.length;
-                                    formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-                                }
-                            } else {
-                                // If last operator is *, /, or ., or after + or - with decimal, just insert the number directly
-                                const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                                formulaInput.value = textBefore + value + textAfter;
-                                
-                                const newCursorPos = cursorPos + value.length;
-                                formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-                            }
-                        } else {
-                            // For operators, parentheses, decimal point, just insert the value
-                            const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
-                            const textBefore = formulaInput.value.substring(0, cursorPos);
-                            const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                            formulaInput.value = textBefore + value + textAfter;
-                            
-                            const newCursorPos = cursorPos + value.length;
-                            formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-                        }
-                        formulaInput.focus();
+                        // 统一走 handleFormulaValueInput
+                        handleFormulaValueInput(formulaInput, value);
                     }
                 });
+            });
+
+            // 2）电脑键盘输入：和 keypad 完全同一套逻辑
+            formulaInput.addEventListener('keydown', function(e) {
+                // 已经在别处处理 Backspace/Delete/剪贴板等，这里只接管数字和常用运算符输入
+                if (
+                    e.key &&
+                    e.key.length === 1 &&
+                    /[0-9+\-*/().]/.test(e.key)
+                ) {
+                    e.preventDefault();
+                    handleFormulaValueInput(this, e.key);
+                }
             });
         }
         
