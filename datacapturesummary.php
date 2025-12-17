@@ -11934,6 +11934,21 @@ function formatPercentValue(value) {
                         currencyId = getCurrencyIdByCode(currencyText);
                     }
                     
+                    // IMPORTANT: Apply rate multiplication to processedAmount if rate checkbox is checked
+                    // 重要：如果 rate checkbox 被勾选，将 processedAmount 乘以 rate
+                    let finalProcessedAmount = parseFloat(processedAmountValue) || 0;
+                    if (rateChecked && rateValue) {
+                        const rateNum = parseFloat(rateValue);
+                        if (!isNaN(rateNum) && rateNum !== 0) {
+                            finalProcessedAmount = finalProcessedAmount * rateNum;
+                            console.log('Applied rate to processedAmount:', {
+                                baseAmount: processedAmountValue,
+                                rate: rateNum,
+                                finalAmount: finalProcessedAmount
+                            });
+                        }
+                    }
+                    
                     // Debug log
                     console.log('Row data extracted:', {
                         cleanIdProductMain,
@@ -11992,7 +12007,7 @@ function formatPercentValue(value) {
                         enableSourcePercent: enableSourcePercentAttr ? 1 : 0,
                         formulaOperators: formulaOperatorsAttr, // Now stores the full formula expression
                         formula: formula,
-                        processedAmount: parseFloat(processedAmountValue) || 0,
+                        processedAmount: finalProcessedAmount, // Use finalProcessedAmount (with rate applied if checked)
                         inputMethod: inputMethodAttr,
                         enableInputMethod: enableInputMethodAttr ? 1 : 0,
                         batchSelection: batchSelectionValue ? 1 : 0,
