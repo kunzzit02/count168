@@ -3261,213 +3261,6 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        // ============================================
-        // 格式注册和自动检测系统
-        // ============================================
-        
-        // 格式注册表：定义所有支持的格式及其检测规则
-        const PAYMENT_FORMAT_REGISTRY = [
-            {
-                name: 'Excel导出格式',
-                description: '从Excel下载的表格，MY EARNINGS金额在列10',
-                priority: 100, // 优先级越高越先检测
-                detector: (pastedData) => {
-                    if (!pastedData || typeof pastedData !== 'string') return { match: false, score: 0 };
-                    
-                    const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const rawLines = norm.split('\n');
-                    const lines = rawLines.map(l => l.trim()).filter(l => l !== '');
-                    if (lines.length === 0) return { match: false, score: 0 };
-                    
-                    const lowerAll = lines.map(l => l.toLowerCase());
-                    const hasOverall = lowerAll.some(l => l.startsWith('overall'));
-                    const hasMyEarnings = lowerAll.some(l => l.includes('my earnings'));
-                    
-                    if (!hasOverall || !hasMyEarnings) return { match: false, score: 0 };
-                    
-                    // 检查My Earnings行的格式
-                    const myEarningsIndex = lowerAll.findIndex(l => l.includes('my earnings'));
-                    if (myEarningsIndex === -1) return { match: false, score: 0 };
-                    
-                    const myEarningsLine = rawLines[myEarningsIndex];
-                    const myEarningsTokens = myEarningsLine.split('\t').map(s => s.trim());
-                    
-                    if (myEarningsTokens.length >= 10) {
-                        const col10Value = (myEarningsTokens[9] || '').trim();
-                        const col11Value = (myEarningsTokens[10] || '').trim();
-                        const col10HasAmount = col10Value && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(col10Value);
-                        const col11HasAmount = col11Value && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(col11Value);
-                        
-                        // Excel格式特征：金额在列10，不在列11
-                        if (col10HasAmount && !col11HasAmount) {
-                            return { match: true, score: 90, format: 'excel' };
-                        }
-                    }
-                    
-                    return { match: false, score: 0 };
-                },
-                parser: parseExcelFormatPaymentReport
-            },
-            {
-                name: 'Citibet Upline/Downline格式',
-                description: '包含Upline Payment和Downline Payment的报表',
-                priority: 90,
-                detector: (pastedData) => {
-                    if (!pastedData || typeof pastedData !== 'string') return { match: false, score: 0 };
-                    const lowerAll = pastedData.toLowerCase();
-                    if (lowerAll.includes('upline payment') && lowerAll.includes('downline payment')) {
-                        return { match: true, score: 85, format: 'citibet' };
-                    }
-                    return { match: false, score: 0 };
-                },
-                parser: parseCitibetPaymentReport
-            },
-            {
-                name: '完整Payment Report格式',
-                description: '包含Overall、My Earnings和Downline Payment的完整报表',
-                priority: 80,
-                detector: (pastedData) => {
-                    if (!pastedData || typeof pastedData !== 'string') return { match: false, score: 0 };
-                    const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const rawLines = norm.split('\n');
-                    const lines = rawLines.map(l => l.trim()).filter(l => l !== '');
-                    if (lines.length === 0) return { match: false, score: 0 };
-                    
-                    const lowerAll = lines.map(l => l.toLowerCase());
-                    const hasOverall = lowerAll.some(l => l.startsWith('overall'));
-                    const hasDownline = lowerAll.some(l => l.startsWith('downline payment'));
-                    const hasMyEarnings = lowerAll.some(l => l.includes('my earnings'));
-                    
-                    if (hasOverall && hasDownline && hasMyEarnings) {
-                        return { match: true, score: 80, format: 'full' };
-                    }
-                    return { match: false, score: 0 };
-                },
-                parser: parseFullPaymentReport
-            },
-            {
-                name: '简单Payment Report格式',
-                description: 'Overall/Downline Payment格式，包含Profit/Loss',
-                priority: 70,
-                detector: (pastedData) => {
-                    if (!pastedData || typeof pastedData !== 'string') return { match: false, score: 0 };
-                    const lower = pastedData.toLowerCase();
-                    if (lower.includes('overall') && 
-                        lower.includes('downline payment') &&
-                        lower.includes('profit/loss')) {
-                        return { match: true, score: 75, format: 'simple' };
-                    }
-                    return { match: false, score: 0 };
-                },
-                parser: parseSimplePaymentReport
-            },
-            {
-                name: '标准格式（MY EARNINGS金额在列11）',
-                description: '标准格式，MY EARNINGS和TOTAL金额都在列11',
-                priority: 60,
-                detector: (pastedData) => {
-                    if (!pastedData || typeof pastedData !== 'string') return { match: false, score: 0 };
-                    const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const rawLines = norm.split('\n');
-                    const lines = rawLines.map(l => l.trim()).filter(l => l !== '');
-                    if (lines.length === 0) return { match: false, score: 0 };
-                    
-                    const lowerAll = lines.map(l => l.toLowerCase());
-                    const hasOverall = lowerAll.some(l => l.startsWith('overall'));
-                    const hasMyEarnings = lowerAll.some(l => l.includes('my earnings'));
-                    
-                    if (hasOverall && hasMyEarnings) {
-                        // 检查My Earnings行的格式：金额在列11
-                        const myEarningsIndex = lowerAll.findIndex(l => l.includes('my earnings'));
-                        if (myEarningsIndex !== -1) {
-                            const myEarningsLine = rawLines[myEarningsIndex];
-                            const myEarningsTokens = myEarningsLine.split('\t').map(s => s.trim());
-                            
-                            if (myEarningsTokens.length >= 11) {
-                                const col10Value = (myEarningsTokens[9] || '').trim();
-                                const col11Value = (myEarningsTokens[10] || '').trim();
-                                const col10HasAmount = col10Value && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(col10Value);
-                                const col11HasAmount = col11Value && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(col11Value);
-                                
-                                // 标准格式：金额在列11，不在列10
-                                if (col11HasAmount && !col10HasAmount) {
-                                    return { match: true, score: 70, format: 'standard' };
-                                }
-                            }
-                        }
-                    }
-                    return { match: false, score: 0 };
-                },
-                parser: parseFullPaymentReport // 使用相同的解析器，但会正确处理列11
-            }
-        ];
-        
-        // 自动检测并匹配格式
-        function detectAndParseFormat(pastedData) {
-            if (!pastedData || typeof pastedData !== 'string') return null;
-            
-            console.log('=== 格式自动检测开始 ===');
-            
-            // 按优先级排序
-            const sortedFormats = [...PAYMENT_FORMAT_REGISTRY].sort((a, b) => b.priority - a.priority);
-            
-            const detectionResults = [];
-            
-            // 检测所有格式
-            for (const format of sortedFormats) {
-                try {
-                    const result = format.detector(pastedData);
-                    if (result.match) {
-                        detectionResults.push({
-                            format: format,
-                            score: result.score,
-                            formatName: result.format || format.name
-                        });
-                        console.log(`✓ 检测到格式: ${format.name} (得分: ${result.score}, 优先级: ${format.priority})`);
-                    }
-                } catch (error) {
-                    console.error(`格式检测错误 [${format.name}]:`, error);
-                }
-            }
-            
-            if (detectionResults.length === 0) {
-                console.log('✗ 未检测到匹配的格式');
-                return null;
-            }
-            
-            // 选择得分最高的格式（如果得分相同，选择优先级高的）
-            detectionResults.sort((a, b) => {
-                if (b.score !== a.score) return b.score - a.score;
-                return b.format.priority - a.format.priority;
-            });
-            
-            const bestMatch = detectionResults[0];
-            console.log(`✓ 选择格式: ${bestMatch.format.name} (最终得分: ${bestMatch.score})`);
-            
-            // 使用匹配的解析器
-            try {
-                const result = bestMatch.format.parser(pastedData);
-                if (result) {
-                    console.log(`✓ 成功解析: ${bestMatch.format.name}`);
-                    return {
-                        ...result,
-                        formatName: bestMatch.formatName,
-                        formatDescription: bestMatch.format.description
-                    };
-                } else {
-                    console.log(`✗ 解析失败: ${bestMatch.format.name}`);
-                }
-            } catch (error) {
-                console.error(`解析错误 [${bestMatch.format.name}]:`, error);
-            }
-            
-            return null;
-        }
-        
-        // ============================================
-        // 原有解析函数
-        // ============================================
-
         // 针对「Overall / Downline Payment」这类报表的专用解析器
         // 目标：直接生成跟你 Excel 模板（第二张截图）一样的 4 行结构：
         //   Row1:  总体（OVERALL）放在 A~G（从第一个 column 开始）
@@ -4837,38 +4630,10 @@ if ($current_user_id && count($user_companies) > 0) {
             // 先拿到纯文本内容，用来判断是不是 Payment Report
             const pastedData = (e.clipboardData || window.clipboardData).getData('text');
             
-            // 注意：Citibet格式现在由自动检测系统处理，不再需要单独调用
-            const loweredForDetect = (pastedData || '').toLowerCase();
-            const isPaymentReportLike =
-                loweredForDetect.includes('downline payment') &&
-                loweredForDetect.includes('profit/loss');
-
-            // 对于 Payment Report（包含 DOWNLINE PAYMENT / PROFIT/LOSS 的），
-            // 强制走纯文本解析逻辑，避免 HTML 分支抢先处理导致无法做「只保留 MAJOR / 忽略 NO/LVL/MINOR」的特殊规则。
-            if (!isPaymentReportLike) {
-                // 只有在不是 Payment Report 的情况下，才尝试用 HTML 表格解析
-                const htmlData = detectAndParseHTML(e);
-                if (htmlData) {
-                    const startCell = e.target;
-                    const filled = parseAndFillHTMLTable(htmlData, startCell);
-                    if (filled) {
-                        // HTML表格已直接填充，更新提交按钮状态
-                        updateSubmitButtonState();
-                        return;
-                    }
-                }
-            }
-            
-            // 使用普通的文本格式处理（包括 Payment Report 的专用解析）
-            
-            console.log('=== PASTE DEBUG START ===');
-            console.log('Pasted data length:', pastedData.length);
-            console.log('Pasted data raw (first 500 chars):', JSON.stringify(pastedData.substring(0, 500)));
-
-            // 使用自动格式检测系统
-            const autoDetectedResult = detectAndParseFormat(pastedData);
-            if (autoDetectedResult) {
-                const { dataMatrix, maxRows, maxCols, formatName, formatDescription } = autoDetectedResult;
+            // Citibet 专用解析（先于通用 Payment 逻辑）
+            const citibetParsed = parseCitibetPaymentReport(pastedData);
+            if (citibetParsed) {
+                const { dataMatrix, maxRows, maxCols } = citibetParsed;
 
                 const startCell = e.target;
                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
@@ -4920,11 +4685,107 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
 
                 if (successCount > 0) {
-                    const formatInfo = formatName ? ` [${formatName}]` : '';
-                    showNotification('Success', `成功粘贴${formatInfo} (${successCount} 单元格, ${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                    showNotification('Success', `Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
                 } else {
-                    const formatInfo = formatName ? ` [${formatName}]` : '';
-                    showNotification('Warning', `未能从${formatInfo}格式粘贴数据。`, 'error');
+                    showNotification('Warning', 'No cells were pasted from Citibet report.', 'error');
+                }
+
+                setTimeout(updateSubmitButtonState, 0);
+                
+                if (successCount > 0) {
+                    setTimeout(() => {
+                        convertTableFormatOnSubmit();
+                        fixCitibetAmountColumns();
+                    }, 100);
+                }
+
+                return;
+            }
+            const loweredForDetect = (pastedData || '').toLowerCase();
+            const isPaymentReportLike =
+                loweredForDetect.includes('downline payment') &&
+                loweredForDetect.includes('profit/loss');
+
+            // 对于 Payment Report（包含 DOWNLINE PAYMENT / PROFIT/LOSS 的），
+            // 强制走纯文本解析逻辑，避免 HTML 分支抢先处理导致无法做「只保留 MAJOR / 忽略 NO/LVL/MINOR」的特殊规则。
+            if (!isPaymentReportLike) {
+                // 只有在不是 Payment Report 的情况下，才尝试用 HTML 表格解析
+                const htmlData = detectAndParseHTML(e);
+                if (htmlData) {
+                    const startCell = e.target;
+                    const filled = parseAndFillHTMLTable(htmlData, startCell);
+                    if (filled) {
+                        // HTML表格已直接填充，更新提交按钮状态
+                        updateSubmitButtonState();
+                        return;
+                    }
+                }
+            }
+            
+            // 使用普通的文本格式处理（包括 Payment Report 的专用解析）
+            
+            console.log('=== PASTE DEBUG START ===');
+            console.log('Pasted data length:', pastedData.length);
+            console.log('Pasted data raw (first 500 chars):', JSON.stringify(pastedData.substring(0, 500)));
+
+            // 新增：先尝试Excel格式解析（MY EARNINGS金额在列10的格式）
+            const excelFormatParsed = parseExcelFormatPaymentReport(pastedData);
+            if (excelFormatParsed) {
+                const { dataMatrix, maxRows, maxCols } = excelFormatParsed;
+
+                const startCell = e.target;
+                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                const startCol = parseInt(startCell.dataset.col);
+
+                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+
+                const requiredRows = startRow + maxRows;
+                const requiredCols = startCol + maxCols;
+
+                if (requiredRows > currentRows || requiredCols > currentCols) {
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                    const targetCols = Math.max(currentCols, requiredCols);
+                    initializeTable(targetRows, targetCols);
+                }
+
+                const tableBody = document.getElementById('tableBody');
+                const currentPasteChanges = [];
+                let successCount = 0;
+
+                dataMatrix.forEach((rowData, rowIndex) => {
+                    const actualRowIndex = startRow + rowIndex;
+                    const tableRow = tableBody.children[actualRowIndex];
+                    if (!tableRow) return;
+
+                    rowData.forEach((cellData, colIndex) => {
+                        const actualColIndex = startCol + colIndex;
+                        const cell = tableRow.children[actualColIndex + 1];
+                        if (cell && cell.contentEditable === 'true') {
+                            currentPasteChanges.push({
+                                row: actualRowIndex,
+                                col: actualColIndex,
+                                oldValue: cell.textContent,
+                                newValue: cellData
+                            });
+                            const finalValue = (cellData || '').toUpperCase();
+                            cell.textContent = finalValue;
+                            successCount++;
+                        }
+                    });
+                });
+
+                if (currentPasteChanges.length > 0) {
+                    pasteHistory.push(currentPasteChanges);
+                    if (pasteHistory.length > maxHistorySize) {
+                        pasteHistory.shift();
+                    }
+                }
+
+                if (successCount > 0) {
+                    showNotification('Success', `Successfully pasted Excel format (${successCount} cells, ${maxRows} rows x ${maxCols} cols)!`, 'success');
+                } else {
+                    showNotification('Warning', 'No cells were pasted from Excel format.', 'error');
                 }
 
                 setTimeout(updateSubmitButtonState, 0);
@@ -4939,8 +4800,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 return;
             }
 
-            // 注意：完整Payment Report格式现在由自动检测系统处理
-            // 如果自动检测系统没有匹配到格式，这里保留作为后备方案
+            // 先尝试使用「完整 Payment Report 解析」，专门处理 riding formula.txt 这一类结构
             const fullPayment = parseFullPaymentReport(pastedData);
             if (fullPayment) {
                 const { dataMatrix, maxRows, maxCols } = fullPayment;
@@ -5014,8 +4874,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 return;
             }
 
-            // 注意：简单Payment Report格式现在由自动检测系统处理
-            // 如果自动检测系统没有匹配到格式，这里保留作为后备方案
+            // 如果不是完整 Payment Report，再尝试简单版解析（旧逻辑，兼容其它报表）
             const simplePayment = parseSimplePaymentReport(pastedData);
             if (simplePayment) {
                 const { dataMatrix, maxRows, maxCols } = simplePayment;
