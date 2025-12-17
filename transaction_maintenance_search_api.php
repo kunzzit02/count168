@@ -58,7 +58,7 @@ try {
     $where = [];
     $params = [];
     
-    // company 过滤（transactions & process）
+    // company 过滤（transactions）
     $where[] = "t.company_id = ?";
     $params[] = $company_id;
     
@@ -81,6 +81,7 @@ try {
             COALESCE(t.sms, '') AS remark,
             COALESCE(c.code, '') AS currency_code,
             COALESCE(t.amount, 0) AS amount,
+            t.transaction_date AS transaction_date,
             DATE_FORMAT(t.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
             COALESCE(u.login_id, o.owner_code) AS created_by,
             0 AS is_deleted,
@@ -123,10 +124,13 @@ try {
             'from_account' => $row['from_account'] ?? '-',
             'description' => $row['description'] ?? '-',
             'remark' => $row['remark'] ?? '-',
+            'source' => null,
+            'percent' => null,
             'currency' => $row['currency_code'] ?: '-',
             'rate' => null,
             'cr' => $crVal,
             'dr' => $drVal,
+            'transaction_date' => $row['transaction_date'] ?? null,
             'dts_created' => $row['dts_created'] ?? '',
             'created_by' => $row['created_by'] ?? '-',
             'is_deleted' => 0,
@@ -149,6 +153,7 @@ try {
                     COALESCE(td.sms, '') AS remark,
                     COALESCE(c.code, '') AS currency_code,
                     COALESCE(td.amount, 0) AS amount,
+                    td.transaction_date AS transaction_date,
                     DATE_FORMAT(td.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
                     COALESCE(u.login_id, o.owner_code) AS created_by,
                     COALESCE(du.login_id, do.owner_code) AS deleted_by,
@@ -194,10 +199,13 @@ try {
                     'from_account' => $row['from_account'] ?? '-',
                     'description' => $row['description'] ?? '-',
                     'remark' => $row['remark'] ?? '-',
+                    'source' => null,
+                    'percent' => null,
                     'currency' => $row['currency_code'] ?: '-',
                     'rate' => null,
                     'cr' => $crVal,
                     'dr' => $drVal,
+                    'transaction_date' => $row['transaction_date'] ?? null,
                     'dts_created' => $row['dts_created'] ?? '',
                     'created_by' => $row['created_by'] ?? '-',
                     'is_deleted' => 1,
@@ -210,6 +218,74 @@ try {
         error_log('查询已删除交易失败: ' . $e->getMessage());
     }
     
+    /**
+     * 按「规则 2」为每条交易匹配最近的 Data Capture（同账号、同币别、同公司、日期在范围内）
+     * 优先 capture_date <= transaction_date，取最近一条；若没有，则取 >= 的最近一条
+     */
+    try {
+        $captureSql = "
+            SELECT
+                dc.capture_date,
+                dc.created_at,
+                p.process_id,
+                dcd.source_value,
+                dcd.source_percent,
+                dcd.rate
+            FROM data_capture_details dcd
+            JOIN data_captures dc ON dcd.capture_id = dc.id
+            JOIN process p ON dc.process_id = p.id
+            JOIN currency c ON dcd.currency_id = c.id
+            LEFT JOIN account a ON dcd.account_id = a.id
+            WHERE dcd.company_id = :company_id
+              AND dc.company_id = :company_id
+              AND dc.capture_date BETWEEN :date_from AND :date_to
+              AND a.account_id = :account_code
+              AND c.code = :currency_code
+            ORDER BY
+              (dc.capture_date > :tx_date) ASC,
+              ABS(DATEDIFF(dc.capture_date, :tx_date)) ASC,
+              dc.created_at DESC,
+              dcd.id DESC
+            LIMIT 1
+        ";
+        $captureStmt = $pdo->prepare($captureSql);
+
+        foreach ($formatted as &$row) {
+            $accountCode = $row['account'] ?? null;
+            $currencyCode = $row['currency'] ?? null;
+            $txDate = $row['transaction_date'] ?? null;
+
+            if (empty($accountCode) || empty($currencyCode) || empty($txDate)) {
+                continue;
+            }
+
+            $captureStmt->execute([
+                ':company_id' => $company_id,
+                ':date_from' => $date_from_db,
+                ':date_to' => $date_to_db,
+                ':account_code' => $accountCode,
+                ':currency_code' => $currencyCode,
+                ':tx_date' => $txDate,
+            ]);
+
+            $capture = $captureStmt->fetch(PDO::FETCH_ASSOC);
+            if ($capture) {
+                $row['process'] = $capture['process_id'] ?? '-';
+                $row['process_id'] = $capture['process_id'] ?? null;
+                $row['source'] = $capture['source_value'] ?? null;
+                $row['percent'] = (isset($capture['source_percent']) && $capture['source_percent'] !== '')
+                    ? (string)$capture['source_percent']
+                    : null;
+                if (isset($capture['rate']) && $capture['rate'] !== null && $capture['rate'] !== '') {
+                    $row['rate'] = number_format((float)$capture['rate'], 4);
+                }
+            }
+        }
+        unset($row);
+    } catch (Exception $e) {
+        error_log('按规则 2 匹配 Data Capture 失败: ' . $e->getMessage());
+    }
+
     // 返回
     echo json_encode([
         'success' => true,
