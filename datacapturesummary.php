@@ -3746,7 +3746,9 @@ function getCurrentProcessId() {
                             }
                         }
                     }
-                });
+                };
+                
+                formulaInput.addEventListener('input', inputHandler);
                 
                 // 添加额外的键盘事件监听器，确保全选删除时也能正确更新
                 // 处理 Backspace 和 Delete 键
