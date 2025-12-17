@@ -9304,62 +9304,6 @@ function applyTemplateToSummaryRow(idProduct, template) {
             const columnsDisplay = sourceColumnsValue ? createColumnsDisplay(sourceColumnsValue, formulaOperatorsValue) : '';
             // Auto-enable if source percent has value
             const enableSourcePercent = percentValue && percentValue.trim() !== '';
-
-            // SPECIAL CASE: 手工公式（last_source_value 中有 * 或 /）
-            // 这类模板完全依赖用户自己写的表达式（例如 5+3*0.9/5），不应再用表格数字去“重建”公式，
-            // 否则会把 *0.9/5 丢失或改错。
-            const isManualExpression = savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source' && /[*/]/.test(savedSourceValue);
-            if (isManualExpression) {
-                const manualExpression = savedSourceValue.trim();
-                const manualFormulaDisplay = createFormulaDisplayFromExpression(manualExpression, percentValue, enableSourcePercent);
-                let manualProcessedAmount = calculateFormulaResultFromExpression(
-                    manualExpression,
-                    percentValue,
-                    mainTemplate.input_method || '',
-                    mainTemplate.enable_input_method == 1,
-                    enableSourcePercent
-                );
-                if (isNaN(manualProcessedAmount) || !isFinite(manualProcessedAmount)) {
-                    manualProcessedAmount = 0;
-                }
-
-                const data = {
-                    idProduct: idProduct,
-                    description: mainTemplate.description || '',
-                    originalDescription: mainTemplate.description || '',
-                    account: mainTemplate.account_display || 'Account',
-                    accountDbId: mainTemplate.account_id || '',
-                    currency: mainTemplate.currency_display || '',
-                    currencyDbId: mainTemplate.currency_id || '',
-                    columns: columnsDisplay,
-                    sourceColumns: sourceColumnsValue,
-                    batchSelection: mainTemplate.batch_selection == 1,
-                    source: manualExpression,
-                    sourcePercent: percentValue || '1',
-                    formula: manualFormulaDisplay,
-                    formulaOperators: manualExpression,
-                    processedAmount: manualProcessedAmount,
-                    inputMethod: mainTemplate.input_method || '',
-                    enableInputMethod: (mainTemplate.input_method && mainTemplate.input_method.trim() !== '') ? true : false,
-                    enableSourcePercent: enableSourcePercent,
-                    templateKey: mainTemplate.template_key || null,
-                    templateId: mainTemplate.id || null,
-                    formulaVariant: mainTemplate.formula_variant || null,
-                    productType: 'main',
-                    rowIndex: (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null)
-                        ? Number(mainTemplate.row_index)
-                        : null
-                };
-
-                updateSummaryTableRow(idProduct, data, targetRow);
-                if (hadAddButton || !hasExistingData) {
-                    ensureSubRowPlaceholderExists(idProduct, targetRow);
-                }
-                if (Array.isArray(subTemplates) && subTemplates.length > 0) {
-                    applySubTemplatesToSummaryRow(idProduct, targetRow, subTemplates);
-                }
-                return;
-            }
             
             // Priority: Use saved formula_display if available (preserves user's manual edits like *0.1)
             // If formula_display exists, preserve its structure but update numbers from current source data
@@ -9451,18 +9395,27 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         console.log('Using reference format from resolvedSourceExpression:', formulaDisplay);
                     } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                         // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2)
-                        // 如果含有类似 "*0.9/5" 这种手工输入的乘除结构，
-                        // 为避免错误修改用户的自定义部分，这里直接完全使用数据库中保存的 formula_display，
-                        // 不再尝试用当前表格数据去“替换数字”。
+                        // If it does, we should preserve the entire formula structure including manual inputs
                         const hasManualInput = /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
                         
                         if (hasManualInput) {
-                            console.log('Saved formula_display contains manual input, use saved value as-is:', savedFormulaDisplay);
-                            // 显示直接用保存的公式（例如 "5+3*0.9/5*(1)"）
-                            formulaDisplay = savedFormulaDisplay;
-                            // 计算金额时，统一使用 last_source_value 中保存的原始表达式（例如 "5+3*0.9/5"）
-                            if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
-                                resolvedSourceExpression = savedSourceValue.trim();
+                            // Formula contains manually entered parts (e.g., *0.9/2), preserve it as-is
+                            // Only update numbers that come from data capture table, not manual inputs
+                            console.log('Saved formula_display contains manual input, preserving structure:', savedFormulaDisplay);
+                            const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
+                            
+                            if (preservedFormula === null) {
+                                // If preserveFormulaStructure returns null, use saved formula as-is to preserve manual inputs
+                                console.log('preserveFormulaStructure returned null, using saved formula_display as-is to preserve manual inputs');
+                                formulaDisplay = savedFormulaDisplay;
+                            } else if (preservedFormula === savedFormulaDisplay) {
+                                // If preserved formula is same as saved, use it as-is
+                                formulaDisplay = savedFormulaDisplay;
+                                console.log('Using saved formula_display as-is (preserves manual inputs and structure):', formulaDisplay);
+                            } else {
+                                // Use preserved formula (numbers updated but manual inputs preserved)
+                                formulaDisplay = preservedFormula;
+                                console.log('Preserved saved formula_display structure with updated source data (manual inputs preserved):', formulaDisplay);
                             }
                         } else {
                             // No manual input detected, proceed with normal preservation logic
@@ -11920,80 +11873,50 @@ function formatPercentValue(value) {
                     if (!sourcePercent || sourcePercent.trim() === '' || sourcePercent.trim().toLowerCase() === 'source') {
                         sourcePercent = '1';
                     }
-                    // Formula column is at index 4（显示用文本，可能包含 *Source% 尾巴）
+                    // Formula column is at index 4
                     const formulaCell = cells[4];
-                    const formulaDisplayFromCell = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                    const formula = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
                     
-                    // Get data attributes first（这些才是保存时的“完整公式”和配置）
-                    const formulaOperatorsAttr = row.getAttribute('data-formula-operators') || ''; // 保存时的完整公式体，如 "4+5*0.9/3"
+                    // Get data attributes first (needed for recalculation if needed)
+                    // 首先获取 data 属性（如果需要重新计算时会用到）
+                    const formulaOperatorsAttr = row.getAttribute('data-formula-operators') || '';
                     const sourceColumnsAttr = row.getAttribute('data-source-columns') || '';
                     const inputMethodAttr = row.getAttribute('data-input-method') || '';
                     const enableInputMethodAttr = inputMethodAttr ? true : false;
                     // Auto-enable if source percent has value
                     const sourcePercentAttrForEnable = row.getAttribute('data-source-percent') || '';
                     const enableSourcePercentAttr = sourcePercentAttrForEnable && sourcePercentAttrForEnable.trim() !== '';
-
-                    // 统一确定“提交到后台的基础公式表达式”
-                    // 优先顺序：
-                    // 1) data-formula-operators（保存模板/编辑公式时写入，包含你手工加的 *0.9/3 等）
-                    // 2) 去掉显示尾巴 *(Source%) 的公式文本
-                    // 3) data-last-source-value（上次保存的原始表达式）
-                    let baseFormulaExpression = '';
-                    if (formulaOperatorsAttr && formulaOperatorsAttr.trim() !== '') {
-                        baseFormulaExpression = formulaOperatorsAttr.trim();
-                    } else if (formulaDisplayFromCell && formulaDisplayFromCell.trim() !== '' && formulaDisplayFromCell !== 'Formula') {
-                        baseFormulaExpression = removeTrailingSourcePercentExpression(formulaDisplayFromCell);
-                    } else {
-                        const lastSourceValueAttr = row.getAttribute('data-last-source-value') || '';
-                        if (lastSourceValueAttr && lastSourceValueAttr.trim() !== '' && lastSourceValueAttr !== 'Source') {
-                            baseFormulaExpression = lastSourceValueAttr.trim();
-                        }
-                    }
-
-                    // IMPORTANT: 重新计算“基础处理金额”（未乘 Rate，完全基于完整公式 + Source% + Input Method）
-                    let baseProcessedAmount = 0;
-                    if (baseFormulaExpression && baseFormulaExpression.trim() !== '') {
-                        try {
-                            baseProcessedAmount = calculateFormulaResultFromExpression(
-                                baseFormulaExpression,
-                                sourcePercent,
-                                inputMethodAttr || '',
-                                enableInputMethodAttr,
+                    
+                    // IMPORTANT: Get raw processed amount from data attribute (not rounded)
+                    // This ensures we save the original calculated value to database, not the rounded display value
+                    // 重要：从 data 属性中获取原始 processed amount（未四舍五入）
+                    // 这确保我们保存原始计算值到数据库，而不是四舍五入后的显示值
+                    let processedAmountValue = row.getAttribute('data-base-processed-amount');
+                    if (!processedAmountValue || processedAmountValue === '' || processedAmountValue === 'null') {
+                        // Fallback: Try to recalculate from source data to get raw value
+                        // 回退：尝试从源数据重新计算以获取原始值
+                        const sourceData = sourceValue || '';
+                        const inputMethod = inputMethodAttr || '';
+                        const enableInputMethod = enableInputMethodAttr;
+                        if (sourceData && sourceData !== 'Source') {
+                            // Recalculate using the same function that was used to calculate it originally
+                            // 使用与原始计算相同的函数重新计算
+                            processedAmountValue = calculateFormulaResultFromExpression(
+                                sourceData, 
+                                sourcePercent, 
+                                inputMethod, 
+                                enableInputMethod, 
                                 enableSourcePercentAttr
-                            );
-                        } catch (e) {
-                            console.error('Error recalculating baseProcessedAmount from baseFormulaExpression, fallback to stored value:', e);
+                            ).toString();
+                            console.log('Recalculated processed amount from source data:', processedAmountValue);
+                        } else {
+                            // Last resort: get from cell text (will be rounded)
+                            // 最后手段：从单元格文本获取（将四舍五入）
+                            const processedAmountText = cells[7] ? cells[7].textContent.trim() : '';
+                            processedAmountValue = removeThousandsSeparators(processedAmountText);
+                            console.warn('Using rounded value from cell text (could not recalculate):', processedAmountValue);
                         }
                     }
-
-                    // 如果因为异常或缺少公式导致 baseProcessedAmount 还是 0，再退回到之前保存的 data-base-processed-amount / 单元格值
-                    if (!baseProcessedAmount && baseProcessedAmount !== 0) {
-                        let processedAmountValue = row.getAttribute('data-base-processed-amount');
-                        if (!processedAmountValue || processedAmountValue === '' || processedAmountValue === 'null') {
-                            const sourceData = sourceValue || '';
-                            const inputMethod = inputMethodAttr || '';
-                            const enableInputMethod = enableInputMethodAttr;
-                            if (sourceData && sourceData !== 'Source') {
-                                processedAmountValue = calculateFormulaResultFromExpression(
-                                    sourceData,
-                                    sourcePercent,
-                                    inputMethod,
-                                    enableInputMethod,
-                                    enableSourcePercentAttr
-                                ).toString();
-                                console.log('Recalculated processed amount from source data (fallback):', processedAmountValue);
-                            } else {
-                                const processedAmountText = cells[7] ? cells[7].textContent.trim() : '';
-                                processedAmountValue = removeThousandsSeparators(processedAmountText);
-                                console.warn('Using rounded value from cell text as last fallback:', processedAmountValue);
-                            }
-                        }
-                        const parsedFallback = parseFloat(processedAmountValue);
-                        baseProcessedAmount = !isNaN(parsedFallback) ? parsedFallback : 0;
-                    }
-
-                    // 把最终确定的基础金额写回 data-base-processed-amount，保证后续逻辑一致
-                    row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
                     // Batch Selection column removed
                     const batchSelectionValue = false;
                     // Get rate checkbox state and rate input value (Rate column is at index 6)
@@ -12026,7 +11949,7 @@ function formatPercentValue(value) {
                     
                     // IMPORTANT: Apply rate multiplication to processedAmount if rate checkbox is checked
                     // 重要：如果 rate checkbox 被勾选，将 processedAmount 乘以 rate
-                    let finalProcessedAmount = parseFloat(baseProcessedAmount) || 0;
+                    let finalProcessedAmount = parseFloat(processedAmountValue) || 0;
                     if (rateChecked && rateValue) {
                         const rateNum = parseFloat(rateValue);
                         if (!isNaN(rateNum) && rateNum !== 0) {
@@ -12096,9 +12019,7 @@ function formatPercentValue(value) {
                         sourcePercent: sourcePercent || '1', // Save as string to preserve expressions like "1/2"
                         enableSourcePercent: enableSourcePercentAttr ? 1 : 0,
                         formulaOperators: formulaOperatorsAttr, // Now stores the full formula expression
-                        // 提交给后台的 formula 使用“基础公式表达式”，确保包含你手工输入的 *0.9/3 等，
-                        // 而不是带有展示尾巴 *(Source%) 的公式文本
-                        formula: baseFormulaExpression || formulaDisplayFromCell,
+                        formula: formula,
                         processedAmount: finalProcessedAmount, // Use finalProcessedAmount (with rate applied if checked)
                         inputMethod: inputMethodAttr,
                         enableInputMethod: enableInputMethodAttr ? 1 : 0,
