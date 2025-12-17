@@ -9395,27 +9395,18 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         console.log('Using reference format from resolvedSourceExpression:', formulaDisplay);
                     } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                         // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2)
-                        // If it does, we should preserve the entire formula structure including manual inputs
+                        // 如果含有类似 "*0.9/5" 这种手工输入的乘除结构，
+                        // 为避免错误修改用户的自定义部分，这里直接完全使用数据库中保存的 formula_display，
+                        // 不再尝试用当前表格数据去“替换数字”。
                         const hasManualInput = /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
                         
                         if (hasManualInput) {
-                            // Formula contains manually entered parts (e.g., *0.9/2), preserve it as-is
-                            // Only update numbers that come from data capture table, not manual inputs
-                            console.log('Saved formula_display contains manual input, preserving structure:', savedFormulaDisplay);
-                            const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                            
-                            if (preservedFormula === null) {
-                                // If preserveFormulaStructure returns null, use saved formula as-is to preserve manual inputs
-                                console.log('preserveFormulaStructure returned null, using saved formula_display as-is to preserve manual inputs');
-                                formulaDisplay = savedFormulaDisplay;
-                            } else if (preservedFormula === savedFormulaDisplay) {
-                                // If preserved formula is same as saved, use it as-is
-                                formulaDisplay = savedFormulaDisplay;
-                                console.log('Using saved formula_display as-is (preserves manual inputs and structure):', formulaDisplay);
-                            } else {
-                                // Use preserved formula (numbers updated but manual inputs preserved)
-                                formulaDisplay = preservedFormula;
-                                console.log('Preserved saved formula_display structure with updated source data (manual inputs preserved):', formulaDisplay);
+                            console.log('Saved formula_display contains manual input, use saved value as-is:', savedFormulaDisplay);
+                            // 显示直接用保存的公式（例如 "5+3*0.9/5*(1)"）
+                            formulaDisplay = savedFormulaDisplay;
+                            // 计算金额时，统一使用 last_source_value 中保存的原始表达式（例如 "5+3*0.9/5"）
+                            if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
+                                resolvedSourceExpression = savedSourceValue.trim();
                             }
                         } else {
                             // No manual input detected, proceed with normal preservation logic
