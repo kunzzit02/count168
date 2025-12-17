@@ -330,6 +330,9 @@ if ($current_user_id && count($user_companies) > 0) {
         let pasteHistory = [];
         let maxHistorySize = 50;
 
+        // Current data capture type (GENERAL / CITIBET / CITIBET_MAJOR)
+        let currentDataCaptureType = 'GENERAL';
+
         // Internal: Set current active cell highlight and selectedCells, does not control focus
         function setActiveCellCore(cell) {
             if (!cell || cell.contentEditable !== 'true') return;
@@ -7309,16 +7312,19 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             // Check if table has data
-            const tableData = captureTableData();
-            const hasTableData = tableData.rows.some(row => {
-                return row.some(cell => {
-                    return cell.type === 'data' && cell.value && cell.value.trim() !== '';
+            // 目前的表格判定格式仅在选择 CITIBET 时强制生效
+            if (currentDataCaptureType === 'CITIBET') {
+                const tableData = captureTableData();
+                const hasTableData = tableData.rows.some(row => {
+                    return row.some(cell => {
+                        return cell.type === 'data' && cell.value && cell.value.trim() !== '';
+                    });
                 });
-            });
-            
-            if (!hasTableData) {
-                showNotification('Error', 'Please enter data in the table', 'error');
-                return false;
+                
+                if (!hasTableData) {
+                    showNotification('Error', 'Please enter data in the table', 'error');
+                    return false;
+                }
             }
             
             return true;
@@ -7334,15 +7340,20 @@ if ($current_user_id && count($user_companies) > 0) {
             const descriptions = window.selectedDescriptions || [];
             
             // Check if table has data - more thorough check
-            const tableData = captureTableData();
+            // 目前的表格判定格式仅在选择 CITIBET 时强制生效
             let hasTableData = false;
-            
-            if (tableData.rows && tableData.rows.length > 0) {
-                hasTableData = tableData.rows.some(row => {
-                    return row.some(cell => {
-                        return cell.type === 'data' && cell.value && cell.value.trim() !== '';
+            if (currentDataCaptureType === 'CITIBET') {
+                const tableData = captureTableData();
+                if (tableData.rows && tableData.rows.length > 0) {
+                    hasTableData = tableData.rows.some(row => {
+                        return row.some(cell => {
+                            return cell.type === 'data' && cell.value && cell.value.trim() !== '';
+                        });
                     });
-                });
+                }
+            } else {
+                // 其它类型下，不强制要求表格必须有数据
+                hasTableData = true;
             }
             
             // Enable submit button only if all validations pass
@@ -8263,7 +8274,18 @@ if ($current_user_id && count($user_companies) > 0) {
             setTimeout(() => {
                 document.body.classList.add('page-ready');
             }, 50);
-            
+
+            // 初始化 Data Capture Type 选择器
+            const typeSelect = document.getElementById('dataCaptureTypeSelector');
+            if (typeSelect) {
+                currentDataCaptureType = typeSelect.value || 'GENERAL';
+                typeSelect.addEventListener('change', () => {
+                    currentDataCaptureType = typeSelect.value || 'GENERAL';
+                    // 切换类型时，重新刷新 Submit 按钮的可用状态
+                    updateSubmitButtonState();
+                });
+            }
+
             // 初始化 Process 输入框事件
             initProcessInput();
             
