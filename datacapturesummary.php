@@ -9305,14 +9305,19 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Auto-enable if source percent has value
             const enableSourcePercent = percentValue && percentValue.trim() !== '';
             
-            // Priority: Use saved formula_display if available (preserves user's manual edits like *0.1)
-            // If formula_display exists, preserve its structure but update numbers from current source data
-            // Otherwise, recalculate formula from current Data Capture Table
+            // Priority: 如果有保存的 formula_display，**直接使用数据库里的值**，
+            // 不再尝试根据当前表格数据去“保留结构并替换数字”，
+            // 避免在数字数量不一致时被强制重算成简化公式（例如从 `4+3*0.9/5*(1)` 变成 `4+3`）。
+            // 只有在 formula_display 为空或为占位符时，才根据当前数据重新生成。
             let formulaDisplay = '';
             const savedFormulaDisplay = mainTemplate.formula_display || '';
             const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
-            
-            if (isBatchSelectedTemplate) {
+
+            // 如果数据库里已经有 formula_display，就完全按原样显示
+            if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+                formulaDisplay = savedFormulaDisplay;
+                console.log('Using saved formula_display directly (main):', formulaDisplay);
+            } else if (isBatchSelectedTemplate) {
                 // 对于 Batch Selection 的模板，优先使用保存的 formula_display（如果包含括号）
                 // 如果保存的 formula_display 包含括号，使用 preserveFormulaStructure 来保留括号结构
                 // 否则，重新从当前的 resolvedSourceExpression 计算
@@ -10590,14 +10595,19 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         // Auto-enable if source percent has value
         const enableSourcePercent = percentValue && percentValue.trim() !== '';
         
-        // Priority: Use saved formula_display if available (preserves user's manual edits like *0.1)
-        // If formula_display exists, preserve its structure but update numbers from current source data
-        // Otherwise, recalculate formula from current Data Capture Table
+        // Priority: 如果有保存的 formula_display，**直接使用数据库里的值**，
+        // 不再尝试根据当前表格数据去“保留结构并替换数字”，
+        // 避免在数字数量不一致时被强制重算成简化公式（例如从 `4+3*0.9/5*(1)` 变成 `4+3`）。
+        // 只有在 formula_display 为空或为占位符时，才根据当前数据重新生成。
         let formulaDisplay = '';
         const savedFormulaDisplay = template.formula_display || '';
         const isBatchSelectedTemplate = template.batch_selection == 1;
-        
-            if (isBatchSelectedTemplate) {
+
+        // 如果数据库里已经有 formula_display，就完全按原样显示（sub row）
+        if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+            formulaDisplay = savedFormulaDisplay;
+            console.log('Using saved formula_display directly (sub):', formulaDisplay);
+        } else if (isBatchSelectedTemplate) {
                 // 对于 Batch Selection 的子模板，优先使用保存的 formula_display
                 // 使用 preserveFormulaStructure 来保留公式结构（包括括号）
                 if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
