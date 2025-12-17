@@ -217,6 +217,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="excel-table-container">
                     <div class="excel-table-header">
                         <span>Data Capture Table</span>
+                        <!-- Data Capture Type Selector -->
+                        <select id="dataCaptureTypeSelector" class="data-capture-type-selector">
+                            <option value="GENERAL">GENERAL</option>
+                            <option value="CITIBET">CITIBET</option>
+                            <option value="CITIBET_MAJOR">CITIBET MAJOR</option>
+                        </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
                     <table class="excel-table" id="dataTable">
@@ -9266,6 +9272,23 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(12px, 0.94vw, 18px);
             font-weight: bold;
             color: #24292f;
+        }
+
+        .data-capture-type-selector {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #d0d7de;
+            font-size: clamp(12px, 0.9vw, 16px);
+            background-color: #f6f8fa;
+            color: #24292f;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .data-capture-type-selector:focus {
+            border-color: #0969da;
+            box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.3);
+            background-color: #ffffff;
         }
 
         .excel-table td.multi-selected {
