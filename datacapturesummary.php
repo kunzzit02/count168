@@ -9304,6 +9304,62 @@ function applyTemplateToSummaryRow(idProduct, template) {
             const columnsDisplay = sourceColumnsValue ? createColumnsDisplay(sourceColumnsValue, formulaOperatorsValue) : '';
             // Auto-enable if source percent has value
             const enableSourcePercent = percentValue && percentValue.trim() !== '';
+
+            // SPECIAL CASE: 手工公式（last_source_value 中有 * 或 /）
+            // 这类模板完全依赖用户自己写的表达式（例如 5+3*0.9/5），不应再用表格数字去“重建”公式，
+            // 否则会把 *0.9/5 丢失或改错。
+            const isManualExpression = savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source' && /[*/]/.test(savedSourceValue);
+            if (isManualExpression) {
+                const manualExpression = savedSourceValue.trim();
+                const manualFormulaDisplay = createFormulaDisplayFromExpression(manualExpression, percentValue, enableSourcePercent);
+                let manualProcessedAmount = calculateFormulaResultFromExpression(
+                    manualExpression,
+                    percentValue,
+                    mainTemplate.input_method || '',
+                    mainTemplate.enable_input_method == 1,
+                    enableSourcePercent
+                );
+                if (isNaN(manualProcessedAmount) || !isFinite(manualProcessedAmount)) {
+                    manualProcessedAmount = 0;
+                }
+
+                const data = {
+                    idProduct: idProduct,
+                    description: mainTemplate.description || '',
+                    originalDescription: mainTemplate.description || '',
+                    account: mainTemplate.account_display || 'Account',
+                    accountDbId: mainTemplate.account_id || '',
+                    currency: mainTemplate.currency_display || '',
+                    currencyDbId: mainTemplate.currency_id || '',
+                    columns: columnsDisplay,
+                    sourceColumns: sourceColumnsValue,
+                    batchSelection: mainTemplate.batch_selection == 1,
+                    source: manualExpression,
+                    sourcePercent: percentValue || '1',
+                    formula: manualFormulaDisplay,
+                    formulaOperators: manualExpression,
+                    processedAmount: manualProcessedAmount,
+                    inputMethod: mainTemplate.input_method || '',
+                    enableInputMethod: (mainTemplate.input_method && mainTemplate.input_method.trim() !== '') ? true : false,
+                    enableSourcePercent: enableSourcePercent,
+                    templateKey: mainTemplate.template_key || null,
+                    templateId: mainTemplate.id || null,
+                    formulaVariant: mainTemplate.formula_variant || null,
+                    productType: 'main',
+                    rowIndex: (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null)
+                        ? Number(mainTemplate.row_index)
+                        : null
+                };
+
+                updateSummaryTableRow(idProduct, data, targetRow);
+                if (hadAddButton || !hasExistingData) {
+                    ensureSubRowPlaceholderExists(idProduct, targetRow);
+                }
+                if (Array.isArray(subTemplates) && subTemplates.length > 0) {
+                    applySubTemplatesToSummaryRow(idProduct, targetRow, subTemplates);
+                }
+                return;
+            }
             
             // Priority: Use saved formula_display if available (preserves user's manual edits like *0.1)
             // If formula_display exists, preserve its structure but update numbers from current source data
