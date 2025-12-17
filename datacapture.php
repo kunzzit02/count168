@@ -217,7 +217,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="excel-table-container">
                     <div class="excel-table-header">
                         <span>Data Capture Table</span>
-                        <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <select id="formatSelector" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: white; cursor: pointer;">
+                                <option value="GENERAL">GENERAL</option>
+                                <option value="CITIBET">CITIBET</option>
+                                <option value="CITIBET_MAJOR">CITIBET MAJOR</option>
+                            </select>
+                            <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
+                        </div>
                     </div>
                     <table class="excel-table" id="dataTable">
                         <thead id="tableHeader">
@@ -3635,8 +3642,9 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
-        // 针对 Citibet 的 Upline/Downline 报表：直接生成 11 列矩阵
+        // CITIBET格式：针对 Citibet 的 Upline/Downline 报表：直接生成 11 列矩阵
         // 需求：MY EARNINGS 与 TOTAL 的金额放在第 11 列
+        // 保留所有MAJOR和MINOR行
         function parseCitibetPaymentReport(pastedData) {
             if (!pastedData || typeof pastedData !== 'string') return null;
 
@@ -3761,6 +3769,171 @@ if ($current_user_id && count($user_companies) > 0) {
                 maxRows: rows.length,
                 maxCols: colCount
             };
+        }
+
+        // CITIBET MAJOR格式：只保留MAJOR行，忽略MINOR行
+        function parseCitibetMajorPaymentReport(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+
+            const lowerAll = pastedData.toLowerCase();
+            if (!lowerAll.includes('upline payment') || !lowerAll.includes('downline payment')) {
+                return null;
+            }
+
+            console.log('Using Citibet MAJOR payment parser (only MAJOR rows)');
+
+            const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const rawLines = norm.split('\n');
+
+            const splitLine = (line) => {
+                if (line.includes('\t')) {
+                    return line.split('\t').map(c => (c || '').trim()).filter(c => c !== '');
+                }
+                const byDoubleSpace = line.split(/\s{2,}/).map(c => (c || '').trim()).filter(c => c !== '');
+                if (byDoubleSpace.length > 1) return byDoubleSpace;
+                return line.split(/\s+/).map(c => (c || '').trim()).filter(c => c !== '');
+            };
+
+            const rows = [];
+            const colCount = 11;
+            let section = '';
+
+            const pushRow = (arr) => {
+                const row = [...arr];
+                while (row.length < colCount) row.push('');
+                rows.push(row);
+            };
+
+            rawLines.forEach(raw => {
+                const line = raw.trim();
+                if (line === '') return;
+
+                const lower = line.toLowerCase();
+                if (lower.includes('upline payment')) {
+                    section = 'upline';
+                    return;
+                }
+                if (lower.includes('downline payment')) {
+                    section = 'downline';
+                    return;
+                }
+                if (lower.includes('username') && lower.includes('type')) return;
+
+                // My Earnings 行（金额放第 11 列）
+                if (lower.includes('my earnings')) {
+                    const tokens = splitLine(line);
+                    if (tokens.length >= 2) {
+                        const label = tokens.slice(0, -1).join(' ').toUpperCase();
+                        const amount = tokens[tokens.length - 1];
+                        const row = new Array(colCount).fill('');
+                        row[0] = label;
+                        row[10] = amount;
+                        pushRow(row);
+                    }
+                    return;
+                }
+
+                // Total : (Ringgit Malaysia (RM)) 行（金额放第 11 列）
+                if (lower.includes('total :') || lower.startsWith('total')) {
+                    const tokens = splitLine(line);
+                    if (tokens.length >= 1) {
+                        const label = tokens.slice(0, -1).join(' ').toUpperCase();
+                        const amount = tokens[tokens.length - 1];
+                        const row = new Array(colCount).fill('');
+                        row[0] = label;
+                        row[10] = amount;
+                        pushRow(row);
+                    }
+                    return;
+                }
+
+                const cells = splitLine(line);
+                if (cells.length < 3) return;
+
+                if (section === 'upline') {
+                    const overallIdx = cells.findIndex(c => c.toLowerCase() === 'overall');
+                    if (overallIdx >= 0) {
+                        const data = cells.slice(overallIdx + 1);
+                        const row = ['OVERALL', '', '', ...data.slice(0, 8)];
+                        pushRow(row);
+                        return;
+                    }
+
+                    const parent = cells[1] || '';
+                    const type = (cells[2] || '').toUpperCase();
+                    
+                    // CITIBET MAJOR：只保留MAJOR行，忽略MINOR行
+                    if (type !== 'MAJOR') {
+                        return; // 跳过MINOR行
+                    }
+                    
+                    const numbers = cells.slice(3);
+                    const row = [parent, parent, type, ...numbers.slice(0, 8)];
+                    pushRow(row);
+                    return;
+                }
+
+                if (section === 'downline') {
+                    let idx = 0;
+                    if (/^\d+$/.test(cells[0])) idx = 1;
+
+                    let parent = cells[idx + 1] || '';
+                    let child = parent;
+                    let type = cells[idx + 2] || '';
+                    let dataStart = idx + 3;
+
+                    const typeLower = type.toLowerCase();
+                    if (typeLower !== 'major' && typeLower !== 'minor' && cells.length > idx + 3) {
+                        child = cells[idx + 2] || '';
+                        type = cells[idx + 3] || '';
+                        dataStart = idx + 4;
+                    }
+
+                    // CITIBET MAJOR：只保留MAJOR行，忽略MINOR行
+                    const typeUpper = type.toUpperCase();
+                    if (typeUpper !== 'MAJOR') {
+                        return; // 跳过MINOR行
+                    }
+
+                    const numbers = cells.slice(dataStart);
+                    const row = [parent, child, type, ...numbers.slice(0, 8)];
+                    pushRow(row);
+                }
+            });
+
+            if (rows.length === 0) return null;
+
+            return {
+                dataMatrix: rows,
+                maxRows: rows.length,
+                maxCols: colCount
+            };
+        }
+
+        // GENERAL格式：使用通用解析器
+        function parseGeneralPaymentReport(pastedData) {
+            // 先尝试完整Payment Report格式
+            const fullPayment = parseFullPaymentReport(pastedData);
+            if (fullPayment) {
+                console.log('Using GENERAL format (Full Payment Report)');
+                return fullPayment;
+            }
+            
+            // 再尝试简单Payment Report格式
+            const simplePayment = parseSimplePaymentReport(pastedData);
+            if (simplePayment) {
+                console.log('Using GENERAL format (Simple Payment Report)');
+                return simplePayment;
+            }
+            
+            // 最后尝试Excel格式
+            const excelFormat = parseExcelFormatPaymentReport(pastedData);
+            if (excelFormat) {
+                console.log('Using GENERAL format (Excel Format)');
+                return excelFormat;
+            }
+            
+            return null;
         }
 
         // 针对完整 Payment Report（包含 Overall + My Earnings + Downline Payment）的解析器
@@ -4630,8 +4803,35 @@ if ($current_user_id && count($user_companies) > 0) {
             // 先拿到纯文本内容，用来判断是不是 Payment Report
             const pastedData = (e.clipboardData || window.clipboardData).getData('text');
             
-            // Citibet 专用解析（先于通用 Payment 逻辑）
-            const citibetParsed = parseCitibetPaymentReport(pastedData);
+            // 根据用户选择的格式进行解析
+            const formatSelector = document.getElementById('formatSelector');
+            const selectedFormat = formatSelector ? formatSelector.value : 'GENERAL';
+            
+            let parsedResult = null;
+            
+            if (selectedFormat === 'CITIBET') {
+                parsedResult = parseCitibetPaymentReport(pastedData);
+            } else if (selectedFormat === 'CITIBET_MAJOR') {
+                parsedResult = parseCitibetMajorPaymentReport(pastedData);
+            } else {
+                // GENERAL格式：按优先级尝试各种解析器
+                parsedResult = parseGeneralPaymentReport(pastedData);
+            }
+            
+            // 如果格式解析失败，尝试其他格式作为后备
+            if (!parsedResult) {
+                // 后备方案：尝试Citibet格式
+                if (selectedFormat !== 'CITIBET') {
+                    parsedResult = parseCitibetPaymentReport(pastedData);
+                }
+                // 如果还是失败，尝试Excel格式
+                if (!parsedResult && selectedFormat !== 'CITIBET_MAJOR') {
+                    parsedResult = parseExcelFormatPaymentReport(pastedData);
+                }
+            }
+            
+            if (parsedResult) {
+                const { dataMatrix, maxRows, maxCols } = parsedResult;
             if (citibetParsed) {
                 const { dataMatrix, maxRows, maxCols } = citibetParsed;
 
@@ -4685,9 +4885,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
 
                 if (successCount > 0) {
-                    showNotification('Success', `Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
+                    const formatName = selectedFormat === 'CITIBET' ? 'CITIBET' : 
+                                     selectedFormat === 'CITIBET_MAJOR' ? 'CITIBET MAJOR' : 'GENERAL';
+                    showNotification('Success', `Successfully pasted ${formatName} format (${successCount} cells, ${maxRows} rows x ${maxCols} cols)!`, 'success');
                 } else {
-                    showNotification('Warning', 'No cells were pasted from Citibet report.', 'error');
+                    const formatName = selectedFormat === 'CITIBET' ? 'CITIBET' : 
+                                     selectedFormat === 'CITIBET_MAJOR' ? 'CITIBET MAJOR' : 'GENERAL';
+                    showNotification('Warning', `No cells were pasted from ${formatName} format.`, 'error');
                 }
 
                 setTimeout(updateSubmitButtonState, 0);
@@ -8250,6 +8454,43 @@ if ($current_user_id && count($user_companies) > 0) {
                 isRestoringData = false;
             }
         }
+
+        // 保存格式选择到localStorage
+        function saveFormatSelection(format) {
+            try {
+                localStorage.setItem('dataCaptureFormat', format);
+            } catch (e) {
+                console.error('Failed to save format selection:', e);
+            }
+        }
+
+        // 从localStorage加载格式选择
+        function loadFormatSelection() {
+            try {
+                const savedFormat = localStorage.getItem('dataCaptureFormat');
+                const formatSelector = document.getElementById('formatSelector');
+                if (formatSelector && savedFormat) {
+                    formatSelector.value = savedFormat;
+                }
+            } catch (e) {
+                console.error('Failed to load format selection:', e);
+            }
+        }
+
+        // 格式选择器变化事件
+        document.addEventListener('DOMContentLoaded', function() {
+            const formatSelector = document.getElementById('formatSelector');
+            if (formatSelector) {
+                // 加载保存的格式选择
+                loadFormatSelection();
+                
+                // 监听格式变化
+                formatSelector.addEventListener('change', function() {
+                    saveFormatSelection(this.value);
+                    console.log('Format changed to:', this.value);
+                });
+            }
+        });
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
