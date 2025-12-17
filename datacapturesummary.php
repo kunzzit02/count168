@@ -4302,11 +4302,7 @@ function getCurrentProcessId() {
             const formulaDisplayFromData = formData.formulaDisplay || '';
             const isFormulaEmpty = !formulaDisplayFromData || formulaDisplayFromData.trim() === '' || formulaDisplayFromData === 'Formula';
             const sourceColumns = isFormulaEmpty ? '' : (row.getAttribute('data-source-columns') || formData.clickedColumnsDisplay || '');
-            // 优先使用本次编辑提交的完整公式（formData.formulaValue），
-            // 只有在本次没有提供公式时，才回退到行上已有的 data-formula-operators
-            const formulaOperators = (formData.formulaValue && formData.formulaValue.trim() !== '')
-                ? formData.formulaValue.trim()
-                : (row.getAttribute('data-formula-operators') || '');
+            const formulaOperators = row.getAttribute('data-formula-operators') || formData.formulaValue || '';
             const sourcePercentAttr = row.getAttribute('data-source-percent') || '';
             const sourcePercent = sourcePercentAttr || formData.sourcePercentValue || '1';
             // Auto-enable if source percent has value
@@ -9103,8 +9099,8 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
     }
 }
 
-        function applyTemplateToSummaryRow(idProduct, template) {
-        try {
+function applyTemplateToSummaryRow(idProduct, template) {
+    try {
         const targetRow = findSummaryRowByIdProduct(idProduct);
 
         if (!targetRow) {
