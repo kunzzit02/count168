@@ -1508,10 +1508,21 @@ function getCurrentProcessId() {
                     const action = this.getAttribute('data-action');
                     
                     if (action === 'clear') {
+                        // Set flag to prevent input event handler from processing this change
+                        formulaInput.setAttribute('data-from-keyboard', 'true');
+                        
                         // Clear the formula input
                         formulaInput.value = '';
                         formulaInput.focus();
+                        
+                        // Clear flag after a short delay
+                        setTimeout(() => {
+                            formulaInput.removeAttribute('data-from-keyboard');
+                        }, 0);
                     } else if (action === 'equals') {
+                        // Set flag to prevent input event handler from processing this change
+                        formulaInput.setAttribute('data-from-keyboard', 'true');
+                        
                         // Calculate the result (optional - can be used to evaluate formula)
                         try {
                             const formula = formulaInput.value;
@@ -1526,6 +1537,11 @@ function getCurrentProcessId() {
                             // If evaluation fails, just keep the formula as is
                         }
                         formulaInput.focus();
+                        
+                        // Clear flag after a short delay
+                        setTimeout(() => {
+                            formulaInput.removeAttribute('data-from-keyboard');
+                        }, 0);
                     } else if (value) {
                         // Check if value is a number (0-9)
                         if (/^\d$/.test(value)) {
@@ -1576,6 +1592,9 @@ function getCurrentProcessId() {
                                 // For numbers after +, -, or at start, get the column value from the current selected row
                                 const columnValue = getColumnValueFromSelectedRow(parseInt(value));
                                 if (columnValue !== null) {
+                                    // Set flag to prevent input event handler from processing this change
+                                    formulaInput.setAttribute('data-from-keyboard', 'true');
+                                    
                                     // Insert the column value at cursor position
                                     const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
                                     formulaInput.value = textBefore + columnValue + textAfter;
@@ -1595,24 +1614,48 @@ function getCurrentProcessId() {
                                     const mapEntries = valueColumnMap ? valueColumnMap.split(',') : [];
                                     mapEntries.push(`${columnValue}:${value}`);
                                     formulaInput.setAttribute('data-value-column-map', mapEntries.join(','));
+                                    
+                                    // Clear flag after a short delay
+                                    setTimeout(() => {
+                                        formulaInput.removeAttribute('data-from-keyboard');
+                                    }, 0);
                                 } else {
                                     // If no row selected, just insert the number
+                                    // Set flag to prevent input event handler from processing this change
+                                    formulaInput.setAttribute('data-from-keyboard', 'true');
+                                    
                                     const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
                                     formulaInput.value = textBefore + value + textAfter;
                                     
                                     const newCursorPos = cursorPos + value.length;
                                     formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+                                    
+                                    // Clear flag after a short delay
+                                    setTimeout(() => {
+                                        formulaInput.removeAttribute('data-from-keyboard');
+                                    }, 0);
                                 }
                             } else {
                                 // If last operator is *, /, or ., or after + or - with decimal, just insert the number directly
+                                // Set flag to prevent input event handler from processing this change
+                                formulaInput.setAttribute('data-from-keyboard', 'true');
+                                
                                 const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
                                 formulaInput.value = textBefore + value + textAfter;
                                 
                                 const newCursorPos = cursorPos + value.length;
                                 formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+                                
+                                // Clear flag after a short delay
+                                setTimeout(() => {
+                                    formulaInput.removeAttribute('data-from-keyboard');
+                                }, 0);
                             }
                         } else {
                             // For operators, parentheses, decimal point, just insert the value
+                            // Set flag to prevent input event handler from processing this change
+                            formulaInput.setAttribute('data-from-keyboard', 'true');
+                            
                             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
                             const textBefore = formulaInput.value.substring(0, cursorPos);
                             const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
@@ -1620,6 +1663,11 @@ function getCurrentProcessId() {
                             
                             const newCursorPos = cursorPos + value.length;
                             formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+                            
+                            // Clear flag after a short delay
+                            setTimeout(() => {
+                                formulaInput.removeAttribute('data-from-keyboard');
+                            }, 0);
                         }
                         formulaInput.focus();
                     }
@@ -3250,6 +3298,14 @@ function getCurrentProcessId() {
                     // instead of looking up values from the current edit row based on column
                     const fromCellClick = this.getAttribute('data-from-cell-click') === 'true';
                     if (fromCellClick) {
+                        previousValue = formulaValue;
+                        return;
+                    }
+                    
+                    // Skip processing if this value came from keyboard button click
+                    // This prevents duplicate processing when user clicks calculator keyboard buttons
+                    const fromKeyboard = this.getAttribute('data-from-keyboard') === 'true';
+                    if (fromKeyboard) {
                         previousValue = formulaValue;
                         return;
                     }
