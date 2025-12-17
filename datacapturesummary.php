@@ -910,7 +910,16 @@ function getCurrentProcessId() {
                 // But we should only match the base numbers (excluding structure numbers like 0.008, 0.002, 0.90)
                 // Extract only base numbers from saved expression (numbers that are not part of *0.008, /0.90, etc.)
                 const baseSavedNumbers = [];
-                const structurePatterns = [/\*0\.\d+/, /\/0\.\d+/, /\*\(0\.\d+/, /\/\(0\.\d+/];
+                // 结构性数字（例如 *0.008、/0.90、*(0.008/2) 里的 0.008 和 2）
+                // 注意：这里也要把类似 *0.9/5 里的 5 当成结构数字（0.9/5 这一整段是比例）
+                const structurePatterns = [
+                    /\*0\.\d+/,      // *0.008
+                    /\/0\.\d+/,      // /0.90
+                    /\*\(0\.\d+/,    // *(0.008
+                    /\/\(0\.\d+/,    // /(0.008
+                    /0\.\d+\/\d+/,   // 0.9/5 这样的分母数字一起视为结构
+                    /\/\d+\)/        // /(5) 或 .../5) 的 5 视为结构
+                ];
                 
                 savedNumberMatches.forEach((matchObj) => {
                     const numValue = matchObj.displayValue;
@@ -5727,7 +5736,16 @@ function getCurrentProcessId() {
                 // But we should only extract base numbers (excluding structure numbers like 0.008, 0.002, 0.90)
                 const cleanSourceData = removeThousandsSeparators(newSourceData);
                 const numberMatches = getFormulaNumberMatches(cleanSourceData);
-                const structurePatterns = [/\*0\.\d+/, /\/0\.\d+/, /\*\(0\.\d+/, /\/\(0\.\d+/];
+                // 结构性数字（例如 *0.008、/0.90、*(0.008/2) 里的 0.008 和 2）
+                // 注意：这里也要把类似 *0.9/5 里的 5 当成结构数字（0.9/5 这一整段是比例）
+                const structurePatterns = [
+                    /\*0\.\d+/,      // *0.008
+                    /\/0\.\d+/,      // /0.90
+                    /\*\(0\.\d+/,    // *(0.008
+                    /\/\(0\.\d+/,    // /(0.008
+                    /0\.\d+\/\d+/,   // 0.9/5 这样的分母数字一起视为结构
+                    /\/\d+\)/        // /(5) 或 .../5) 的 5 视为结构
+                ];
                 
                 // Filter out structure numbers, only keep base numbers
                 const numbers = [];
