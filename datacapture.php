@@ -3403,7 +3403,7 @@ if ($current_user_id && count($user_companies) > 0) {
             };
         }
 
-        // 把「MY EARNINGS / TOTAL」金额强制移到第 11 列（适配 Citibet）
+        // 把「MY EARNINGS / TOTAL」金额强制移到指定列（适配 Citibet / Citibet Major）
         function fixCitibetAmountColumns() {
             const tableBody = document.getElementById('tableBody');
             const tableHeader = document.getElementById('tableHeader');
@@ -3417,6 +3417,14 @@ if ($current_user_id && count($user_companies) > 0) {
             }
 
             const rows = Array.from(tableBody.children);
+
+            // 根据当前类型决定金额应该落在哪一列（0-based index，不含行号）
+            // CITIBET      -> 第 11 列 -> index 10
+            // CITIBET MAJOR-> 第 10 列 -> index 9
+            const amountTargetIndex =
+                (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR')
+                    ? 9
+                    : 10;
             rows.forEach((row) => {
                 const cells = Array.from(row.children).slice(1); // 去掉行号
                 const firstText = (cells[0]?.textContent || '').toUpperCase().trim();
@@ -3431,7 +3439,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 对于 MY EARNINGS 行，需要检查所有列包括第11列
                 const isMyEarnings = firstText.includes('MY EARNINGS');
-                const skipCols = isMyEarnings ? [] : [10, 11, 12, 13, 14]; // MY EARNINGS 不跳过第11列
+                // TOTAL 行：跳过目标金额列及其右侧，避免把已经在目标区域的金额又识别为“需搬运”的来源
+                const skipCols = isMyEarnings ? [] : [amountTargetIndex, amountTargetIndex + 1, amountTargetIndex + 2, amountTargetIndex + 3, amountTargetIndex + 4];
                 
                 for (let i = cells.length - 1; i >= 0; i--) {
                     if (skipCols.includes(i)) continue; // 跳过指定列（TOTAL 行跳过第11-15列）
@@ -3457,22 +3466,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 对于 MY EARNINGS 行，如果没有找到金额，检查第11列是否已经有金额
-                if (isMyEarnings && !amountCell && cells[10]) {
-                    const existingAmount = (cells[10].textContent || '').trim();
+                // 对于 MY EARNINGS 行，如果没有找到金额，检查目标金额列是否已经有金额
+                if (isMyEarnings && !amountCell && cells[amountTargetIndex]) {
+                    const existingAmount = (cells[amountTargetIndex].textContent || '').trim();
                     if (existingAmount && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(existingAmount)) {
                         amountValue = existingAmount;
-                        amountCell = cells[10];
+                        amountCell = cells[amountTargetIndex];
                     }
                 }
                 
                 // 对于 MY EARNINGS 行，如果没有金额，仍然继续处理（可能金额在标签文本中）
                 if (!isMyEarnings && !amountValue) return;
 
-                // 对于 MY EARNINGS 行：标签在列1，金额在列11
+                // 对于 MY EARNINGS 行：标签在第 1 列，金额在目标金额列
                 if (firstText.includes('MY EARNINGS')) {
                     // 确保有足够的列
-                    const minCols = 11;
+                    const minCols = Math.max(11, amountTargetIndex + 1);
                     while (cells.length < minCols) {
                         const newCell = document.createElement('td');
                         newCell.contentEditable = true;
@@ -3638,14 +3647,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (amountCell && amountCell !== cells[10]) {
                     amountCell.textContent = '';
                 }
-                if (cells[10]) {
-                    cells[10].textContent = amountValue;
+                    if (cells[amountTargetIndex]) {
+                        cells[amountTargetIndex].textContent = amountValue;
                 }
             });
         }
 
         // 针对 Citibet 的 Upline/Downline 报表：直接生成 11 列矩阵
-        // 需求：MY EARNINGS 与 TOTAL 的金额放在第 11 列
+        // 需求：
+        //   - CITIBET      : MY EARNINGS 与 TOTAL 的金额放在第 11 列
+        //   - CITIBET MAJOR: MY EARNINGS 与 TOTAL 的金额放在第 10 列
         function parseCitibetPaymentReport(pastedData) {
             if (!pastedData || typeof pastedData !== 'string') return null;
 
@@ -3672,6 +3683,14 @@ if ($current_user_id && count($user_companies) > 0) {
             const colCount = 11;
             let section = '';
 
+            // 根据当前类型决定「金额目标列」索引（0-based）
+            // CITIBET      -> index 10 (第 11 列)
+            // CITIBET MAJOR-> index 9  (第 10 列)
+            const amountTargetIndex =
+                (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR')
+                    ? 9
+                    : 10;
+
             const pushRow = (arr) => {
                 const row = [...arr];
                 while (row.length < colCount) row.push('');
@@ -3693,7 +3712,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 if (lower.includes('username') && lower.includes('type')) return;
 
-                // My Earnings 行（金额放第 11 列）
+                // My Earnings 行（金额放在金额目标列）
                 if (lower.includes('my earnings')) {
                     const tokens = splitLine(line);
                     if (tokens.length >= 2) {
@@ -3701,13 +3720,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         const amount = tokens[tokens.length - 1];
                         const row = new Array(colCount).fill('');
                         row[0] = label;
-                        row[10] = amount;
+                        if (amountTargetIndex >= 0 && amountTargetIndex < colCount) {
+                            row[amountTargetIndex] = amount;
+                        }
                         pushRow(row);
                     }
                     return;
                 }
 
-                // Total : (Ringgit Malaysia (RM)) 行（金额放第 11 列）
+                // Total : (Ringgit Malaysia (RM)) 行（金额放在金额目标列）
                 if (lower.includes('total :') || lower.startsWith('total')) {
                     const tokens = splitLine(line);
                     if (tokens.length >= 1) {
@@ -3715,7 +3736,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         const amount = tokens[tokens.length - 1];
                         const row = new Array(colCount).fill('');
                         row[0] = label;
-                        row[10] = amount;
+                        if (amountTargetIndex >= 0 && amountTargetIndex < colCount) {
+                            row[amountTargetIndex] = amount;
+                        }
                         pushRow(row);
                     }
                     return;
