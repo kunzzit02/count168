@@ -100,8 +100,11 @@ if ($current_user_id && count($user_companies) > 0) {
         #contextMenu:not(.show) {
             display: none;
         }
-        /* 取消页面淡入过渡，避免进入 Data Capture 时整体布局（包括 sidebar）闪一下 */
-        body:not(.page-ready) .container,
+        /* Smoothly show content after page is ready */
+        body:not(.page-ready) .container {
+            opacity: 0;
+            transition: opacity 0.2s ease-in;
+        }
         body.page-ready .container {
             opacity: 1;
         }
