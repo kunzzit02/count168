@@ -868,7 +868,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
             <!-- 添加头像选择器（改为使用 PNG 照片） -->
             <div class="avatar-selector-container">
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
-                    <img id="currentAvatarImg" src="images/avatar1.png" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <!-- 移除默认 src，避免每次切换页面先闪一下默认头像；实际头像由 JS 根据 localStorage 设置 -->
+                    <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
                 </div>
                 
             <div class="avatar-options" id="avatarOptions">
