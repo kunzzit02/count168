@@ -4131,11 +4131,28 @@ function getCurrentProcessId() {
                         formulaInput.value = data.formula || '';
                         // Restore clicked columns if provided
                         if (data.clickedColumns) {
-                            formulaInput.setAttribute('data-clicked-columns', data.clickedColumns);
+                            // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
+                            // If so, restore to data-clicked-cell-refs instead of data-clicked-columns
+                            const isNewFormat = isNewIdProductColumnFormat(data.clickedColumns);
+                            
+                            if (isNewFormat) {
+                                // New format: restore to data-clicked-cell-refs (preserves id_product:column format)
+                                formulaInput.setAttribute('data-clicked-cell-refs', data.clickedColumns);
+                                console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs:', data.clickedColumns);
+                            } else {
+                                // Old format: restore to data-clicked-columns (backward compatibility)
+                                formulaInput.setAttribute('data-clicked-columns', data.clickedColumns);
+                                console.log('Edit mode: Restored old format to data-clicked-columns:', data.clickedColumns);
+                            }
+                            
                             // In edit mode, save original columns to preserve them when user adds new columns
                             const isEditMode = !!window.currentEditRow;
                             if (isEditMode) {
-                                formulaInput.setAttribute('data-original-clicked-columns', data.clickedColumns);
+                                if (isNewFormat) {
+                                    formulaInput.setAttribute('data-original-clicked-cell-refs', data.clickedColumns);
+                                } else {
+                                    formulaInput.setAttribute('data-original-clicked-columns', data.clickedColumns);
+                                }
                                 console.log('Edit mode: Saved original columns:', data.clickedColumns);
                             }
                         }
@@ -7715,12 +7732,25 @@ function getCurrentProcessId() {
             // Extract source value from formula (source column no longer exists)
             let sourceValue = '';
             
-            // Extract columns from cells[4] (e.g., "10 10" -> "10,10" - preserve duplicates and order)
-            // Columns column removed, get from data attribute instead
+            // Extract columns from data-source-columns attribute
+            // CRITICAL FIX: Preserve id_product:column format (e.g., "ABC123:3 DEF456:4")
+            // Do NOT convert to pure numbers, as this loses id_product information
             const columnsValue = row.getAttribute('data-source-columns') || '';
-            const columnsArray = columnsValue ? columnsValue.split(/\s+/).map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
-            // Preserve original order and duplicates (don't sort)
-            const clickedColumns = columnsArray.join(',');
+            
+            // Check if columnsValue is in new format (id_product:column_index)
+            const isNewFormat = isNewIdProductColumnFormat(columnsValue);
+            
+            // For backward compatibility: if old format (pure numbers), convert to comma-separated
+            // But preserve new format as-is
+            let clickedColumns = '';
+            if (isNewFormat) {
+                // New format: preserve as-is (e.g., "ABC123:3 DEF456:4")
+                clickedColumns = columnsValue;
+            } else {
+                // Old format: convert to comma-separated numbers for backward compatibility
+                const columnsArray = columnsValue ? columnsValue.split(/\s+/).map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
+                clickedColumns = columnsArray.join(',');
+            }
             
             // Extract sourceColumns from data attribute or use columnsValue
             const sourceColumnsValue = row.getAttribute('data-source-columns') || columnsValue || '';
