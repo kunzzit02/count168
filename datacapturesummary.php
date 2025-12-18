@@ -1494,29 +1494,14 @@ function getCurrentProcessId() {
         
         // Store the current selected row for calculator keypad
         let currentSelectedRowForCalculator = null;
-        
-        // Store the cursor position when formula input loses focus
-        let savedFormulaCursorPosition = null;
 
         // 通用的公式输入处理函数：无论是点击 keypad 还是键盘输入，统一走这里
         function handleFormulaValueInput(formulaInput, value) {
             if (!formulaInput || !value) return;
 
-            // 确保输入框有焦点，以便正确获取光标位置
-            if (document.activeElement !== formulaInput) {
-                formulaInput.focus();
-                // 如果有保存的光标位置，恢复它
-                if (savedFormulaCursorPosition !== null) {
-                    const maxPos = formulaInput.value.length;
-                    const cursorPos = Math.min(savedFormulaCursorPosition, maxPos);
-                    formulaInput.setSelectionRange(cursorPos, cursorPos);
-                    savedFormulaCursorPosition = null; // 使用后清除
-                }
-            }
-
             // 数字 0-9：按列号去当前行找对应 column 的值
             if (/^\d$/.test(value)) {
-                const cursorPos = formulaInput.selectionStart !== null ? formulaInput.selectionStart : (savedFormulaCursorPosition !== null ? savedFormulaCursorPosition : formulaInput.value.length);
+                const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
                 const textBefore = formulaInput.value.substring(0, cursorPos);
 
                 // 判断当前位置是否应该用「列值」而不是字面数字
@@ -1559,13 +1544,11 @@ function getCurrentProcessId() {
                     // 使用当前选中行的列值
                     const columnValue = getColumnValueFromSelectedRow(parseInt(value));
                     if (columnValue !== null) {
-                        const selectionEnd = formulaInput.selectionEnd !== null ? formulaInput.selectionEnd : cursorPos;
-                        const textAfter = formulaInput.value.substring(selectionEnd);
+                        const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
                         formulaInput.value = textBefore + columnValue + textAfter;
 
                         const newCursorPos = cursorPos + columnValue.length;
                         formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-                        savedFormulaCursorPosition = newCursorPos; // 保存新的光标位置
 
                         // 记录被使用的列号
                         let clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
@@ -1585,27 +1568,23 @@ function getCurrentProcessId() {
                 }
 
                 // 没有选中行或没找到列，就按普通数字插入
-                const selectionEnd = formulaInput.selectionEnd !== null ? formulaInput.selectionEnd : cursorPos;
-                const textAfter = formulaInput.value.substring(selectionEnd);
+                const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
                 formulaInput.value = textBefore + value + textAfter;
 
                 const newCursorPos = cursorPos + value.length;
                 formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-                savedFormulaCursorPosition = newCursorPos; // 保存新的光标位置
                 formulaInput.focus();
                 return;
             }
 
             // 运算符、小括号、小数点：直接插入
-            const cursorPos = formulaInput.selectionStart !== null ? formulaInput.selectionStart : (savedFormulaCursorPosition !== null ? savedFormulaCursorPosition : formulaInput.value.length);
-            const selectionEnd = formulaInput.selectionEnd !== null ? formulaInput.selectionEnd : cursorPos;
+            const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             const textBefore = formulaInput.value.substring(0, cursorPos);
-            const textAfter = formulaInput.value.substring(selectionEnd);
+            const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
             formulaInput.value = textBefore + value + textAfter;
 
             const newCursorPos = cursorPos + value.length;
             formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-            savedFormulaCursorPosition = newCursorPos; // 保存新的光标位置
             formulaInput.focus();
         }
 
@@ -1615,23 +1594,6 @@ function getCurrentProcessId() {
             const formulaInput = document.getElementById('formula');
 
             if (!formulaInput) return;
-            
-            // 保存光标位置当输入框失去焦点时
-            formulaInput.addEventListener('blur', function() {
-                savedFormulaCursorPosition = this.selectionStart;
-            });
-            
-            // 当输入框获得焦点时，如果有保存的光标位置，恢复它
-            formulaInput.addEventListener('focus', function() {
-                if (savedFormulaCursorPosition !== null) {
-                    const maxPos = this.value.length;
-                    const cursorPos = Math.min(savedFormulaCursorPosition, maxPos);
-                    // 使用 setTimeout 确保在焦点事件完成后设置光标位置
-                    setTimeout(() => {
-                        this.setSelectionRange(cursorPos, cursorPos);
-                    }, 0);
-                }
-            });
 
             // 1）鼠标点击 keypad 按钮
             calcButtons.forEach(button => {
@@ -1642,7 +1604,6 @@ function getCurrentProcessId() {
                     if (action === 'clear') {
                         // 清空
                         formulaInput.value = '';
-                        savedFormulaCursorPosition = 0;
                         formulaInput.focus();
                     } else if (action === 'equals') {
                         // 计算结果（可选）
@@ -1652,7 +1613,6 @@ function getCurrentProcessId() {
                                 const result = eval(formula.replace(/[^0-9+\-*/().\s]/g, ''));
                                 if (!isNaN(result) && isFinite(result)) {
                                     formulaInput.value = result.toString();
-                                    savedFormulaCursorPosition = formulaInput.value.length;
                                 }
                             }
                         } catch (e) {
@@ -1660,16 +1620,6 @@ function getCurrentProcessId() {
                         }
                         formulaInput.focus();
                     } else if (value) {
-                        // 在调用 handleFormulaValueInput 之前，先聚焦输入框以获取/恢复光标位置
-                        if (document.activeElement !== formulaInput) {
-                            formulaInput.focus();
-                            // 如果有保存的光标位置，恢复它
-                            if (savedFormulaCursorPosition !== null) {
-                                const maxPos = formulaInput.value.length;
-                                const cursorPos = Math.min(savedFormulaCursorPosition, maxPos);
-                                formulaInput.setSelectionRange(cursorPos, cursorPos);
-                            }
-                        }
                         // 统一走 handleFormulaValueInput
                         handleFormulaValueInput(formulaInput, value);
                     }
