@@ -3271,16 +3271,134 @@ function getCurrentProcessId() {
                     // Numbers after + or - (or at start) should be replaced with column values
                     // Numbers after * or / should remain as literal numbers
                     if (processValue && formulaValue !== previousValue) {
-                        const cursorPos = this.selectionStart || this.value.length;
-                        const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
+                        // 保存当前光标位置（在值被修改之前）
+                        const currentCursorPos = this.selectionStart || this.value.length;
+                        
+                        // 计算实际插入的位置（通过比较previousValue和formulaValue找到差异点）
+                        let insertPosition = currentCursorPos;
+                        let insertedText = '';
+                        if (previousValue) {
+                            // 找到插入点：从前往后找第一个不同的位置
+                            let i = 0;
+                            while (i < previousValue.length && i < formulaValue.length && 
+                                   previousValue[i] === formulaValue[i]) {
+                                i++;
+                            }
+                            // i是第一个不同的位置，也就是插入位置
+                            insertPosition = i;
+                            
+                            // 找到插入的文本（从formulaValue中提取）
+                            // 从后往前找，找到最后一个相同的位置
+                            let j = previousValue.length - 1;
+                            let k = formulaValue.length - 1;
+                            while (j >= i && k >= i && previousValue[j] === formulaValue[k]) {
+                                j--;
+                                k--;
+                            }
+                            // 插入的文本是从i到k+1
+                            insertedText = formulaValue.substring(i, k + 1);
+                        } else {
+                            insertedText = formulaValue;
+                        }
+                        
+                        // 获取插入位置前后的文本，用于后续定位光标
+                        const textBeforeInsert = previousValue ? previousValue.substring(0, insertPosition) : '';
+                        const textAfterInsert = previousValue ? previousValue.substring(insertPosition) : '';
+                        
+                        const newValue = processManualFormulaInput(formulaValue, previousValue, insertPosition, processValue);
                         if (newValue !== formulaValue) {
-                            // Update the value
-                            const oldCursorPos = this.selectionStart || this.value.length;
+                            // 计算新光标位置
+                            let newCursorPos = insertPosition;
+                            
+                            // 在newValue中找到textBeforeInsert的位置
+                            // 使用更精确的方法：从插入位置开始查找，而不是从开头
+                            if (textBeforeInsert.length > 0) {
+                                // 从插入位置附近开始查找textBeforeInsert，确保找到正确的位置
+                                let searchStart = Math.max(0, insertPosition - textBeforeInsert.length);
+                                let beforeIndex = newValue.indexOf(textBeforeInsert, searchStart);
+                                
+                                // 如果找不到，尝试从开头查找
+                                if (beforeIndex === -1) {
+                                    beforeIndex = newValue.indexOf(textBeforeInsert, 0);
+                                }
+                                
+                                if (beforeIndex !== -1) {
+                                    const posAfterBefore = beforeIndex + textBeforeInsert.length;
+                                    
+                                    // 尝试找到textAfterInsert
+                                    let afterIndex = -1;
+                                    if (textAfterInsert.length > 0) {
+                                        // 从posAfterBefore开始查找textAfterInsert
+                                        afterIndex = newValue.indexOf(textAfterInsert, posAfterBefore);
+                                    }
+                                    
+                                    if (afterIndex !== -1) {
+                                        // 找到了textAfterInsert，光标应该在它之前（即插入文本之后）
+                                        newCursorPos = afterIndex;
+                                    } else {
+                                        // 没找到textAfterInsert，说明插入的文本可能替换了后面的内容
+                                        // 获取newValue中posAfterBefore之后的内容
+                                        const newInsertedText = newValue.substring(posAfterBefore);
+                                        
+                                        // 如果插入的文本被替换成了列引用（如"6" -> "A4"），需要找到替换后的长度
+                                        if (insertedText && insertedText.length > 0) {
+                                            // 检查是否被替换
+                                            if (newInsertedText.startsWith(insertedText)) {
+                                                // 没有被替换，光标在插入文本之后
+                                                newCursorPos = posAfterBefore + insertedText.length;
+                                            } else {
+                                                // 被替换了，尝试匹配列引用格式（如A4, B5等）
+                                                const columnRefMatch = newInsertedText.match(/^[A-Z]+\d+/);
+                                                if (columnRefMatch) {
+                                                    newCursorPos = posAfterBefore + columnRefMatch[0].length;
+                                                } else {
+                                                    // 其他情况，尝试找到实际插入的文本长度
+                                                    // 计算长度差来确定插入文本的长度
+                                                    const insertedLength = newValue.length - (previousValue ? previousValue.length : 0);
+                                                    if (insertedLength > 0) {
+                                                        newCursorPos = posAfterBefore + insertedLength;
+                                                    } else {
+                                                        newCursorPos = posAfterBefore + insertedText.length;
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            // 没有插入文本，光标保持在原位置
+                                            newCursorPos = posAfterBefore;
+                                        }
+                                    }
+                                } else {
+                                    // 找不到textBeforeInsert，使用简单的长度差计算
+                                    const lengthDiff = newValue.length - formulaValue.length;
+                                    newCursorPos = Math.max(0, Math.min(currentCursorPos + lengthDiff, newValue.length));
+                                }
+                            } else {
+                                // textBeforeInsert为空，说明在开头插入
+                                // 找到插入文本在新值中的位置
+                                if (insertedText && insertedText.length > 0) {
+                                    // 检查是否被替换
+                                    if (newValue.startsWith(insertedText)) {
+                                        newCursorPos = insertedText.length;
+                                    } else {
+                                        // 被替换了，尝试匹配列引用
+                                        const columnRefMatch = newValue.match(/^[A-Z]+\d+/);
+                                        if (columnRefMatch) {
+                                            newCursorPos = columnRefMatch[0].length;
+                                        } else {
+                                            newCursorPos = insertedText.length;
+                                        }
+                                    }
+                                } else {
+                                    newCursorPos = 0;
+                                }
+                            }
+                            
+                            // 更新值
                             this.value = newValue;
-                            // Restore cursor position (adjust for length change)
-                            const lengthDiff = newValue.length - formulaValue.length;
-                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
-                            this.setSelectionRange(newCursorPos, newCursorPos);
+                            // 使用setTimeout确保DOM更新后再设置光标位置
+                            setTimeout(() => {
+                                this.setSelectionRange(newCursorPos, newCursorPos);
+                            }, 0);
                             previousValue = newValue;
                             // Continue processing with the updated value
                             formulaValue = newValue;
