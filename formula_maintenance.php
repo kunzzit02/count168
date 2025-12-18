@@ -720,12 +720,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             
             // 渲染每一行
             data.forEach((row, index) => {
-                const isDeleted = row.is_deleted === 1 || row.is_deleted === '1' || row.is_deleted === true;
                 const card = document.createElement('div');
                 card.className = 'maintenance-list-card';
-                if (isDeleted) {
-                    card.classList.add('maintenance-list-card-deleted');
-                }
                 card.setAttribute('data-row-id', row.id);
                 
                 // 保存原始数据
@@ -760,47 +756,32 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     inputMethodOptionsHtml += `<option value="${option.value}" ${selected}>${option.text}</option>`;
                 });
                 
-                // 对于已删除的记录，显示删除信息
-                let deletedInfoHtml = '';
-                if (isDeleted) {
-                    const deletedBy = row.deleted_by || '';
-                    const dtsDeleted = row.dts_deleted || '';
-                    const deletedDisplay = deletedBy && dtsDeleted 
-                        ? `<span style="text-decoration: line-through; color: #ef4444;">${escapeHtml(deletedBy)} (${escapeHtml(dtsDeleted)})</span>`
-                        : (dtsDeleted ? `<span style="text-decoration: line-through; color: #ef4444;">${escapeHtml(dtsDeleted)}</span>` : '');
-                    deletedInfoHtml = deletedDisplay;
-                }
-                
-                // 已删除记录的样式类
-                const deletedStyle = isDeleted ? 'style="color: #ef4444; text-decoration: line-through;"' : '';
-                
                 card.innerHTML = `
-                    <div class="maintenance-list-card-item" ${deletedStyle}>${row.no}</div>
-                    <div class="maintenance-list-card-item" ${deletedStyle}>${toUpperDisplay(row.process)}</div>
+                    <div class="maintenance-list-card-item">${row.no}</div>
+                    <div class="maintenance-list-card-item">${toUpperDisplay(row.process)}</div>
                     <div class="maintenance-list-card-item account-cell" data-original-account="${escapeHtml(row.account || '')}" data-original-account-id="${row.account_id || ''}">
-                        <span class="account-display" ${deletedStyle}>${toUpperDisplay(row.account)}</span>
-                        ${!isDeleted ? `<select class="account-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);"></select>` : ''}
+                        <span class="account-display">${toUpperDisplay(row.account)}</span>
+                        <select class="account-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);"></select>
                     </div>
-                    <div class="maintenance-list-card-item currency-cell" ${deletedStyle}>${toUpperDisplay(row.currency)}</div>
+                    <div class="maintenance-list-card-item currency-cell">${toUpperDisplay(row.currency)}</div>
                     <div class="maintenance-list-card-item source-cell" data-original-source="${escapeHtml(row.source || '')}">
-                        <span class="source-display" ${deletedStyle}>${toUpperDisplay(row.source)}</span>
-                        ${!isDeleted ? `<input type="text" class="source-input" value="${escapeHtml(row.source || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">` : ''}
+                        <span class="source-display">${toUpperDisplay(row.source)}</span>
+                        <input type="text" class="source-input" value="${escapeHtml(row.source || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
                     </div>
-                    <div class="maintenance-list-card-item" ${deletedStyle}>${toUpperDisplay(row.product)}</div>
+                    <div class="maintenance-list-card-item">${toUpperDisplay(row.product)}</div>
                     <div class="maintenance-list-card-item input-method-cell" data-original-input-method="${escapeHtml(row.input_method || '')}">
-                        <span class="input-method-display" ${deletedStyle}>${toUpperDisplay(row.input_method)}</span>
-                        ${!isDeleted ? `<select class="input-method-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">${inputMethodOptionsHtml}</select>` : ''}
+                        <span class="input-method-display">${toUpperDisplay(row.input_method)}</span>
+                        <select class="input-method-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">${inputMethodOptionsHtml}</select>
                     </div>
                     <div class="maintenance-list-card-item formula-cell" data-original-formula="${escapeHtml(row.formula || '')}">
-                        <span class="formula-display" style="word-break: break-word;" ${deletedStyle}>${toUpperDisplay(row.formula)}</span>
-                        ${!isDeleted ? `<input type="text" class="formula-input" value="${escapeHtml(row.formula || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">` : ''}
+                        <span class="formula-display" style="word-break: break-word;">${toUpperDisplay(row.formula)}</span>
+                        <input type="text" class="formula-input" value="${escapeHtml(row.formula || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
                     </div>
                     <div class="maintenance-list-card-item description-cell" data-original-description="${escapeHtml(row.description || '')}">
-                        <span class="description-display" style="word-break: break-word;" ${deletedStyle}>${toUpperDisplay(row.description)}${deletedInfoHtml ? ' ' + deletedInfoHtml : ''}</span>
-                        ${!isDeleted ? `<input type="text" class="description-input" value="${escapeHtml(row.description || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">` : ''}
+                        <span class="description-display" style="word-break: break-word;">${toUpperDisplay(row.description)}</span>
+                        <input type="text" class="description-input" value="${escapeHtml(row.description || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
                     </div>
                     <div class="maintenance-list-card-item" style="display: flex; align-items: center; justify-content: center; gap: clamp(8px, 0.73vw, 12px);">
-                        ${!isDeleted ? `
                         <button class="maintenance-edit-btn" onclick="editDataCaptureRow(${row.id}, this)" aria-label="Edit" title="Edit">
                             <img src="images/edit.svg" alt="Edit" class="edit-icon" />
                             <svg class="save-icon" style="display: none;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -813,8 +794,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
                             </svg>
                         </button>
-                        ` : ''}
-                        <input type="checkbox" class="data-capture-row-checkbox" data-id="${row.id}" onchange="updateDeleteButtonState()" ${isDeleted ? 'disabled' : ''}>
+                        <input type="checkbox" class="data-capture-row-checkbox" data-id="${row.id}" onchange="updateDeleteButtonState()">
                     </div>
                 `;
                 
@@ -1665,18 +1645,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         .maintenance-list-card:last-child {
             border-bottom: none;
             border-radius: 0 0 8px 8px;
-        }
-
-        .maintenance-list-card-deleted {
-            opacity: 0.8;
-        }
-
-        .maintenance-list-card-deleted .maintenance-list-card-item {
-            color: #ef4444;
-        }
-
-        .maintenance-list-card-deleted:hover {
-            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
         }
 
         .maintenance-list-card-item {
