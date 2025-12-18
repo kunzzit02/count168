@@ -928,13 +928,7 @@ function getCurrentProcessId() {
                         return pattern.test(testStr);
                     });
                     
-                    // IMPORTANT: Also exclude numbers that are immediately after * or / operators
-                    // These are manually entered values (e.g., *0.8, /7) and should not be in baseSavedNumbers
-                    // We only want base numbers from data capture table for replacement
-                    const charBefore = startPos > 0 ? savedSourceExpression[startPos - 1] : '';
-                    const isManualNumber = charBefore === '*' || charBefore === '/';
-                    
-                    if (!isStructureNumber && !isManualNumber) {
+                    if (!isStructureNumber) {
                         baseSavedNumbers.push({ raw: numStr, displayValue: numValue, startIndex: startPos, endIndex: endPos });
                     }
                 });
@@ -963,14 +957,6 @@ function getCurrentProcessId() {
                             
                             if (isStructureNumber) {
                                 // Keep structure numbers as-is
-                                return match;
-                            }
-                            
-                            // IMPORTANT: Preserve manually entered numbers after * or / operators
-                            const charBeforeForReplace = offset > 0 ? string[offset - 1] : '';
-                            if (charBeforeForReplace === '*' || charBeforeForReplace === '/') {
-                                // This is a manual input, preserve it
-                                console.log(`Preserving manually entered number ${match} at position ${offset} (after ${charBeforeForReplace} operator)`);
                                 return match;
                             }
                             
@@ -1015,14 +1001,6 @@ function getCurrentProcessId() {
                     
                     if (isStructureNumber) {
                         // Keep structure numbers as-is
-                        return match;
-                    }
-                    
-                    // IMPORTANT: Preserve manually entered numbers after * or / operators
-                    const charBeforeForReplace = offset > 0 ? string[offset - 1] : '';
-                    if (charBeforeForReplace === '*' || charBeforeForReplace === '/') {
-                        // This is a manual input, preserve it
-                        console.log(`Preserving manually entered number ${match} at position ${offset} (after ${charBeforeForReplace} operator)`);
                         return match;
                     }
                     
@@ -6010,8 +5988,7 @@ function getCurrentProcessId() {
                 // But we should only extract base numbers (excluding structure numbers like 0.008, 0.002, 0.90)
                 const savedNumberMatches = getFormulaNumberMatches(formulaPart);
                 
-                // Filter out structure numbers, percentage numbers, and manually entered numbers after * or /
-                // Only keep base numbers (numbers that come from data capture table, not manual input)
+                // Filter out structure numbers and percentage numbers, only keep base numbers
                 const savedNumbers = [];
                 savedNumberMatches.forEach((matchObj) => {
                     const numStr = matchObj.raw;
@@ -6035,13 +6012,7 @@ function getCurrentProcessId() {
                         }
                     }
                     
-                    // IMPORTANT: Exclude numbers that are immediately after * or / operators
-                    // These are manually entered values (e.g., *0.8, /7) and should not be in savedNumbers
-                    // We only want base numbers from data capture table for replacement
-                    const charBefore = startPos > 0 ? formulaPart[startPos - 1] : '';
-                    const isManualNumber = charBefore === '*' || charBefore === '/';
-                    
-                    if (!isStructureNumber && !isPercentNumber && !isManualNumber) {
+                    if (!isStructureNumber && !isPercentNumber) {
                         savedNumbers.push(matchObj.displayValue);
                     }
                 });
@@ -6101,11 +6072,22 @@ function getCurrentProcessId() {
                     // Check if this number is immediately after a * or / operator
                     const charBefore = offset > 0 ? string[offset - 1] : '';
                     if (charBefore === '*' || charBefore === '/') {
-                        // IMPORTANT: Always preserve numbers after * or / operators
-                        // Since we excluded these numbers from savedNumbers during extraction,
-                        // they are manual inputs and should always be preserved
-                        console.log(`Preserving manually entered number ${match} at position ${offset} (after ${charBefore} operator)`);
-                        return match;
+                        // Check if this is part of a manual expression (e.g., *0.9/2, /0.5*3)
+                        // Look ahead to see if there's a / or * after this number
+                        const afterMatch = string.substring(offset + match.length).trim();
+                        if (afterMatch.startsWith('/') || afterMatch.startsWith('*')) {
+                            // This is part of a manual expression (e.g., *0.9/2), preserve it
+                            console.log(`Preserving manually entered number ${match} at position ${offset} (part of manual expression after ${charBefore})`);
+                            return match;
+                        }
+                        // Also preserve if it's a decimal number after * or / (likely manual input)
+                        // But only if it's not in the savedNumbers list (meaning it's not from data capture table)
+                        const numValue = parseFloat(match);
+                        const isInSavedNumbers = savedNumbers.some(savedNum => Math.abs(parseFloat(savedNum) - numValue) < 0.0001);
+                        if (!isInSavedNumbers && !isNaN(numValue)) {
+                            console.log(`Preserving manually entered number ${match} at position ${offset} (not in savedNumbers, likely manual input)`);
+                            return match;
+                        }
                     }
                     
                     // If percent is inside parentheses, skip numbers that are part of percentage (e.g., *0.1)
