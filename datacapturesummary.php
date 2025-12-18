@@ -52,7 +52,7 @@ $company_id = $_SESSION['company_id'] ?? null;
             <div style="flex: 1;"></div>
             <div class="batch-controls-group">
                 <label for="rateInput" class="batch-label">Rate</label>
-                <input type="text" id="rateInput" class="batch-input" placeholder="Enter rate (e.g., *3 or /3)" />
+                <input type="text" id="rateInput" class="batch-input" placeholder="e.g., *3 or /3" />
                 <button class="btn-update-all" id="rateSelectAllBtn" onclick="toggleAllRate(this)">Select All</button>
             </div>
             <div style="flex: 1;"></div>
