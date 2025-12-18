@@ -342,11 +342,21 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         top: 0;
         overflow: visible;
         z-index: 1000;
-        transform: translateX(0);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transform: translateX(0) translateZ(0);
+        /* 只对transform应用过渡，避免页面切换时其他CSS属性变化导致的闪烁 */
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         flex-direction: column;
         border-right: 1px solid rgba(255, 255, 255, 0.2);
+        /* 优化渲染性能，防止闪烁 */
+        will-change: transform;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        /* 确保sidebar始终可见，不会被重新渲染影响 */
+        visibility: visible;
+        opacity: 1;
+        /* 强制GPU加速，提高渲染稳定性 */
+        -webkit-transform: translateX(0) translateZ(0);
     }
 
     .informationmenu.show {
