@@ -7930,6 +7930,45 @@ function getCurrentProcessId() {
             // sourcePercentCell.style.backgroundColor = '#e8f5e8'; // Removed
         }
         
+        // Helper function to parse complete formula and extract base formula and source percent
+        function parseCompleteFormula(completeFormula) {
+            if (!completeFormula || !completeFormula.trim()) {
+                return { baseFormula: '', sourcePercent: '' };
+            }
+            
+            let formula = completeFormula.trim();
+            let sourcePercent = '';
+            
+            // Try to extract source percent from the end: ...*(expression)
+            // Use similar logic to removeTrailingSourcePercentExpression but extract the source percent
+            const lastStarIndex = formula.lastIndexOf('*');
+            if (lastStarIndex >= 0) {
+                const beforeStar = formula.substring(0, lastStarIndex);
+                const afterStar = formula.substring(lastStarIndex);
+                
+                // Check if the * is not inside parentheses
+                const openParens = (beforeStar.match(/\(/g) || []).length;
+                const closeParens = (beforeStar.match(/\)/g) || []).length;
+                const isStarInsideParens = openParens > closeParens;
+                
+                // Pattern matches: "*(expression)" where expression is a valid source percent
+                // Source percent is always appended as "*(number)" or "*(expression)" at the end
+                const trailingPattern = /^\*\s*\(([0-9.\+\-*/\s]+)\)\s*$/;
+                const trailingMatch = afterStar.match(trailingPattern);
+                
+                if (!isStarInsideParens && trailingMatch) {
+                    // Found trailing source percent, extract it
+                    sourcePercent = trailingMatch[1].trim();
+                    formula = beforeStar.trim();
+                }
+            }
+            
+            return {
+                baseFormula: formula,
+                sourcePercent: sourcePercent
+            };
+        }
+        
         // Enable inline editing for Formula column (double-click)
         function enableFormulaInlineEdit(element, row) {
             const cells = row.querySelectorAll('td');
@@ -7941,50 +7980,13 @@ function getCurrentProcessId() {
             const formulaContent = formulaCell.querySelector('.formula-cell-content');
             if (!formulaContent) return;
             
-            // Extract base formula by removing trailing Source % part (e.g., "*(0.25)" or "*(1)")
-            // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
-            // Use the same logic as in other parts of the code
-            let baseFormula = currentFormulaDisplay;
-            let previousExpression = '';
+            // Store original complete formula value (for comparison)
+            const originalCompleteFormula = currentFormulaDisplay;
             
-            // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
-            while (baseFormula !== previousExpression) {
-                previousExpression = baseFormula;
-                
-                // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
-                const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                const trailingMatch = baseFormula.match(trailingSourcePercentPattern);
-                if (trailingMatch) {
-                    // Found trailing source percent, remove it
-                    baseFormula = trailingMatch[1].trim();
-                    continue;
-                }
-                
-                // Try pattern without parentheses: ...*number at the end
-                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                const simpleMatch = baseFormula.match(simplePattern);
-                if (simpleMatch) {
-                    baseFormula = simpleMatch[1].trim();
-                    continue;
-                }
-                
-                // No more patterns found, break
-                break;
-            }
-            
-            // Store original base formula value (for comparison)
-            const originalBaseValue = baseFormula;
-            
-            // Get current Source % value from row
-            const sourcePercentCell = cells[5];
-            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-            const sourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(sourcePercentText || '1');
-            const enableSourcePercent = sourcePercentDecimal && sourcePercentDecimal.trim() !== '';
-            
-            // Create input field - only show base formula (without Source % part)
+            // Create input field - show complete formula (including Source % part)
             const input = document.createElement('input');
             input.type = 'text';
-            input.value = baseFormula;
+            input.value = currentFormulaDisplay; // Show complete formula, not just base formula
             input.className = 'inline-edit-input';
             input.style.width = '100%';
             input.style.maxWidth = '100%';
@@ -8022,7 +8024,7 @@ function getCurrentProcessId() {
             
             // Save function
             const saveEdit = () => {
-                const newBaseValue = input.value.trim();
+                const newCompleteFormula = input.value.trim();
                 // Remove input
                 input.remove();
                 
@@ -8032,14 +8034,43 @@ function getCurrentProcessId() {
                     span.style.display = '';
                 });
                 
-                if (newBaseValue !== originalBaseValue) {
-                    // Get current Source % value (may have changed since edit started)
-                    const currentSourcePercentText = cells[5] ? cells[5].textContent.trim() : '';
-                    const currentSourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(currentSourcePercentText || '1');
-                    const currentEnableSourcePercent = currentSourcePercentDecimal && currentSourcePercentDecimal.trim() !== '';
+                if (newCompleteFormula !== originalCompleteFormula) {
+                    // Parse the complete formula to extract base formula and source percent
+                    const parsed = parseCompleteFormula(newCompleteFormula);
+                    const newBaseFormula = parsed.baseFormula;
+                    const newSourcePercent = parsed.sourcePercent;
                     
-                    // Recreate full formula display using base formula + current Source %
-                    const newFormulaDisplay = createFormulaDisplayFromExpression(newBaseValue, currentSourcePercentDecimal, currentEnableSourcePercent);
+                    // Get current Source % value from row (as fallback)
+                    const sourcePercentCell = cells[5];
+                    const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
+                    let currentSourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(sourcePercentText || '1');
+                    
+                    // If user included source percent in the formula, use it
+                    if (newSourcePercent) {
+                        // Evaluate the source percent expression to get decimal value
+                        try {
+                            const sanitized = removeThousandsSeparators(newSourcePercent);
+                            const evaluated = evaluateExpression(sanitized);
+                            currentSourcePercentDecimal = evaluated.toString();
+                            
+                            // Update Source % cell display
+                            if (sourcePercentCell) {
+                                sourcePercentCell.textContent = formatSourcePercentForDisplay(currentSourcePercentDecimal);
+                                row.setAttribute('data-source-percent', currentSourcePercentDecimal);
+                            }
+                        } catch (error) {
+                            console.error('Error evaluating source percent:', error);
+                            // Keep current source percent if evaluation fails
+                        }
+                    }
+                    
+                    const currentEnableSourcePercent = currentSourcePercentDecimal && currentSourcePercentDecimal.trim() !== '' && currentSourcePercentDecimal !== '0';
+                    
+                    // Use the parsed base formula, or the complete formula if no source percent was extracted
+                    const finalBaseFormula = newBaseFormula || newCompleteFormula;
+                    
+                    // Recreate full formula display using base formula + source percent
+                    const newFormulaDisplay = createFormulaDisplayFromExpression(finalBaseFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
                     
                     // Update formula display
                     formulaTextSpans.forEach(span => {
@@ -8047,13 +8078,13 @@ function getCurrentProcessId() {
                     });
                     
                     // Update data attribute with base formula (without Source %)
-                    row.setAttribute('data-formula-operators', newBaseValue);
+                    row.setAttribute('data-formula-operators', finalBaseFormula);
                     
                     // Recalculate processed amount
                     const inputMethod = row.getAttribute('data-input-method') || '';
                     const enableInputMethod = inputMethod ? true : false;
                     
-                    const processedAmount = calculateFormulaResultFromExpression(newBaseValue, currentSourcePercentDecimal, inputMethod, enableInputMethod, currentEnableSourcePercent);
+                    const processedAmount = calculateFormulaResultFromExpression(finalBaseFormula, currentSourcePercentDecimal, inputMethod, enableInputMethod, currentEnableSourcePercent);
                     
                     // Update processed amount cell
                     if (cells[7]) {
