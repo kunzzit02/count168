@@ -440,6 +440,15 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         overflow: hidden;
     }
 
+    /* 初始化加载时禁用过渡，避免页面第一次加载时从“未选中态”动画到“当前页面高亮态”造成的闪一下效果 */
+    .informationmenu-section-title.no-transition {
+        transition: none !important;
+    }
+
+    .informationmenu-section-title.no-transition::before {
+        transition: none !important;
+    }
+
     .informationmenu-section-title::before {
         content: '';
         position: absolute;
@@ -1757,8 +1766,21 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         });
     }
 
-    // 页面加载时设置高亮
-    document.addEventListener('DOMContentLoaded', setCurrentPageHighlight);
+    // 页面加载时设置高亮（首次加载时临时关闭过渡，避免 sidebar 选中项“闪一下”）
+    document.addEventListener('DOMContentLoaded', function() {
+        const titles = document.querySelectorAll('.informationmenu-section-title');
+        
+        // 先关闭过渡
+        titles.forEach(t => t.classList.add('no-transition'));
+
+        // 直接设置当前页面高亮（不会触发动画）
+        setCurrentPageHighlight();
+
+        // 下一帧再恢复过渡，这样后续鼠标悬停、点击时仍然有动画
+        requestAnimationFrame(() => {
+            titles.forEach(t => t.classList.remove('no-transition'));
+        });
+    });
 
     // 动态定位 submenu
     function positionSubmenu(wrapper) {
