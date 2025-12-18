@@ -10669,36 +10669,56 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                         const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
                         // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
                         if (preservedFormula === null) {
-                            console.log('Batch sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                            // IMPORTANT: resolvedSourceExpression might already contain Source % (e.g., "107.82+84.31*(1)")
-                            // Extract base expression from resolvedSourceExpression before applying Source % again
-                            let cleanSourceExpression = resolvedSourceExpression;
-                            let previousExpr = '';
-                            while (cleanSourceExpression !== previousExpr) {
-                                previousExpr = cleanSourceExpression;
-                                const trailingPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                                const match = cleanSourceExpression.match(trailingPattern);
-                                if (match) {
-                                    cleanSourceExpression = match[1].trim();
-                                    continue;
+                            console.log('Batch sub-template: preserveFormulaStructure returned null (number count mismatch), checking if baseExpression contains user-manual multipliers');
+                            // Check if baseExpression contains user-manual multipliers (like *0.6) that should be preserved
+                            // If baseExpression has more complex structure than resolvedSourceExpression, preserve baseExpression
+                            const baseHasManualMultiplier = /[+\-*/]\s*\*[0-9.]+/.test(baseExpression) || /\([^)]*\*[0-9.]+[^)]*\)/.test(baseExpression);
+                            const baseNumberCount = (baseExpression.match(/[0-9.]+/g) || []).length;
+                            const resolvedNumberCount = (resolvedSourceExpression.match(/[0-9.]+/g) || []).length;
+                            
+                            if (baseHasManualMultiplier && baseNumberCount > resolvedNumberCount) {
+                                // baseExpression contains user-manual multipliers and has more numbers than resolvedSourceExpression
+                                // This means the user manually added multipliers (like *0.6) that are not in source_columns
+                                // Preserve the baseExpression structure instead of using resolvedSourceExpression
+                                console.log('Batch sub-template: baseExpression contains user-manual multipliers. Preserving baseExpression:', baseExpression);
+                                if (percentValue && enableSourcePercent) {
+                                    formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
+                                } else {
+                                    formulaDisplay = baseExpression;
                                 }
-                                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                                const simpleMatch = cleanSourceExpression.match(simplePattern);
-                                if (simpleMatch) {
-                                    cleanSourceExpression = simpleMatch[1].trim();
-                                    continue;
-                                }
-                                break;
-                            }
-                            // Recalculate formula from current Data Capture Table
-                            if (percentValue && cleanSourceExpression && enableSourcePercent) {
-                                formulaDisplay = createFormulaDisplayFromExpression(cleanSourceExpression, percentValue, enableSourcePercent);
-                            } else if (percentValue && cleanSourceExpression) {
-                                formulaDisplay = createFormulaDisplay(cleanSourceExpression, percentValue);
                             } else {
-                                formulaDisplay = cleanSourceExpression || 'Formula';
+                                // No manual multipliers or number counts match, recalculate from current source data
+                                console.log('Batch sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                                // IMPORTANT: resolvedSourceExpression might already contain Source % (e.g., "107.82+84.31*(1)")
+                                // Extract base expression from resolvedSourceExpression before applying Source % again
+                                let cleanSourceExpression = resolvedSourceExpression;
+                                let previousExpr = '';
+                                while (cleanSourceExpression !== previousExpr) {
+                                    previousExpr = cleanSourceExpression;
+                                    const trailingPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
+                                    const match = cleanSourceExpression.match(trailingPattern);
+                                    if (match) {
+                                        cleanSourceExpression = match[1].trim();
+                                        continue;
+                                    }
+                                    const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
+                                    const simpleMatch = cleanSourceExpression.match(simplePattern);
+                                    if (simpleMatch) {
+                                        cleanSourceExpression = simpleMatch[1].trim();
+                                        continue;
+                                    }
+                                    break;
+                                }
+                                // Recalculate formula from current Data Capture Table
+                                if (percentValue && cleanSourceExpression && enableSourcePercent) {
+                                    formulaDisplay = createFormulaDisplayFromExpression(cleanSourceExpression, percentValue, enableSourcePercent);
+                                } else if (percentValue && cleanSourceExpression) {
+                                    formulaDisplay = createFormulaDisplay(cleanSourceExpression, percentValue);
+                                } else {
+                                    formulaDisplay = cleanSourceExpression || 'Formula';
+                                }
+                                console.log('Batch sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
                             }
-                            console.log('Batch sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
                         } else {
                             // preservedFormula does NOT contain Source % (because enableSourcePercent=false)
                             // Now apply current Source % to preserved formula
@@ -10796,14 +10816,34 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
                     // Note: preserveFormulaStructure with enableSourcePercent=false will NOT add Source % to the result
                     if (preservedFormula === null) {
-                        console.log('Sub-template: preserveFormulaStructure returned null, using current source data directly');
-                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                } else if (percentValue && resolvedSourceExpression) {
-                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
-                } else {
-                    formulaDisplay = resolvedSourceExpression || 'Formula';
-                }
+                        // preserveFormulaStructure returned null, which means number count mismatch
+                        // Check if baseExpression contains user-manual multipliers (like *0.6) that should be preserved
+                        // If baseExpression has more complex structure than resolvedSourceExpression, preserve baseExpression
+                        const baseHasManualMultiplier = /[+\-*/]\s*\*[0-9.]+/.test(baseExpression) || /\([^)]*\*[0-9.]+[^)]*\)/.test(baseExpression);
+                        const baseNumberCount = (baseExpression.match(/[0-9.]+/g) || []).length;
+                        const resolvedNumberCount = (resolvedSourceExpression.match(/[0-9.]+/g) || []).length;
+                        
+                        if (baseHasManualMultiplier && baseNumberCount > resolvedNumberCount) {
+                            // baseExpression contains user-manual multipliers and has more numbers than resolvedSourceExpression
+                            // This means the user manually added multipliers (like *0.6) that are not in source_columns
+                            // Preserve the baseExpression structure instead of using resolvedSourceExpression
+                            console.log('Sub-template: preserveFormulaStructure returned null, but baseExpression contains user-manual multipliers. Preserving baseExpression:', baseExpression);
+                            if (percentValue && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
+                            } else {
+                                formulaDisplay = baseExpression;
+                            }
+                        } else {
+                            // No manual multipliers or number counts match, use resolvedSourceExpression
+                            console.log('Sub-template: preserveFormulaStructure returned null, using current source data directly');
+                            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                            } else if (percentValue && resolvedSourceExpression) {
+                                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                            } else {
+                                formulaDisplay = resolvedSourceExpression || 'Formula';
+                            }
+                        }
                     } else {
                         // preservedFormula does NOT contain Source % (because enableSourcePercent=false)
                         // Now apply current Source % to preserved formula
