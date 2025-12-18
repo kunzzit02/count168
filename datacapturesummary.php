@@ -5995,6 +5995,15 @@ function getCurrentProcessId() {
                     const startPos = matchObj.startIndex;
                     const endPos = matchObj.endIndex;
                     
+                    // CRITICAL FIX: Always exclude numbers after / operator
+                    // User explicitly stated that numbers after / are NOT from data capture table
+                    // They are manual inputs and should not be counted in savedNumbers
+                    const charBefore = startPos > 0 ? formulaPart[startPos - 1] : '';
+                    if (charBefore === '/') {
+                        // Skip numbers after / operator (they are manual inputs, not from data capture table)
+                        return;
+                    }
+                    
                     // Check if this number is part of a structure pattern (*0.008, /0.90, etc.)
                     const contextBefore = formulaPart.substring(Math.max(0, startPos - 3), startPos);
                     const contextAfter = formulaPart.substring(endPos, Math.min(formulaPart.length, endPos + 3));
@@ -6005,7 +6014,6 @@ function getCurrentProcessId() {
                     let isPercentNumber = false;
                     if (isPercentInsideParens) {
                         // Check if this number is immediately after a * and between 0-1 (likely percentage)
-                        const charBefore = startPos > 0 ? formulaPart[startPos - 1] : '';
                         const numValue = parseFloat(numStr);
                         if (charBefore === '*' && !isNaN(numValue) && numValue >= 0 && numValue <= 1) {
                             isPercentNumber = true;
@@ -6072,7 +6080,15 @@ function getCurrentProcessId() {
                     // Check if this number is immediately after a * or / operator
                     const charBefore = offset > 0 ? string[offset - 1] : '';
                     if (charBefore === '*' || charBefore === '/') {
-                        // Check if this is part of a manual expression (e.g., *0.9/2, /0.5*3)
+                        // CRITICAL FIX: Always preserve numbers after / operator
+                        // User explicitly stated that numbers after / are NOT from data capture table
+                        // They are manual inputs and should never be replaced
+                        if (charBefore === '/') {
+                            console.log(`Preserving manually entered number ${match} at position ${offset} (after / operator, always manual input)`);
+                            return match;
+                        }
+                        
+                        // For * operator, check if this is part of a manual expression (e.g., *0.9/2, /0.5*3)
                         // Look ahead to see if there's a / or * after this number
                         const afterMatch = string.substring(offset + match.length).trim();
                         if (afterMatch.startsWith('/') || afterMatch.startsWith('*')) {
