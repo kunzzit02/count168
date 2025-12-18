@@ -61,6 +61,12 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
 <!-- Sidebar CSS -->
 <style>
+    /* Sidebar 自己的字体设置，避免被各页面 body 的全局字体覆盖导致闪一下样式 */
+    .informationmenu,
+    .informationmenu * {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
     /* 用户信息容器（包裹头像和用户信息） */
     .user-info-container {
         display: flex;
