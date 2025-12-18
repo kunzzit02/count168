@@ -9730,17 +9730,21 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 // Check if account matches
                 const accountCell = row.querySelector('td:nth-child(2)');
                 const rowAccountId = accountCell?.getAttribute('data-account-id');
+                const addCell = row.querySelector('td:nth-child(3)');
+                const hadAddButton = addCell ? !!addCell.querySelector('.add-account-btn') : false;
+                const accountText = accountCell ? accountCell.textContent.trim() : '';
+                const rowIsEmpty = (!accountText || hadAddButton);
                 
                 if (templateAccountId && rowAccountId && rowAccountId === templateAccountId) {
                     // Found exact match by id_product and account_id
                     targetRow = row;
                     break;
-                } else if (!templateAccountId && !rowAccountId) {
-                    // Both are empty, use this row
+                } else if (!templateAccountId && !rowAccountId && rowIsEmpty) {
+                    // Both are empty and row has no real data, use this row
                     targetRow = row;
                     break;
-                } else if (!targetRow && !rowAccountId) {
-                    // Row has no account yet, use it as fallback (will be updated with template's account)
+                } else if (!targetRow && !rowAccountId && rowIsEmpty) {
+                    // Row has no account yet (only + button / empty), use it as fallback
                     targetRow = row;
                 }
             }
