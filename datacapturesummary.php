@@ -3254,7 +3254,14 @@ function getCurrentProcessId() {
                 
                 // When user manually edits formula, update columns based on current formula numbers
                 // This ensures Columns reflects the columns actually used in the current formula
-                formulaInput.addEventListener('input', function() {
+                // Use beforeinput event to capture cursor position before input is processed
+                let savedCursorPos = null;
+                formulaInput.addEventListener('beforeinput', function(e) {
+                    // Save cursor position before input is processed
+                    savedCursorPos = this.selectionStart;
+                });
+                
+                formulaInput.addEventListener('input', function(e) {
                     const formulaValue = this.value;
                     const processValue = document.getElementById('process')?.value;
                     
@@ -3264,6 +3271,7 @@ function getCurrentProcessId() {
                     const fromCellClick = this.getAttribute('data-from-cell-click') === 'true';
                     if (fromCellClick) {
                         previousValue = formulaValue;
+                        savedCursorPos = null;
                         return;
                     }
                     
@@ -3271,24 +3279,60 @@ function getCurrentProcessId() {
                     // Numbers after + or - (or at start) should be replaced with column values
                     // Numbers after * or / should remain as literal numbers
                     if (processValue && formulaValue !== previousValue) {
-                        const cursorPos = this.selectionStart || this.value.length;
+                        // Use saved cursor position, or fall back to current selectionStart
+                        const cursorPos = savedCursorPos !== null ? savedCursorPos : (this.selectionStart !== null && this.selectionStart !== undefined ? this.selectionStart : this.value.length);
+                        
                         const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
                         if (newValue !== formulaValue) {
-                            // Update the value
-                            const oldCursorPos = this.selectionStart || this.value.length;
-                            this.value = newValue;
-                            // Restore cursor position (adjust for length change)
+                            // Find where the change occurred by comparing old and new values
+                            let changeStart = 0;
+                            
+                            // Find common prefix
+                            while (changeStart < formulaValue.length && 
+                                   changeStart < newValue.length && 
+                                   formulaValue[changeStart] === newValue[changeStart]) {
+                                changeStart++;
+                            }
+                            
+                            // Find common suffix
+                            let oldSuffixStart = formulaValue.length;
+                            let newSuffixStart = newValue.length;
+                            while (oldSuffixStart > changeStart && 
+                                   newSuffixStart > changeStart &&
+                                   formulaValue[oldSuffixStart - 1] === newValue[newSuffixStart - 1]) {
+                                oldSuffixStart--;
+                                newSuffixStart--;
+                            }
+                            
+                            // Calculate new cursor position based on where the change occurred
                             const lengthDiff = newValue.length - formulaValue.length;
-                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
+                            let newCursorPos;
+                            
+                            if (cursorPos <= changeStart) {
+                                // Cursor was before or at the start of the change
+                                // Keep it at the same position (especially important when inserting at beginning)
+                                newCursorPos = cursorPos;
+                            } else if (cursorPos >= oldSuffixStart) {
+                                // Cursor was after the change, adjust by length difference
+                                newCursorPos = cursorPos + lengthDiff;
+                            } else {
+                                // Cursor was in the changed area, move to end of new content
+                                newCursorPos = changeStart + (newSuffixStart - changeStart);
+                            }
+                            
+                            // Update the value
+                            this.value = newValue;
+                            // Restore cursor position - ensure it's within bounds
+                            newCursorPos = Math.max(0, Math.min(newCursorPos, newValue.length));
                             this.setSelectionRange(newCursorPos, newCursorPos);
                             previousValue = newValue;
-                            // Continue processing with the updated value
-                            formulaValue = newValue;
                         } else {
                             previousValue = formulaValue;
                         }
+                        savedCursorPos = null; // Reset saved cursor position
                     } else {
                         previousValue = formulaValue;
+                        savedCursorPos = null;
                     }
                     
                     // Handle empty formula: clear all related attributes
