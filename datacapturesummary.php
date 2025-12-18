@@ -4717,7 +4717,16 @@ function getCurrentProcessId() {
             
             // Get Columns display from clicked columns (preferred) or extract from formula
             const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
-            let columnsDisplay = clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
+            
+            // In edit mode, prefer existing sourceColumns over extracting from formula
+            // This prevents incorrect column extraction when formula contains manual inputs like /4
+            let columnsDisplay = '';
+            if (isEditMode && window.currentEditRow) {
+                const existingSourceColumns = window.currentEditRow.getAttribute('data-source-columns') || '';
+                columnsDisplay = clickedColumnsDisplay || existingSourceColumns || extractNumbersFromFormula(formulaValue);
+            } else {
+                columnsDisplay = clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
+            }
             
             // Check if formulaValue already contains a percent part (user manually entered it)
             // Look for * followed by a number (may be at the end or in the middle)
@@ -5514,6 +5523,7 @@ function getCurrentProcessId() {
         }
 
         // Extract numbers from formula for display
+        // IMPORTANT: Exclude numbers after / operator (they are manual inputs, not from data capture table)
         function extractNumbersFromFormula(formula) {
             try {
                 if (!formula || formula.trim() === '') {
@@ -5525,11 +5535,31 @@ function getCurrentProcessId() {
                     return formula; // Return original if no numbers found
                 }
                 
-                let result = matches[0].displayValue;
+                // Filter out numbers that come after / operator (manual inputs)
+                const validMatches = [];
+                for (let i = 0; i < matches.length; i++) {
+                    const match = matches[i];
+                    const charBefore = match.startIndex > 0 ? formula[match.startIndex - 1] : '';
+                    
+                    // CRITICAL FIX: Exclude numbers after / operator
+                    // User explicitly stated that numbers after / are NOT from data capture table
+                    if (charBefore === '/') {
+                        console.log(`Skipping number ${match.displayValue} at position ${match.startIndex} (after / operator, manual input)`);
+                        continue; // Skip this number
+                    }
+                    
+                    validMatches.push(match);
+                }
                 
-                for (let i = 1; i < matches.length; i++) {
-                    const previousMatch = matches[i - 1];
-                    const currentMatch = matches[i];
+                if (validMatches.length === 0) {
+                    return ''; // No valid numbers found (all were after /)
+                }
+                
+                let result = validMatches[0].displayValue;
+                
+                for (let i = 1; i < validMatches.length; i++) {
+                    const previousMatch = validMatches[i - 1];
+                    const currentMatch = validMatches[i];
                     
                     let operator = currentMatch.binaryOperator || '';
                     if (!operator) {
