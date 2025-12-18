@@ -6080,15 +6080,7 @@ function getCurrentProcessId() {
                             console.log(`Preserving manually entered number ${match} at position ${offset} (part of manual expression after ${charBefore})`);
                             return match;
                         }
-                        // IMPORTANT: Always preserve numbers after / operator (divisor)
-                        // These are user's manual inputs and should never be replaced
-                        // Example: 4+8*0.9/4 -> /4 should always be preserved
-                        if (charBefore === '/') {
-                            console.log(`Preserving manually entered divisor ${match} at position ${offset} (after / operator)`);
-                            return match;
-                        }
-                        // For numbers after * operator, check if it's a percentage (0-1 range) or manual input
-                        // Also preserve if it's a decimal number after * (likely manual input)
+                        // Also preserve if it's a decimal number after * or / (likely manual input)
                         // But only if it's not in the savedNumbers list (meaning it's not from data capture table)
                         const numValue = parseFloat(match);
                         const isInSavedNumbers = savedNumbers.some(savedNum => Math.abs(parseFloat(savedNum) - numValue) < 0.0001);
