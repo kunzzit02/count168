@@ -870,6 +870,37 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
                     <!-- 移除默认 src，避免每次切换页面先闪一下默认头像；实际头像由 JS 根据 localStorage 设置 -->
                     <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <script>
+                        // 立即设置头像，避免闪烁（在DOMContentLoaded之前执行）
+                        (function() {
+                            const avatarImages = {
+                                male1: 'images/avatar1.png',
+                                male2: 'images/avatar2.png',
+                                male3: 'images/avatar3.png',
+                                male4: 'images/avatar4.png',
+                                male5: 'images/avatar5.png',
+                                male6: 'images/avatar6.png',
+                                male7: 'images/avatar7.png',
+                                male8: 'images/avatar8.png',
+                                male9: 'images/avatar9.png',
+                                female1: 'images/female1.png',
+                                female2: 'images/female2.png',
+                                female3: 'images/female3.png',
+                                female4: 'images/female4.png',
+                                female5: 'images/female5.png',
+                                female6: 'images/female6.png',
+                                female7: 'images/female7.png',
+                                female8: 'images/female8.png',
+                                female9: 'images/female9.png'
+                            };
+                            const savedAvatar = localStorage.getItem('selectedAvatar');
+                            const avatarId = (savedAvatar && avatarImages[savedAvatar]) ? savedAvatar : 'male1';
+                            const img = document.getElementById('currentAvatarImg');
+                            if (img) {
+                                img.src = avatarImages[avatarId];
+                            }
+                        })();
+                    </script>
                 </div>
                 
             <div class="avatar-options" id="avatarOptions">
