@@ -9715,66 +9715,33 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
         let targetRow = null;
 
-        // If模板里带有 row_index，优先用 row_index 在当前页面里找到对应行
-        // 这样即使有多个相同 Id Product / 相同账户，也能「一对一」落在原来的那一行
-        let templateRowIndex = null;
-        if (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null && !Number.isNaN(Number(mainTemplate.row_index))) {
-            templateRowIndex = Number(mainTemplate.row_index);
-        }
+        // First, try to find a row that matches both id_product and account_id
+        const templateAccountId = mainTemplate.account_id ? String(mainTemplate.account_id) : null;
+        
+        for (const row of allRows) {
+            const productType = row.getAttribute('data-product-type') || 'main';
+            if (productType !== 'main') continue;
 
-        if (templateRowIndex !== null) {
-            // 在所有 main 行里找出 data-row-index 与 templateRowIndex 相同的那一行
-            for (const row of allRows) {
-                const productType = row.getAttribute('data-product-type') || 'main';
-                if (productType !== 'main') continue;
-
-                const idProductCell = row.querySelector('td:first-child');
-                const productValues = getProductValuesFromCell(idProductCell);
-                const mainCellText = normalizeIdProductText(productValues.main || '');
-                if (mainCellText !== normalizedTargetId) continue;
-
-                const attr = row.getAttribute('data-row-index');
-                const rowIndex = (attr !== null && attr !== '' && !Number.isNaN(Number(attr)))
-                    ? Number(attr)
-                    : null;
-
-                if (rowIndex !== null && rowIndex === templateRowIndex) {
+            const idProductCell = row.querySelector('td:first-child');
+            const productValues = getProductValuesFromCell(idProductCell);
+            const mainCellText = normalizeIdProductText(productValues.main || '');
+            
+            if (mainCellText === normalizedTargetId) {
+                // Check if account matches
+                const accountCell = row.querySelector('td:nth-child(2)');
+                const rowAccountId = accountCell?.getAttribute('data-account-id');
+                
+                if (templateAccountId && rowAccountId && rowAccountId === templateAccountId) {
+                    // Found exact match by id_product and account_id
                     targetRow = row;
                     break;
-                }
-            }
-        }
-
-        // 如果没根据 row_index 找到，再退回到原来的按 account_id / 第一个匹配行的逻辑
-        if (!targetRow) {
-            // First, try to find a row that matches both id_product and account_id
-            const templateAccountId = mainTemplate.account_id ? String(mainTemplate.account_id) : null;
-            
-            for (const row of allRows) {
-                const productType = row.getAttribute('data-product-type') || 'main';
-                if (productType !== 'main') continue;
-
-                const idProductCell = row.querySelector('td:first-child');
-                const productValues = getProductValuesFromCell(idProductCell);
-                const mainCellText = normalizeIdProductText(productValues.main || '');
-                
-                if (mainCellText === normalizedTargetId) {
-                    // Check if account matches
-                    const accountCell = row.querySelector('td:nth-child(2)');
-                    const rowAccountId = accountCell?.getAttribute('data-account-id');
-                    
-                    if (templateAccountId && rowAccountId && rowAccountId === templateAccountId) {
-                        // Found exact match by id_product and account_id
-                        targetRow = row;
-                        break;
-                    } else if (!templateAccountId && !rowAccountId) {
-                        // Both are empty, use this row
-                        targetRow = row;
-                        break;
-                    } else if (!targetRow && !rowAccountId) {
-                        // Row has no account yet, use it as fallback (will be updated with template's account)
-                        targetRow = row;
-                    }
+                } else if (!templateAccountId && !rowAccountId) {
+                    // Both are empty, use this row
+                    targetRow = row;
+                    break;
+                } else if (!targetRow && !rowAccountId) {
+                    // Row has no account yet, use it as fallback (will be updated with template's account)
+                    targetRow = row;
                 }
             }
         }
