@@ -52,7 +52,7 @@ $company_id = $_SESSION['company_id'] ?? null;
             <div style="flex: 1;"></div>
             <div class="batch-controls-group">
                 <label for="rateInput" class="batch-label">Rate</label>
-                <input type="text" id="rateInput" class="batch-input" placeholder="Enter rate" />
+                <input type="text" id="rateInput" class="batch-input" placeholder="Enter rate (e.g., *3 or /3)" />
                 <button class="btn-update-all" id="rateSelectAllBtn" onclick="toggleAllRate(this)">Select All</button>
             </div>
             <div style="flex: 1;"></div>
@@ -7040,7 +7040,8 @@ function getCurrentProcessId() {
             }
         }
 
-        // Apply rate multiplication to processed amount if rate checkbox is checked
+        // Apply rate multiplication or division to processed amount if rate checkbox is checked
+        // Supports "*3" for multiplication and "/3" for division
         function applyRateToProcessedAmount(row, processedAmount) {
             if (!row) {
                 return processedAmount;
@@ -7060,10 +7061,32 @@ function getCurrentProcessId() {
             
             if (rateCheckbox && rateCheckbox.checked) {
                 const rateInput = document.getElementById('rateInput');
-                const rateValue = rateInput ? parseFloat(rateInput.value) : 1;
+                if (!rateInput || !rateInput.value) {
+                    return processedAmount;
+                }
                 
-                if (!isNaN(rateValue) && rateValue !== 0) {
-                    return processedAmount * rateValue;
+                const rateInputValue = rateInput.value.trim();
+                
+                // Check if input starts with "*" for multiplication
+                if (rateInputValue.startsWith('*')) {
+                    const rateValue = parseFloat(rateInputValue.substring(1));
+                    if (!isNaN(rateValue) && rateValue !== 0) {
+                        return processedAmount * rateValue;
+                    }
+                }
+                // Check if input starts with "/" for division
+                else if (rateInputValue.startsWith('/')) {
+                    const rateValue = parseFloat(rateInputValue.substring(1));
+                    if (!isNaN(rateValue) && rateValue !== 0) {
+                        return processedAmount / rateValue;
+                    }
+                }
+                // Default: treat as multiplication (backward compatibility)
+                else {
+                    const rateValue = parseFloat(rateInputValue);
+                    if (!isNaN(rateValue) && rateValue !== 0) {
+                        return processedAmount * rateValue;
+                    }
                 }
             }
             
@@ -11905,7 +11928,18 @@ function formatPercentValue(value) {
                     const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                     const rateChecked = rateCheckbox ? rateCheckbox.checked : false;
                     const rateInput = document.getElementById('rateInput');
-                    const rateValue = rateChecked && rateInput && rateInput.value ? rateInput.value : null;
+                    // Extract numeric value from rate input (remove "*" or "/" prefix for saving)
+                    let rateValue = null;
+                    if (rateChecked && rateInput && rateInput.value) {
+                        const rateInputValue = rateInput.value.trim();
+                        if (rateInputValue.startsWith('*') || rateInputValue.startsWith('/')) {
+                            // Extract number after "*" or "/"
+                            rateValue = rateInputValue.substring(1);
+                        } else {
+                            // Use value as is (backward compatibility)
+                            rateValue = rateInputValue;
+                        }
+                    }
                     const templateKeyAttr = row.getAttribute('data-template-key') || '';
                     const productTypeAttr = row.getAttribute('data-product-type');
                     const parentIdProductAttr = row.getAttribute('data-parent-id-product');
