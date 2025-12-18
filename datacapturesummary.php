@@ -7936,14 +7936,10 @@ function getCurrentProcessId() {
             const formulaCell = cells[4];
             if (!formulaCell) return;
             
+            // Get current formula text (may contain Source % like "1083.45+84.32*(0.25)")
+            const currentFormulaDisplay = element.textContent.trim();
             const formulaContent = formulaCell.querySelector('.formula-cell-content');
             if (!formulaContent) return;
-            
-            // Get current formula text from the entire formula cell, not just the clicked element
-            // This ensures we get the complete formula even if it's split across multiple elements
-            // Priority: Get from .formula-text span, then fallback to formulaCell textContent
-            const formulaTextSpan = formulaCell.querySelector('.formula-text');
-            const currentFormulaDisplay = formulaTextSpan ? formulaTextSpan.textContent.trim() : formulaCell.textContent.trim();
             
             // Extract base formula by removing trailing Source % part (e.g., "*(0.25)" or "*(1)")
             // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
@@ -8011,20 +8007,18 @@ function getCurrentProcessId() {
             formulaCell.style.position = 'relative';
             formulaCell.style.maxWidth = '100%';
             
-            // Replace span with input (formulaTextSpan was already declared above)
+            // Replace span with input
+            const formulaTextSpan = formulaCell.querySelector('.formula-text');
             if (formulaTextSpan) {
                 formulaContent.insertBefore(input, formulaTextSpan);
+                input.focus();
+                input.select();
             } else {
                 // If no formula-text span found, just append the input
                 formulaContent.appendChild(input);
-            }
-            
-            // Focus and select all text - use setTimeout to ensure input is fully rendered
-            setTimeout(() => {
                 input.focus();
-                // Select all text in the input field
-                input.setSelectionRange(0, input.value.length);
-            }, 0);
+                input.select();
+            }
             
             // Save function
             const saveEdit = () => {
