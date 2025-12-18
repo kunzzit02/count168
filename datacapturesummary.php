@@ -8011,8 +8011,7 @@ function getCurrentProcessId() {
             formulaCell.style.position = 'relative';
             formulaCell.style.maxWidth = '100%';
             
-            // Replace span with input
-            const formulaTextSpan = formulaCell.querySelector('.formula-text');
+            // Replace span with input (formulaTextSpan was already declared above)
             if (formulaTextSpan) {
                 formulaContent.insertBefore(input, formulaTextSpan);
             } else {
