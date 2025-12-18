@@ -6080,8 +6080,17 @@ function getCurrentProcessId() {
                             console.log(`Preserving manually entered number ${match} at position ${offset} (part of manual expression after ${charBefore})`);
                             return match;
                         }
-                        // Also preserve if it's a decimal number after * or / (likely manual input)
-                        // But only if it's not in the savedNumbers list (meaning it's not from data capture table)
+                        
+                        // IMPORTANT: For division operator (/), always preserve the number after it
+                        // This prevents / numbers from being incorrectly replaced with * numbers
+                        // Users manually enter / numbers (e.g., /7, /5) and they should be preserved
+                        if (charBefore === '/') {
+                            console.log(`Preserving number ${match} after division operator at position ${offset} (user manual input)`);
+                            return match;
+                        }
+                        
+                        // For multiplication operator (*), only preserve if it's not in savedNumbers (manual input)
+                        // But check for percentage numbers separately (handled later)
                         const numValue = parseFloat(match);
                         const isInSavedNumbers = savedNumbers.some(savedNum => Math.abs(parseFloat(savedNum) - numValue) < 0.0001);
                         if (!isInSavedNumbers && !isNaN(numValue)) {
