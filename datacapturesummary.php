@@ -8171,9 +8171,36 @@ function getCurrentProcessId() {
                     
                     if (formulaText) {
                         // Extract source expression from formula (remove ALL trailing source percent parts)
-                        // Use the same function as elsewhere to ensure consistency
-                        // This will properly handle formulas like "5+3*0.68/4*(1)" and extract "5+3*0.68/4"
-                        let sourceExpression = removeTrailingSourcePercentExpression(formulaText);
+                        // Formula format: sourceExpression*SourcePercent, e.g., "107.82+84.31*(0.01)"
+                        // But might have multiple: "107.82+84.31*(1.2)*(0.012)" - need to remove all trailing *(...) patterns
+                        let sourceExpression = formulaText;
+                        
+                        // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
+                        // Keep removing until no more trailing patterns found
+                        let previousExpression = '';
+                        while (sourceExpression !== previousExpression) {
+                            previousExpression = sourceExpression;
+                            
+                            // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
+                            const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
+                            const trailingMatch = sourceExpression.match(trailingSourcePercentPattern);
+                            if (trailingMatch) {
+                                // Found trailing source percent, remove it
+                                sourceExpression = trailingMatch[1].trim();
+                                continue;
+                            }
+                            
+                            // Try pattern without parentheses: ...*number at the end
+                            const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
+                            const simpleMatch = sourceExpression.match(simplePattern);
+                            if (simpleMatch) {
+                                sourceExpression = simpleMatch[1].trim();
+                                continue;
+                            }
+                            
+                            // No more patterns found, break
+                            break;
+                        }
                         
                         // Recreate formula display with new source percent
                         const newFormulaDisplay = createFormulaDisplayFromExpression(sourceExpression, newValue, enableSourcePercent);
