@@ -10608,15 +10608,19 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
                     // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
                     // If so, extract the base expression by removing ALL trailing Source % patterns
+                    // IMPORTANT: Only remove Source % patterns with parentheses like *(1) or *(0.5)
+                    // Do NOT remove patterns without parentheses like *0.6, as these are user-manual multipliers
                     // Iteratively remove all trailing *(...) patterns to get the true base expression
                     let baseExpression = savedFormulaDisplay.trim();
                     let previousExpression = '';
                     
                     // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
+                    // Only match patterns with parentheses to avoid removing user-manual multipliers like *0.6
                     while (baseExpression !== previousExpression) {
                         previousExpression = baseExpression;
                         
                         // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
+                        // This is the Source % pattern added by the system
                         const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
                         const trailingMatch = baseExpression.match(trailingSourcePercentPattern);
                         if (trailingMatch) {
@@ -10625,13 +10629,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                             continue;
                         }
                         
-                        // Try pattern without parentheses: ...*number at the end
-                        const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                        const simpleMatch = baseExpression.match(simplePattern);
-                        if (simpleMatch) {
-                            baseExpression = simpleMatch[1].trim();
-                            continue;
-                        }
+                        // Do NOT match pattern without parentheses (*number) as this might be user-manual multiplier
+                        // Source % is always added with parentheses by createFormulaDisplayFromExpression
                         
                         // No more patterns found, break
                         break;
@@ -10756,15 +10755,19 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         } else if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
             // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
             // If so, extract the base expression by removing ALL trailing Source % patterns
+            // IMPORTANT: Only remove Source % patterns with parentheses like *(1) or *(0.5)
+            // Do NOT remove patterns without parentheses like *0.6, as these are user-manual multipliers
             // Iteratively remove all trailing *(...) patterns to get the true base expression
             let baseExpression = savedFormulaDisplay.trim();
             let previousExpression = '';
             
             // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
+            // Only match patterns with parentheses to avoid removing user-manual multipliers like *0.6
             while (baseExpression !== previousExpression) {
                 previousExpression = baseExpression;
                 
                 // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
+                // This is the Source % pattern added by the system
                 const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
                 const trailingMatch = baseExpression.match(trailingSourcePercentPattern);
                 if (trailingMatch) {
@@ -10773,13 +10776,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     continue;
                 }
                 
-                // Try pattern without parentheses: ...*number at the end
-                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                const simpleMatch = baseExpression.match(simplePattern);
-                if (simpleMatch) {
-                    baseExpression = simpleMatch[1].trim();
-                    continue;
-                }
+                // Do NOT match pattern without parentheses (*number) as this might be user-manual multiplier
+                // Source % is always added with parentheses by createFormulaDisplayFromExpression
                 
                 // No more patterns found, break
                 break;
