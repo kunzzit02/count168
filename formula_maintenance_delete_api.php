@@ -25,8 +25,6 @@ try {
     $company_id = null;
     $requested_company_id = isset($input['company_id']) ? trim($input['company_id']) : '';
     $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
-    $userId = (int)$_SESSION['user_id'];
-    $ownerId = isset($_SESSION['owner_id']) ? (int)$_SESSION['owner_id'] : null;
 
     if ($requested_company_id !== '') {
         $requested_company_id = (int)$requested_company_id;
@@ -97,106 +95,12 @@ try {
         throw new Exception('没有找到符合条件且属于当前公司的记录');
     }
     
-    // 当前操作用户（用于记录 Deleted By）
-    $deletedByUserId = null;
-    $deletedByOwnerId = null;
-    if ($userRole === 'owner') {
-        // Owner 登录：优先使用 owner_id，没有则退回 user_id
-        $deletedByOwnerId = $ownerId ?: $userId;
-    } else {
-        // 普通用户登录
-        $deletedByUserId = $userId;
-    }
-
-    // 确保日志表存在（在事务外执行，因为 DDL 语句可能自动提交事务）
-    $createLogTableSql = "
-        CREATE TABLE IF NOT EXISTS data_captures_deleted (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            capture_id INT NOT NULL,
-            company_id INT NOT NULL,
-            process_id INT NOT NULL,
-            currency_id INT NOT NULL,
-            capture_date DATE NOT NULL,
-            created_at TIMESTAMP NULL,
-            created_by INT NULL,
-            user_type ENUM('user', 'owner') NOT NULL DEFAULT 'user',
-            remark TEXT NULL,
-            deleted_by_user_id INT NULL,
-            deleted_by_owner_id INT NULL,
-            deleted_at TIMESTAMP NULL,
-            INDEX idx_company_date (company_id, capture_date),
-            INDEX idx_capture_id (capture_id),
-            INDEX idx_deleted_at (deleted_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    ";
-    $pdo->exec($createLogTableSql);
-    
     // 开始事务
     $pdo->beginTransaction();
     
     try {
-        // 1）先将将要删除的 data_capture_templates 记录备份到 data_captures_deleted 表
-        // 对于 formula 模板，我们需要从 data_capture_templates 获取信息
-        // 如果 data_capture_id 不为 NULL，从 data_captures 表获取 capture_date
-        // 如果 data_capture_id 为 NULL，使用当前日期作为 capture_date
+        // 删除选中的记录
         $deletePlaceholders = str_repeat('?,', count($validIds) - 1) . '?';
-        $logSql = "
-            INSERT INTO data_captures_deleted (
-                capture_id,
-                company_id,
-                process_id,
-                currency_id,
-                capture_date,
-                created_at,
-                created_by,
-                user_type,
-                remark,
-                deleted_by_user_id,
-                deleted_by_owner_id,
-                deleted_at
-            )
-            SELECT
-                COALESCE(dct.data_capture_id, 0) AS capture_id,
-                dct.company_id,
-                COALESCE(p.id, 0) AS process_id,
-                COALESCE(dct.currency_id, 0) AS currency_id,
-                COALESCE(dc.capture_date, CURDATE()) AS capture_date,
-                dct.created_at,
-                NULL AS created_by,
-                'user' AS user_type,
-                CONCAT('Formula Template Deleted: ', 
-                       COALESCE(dct.description, ''), 
-                       ' | Formula: ', 
-                       COALESCE(dct.formula_display, dct.formula_operators, '')) AS remark,
-                ?,
-                ?,
-                NOW()
-            FROM data_capture_templates dct
-            LEFT JOIN data_captures dc ON dct.data_capture_id = dc.id
-            LEFT JOIN (
-                SELECT MIN(id) AS id, process_id, company_id
-                FROM process
-                GROUP BY process_id, company_id
-            ) p ON (
-                dct.process_id = p.process_id
-                OR (
-                    dct.process_id REGEXP '^[0-9]+$'
-                    AND CAST(dct.process_id AS UNSIGNED) = p.id
-                )
-            ) AND p.company_id = dct.company_id
-            WHERE dct.id IN ($deletePlaceholders)
-              AND dct.company_id = ?
-        ";
-
-        $logStmt = $pdo->prepare($logSql);
-        $logParams = array_merge(
-            [$deletedByUserId, $deletedByOwnerId],
-            $validIds,
-            [$company_id]
-        );
-        $logStmt->execute($logParams);
-        
-        // 2）删除选中的记录
         $deleteSql = "DELETE FROM data_capture_templates WHERE id IN ($deletePlaceholders)";
         $deleteStmt = $pdo->prepare($deleteSql);
         $deleteStmt->execute($validIds);
