@@ -768,9 +768,15 @@ function getCurrentProcessId() {
             console.log('Column A data:', columnAData);
             
             // Create rows for the original table
+            // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
             columnAData.forEach((value, index) => {
                 if (value && value.trim() !== '') { // Only add non-empty values
                     const row = document.createElement('tr');
+                    
+                    // Set data-row-index to match Data Capture Table row position
+                    // This ensures Summary Table order matches Data Capture Table order
+                    row.setAttribute('data-row-index', String(index));
+                    row.setAttribute('data-product-type', 'main');
                     
                     // Id Product column (merged main and sub)
                     const idProductCell = document.createElement('td');
@@ -9323,39 +9329,24 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         const templates = result.templates || {};
 
-        // IMPORTANT: Set row_index for all Summary Table rows based on Data Capture Table order
-        // This ensures Summary Table order matches Data Capture Table order
+        // IMPORTANT: Summary Table rows are created in the same order as Data Capture Table
+        // So row_index should be the same as the position in Summary Table (which matches Data Capture Table order)
+        // We just need to ensure all rows have the correct data-row-index attribute
         const summaryTableBody = document.getElementById('summaryTableBody');
-        const capturedTableBody = document.getElementById('capturedTableBody');
         
-        if (summaryTableBody && capturedTableBody) {
+        if (summaryTableBody) {
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-            const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
             
-            // Build a map of id_product -> Data Capture Table row index
-            const idProductToRowIndexMap = new Map();
-            capturedRows.forEach((capturedRow, capturedIndex) => {
-                const idProductCell = capturedRow.querySelector('td[data-col-index="1"]');
-                if (idProductCell) {
-                    const idProduct = normalizeIdProductText(idProductCell.textContent.trim());
-                    if (idProduct && !idProductToRowIndexMap.has(idProduct)) {
-                        // Only store the first occurrence of each id_product (main row)
-                        idProductToRowIndexMap.set(idProduct, capturedIndex);
-                    }
-                }
-            });
-            
-            // Set row_index for Summary Table rows based on Data Capture Table order
-            allSummaryRows.forEach((summaryRow) => {
-                const idProductCell = summaryRow.querySelector('td:first-child');
-                if (idProductCell) {
-                    const productValues = getProductValuesFromCell(idProductCell);
-                    const mainText = normalizeIdProductText(productValues.main || '');
-                    if (mainText && idProductToRowIndexMap.has(mainText)) {
-                        const dataCaptureRowIndex = idProductToRowIndexMap.get(mainText);
-                        summaryRow.setAttribute('data-row-index', String(dataCaptureRowIndex));
-                        console.log('Set data-row-index from Data Capture Table:', dataCaptureRowIndex, 'for id_product:', mainText);
-                    }
+            // Since populateOriginalTableWithColumnAData creates rows in Data Capture Table order,
+            // the index in Summary Table directly corresponds to Data Capture Table row index
+            allSummaryRows.forEach((summaryRow, index) => {
+                // Only set if not already set (preserve existing row_index from templates if available)
+                const existingRowIndex = summaryRow.getAttribute('data-row-index');
+                if (!existingRowIndex || existingRowIndex === '' || Number.isNaN(Number(existingRowIndex))) {
+                    summaryRow.setAttribute('data-row-index', String(index));
+                    console.log('Set initial data-row-index for Summary Table row at position', index, 'to match Data Capture Table order');
+                } else {
+                    console.log('Preserved existing data-row-index:', existingRowIndex, 'for Summary Table row at position', index);
                 }
             });
         }
@@ -10493,6 +10484,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
 }
 
 // After all templates are applied, reorder rows globally by row_index (if present)
+// IMPORTANT: This function should maintain the exact order of Data Capture Table
+// Rows should be sorted by row_index globally, not grouped by id_product
 function reorderSummaryRowsByRowIndex() {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -10528,65 +10521,30 @@ function reorderSummaryRowsByRowIndex() {
             };
         });
 
-        // Group rows by normalized id_product
-        const groups = new Map();
-        rowData.forEach(data => {
-            const key = data.normalizedMain || 'empty';
-            if (!groups.has(key)) {
-                groups.set(key, []);
+        // IMPORTANT: Sort ALL rows globally by row_index, not grouped by id_product
+        // This ensures Summary Table order matches Data Capture Table order exactly
+        const withIndex = rowData.filter(r => r.rowIndex !== null);
+        const withoutIndex = rowData.filter(r => r.rowIndex === null);
+
+        // Sort rows with row_index by row_index (Data Capture Table order)
+        withIndex.sort((a, b) => {
+            if (a.rowIndex !== b.rowIndex) {
+                return a.rowIndex - b.rowIndex;
             }
-            groups.get(key).push(data);
+            // If same row_index, maintain original order (for sub rows)
+            return a.originalIndex - b.originalIndex;
         });
 
-        // Sort each group internally by row_index
-        groups.forEach((groupRows, key) => {
-            // Separate rows with and without row_index
-            const withIndex = groupRows.filter(r => r.rowIndex !== null);
-            const withoutIndex = groupRows.filter(r => r.rowIndex === null);
+        // Sort rows without row_index by originalIndex (maintain their current order)
+        withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
 
-            // Sort rows with row_index by row_index, then by originalIndex
-            withIndex.sort((a, b) => {
-                if (a.rowIndex !== b.rowIndex) {
-                    return a.rowIndex - b.rowIndex;
-                }
-                return a.originalIndex - b.originalIndex;
-            });
-
-            // Sort rows without row_index by originalIndex
-            withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
-
-            // Replace group with sorted rows
-            groups.set(key, [...withIndex, ...withoutIndex]);
-        });
-
-        // Build final ordered list: maintain order of first occurrence of each id_product
-        const orderedRows = [];
-        const processedGroups = new Set();
-        const groupOrder = [];
-
-        // First pass: determine order of groups based on first occurrence
-        rowData.forEach(data => {
-            const key = data.normalizedMain || 'empty';
-            if (!processedGroups.has(key)) {
-                processedGroups.add(key);
-                groupOrder.push(key);
-            }
-        });
-
-        // Second pass: add rows in group order
-        groupOrder.forEach(key => {
-            const groupRows = groups.get(key);
-            if (groupRows) {
-                groupRows.forEach(data => {
-                    orderedRows.push(data.row);
-                });
-            }
-        });
+        // Combine: rows with index first (sorted by Data Capture Table order), then rows without index
+        const orderedRows = [...withIndex, ...withoutIndex].map(data => data.row);
 
         // Re-append rows in new order
         orderedRows.forEach(row => summaryTableBody.appendChild(row));
         
-        console.log('Reordered rows by row_index. Total rows:', orderedRows.length);
+        console.log('Reordered rows by row_index (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
