@@ -1210,7 +1210,42 @@ function getCurrentProcessId() {
                                     processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
                                     console.log('Found row by summaryRowIndex:', summaryRowIndex, 'id_product:', idProduct, 'row_label was:', rowLabel, 'Data Capture Table row at index', summaryRowIndex, 'has id_product:', cellIdProduct);
                                 } else {
-                                    console.warn('summaryRowIndex', summaryRowIndex, 'points to row with different id_product. Expected:', normalizedIdProduct, 'Found:', cellIdProduct);
+                                    // summaryRowIndex points to a row with different id_product
+                                    // This can happen when Data Capture Table was modified
+                                    // Try to find the next matching row with same id_product at or after summaryRowIndex
+                                    console.warn('summaryRowIndex', summaryRowIndex, 'points to row with different id_product. Expected:', normalizedIdProduct, 'Found:', cellIdProduct, 'Searching for next matching row...');
+                                    
+                                    // Search for next matching row starting from summaryRowIndex
+                                    for (let i = summaryRowIndex; i < rows.length; i++) {
+                                        const searchRow = rows[i];
+                                        const searchIdProductCell = searchRow.querySelector('td[data-col-index="1"]');
+                                        if (searchIdProductCell) {
+                                            const searchIdProduct = normalizeIdProductText(searchIdProductCell.textContent.trim());
+                                            if (searchIdProduct === normalizedIdProduct) {
+                                                rowIndex = i;
+                                                processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
+                                                console.log('Found next matching row at index:', i, 'id_product:', idProduct);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    
+                                    // If still not found, search backwards from summaryRowIndex
+                                    if (!processRow) {
+                                        for (let i = summaryRowIndex - 1; i >= 0; i--) {
+                                            const searchRow = rows[i];
+                                            const searchIdProductCell = searchRow.querySelector('td[data-col-index="1"]');
+                                            if (searchIdProductCell) {
+                                                const searchIdProduct = normalizeIdProductText(searchIdProductCell.textContent.trim());
+                                                if (searchIdProduct === normalizedIdProduct) {
+                                                    rowIndex = i;
+                                                    processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
+                                                    console.log('Found previous matching row at index:', i, 'id_product:', idProduct);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         } else {
@@ -1220,10 +1255,18 @@ function getCurrentProcessId() {
                 }
                 
                 // If still not found, fallback to original behavior (first matching row)
+                // BUT: Only do this if summaryRowIndex was not provided, to avoid reading wrong row
                 if (!processRow) {
-                    processRow = findProcessRow(parsedTableData, idProduct);
-                    if (rowLabel || summaryRowIndex !== null) {
-                        console.warn('Row not found by row_label/summaryRowIndex:', rowLabel, summaryRowIndex, 'falling back to first matching row for id_product:', idProduct);
+                    if (summaryRowIndex === null) {
+                        // No summaryRowIndex provided, safe to use first matching row
+                        processRow = findProcessRow(parsedTableData, idProduct);
+                        if (rowLabel) {
+                            console.warn('Row not found by row_label:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
+                        }
+                    } else {
+                        // summaryRowIndex was provided but no matching row found
+                        // This is an error case - we should not fallback to first row
+                        console.error('Row not found by summaryRowIndex:', summaryRowIndex, 'for id_product:', idProduct, 'row_label:', rowLabel, 'NOT falling back to first matching row to avoid incorrect data');
                     }
                 }
                 
