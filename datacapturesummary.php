@@ -1160,24 +1160,25 @@ function getCurrentProcessId() {
                             console.log('getCellValueByIdProductAndColumn: Checking row', i, 'row_header:', JSON.stringify(rowHeaderTextTrimmed), 'rowLabel:', JSON.stringify(rowLabel), 'match:', rowHeaderTextTrimmed === rowLabel);
                             
                             // Check if row header matches rowLabel (case-sensitive)
-                            if (rowHeaderTextTrimmed === rowLabel) {
-                                // Found row by label, now verify id_product matches
-                                const idProductCell = row.querySelector('td[data-col-index="1"]');
-                                if (idProductCell) {
-                                    const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
-                                    const cellIdProduct = normalizeIdProductText(cellIdProductText);
-                                    const normalizedIdProduct = normalizeIdProductText(idProduct);
-                                    console.log('getCellValueByIdProductAndColumn: Found row by label! rowIndex:', i, 'cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct);
-                                    
-                                    // CRITICAL: Use row_label match even if id_product doesn't match
-                                    // row_label is more reliable than id_product when there are multiple rows with same id_product
+                                if (rowHeaderTextTrimmed === rowLabel) {
+                                    // Found row by label, now get the row index
+                                    // CRITICAL: Use row_label match - row_label is more reliable than id_product when there are multiple rows with same id_product
+                                    // The row index in DOM directly corresponds to the row index in parsedTableData
                                     rowIndex = i;
-                                    console.log('getCellValueByIdProductAndColumn: Using row by row_label, rowIndex:', rowIndex, 'id_product match:', cellIdProduct === normalizedIdProduct);
+                                    console.log('getCellValueByIdProductAndColumn: Found row by row_label! rowIndex:', rowIndex, 'rowLabel:', rowLabel);
+                                    
+                                    // Optional: Verify id_product for logging (but don't require it)
+                                    const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
+                                    if (idProductCell) {
+                                        const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                        const cellIdProduct = normalizeIdProductText(cellIdProductText);
+                                        const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                        console.log('getCellValueByIdProductAndColumn: Verified id_product - cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct, 'match:', cellIdProduct === normalizedIdProduct);
+                                    } else {
+                                        console.log('getCellValueByIdProductAndColumn: idProductCell not found, but using row by row_label anyway (rowIndex:', rowIndex, ')');
+                                    }
                                     break;
-                                } else {
-                                    console.warn('getCellValueByIdProductAndColumn: Found row by label but idProductCell not found at row', i);
                                 }
-                            }
                         }
                     }
                     
@@ -4432,7 +4433,7 @@ function getCurrentProcessId() {
                         const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
                         if (rowIndex < capturedRows.length) {
                             const capturedRow = capturedRows[rowIndex];
-                            const capturedIdProductCell = capturedRow.querySelector('td[data-col-index="1"]');
+                            const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                             if (capturedIdProductCell) {
                                 const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
                                 const idProduct = productType === 'sub' 
@@ -9402,7 +9403,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 // Verify: Check if Data Capture Table row at this index matches
                 if (summaryIndex < capturedRows.length) {
                     const capturedRow = capturedRows[summaryIndex];
-                    const capturedIdProductCell = capturedRow.querySelector('td[data-col-index="1"]');
+                    const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                     const summaryIdProductCell = summaryRow.querySelector('td:first-child');
                     
                     if (capturedIdProductCell && summaryIdProductCell) {
