@@ -9697,8 +9697,8 @@ function applyTemplateToSummaryRow(idProduct, template) {
     }
 }
 
-// Apply a main template to a specific row based on account_id
-// This function handles cases where multiple rows have the same id_product but different accounts
+// Apply a main template to a specific row based on account_id, row_index, and formula_variant
+// This function handles cases where multiple rows have the same id_product but different accounts/formulas
 function applyMainTemplateToRow(idProduct, mainTemplate) {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -9715,52 +9715,120 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
         let targetRow = null;
 
-        // First, try to find a row that matches both id_product and account_id
+        // Get template matching criteria
         const templateAccountId = mainTemplate.account_id ? String(mainTemplate.account_id) : null;
-        
-        for (const row of allRows) {
+        const templateFormulaVariant = mainTemplate.formula_variant !== undefined && mainTemplate.formula_variant !== null 
+            ? String(mainTemplate.formula_variant) : null;
+        const templateRowIndex = mainTemplate.row_index !== undefined && mainTemplate.row_index !== null 
+            ? Number(mainTemplate.row_index) : null;
+        const templateId = mainTemplate.id ? String(mainTemplate.id) : null;
+
+        // Collect all matching rows (same id_product)
+        const candidateRows = [];
+        allRows.forEach((row, index) => {
             const productType = row.getAttribute('data-product-type') || 'main';
-            if (productType !== 'main') continue;
+            if (productType !== 'main') return;
 
             const idProductCell = row.querySelector('td:first-child');
             const productValues = getProductValuesFromCell(idProductCell);
             const mainCellText = normalizeIdProductText(productValues.main || '');
             
             if (mainCellText === normalizedTargetId) {
-                // Check if account matches
                 const accountCell = row.querySelector('td:nth-child(2)');
                 const rowAccountId = accountCell?.getAttribute('data-account-id');
-                
-                if (templateAccountId && rowAccountId && rowAccountId === templateAccountId) {
-                    // Found exact match by id_product and account_id
-                    targetRow = row;
+                const rowFormulaVariant = row.getAttribute('data-formula-variant');
+                const rowTemplateId = row.getAttribute('data-template-id');
+                const rowRowIndexAttr = row.getAttribute('data-row-index');
+                const rowRowIndex = (rowRowIndexAttr !== null && rowRowIndexAttr !== '' && !Number.isNaN(Number(rowRowIndexAttr)))
+                    ? Number(rowRowIndexAttr) : null;
+
+                candidateRows.push({
+                    row,
+                    index,
+                    accountId: rowAccountId,
+                    formulaVariant: rowFormulaVariant,
+                    templateId: rowTemplateId,
+                    rowIndex: rowRowIndex
+                });
+            }
+        });
+
+        // Priority 1: Match by template_id (most precise)
+        if (templateId) {
+            for (const candidate of candidateRows) {
+                if (candidate.templateId === templateId) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by template_id:', templateId);
                     break;
-                } else if (!templateAccountId && !rowAccountId) {
-                    // Both are empty, use this row
-                    targetRow = row;
-                    break;
-                } else if (!targetRow && !rowAccountId) {
-                    // Row has no account yet, use it as fallback (will be updated with template's account)
-                    targetRow = row;
                 }
             }
         }
 
-        // If no matching row found, use the first row with matching id_product
-        if (!targetRow) {
-            for (const row of allRows) {
-                const productType = row.getAttribute('data-product-type') || 'main';
-                if (productType !== 'main') continue;
+        // Priority 2: Match by row_index + account_id + formula_variant (if template_id not found)
+        if (!targetRow && templateRowIndex !== null) {
+            for (const candidate of candidateRows) {
+                if (candidate.rowIndex === templateRowIndex) {
+                    // Check if account_id and formula_variant also match
+                    const accountMatch = !templateAccountId || !candidate.accountId || candidate.accountId === templateAccountId;
+                    const variantMatch = !templateFormulaVariant || !candidate.formulaVariant || candidate.formulaVariant === templateFormulaVariant;
+                    
+                    if (accountMatch && variantMatch) {
+                        targetRow = candidate.row;
+                        console.log('Matched row by row_index + account_id + formula_variant:', templateRowIndex, templateAccountId, templateFormulaVariant);
+                        break;
+                    }
+                }
+            }
+        }
 
-                const idProductCell = row.querySelector('td:first-child');
-                const productValues = getProductValuesFromCell(idProductCell);
-                const mainCellText = normalizeIdProductText(productValues.main || '');
-                
-                if (mainCellText === normalizedTargetId) {
-                    targetRow = row;
+        // Priority 3: Match by account_id + formula_variant (if row_index not available)
+        if (!targetRow && templateAccountId && templateFormulaVariant) {
+            for (const candidate of candidateRows) {
+                if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
                     break;
                 }
             }
+        }
+
+        // Priority 4: Match by account_id only (if formula_variant not available)
+        if (!targetRow && templateAccountId) {
+            for (const candidate of candidateRows) {
+                if (candidate.accountId === templateAccountId) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by account_id:', templateAccountId);
+                    break;
+                }
+            }
+        }
+
+        // Priority 5: Match by row_index only (if account_id not available)
+        if (!targetRow && templateRowIndex !== null) {
+            for (const candidate of candidateRows) {
+                if (candidate.rowIndex === templateRowIndex) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by row_index:', templateRowIndex);
+                    break;
+                }
+            }
+        }
+
+        // Priority 6: Use first empty row (no account yet)
+        if (!targetRow) {
+            for (const candidate of candidateRows) {
+                if (!candidate.accountId) {
+                    targetRow = candidate.row;
+                    console.log('Matched empty row (no account)');
+                    break;
+                }
+            }
+        }
+
+        // Priority 7: Use first available row as fallback
+        if (!targetRow && candidateRows.length > 0) {
+            targetRow = candidateRows[0].row;
+            console.log('Using first available row as fallback');
         }
 
         if (!targetRow) {
@@ -10251,6 +10319,21 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         };
 
         updateSummaryTableRow(idProduct, data, targetRow);
+        
+        // IMPORTANT: Set data-row-index attribute on the row to preserve row order
+        if (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null) {
+            targetRow.setAttribute('data-row-index', String(mainTemplate.row_index));
+            console.log('Set data-row-index on row:', mainTemplate.row_index);
+        }
+        
+        // Also set template_id and formula_variant for precise matching
+        if (mainTemplate.id) {
+            targetRow.setAttribute('data-template-id', String(mainTemplate.id));
+        }
+        if (mainTemplate.formula_variant !== undefined && mainTemplate.formula_variant !== null) {
+            targetRow.setAttribute('data-formula-variant', String(mainTemplate.formula_variant));
+        }
+        
         console.log('Applied main template to row with account_id:', mainTemplate.account_id);
         return targetRow; // Return the row so sub templates can be applied to it
     } catch (error) {
@@ -10272,67 +10355,88 @@ function reorderSummaryRowsByRowIndex() {
             return;
         }
 
-        // 按 Id Product 分组，同时在每个分组内部按 row_index 排序
-        const groups = [];
-        let currentGroup = null;
-
-        rows.forEach((row, originalIndex) => {
+        // Collect all rows with their metadata
+        const rowData = rows.map((row, originalIndex) => {
             const idProductCell = row.querySelector('td:first-child');
             const productValues = getProductValuesFromCell(idProductCell);
             const mainTextRaw = (productValues.main || '').trim();
-            const hasMain = !!mainTextRaw;
-
-            if (hasMain || !currentGroup) {
-                // 遇到新的 main row，开始新的分组
-                const normalizedMain = normalizeIdProductText(mainTextRaw);
-                currentGroup = {
-                    key: normalizedMain,
-                    firstOriginalIndex: originalIndex,
-                    rows: []
-                };
-                groups.push(currentGroup);
-            }
-
+            const normalizedMain = normalizeIdProductText(mainTextRaw);
+            const productType = row.getAttribute('data-product-type') || 'main';
+            
             const attr = row.getAttribute('data-row-index');
             const rowIndex = (attr !== null && attr !== '' && !Number.isNaN(Number(attr)))
                 ? Number(attr)
                 : null;
 
-            currentGroup.rows.push({
+            return {
                 row,
                 rowIndex,
-                originalIndex
-            });
+                originalIndex,
+                normalizedMain,
+                hasMain: !!mainTextRaw,
+                productType
+            };
         });
 
-        if (groups.length === 0) {
-            return;
-        }
+        // Group rows by normalized id_product
+        const groups = new Map();
+        rowData.forEach(data => {
+            const key = data.normalizedMain || 'empty';
+            if (!groups.has(key)) {
+                groups.set(key, []);
+            }
+            groups.get(key).push(data);
+        });
 
-        // 分组之间保持原始顺序（firstOriginalIndex 由当前页面决定）
-        groups.sort((a, b) => a.firstOriginalIndex - b.firstOriginalIndex);
+        // Sort each group internally by row_index
+        groups.forEach((groupRows, key) => {
+            // Separate rows with and without row_index
+            const withIndex = groupRows.filter(r => r.rowIndex !== null);
+            const withoutIndex = groupRows.filter(r => r.rowIndex === null);
 
-        const orderedRows = [];
-
-        groups.forEach(group => {
-            const withIndex = group.rows.filter(r => r.rowIndex !== null);
-            const withoutIndex = group.rows.filter(r => r.rowIndex === null);
-
-            // 同一个 Id Product 分组内部：先按 row_index，再按原始顺序
+            // Sort rows with row_index by row_index, then by originalIndex
             withIndex.sort((a, b) => {
                 if (a.rowIndex !== b.rowIndex) {
                     return a.rowIndex - b.rowIndex;
                 }
                 return a.originalIndex - b.originalIndex;
             });
+
+            // Sort rows without row_index by originalIndex
             withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
 
-            withIndex.forEach(info => orderedRows.push(info.row));
-            withoutIndex.forEach(info => orderedRows.push(info.row));
+            // Replace group with sorted rows
+            groups.set(key, [...withIndex, ...withoutIndex]);
         });
 
-        // 重新按新顺序附加行
+        // Build final ordered list: maintain order of first occurrence of each id_product
+        const orderedRows = [];
+        const processedGroups = new Set();
+        const groupOrder = [];
+
+        // First pass: determine order of groups based on first occurrence
+        rowData.forEach(data => {
+            const key = data.normalizedMain || 'empty';
+            if (!processedGroups.has(key)) {
+                processedGroups.add(key);
+                groupOrder.push(key);
+            }
+        });
+
+        // Second pass: add rows in group order
+        groupOrder.forEach(key => {
+            const groupRows = groups.get(key);
+            if (groupRows) {
+                groupRows.forEach(data => {
+                    orderedRows.push(data.row);
+                });
+            }
+        });
+
+        // Re-append rows in new order
         orderedRows.forEach(row => summaryTableBody.appendChild(row));
+        
+        console.log('Reordered rows by row_index. Total rows:', orderedRows.length);
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
@@ -11068,6 +11172,21 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
         window.currentAddAccountButton = targetButton;
         updateSubIdProductRow(idProduct, data, targetRow);
+        
+        // IMPORTANT: Set data-row-index attribute on the row to preserve row order
+        if (template.row_index !== undefined && template.row_index !== null) {
+            targetRow.setAttribute('data-row-index', String(template.row_index));
+            console.log('Set data-row-index on sub row:', template.row_index);
+        }
+        
+        // Also set template_id and formula_variant for precise matching
+        if (template.id) {
+            targetRow.setAttribute('data-template-id', String(template.id));
+        }
+        if (template.formula_variant !== undefined && template.formula_variant !== null) {
+            targetRow.setAttribute('data-formula-variant', String(template.formula_variant));
+        }
+        
         lastRowInGroup = targetRow;
     });
 }
