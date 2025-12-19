@@ -1049,7 +1049,10 @@ function getCurrentProcessId() {
             }
         }
 
-        // Check if sourceColumnsValue is in new format (id_product:column_index)
+        // Check if sourceColumnsValue is in new format
+        // Supports two formats:
+        // 1. "id_product:row_label:column_index" (e.g., "BB:C:3") - with row label
+        // 2. "id_product:column_index" (e.g., "BB:3") - backward compatibility
         function isNewIdProductColumnFormat(sourceColumnsValue) {
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 return false;
@@ -1058,9 +1061,12 @@ function getCurrentProcessId() {
             if (parts.length === 0) {
                 return false;
             }
-            // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
-            const newFormatPattern = /^[^:]+:\d+$/;
-            return newFormatPattern.test(parts[0]);
+            // Check for new format with row label: "id_product:row_label:column_index" (e.g., "BB:C:3")
+            const newFormatWithRowLabel = /^[^:]+:[A-Z]+:\d+$/;
+            // Check for new format without row label: "id_product:column_index" (e.g., "BB:3")
+            const newFormatWithoutRowLabel = /^[^:]+:\d+$/;
+            // Return true if matches either format
+            return newFormatWithRowLabel.test(parts[0]) || newFormatWithoutRowLabel.test(parts[0]);
         }
         
         // Parse new format source_columns and get cell values
