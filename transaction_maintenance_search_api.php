@@ -54,7 +54,10 @@ try {
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db   = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
     
-    // 组装 where
+    $formatted = [];
+    $no = 1;
+    
+    // ========== 1. 查询 Transaction 数据 ==========
     $where = [];
     $params = [];
     
@@ -66,7 +69,6 @@ try {
     $params[] = $date_from_db;
     $params[] = $date_to_db;
     
-    // 当前 transactions 表无 capture_id/process_id 列，无法按 process 过滤，忽略前端 process 参数
     $whereSql = 'WHERE ' . implode(' AND ', $where);
     
     // 主查询（未删除）
@@ -86,7 +88,8 @@ try {
             COALESCE(u.login_id, o.owner_code) AS created_by,
             0 AS is_deleted,
             NULL AS deleted_by,
-            NULL AS dts_deleted
+            NULL AS dts_deleted,
+            'transaction' AS data_type
         FROM transactions t
         INNER JOIN account a ON t.account_id = a.id
         LEFT JOIN account fa ON t.from_account_id = fa.id
@@ -101,8 +104,6 @@ try {
     $stmt->execute($params);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    $formatted = [];
-    $no = 1;
     foreach ($rows as $row) {
         $amt = $row['amount'] ?? 0;
         $crVal = null;
@@ -118,6 +119,7 @@ try {
         $formatted[] = [
             'no' => $no++,
             'transaction_id' => $row['transaction_id'],
+            'capture_id' => null,
             'process' => $row['process_id'] ?? '-',
             'process_id' => $row['process_id'] ?? null,
             'account' => $row['account_id'] ?? '-',
@@ -135,11 +137,119 @@ try {
             'created_by' => $row['created_by'] ?? '-',
             'is_deleted' => 0,
             'deleted_by' => null,
-            'dts_deleted' => null
+            'dts_deleted' => null,
+            'data_type' => 'transaction'
         ];
     }
     
-    // 已删除记录（transactions_deleted，可选）
+    // ========== 2. 查询 Data Capture 数据 ==========
+    try {
+        $captureWhere = [];
+        $captureParams = [];
+        
+        $captureWhere[] = "dc.company_id = ?";
+        $captureParams[] = $company_id;
+        
+        $captureWhere[] = "dcd.company_id = ?";
+        $captureParams[] = $company_id;
+        
+        $captureWhere[] = "dc.capture_date BETWEEN ? AND ?";
+        $captureParams[] = $date_from_db;
+        $captureParams[] = $date_to_db;
+        
+        // Process 过滤（如果指定）
+        if ($process) {
+            $captureWhere[] = "p.process_id = ?";
+            $captureParams[] = $process;
+        }
+        
+        $captureWhereSql = 'WHERE ' . implode(' AND ', $captureWhere);
+        
+        $captureSql = "
+            SELECT
+                dcd.id AS capture_detail_id,
+                dc.id AS capture_id,
+                p.process_id,
+                a.account_id,
+                NULL AS from_account,
+                COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
+                COALESCE(dc.remark, '') AS remark,
+                c.code AS currency_code,
+                dcd.processed_amount AS amount,
+                dc.capture_date AS transaction_date,
+                DATE_FORMAT(dc.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
+                COALESCE(u.login_id, o.owner_code) AS created_by,
+                0 AS is_deleted,
+                NULL AS deleted_by,
+                NULL AS dts_deleted,
+                dcd.source_value,
+                dcd.source_percent,
+                dcd.rate
+            FROM data_capture_details dcd
+            INNER JOIN data_captures dc ON dcd.capture_id = dc.id
+            INNER JOIN process p ON dc.process_id = p.id
+            INNER JOIN account a ON dcd.account_id = a.id
+            INNER JOIN currency c ON dcd.currency_id = c.id
+            LEFT JOIN description d ON p.description_id = d.id
+            LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
+            LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
+            $captureWhereSql
+            ORDER BY dc.capture_date DESC, dc.created_at DESC, dcd.id DESC
+        ";
+        
+        $captureStmt = $pdo->prepare($captureSql);
+        $captureStmt->execute($captureParams);
+        $captureRows = $captureStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($captureRows as $row) {
+            $amt = $row['amount'] ?? 0;
+            $crVal = null;
+            $drVal = null;
+            if (is_numeric($amt)) {
+                if ($amt > 0) {
+                    $crVal = $amt;
+                } elseif ($amt < 0) {
+                    $drVal = abs($amt);
+                }
+            }
+            
+            $rateDisplay = null;
+            if (isset($row['rate']) && $row['rate'] !== null && $row['rate'] !== '') {
+                $rateDisplay = number_format((float)$row['rate'], 4);
+            }
+            
+            $formatted[] = [
+                'no' => $no++,
+                'transaction_id' => null,
+                'capture_id' => $row['capture_id'],
+                'process' => $row['process_id'] ?? '-',
+                'process_id' => $row['process_id'] ?? null,
+                'account' => $row['account_id'] ?? '-',
+                'from_account' => null,
+                'description' => $row['description'] ?? '-',
+                'remark' => $row['remark'] ?? '-',
+                'source' => $row['source_value'] ?? null,
+                'percent' => (isset($row['source_percent']) && $row['source_percent'] !== '')
+                    ? (string)$row['source_percent']
+                    : null,
+                'currency' => $row['currency_code'] ?: '-',
+                'rate' => $rateDisplay,
+                'cr' => $crVal,
+                'dr' => $drVal,
+                'transaction_date' => $row['transaction_date'] ?? null,
+                'dts_created' => $row['dts_created'] ?? '',
+                'created_by' => $row['created_by'] ?? '-',
+                'is_deleted' => 0,
+                'deleted_by' => null,
+                'dts_deleted' => null,
+                'data_type' => 'datacapture'
+            ];
+        }
+    } catch (Exception $e) {
+        error_log('查询 Data Capture 数据失败: ' . $e->getMessage());
+    }
+    
+    // ========== 3. 查询已删除的 Transaction 记录（transactions_deleted，可选）==========
     try {
         $check = $pdo->query("SHOW TABLES LIKE 'transactions_deleted'");
         if ($check->rowCount() > 0) {
@@ -157,7 +267,8 @@ try {
                     DATE_FORMAT(td.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
                     COALESCE(u.login_id, o.owner_code) AS created_by,
                     COALESCE(du.login_id, do.owner_code) AS deleted_by,
-                    DATE_FORMAT(td.deleted_at, '%d/%m/%Y %H:%i:%s') AS dts_deleted
+                    DATE_FORMAT(td.deleted_at, '%d/%m/%Y %H:%i:%s') AS dts_deleted,
+                    'transaction' AS data_type
                 FROM transactions_deleted td
                 INNER JOIN account a ON td.account_id = a.id
                 LEFT JOIN account fa ON td.from_account_id = fa.id
@@ -171,9 +282,6 @@ try {
                 ORDER BY td.transaction_date DESC, td.created_at DESC
             ";
             $delParams = [$company_id, $date_from_db, $date_to_db];
-            if ($process) {
-                $delParams[] = $process;
-            }
             $delStmt = $pdo->prepare($deletedSql);
             $delStmt->execute($delParams);
             $deletedRows = $delStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -193,6 +301,7 @@ try {
                 $formatted[] = [
                     'no' => $no++,
                     'transaction_id' => $row['transaction_id'],
+                    'capture_id' => null,
                     'process' => $row['process_id'] ?? ($process ?: '-'),
                     'process_id' => $row['process_id'] ?? null,
                     'account' => $row['account_id'] ?? '-',
@@ -210,7 +319,8 @@ try {
                     'created_by' => $row['created_by'] ?? '-',
                     'is_deleted' => 1,
                     'deleted_by' => $row['deleted_by'] ?? null,
-                    'dts_deleted' => $row['dts_deleted'] ?? null
+                    'dts_deleted' => $row['dts_deleted'] ?? null,
+                    'data_type' => 'transaction'
                 ];
             }
         }
@@ -218,73 +328,130 @@ try {
         error_log('查询已删除交易失败: ' . $e->getMessage());
     }
     
-    /**
-     * 按「规则 2」为每条交易匹配最近的 Data Capture（同账号、同币别、同公司、日期在范围内）
-     * 优先 capture_date <= transaction_date，取最近一条；若没有，则取 >= 的最近一条
-     */
+    // ========== 4. 查询已删除的 Data Capture 记录（data_captures_deleted，可选）==========
     try {
-        $captureSql = "
-            SELECT
-                dc.capture_date,
-                dc.created_at,
-                p.process_id,
-                dcd.source_value,
-                dcd.source_percent,
-                dcd.rate
-            FROM data_capture_details dcd
-            JOIN data_captures dc ON dcd.capture_id = dc.id
-            JOIN process p ON dc.process_id = p.id
-            JOIN currency c ON dcd.currency_id = c.id
-            LEFT JOIN account a ON dcd.account_id = a.id
-            WHERE dcd.company_id = :company_id
-              AND dc.company_id = :company_id
-              AND dc.capture_date BETWEEN :date_from AND :date_to
-              AND a.account_id = :account_code
-              AND c.code = :currency_code
-            ORDER BY
-              (dc.capture_date > :tx_date) ASC,
-              ABS(DATEDIFF(dc.capture_date, :tx_date)) ASC,
-              dc.created_at DESC,
-              dcd.id DESC
-            LIMIT 1
-        ";
-        $captureStmt = $pdo->prepare($captureSql);
-
-        foreach ($formatted as &$row) {
-            $accountCode = $row['account'] ?? null;
-            $currencyCode = $row['currency'] ?? null;
-            $txDate = $row['transaction_date'] ?? null;
-
-            if (empty($accountCode) || empty($currencyCode) || empty($txDate)) {
-                continue;
+        $check = $pdo->query("SHOW TABLES LIKE 'data_captures_deleted'");
+        if ($check->rowCount() > 0) {
+            $deletedCaptureWhere = [];
+            $deletedCaptureParams = [];
+            
+            $deletedCaptureWhere[] = "dcd.company_id = ?";
+            $deletedCaptureParams[] = $company_id;
+            
+            $deletedCaptureWhere[] = "dcd.capture_date BETWEEN ? AND ?";
+            $deletedCaptureParams[] = $date_from_db;
+            $deletedCaptureParams[] = $date_to_db;
+            
+            // Process 过滤（如果指定）
+            if ($process) {
+                $deletedCaptureWhere[] = "p.process_id = ?";
+                $deletedCaptureParams[] = $process;
             }
-
-            $captureStmt->execute([
-                ':company_id' => $company_id,
-                ':date_from' => $date_from_db,
-                ':date_to' => $date_to_db,
-                ':account_code' => $accountCode,
-                ':currency_code' => $currencyCode,
-                ':tx_date' => $txDate,
-            ]);
-
-            $capture = $captureStmt->fetch(PDO::FETCH_ASSOC);
-            if ($capture) {
-                $row['process'] = $capture['process_id'] ?? '-';
-                $row['process_id'] = $capture['process_id'] ?? null;
-                $row['source'] = $capture['source_value'] ?? null;
-                $row['percent'] = (isset($capture['source_percent']) && $capture['source_percent'] !== '')
-                    ? (string)$capture['source_percent']
-                    : null;
-                if (isset($capture['rate']) && $capture['rate'] !== null && $capture['rate'] !== '') {
-                    $row['rate'] = number_format((float)$capture['rate'], 4);
+            
+            $deletedCaptureWhereSql = 'WHERE ' . implode(' AND ', $deletedCaptureWhere);
+            
+            $deletedCaptureSql = "
+                SELECT
+                    dcd.capture_id,
+                    p.process_id,
+                    a.account_id,
+                    COALESCE(d.name, dcd.description_main, dcd.description_sub, dcd.columns_value, 'Data Capture') AS description,
+                    COALESCE(dcd.remark, '') AS remark,
+                    c.code AS currency_code,
+                    dcd.processed_amount AS amount,
+                    dcd.capture_date AS transaction_date,
+                    DATE_FORMAT(dcd.created_at, '%d/%m/%Y %H:%i:%s') AS dts_created,
+                    COALESCE(u.login_id, o.owner_code) AS created_by,
+                    COALESCE(du.login_id, do.owner_code) AS deleted_by,
+                    DATE_FORMAT(dcd.deleted_at, '%d/%m/%Y %H:%i:%s') AS dts_deleted,
+                    dcd.source_value,
+                    dcd.source_percent,
+                    dcd.rate
+                FROM data_captures_deleted dcd
+                INNER JOIN process p ON dcd.process_id = p.id
+                INNER JOIN account a ON dcd.account_id = a.id
+                INNER JOIN currency c ON dcd.currency_id = c.id
+                LEFT JOIN description d ON p.description_id = d.id
+                LEFT JOIN user u ON dcd.user_type = 'user' AND dcd.created_by = u.id
+                LEFT JOIN owner o ON dcd.user_type = 'owner' AND dcd.created_by = o.id
+                LEFT JOIN user du ON dcd.deleted_by_user_id = du.id
+                LEFT JOIN owner do ON dcd.deleted_by_owner_id = do.id
+                $deletedCaptureWhereSql
+                ORDER BY dcd.capture_date DESC, dcd.created_at DESC, dcd.id DESC
+            ";
+            
+            $deletedCaptureStmt = $pdo->prepare($deletedCaptureSql);
+            $deletedCaptureStmt->execute($deletedCaptureParams);
+            $deletedCaptureRows = $deletedCaptureStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($deletedCaptureRows as $row) {
+                $amt = $row['amount'] ?? 0;
+                $crVal = null;
+                $drVal = null;
+                if (is_numeric($amt)) {
+                    if ($amt > 0) {
+                        $crVal = $amt;
+                    } elseif ($amt < 0) {
+                        $drVal = abs($amt);
+                    }
                 }
+                
+                $rateDisplay = null;
+                if (isset($row['rate']) && $row['rate'] !== null && $row['rate'] !== '') {
+                    $rateDisplay = number_format((float)$row['rate'], 4);
+                }
+                
+                $formatted[] = [
+                    'no' => $no++,
+                    'transaction_id' => null,
+                    'capture_id' => $row['capture_id'],
+                    'process' => $row['process_id'] ?? '-',
+                    'process_id' => $row['process_id'] ?? null,
+                    'account' => $row['account_id'] ?? '-',
+                    'from_account' => null,
+                    'description' => $row['description'] ?? '-',
+                    'remark' => $row['remark'] ?? '-',
+                    'source' => $row['source_value'] ?? null,
+                    'percent' => (isset($row['source_percent']) && $row['source_percent'] !== '')
+                        ? (string)$row['source_percent']
+                        : null,
+                    'currency' => $row['currency_code'] ?: '-',
+                    'rate' => $rateDisplay,
+                    'cr' => $crVal,
+                    'dr' => $drVal,
+                    'transaction_date' => $row['transaction_date'] ?? null,
+                    'dts_created' => $row['dts_created'] ?? '',
+                    'created_by' => $row['created_by'] ?? '-',
+                    'is_deleted' => 1,
+                    'deleted_by' => $row['deleted_by'] ?? null,
+                    'dts_deleted' => $row['dts_deleted'] ?? null,
+                    'data_type' => 'datacapture'
+                ];
             }
         }
-        unset($row);
     } catch (Exception $e) {
-        error_log('按规则 2 匹配 Data Capture 失败: ' . $e->getMessage());
+        error_log('查询已删除 Data Capture 失败: ' . $e->getMessage());
     }
+    
+    // ========== 5. 按日期排序合并后的数据 ==========
+    usort($formatted, function($a, $b) {
+        // 先按日期排序（降序）
+        $dateA = $a['transaction_date'] ?? '';
+        $dateB = $b['transaction_date'] ?? '';
+        if ($dateA !== $dateB) {
+            return strcmp($dateB, $dateA); // 降序
+        }
+        // 日期相同则按创建时间排序（降序）
+        $createdA = $a['dts_created'] ?? '';
+        $createdB = $b['dts_created'] ?? '';
+        return strcmp($createdB, $createdA); // 降序
+    });
+    
+    // 重新编号
+    foreach ($formatted as $index => &$result) {
+        $result['no'] = $index + 1;
+    }
+    unset($result);
 
     // 返回
     echo json_encode([
