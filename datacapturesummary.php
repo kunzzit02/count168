@@ -1069,12 +1069,15 @@ function getCurrentProcessId() {
         // 2. "id_product:column_index" (e.g., "BB:3") - backward compatibility, uses first matching row
         function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
+                console.log('getCellValuesFromNewFormat: sourceColumnsValue is empty');
                 return [];
             }
             
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
             const cellValues = [];
+            
+            console.log('getCellValuesFromNewFormat: parsing parts:', parts, 'sourceColumnsValue:', sourceColumnsValue);
             
             parts.forEach(part => {
                 // Try new format with row label first: "id_product:row_label:column_index"
@@ -1083,7 +1086,9 @@ function getCurrentProcessId() {
                     const idProduct = match[1];
                     const rowLabel = match[2];
                     const columnIndex = parseInt(match[3]);
+                    console.log('getCellValuesFromNewFormat: new format match - idProduct:', idProduct, 'rowLabel:', rowLabel, 'columnIndex:', columnIndex);
                     const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel);
+                    console.log('getCellValuesFromNewFormat: cellValue from new format:', cellValue);
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
                     }
@@ -1093,14 +1098,19 @@ function getCurrentProcessId() {
                     if (match) {
                         const idProduct = match[1];
                         const columnIndex = parseInt(match[2]);
+                        console.log('getCellValuesFromNewFormat: old format match - idProduct:', idProduct, 'columnIndex:', columnIndex);
                         const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
+                        console.log('getCellValuesFromNewFormat: cellValue from old format:', cellValue);
                         if (cellValue !== null && cellValue !== '') {
                             cellValues.push(cellValue);
                         }
+                    } else {
+                        console.warn('getCellValuesFromNewFormat: part does not match any format:', part);
                     }
                 }
             });
             
+            console.log('getCellValuesFromNewFormat: final cellValues:', cellValues);
             return cellValues;
         }
         
@@ -9540,6 +9550,34 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 }
             }
 
+            // CRITICAL: Always try to read from current Data Capture Table if sourceColumnsValue exists
+            // Even if currentSourceData is empty, try to rebuild from sourceColumnsValue
+            if (!currentSourceData || currentSourceData.trim() === '') {
+                if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                    console.log('currentSourceData is empty, attempting to rebuild from sourceColumnsValue:', sourceColumnsValue);
+                    // Try to rebuild from sourceColumnsValue
+                    if (isNewFormat) {
+                        const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+                        const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+                        if (cellValues.length > 0) {
+                            let expression = cellValues[0];
+                            for (let i = 1; i < cellValues.length; i++) {
+                                const operator = operatorsString[i - 1] || '+';
+                                expression += operator + cellValues[i];
+                            }
+                            currentSourceData = expression;
+                            console.log('Rebuilt currentSourceData from new format (applyTemplateToSummaryRow):', currentSourceData);
+                        }
+                    }
+                    
+                    // If still empty, try buildSourceExpressionFromTable
+                    if (!currentSourceData || currentSourceData.trim() === '') {
+                        currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                        console.log('Rebuilt currentSourceData from buildSourceExpressionFromTable (applyTemplateToSummaryRow):', currentSourceData);
+                    }
+                }
+            }
+
             // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
             // 但是，如果 currentSourceData 是引用格式，直接使用它，不要解析
             // Support both column number format ([id_product : 7]) and cell position format ([id_product : A7])
@@ -9571,6 +9609,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 }
             } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
                 // 没有当前表格数据时，再退回到已保存的表达式
+                console.warn('WARNING: Using saved last_source_value because currentSourceData is empty. sourceColumnsValue:', sourceColumnsValue);
                 resolvedSourceExpression = savedSourceValue;
                 console.log('Using saved last_source_value (main):', resolvedSourceExpression);
             } else {
@@ -10081,6 +10120,9 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         let resolvedSourceExpression = '';
         const savedSourceValue = mainTemplate.last_source_value || '';
         
+        // DEBUG: Log template data
+        console.log('applyMainTemplateToRow DEBUG - idProduct:', idProduct, 'sourceColumnsValue:', sourceColumnsValue, 'formulaOperatorsValue:', formulaOperatorsValue, 'last_source_value:', savedSourceValue);
+        
         // Check if sourceColumnsValue is in new format (id_product:column_index)
         const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
         
@@ -10183,6 +10225,37 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
+        // CRITICAL: Always try to read from current Data Capture Table if sourceColumnsValue exists
+        // Even if currentSourceData is empty, try to rebuild from sourceColumnsValue
+        if (!currentSourceData || currentSourceData.trim() === '') {
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                console.log('applyMainTemplateToRow: currentSourceData is empty, attempting to rebuild from sourceColumnsValue:', sourceColumnsValue);
+                // Try to rebuild from sourceColumnsValue
+                if (isNewFormat) {
+                    const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+                    const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+                    console.log('applyMainTemplateToRow: getCellValuesFromNewFormat returned:', cellValues);
+                    if (cellValues.length > 0) {
+                        let expression = cellValues[0];
+                        for (let i = 1; i < cellValues.length; i++) {
+                            const operator = operatorsString[i - 1] || '+';
+                            expression += operator + cellValues[i];
+                        }
+                        currentSourceData = expression;
+                        console.log('applyMainTemplateToRow: Rebuilt currentSourceData from new format:', currentSourceData);
+                    }
+                }
+                
+                // If still empty, try buildSourceExpressionFromTable
+                if (!currentSourceData || currentSourceData.trim() === '') {
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('applyMainTemplateToRow: Rebuilt currentSourceData from buildSourceExpressionFromTable:', currentSourceData);
+                }
+            } else {
+                console.log('applyMainTemplateToRow: sourceColumnsValue is empty, cannot rebuild currentSourceData');
+            }
+        }
+
         // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
         if (currentSourceData && currentSourceData.trim() !== '') {
             if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source' && /[*/]/.test(savedSourceValue)) {
@@ -10204,6 +10277,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 console.log('Using current source data (main):', resolvedSourceExpression);
             }
         } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
+            // Only use saved value if we truly cannot get current data
+            console.warn('WARNING: Using saved last_source_value because currentSourceData is empty. sourceColumnsValue:', sourceColumnsValue);
             resolvedSourceExpression = savedSourceValue;
             console.log('Using saved last_source_value (main):', resolvedSourceExpression);
         } else {
