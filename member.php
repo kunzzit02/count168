@@ -1136,7 +1136,6 @@ $today = date('d/m/Y');
                     date_from: dateFrom,
                     date_to: dateTo,
                     target_account_id: memberConfig.accountId,
-                    company_id: memberConfig.companyId,
                     show_inactive: '1',
                     hide_zero_balance: '0'
                 });
@@ -1336,8 +1335,7 @@ $today = date('d/m/Y');
                 const params = new URLSearchParams({
                     account_id: memberConfig.accountId,
                     date_from: dateFrom,
-                    date_to: dateTo,
-                    company_id: memberConfig.companyId
+                    date_to: dateTo
                 });
                 if (code) {
                     params.append('currency', code);

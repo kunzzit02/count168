@@ -57,28 +57,11 @@ try {
                 throw new Exception('无权访问该公司');
             }
         } else {
-            // 对于 member 用户，检查是否通过 account_company 表关联到该公司
-            $userType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
-            if ($userType === 'member') {
-                $memberAccountId = (int)($_SESSION['user_id'] ?? 0);
-                if ($memberAccountId > 0) {
-                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM account_company WHERE account_id = ? AND company_id = ?");
-                    $stmt->execute([$memberAccountId, $requested_company_id]);
-                    if ($stmt->fetchColumn() > 0) {
-                        $company_id = $requested_company_id;
-                    } else {
-                        throw new Exception('无权访问该公司');
-                    }
-                } else {
-                    throw new Exception('缺少账户信息');
-                }
+            // 普通用户只能访问当前 session 公司
+            if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] === $requested_company_id) {
+                $company_id = $requested_company_id;
             } else {
-                // 普通用户只能访问当前 session 公司
-                if (isset($_SESSION['company_id']) && (int)$_SESSION['company_id'] === $requested_company_id) {
-                    $company_id = $requested_company_id;
-                } else {
-                    throw new Exception('无权访问该公司');
-                }
+                throw new Exception('无权访问该公司');
             }
         }
     } else {

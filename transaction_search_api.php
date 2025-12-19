@@ -96,28 +96,11 @@ if ($isMemberUser) {
                 throw new Exception('无权访问该 company');
             }
         } else {
-            // 对于 member 用户，检查是否通过 account_company 表关联到该公司
-            $userType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
-            if ($userType === 'member') {
-                $memberAccountId = (int)($_SESSION['user_id'] ?? 0);
-                if ($memberAccountId > 0) {
-                    $stmt = $pdo->prepare("SELECT COUNT(*) FROM account_company WHERE account_id = ? AND company_id = ?");
-                    $stmt->execute([$memberAccountId, $_GET['company_id']]);
-                    if ($stmt->fetchColumn() > 0) {
-                        $company_id = (int)$_GET['company_id'];
-                    } else {
-                        throw new Exception('无权访问该 company');
-                    }
-                } else {
-                    throw new Exception('缺少账户信息');
-                }
+            // 非 owner 用户只能访问自己的 company
+            if (isset($_SESSION['company_id']) && (int)$_GET['company_id'] === (int)$_SESSION['company_id']) {
+                $company_id = (int)$_GET['company_id'];
             } else {
-                // 非 owner 用户只能访问自己的 company
-                if (isset($_SESSION['company_id']) && (int)$_GET['company_id'] === (int)$_SESSION['company_id']) {
-                    $company_id = (int)$_GET['company_id'];
-                } else {
-                    throw new Exception('无权访问该 company');
-                }
+                throw new Exception('无权访问该 company');
             }
         }
     } else {
