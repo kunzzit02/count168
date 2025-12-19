@@ -3916,54 +3916,43 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Store cell reference - use cell position format (e.g., "C3") for precise identification
-            // This ensures that when there are multiple rows with same id_product, we can still identify the correct cell
-            let cellPosition = cell.getAttribute('data-cell-position');
-            let rowLabel = cell.getAttribute('data-row-label');
-            if (!cellPosition && row) {
-                const rowHeaderCell = row.querySelector('.row-header');
-                if (rowHeaderCell) {
-                    rowLabel = rowHeaderCell.textContent.trim();
-                    cellPosition = rowLabel + columnIndex;
-                    cell.setAttribute('data-row-label', rowLabel);
-                    cell.setAttribute('data-cell-position', cellPosition);
-                }
-            }
-            
-            // Priority: Use cell position format (e.g., "C3") for precise identification
-            // This is more reliable when there are multiple rows with same id_product
-            if (cellPosition) {
-                // Store cell position in data-clicked-cells (primary format)
-                let clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
-                const cellsArray = clickedCells ? clickedCells.split(' ').filter(c => c.trim() !== '') : [];
-                if (!cellsArray.includes(cellPosition)) {
-                    cellsArray.push(cellPosition);
-                }
-                formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
-                
-                // Also store in new format for backward compatibility: "id_product:cell_position" (e.g., "BB:C3")
-                // This format includes both id_product and cell position for precise identification
-                if (idProduct && dataColumnIndex !== null) {
-                    const cellReferenceWithPosition = `${idProduct}:${cellPosition}`; // e.g., "BB:C3"
-                    let clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
-                    const refsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
-                    if (!refsArray.includes(cellReferenceWithPosition)) {
-                        refsArray.push(cellReferenceWithPosition);
-                    }
-                    formulaInput.setAttribute('data-clicked-cell-refs', refsArray.join(' '));
-                }
-                
-                console.log('Added clicked cell reference (position format):', cellPosition, 'All references:', cellsArray);
-            } else if (idProduct && dataColumnIndex !== null) {
-                // Fallback: Use id_product:column_index format if cell position not available
+            // Store id_product:column_index reference (new format)
+            if (idProduct && dataColumnIndex !== null) {
+                // Format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
                 const cellReference = `${idProduct}:${dataColumnIndex}`;
+                
+                // Store clicked cell references in new format
                 let clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
                 const refsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
+                // Preserve click order, don't add duplicates
                 if (!refsArray.includes(cellReference)) {
                     refsArray.push(cellReference);
                 }
                 formulaInput.setAttribute('data-clicked-cell-refs', refsArray.join(' '));
-                console.log('Added clicked cell reference (column format):', cellReference, 'All references:', refsArray);
+                
+                // Also keep backward compatibility with old format (cell positions)
+                let cellPosition = cell.getAttribute('data-cell-position');
+                let rowLabel = cell.getAttribute('data-row-label');
+                if (!cellPosition && row) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    if (rowHeaderCell) {
+                        rowLabel = rowHeaderCell.textContent.trim();
+                        cellPosition = rowLabel + columnIndex;
+                        cell.setAttribute('data-row-label', rowLabel);
+                        cell.setAttribute('data-cell-position', cellPosition);
+                    }
+                }
+                
+                if (cellPosition) {
+                    let clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
+                    const cellsArray = clickedCells ? clickedCells.split(' ').filter(c => c.trim() !== '') : [];
+                    if (!cellsArray.includes(cellPosition)) {
+                        cellsArray.push(cellPosition);
+                    }
+                    formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
+                }
+                
+                console.log('Added clicked cell reference:', cellReference, 'All references:', refsArray);
             } else {
                 console.warn('Could not determine id_product or column index for cell');
             }
@@ -5453,32 +5442,18 @@ function getCurrentProcessId() {
                 return '';
             }
             
-            // Priority 1: Use cell positions (e.g., "C3 A3") for precise identification
-            // This is the most reliable format when there are multiple rows with same id_product
-            const clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
-            if (clickedCells && clickedCells.trim() !== '') {
-                // Return cell positions as space-separated string (e.g., "C3 A3")
-                return clickedCells.trim();
-            }
-            
-            // Priority 2: Use new format with cell position (id_product:cell_position) - e.g., "BB:C3 BB:A3"
+            // Priority 1: Use new format (id_product:column_index) - e.g., "ABC123:3 DEF456:4"
             const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
             if (clickedCellRefs && clickedCellRefs.trim() !== '') {
-                // Check if it's in cell position format (contains letters like "C3")
-                const parts = clickedCellRefs.trim().split(/\s+/);
-                const hasCellPosition = parts.some(part => /[A-Z]/.test(part));
-                if (hasCellPosition) {
-                    // Extract cell positions from format like "BB:C3" -> "C3"
-                    const cellPositions = parts.map(part => {
-                        const match = part.match(/^[^:]+:([A-Z]+\d+)$/);
-                        return match ? match[1] : part;
-                    }).filter(p => p);
-                    if (cellPositions.length > 0) {
-                        return cellPositions.join(' ');
-                    }
-                }
-                // Return new format as space-separated string (e.g., "BB:3 BB:4" or "BB:C3 BB:A3")
+                // Return new format as space-separated string (e.g., "ABC123:3 DEF456:4")
                 return clickedCellRefs.trim();
+            }
+            
+            // Priority 2: Use cell positions (e.g., "A7 B5") for backward compatibility
+            const clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
+            if (clickedCells && clickedCells.trim() !== '') {
+                // Return cell positions as space-separated string (e.g., "A7 B5")
+                return clickedCells.trim();
             }
             
             // Priority 3: Fallback to column numbers for backward compatibility
