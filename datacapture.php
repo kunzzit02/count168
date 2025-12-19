@@ -8010,7 +8010,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 const tableData = captureTableData();
                 
                 // Save table data to localStorage
-                saveTableDataToLocalStorage(tableData, processData);
+                localStorage.setItem('capturedTableData', JSON.stringify(tableData));
+                localStorage.setItem('capturedProcessData', JSON.stringify(processData));
                 
                 // Note: Do NOT record submitted process here. It will be recorded
                 // after final submission on datacapturesummary.php
@@ -8029,88 +8030,6 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        // Auto-save table data to localStorage when user edits cells
-        // This ensures datacapturesummary.php always gets the latest data
-        function autoSaveTableDataToLocalStorage() {
-            try {
-                // Only auto-save if we have process data (user has selected a process)
-                const processInput = document.getElementById('capture_process');
-                if (!processInput || !processInput.getAttribute('data-value')) {
-                    // No process selected yet, don't save
-                    return;
-                }
-                
-                // Get current process data
-                const processData = getCurrentProcessData();
-                if (!processData || !processData.process) {
-                    // No process data, don't save
-                    return;
-                }
-                
-                // Capture the entire table data
-                const tableData = captureTableData();
-                
-                // Save to localStorage using the shared function
-                saveTableDataToLocalStorage(tableData, processData);
-                console.log('Auto-saved table data to localStorage');
-            } catch (error) {
-                console.warn('Error auto-saving table data to localStorage:', error);
-                // Don't show error to user, just log it
-            }
-        }
-        
-        // Save table data and process data to localStorage
-        function saveTableDataToLocalStorage(tableData, processData) {
-            try {
-                localStorage.setItem('capturedTableData', JSON.stringify(tableData));
-                localStorage.setItem('capturedProcessData', JSON.stringify(processData));
-                console.log('Saved table data to localStorage');
-            } catch (error) {
-                console.error('Error saving table data to localStorage:', error);
-                throw error;
-            }
-        }
-        
-        // Helper function to get current process data
-        function getCurrentProcessData() {
-            try {
-                const dateInput = document.getElementById('capture_date');
-                const processInput = document.getElementById('capture_process');
-                const currencySelect = document.getElementById('capture_currency');
-                const removeWordInput = document.getElementById('capture_remove_word');
-                const replaceWordFromInput = document.getElementById('capture_replace_word_from');
-                const replaceWordToInput = document.getElementById('capture_replace_word_to');
-                const remarkInput = document.getElementById('capture_remark');
-                
-                if (!processInput || !processInput.getAttribute('data-value')) {
-                    return null;
-                }
-                
-                const processId = processInput.getAttribute('data-value');
-                const processCode = processInput.getAttribute('data-process-code') || '';
-                const descriptionName = processInput.getAttribute('data-description-name') || '';
-                
-                return {
-                    date: dateInput ? dateInput.value : '',
-                    process: parseInt(processId, 10),
-                    processCode: processCode,
-                    descriptionName: descriptionName,
-                    descriptions: window.selectedDescriptions || [],
-                    currency: currencySelect ? currencySelect.value : '',
-                    currencyName: currencySelect && currencySelect.options[currencySelect.selectedIndex] 
-                        ? currencySelect.options[currencySelect.selectedIndex].text 
-                        : '',
-                    removeWord: removeWordInput ? removeWordInput.value : '',
-                    replaceWordFrom: replaceWordFromInput ? replaceWordFromInput.value : '',
-                    replaceWordTo: replaceWordToInput ? replaceWordToInput.value : '',
-                    remark: remarkInput ? remarkInput.value : ''
-                };
-            } catch (error) {
-                console.error('Error getting current process data:', error);
-                return null;
-            }
-        }
-        
         // Format number with thousand separators (commas)
         function formatNumberWithCommas(num) {
             // Convert to string and split by decimal point
@@ -8717,13 +8636,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
                 
                 // Listen for blur events (when cell loses focus)
-                // Auto-save table data to localStorage when user edits cells
                 tableBody.addEventListener('blur', function(e) {
                     if (e.target.contentEditable === 'true') {
                         setTimeout(updateSubmitButtonState, 10);
-                        // Auto-save table data to localStorage when user edits cells
-                        // This ensures datacapturesummary.php always gets the latest data
-                        autoSaveTableDataToLocalStorage();
                     }
                 }, true);
             }

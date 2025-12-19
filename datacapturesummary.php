@@ -9948,109 +9948,39 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 }
             }
             
-            // If exact match failed, match by "which BB is this" (ordinal position among same id_product)
-            // This handles the case: A=BB(0, 1st BB), B=BB(1, 2nd BB), C=BB(2, 3rd BB)
-            // -> A=BB(0, 1st BB), B=BB(1, 2nd BB), C=TT(2), D=BB(3, 3rd BB)
-            // Template saved with row_index=2 (3rd BB) should match to D=BB (3rd BB, row_index=3)
+            // If exact match failed, find the next row with same id_product at or after the desired row_index
+            // This handles the case where new rows were inserted in Data Capture Table, shifting rows down
             if (!targetRow) {
-                // Calculate which "nth" BB this template was for (at the time it was saved)
-                // by counting how many rows with same id_product existed before templateRowIndex
-                const capturedTableBody = document.getElementById('capturedTableBody');
-                if (capturedTableBody) {
-                    const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
-                    let nthBBAtSaveTime = 0; // 1-based: 1st, 2nd, 3rd...
-                    
-                    // Count how many rows with same id_product existed before templateRowIndex (at save time)
-                    // We need to reconstruct the original Data Capture Table order
-                    // Since we don't have the original, we'll use a different approach:
-                    // Find the candidate row whose position in the current Data Capture Table
-                    // matches the "nth BB" position that the template was saved for
-                    
-                    // Better approach: Count how many BB rows exist before templateRowIndex in current table
-                    // If templateRowIndex=2 and current table has A=BB(0), B=BB(1), C=TT(2), D=BB(3)
-                    // Then at save time, row_index=2 was the 3rd BB (A=0, B=1, C=2, so C is 3rd)
-                    // Now we need to find the 3rd BB in current table: A=0(1st), B=1(2nd), D=3(3rd)
-                    
-                    // Count BB rows before templateRowIndex in current Data Capture Table
-                    let bbCountBeforeTemplateIndex = 0;
-                    for (let i = 0; i < templateRowIndex && i < capturedRows.length; i++) {
-                        const row = capturedRows[i];
-                        const idProductCell = row.querySelector('td[data-col-index="1"]');
-                        if (idProductCell) {
-                            const rowIdProduct = normalizeIdProductText(idProductCell.textContent.trim());
-                            if (rowIdProduct === normalizedIdProduct) {
-                                bbCountBeforeTemplateIndex++;
-                            }
+                // First, try to find a row at or after the desired row_index (rows shifted down)
+                let nextCandidate = null;
+                for (const candidate of candidateRows) {
+                    if (candidate.rowIndex !== null && candidate.rowIndex >= templateRowIndex) {
+                        if (!nextCandidate || candidate.rowIndex < nextCandidate.rowIndex) {
+                            nextCandidate = candidate;
                         }
                     }
-                    // templateRowIndex itself was also a BB (at save time), so add 1
-                    const nthBB = bbCountBeforeTemplateIndex + 1; // 1-based: 1st, 2nd, 3rd...
-                    
-                    console.log('Template was saved for', nthBB, 'th', idProduct, 'at row_index', templateRowIndex);
-                    
-                    // Now find the nth BB in current Data Capture Table
-                    let currentBBCount = 0;
-                    let targetCandidate = null;
-                    
-                    // First, try to find in candidateRows by matching the nth position
+                }
+                
+                // If found a row at or after desired position, use it
+                if (nextCandidate) {
+                    targetRow = nextCandidate.row;
+                    console.log('Matched row by row_index (next match after):', templateRowIndex, 'found at row_index:', nextCandidate.rowIndex, 'id_product:', idProduct);
+                } else {
+                    // If no row found at or after, find the closest row before (fallback)
+                    let closestCandidate = null;
+                    let maxRowIndex = -1;
                     for (const candidate of candidateRows) {
-                        if (candidate.rowIndex !== null) {
-                            // Count how many BB rows exist before this candidate's row_index
-                            let bbCountBeforeCandidate = 0;
-                            for (let i = 0; i < candidate.rowIndex && i < capturedRows.length; i++) {
-                                const row = capturedRows[i];
-                                const idProductCell = row.querySelector('td[data-col-index="1"]');
-                                if (idProductCell) {
-                                    const rowIdProduct = normalizeIdProductText(idProductCell.textContent.trim());
-                                    if (rowIdProduct === normalizedIdProduct) {
-                                        bbCountBeforeCandidate++;
-                                    }
-                                }
-                            }
-                            const candidateNthBB = bbCountBeforeCandidate + 1; // +1 because this row itself is also a BB
-                            
-                            if (candidateNthBB === nthBB) {
-                                targetCandidate = candidate;
-                                console.log('Matched row by nth BB position:', nthBB, 'th', idProduct, 'found at row_index:', candidate.rowIndex);
-                                break;
+                        if (candidate.rowIndex !== null && candidate.rowIndex < templateRowIndex) {
+                            if (candidate.rowIndex > maxRowIndex) {
+                                maxRowIndex = candidate.rowIndex;
+                                closestCandidate = candidate;
                             }
                         }
                     }
                     
-                    if (targetCandidate) {
-                        targetRow = targetCandidate.row;
-                    } else {
-                        // Fallback: find closest match
-                        let closestCandidate = null;
-                        let minDistance = Infinity;
-                        for (const candidate of candidateRows) {
-                            if (candidate.rowIndex !== null) {
-                                // Count BB rows before candidate
-                                let bbCountBeforeCandidate = 0;
-                                for (let i = 0; i < candidate.rowIndex && i < capturedRows.length; i++) {
-                                    const row = capturedRows[i];
-                                    const idProductCell = row.querySelector('td[data-col-index="1"]');
-                                    if (idProductCell) {
-                                        const rowIdProduct = normalizeIdProductText(idProductCell.textContent.trim());
-                                        if (rowIdProduct === normalizedIdProduct) {
-                                            bbCountBeforeCandidate++;
-                                        }
-                                    }
-                                }
-                                const candidateNthBB = bbCountBeforeCandidate + 1;
-                                const distance = Math.abs(candidateNthBB - nthBB);
-                                
-                                if (distance < minDistance) {
-                                    minDistance = distance;
-                                    closestCandidate = candidate;
-                                }
-                            }
-                        }
-                        
-                        if (closestCandidate) {
-                            targetRow = closestCandidate.row;
-                            console.log('Matched row by closest nth BB position:', nthBB, 'th', idProduct, 'found at row_index:', closestCandidate.rowIndex, 'distance:', minDistance);
-                        }
+                    if (closestCandidate) {
+                        targetRow = closestCandidate.row;
+                        console.log('Matched row by row_index (closest before):', templateRowIndex, 'found at row_index:', closestCandidate.rowIndex, 'id_product:', idProduct);
                     }
                 }
             }
