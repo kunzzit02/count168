@@ -188,6 +188,17 @@ $showAll = isset($_GET['showAll']) ? true : false;
             text-transform: uppercase;
         }
         /* 注意：searchInput 不使用 CSS text-transform，保持实际值的显示 */
+        
+        /* 隐藏删除按钮和复选框 */
+        #accountDeleteSelectedBtn {
+            display: none !important;
+        }
+        #selectAllAccounts {
+            display: none !important;
+        }
+        .account-row-checkbox {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
