@@ -105,12 +105,28 @@ try {
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
     
+    // 调试日志
+    error_log("Transaction History API: account_id={$account_id}, company_id={$company_id}, date_from={$date_from}->{$date_from_db}, date_to={$date_to}->{$date_to_db}, currency={$currency}");
+    
+    // 测试查询：检查是否有任何 data_capture_details 记录
+    $testStmt = $pdo->prepare("SELECT COUNT(*) FROM data_capture_details WHERE account_id = ? AND company_id = ?");
+    $testStmt->execute([$account_id, $company_id]);
+    $testCount = $testStmt->fetchColumn();
+    error_log("Transaction History API: Total data_capture_details records for account_id={$account_id}, company_id={$company_id}: {$testCount}");
+    
+    // 测试查询：检查是否有任何 transactions 记录
+    $testStmt2 = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE (account_id = ? OR from_account_id = ?) AND company_id = ?");
+    $testStmt2->execute([$account_id, $account_id, $company_id]);
+    $testCount2 = $testStmt2->fetchColumn();
+    error_log("Transaction History API: Total transactions records for account_id={$account_id}, company_id={$company_id}: {$testCount2}");
+    
     // 获取 currency_id（如果指定了 currency）
     $currency_id = null;
     if ($currency) {
         $currency_stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
         $currency_stmt->execute([$currency, $company_id]);
         $currency_id = $currency_stmt->fetchColumn();
+        error_log("Transaction History API: currency_id lookup: currency={$currency}, company_id={$company_id}, found={$currency_id}");
     }
     
     // 查询账户信息 - 使用 account_company 表过滤
@@ -255,9 +271,12 @@ try {
     }
     
     $sqlCapture .= " ORDER BY dc.capture_date ASC, dc.created_at ASC, dcd.id ASC";
+    error_log("Transaction History API: Data capture query: " . $sqlCapture);
+    error_log("Transaction History API: Data capture params: " . json_encode($captureParams));
     $stmt = $pdo->prepare($sqlCapture);
     $stmt->execute($captureParams);
     $captureRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    error_log("Transaction History API: Found " . count($captureRows) . " data capture rows");
     
     // 3. 查询日期范围内的所有交易记录
     // 如果指定了 currency，根据 data_capture 的 currency 或 transactions.currency_id 来过滤
@@ -343,9 +362,12 @@ try {
     
     $sql .= " ORDER BY t.transaction_date ASC, t.created_at ASC";
     
+    error_log("Transaction History API: Transaction query: " . $sql);
+    error_log("Transaction History API: Transaction params: " . json_encode($transactionParams));
     $stmt = $pdo->prepare($sql);
     $stmt->execute($transactionParams);
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    error_log("Transaction History API: Found " . count($transactions) . " transaction rows");
     
     // 4. 构建历史记录数据
     $history = [];
@@ -733,8 +755,8 @@ try {
         ];
     }
     
-    // 返回结果
-    echo json_encode([
+    // 返回结果（包含调试信息）
+    $response = [
         'success' => true,
         'data' => [
             'account' => [
@@ -749,7 +771,26 @@ try {
             ],
             'history' => $history
         ]
-    ]);
+    ];
+    
+    // 添加调试信息（仅在开发环境）
+    if (isset($_GET['debug']) || (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false)) {
+        $response['debug'] = [
+            'account_id' => $account_id,
+            'company_id' => $company_id,
+            'date_from_db' => $date_from_db,
+            'date_to_db' => $date_to_db,
+            'currency' => $currency,
+            'currency_id' => $currency_id,
+            'capture_rows_count' => count($captureRows),
+            'transactions_count' => count($transactions),
+            'bf' => $bf,
+            'bfCurrency' => $bfCurrency,
+            'history_count' => count($history)
+        ];
+    }
+    
+    echo json_encode($response);
     
 } catch (PDOException $e) {
     http_response_code(500);

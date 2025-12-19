@@ -1379,12 +1379,18 @@ $today = date('d/m/Y');
                 if (code) {
                     params.append('currency', code);
                 }
-                const url = `transaction_history_api.php?${params.toString()}&_t=${Date.now()}`;
+                const url = `transaction_history_api.php?${params.toString()}&debug=1&_t=${Date.now()}`;
                 console.log('Fetching member history:', { url, accountId: memberConfig.accountId, companyId: memberConfig.companyId, currency: code });
                 return fetch(url, { cache: 'no-cache' })
                     .then(res => res.json())
                     .then(data => {
-                        console.log('Member history response:', { currency: code, success: data.success, error: data.error, historyCount: data.data?.history?.length || 0 });
+                        console.log('Member history response:', { 
+                            currency: code, 
+                            success: data.success, 
+                            error: data.error, 
+                            historyCount: data.data?.history?.length || 0,
+                            debug: data.debug
+                        });
                         if (!data.success) {
                             throw new Error(data.error || 'Query failed');
                         }
