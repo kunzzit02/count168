@@ -4256,26 +4256,29 @@ function getCurrentProcessId() {
             const productType = row.getAttribute('data-product-type') || (formData.isSubIdProduct ? 'sub' : 'main');
             
             // Calculate current row index within summary table body (0-based)
-            // First try to use data-row-index attribute if available (more accurate)
+            // IMPORTANT: Always use the actual DOM position, not the saved data-row-index
+            // This ensures that when saving, we capture the current position in the table
+            // The saved data-row-index might be from a previous state and could be incorrect
             let rowIndex = null;
-            const dataRowIndex = row.getAttribute('data-row-index');
-            if (dataRowIndex !== null && dataRowIndex !== '' && !Number.isNaN(Number(dataRowIndex))) {
-                rowIndex = Number(dataRowIndex);
-            } else {
-                // Fallback: calculate from current position in table
-                try {
-                    const summaryTableBody = document.getElementById('summaryTableBody');
-                    if (summaryTableBody) {
-                        const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                        const index = allRows.indexOf(row);
-                        if (index !== -1) {
-                            rowIndex = index;
-                            // Also update the data attribute for future use
-                            row.setAttribute('data-row-index', String(index));
-                        }
+            try {
+                const summaryTableBody = document.getElementById('summaryTableBody');
+                if (summaryTableBody) {
+                    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const index = allRows.indexOf(row);
+                    if (index !== -1) {
+                        rowIndex = index;
+                        // Update the data attribute for future use
+                        row.setAttribute('data-row-index', String(index));
+                        console.log('Computed row_index for template saving:', rowIndex, 'id_product:', formData.processValue || 'unknown');
                     }
-                } catch (e) {
-                    console.warn('Failed to compute row_index for template saving', e);
+                }
+            } catch (e) {
+                console.warn('Failed to compute row_index for template saving', e);
+                // Fallback: try to use existing data-row-index if available
+                const dataRowIndex = row.getAttribute('data-row-index');
+                if (dataRowIndex !== null && dataRowIndex !== '' && !Number.isNaN(Number(dataRowIndex))) {
+                    rowIndex = Number(dataRowIndex);
+                    console.log('Using fallback data-row-index:', rowIndex);
                 }
             }
             
@@ -9215,6 +9218,21 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         const templates = result.templates || {};
 
+        // IMPORTANT: Before applying templates, ensure all rows have correct data-row-index
+        // This is crucial for matching templates to the correct rows when there are multiple rows with same id_product
+        const summaryTableBody = document.getElementById('summaryTableBody');
+        if (summaryTableBody) {
+            const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+            allRows.forEach((row, index) => {
+                // Only set row_index if it's not already set (preserve existing row_index from templates)
+                const existingRowIndex = row.getAttribute('data-row-index');
+                if (!existingRowIndex || existingRowIndex === '' || Number.isNaN(Number(existingRowIndex))) {
+                    row.setAttribute('data-row-index', String(index));
+                    console.log('Set initial data-row-index for row at position', index);
+                }
+            });
+        }
+
         // Match templates using original case-sensitive idProduct
         // But use normalized version to find the row in the table
         uniqueIds.forEach(normalizedIdProduct => {
@@ -9222,8 +9240,15 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 // Check if there are multiple main templates for the same id_product (different accounts)
                 const template = templates[normalizedIdProduct];
                 if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
-                    // Apply each main template to its corresponding row based on account_id
-                    template.allMains.forEach(mainTemplate => {
+                    // Sort templates by row_index to apply them in the correct order
+                    const sortedTemplates = [...template.allMains].sort((a, b) => {
+                        const aIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
+                        const bIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
+                        return aIndex - bIndex;
+                    });
+                    
+                    // Apply each main template to its corresponding row based on account_id and row_index
+                    sortedTemplates.forEach(mainTemplate => {
                         const mainRow = applyMainTemplateToRow(normalizedIdProduct, mainTemplate);
                         // Apply sub templates to each main row
                         if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
@@ -9764,19 +9789,17 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 2: Match by row_index + account_id + formula_variant (if template_id not found)
+        // Priority 2: Match by row_index (exact match) - this is the most reliable way to match rows
+        // IMPORTANT: When row_index matches, we should use that row regardless of account_id/formula_variant
+        // This ensures that templates are applied to the correct row position even if account_id changes
         if (!targetRow && templateRowIndex !== null) {
             for (const candidate of candidateRows) {
                 if (candidate.rowIndex === templateRowIndex) {
-                    // Check if account_id and formula_variant also match
-                    const accountMatch = !templateAccountId || !candidate.accountId || candidate.accountId === templateAccountId;
-                    const variantMatch = !templateFormulaVariant || !candidate.formulaVariant || candidate.formulaVariant === templateFormulaVariant;
-                    
-                    if (accountMatch && variantMatch) {
-                        targetRow = candidate.row;
-                        console.log('Matched row by row_index + account_id + formula_variant:', templateRowIndex, templateAccountId, templateFormulaVariant);
-                        break;
-                    }
+                    // If row_index matches exactly, use this row
+                    // This is the most reliable way to match rows when there are multiple rows with same id_product
+                    targetRow = candidate.row;
+                    console.log('Matched row by row_index (exact match):', templateRowIndex, 'template account_id:', templateAccountId, 'candidate account_id:', candidate.accountId);
+                    break;
                 }
             }
         }
