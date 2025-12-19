@@ -1199,7 +1199,13 @@ $today = date('d/m/Y');
                     .then(res => res.json())
                     .then(data => {
                         console.log('Member summary response:', data);
-                        showDebugInfo('Summary Response', { success: data.success, error: data.error, dataCount: data.data ? (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0) : 0, debug: data.debug });
+                        showDebugInfo('Summary Response', { 
+                            success: data.success, 
+                            error: data.error, 
+                            dataCount: data.data ? (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0) : 0, 
+                            debug: data.debug,
+                            fullResponse: data
+                        });
                         if (!data.success) {
                             throw new Error(data.error || 'Query failed');
                         }
