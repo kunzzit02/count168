@@ -206,12 +206,38 @@ if (!empty($target_account_ids)) {
     // 添加排序
     $baseSql .= " ORDER BY a.account_id";
     
+    // 调试：记录查询信息
+    error_log("Transaction Search API: SQL=" . $baseSql);
+    error_log("Transaction Search API: Params=" . json_encode($params));
+    error_log("Transaction Search API: target_account_ids=" . json_encode($target_account_ids));
+    error_log("Transaction Search API: isMemberUser=" . ($isMemberUser ? 'true' : 'false'));
+    
+    // 测试查询：检查账户是否存在
+    if (!empty($target_account_ids)) {
+        $testAccountId = $target_account_ids[0];
+        $testStmt = $pdo->prepare("
+            SELECT a.id, a.account_id, a.name, ac.company_id 
+            FROM account a
+            LEFT JOIN account_company ac ON a.id = ac.account_id
+            WHERE a.id = ?
+        ");
+        $testStmt->execute([$testAccountId]);
+        $testAccount = $testStmt->fetchAll(PDO::FETCH_ASSOC);
+        error_log("Transaction Search API: Test account query result: " . json_encode($testAccount));
+    }
+    
     $stmt = $pdo->prepare($baseSql);
     $stmt->execute($params);
     $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    error_log("Transaction Search API: Found " . count($accounts) . " accounts");
+    if (!empty($accounts)) {
+        error_log("Transaction Search API: Account IDs: " . json_encode(array_column($accounts, 'id')));
+    }
+    
     if (empty($accounts)) {
-        echo json_encode([
+        // 添加调试信息到响应中
+        $response = [
             'success' => true,
             'data' => [
                 'left_table' => [],
@@ -222,7 +248,21 @@ if (!empty($target_account_ids)) {
                     'summary' => ['bf' => 0, 'win_loss' => 0, 'cr_dr' => 0, 'balance' => 0]
                 ]
             ]
-        ]);
+        ];
+        
+        // 添加调试信息
+        if (isset($_GET['debug']) || (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false)) {
+            $response['debug'] = [
+                'target_account_ids' => $target_account_ids,
+                'isMemberUser' => $isMemberUser,
+                'company_id' => $company_id,
+                'sql' => $baseSql,
+                'params' => $params,
+                'accounts_found' => 0
+            ];
+        }
+        
+        echo json_encode($response);
         exit;
     }
     
