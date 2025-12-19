@@ -1059,8 +1059,10 @@ function getCurrentProcessId() {
                 return false;
             }
             // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
-            const newFormatPattern = /^[^:]+:\d+$/;
-            return newFormatPattern.test(parts[0]);
+            // OR "id_product:row_label:column_index" (e.g., "BB:C:7")
+            const newFormatPattern1 = /^[^:]+:\d+$/;  // id_product:column_index
+            const newFormatPattern2 = /^[^:]+:[A-Z]+:\d+$/;  // id_product:row_label:column_index
+            return newFormatPattern1.test(parts[0]) || newFormatPattern2.test(parts[0]);
         }
         
         // Parse new format source_columns and get cell values
@@ -1088,7 +1090,11 @@ function getCurrentProcessId() {
                     const actualIndex = allSummaryRows.indexOf(summaryRow);
                     if (actualIndex !== -1) {
                         summaryRowIndex = actualIndex;
-                        console.log('Using actual Summary Table DOM position as row_index:', summaryRowIndex, 'for row with saved data-row-index:', summaryRow.getAttribute('data-row-index'));
+                        // Get id_product for debugging
+                        const idProductCell = summaryRow.querySelector('td:first-child');
+                        const productValues = idProductCell ? getProductValuesFromCell(idProductCell) : {};
+                        const idProduct = productValues.main || '';
+                        console.log('getCellValuesFromNewFormat: Using actual Summary Table DOM position as row_index:', summaryRowIndex, 'for id_product:', idProduct, 'saved data-row-index:', summaryRow.getAttribute('data-row-index'));
                     }
                 }
                 
@@ -1097,7 +1103,7 @@ function getCurrentProcessId() {
                     const rowIndexAttr = summaryRow.getAttribute('data-row-index');
                     if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
                         summaryRowIndex = Number(rowIndexAttr);
-                        console.log('Using data-row-index attribute as fallback:', summaryRowIndex);
+                        console.log('getCellValuesFromNewFormat: Using data-row-index attribute as fallback:', summaryRowIndex);
                     }
                 }
             }
@@ -1202,9 +1208,13 @@ function getCurrentProcessId() {
                                 if (cellIdProduct === normalizedIdProduct) {
                                     rowIndex = summaryRowIndex;
                                     processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
-                                    console.log('Found row by summaryRowIndex:', summaryRowIndex, 'id_product:', idProduct, 'row_label was:', rowLabel);
+                                    console.log('Found row by summaryRowIndex:', summaryRowIndex, 'id_product:', idProduct, 'row_label was:', rowLabel, 'Data Capture Table row at index', summaryRowIndex, 'has id_product:', cellIdProduct);
+                                } else {
+                                    console.warn('summaryRowIndex', summaryRowIndex, 'points to row with different id_product. Expected:', normalizedIdProduct, 'Found:', cellIdProduct);
                                 }
                             }
+                        } else {
+                            console.warn('summaryRowIndex', summaryRowIndex, 'is out of bounds. Data Capture Table has', rows.length, 'rows');
                         }
                     }
                 }
