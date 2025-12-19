@@ -839,7 +839,7 @@ $today = date('d/m/Y');
             padding: 2px 14px;
             border: 1px solid #e2e8f0;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             color: #0f172a;
         }
 
