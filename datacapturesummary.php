@@ -1151,39 +1151,32 @@ function getCurrentProcessId() {
                         for (let i = 0; i < rows.length; i++) {
                             const row = rows[i];
                             const rowHeaderCell = row.querySelector('.row-header');
-                            const rowHeaderText = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                            console.log('getCellValueByIdProductAndColumn: Checking row', i, 'row_header:', rowHeaderText);
+                            if (!rowHeaderCell) {
+                                continue; // Skip rows without header
+                            }
                             
-                            // Debug: Check if row header matches
-                            if (rowHeaderCell) {
-                                const rowHeaderTextRaw = rowHeaderCell.textContent;
-                                const rowHeaderTextTrimmed = rowHeaderTextRaw.trim();
-                                console.log('getCellValueByIdProductAndColumn: Comparing row_header:', JSON.stringify(rowHeaderTextTrimmed), 'with rowLabel:', JSON.stringify(rowLabel), 'match:', rowHeaderTextTrimmed === rowLabel);
-                                
-                                if (rowHeaderTextTrimmed === rowLabel) {
-                                    // Found row by label, now verify id_product matches
-                                    const idProductCell = row.querySelector('td[data-col-index="1"]');
-                                    if (idProductCell) {
-                                        const cellIdProduct = normalizeIdProductText(idProductCell.textContent.trim());
-                                        const normalizedIdProduct = normalizeIdProductText(idProduct);
-                                        console.log('getCellValueByIdProductAndColumn: Found row by label, cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct);
-                                        if (cellIdProduct === normalizedIdProduct) {
-                                            rowIndex = i;
-                                            console.log('getCellValueByIdProductAndColumn: Matched row by row_label and id_product, rowIndex:', rowIndex);
-                                            break;
-                                        } else {
-                                            // CRITICAL: Even if id_product doesn't match, if row_label matches, use this row
-                                            // This handles cases where id_product might have changed but row_label is still correct
-                                            console.warn('getCellValueByIdProductAndColumn: row_label matches but id_product mismatch. Using row anyway. Expected:', normalizedIdProduct, 'Found:', cellIdProduct);
-                                            rowIndex = i;
-                                            break;
-                                        }
-                                    } else {
-                                        console.warn('getCellValueByIdProductAndColumn: Found row by label but idProductCell not found');
-                                    }
+                            const rowHeaderTextRaw = rowHeaderCell.textContent;
+                            const rowHeaderTextTrimmed = rowHeaderTextRaw ? rowHeaderTextRaw.trim() : '';
+                            console.log('getCellValueByIdProductAndColumn: Checking row', i, 'row_header:', JSON.stringify(rowHeaderTextTrimmed), 'rowLabel:', JSON.stringify(rowLabel), 'match:', rowHeaderTextTrimmed === rowLabel);
+                            
+                            // Check if row header matches rowLabel (case-sensitive)
+                            if (rowHeaderTextTrimmed === rowLabel) {
+                                // Found row by label, now verify id_product matches
+                                const idProductCell = row.querySelector('td[data-col-index="1"]');
+                                if (idProductCell) {
+                                    const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                    const cellIdProduct = normalizeIdProductText(cellIdProductText);
+                                    const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                    console.log('getCellValueByIdProductAndColumn: Found row by label! rowIndex:', i, 'cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct);
+                                    
+                                    // CRITICAL: Use row_label match even if id_product doesn't match
+                                    // row_label is more reliable than id_product when there are multiple rows with same id_product
+                                    rowIndex = i;
+                                    console.log('getCellValueByIdProductAndColumn: Using row by row_label, rowIndex:', rowIndex, 'id_product match:', cellIdProduct === normalizedIdProduct);
+                                    break;
+                                } else {
+                                    console.warn('getCellValueByIdProductAndColumn: Found row by label but idProductCell not found at row', i);
                                 }
-                            } else {
-                                console.log('getCellValueByIdProductAndColumn: rowHeaderCell not found for row', i);
                             }
                         }
                     }
