@@ -1107,16 +1107,82 @@ function getCurrentProcessId() {
         // Get cell value from data capture table by id_product and column index
         // Supports row_label parameter to distinguish between multiple rows with same id_product
         // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
+        // CRITICAL: Always reads from current DOM first to get the latest data, then falls back to cached data
         function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null) {
             try {
-                // Use transformed table data if available, otherwise get from localStorage
+                // PRIORITY 1: Read directly from current DOM (most up-to-date data)
+                // This ensures we get the latest data even if user modified the table
+                const capturedTableBody = document.getElementById('capturedTableBody');
+                if (capturedTableBody) {
+                    let targetRow = null;
+                    
+                    if (rowLabel) {
+                        // Find row by row_label first, then verify id_product matches
+                        const rows = capturedTableBody.querySelectorAll('tr');
+                        for (let i = 0; i < rows.length; i++) {
+                            const row = rows[i];
+                            const rowHeaderCell = row.querySelector('.row-header');
+                            if (rowHeaderCell && rowHeaderCell.textContent.trim() === rowLabel) {
+                                // Found row by label, now verify id_product matches
+                                const idProductCell = row.querySelector('td[data-col-index="1"]');
+                                if (idProductCell) {
+                                    const cellIdProduct = normalizeIdProductText(idProductCell.textContent.trim());
+                                    const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                    if (cellIdProduct === normalizedIdProduct) {
+                                        targetRow = row;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // No row_label: find first row with matching id_product
+                        const rows = capturedTableBody.querySelectorAll('tr');
+                        const normalizedIdProduct = normalizeIdProductText(idProduct);
+                        for (let i = 0; i < rows.length; i++) {
+                            const row = rows[i];
+                            const idProductCell = row.querySelector('td[data-col-index="1"]');
+                            if (idProductCell) {
+                                const cellIdProduct = normalizeIdProductText(idProductCell.textContent.trim());
+                                if (cellIdProduct === normalizedIdProduct) {
+                                    targetRow = row;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If found row in DOM, read cell value directly from DOM
+                    if (targetRow) {
+                        // columnIndex is 1-based data column index (1 = first data column)
+                        // In DOM: data-col-index="1" = id_product, data-col-index="2" = first data column (column 1)
+                        // So: columnIndex 1 -> data-col-index="2", columnIndex 2 -> data-col-index="3", etc.
+                        const domColumnIndex = columnIndex + 1; // Convert 1-based column index to DOM column index
+                        const cell = targetRow.querySelector(`td[data-col-index="${domColumnIndex}"]`);
+                        
+                        if (cell) {
+                            let cellValue = cell.textContent.trim();
+                            // Extract numeric value (remove formatting, keep operators for formulas)
+                            const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                            const finalValue = numericValue || cellValue;
+                            
+                            if (finalValue !== '' && finalValue !== null && finalValue !== undefined) {
+                                console.log('Read cell value from DOM for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', finalValue);
+                                return finalValue;
+                            }
+                        }
+                    }
+                }
+                
+                // PRIORITY 2: Fallback to cached data (window.transformedTableData or localStorage)
+                // This is used when DOM is not available or cell is empty
                 let parsedTableData;
                 if (window.transformedTableData) {
                     parsedTableData = window.transformedTableData;
                 } else {
                     const tableData = localStorage.getItem('capturedTableData');
                     if (!tableData) {
-                        console.error('No captured table data found');
+                        console.warn('No captured table data found in cache');
                         return null;
                     }
                     parsedTableData = JSON.parse(tableData);
@@ -1128,7 +1194,6 @@ function getCurrentProcessId() {
                 
                 if (rowLabel) {
                     // Find row by row_label first, then verify id_product matches
-                    const capturedTableBody = document.getElementById('capturedTableBody');
                     if (capturedTableBody) {
                         const rows = capturedTableBody.querySelectorAll('tr');
                         for (let i = 0; i < rows.length; i++) {
@@ -1152,7 +1217,7 @@ function getCurrentProcessId() {
                     // If found row by label, use findProcessRow with rowIndex
                     if (rowIndex !== null) {
                         processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
-                        console.log('Found row by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProduct);
+                        console.log('Found row in cache by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProduct);
                     }
                 }
                 
@@ -1160,12 +1225,12 @@ function getCurrentProcessId() {
                 if (!processRow) {
                     processRow = findProcessRow(parsedTableData, idProduct);
                     if (rowLabel) {
-                        console.warn('Row not found by row_label:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
+                        console.warn('Row not found by row_label in cache:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
                     }
                 }
                 
                 if (!processRow) {
-                    console.error('Process row not found for id_product:', idProduct, 'row_label:', rowLabel);
+                    console.error('Process row not found in cache for id_product:', idProduct, 'row_label:', rowLabel);
                     return null;
                 }
                 
@@ -1180,7 +1245,7 @@ function getCurrentProcessId() {
                         // Extract numeric value (remove formatting)
                         const cellValue = cellData.value.toString();
                         const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
-                        console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
+                        console.log('Found cell value in cache for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
                         return numericValue || cellValue;
                     }
                 }
