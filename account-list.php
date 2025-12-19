@@ -1717,10 +1717,10 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         }
                         
                         // 根据 showAll 和 showInactive 状态决定是否显示该卡片
-                        // showAll=true: 显示所有 active 账户
+                        // showAll=true: 显示所有账户
                         // showInactive=true: 只显示 inactive 账户
                         // showInactive=false: 只显示 active 账户
-                        const shouldShow = showAll ? (result.newStatus === 'active') : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
+                        const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
                         if (!shouldShow) {
                             // 如果不应该显示，从 accounts 数组中移除并重新渲染
                             const accountIndex = accounts.findIndex(acc => acc.id === accountId);

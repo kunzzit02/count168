@@ -1076,10 +1076,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         // 根据 showAll 和 showInactive 状态决定是否显示该卡片
-                        // showAll=true: 显示所有 active 流程
+                        // showAll=true: 显示所有流程
                         // showInactive=true: 只显示 inactive 流程
                         // showInactive=false: 只显示 active 流程
-                        const shouldShow = showAll ? (result.newStatus === 'active') : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
+                        const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
                         if (!shouldShow) {
                             // 如果不应该显示，从 processes 数组中移除并重新渲染
                             const processIndex = processes.findIndex(p => p.id === processId);
