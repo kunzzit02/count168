@@ -567,8 +567,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                                 <tr class="transaction-table-header">
                                     <th>Account</th>
                                     <th class="transaction-name-column" style="display: none;">Name</th>
-                                    <th>Role</th>
-                                    <th>Company</th>
                                     <th>B/F</th>
                                     <th>Win/Loss</th>
                                     <th>Cr/Dr</th>
@@ -580,8 +578,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                                 <tr class="transaction-table-footer">
                                     <td>Total</td>
                                     <td class="transaction-name-column" style="display: none;"></td>
-                                    <td></td>
-                                    <td></td>
                                     <td id="left_total_bf">0.00</td>
                                     <td id="left_total_winloss">0.00</td>
                                     <td id="left_total_crdr">0.00</td>
@@ -598,8 +594,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                                 <tr class="transaction-table-header">
                                     <th>Account</th>
                                     <th class="transaction-name-column" style="display: none;">Name</th>
-                                    <th>Role</th>
-                                    <th>Company</th>
                                     <th>B/F</th>
                                     <th>Win/Loss</th>
                                     <th>Cr/Dr</th>
@@ -611,8 +605,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                                 <tr class="transaction-table-footer">
                                     <td>Total</td>
                                     <td class="transaction-name-column" style="display: none;"></td>
-                                    <td></td>
-                                    <td></td>
                                     <td id="right_total_bf">0.00</td>
                                     <td id="right_total_winloss">0.00</td>
                                     <td id="right_total_crdr">0.00</td>
@@ -1991,8 +1983,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 <tr class="transaction-table-header">
                     <th>Account</th>
                     <th class="transaction-name-column" style="display: ${showName ? '' : 'none'};">Name</th>
-                    <th>Role</th>
-                    <th>Company</th>
                     <th>B/F</th>
                     <th>Win/Loss</th>
                     <th>Cr/Dr</th>
@@ -2021,28 +2011,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         ? `transaction-account-cell ${roleClass}` 
                         : 'transaction-account-cell';
                     
-                    // 获取 company 信息
-                    const currentCompany = ownerCompanies.find(c => c.id == currentCompanyId);
-                    const companyCode = currentCompany ? currentCompany.company_id : '';
-                    
-                    // Role badge
-                    const roleBadgeClass = row.role ? `account-role-badge account-role-${String(row.role).toLowerCase().replace(/\s+/g, '-')}` : 'account-role-badge account-role-none';
-                    const roleDisplay = row.role ? String(row.role).toUpperCase() : '';
-                    
-                    // Company badge (使用和 role company 一样的样式)
-                    const companyBadgeClass = 'account-role-badge account-role-company';
-                    
                     tr.innerHTML = `
                         <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">
                             ${row.account_id}
                         </td>
                         <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
-                        <td>
-                            <span class="${roleBadgeClass}">${roleDisplay}</span>
-                        </td>
-                        <td>
-                            <span class="${companyBadgeClass}">${companyCode.toUpperCase()}</span>
-                        </td>
                         <td>${formatNumber(row.bf)}</td>
                         <td>${formatNumber(row.win_loss)}</td>
                         <td>${formatNumber(row.cr_dr)}</td>
@@ -2077,8 +2050,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 <tr class="transaction-table-footer">
                     <td>Total</td>
                     <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};"></td>
-                    <td></td>
-                    <td></td>
                     <td>${formatNumber(totals.bf)}</td>
                     <td>${formatNumber(totals.win_loss)}</td>
                     <td>${formatNumber(totals.cr_dr)}</td>
@@ -2327,28 +2298,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     ? `transaction-account-cell ${roleClass}` 
                     : 'transaction-account-cell';
                 
-                // 获取 company 信息
-                const currentCompany = ownerCompanies.find(c => c.id == currentCompanyId);
-                const companyCode = currentCompany ? currentCompany.company_id : '';
-                
-                // Role badge
-                const roleBadgeClass = row.role ? `account-role-badge account-role-${String(row.role).toLowerCase().replace(/\s+/g, '-')}` : 'account-role-badge account-role-none';
-                const roleDisplay = row.role ? String(row.role).toUpperCase() : '';
-                
-                // Company badge (使用和 role company 一样的样式)
-                const companyBadgeClass = 'account-role-badge account-role-company';
-                
                 tr.innerHTML = `
                     <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">
                         ${row.account_id}
                     </td>
                     <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
-                    <td>
-                        <span class="${roleBadgeClass}">${roleDisplay}</span>
-                    </td>
-                    <td>
-                        <span class="${companyBadgeClass}">${companyCode.toUpperCase()}</span>
-                    </td>
                     <td>${formatNumber(row.bf)}</td>
                     <td>${formatNumber(row.win_loss)}</td>
                     <td>${formatNumber(row.cr_dr)}</td>
