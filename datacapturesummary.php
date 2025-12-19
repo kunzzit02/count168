@@ -9494,13 +9494,29 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     console.log('Cell values not found, using reference format:', currentSourceData);
                 }
             } else if (isReferenceFormat) {
-                // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
-                currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
+                // CRITICAL: Even for reference format, if we have sourceColumnsValue, 
+                // we should rebuild from current Data Capture Table to get latest data
+                if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                    // Rebuild from current Data Capture Table
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('Rebuilt reference format from current Data Capture Table:', currentSourceData);
+                } else {
+                    // No sourceColumnsValue, use saved reference format
+                    currentSourceData = formulaOperatorsValue;
+                    console.log('Using saved formulaOperatorsValue as reference format (no sourceColumnsValue):', currentSourceData);
+                }
             } else if (isCompleteExpression) {
-                // Use the saved formula expression directly (preserves values from other id product rows)
-                currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+                // CRITICAL: Even for complete expression, if we have sourceColumnsValue,
+                // we should rebuild from current Data Capture Table to get latest data
+                if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                    // Rebuild from current Data Capture Table
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('Rebuilt complete expression from current Data Capture Table:', currentSourceData);
+                } else {
+                    // No sourceColumnsValue, use saved expression (preserves values from other id product rows)
+                    currentSourceData = formulaOperatorsValue;
+                    console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows):', currentSourceData);
+                }
             } else {
                 // Build reference format from columns
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -10124,13 +10140,29 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 console.log('Cell values not found (main), using reference format:', currentSourceData);
             }
         } else if (isReferenceFormat) {
-            // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
-            currentSourceData = formulaOperatorsValue;
-            console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
+            // CRITICAL: Even for reference format, if we have sourceColumnsValue, 
+            // we should rebuild from current Data Capture Table to get latest data
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                // Rebuild from current Data Capture Table
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Rebuilt reference format from current Data Capture Table (main):', currentSourceData);
+            } else {
+                // No sourceColumnsValue, use saved reference format
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as reference format (no sourceColumnsValue, main):', currentSourceData);
+            }
         } else if (isCompleteExpression) {
-            // Use the saved formula expression directly (preserves values from other id product rows)
-            currentSourceData = formulaOperatorsValue;
-            console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+            // CRITICAL: Even for complete expression, if we have sourceColumnsValue,
+            // we should rebuild from current Data Capture Table to get latest data
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                // Rebuild from current Data Capture Table
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Rebuilt complete expression from current Data Capture Table (main):', currentSourceData);
+            } else {
+                // No sourceColumnsValue, use saved expression (preserves values from other id product rows)
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows, main):', currentSourceData);
+            }
         } else {
             // Build reference format from columns
             currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -10910,13 +10942,29 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 console.log('Cell values not found (sub), using reference format:', currentSourceData);
             }
         } else if (isReferenceFormat) {
-            // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
-            currentSourceData = formulaOperatorsValue;
-            console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
+            // CRITICAL: Even for reference format, if we have sourceColumnsValue, 
+            // we should rebuild from current Data Capture Table to get latest data
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                // Rebuild from current Data Capture Table
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Rebuilt reference format from current Data Capture Table (sub):', currentSourceData);
+            } else {
+                // No sourceColumnsValue, use saved reference format
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as reference format (no sourceColumnsValue, sub):', currentSourceData);
+            }
         } else if (isCompleteExpression) {
-            // Use the saved formula expression directly (preserves values from other id product rows)
-            currentSourceData = formulaOperatorsValue;
-            console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+            // CRITICAL: Even for complete expression, if we have sourceColumnsValue,
+            // we should rebuild from current Data Capture Table to get latest data
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                // Rebuild from current Data Capture Table
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Rebuilt complete expression from current Data Capture Table (sub):', currentSourceData);
+            } else {
+                // No sourceColumnsValue, use saved expression (preserves values from other id product rows)
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows, sub):', currentSourceData);
+            }
         } else {
             // Build reference format from columns
             currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
