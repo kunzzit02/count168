@@ -9436,7 +9436,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // Always prefer the latest numbers from Data Capture Table when available
             let resolvedSourceExpression = '';
             const savedSourceValue = mainTemplate.last_source_value || '';
-            // Check if sourceColumnsValue is in new format (id_product:column_index or id_product:row_label:column_index)
+            // Check if sourceColumnsValue is in new format (id_product:column_index)
             const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
             
             // Check if sourceColumnsValue is cell position format (e.g., "A7 B5") - backward compatibility
@@ -9449,22 +9449,20 @@ function applyTemplateToSummaryRow(idProduct, template) {
             const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
             let currentSourceData;
             
-            // CRITICAL: Always prioritize reading from Data Capture Table if source_columns is available
-            // This ensures formulas use the latest data from Data Capture Table, not saved old values
-            if (isNewFormat && sourceColumnsValue && sourceColumnsValue.trim() !== '') {
-                // New format: "id_product:row_label:column_index" or "id_product:column_index" - read actual cell values
+            if (isNewFormat) {
+                // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
                 const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
                 const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
                 
                 if (cellValues.length > 0) {
-                    // Build expression with actual cell values from Data Capture Table (e.g., "1+1" instead of "7+7")
+                    // Build expression with actual cell values (e.g., "17+16")
                     let expression = cellValues[0];
                     for (let i = 1; i < cellValues.length; i++) {
                         const operator = operatorsString[i - 1] || '+';
                         expression += operator + cellValues[i];
                     }
                     currentSourceData = expression;
-                    console.log('Read cell values from new format (Data Capture Table):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
+                    console.log('Read cell values from new format:', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
                 } else {
                     // Fallback to reference format if cells not found
                     currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -9495,20 +9493,14 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
                     console.log('Cell values not found, using reference format:', currentSourceData);
                 }
-            } else if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
-                // If source_columns exists but not in new format, try to build from columns
-                // This ensures we read from Data Capture Table even if format is different
-                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
-                console.log('Building source expression from source_columns:', sourceColumnsValue, 'Result:', currentSourceData);
             } else if (isReferenceFormat) {
                 // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
                 currentSourceData = formulaOperatorsValue;
                 console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
             } else if (isCompleteExpression) {
-                // Only use saved complete expression if source_columns is empty
-                // This preserves manual formulas that don't depend on Data Capture Table
+                // Use the saved formula expression directly (preserves values from other id product rows)
                 currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as complete expression (no source_columns):', currentSourceData);
+                console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
             } else {
                 // Build reference format from columns
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
