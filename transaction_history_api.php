@@ -45,12 +45,27 @@ try {
     if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
         $requested_company_id = (int)$_GET['company_id'];
         $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
+        $userType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
         
         if ($userRole === 'owner') {
             // owner 可以访问自己名下的其他公司
             $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
             $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
             $stmt->execute([$requested_company_id, $owner_id]);
+            if ($stmt->fetchColumn()) {
+                $company_id = $requested_company_id;
+            } else {
+                throw new Exception('无权访问该公司');
+            }
+        } elseif ($userType === 'member') {
+            // member 用户可以访问通过 account_company 关联的公司
+            $memberAccountId = (int)$_SESSION['user_id'];
+            $stmt = $pdo->prepare("
+                SELECT 1 
+                FROM account_company ac
+                WHERE ac.account_id = ? AND ac.company_id = ?
+            ");
+            $stmt->execute([$memberAccountId, $requested_company_id]);
             if ($stmt->fetchColumn()) {
                 $company_id = $requested_company_id;
             } else {
