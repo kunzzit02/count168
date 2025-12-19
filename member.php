@@ -1139,11 +1139,6 @@ $today = date('d/m/Y');
                     show_inactive: '1',
                     hide_zero_balance: '0'
                 });
-                
-                // 添加 company_id 参数
-                if (memberConfig.companyId && memberConfig.companyId > 0) {
-                    params.append('company_id', memberConfig.companyId);
-                }
 
                 const url = `transaction_search_api.php?${params.toString()}&_t=${Date.now()}`;
                 fetch(url, { cache: 'no-cache' })
@@ -1342,12 +1337,6 @@ $today = date('d/m/Y');
                     date_from: dateFrom,
                     date_to: dateTo
                 });
-                
-                // 添加 company_id 参数
-                if (memberConfig.companyId && memberConfig.companyId > 0) {
-                    params.append('company_id', memberConfig.companyId);
-                }
-                
                 if (code) {
                     params.append('currency', code);
                 }
