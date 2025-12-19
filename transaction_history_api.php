@@ -105,21 +105,6 @@ try {
     $date_from_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_from)));
     $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
     
-    // 调试日志
-    error_log("Transaction History API: account_id={$account_id}, company_id={$company_id}, date_from={$date_from}->{$date_from_db}, date_to={$date_to}->{$date_to_db}, currency={$currency}");
-    
-    // 测试查询：检查是否有任何 data_capture_details 记录
-    $testStmt = $pdo->prepare("SELECT COUNT(*) FROM data_capture_details WHERE account_id = ? AND company_id = ?");
-    $testStmt->execute([$account_id, $company_id]);
-    $testCount = $testStmt->fetchColumn();
-    error_log("Transaction History API: Total data_capture_details records for account_id={$account_id}, company_id={$company_id}: {$testCount}");
-    
-    // 测试查询：检查是否有任何 transactions 记录
-    $testStmt2 = $pdo->prepare("SELECT COUNT(*) FROM transactions WHERE (account_id = ? OR from_account_id = ?) AND company_id = ?");
-    $testStmt2->execute([$account_id, $account_id, $company_id]);
-    $testCount2 = $testStmt2->fetchColumn();
-    error_log("Transaction History API: Total transactions records for account_id={$account_id}, company_id={$company_id}: {$testCount2}");
-    
     // 获取 currency_id（如果指定了 currency）
     $currency_id = null;
     if ($currency) {
@@ -140,22 +125,6 @@ try {
     $account = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$account) {
-        // 添加调试信息
-        error_log("Transaction History API: Account validation failed. account_id={$account_id}, company_id={$company_id}");
-        // 检查账户是否存在
-        $checkStmt = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id = ?");
-        $checkStmt->execute([$account_id]);
-        $accountExists = $checkStmt->fetch(PDO::FETCH_ASSOC);
-        if ($accountExists) {
-            error_log("Transaction History API: Account exists: " . json_encode($accountExists));
-            // 检查 account_company 关联
-            $checkAcStmt = $pdo->prepare("SELECT company_id FROM account_company WHERE account_id = ?");
-            $checkAcStmt->execute([$account_id]);
-            $relatedCompanies = $checkAcStmt->fetchAll(PDO::FETCH_COLUMN);
-            error_log("Transaction History API: Account related companies: " . json_encode($relatedCompanies));
-        } else {
-            error_log("Transaction History API: Account does not exist with id={$account_id}");
-        }
         throw new Exception('账户不存在或不属于当前公司');
     }
     
@@ -271,12 +240,9 @@ try {
     }
     
     $sqlCapture .= " ORDER BY dc.capture_date ASC, dc.created_at ASC, dcd.id ASC";
-    error_log("Transaction History API: Data capture query: " . $sqlCapture);
-    error_log("Transaction History API: Data capture params: " . json_encode($captureParams));
     $stmt = $pdo->prepare($sqlCapture);
     $stmt->execute($captureParams);
     $captureRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    error_log("Transaction History API: Found " . count($captureRows) . " data capture rows");
     
     // 3. 查询日期范围内的所有交易记录
     // 如果指定了 currency，根据 data_capture 的 currency 或 transactions.currency_id 来过滤
@@ -362,12 +328,9 @@ try {
     
     $sql .= " ORDER BY t.transaction_date ASC, t.created_at ASC";
     
-    error_log("Transaction History API: Transaction query: " . $sql);
-    error_log("Transaction History API: Transaction params: " . json_encode($transactionParams));
     $stmt = $pdo->prepare($sql);
     $stmt->execute($transactionParams);
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    error_log("Transaction History API: Found " . count($transactions) . " transaction rows");
     
     // 4. 构建历史记录数据
     $history = [];
@@ -755,8 +718,8 @@ try {
         ];
     }
     
-    // 返回结果（包含调试信息）
-    $response = [
+    // 返回结果
+    echo json_encode([
         'success' => true,
         'data' => [
             'account' => [
@@ -771,43 +734,7 @@ try {
             ],
             'history' => $history
         ]
-    ];
-    
-    // 添加调试信息（仅在开发环境）
-    if (isset($_GET['debug']) || (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false)) {
-        // 检查账户信息
-        $accountInfoStmt = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id = ?");
-        $accountInfoStmt->execute([$account_id]);
-        $accountInfo = $accountInfoStmt->fetch(PDO::FETCH_ASSOC);
-        
-        // 检查 account_company 关联
-        $acStmt = $pdo->prepare("SELECT company_id FROM account_company WHERE account_id = ?");
-        $acStmt->execute([$account_id]);
-        $relatedCompanies = $acStmt->fetchAll(PDO::FETCH_COLUMN);
-        
-        $response['debug'] = [
-            'account_id' => $account_id,
-            'account_info' => $accountInfo,
-            'company_id' => $company_id,
-            'related_companies' => $relatedCompanies,
-            'date_from' => $date_from,
-            'date_from_db' => $date_from_db,
-            'date_to' => $date_to,
-            'date_to_db' => $date_to_db,
-            'currency' => $currency,
-            'currency_id' => $currency_id,
-            'test_capture_count' => $testCount ?? 0,
-            'test_transaction_count' => $testCount2 ?? 0,
-            'capture_rows_count' => count($captureRows),
-            'transactions_count' => count($transactions),
-            'bf' => $bf,
-            'bfCurrency' => $bfCurrency,
-            'history_count' => count($history),
-            'account_validation' => $account ? 'passed' : 'failed'
-        ];
-    }
-    
-    echo json_encode($response);
+    ]);
     
 } catch (PDOException $e) {
     http_response_code(500);

@@ -986,13 +986,6 @@ $today = date('d/m/Y');
         </div>
 
         <div id="notificationContainer" class="transaction-notification-container"></div>
-        
-        <!-- Debug Panel -->
-        <div id="debugPanel" style="position: fixed; bottom: 10px; right: 10px; background: #fff; border: 2px solid #000; padding: 10px; max-width: 400px; max-height: 300px; overflow: auto; z-index: 10000; font-size: 12px; display: none;">
-            <h4 style="margin: 0 0 10px 0;">调试信息</h4>
-            <div id="debugContent"></div>
-            <button onclick="document.getElementById('debugPanel').style.display='none'" style="margin-top: 10px;">关闭</button>
-        </div>
     </div>
 
     <script>
@@ -1002,20 +995,6 @@ $today = date('d/m/Y');
             accountName: '<?php echo htmlspecialchars($accountName, ENT_QUOTES); ?>',
             companyId: <?php echo (int)$currentCompanyId; ?>
         };
-        
-        // 调试函数
-        function showDebugInfo(title, data) {
-            const panel = document.getElementById('debugPanel');
-            const content = document.getElementById('debugContent');
-            if (!panel || !content) return;
-            
-            panel.style.display = 'block';
-            const html = `<div style="margin-bottom: 10px;"><strong>${title}:</strong><pre style="margin: 5px 0; font-size: 11px; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre></div>`;
-            content.innerHTML = html + content.innerHTML;
-        }
-        
-        // 显示初始配置
-        showDebugInfo('Member Config', memberConfig);
         let memberCurrencySummary = [];
         const memberCurrencySortOrder = new Map();
         const memberSelectedCurrencies = new Set();
@@ -1193,19 +1172,9 @@ $today = date('d/m/Y');
                 });
 
                 const url = `transaction_search_api.php?${params.toString()}&_t=${Date.now()}`;
-                console.log('Fetching member summary:', { url, accountId: memberConfig.accountId, companyId: memberConfig.companyId });
-                showDebugInfo('Fetching Summary', { url, params: Object.fromEntries(params), accountId: memberConfig.accountId, companyId: memberConfig.companyId });
                 fetch(url, { cache: 'no-cache' })
                     .then(res => res.json())
                     .then(data => {
-                        console.log('Member summary response:', data);
-                        showDebugInfo('Summary Response', { 
-                            success: data.success, 
-                            error: data.error, 
-                            dataCount: data.data ? (data.data.left_table?.length || 0) + (data.data.right_table?.length || 0) : 0, 
-                            debug: data.debug,
-                            fullResponse: data
-                        });
                         if (!data.success) {
                             throw new Error(data.error || 'Query failed');
                         }
@@ -1408,21 +1377,10 @@ $today = date('d/m/Y');
                 if (code) {
                     params.append('currency', code);
                 }
-                const url = `transaction_history_api.php?${params.toString()}&debug=1&_t=${Date.now()}`;
-                console.log('Fetching member history:', { url, accountId: memberConfig.accountId, companyId: memberConfig.companyId, currency: code });
-                showDebugInfo(`Fetching History (${code})`, { url, params: Object.fromEntries(params), accountId: memberConfig.accountId, companyId: memberConfig.companyId, currency: code });
+                const url = `transaction_history_api.php?${params.toString()}&_t=${Date.now()}`;
                 return fetch(url, { cache: 'no-cache' })
                     .then(res => res.json())
                     .then(data => {
-                        const responseInfo = { 
-                            currency: code, 
-                            success: data.success, 
-                            error: data.error, 
-                            historyCount: data.data?.history?.length || 0,
-                            debug: data.debug
-                        };
-                        console.log('Member history response:', responseInfo);
-                        showDebugInfo(`History Response (${code})`, responseInfo);
                         if (!data.success) {
                             throw new Error(data.error || 'Query failed');
                         }
