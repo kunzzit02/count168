@@ -1067,7 +1067,7 @@ function getCurrentProcessId() {
         // Supports two formats:
         // 1. "id_product:row_label:column_index" (e.g., "BB:C:3") - with row label to distinguish multiple rows
         // 2. "id_product:column_index" (e.g., "BB:3") - backward compatibility, uses first matching row
-        function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
+        function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue, summaryRow = null) {
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 return [];
             }
@@ -1076,6 +1076,15 @@ function getCurrentProcessId() {
             const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
             const cellValues = [];
             
+            // Get row_index from Summary Table row if available
+            let summaryRowIndex = null;
+            if (summaryRow) {
+                const rowIndexAttr = summaryRow.getAttribute('data-row-index');
+                if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
+                    summaryRowIndex = Number(rowIndexAttr);
+                }
+            }
+            
             parts.forEach(part => {
                 // Try new format with row label first: "id_product:row_label:column_index"
                 let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
@@ -1083,7 +1092,8 @@ function getCurrentProcessId() {
                     const idProduct = match[1];
                     const rowLabel = match[2];
                     const columnIndex = parseInt(match[3]);
-                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel);
+                    // Pass summaryRowIndex to help find correct row when row_label fails
+                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel, summaryRowIndex);
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
                     }
@@ -1093,7 +1103,8 @@ function getCurrentProcessId() {
                     if (match) {
                         const idProduct = match[1];
                         const columnIndex = parseInt(match[2]);
-                        const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
+                        // Pass summaryRowIndex to help find correct row
+                        const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, null, summaryRowIndex);
                         if (cellValue !== null && cellValue !== '') {
                             cellValues.push(cellValue);
                         }
@@ -1107,7 +1118,8 @@ function getCurrentProcessId() {
         // Get cell value from data capture table by id_product and column index
         // Supports row_label parameter to distinguish between multiple rows with same id_product
         // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
-        function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null) {
+        // summaryRowIndex: If provided, use this to find the correct row when row_label fails (e.g., after Data Capture Table changes)
+        function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null, summaryRowIndex = null) {
             try {
                 // Use transformed table data if available, otherwise get from localStorage
                 let parsedTableData;
@@ -1156,11 +1168,35 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // If row_label not provided or not found, fallback to original behavior
+                // If row_label not provided or not found, try using summaryRowIndex
+                // This handles the case where Data Capture Table was modified and row_label no longer matches
+                if (!processRow && summaryRowIndex !== null) {
+                    // Use summaryRowIndex to find the correct row in Data Capture Table
+                    // Summary Table row_index directly corresponds to Data Capture Table row index
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const rows = capturedTableBody.querySelectorAll('tr');
+                        if (summaryRowIndex < rows.length) {
+                            const targetRow = rows[summaryRowIndex];
+                            const idProductCell = targetRow.querySelector('td[data-col-index="1"]');
+                            if (idProductCell) {
+                                const cellIdProduct = normalizeIdProductText(idProductCell.textContent.trim());
+                                const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                if (cellIdProduct === normalizedIdProduct) {
+                                    rowIndex = summaryRowIndex;
+                                    processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
+                                    console.log('Found row by summaryRowIndex:', summaryRowIndex, 'id_product:', idProduct, 'row_label was:', rowLabel);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // If still not found, fallback to original behavior (first matching row)
                 if (!processRow) {
                     processRow = findProcessRow(parsedTableData, idProduct);
-                    if (rowLabel) {
-                        console.warn('Row not found by row_label:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
+                    if (rowLabel || summaryRowIndex !== null) {
+                        console.warn('Row not found by row_label/summaryRowIndex:', rowLabel, summaryRowIndex, 'falling back to first matching row for id_product:', idProduct);
                     }
                 }
                 
@@ -9452,7 +9488,8 @@ function applyTemplateToSummaryRow(idProduct, template) {
             if (isNewFormat) {
                 // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
                 const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-                const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+                // Pass targetRow to getCellValuesFromNewFormat so it can use row_index when row_label fails
+                const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue, targetRow);
                 
                 if (cellValues.length > 0) {
                     // Build expression with actual cell values (e.g., "17+16")
@@ -10060,6 +10097,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         // Apply the template (reuse the logic from applyTemplateToSummaryRow)
         const sourceColumnsValue = mainTemplate.source_columns || '';
         const formulaOperatorsValue = mainTemplate.formula_operators || '';
+        // targetRow is available here, pass it to getCellValuesFromNewFormat
 
         // Always prefer the latest numbers from Data Capture Table when available
         let resolvedSourceExpression = '';
@@ -10082,7 +10120,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         if (isNewFormat) {
             // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+            // Pass targetRow to getCellValuesFromNewFormat so it can use row_index when row_label fails
+            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue, targetRow);
             
             if (cellValues.length > 0) {
                 // Build expression with actual cell values (e.g., "17+16")
@@ -10868,7 +10907,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (isNewFormat) {
             // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+            // Pass targetRow to getCellValuesFromNewFormat so it can use row_index when row_label fails
+            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue, targetRow);
             
             if (cellValues.length > 0) {
                 // Build expression with actual cell values (e.g., "17+16")
