@@ -9331,25 +9331,47 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         const templates = result.templates || {};
 
-        // IMPORTANT: Summary Table rows are created in the same order as Data Capture Table
-        // So row_index should be the same as the position in Summary Table (which matches Data Capture Table order)
-        // We just need to ensure all rows have the correct data-row-index attribute
+        // IMPORTANT: Recalculate row_index for all Summary Table rows based on current Data Capture Table order
+        // This is critical when rows are added/removed in Data Capture Table
+        // Summary Table row at position N should have row_index = N (matching Data Capture Table row N)
         const summaryTableBody = document.getElementById('summaryTableBody');
+        const capturedTableBody = document.getElementById('capturedTableBody');
         
-        if (summaryTableBody) {
+        if (summaryTableBody && capturedTableBody) {
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+            const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
             
-            // Since populateOriginalTableWithColumnAData creates rows in Data Capture Table order,
-            // the index in Summary Table directly corresponds to Data Capture Table row index
-            allSummaryRows.forEach((summaryRow, index) => {
-                // Only set if not already set (preserve existing row_index from templates if available)
-                const existingRowIndex = summaryRow.getAttribute('data-row-index');
-                if (!existingRowIndex || existingRowIndex === '' || Number.isNaN(Number(existingRowIndex))) {
-                    summaryRow.setAttribute('data-row-index', String(index));
-                    console.log('Set initial data-row-index for Summary Table row at position', index, 'to match Data Capture Table order');
-                } else {
-                    console.log('Preserved existing data-row-index:', existingRowIndex, 'for Summary Table row at position', index);
+            // Recalculate row_index for each Summary Table row based on its position
+            // Since Summary Table is created in Data Capture Table order, position = row_index
+            allSummaryRows.forEach((summaryRow, summaryIndex) => {
+                // Always recalculate row_index based on current Summary Table position
+                // This ensures it matches the current Data Capture Table order
+                summaryRow.setAttribute('data-row-index', String(summaryIndex));
+                
+                // Verify: Check if Data Capture Table row at this index matches
+                if (summaryIndex < capturedRows.length) {
+                    const capturedRow = capturedRows[summaryIndex];
+                    const capturedIdProductCell = capturedRow.querySelector('td[data-col-index="1"]');
+                    const summaryIdProductCell = summaryRow.querySelector('td:first-child');
+                    
+                    if (capturedIdProductCell && summaryIdProductCell) {
+                        const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                        const productValues = getProductValuesFromCell(summaryIdProductCell);
+                        const summaryIdProduct = normalizeIdProductText(productValues.main || '');
+                        
+                        if (capturedIdProduct === summaryIdProduct) {
+                            console.log('Verified row_index:', summaryIndex, 'matches Data Capture Table for id_product:', summaryIdProduct);
+                        } else {
+                            console.warn('Warning: row_index', summaryIndex, 'mismatch - Summary:', summaryIdProduct, 'Data Capture:', capturedIdProduct);
+                        }
+                    }
                 }
+            });
+        } else if (summaryTableBody) {
+            // Fallback: if Data Capture Table not available, use Summary Table position
+            const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+            allSummaryRows.forEach((summaryRow, index) => {
+                summaryRow.setAttribute('data-row-index', String(index));
             });
         }
 
@@ -9912,14 +9934,54 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         // Priority 2: Match by row_index (exact match) - this is the most reliable way to match rows
         // IMPORTANT: When row_index matches, we should use that row regardless of account_id/formula_variant
         // This ensures that templates are applied to the correct row position even if account_id changes
+        // CRITICAL: If exact row_index match fails (e.g., row was moved due to new rows inserted in Data Capture Table),
+        // find the next matching row with same id_product at or after the desired row_index
+        // This handles the case: A=BB, B=BB, C=BB -> A=BB, B=BB, C=TT, D=BB
+        // Template saved with row_index=2 (C=BB) should match to D=BB (row_index=3)
         if (!targetRow && templateRowIndex !== null) {
+            // First, try exact match
             for (const candidate of candidateRows) {
                 if (candidate.rowIndex === templateRowIndex) {
-                    // If row_index matches exactly, use this row
-                    // This is the most reliable way to match rows when there are multiple rows with same id_product
                     targetRow = candidate.row;
                     console.log('Matched row by row_index (exact match):', templateRowIndex, 'template account_id:', templateAccountId, 'candidate account_id:', candidate.accountId);
                     break;
+                }
+            }
+            
+            // If exact match failed, find the next row with same id_product at or after the desired row_index
+            // This handles the case where new rows were inserted in Data Capture Table, shifting rows down
+            if (!targetRow) {
+                // First, try to find a row at or after the desired row_index (rows shifted down)
+                let nextCandidate = null;
+                for (const candidate of candidateRows) {
+                    if (candidate.rowIndex !== null && candidate.rowIndex >= templateRowIndex) {
+                        if (!nextCandidate || candidate.rowIndex < nextCandidate.rowIndex) {
+                            nextCandidate = candidate;
+                        }
+                    }
+                }
+                
+                // If found a row at or after desired position, use it
+                if (nextCandidate) {
+                    targetRow = nextCandidate.row;
+                    console.log('Matched row by row_index (next match after):', templateRowIndex, 'found at row_index:', nextCandidate.rowIndex, 'id_product:', idProduct);
+                } else {
+                    // If no row found at or after, find the closest row before (fallback)
+                    let closestCandidate = null;
+                    let maxRowIndex = -1;
+                    for (const candidate of candidateRows) {
+                        if (candidate.rowIndex !== null && candidate.rowIndex < templateRowIndex) {
+                            if (candidate.rowIndex > maxRowIndex) {
+                                maxRowIndex = candidate.rowIndex;
+                                closestCandidate = candidate;
+                            }
+                        }
+                    }
+                    
+                    if (closestCandidate) {
+                        targetRow = closestCandidate.row;
+                        console.log('Matched row by row_index (closest before):', templateRowIndex, 'found at row_index:', closestCandidate.rowIndex, 'id_product:', idProduct);
+                    }
                 }
             }
         }
