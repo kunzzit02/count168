@@ -749,6 +749,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 'cash': 'transaction-role-cash',
                 'profit': 'transaction-role-profit',
                 'expenses': 'transaction-role-expenses',
+                'company': 'transaction-role-company',
                 'staff': 'transaction-role-staff',
                 'upline': 'transaction-role-upline',
                 'agent': 'transaction-role-agent',
@@ -769,11 +770,12 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 'cash': 3,
                 'profit': 4,
                 'expenses': 5,
-                'staff': 6,
-                'upline': 7,
-                'agent': 8,
-                'member': 9,
-                'none': 10
+                'company': 6,
+                'staff': 7,
+                'upline': 8,
+                'agent': 9,
+                'member': 10,
+                'none': 11
             };
             return roleOrder[roleLower] || 999; // 未知 role 排在最后
         }
