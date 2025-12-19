@@ -775,18 +775,35 @@ try {
     
     // 添加调试信息（仅在开发环境）
     if (isset($_GET['debug']) || (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'localhost') !== false)) {
+        // 检查账户信息
+        $accountInfoStmt = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id = ?");
+        $accountInfoStmt->execute([$account_id]);
+        $accountInfo = $accountInfoStmt->fetch(PDO::FETCH_ASSOC);
+        
+        // 检查 account_company 关联
+        $acStmt = $pdo->prepare("SELECT company_id FROM account_company WHERE account_id = ?");
+        $acStmt->execute([$account_id]);
+        $relatedCompanies = $acStmt->fetchAll(PDO::FETCH_COLUMN);
+        
         $response['debug'] = [
             'account_id' => $account_id,
+            'account_info' => $accountInfo,
             'company_id' => $company_id,
+            'related_companies' => $relatedCompanies,
+            'date_from' => $date_from,
             'date_from_db' => $date_from_db,
+            'date_to' => $date_to,
             'date_to_db' => $date_to_db,
             'currency' => $currency,
             'currency_id' => $currency_id,
+            'test_capture_count' => $testCount ?? 0,
+            'test_transaction_count' => $testCount2 ?? 0,
             'capture_rows_count' => count($captureRows),
             'transactions_count' => count($transactions),
             'bf' => $bf,
             'bfCurrency' => $bfCurrency,
-            'history_count' => count($history)
+            'history_count' => count($history),
+            'account_validation' => $account ? 'passed' : 'failed'
         ];
     }
     
