@@ -1067,7 +1067,7 @@ function getCurrentProcessId() {
         // Supports two formats:
         // 1. "id_product:row_label:column_index" (e.g., "BB:C:3") - with row label to distinguish multiple rows
         // 2. "id_product:column_index" (e.g., "BB:3") - backward compatibility, uses first matching row
-        function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
+        function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue, targetRowIndex = null) {
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 return [];
             }
@@ -1083,7 +1083,8 @@ function getCurrentProcessId() {
                     const idProduct = match[1];
                     const rowLabel = match[2];
                     const columnIndex = parseInt(match[3]);
-                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel);
+                    // Use targetRowIndex if provided (more reliable than rowLabel when Data Capture Table changes)
+                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel, targetRowIndex);
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
                     }
@@ -1093,7 +1094,8 @@ function getCurrentProcessId() {
                     if (match) {
                         const idProduct = match[1];
                         const columnIndex = parseInt(match[2]);
-                        const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
+                        // Use targetRowIndex if provided
+                        const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, null, targetRowIndex);
                         if (cellValue !== null && cellValue !== '') {
                             cellValues.push(cellValue);
                         }
@@ -1107,7 +1109,8 @@ function getCurrentProcessId() {
         // Get cell value from data capture table by id_product and column index
         // Supports row_label parameter to distinguish between multiple rows with same id_product
         // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
-        function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null) {
+        // CRITICAL: targetRowIndex takes priority over rowLabel when Data Capture Table changes
+        function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null, targetRowIndex = null) {
             try {
                 // Use transformed table data if available, otherwise get from localStorage
                 let parsedTableData;
@@ -1122,11 +1125,24 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 }
                 
-                // If row_label is provided, find the row by both id_product and row_label
+                // If targetRowIndex is provided, use it directly (most reliable when Data Capture Table changes)
+                // This ensures we read from the correct row even if rowLabel is outdated
                 let processRow = null;
                 let rowIndex = null;
                 
-                if (rowLabel) {
+                if (targetRowIndex !== null && targetRowIndex !== undefined) {
+                    // Use targetRowIndex directly - this is the current position in Data Capture Table
+                    processRow = findProcessRow(parsedTableData, idProduct, targetRowIndex);
+                    if (processRow) {
+                        rowIndex = targetRowIndex;
+                        console.log('Found row by targetRowIndex:', targetRowIndex, 'id_product:', idProduct);
+                    } else {
+                        console.warn('Row not found by targetRowIndex:', targetRowIndex, 'for id_product:', idProduct, 'trying rowLabel fallback');
+                    }
+                }
+                
+                // If targetRowIndex not provided or not found, try rowLabel
+                if (!processRow && rowLabel) {
                     // Find row by row_label first, then verify id_product matches
                     const capturedTableBody = document.getElementById('capturedTableBody');
                     if (capturedTableBody) {
@@ -9451,8 +9467,14 @@ function applyTemplateToSummaryRow(idProduct, template) {
             
             if (isNewFormat) {
                 // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
+                // CRITICAL: Use targetRow's row_index to read from correct Data Capture Table row
+                // This ensures we read current data even if Data Capture Table changed
+                const targetRowIndexAttr = targetRow ? targetRow.getAttribute('data-row-index') : null;
+                const targetRowIndex = (targetRowIndexAttr !== null && targetRowIndexAttr !== '' && !Number.isNaN(Number(targetRowIndexAttr)))
+                    ? Number(targetRowIndexAttr) : null;
+                
                 const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-                const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+                const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue, targetRowIndex);
                 
                 if (cellValues.length > 0) {
                     // Build expression with actual cell values (e.g., "17+16")
@@ -9462,7 +9484,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         expression += operator + cellValues[i];
                     }
                     currentSourceData = expression;
-                    console.log('Read cell values from new format:', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
+                    console.log('Read cell values from new format (using row_index:', targetRowIndex, '):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
                 } else {
                     // Fallback to reference format if cells not found
                     currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -10081,8 +10103,14 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         
         if (isNewFormat) {
             // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
+            // CRITICAL: Use targetRow's row_index to read from correct Data Capture Table row
+            // This ensures we read current data even if Data Capture Table changed
+            const targetRowIndexAttr = targetRow ? targetRow.getAttribute('data-row-index') : null;
+            const targetRowIndex = (targetRowIndexAttr !== null && targetRowIndexAttr !== '' && !Number.isNaN(Number(targetRowIndexAttr)))
+                ? Number(targetRowIndexAttr) : null;
+            
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue, targetRowIndex);
             
             if (cellValues.length > 0) {
                 // Build expression with actual cell values (e.g., "17+16")
@@ -10092,7 +10120,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     expression += operator + cellValues[i];
                 }
                 currentSourceData = expression;
-                console.log('Read cell values from new format (main):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
+                console.log('Read cell values from new format (main, using row_index:', targetRowIndex, '):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
             } else {
                 // Fallback to reference format if cells not found
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -10867,8 +10895,14 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         
         if (isNewFormat) {
             // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
+            // CRITICAL: Use mainRow's row_index to read from correct Data Capture Table row
+            // This ensures we read current data even if Data Capture Table changed
+            const mainRowIndexAttr = mainRow ? mainRow.getAttribute('data-row-index') : null;
+            const mainRowIndex = (mainRowIndexAttr !== null && mainRowIndexAttr !== '' && !Number.isNaN(Number(mainRowIndexAttr)))
+                ? Number(mainRowIndexAttr) : null;
+            
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
-            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+            const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue, mainRowIndex);
             
             if (cellValues.length > 0) {
                 // Build expression with actual cell values (e.g., "17+16")
@@ -10878,7 +10912,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     expression += operator + cellValues[i];
                 }
                 currentSourceData = expression;
-                console.log('Read cell values from new format (sub):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
+                console.log('Read cell values from new format (sub, using row_index:', mainRowIndex, '):', sourceColumnsValue, 'Values:', cellValues, 'Expression:', currentSourceData);
             } else {
                 // Fallback to reference format if cells not found
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
