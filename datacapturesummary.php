@@ -1058,6 +1058,9 @@ function getCurrentProcessId() {
         }
         
         // Parse new format source_columns and get cell values
+        // Supports two formats:
+        // 1. "id_product:row_label:column_index" (e.g., "BB:C:3") - with row label to distinguish multiple rows
+        // 2. "id_product:column_index" (e.g., "BB:3") - backward compatibility, uses first matching row
         function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 return [];
@@ -1068,13 +1071,26 @@ function getCurrentProcessId() {
             const cellValues = [];
             
             parts.forEach(part => {
-                const match = part.match(/^([^:]+):(\d+)$/);
+                // Try new format with row label first: "id_product:row_label:column_index"
+                let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                 if (match) {
                     const idProduct = match[1];
-                    const columnIndex = parseInt(match[2]);
-                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
+                    const rowLabel = match[2];
+                    const columnIndex = parseInt(match[3]);
+                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel);
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
+                    }
+                } else {
+                    // Fallback to old format: "id_product:column_index" (backward compatibility)
+                    match = part.match(/^([^:]+):(\d+)$/);
+                    if (match) {
+                        const idProduct = match[1];
+                        const columnIndex = parseInt(match[2]);
+                        const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
+                        if (cellValue !== null && cellValue !== '') {
+                            cellValues.push(cellValue);
+                        }
                     }
                 }
             });
@@ -1082,8 +1098,10 @@ function getCurrentProcessId() {
             return cellValues;
         }
         
-        // Get cell value from data capture table by id_product and column index (new format: "id_product:column_index")
-        function getCellValueByIdProductAndColumn(idProduct, columnIndex) {
+        // Get cell value from data capture table by id_product and column index
+        // Supports row_label parameter to distinguish between multiple rows with same id_product
+        // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
+        function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null) {
             try {
                 // Use transformed table data if available, otherwise get from localStorage
                 let parsedTableData;
@@ -1098,10 +1116,50 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 }
                 
-                // Find the row that matches the id_product
-                const processRow = findProcessRow(parsedTableData, idProduct);
+                // If row_label is provided, find the row by both id_product and row_label
+                let processRow = null;
+                let rowIndex = null;
+                
+                if (rowLabel) {
+                    // Find row by row_label first, then verify id_product matches
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const rows = capturedTableBody.querySelectorAll('tr');
+                        for (let i = 0; i < rows.length; i++) {
+                            const row = rows[i];
+                            const rowHeaderCell = row.querySelector('.row-header');
+                            if (rowHeaderCell && rowHeaderCell.textContent.trim() === rowLabel) {
+                                // Found row by label, now verify id_product matches
+                                const idProductCell = row.querySelector('td[data-col-index="1"]');
+                                if (idProductCell) {
+                                    const cellIdProduct = normalizeIdProductText(idProductCell.textContent.trim());
+                                    const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                    if (cellIdProduct === normalizedIdProduct) {
+                                        rowIndex = i;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If found row by label, use findProcessRow with rowIndex
+                    if (rowIndex !== null) {
+                        processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
+                        console.log('Found row by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProduct);
+                    }
+                }
+                
+                // If row_label not provided or not found, fallback to original behavior
                 if (!processRow) {
-                    console.error('Process row not found for id_product:', idProduct);
+                    processRow = findProcessRow(parsedTableData, idProduct);
+                    if (rowLabel) {
+                        console.warn('Row not found by row_label:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
+                    }
+                }
+                
+                if (!processRow) {
+                    console.error('Process row not found for id_product:', idProduct, 'row_label:', rowLabel);
                     return null;
                 }
                 
@@ -1116,11 +1174,12 @@ function getCurrentProcessId() {
                         // Extract numeric value (remove formatting)
                         const cellValue = cellData.value.toString();
                         const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                        console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
                         return numericValue || cellValue;
                     }
                 }
                 
-                console.error('Cell not found for id_product:', idProduct, 'column:', columnIndex);
+                console.error('Cell not found for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex);
                 return null;
             } catch (error) {
                 console.error('Error getting cell value by id_product and column:', error);
@@ -3917,9 +3976,28 @@ function getCurrentProcessId() {
             }
             
             // Store id_product:column_index reference (new format)
+            // IMPORTANT: Include row_label to distinguish between multiple rows with same id_product
+            // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
             if (idProduct && dataColumnIndex !== null) {
-                // Format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
-                const cellReference = `${idProduct}:${dataColumnIndex}`;
+                // Get row label from cell or row
+                let rowLabel = cell.getAttribute('data-row-label');
+                if (!rowLabel && row) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    if (rowHeaderCell) {
+                        rowLabel = rowHeaderCell.textContent.trim();
+                        cell.setAttribute('data-row-label', rowLabel);
+                    }
+                }
+                
+                // Build cell reference with row label if available
+                let cellReference;
+                if (rowLabel) {
+                    // New format with row label: "id_product:row_label:column_index" (e.g., "BB:C:3")
+                    cellReference = `${idProduct}:${rowLabel}:${dataColumnIndex}`;
+                } else {
+                    // Backward compatibility: "id_product:column_index" (e.g., "BB:3")
+                    cellReference = `${idProduct}:${dataColumnIndex}`;
+                }
                 
                 // Store clicked cell references in new format
                 let clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
@@ -3932,15 +4010,9 @@ function getCurrentProcessId() {
                 
                 // Also keep backward compatibility with old format (cell positions)
                 let cellPosition = cell.getAttribute('data-cell-position');
-                let rowLabel = cell.getAttribute('data-row-label');
-                if (!cellPosition && row) {
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    if (rowHeaderCell) {
-                        rowLabel = rowHeaderCell.textContent.trim();
-                        cellPosition = rowLabel + columnIndex;
-                        cell.setAttribute('data-row-label', rowLabel);
-                        cell.setAttribute('data-cell-position', cellPosition);
-                    }
+                if (!cellPosition && rowLabel) {
+                    cellPosition = rowLabel + columnIndex;
+                    cell.setAttribute('data-cell-position', cellPosition);
                 }
                 
                 if (cellPosition) {
