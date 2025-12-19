@@ -78,6 +78,30 @@ try {
             
             $debugInfo['companies_found'] = count($memberCompanies);
             
+            // 如果 currentCompanyId 为 0 或不在关联公司列表中，使用第一个关联的公司
+            if ($currentCompanyId <= 0 || empty($memberCompanies)) {
+                if (!empty($memberCompanies)) {
+                    $currentCompanyId = (int)$memberCompanies[0]['id'];
+                    $_SESSION['company_id'] = $currentCompanyId;
+                    $debugInfo['auto_set_company_id'] = $currentCompanyId;
+                }
+            } else {
+                // 验证 currentCompanyId 是否在关联公司列表中
+                $isValidCompany = false;
+                foreach ($memberCompanies as $comp) {
+                    if ((int)$comp['id'] === $currentCompanyId) {
+                        $isValidCompany = true;
+                        break;
+                    }
+                }
+                if (!$isValidCompany && !empty($memberCompanies)) {
+                    // 如果当前 company_id 不在关联列表中，使用第一个
+                    $currentCompanyId = (int)$memberCompanies[0]['id'];
+                    $_SESSION['company_id'] = $currentCompanyId;
+                    $debugInfo['auto_set_company_id'] = $currentCompanyId;
+                }
+            }
+            
             // 如果查询结果为空，记录详细信息
             if (empty($memberCompanies) && !empty($storedCompanyIds)) {
                 error_log("Member {$currentUserId} has records in account_company, but JOIN query returned empty. Stored company_id: " . implode(', ', $storedCompanyIds));
@@ -1132,6 +1156,12 @@ $today = date('d/m/Y');
                     return reject(new Error('Missing date'));
                 }
 
+                if (!memberConfig.companyId || memberConfig.companyId <= 0) {
+                    showNotification('Please select a company', 'error');
+                    if (filterWrapper) filterWrapper.style.display = 'none';
+                    return reject(new Error('Missing company'));
+                }
+
                 const params = new URLSearchParams({
                     date_from: dateFrom,
                     date_to: dateTo,
@@ -1142,9 +1172,11 @@ $today = date('d/m/Y');
                 });
 
                 const url = `transaction_search_api.php?${params.toString()}&_t=${Date.now()}`;
+                console.log('Fetching member summary:', { url, accountId: memberConfig.accountId, companyId: memberConfig.companyId });
                 fetch(url, { cache: 'no-cache' })
                     .then(res => res.json())
                     .then(data => {
+                        console.log('Member summary response:', data);
                         if (!data.success) {
                             throw new Error(data.error || 'Query failed');
                         }
@@ -1298,6 +1330,11 @@ $today = date('d/m/Y');
                 return;
             }
 
+            if (!memberConfig.companyId || memberConfig.companyId <= 0) {
+                showNotification('Please select a company', 'error');
+                return;
+            }
+
             const availableCurrencies = getAvailableCurrencies();
             let targetCurrencies;
 
@@ -1343,9 +1380,11 @@ $today = date('d/m/Y');
                     params.append('currency', code);
                 }
                 const url = `transaction_history_api.php?${params.toString()}&_t=${Date.now()}`;
+                console.log('Fetching member history:', { url, accountId: memberConfig.accountId, companyId: memberConfig.companyId, currency: code });
                 return fetch(url, { cache: 'no-cache' })
                     .then(res => res.json())
                     .then(data => {
+                        console.log('Member history response:', { currency: code, success: data.success, error: data.error, historyCount: data.data?.history?.length || 0 });
                         if (!data.success) {
                             throw new Error(data.error || 'Query failed');
                         }

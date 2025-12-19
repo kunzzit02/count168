@@ -124,6 +124,22 @@ try {
     $account = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$account) {
+        // 添加调试信息
+        error_log("Transaction History API: Account validation failed. account_id={$account_id}, company_id={$company_id}");
+        // 检查账户是否存在
+        $checkStmt = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id = ?");
+        $checkStmt->execute([$account_id]);
+        $accountExists = $checkStmt->fetch(PDO::FETCH_ASSOC);
+        if ($accountExists) {
+            error_log("Transaction History API: Account exists: " . json_encode($accountExists));
+            // 检查 account_company 关联
+            $checkAcStmt = $pdo->prepare("SELECT company_id FROM account_company WHERE account_id = ?");
+            $checkAcStmt->execute([$account_id]);
+            $relatedCompanies = $checkAcStmt->fetchAll(PDO::FETCH_COLUMN);
+            error_log("Transaction History API: Account related companies: " . json_encode($relatedCompanies));
+        } else {
+            error_log("Transaction History API: Account does not exist with id={$account_id}");
+        }
         throw new Exception('账户不存在或不属于当前公司');
     }
     
