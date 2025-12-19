@@ -69,22 +69,12 @@ try {
     }
     
     // 验证这些记录是否属于当前公司
+    // 直接使用 data_capture_templates.company_id 进行验证，更简单可靠
     $placeholders = str_repeat('?,', count($template_ids) - 1) . '?';
-    $verifySql = "SELECT dct.id
-                  FROM data_capture_templates dct
-                  INNER JOIN (
-                      SELECT MIN(id) AS id, process_id, company_id
-                      FROM process
-                      GROUP BY process_id, company_id
-                  ) p ON (
-                      dct.process_id = p.process_id
-                      OR (
-                          dct.process_id REGEXP '^[0-9]+$'
-                          AND CAST(dct.process_id AS UNSIGNED) = p.id
-                      )
-                  )
-                  WHERE dct.id IN ($placeholders)
-                    AND p.company_id = ?";
+    $verifySql = "SELECT id
+                  FROM data_capture_templates
+                  WHERE id IN ($placeholders)
+                    AND company_id = ?";
     
     $verifyParams = array_merge($template_ids, [$company_id]);
     $verifyStmt = $pdo->prepare($verifySql);
@@ -93,6 +83,13 @@ try {
     
     if (empty($validIds)) {
         throw new Exception('没有找到符合条件且属于当前公司的记录');
+    }
+    
+    // 检查是否有请求删除的记录不在验证结果中（安全验证）
+    $invalidIds = array_diff($template_ids, $validIds);
+    if (!empty($invalidIds)) {
+        // 记录警告但不阻止删除（只删除有效的记录）
+        error_log("警告：尝试删除不属于当前公司的记录 ID: " . implode(', ', $invalidIds));
     }
     
     // 开始事务
