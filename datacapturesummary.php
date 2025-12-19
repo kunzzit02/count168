@@ -1077,11 +1077,28 @@ function getCurrentProcessId() {
             const cellValues = [];
             
             // Get row_index from Summary Table row if available
+            // IMPORTANT: Use the actual DOM position in Summary Table, not the saved data-row-index attribute
+            // because data-row-index might be an old saved value that doesn't match current Data Capture Table order
             let summaryRowIndex = null;
             if (summaryRow) {
-                const rowIndexAttr = summaryRow.getAttribute('data-row-index');
-                if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
-                    summaryRowIndex = Number(rowIndexAttr);
+                // First, try to get the actual DOM position in Summary Table
+                const summaryTableBody = document.getElementById('summaryTableBody');
+                if (summaryTableBody) {
+                    const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const actualIndex = allSummaryRows.indexOf(summaryRow);
+                    if (actualIndex !== -1) {
+                        summaryRowIndex = actualIndex;
+                        console.log('Using actual Summary Table DOM position as row_index:', summaryRowIndex, 'for row with saved data-row-index:', summaryRow.getAttribute('data-row-index'));
+                    }
+                }
+                
+                // Fallback: if DOM position not found, use data-row-index attribute
+                if (summaryRowIndex === null) {
+                    const rowIndexAttr = summaryRow.getAttribute('data-row-index');
+                    if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
+                        summaryRowIndex = Number(rowIndexAttr);
+                        console.log('Using data-row-index attribute as fallback:', summaryRowIndex);
+                    }
                 }
             }
             
