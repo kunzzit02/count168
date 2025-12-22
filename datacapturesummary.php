@@ -3093,6 +3093,137 @@ function getCurrentProcessId() {
             }
         }
         
+        // Process $符号: 将 $数字 转换为列引用 (例如 $5 -> A5)
+        // 例如 "$5+$10*0.6/7" 会被转换为 "A5+A10*0.6/7"
+        function processDollarColumnReferences(formulaValue, processValue) {
+            if (!formulaValue || !processValue) {
+                return formulaValue;
+            }
+            
+            // 匹配 $ 后跟数字的模式 (例如 $5, $10, $123)
+            // 使用正则表达式: \$(\d+)
+            const dollarPattern = /\$(\d+)/g;
+            let result = formulaValue;
+            let match;
+            const replacements = [];
+            
+            // 获取行标签 (A, B, C 等)
+            const rowLabel = getRowLabelFromProcessValue(processValue);
+            if (!rowLabel) {
+                return formulaValue; // 如果无法获取行标签，返回原值
+            }
+            
+            // 获取当前选中的行
+            let targetRow = currentSelectedRowForCalculator;
+            if (!targetRow) {
+                const processInput = document.getElementById('process');
+                if (processInput && processInput.value) {
+                    const processValueFromInput = processInput.value.trim();
+                    if (processValueFromInput) {
+                        const summaryTableBody = document.getElementById('summaryTableBody');
+                        if (summaryTableBody) {
+                            const rows = summaryTableBody.querySelectorAll('tr');
+                            for (let row of rows) {
+                                const rowProcessValue = getProcessValueFromRow(row);
+                                if (rowProcessValue === processValueFromInput) {
+                                    targetRow = row;
+                                    currentSelectedRowForCalculator = row;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 查找所有 $数字 模式，并记录它们的索引位置
+            while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                const fullMatch = match[0]; // 例如 "$5"
+                const columnNumber = parseInt(match[1]); // 例如 5
+                const matchIndex = match.index; // 匹配位置
+                
+                if (!isNaN(columnNumber) && columnNumber > 0) {
+                    // 构建列引用 (例如 "A5")
+                    const columnReference = rowLabel + columnNumber;
+                    
+                    // 记录替换信息（包括索引位置）
+                    replacements.push({
+                        from: fullMatch,
+                        to: columnReference,
+                        columnNumber: columnNumber,
+                        index: matchIndex
+                    });
+                }
+            }
+            
+            // 执行替换 (从后往前替换，避免位置偏移问题)
+            if (replacements.length > 0) {
+                // 按索引从大到小排序，从后往前替换
+                replacements.sort((a, b) => b.index - a.index);
+                
+                // 从后往前替换，避免位置偏移
+                for (let i = 0; i < replacements.length; i++) {
+                    const replacement = replacements[i];
+                    // 使用记录的索引位置进行精确替换
+                    result = result.substring(0, replacement.index) + 
+                            replacement.to + 
+                            result.substring(replacement.index + replacement.from.length);
+                }
+                
+                // 更新 data-clicked-columns 和 data-value-column-map
+                const formulaInput = document.getElementById('formula');
+                if (formulaInput) {
+                    const clickedColumns = [];
+                    const valueColumnMap = [];
+                    
+                    replacements.forEach(replacement => {
+                        clickedColumns.push(replacement.columnNumber);
+                        // 获取列的实际值
+                        const columnValue = getColumnValueFromSelectedRow(replacement.columnNumber);
+                        if (columnValue !== null) {
+                            valueColumnMap.push(`${replacement.to}:${replacement.columnNumber}`);
+                        }
+                    });
+                    
+                    // 更新 data-clicked-columns
+                    if (clickedColumns.length > 0) {
+                        const existingColumns = formulaInput.getAttribute('data-clicked-columns') || '';
+                        const existingColumnsArray = existingColumns ? existingColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
+                        clickedColumns.forEach(col => {
+                            if (!existingColumnsArray.includes(col)) {
+                                existingColumnsArray.push(col);
+                            }
+                        });
+                        formulaInput.setAttribute('data-clicked-columns', existingColumnsArray.join(','));
+                    }
+                    
+                    // 更新 data-value-column-map
+                    if (valueColumnMap.length > 0) {
+                        const existingMap = formulaInput.getAttribute('data-value-column-map') || '';
+                        const existingMapArray = existingMap ? existingMap.split(',') : [];
+                        valueColumnMap.forEach(entry => {
+                            if (!existingMapArray.includes(entry)) {
+                                existingMapArray.push(entry);
+                            }
+                        });
+                        formulaInput.setAttribute('data-value-column-map', existingMapArray.join(','));
+                    }
+                    
+                    // 更新 data-clicked-cells
+                    replacements.forEach(replacement => {
+                        let clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
+                        const cellsArray = clickedCells ? clickedCells.split(' ').filter(c => c.trim() !== '') : [];
+                        if (!cellsArray.includes(replacement.to)) {
+                            cellsArray.push(replacement.to);
+                            formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
+                        }
+                    });
+                }
+            }
+            
+            return result;
+        }
+        
         // Process manual keyboard input for formula: replace numbers with column references based on preceding operator
         // Numbers after + or - (or at start) should be replaced with column references (e.g., "4" -> "A4")
         // Numbers after * or / should remain as literal numbers
@@ -3366,6 +3497,22 @@ function getCurrentProcessId() {
                     if (fromCellClick) {
                         previousValue = formulaValue;
                         return;
+                    }
+                    
+                    // 首先处理 $符号: 将 $数字 转换为列引用 (例如 $5 -> A5)
+                    if (processValue && formulaValue.includes('$')) {
+                        const dollarProcessedValue = processDollarColumnReferences(formulaValue, processValue);
+                        if (dollarProcessedValue !== formulaValue) {
+                            const oldCursorPos = this.selectionStart || this.value.length;
+                            this.value = dollarProcessedValue;
+                            // 调整光标位置
+                            const lengthDiff = dollarProcessedValue.length - formulaValue.length;
+                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, dollarProcessedValue.length));
+                            this.setSelectionRange(newCursorPos, newCursorPos);
+                            previousValue = dollarProcessedValue;
+                            // 继续使用处理后的值
+                            formulaValue = dollarProcessedValue;
+                        }
                     }
                     
                     // Process manual keyboard input: replace numbers with column values based on preceding operator
