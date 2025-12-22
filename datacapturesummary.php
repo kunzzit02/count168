@@ -1602,12 +1602,26 @@ function getCurrentProcessId() {
             if (!formulaInput || !value) return;
 
             // 数字 0-9：按列号去当前行找对应 column 的值
+            // 但是：如果前面有 $ 符号，保持原样，不自动转换
             if (/^\d$/.test(value)) {
                 const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
                 const textBefore = formulaInput.value.substring(0, cursorPos);
 
-                // 判断当前位置是否应该用「列值」而不是字面数字
+                // 检查前面是否有 $ 符号（$数字 格式，保持原样）
                 const trimmedBefore = textBefore.trim();
+                const lastChar = trimmedBefore.length > 0 ? trimmedBefore[trimmedBefore.length - 1] : '';
+                
+                // 如果前面是 $ 符号，直接插入数字，不转换
+                if (lastChar === '$') {
+                    const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
+                    formulaInput.value = textBefore + value + textAfter;
+                    const newCursorPos = cursorPos + value.length;
+                    formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+                    formulaInput.focus();
+                    return;
+                }
+
+                // 判断当前位置是否应该用「列值」而不是字面数字
                 let shouldUseColumnValue = false;
 
                 if (trimmedBefore.length === 0) {
