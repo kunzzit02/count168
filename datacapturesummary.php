@@ -1459,6 +1459,23 @@ function getCurrentProcessId() {
                                     </div>
                                 </div>
                                 
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="descriptionSelect1">Description</label>
+                                        <div class="description-select-with-buttons">
+                                            <select id="descriptionSelect1">
+                                                <option value="">Select Description</option>
+                                                <!-- Description options will be loaded here via JavaScript -->
+                                            </select>
+                                            <select id="descriptionSelect2">
+                                                <option value="">Select Description</option>
+                                                <!-- Description options will be loaded here via JavaScript -->
+                                            </select>
+                                            <button type="button" class="description-add-btn" onclick="showAddDescriptionModal()" title="Add New Description">Add</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 <div class="form-row formula-row-full-width">
                                     <div class="form-group">
                                         <label for="formula">Formula</label>
@@ -2197,6 +2214,16 @@ function getCurrentProcessId() {
         // Show add account modal (wrapper for compatibility)
         function showAddAccountModal() {
             addAccount();
+        }
+
+        function showAddDescriptionModal() {
+            // TODO: Implement add description modal functionality
+            alert('Add Description功能待实现');
+        }
+
+        function showAddDescriptionModal() {
+            // TODO: Implement add description modal functionality
+            alert('Add Description功能待实现');
         }
 
         // Close add account modal (wrapper for compatibility)
@@ -14148,6 +14175,7 @@ function formatPercentValue(value) {
             border-radius: 16px;
             width: clamp(700px, 62.5vw, 1100px);
             max-width: 90%;
+            min-height: clamp(500px, 35vw, 650px);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             animation: slideDown 0.3s ease-out;
             overflow: hidden;
@@ -14532,6 +14560,7 @@ function formatPercentValue(value) {
             padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
             overflow-x: auto;
             overflow-y: visible;
+            min-height: clamp(450px, 32vw, 580px);
         }
 
         .edit-formula-form-container .form-layout {
@@ -14564,6 +14593,15 @@ function formatPercentValue(value) {
         }
         
         .edit-formula-form-container .form-left-column .account-select-with-buttons select {
+            width: 100%;
+            min-width: 0;
+        }
+        
+        .edit-formula-form-container .form-left-column .description-select-with-buttons {
+            width: 100%;
+        }
+        
+        .edit-formula-form-container .form-left-column .description-select-with-buttons select {
             width: 100%;
             min-width: 0;
         }
@@ -15156,7 +15194,43 @@ function formatPercentValue(value) {
             transform: scale(0.95);
         }
 
-        
+        /* Description Select with Buttons Styles */
+        .description-select-with-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .description-select-with-buttons select {
+            flex: 1;
+        }
+
+        .description-add-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: clamp(14px, 0.94vw, 18px);
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .description-add-btn:hover {
+            background: #0056b3;
+            transform: scale(1.05);
+        }
+
+        .description-add-btn:active {
+            transform: scale(0.95);
+        }
 
         /* Print Styles */
         @media print {
