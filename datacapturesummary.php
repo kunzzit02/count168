@@ -10069,6 +10069,44 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 console.log('No source data available (main)');
             }
 
+            // IMPORTANT: Convert $ symbols in resolvedSourceExpression to actual values before using it
+            if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
+                console.warn('Warning: resolvedSourceExpression contains $ symbols, converting to actual values:', resolvedSourceExpression);
+                const processValue = idProduct;
+                const rowLabel = getRowLabelFromProcessValue(processValue);
+                if (rowLabel) {
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                    let match;
+                    dollarPattern.lastIndex = 0;
+                    const matches = [];
+                    while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
+                        matches.push({
+                            fullMatch: match[0],
+                            columnNumber: parseInt(match[1]),
+                            index: match.index
+                        });
+                    }
+                    // Replace from right to left to avoid index shifting
+                    matches.sort((a, b) => b.index - a.index);
+                    let convertedExpression = resolvedSourceExpression;
+                    for (const m of matches) {
+                        const columnReference = rowLabel + m.columnNumber;
+                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                        if (columnValue !== null) {
+                            convertedExpression = convertedExpression.substring(0, m.index) + 
+                                               columnValue + 
+                                               convertedExpression.substring(m.index + m.fullMatch.length);
+                        } else {
+                            convertedExpression = convertedExpression.substring(0, m.index) + 
+                                               '0' + 
+                                               convertedExpression.substring(m.index + m.fullMatch.length);
+                        }
+                    }
+                    resolvedSourceExpression = convertedExpression;
+                    console.log('Converted resolvedSourceExpression from $ symbols to actual values:', resolvedSourceExpression);
+                }
+            }
+
             // If the template has no source column mapping (纯手动公式，和表格数据无关)，直接使用已保存的公式
             // 避免刷新后因缺少表格数据而清空展示
             if ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
@@ -10850,6 +10888,44 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         } else {
             resolvedSourceExpression = '';
             console.log('No source data available (main)');
+        }
+
+        // IMPORTANT: Convert $ symbols in resolvedSourceExpression to actual values before using it
+        if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
+            console.warn('Warning: resolvedSourceExpression contains $ symbols (applyMainTemplateToRow), converting to actual values:', resolvedSourceExpression);
+            const processValue = idProduct;
+            const rowLabel = getRowLabelFromProcessValue(processValue);
+            if (rowLabel) {
+                const dollarPattern = /\$(\d+)(?!\d)/g;
+                let match;
+                dollarPattern.lastIndex = 0;
+                const matches = [];
+                while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
+                    matches.push({
+                        fullMatch: match[0],
+                        columnNumber: parseInt(match[1]),
+                        index: match.index
+                    });
+                }
+                // Replace from right to left to avoid index shifting
+                matches.sort((a, b) => b.index - a.index);
+                let convertedExpression = resolvedSourceExpression;
+                for (const m of matches) {
+                    const columnReference = rowLabel + m.columnNumber;
+                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                    if (columnValue !== null) {
+                        convertedExpression = convertedExpression.substring(0, m.index) + 
+                                           columnValue + 
+                                           convertedExpression.substring(m.index + m.fullMatch.length);
+                    } else {
+                        convertedExpression = convertedExpression.substring(0, m.index) + 
+                                           '0' + 
+                                           convertedExpression.substring(m.index + m.fullMatch.length);
+                    }
+                }
+                resolvedSourceExpression = convertedExpression;
+                console.log('Converted resolvedSourceExpression from $ symbols to actual values (applyMainTemplateToRow):', resolvedSourceExpression);
+            }
         }
 
             // 如果模板没有绑定任何表格列（纯手动公式），直接用保存的公式，不尝试从表格重建
