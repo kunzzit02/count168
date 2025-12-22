@@ -14217,8 +14217,6 @@ function formatPercentValue(value) {
         #summaryTotalAmount {
             text-align: center;
             background-color: #f6f8fa;
-            /* 只给總計列的 Processed Amount 加右邊框，不影響標題列 */
-            border-right: 1px solid #d0d7de;
         }
 
         /* Id Product and Account columns alignment */
