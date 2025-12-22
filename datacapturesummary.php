@@ -8301,26 +8301,11 @@ function getCurrentProcessId() {
                 formulaValue = '';
                 console.log('editRowFormula - Formula is empty, setting formulaValue to empty string');
             } else {
-                // 优先使用 data-formula-display（转换后的值，如 9+7*0.7/5）
-                // 这是从 table 数据读取的公式，应该显示当前 table 数据对应的值
-                const storedFormulaDisplay = row.getAttribute('data-formula-display') || '';
-                if (storedFormulaDisplay && storedFormulaDisplay.trim() !== '' && storedFormulaDisplay !== 'Formula') {
-                    // 移除尾部的 Source Percent 部分（如 *(1)）
-                    let formulaDisplayValue = storedFormulaDisplay.trim();
-                    const lastStarIndex = formulaDisplayValue.lastIndexOf('*');
-                    if (lastStarIndex >= 0) {
-                        const beforeStar = formulaDisplayValue.substring(0, lastStarIndex);
-                        const afterStar = formulaDisplayValue.substring(lastStarIndex);
-                        const openParensBefore = (beforeStar.match(/\(/g) || []).length;
-                        const closeParensBefore = (beforeStar.match(/\)/g) || []).length;
-                        const isStarInsideParens = openParensBefore > closeParensBefore;
-                        const sourcePercentPattern = /^\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                        if (!isStarInsideParens && sourcePercentPattern.test(afterStar)) {
-                            formulaDisplayValue = formulaDisplayValue.substring(0, lastStarIndex).trim();
-                        }
-                    }
-                    formulaValue = formulaDisplayValue;
-                    console.log('editRowFormula - Using data-formula-display (converted value from table data):', formulaValue);
+                // 优先使用 data-formula-operators（原始输入，如 $10+$8*0.7/5）
+                // 这是用户实际输入的公式，应该保持不变
+                if (storedFormulaOperators && storedFormulaOperators.trim() !== '' && storedFormulaOperators !== 'Formula') {
+                    formulaValue = storedFormulaOperators.trim();
+                    console.log('editRowFormula - Using data-formula-operators (raw user input):', formulaValue);
                 } else if (isReferenceFormat) {
                     // Use reference format directly from data attribute
                     formulaValue = storedFormulaOperators;
