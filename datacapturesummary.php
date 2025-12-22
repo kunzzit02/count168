@@ -10653,6 +10653,57 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const savedFormulaDisplay = mainTemplate.formula_display || '';
         const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
         
+        // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
+        // 说明这是用户手动输入的公式，应该直接使用 formula_display（转换后的值，如 9+7*0.7/5*(1)）
+        // 不要尝试从表格重建，因为 $数字 已经转换为实际值保存在 formula_display 中了
+        const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
+        if (hasDollarSigns && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+            // 直接使用保存的 formula_display（已经转换好的值，不包含 $）
+            formulaDisplay = savedFormulaDisplay;
+            console.log('applyMainTemplateToRow: formula_operators contains $, using saved formula_display directly:', formulaDisplay);
+            
+            // 更新表格显示
+            const formulaCell = targetRow.querySelector('td:nth-child(5)');
+            if (formulaCell) {
+                const inputMethod = targetRow.getAttribute('data-input-method') || '';
+                const inputMethodTooltip = inputMethod || '';
+                formulaCell.innerHTML = `
+                    <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
+                        <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaDisplay}</span>
+                        <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                    </div>
+                `;
+                attachInlineEditListeners(targetRow);
+            }
+            
+            // 计算 processed amount
+            // 使用 formula_display（已经转换好的值，不包含 $）进行计算
+            const processedAmount = calculateFormulaResultFromExpression(
+                savedFormulaDisplay, // 使用转换后的值（不包含 $）进行计算
+                percentValue,
+                mainTemplate.input_method || '',
+                mainTemplate.enable_input_method || false,
+                enableSourcePercent
+            );
+            
+            const processedCell = targetRow.querySelector('td:nth-child(8)');
+            if (processedCell) {
+                const val = Number(processedAmount);
+                targetRow.setAttribute('data-base-processed-amount', val.toString());
+                const finalAmount = applyRateToProcessedAmount(targetRow, val);
+                processedCell.textContent = formatNumberWithThousands(finalAmount);
+                processedCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+            }
+            
+            // 保存必要的属性
+            targetRow.setAttribute('data-formula-operators', formulaOperatorsValue);
+            targetRow.setAttribute('data-source-columns', sourceColumnsValue);
+            targetRow.setAttribute('data-source-percent', percentValue);
+            targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
+            updateProcessedAmountTotal();
+            return mainTemplate;
+        }
+        
         if (isBatchSelectedTemplate) {
             if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
                 // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
@@ -11428,6 +11479,74 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         let formulaDisplay = '';
         const savedFormulaDisplay = template.formula_display || '';
         const isBatchSelectedTemplate = template.batch_selection == 1;
+        
+        // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
+        // 说明这是用户手动输入的公式，应该直接使用 formula_display（转换后的值，如 9+7*0.7/5*(1)）
+        // 不要尝试从表格重建，因为 $数字 已经转换为实际值保存在 formula_display 中了
+        const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
+        if (hasDollarSigns && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+            // 直接使用保存的 formula_display（已经转换好的值，不包含 $）
+            formulaDisplay = savedFormulaDisplay;
+            console.log('applySubTemplatesToSummaryRow: formula_operators contains $, using saved formula_display directly:', formulaDisplay);
+            
+            // 使用 updateSubIdProductRow 更新表格
+            const data = {
+                idProduct: idProduct,
+                description: template.description || '',
+                account: template.account_display || 'Account',
+                accountDbId: template.account_id || '',
+                currency: template.currency_display || '',
+                currencyDbId: template.currency_id || '',
+                columns: columnsDisplay,
+                sourceColumns: sourceColumnsValue,
+                batchSelection: template.batch_selection == 1,
+                source: resolvedSourceExpression || 'Source',
+                sourcePercent: percentValue || '1',
+                formula: formulaDisplay,
+                formulaOperators: formulaOperatorsValue,
+                processedAmount: 0, // 将在下面计算
+                inputMethod: template.input_method || '',
+                enableInputMethod: template.enable_input_method == 1,
+                enableSourcePercent: enableSourcePercent,
+                templateKey: template.template_key || null,
+                templateId: template.id || null,
+                formulaVariant: template.formula_variant || null,
+                productType: 'sub',
+                rowIndex: (template.row_index !== undefined && template.row_index !== null)
+                    ? Number(template.row_index)
+                    : null
+            };
+            
+            // 计算 processed amount（使用转换后的值）
+            data.processedAmount = calculateFormulaResultFromExpression(
+                savedFormulaDisplay, // 使用转换后的值（不包含 $）进行计算
+                percentValue,
+                template.input_method || '',
+                template.enable_input_method == 1,
+                enableSourcePercent
+            );
+            
+            updateSubIdProductRow(data, targetRow);
+            
+            // 保存必要的属性
+            targetRow.setAttribute('data-formula-operators', formulaOperatorsValue);
+            targetRow.setAttribute('data-source-columns', sourceColumnsValue);
+            targetRow.setAttribute('data-source-percent', percentValue);
+            targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
+            if (template.id) {
+                targetRow.setAttribute('data-template-id', String(template.id));
+            }
+            if (template.formula_variant !== undefined && template.formula_variant !== null) {
+                targetRow.setAttribute('data-formula-variant', String(template.formula_variant));
+            }
+            if (template.row_index !== undefined && template.row_index !== null) {
+                targetRow.setAttribute('data-row-index', String(template.row_index));
+            }
+            
+            updateProcessedAmountTotal();
+            lastRowInGroup = targetRow;
+            return; // 跳过后续处理
+        }
         
             if (isBatchSelectedTemplate) {
                 // 对于 Batch Selection 的子模板，优先使用保存的 formula_display
