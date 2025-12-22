@@ -3134,46 +3134,50 @@ function getCurrentProcessId() {
                 // 使用非贪婪匹配，但需要确保匹配完整的数字
                 // 先找到所有匹配项及其位置
                 const dollarMatches = [];
-                const dollarPattern = /\$(\d+)/g;
+                
+                // 使用更精确的正则表达式：匹配 $ 后跟一个或多个数字，但确保后面不是数字
+                // 这样可以避免 $10 被匹配为 $1 和 $10
+                // 使用负向前瞻：\$(\d+)(?!\d) 确保 $ 后的数字后面不是数字
+                const dollarPattern = /\$(\d+)(?!\d)/g;
                 let match;
                 
                 // 重置正则表达式的 lastIndex，确保从头开始匹配
                 dollarPattern.lastIndex = 0;
                 
+                // 先收集所有匹配项，按位置排序
+                const allMatches = [];
                 while ((match = dollarPattern.exec(formulaValue)) !== null) {
                     const fullMatch = match[0]; // 例如 "$5" 或 "$10"
                     const columnNumber = parseInt(match[1]); // 例如 5 或 10
                     const matchIndex = match.index;
                     
                     if (!isNaN(columnNumber) && columnNumber > 0) {
-                        // 获取列的实际值
-                        const columnReference = rowLabel + columnNumber;
-                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                        
-                        if (columnValue !== null) {
-                            dollarMatches.push({
-                                fullMatch: fullMatch,
-                                value: columnValue,
-                                index: matchIndex
-                            });
-                        } else {
-                            // 如果找不到值，保持原样或显示 0
-                            dollarMatches.push({
-                                fullMatch: fullMatch,
-                                value: '0',
-                                index: matchIndex
-                            });
-                        }
+                        allMatches.push({
+                            fullMatch: fullMatch,
+                            columnNumber: columnNumber,
+                            index: matchIndex
+                        });
                     }
                 }
                 
-                // 从后往前替换，避免位置偏移
-                if (dollarMatches.length > 0) {
-                    dollarMatches.sort((a, b) => b.index - a.index);
-                    for (let i = 0; i < dollarMatches.length; i++) {
-                        const match = dollarMatches[i];
+                // 从后往前处理，避免位置偏移
+                allMatches.sort((a, b) => b.index - a.index);
+                
+                for (let i = 0; i < allMatches.length; i++) {
+                    const match = allMatches[i];
+                    // 获取列的实际值
+                    const columnReference = rowLabel + match.columnNumber;
+                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                    
+                    if (columnValue !== null) {
+                        // 替换 $数字 为实际值
                         displayFormula = displayFormula.substring(0, match.index) + 
-                                        match.value + 
+                                        columnValue + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
+                    } else {
+                        // 如果找不到值，替换为 0
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        '0' + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
                     }
                 }
@@ -3608,7 +3612,7 @@ function getCurrentProcessId() {
                     
                     // Handle empty formula: clear all related attributes
                     // BUT: In edit mode, preserve existing columns even if formula is cleared
-                    if (!finalFormulaValue || finalFormulaValue.trim() === '') {
+                    if (!formulaValue || formulaValue.trim() === '') {
                         // 清空显示框
                         updateFormulaDisplay('', processValue);
                         
@@ -4066,6 +4070,11 @@ function getCurrentProcessId() {
                 // 添加额外的键盘事件监听器，确保全选删除时也能正确更新
                 // 处理 Backspace 和 Delete 键
                 formulaInput.addEventListener('keyup', function(e) {
+                    // 每次按键后都更新显示框，确保实时更新
+                    const formulaValue = this.value;
+                    const processValue = document.getElementById('process')?.value;
+                    updateFormulaDisplay(formulaValue, processValue);
+                    
                     // 当按下 Backspace 或 Delete 键后，确保值被正确更新
                     if (e.key === 'Backspace' || e.key === 'Delete') {
                         // 触发 input 事件以确保值被正确处理
