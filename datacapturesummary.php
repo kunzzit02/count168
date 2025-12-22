@@ -10078,6 +10078,13 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 }
             }
 
+            // IMPORTANT: Convert $ symbols in currentSourceData to actual values before using it
+            if (currentSourceData && /\$(\d+)(?!\d)/.test(currentSourceData)) {
+                console.warn('Warning: currentSourceData contains $ symbols, converting to actual values:', currentSourceData);
+                currentSourceData = convertDollarSignsToValues(currentSourceData, idProduct);
+                console.log('Converted currentSourceData from $ symbols to actual values:', currentSourceData);
+            }
+
             // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
             // 但是，如果 currentSourceData 是引用格式，直接使用它，不要解析
             // Support both column number format ([id_product : 7]) and cell position format ([id_product : A7])
@@ -10758,6 +10765,13 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         } else {
             // Build reference format from columns
             currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+        }
+
+        // IMPORTANT: Convert $ symbols in currentSourceData to actual values before using it
+        if (currentSourceData && /\$(\d+)(?!\d)/.test(currentSourceData)) {
+            console.warn('Warning: currentSourceData contains $ symbols (sub row), converting to actual values:', currentSourceData);
+            currentSourceData = convertDollarSignsToValues(currentSourceData, idProduct);
+            console.log('Converted currentSourceData from $ symbols to actual values (sub row):', currentSourceData);
         }
 
         // If source_columns is empty but formula_operators exists (user manually entered formula),
