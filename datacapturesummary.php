@@ -3110,6 +3110,54 @@ function getCurrentProcessId() {
             }
         }
         
+        // 辅助函数：将 formula 中的 $数字 转换为实际值
+        // 例如 "$5+$10*0.6/7" 会被转换为 "2039+434*0.6/7"
+        function convertDollarSignsToValues(formulaValue, processValue) {
+            if (!formulaValue || !processValue) {
+                return formulaValue;
+            }
+            
+            if (!/\$(\d+)(?!\d)/.test(formulaValue)) {
+                return formulaValue; // No dollar signs, return as-is
+            }
+            
+            const rowLabel = getRowLabelFromProcessValue(processValue);
+            if (!rowLabel) {
+                return formulaValue;
+            }
+            
+            const dollarPattern = /\$(\d+)(?!\d)/g;
+            let match;
+            dollarPattern.lastIndex = 0;
+            const matches = [];
+            while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                matches.push({
+                    fullMatch: match[0],
+                    columnNumber: parseInt(match[1]),
+                    index: match.index
+                });
+            }
+            
+            // Replace from right to left to avoid index shifting
+            matches.sort((a, b) => b.index - a.index);
+            let convertedFormula = formulaValue;
+            for (const m of matches) {
+                const columnReference = rowLabel + m.columnNumber;
+                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                if (columnValue !== null) {
+                    convertedFormula = convertedFormula.substring(0, m.index) + 
+                                     columnValue + 
+                                     convertedFormula.substring(m.index + m.fullMatch.length);
+                } else {
+                    convertedFormula = convertedFormula.substring(0, m.index) + 
+                                     '0' + 
+                                     convertedFormula.substring(m.index + m.fullMatch.length);
+                }
+            }
+            
+            return convertedFormula;
+        }
+        
         // 更新公式显示框：将 formula 中的 $数字 或列引用转换为实际值
         // 例如 "$5+$10*0.6/7" 会被转换为 "2039+434*0.6/7"
         function updateFormulaDisplay(formulaValue, processValue) {
@@ -10179,12 +10227,14 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         if (preservedFormula === null) {
                             console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
                             // Recalculate formula from current Data Capture Table
-                            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                            } else if (percentValue && resolvedSourceExpression) {
-                                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                            // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                            let convertedResolvedExpression = convertDollarSignsToValues(resolvedSourceExpression, idProduct);
+                            if (percentValue && convertedResolvedExpression && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
+                            } else if (percentValue && convertedResolvedExpression) {
+                                formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
                             } else {
-                                formulaDisplay = resolvedSourceExpression || 'Formula';
+                                formulaDisplay = convertedResolvedExpression || 'Formula';
                             }
                             console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
                         } else if (preservedFormula === savedFormulaDisplay) {
@@ -10207,12 +10257,14 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     }
                 } else {
                     // No saved formula_display, recalculate from current Data Capture Table
-                    if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                        formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                    } else if (percentValue && resolvedSourceExpression) {
-                        formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                    // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                    let convertedResolvedExpression = convertDollarSignsToValues(resolvedSourceExpression, idProduct);
+                    if (percentValue && convertedResolvedExpression && enableSourcePercent) {
+                        formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
+                    } else if (percentValue && convertedResolvedExpression) {
+                        formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
                     } else {
-                        formulaDisplay = resolvedSourceExpression || 'Formula';
+                        formulaDisplay = convertedResolvedExpression || 'Formula';
                     }
                     console.log('Batch template: recalculated formula from current Data Capture Table (no saved formula):', formulaDisplay);
                 }
@@ -10235,10 +10287,12 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         console.log('Using saved formula_display with reference format:', formulaDisplay);
                     } else if (isResolvedReferenceFormat) {
                         // Current data is reference format, use it directly
+                        // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                        let convertedResolvedExpression = convertDollarSignsToValues(resolvedSourceExpression, idProduct);
                         if (percentValue && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                            formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
                         } else {
-                            formulaDisplay = resolvedSourceExpression;
+                            formulaDisplay = convertedResolvedExpression;
                         }
                         console.log('Using reference format from resolvedSourceExpression:', formulaDisplay);
                     } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
@@ -10276,12 +10330,14 @@ function applyTemplateToSummaryRow(idProduct, template) {
                             if (preservedFormula === null) {
                                 console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
                                 // Recalculate formula from current Data Capture Table
-                                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                                } else if (percentValue && resolvedSourceExpression) {
-                                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                                // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                                let convertedResolvedExpression = convertDollarSignsToValues(resolvedSourceExpression, idProduct);
+                                if (percentValue && convertedResolvedExpression && enableSourcePercent) {
+                                    formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
+                                } else if (percentValue && convertedResolvedExpression) {
+                                    formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
                                 } else {
-                                    formulaDisplay = resolvedSourceExpression || 'Formula';
+                                    formulaDisplay = convertedResolvedExpression || 'Formula';
                                 }
                                 console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
                             } else if (preservedFormula === savedFormulaDisplay) {
@@ -10906,12 +10962,14 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
                     if (preservedFormula === null) {
                         console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                        if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                        } else if (percentValue && resolvedSourceExpression) {
-                            formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                        // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                        let convertedResolvedExpression = convertDollarSignsToValues(resolvedSourceExpression, idProduct);
+                        if (percentValue && convertedResolvedExpression && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
+                        } else if (percentValue && convertedResolvedExpression) {
+                            formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
                         } else {
-                            formulaDisplay = resolvedSourceExpression || 'Formula';
+                            formulaDisplay = convertedResolvedExpression || 'Formula';
                         }
                         console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
                     } else {
@@ -10930,20 +10988,24 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     }
                 } else {
                     // No current source data, use base expression with current Source %
+                    // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                    let convertedBaseExpression = convertDollarSignsToValues(baseExpression, idProduct);
                     if (percentValue && enableSourcePercent) {
-                        formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
+                        formulaDisplay = createFormulaDisplayFromExpression(convertedBaseExpression, percentValue, enableSourcePercent);
                     } else {
-                        formulaDisplay = baseExpression;
+                        formulaDisplay = convertedBaseExpression;
                     }
                     console.log('Batch template: using base expression with current Source % (no current source data):', formulaDisplay);
                 }
             } else {
-                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                } else if (percentValue && resolvedSourceExpression) {
-                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                let convertedResolvedExpression = convertDollarSignsToValues(resolvedSourceExpression, idProduct);
+                if (percentValue && convertedResolvedExpression && enableSourcePercent) {
+                    formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
+                } else if (percentValue && convertedResolvedExpression) {
+                    formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
                 } else {
-                    formulaDisplay = resolvedSourceExpression || 'Formula';
+                    formulaDisplay = convertedResolvedExpression || 'Formula';
                 }
                 console.log('Batch template: recalculated formula from current Data Capture Table (no saved formula):', formulaDisplay);
             }
@@ -11062,12 +11124,14 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 }
             }
         } else {
-            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-            } else if (percentValue && resolvedSourceExpression) {
-                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+            // IMPORTANT: Convert $ symbols to actual values before creating formula display
+            let convertedResolvedExpression = convertDollarSignsToValues(resolvedSourceExpression, idProduct);
+            if (percentValue && convertedResolvedExpression && enableSourcePercent) {
+                formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
+            } else if (percentValue && convertedResolvedExpression) {
+                formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
             } else {
-                formulaDisplay = resolvedSourceExpression || 'Formula';
+                formulaDisplay = convertedResolvedExpression || 'Formula';
             }
             console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
         }
@@ -11689,10 +11753,12 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     if (hasReferenceFormat) {
                         // If reference format is detected, use it directly
                     if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
+                            // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                            let convertedResolvedExpression = convertDollarSignsToValues(resolvedSourceExpression, idProduct);
                             if (percentValue && enableSourcePercent) {
-                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                                formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
                             } else {
-                                formulaDisplay = resolvedSourceExpression;
+                                formulaDisplay = convertedResolvedExpression;
                             }
                             console.log('Batch sub-template: using reference format directly:', formulaDisplay);
                         } else if (baseExpression) {
