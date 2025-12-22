@@ -10115,7 +10115,49 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // If formula_display exists, preserve its structure but update numbers from current source data
             // Otherwise, recalculate formula from current Data Capture Table
             let formulaDisplay = '';
-            const savedFormulaDisplay = mainTemplate.formula_display || '';
+            let savedFormulaDisplay = mainTemplate.formula_display || '';
+            
+            // IMPORTANT: If saved formula_display contains $ symbols (should not happen, but handle it),
+            // convert them to actual values before using
+            if (savedFormulaDisplay && /\$(\d+)(?!\d)/.test(savedFormulaDisplay)) {
+                console.warn('Warning: saved formula_display contains $ symbols, converting to actual values:', savedFormulaDisplay);
+                // Get process value and row label
+                const processValue = idProduct;
+                const rowLabel = getRowLabelFromProcessValue(processValue);
+                if (rowLabel) {
+                    // Convert $数字 to actual values
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                    let convertedFormula = savedFormulaDisplay;
+                    let match;
+                    dollarPattern.lastIndex = 0;
+                    const matches = [];
+                    while ((match = dollarPattern.exec(savedFormulaDisplay)) !== null) {
+                        matches.push({
+                            fullMatch: match[0],
+                            columnNumber: parseInt(match[1]),
+                            index: match.index
+                        });
+                    }
+                    // Replace from right to left to avoid index shifting
+                    matches.sort((a, b) => b.index - a.index);
+                    for (const m of matches) {
+                        const columnReference = rowLabel + m.columnNumber;
+                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                        if (columnValue !== null) {
+                            convertedFormula = convertedFormula.substring(0, m.index) + 
+                                             columnValue + 
+                                             convertedFormula.substring(m.index + m.fullMatch.length);
+                        } else {
+                            convertedFormula = convertedFormula.substring(0, m.index) + 
+                                             '0' + 
+                                             convertedFormula.substring(m.index + m.fullMatch.length);
+                        }
+                    }
+                    savedFormulaDisplay = convertedFormula;
+                    console.log('Converted formula_display from $ symbols to actual values:', savedFormulaDisplay);
+                }
+            }
+            
             const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
             
             if (isBatchSelectedTemplate) {
