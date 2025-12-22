@@ -5119,7 +5119,7 @@ function getCurrentProcessId() {
             // 获取列引用格式（用于保存到 sourceColumns）
             // 格式：id_product:row_label:column_index，如 "GGG:A:10 GGG:A:8"
             let sourceColumns = '';
-            const formulaInput = document.getElementById('formula');
+            // formulaInput 已经在上面声明过了，直接使用
             if (formulaInput && formulaValue && formulaValue.trim() !== '') {
                 // 从 formulaValue 中提取所有 $数字，转换为列引用格式
                 const rowLabel = getRowLabelFromProcessValue(processValue);
