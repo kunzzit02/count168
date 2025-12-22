@@ -14614,8 +14614,8 @@ function formatPercentValue(value) {
         /* Make Formula input span across left and middle columns */
         .edit-formula-form-container .form-left-column .form-row.formula-row-full-width {
             position: relative;
-            width: calc(500px + 30px + 300px); /* left column max-width + gap + part of middle column */
-            max-width: calc(500px + 30px + 300px);
+            width: calc(500px + 30px + 150px); /* left column max-width + gap + part of middle column */
+            max-width: calc(500px + 30px + 150px);
             z-index: 1;
         }
         
@@ -14631,8 +14631,8 @@ function formatPercentValue(value) {
         /* Responsive adjustment for Formula width */
         @media (max-width: 1400px) {
             .edit-formula-form-container .form-left-column .form-row.formula-row-full-width {
-                width: calc(450px + 30px + 250px);
-                max-width: calc(450px + 30px + 250px);
+                width: calc(450px + 30px + 120px);
+                max-width: calc(450px + 30px + 120px);
             }
         }
         
