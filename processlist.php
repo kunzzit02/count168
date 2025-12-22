@@ -231,14 +231,14 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="edit_process_name">Process Name *</label>
-                                <input type="text" id="edit_process_name" name="process_name" required>
+                                <input type="text" id="edit_process_name" name="process_name" required readonly style="background-color: #f5f5f5; cursor: not-allowed;">
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="edit_description">Description</label>
-                                <input type="text" id="edit_description" name="description" readonly>
+                                <input type="text" id="edit_description" name="description">
                             </div>
                         </div>
 
