@@ -375,14 +375,35 @@ try {
             $captureTimestamp = strtotime($capture['capture_date']);
         }
         
-        // Product: 使用 id_product（id_product_sub 或 id_product_main）
+        // Product: 使用 id_product（id_product_sub 或 id_product_main），如果有 description 则附加在后面（括号内）
         $product = '';
+        $productDescription = null; // 用于存储 description_main 或 description_sub
+        
         if ($capture['product_type'] === 'sub' && !empty($capture['id_product_sub'])) {
             $product = $capture['id_product_sub'];
+            // 获取对应的 description_sub
+            if (!empty($capture['description_sub'])) {
+                $productDescription = $capture['description_sub'];
+            }
         } elseif (!empty($capture['id_product_main'])) {
             $product = $capture['id_product_main'];
+            // 获取对应的 description_main
+            if (!empty($capture['description_main'])) {
+                $productDescription = $capture['description_main'];
+            }
         } else {
             $product = $capture['id_product_sub'] ?: $capture['id_product_main'] ?: 'Data Capture';
+            // 如果 id_product_sub 存在，尝试获取 description_sub；否则尝试 description_main
+            if (!empty($capture['id_product_sub']) && !empty($capture['description_sub'])) {
+                $productDescription = $capture['description_sub'];
+            } elseif (!empty($capture['description_main'])) {
+                $productDescription = $capture['description_main'];
+            }
+        }
+        
+        // 如果有 description，将其附加到 product 后面（用括号括起来）
+        if (!empty($productDescription)) {
+            $product = $product . ' (' . trim($productDescription) . ')';
         }
         
         // Percent: 不再使用 source_percent，留空
@@ -407,16 +428,8 @@ try {
             $rate = number_format((float)$capture['rate'], 4);
         }
         
-        // Remark: 优先使用 description_main 或 description_sub，如果没有则使用 capture_remark
-        $remark = null;
-        if ($capture['product_type'] === 'sub' && !empty($capture['description_sub'])) {
-            $remark = $capture['description_sub'];
-        } elseif (!empty($capture['description_main'])) {
-            $remark = $capture['description_main'];
-        } else {
-            // 如果 description_main 和 description_sub 都没有，使用 capture_remark 作为后备
-            $remark = $capture['capture_remark'] ?? null;
-        }
+        // Remark: 不再使用 description_main 或 description_sub（因为它们已经显示在 product 列），只使用 capture_remark
+        $remark = $capture['capture_remark'] ?? null;
         
         $events[] = [
             'row_type' => 'data_capture',
