@@ -10178,13 +10178,49 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
                         if (preservedFormula === null) {
                             console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                            // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                            let convertedResolvedExpression = resolvedSourceExpression;
+                            if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
+                                console.warn('Warning: resolvedSourceExpression contains $ symbols (batch), converting to actual values:', resolvedSourceExpression);
+                                const processValue = idProduct;
+                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                if (rowLabel) {
+                                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                                    let match;
+                                    dollarPattern.lastIndex = 0;
+                                    const matches = [];
+                                    while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
+                                        matches.push({
+                                            fullMatch: match[0],
+                                            columnNumber: parseInt(match[1]),
+                                            index: match.index
+                                        });
+                                    }
+                                    // Replace from right to left to avoid index shifting
+                                    matches.sort((a, b) => b.index - a.index);
+                                    for (const m of matches) {
+                                        const columnReference = rowLabel + m.columnNumber;
+                                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                        if (columnValue !== null) {
+                                            convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
+                                                                         columnValue + 
+                                                                         convertedResolvedExpression.substring(m.index + m.fullMatch.length);
+                                        } else {
+                                            convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
+                                                                         '0' + 
+                                                                         convertedResolvedExpression.substring(m.index + m.fullMatch.length);
+                                        }
+                                    }
+                                    console.log('Converted resolvedSourceExpression from $ symbols to actual values (batch):', convertedResolvedExpression);
+                                }
+                            }
                             // Recalculate formula from current Data Capture Table
-                            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                            } else if (percentValue && resolvedSourceExpression) {
-                                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                            if (percentValue && convertedResolvedExpression && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
+                            } else if (percentValue && convertedResolvedExpression) {
+                                formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
                             } else {
-                                formulaDisplay = resolvedSourceExpression || 'Formula';
+                                formulaDisplay = convertedResolvedExpression || 'Formula';
                             }
                             console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
                         } else if (preservedFormula === savedFormulaDisplay) {
@@ -10275,13 +10311,49 @@ function applyTemplateToSummaryRow(idProduct, template) {
                             // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
                             if (preservedFormula === null) {
                                 console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                                // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                                let convertedResolvedExpression = resolvedSourceExpression;
+                                if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
+                                    console.warn('Warning: resolvedSourceExpression contains $ symbols, converting to actual values:', resolvedSourceExpression);
+                                    const processValue = idProduct;
+                                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                                    if (rowLabel) {
+                                        const dollarPattern = /\$(\d+)(?!\d)/g;
+                                        let match;
+                                        dollarPattern.lastIndex = 0;
+                                        const matches = [];
+                                        while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
+                                            matches.push({
+                                                fullMatch: match[0],
+                                                columnNumber: parseInt(match[1]),
+                                                index: match.index
+                                            });
+                                        }
+                                        // Replace from right to left to avoid index shifting
+                                        matches.sort((a, b) => b.index - a.index);
+                                        for (const m of matches) {
+                                            const columnReference = rowLabel + m.columnNumber;
+                                            const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                            if (columnValue !== null) {
+                                                convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
+                                                                             columnValue + 
+                                                                             convertedResolvedExpression.substring(m.index + m.fullMatch.length);
+                                            } else {
+                                                convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
+                                                                             '0' + 
+                                                                             convertedResolvedExpression.substring(m.index + m.fullMatch.length);
+                                            }
+                                        }
+                                        console.log('Converted resolvedSourceExpression from $ symbols to actual values:', convertedResolvedExpression);
+                                    }
+                                }
                                 // Recalculate formula from current Data Capture Table
-                                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                                } else if (percentValue && resolvedSourceExpression) {
-                                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                                if (percentValue && convertedResolvedExpression && enableSourcePercent) {
+                                    formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
+                                } else if (percentValue && convertedResolvedExpression) {
+                                    formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
                                 } else {
-                                    formulaDisplay = resolvedSourceExpression || 'Formula';
+                                    formulaDisplay = convertedResolvedExpression || 'Formula';
                                 }
                                 console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
                             } else if (preservedFormula === savedFormulaDisplay) {
@@ -10906,12 +10978,48 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
                     if (preservedFormula === null) {
                         console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                        if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                        } else if (percentValue && resolvedSourceExpression) {
-                            formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                        // IMPORTANT: Convert $ symbols to actual values before creating formula display
+                        let convertedResolvedExpression = resolvedSourceExpression;
+                        if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
+                            console.warn('Warning: resolvedSourceExpression contains $ symbols (batch sub), converting to actual values:', resolvedSourceExpression);
+                            const processValue = idProduct;
+                            const rowLabel = getRowLabelFromProcessValue(processValue);
+                            if (rowLabel) {
+                                const dollarPattern = /\$(\d+)(?!\d)/g;
+                                let match;
+                                dollarPattern.lastIndex = 0;
+                                const matches = [];
+                                while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
+                                    matches.push({
+                                        fullMatch: match[0],
+                                        columnNumber: parseInt(match[1]),
+                                        index: match.index
+                                    });
+                                }
+                                // Replace from right to left to avoid index shifting
+                                matches.sort((a, b) => b.index - a.index);
+                                for (const m of matches) {
+                                    const columnReference = rowLabel + m.columnNumber;
+                                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                    if (columnValue !== null) {
+                                        convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
+                                                                     columnValue + 
+                                                                     convertedResolvedExpression.substring(m.index + m.fullMatch.length);
+                                    } else {
+                                        convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
+                                                                     '0' + 
+                                                                     convertedResolvedExpression.substring(m.index + m.fullMatch.length);
+                                    }
+                                }
+                                console.log('Converted resolvedSourceExpression from $ symbols to actual values (batch sub):', convertedResolvedExpression);
+                            }
+                        }
+                        if (percentValue && convertedResolvedExpression && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
+                        } else if (percentValue && convertedResolvedExpression) {
+                            formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
                         } else {
-                            formulaDisplay = resolvedSourceExpression || 'Formula';
+                            formulaDisplay = convertedResolvedExpression || 'Formula';
                         }
                         console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
                     } else {
