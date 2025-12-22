@@ -1598,6 +1598,19 @@ function getCurrentProcessId() {
                 }
             });
             
+            // Load id product list into first select box
+            loadIdProductList();
+            
+            // Add event listener for first select box change
+            setTimeout(() => {
+                const descriptionSelect1 = document.getElementById('descriptionSelect1');
+                if (descriptionSelect1) {
+                    descriptionSelect1.addEventListener('change', function() {
+                        updateIdProductRowData(this.value);
+                    });
+                }
+            }, 100);
+            
             // Add input validation for Source Percent
             addSourcePercentValidation();
             
@@ -2219,6 +2232,119 @@ function getCurrentProcessId() {
         function showAddDescriptionModal() {
             // TODO: Implement add description modal functionality
             alert('Add Description功能待实现');
+        }
+
+        // Load all unique id products from table into first select box
+        function loadIdProductList() {
+            const descriptionSelect1 = document.getElementById('descriptionSelect1');
+            if (!descriptionSelect1) return;
+
+            // Clear existing options except the first one
+            descriptionSelect1.innerHTML = '<option value="">Select Id Product</option>';
+
+            // Get table data
+            let parsedTableData;
+            if (window.transformedTableData) {
+                parsedTableData = window.transformedTableData;
+            } else {
+                const tableData = localStorage.getItem('capturedTableData');
+                if (!tableData) {
+                    console.log('No table data found');
+                    return;
+                }
+                parsedTableData = JSON.parse(tableData);
+            }
+
+            // Get unique id products from table
+            const idProductSet = new Set();
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            
+            if (capturedTableBody) {
+                // Get from DOM
+                const rows = capturedTableBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const idProduct = row.getAttribute('data-id-product');
+                    if (idProduct && idProduct.trim() !== '') {
+                        idProductSet.add(idProduct.trim());
+                    }
+                });
+            } else if (parsedTableData && parsedTableData.rows) {
+                // Get from parsed data
+                parsedTableData.rows.forEach(row => {
+                    if (row && row.length > 1 && row[1] && row[1].type === 'data') {
+                        const idProduct = row[1].value;
+                        if (idProduct && idProduct.trim() !== '') {
+                            idProductSet.add(idProduct.trim());
+                        }
+                    }
+                });
+            }
+
+            // Add options to select box
+            const sortedIdProducts = Array.from(idProductSet).sort();
+            sortedIdProducts.forEach(idProduct => {
+                const option = document.createElement('option');
+                option.value = idProduct;
+                option.textContent = idProduct;
+                descriptionSelect1.appendChild(option);
+            });
+        }
+
+        // Update second select box with row data for selected id product
+        function updateIdProductRowData(idProduct) {
+            const descriptionSelect2 = document.getElementById('descriptionSelect2');
+            if (!descriptionSelect2) return;
+
+            // Clear existing options
+            descriptionSelect2.innerHTML = '<option value="">Select Row Data</option>';
+
+            if (!idProduct || idProduct.trim() === '') {
+                return;
+            }
+
+            // Get table data
+            let parsedTableData;
+            if (window.transformedTableData) {
+                parsedTableData = window.transformedTableData;
+            } else {
+                const tableData = localStorage.getItem('capturedTableData');
+                if (!tableData) {
+                    console.log('No table data found');
+                    return;
+                }
+                parsedTableData = JSON.parse(tableData);
+            }
+
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            if (!capturedTableBody) return;
+
+            const rows = capturedTableBody.querySelectorAll('tr');
+            rows.forEach((row, rowIndex) => {
+                const rowIdProduct = row.getAttribute('data-id-product');
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
+                    const rowData = [];
+                    
+                    cells.forEach((cell, cellIndex) => {
+                        const columnIndex = cell.getAttribute('data-column-index');
+                        if (columnIndex && parseInt(columnIndex) > 1) {
+                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            if (cellValue !== '') {
+                                rowData.push(`[${columnIndex}] ${cellValue}`);
+                            }
+                        }
+                    });
+
+                    if (rowData.length > 0) {
+                        const option = document.createElement('option');
+                        option.value = rowIndex; // Store row index as value
+                        option.textContent = rowData.join('：'); // Format: "[1] 30"："[2] 456"
+                        descriptionSelect2.appendChild(option);
+                    }
+                }
+            });
         }
 
         // Close add account modal (wrapper for compatibility)
