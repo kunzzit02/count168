@@ -3163,6 +3163,10 @@ function getCurrentProcessId() {
                 // 从后往前处理，避免位置偏移
                 allMatches.sort((a, b) => b.index - a.index);
                 
+                // 更新 data-clicked-cell-refs（格式：id_product:row_label:column_index，如 GGG:A:10）
+                const formulaInput = document.getElementById('formula');
+                const clickedCellRefs = [];
+                
                 for (let i = 0; i < allMatches.length; i++) {
                     const match = allMatches[i];
                     // 获取列的实际值
@@ -3174,12 +3178,32 @@ function getCurrentProcessId() {
                         displayFormula = displayFormula.substring(0, match.index) + 
                                         columnValue + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
+                        
+                        // 记录列引用格式：id_product:row_label:column_index（如 GGG:A:10）
+                        if (formulaInput && processValue) {
+                            const cellRef = `${processValue}:${rowLabel}:${match.columnNumber}`;
+                            if (!clickedCellRefs.includes(cellRef)) {
+                                clickedCellRefs.push(cellRef);
+                            }
+                        }
                     } else {
                         // 如果找不到值，替换为 0
                         displayFormula = displayFormula.substring(0, match.index) + 
                                         '0' + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
                     }
+                }
+                
+                // 更新 data-clicked-cell-refs
+                if (formulaInput && clickedCellRefs.length > 0) {
+                    const existingRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+                    const existingRefsArray = existingRefs ? existingRefs.split(' ').filter(r => r.trim() !== '') : [];
+                    clickedCellRefs.forEach(ref => {
+                        if (!existingRefsArray.includes(ref)) {
+                            existingRefsArray.push(ref);
+                        }
+                    });
+                    formulaInput.setAttribute('data-clicked-cell-refs', existingRefsArray.join(' '));
                 }
                 
                 // 如果还有列引用（如 A5），也转换为实际值
@@ -5136,8 +5160,30 @@ function getCurrentProcessId() {
                 console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
             }
             
-            // Evaluate the formula expression directly
-            const formulaResult = evaluateFormulaExpression(formulaValue);
+            // 获取转换后的公式值用于计算（移除 Source Percent 部分）
+            let convertedFormulaForCalculation = '';
+            if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
+                convertedFormulaForCalculation = formulaDisplayInput.value.trim();
+            } else if (formulaDisplay && formulaDisplay.trim() !== '') {
+                // 从 formulaDisplay 移除 Source Percent 部分
+                let baseFormula = formulaDisplay.trim();
+                const lastStarIndex = baseFormula.lastIndexOf('*');
+                if (lastStarIndex >= 0) {
+                    const beforeStar = baseFormula.substring(0, lastStarIndex);
+                    const afterStar = baseFormula.substring(lastStarIndex);
+                    const openParensBefore = (beforeStar.match(/\(/g) || []).length;
+                    const closeParensBefore = (beforeStar.match(/\)/g) || []).length;
+                    const isStarInsideParens = openParensBefore > closeParensBefore;
+                    const sourcePercentPattern = /^\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
+                    if (!isStarInsideParens && sourcePercentPattern.test(afterStar)) {
+                        baseFormula = baseFormula.substring(0, lastStarIndex).trim();
+                    }
+                }
+                convertedFormulaForCalculation = baseFormula;
+            }
+            
+            // Evaluate the formula expression using converted value (without $ symbols)
+            const formulaResult = convertedFormulaForCalculation ? evaluateFormulaExpression(convertedFormulaForCalculation) : 0;
             
             // Get Columns display from clicked columns (preferred) or extract from formula
             const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
@@ -5159,20 +5205,19 @@ function getCurrentProcessId() {
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
             }
             
-            // Calculate processed amount
+            // Calculate processed amount using converted formula (without $ symbols)
             // IMPORTANT: Save raw value (no rounding) to database, but display rounded value on page
             // 重要：保存原始值（不四舍五入）到数据库，但页面显示时使用四舍五入的值
             let processedAmount = 0;
             // If formula is empty, keep processedAmount as 0
-            if (!formulaValue || formulaValue.trim() === '' || formulaDisplay === 'formula') {
+            if (!convertedFormulaForCalculation || convertedFormulaForCalculation.trim() === '' || formulaDisplay === 'formula') {
                 processedAmount = 0;
                 console.log('Formula is empty, processedAmount set to 0');
             } else {
-                // 不再根据公式中是否包含 *0.1 之类来决定是否应用 Source Percent，
-                // 一律走统一的计算函数，由 enableSourcePercent 和 sourcePercentValue 控制是否乘以百分比
+                // 使用转换后的公式值（不含 $ 符号）进行计算
                 // This returns raw value without rounding - will be saved to database as-is
                 // 返回原始值（不四舍五入）- 将原样保存到数据库
-                processedAmount = calculateFormulaResultFromExpression(formulaValue, sourcePercentValue, inputMethodValue, enableValue, sourcePercentEnableValue);
+                processedAmount = calculateFormulaResultFromExpression(convertedFormulaForCalculation, sourcePercentValue, inputMethodValue, enableValue, sourcePercentEnableValue);
             }
             
             // Get Batch Selection checkbox state from the table row
@@ -7103,6 +7148,7 @@ function getCurrentProcessId() {
                 const isCellPositionFormat = sourceParts.length > 0 && /^[A-Z]+\d+$/.test(sourceParts[0]);
                 
                 const columnValues = [];
+                let columnNumbers = []; // Initialize outside if/else to avoid undefined error
                 
                 if (isCellPositionFormat) {
                     // Cell position format (e.g., "A7 B5") - read from specific cells
@@ -7114,7 +7160,7 @@ function getCurrentProcessId() {
                     });
                 } else {
                     // Column number format (e.g., "7 5") - backward compatibility
-                    const columnNumbers = sourceColumnValue.split(/\s+/).map(col => parseInt(col.trim())).filter(col => !isNaN(col));
+                    columnNumbers = sourceColumnValue.split(/\s+/).map(col => parseInt(col.trim())).filter(col => !isNaN(col));
                     
                     if (columnNumbers.length === 0) {
                         console.error('No valid column numbers found');
@@ -7142,7 +7188,7 @@ function getCurrentProcessId() {
                     return sourceColumnValue; // Fallback to original value
                 }
                 
-                console.log('Column data extracted:', columnNumbers, 'Values:', columnValues);
+                console.log('Column data extracted:', columnNumbers.length > 0 ? columnNumbers : 'cell positions', 'Values:', columnValues);
                 
                 // Join values with formula operators
                 if (columnValues.length > 0) {
@@ -9315,6 +9361,10 @@ function getCurrentProcessId() {
             if (data.formulaOperators !== undefined) {
                 row.setAttribute('data-formula-operators', data.formulaOperators);
             }
+            // Store formula_display (converted value, e.g., 9+7*0.7/5*(1))
+            if (data.formula !== undefined) {
+                row.setAttribute('data-formula-display', data.formula);
+            }
             // sourceColumns no longer used, but keep for compatibility
             // IMPORTANT: If formula is empty, also clear sourceColumns to prevent regeneration
             if (data.sourceColumns !== undefined) {
@@ -9506,6 +9556,10 @@ function getCurrentProcessId() {
                 }
                 if (data.formulaOperators !== undefined) {
                     row.setAttribute('data-formula-operators', data.formulaOperators);
+                }
+                // Store formula_display (converted value, e.g., 9+7*0.7/5*(1))
+                if (data.formula !== undefined) {
+                    row.setAttribute('data-formula-display', data.formula);
                 }
                 if (data.sourceColumns !== undefined) {
                     row.setAttribute('data-source-columns', data.sourceColumns);
