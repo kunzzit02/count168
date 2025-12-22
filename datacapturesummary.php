@@ -5335,7 +5335,7 @@ function getCurrentProcessId() {
                             // 新增模式，使用 formulaValue（用户输入的原始值）
                             return (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '';
                         }
-                    })()
+                    })(),
                     processedAmount: processedAmount,
                     inputMethod: inputMethodValue,
                     enableInputMethod: enableValue,
