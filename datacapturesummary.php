@@ -9351,6 +9351,10 @@ function getCurrentProcessId() {
             checkboxCell.appendChild(checkbox);
             row.appendChild(checkboxCell);
             
+            // Set creation order timestamp for stable sorting when sub rows have same account
+            const creationOrder = Date.now();
+            row.setAttribute('data-creation-order', String(creationOrder));
+            
             // Insert the new row after the parent row
             if (insertAfterIndex >= 0) {
                 // Get the parent row element
@@ -11322,13 +11326,23 @@ function reorderSummaryRowsByRowIndex() {
                 ? Number(attr)
                 : null;
 
+            // Get account ID for sorting sub rows with same account
+            const accountCell = row.querySelector('td:nth-child(2)'); // Account column
+            const accountId = accountCell ? accountCell.getAttribute('data-account-id') : null;
+            
+            // Get creation order for stable sorting
+            const creationOrderAttr = row.getAttribute('data-creation-order');
+            const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000; // Use large multiplier to ensure originalIndex doesn't interfere
+
             return {
                 row,
                 rowIndex,
                 originalIndex,
                 normalizedMain,
                 hasMain: !!mainTextRaw,
-                productType
+                productType,
+                accountId,
+                creationOrder
             };
         });
 
@@ -11366,7 +11380,13 @@ function reorderSummaryRowsByRowIndex() {
                     if (a.productType === 'main') return -1;
                     if (b.productType === 'main') return 1;
                 }
-                // If same row_index and same productType, maintain original order
+                // If same row_index and same productType
+                // For sub rows with same account, use creation order to maintain stable order
+                if (a.productType === 'sub' && b.productType === 'sub' && 
+                    a.accountId && b.accountId && a.accountId === b.accountId) {
+                    return a.creationOrder - b.creationOrder;
+                }
+                // Otherwise, maintain original order
                 return a.originalIndex - b.originalIndex;
             });
             return {
@@ -11525,7 +11545,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     // 这样既保证分组不乱，又能尽量还原之前的 vertical 位置。
     let lastRowInGroup = mainRow;
 
-    validSubTemplates.forEach((template) => {
+    validSubTemplates.forEach((template, templateIndex) => {
         let insertAfterRow = lastRowInGroup;
 
         if (template.row_index !== undefined && template.row_index !== null) {
@@ -11626,9 +11646,18 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 console.warn('Failed to create sub row for template', template);
                 return;
             }
+            // Set creation order based on template index to maintain stable order when loading from database
+            // Use templateIndex * 1000 to ensure it doesn't conflict with real-time creation timestamps
+            const creationOrder = Date.now() - (validSubTemplates.length - templateIndex) * 1000;
+            newRow.setAttribute('data-creation-order', String(creationOrder));
             targetRow = newRow;
-            console.log('Created new sub row for template');
+            console.log('Created new sub row for template with creation-order:', creationOrder);
         } else {
+            // If updating existing row, ensure it has creation-order if missing
+            if (!targetRow.getAttribute('data-creation-order')) {
+                const creationOrder = Date.now() - (validSubTemplates.length - templateIndex) * 1000;
+                targetRow.setAttribute('data-creation-order', String(creationOrder));
+            }
             console.log('Updating existing sub row instead of creating new one');
         }
 
