@@ -5144,6 +5144,23 @@ function getCurrentProcessId() {
                         sourceColumns = columnRefs.join(' ');
                     }
                 }
+                
+                // 如果从 $数字 格式中没有提取到列引用，尝试从 data-clicked-columns 属性中获取
+                // 这适用于用户通过键盘直接输入数字（如"2+6"）的情况
+                if (!sourceColumns && formulaInput) {
+                    const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
+                    if (clickedColumns && clickedColumns.trim() !== '') {
+                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        if (rowLabel) {
+                            const columnsArray = clickedColumns.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c) && c > 0);
+                            if (columnsArray.length > 0) {
+                                const columnRefs = columnsArray.map(colNum => `${processValue}:${rowLabel}:${colNum}`);
+                                sourceColumns = columnRefs.join(' ');
+                                console.log('saveFormula - Built sourceColumns from data-clicked-columns:', sourceColumns);
+                            }
+                        }
+                    }
+                }
             }
             
             // In edit mode, prefer existing sourceColumns over extracting from formula
