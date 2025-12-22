@@ -5116,33 +5116,78 @@ function getCurrentProcessId() {
             // Get Columns display from clicked columns (preferred) or extract from formula
             const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
             
+            // 获取列引用格式（用于保存到 sourceColumns）
+            // 格式：id_product:row_label:column_index，如 "GGG:A:10 GGG:A:8"
+            let sourceColumns = '';
+            const formulaInput = document.getElementById('formula');
+            if (formulaInput && formulaValue && formulaValue.trim() !== '') {
+                // 从 formulaValue 中提取所有 $数字，转换为列引用格式
+                const rowLabel = getRowLabelFromProcessValue(processValue);
+                if (rowLabel) {
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                    let match;
+                    dollarPattern.lastIndex = 0;
+                    const columnRefs = [];
+                    
+                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                        const columnNumber = parseInt(match[1]);
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            // 格式：id_product:row_label:column_index
+                            const columnRef = `${processValue}:${rowLabel}:${columnNumber}`;
+                            if (!columnRefs.includes(columnRef)) {
+                                columnRefs.push(columnRef);
+                            }
+                        }
+                    }
+                    
+                    if (columnRefs.length > 0) {
+                        sourceColumns = columnRefs.join(' ');
+                    }
+                }
+            }
+            
             // In edit mode, prefer existing sourceColumns over extracting from formula
             // This prevents incorrect column extraction when formula contains manual inputs like /4
             let columnsDisplay = '';
             if (isEditMode && window.currentEditRow) {
                 const existingSourceColumns = window.currentEditRow.getAttribute('data-source-columns') || '';
-                columnsDisplay = clickedColumnsDisplay || existingSourceColumns || extractNumbersFromFormula(formulaValue);
+                columnsDisplay = sourceColumns || clickedColumnsDisplay || existingSourceColumns || extractNumbersFromFormula(formulaValue);
             } else {
-                columnsDisplay = clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
+                columnsDisplay = sourceColumns || clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
             }
             
-            // Check if formulaValue already contains a percent part (user manually entered it)
-            // Look for * followed by a number (may be at the end or in the middle)
+            // 优先使用 formulaDisplay 输入框的值（转换后的值，如 "9+7*0.7/5"）
+            // 如果 formulaDisplay 输入框为空，则从 formulaValue 转换
+            const formulaDisplayInput = document.getElementById('formulaDisplay');
             let formulaDisplay = '';
             
-            // If formulaValue is empty or only whitespace, keep formulaDisplay as empty string
-            // Also clear sourceColumns and columnsDisplay when formula is cleared
             if (!formulaValue || formulaValue.trim() === '') {
                 formulaDisplay = '';
                 columnsDisplay = ''; // Clear columnsDisplay when formula is empty
+                sourceColumns = ''; // Clear sourceColumns when formula is empty
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
             } else {
-                const trimmedFormula = formulaValue.trim();
-                // 统一由 Source Percent 控制百分比，不再从公式中自动识别 *0.1 这一类“内置百分比”
-                // 这样就可以保证：只要勾选了 Enable，并填写了 Source Percent，
-                // 整个公式的结果都会再乘上 Source Percent，而不会因为公式里含有 *0.2 等运算而被误判为“已含百分比”
-                formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                console.log('Created formulaDisplay from expression (always use Source Percent):', formulaDisplay);
+                // 优先使用 formulaDisplay 输入框的值（已经转换好的值）
+                if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
+                    const convertedFormula = formulaDisplayInput.value.trim();
+                    // 添加 Source Percent 部分（如果需要）
+                    formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    console.log('saveFormula - Using formulaDisplay input value:', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
+                } else {
+                    // 如果 formulaDisplay 输入框为空，从 formulaValue 转换
+                    const trimmedFormula = formulaValue.trim();
+                    // 先将 $数字 转换为实际值
+                    const processValueForDisplay = processValue;
+                    // 临时更新显示框以获取转换后的值
+                    updateFormulaDisplay(trimmedFormula, processValueForDisplay);
+                    const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
+                    if (convertedFormula && convertedFormula !== '') {
+                        formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    } else {
+                        formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    }
+                    console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
+                }
             }
             
             // Calculate processed amount
@@ -5187,7 +5232,8 @@ function getCurrentProcessId() {
                 const editingType = editingRow.getAttribute('data-product-type') || 'main';
                 const existingSourceColumns = editingRow.getAttribute('data-source-columns') || '';
                 // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                const finalSourceColumns = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || existingSourceColumns || '');
+                // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
+                const finalSourceColumns = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || existingSourceColumns || '');
                 const basePayload = {
                     idProduct: processValue,
                     description: descriptionValue,
@@ -5197,9 +5243,9 @@ function getCurrentProcessId() {
                     currency: currencyName || 'Currency',
                     currencyDbId: currencyValue,
                     columns: columnsDisplay,
-                    // 优先使用用户本次点击的列；若未点击则保留行里已有的列映射，方便引用格式展示
+                    // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
                     // 如果formula为空，清空sourceColumns以防止页面刷新时重新生成formula
-                    sourceColumns: finalSourceColumns,
+                    sourceColumns: sourceColumns || finalSourceColumns,
                     batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
                     source: formulaValue || 'Source', // Use formula as source
                     // 如果没有填写 Source Percent，则显示/保存为 1 (1 = 100%)
@@ -5241,7 +5287,7 @@ function getCurrentProcessId() {
                 const newRow = addSubIdProductRow(processValue, baseRow);
                 const baseRowSourceCols = baseRow ? (baseRow.getAttribute('data-source-columns') || '') : '';
                 // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || baseRowSourceCols || '');
+                const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || baseRowSourceCols || '');
                 updateSubIdProductRow(processValue, {
                     idProduct: processValue,
                     description: descriptionValue,
@@ -5278,7 +5324,7 @@ function getCurrentProcessId() {
                     if (targetRow) {
                         const targetRowSourceCols = targetRow.getAttribute('data-source-columns') || '';
                         // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                        const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || targetRowSourceCols || '');
+                        const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
                         updateSummaryTableRow(processValue, {
                             idProduct: processValue,
                             description: descriptionValue,
@@ -5303,7 +5349,7 @@ function getCurrentProcessId() {
                     } else {
                         const baseSourceCols = targetRow ? (targetRow.getAttribute('data-source-columns') || '') : '';
                         // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                        const finalSourceColumnsForMain2 = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || baseSourceCols || '');
+                        const finalSourceColumnsForMain2 = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || baseSourceCols || '');
                         updateSummaryTableRow(processValue, {
                             idProduct: processValue,
                             description: descriptionValue,
@@ -5331,7 +5377,7 @@ function getCurrentProcessId() {
                     const baseRow = currentButton ? currentButton.closest('tr') : null;
                     const newRow = addSubIdProductRow(processValue, baseRow);
                     // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                    const finalSourceColumnsForSub2 = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || '');
+                    const finalSourceColumnsForSub2 = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || '');
                     updateSubIdProductRow(processValue, {
                         idProduct: processValue,
                         description: descriptionValue,
@@ -8161,8 +8207,8 @@ function getCurrentProcessId() {
                 sourcePercentValue = cells[5].textContent.trim();
             }
             
-            // Priority: Check if data-formula-operators contains reference format
-            // If so, use it directly instead of parsing from displayed text
+            // Priority: 使用 data-formula-operators（原始值，包含 $数字）
+            // 这样编辑时显示的是原始值（如 "$10+$8*0.7/5"），而不是转换后的值（如 "9+7*0.7/5"）
             let formulaValue = '';
             const storedFormulaOperators = row.getAttribute('data-formula-operators') || '';
             const isReferenceFormat = storedFormulaOperators && /\[[^\]]+\s*:\s*\d+\]/.test(storedFormulaOperators);
@@ -8186,6 +8232,10 @@ function getCurrentProcessId() {
                 // Formula is empty, set to empty string and skip all fallbacks
                 formulaValue = '';
                 console.log('editRowFormula - Formula is empty, setting formulaValue to empty string');
+            } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '') {
+                // 优先使用 data-formula-operators（原始值，包含 $数字）
+                formulaValue = storedFormulaOperators;
+                console.log('editRowFormula - Using data-formula-operators (original value with $):', formulaValue);
             } else if (isReferenceFormat) {
                 // Use reference format directly from data attribute
                 formulaValue = storedFormulaOperators;
