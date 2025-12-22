@@ -14216,6 +14216,7 @@ function formatPercentValue(value) {
 
         #summaryTotalAmount {
             text-align: center;
+            background-color: #f6f8fa;
         }
 
         /* Id Product and Account columns alignment */
