@@ -3177,10 +3177,8 @@ function getCurrentProcessId() {
                 // 从后往前处理，避免位置偏移
                 allMatches.sort((a, b) => b.index - a.index);
                 
-                // 更新 data-clicked-cell-refs（格式：id_product:row_label:column_index，如 GGG:A:10）
-                const formulaInput = document.getElementById('formula');
-                const clickedCellRefs = [];
-                
+                // 注意：updateFormulaDisplay 只负责更新显示框，不更新 data-clicked-cell-refs
+                // data-clicked-cell-refs 应该只在用户点击单元格或输入 $数字 时更新
                 for (let i = 0; i < allMatches.length; i++) {
                     const match = allMatches[i];
                     // 获取列的实际值
@@ -3192,32 +3190,12 @@ function getCurrentProcessId() {
                         displayFormula = displayFormula.substring(0, match.index) + 
                                         columnValue + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
-                        
-                        // 记录列引用格式：id_product:row_label:column_index（如 GGG:A:10）
-                        if (formulaInput && processValue) {
-                            const cellRef = `${processValue}:${rowLabel}:${match.columnNumber}`;
-                            if (!clickedCellRefs.includes(cellRef)) {
-                                clickedCellRefs.push(cellRef);
-                            }
-                        }
                     } else {
                         // 如果找不到值，替换为 0
                         displayFormula = displayFormula.substring(0, match.index) + 
                                         '0' + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
                     }
-                }
-                
-                // 更新 data-clicked-cell-refs
-                if (formulaInput && clickedCellRefs.length > 0) {
-                    const existingRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
-                    const existingRefsArray = existingRefs ? existingRefs.split(' ').filter(r => r.trim() !== '') : [];
-                    clickedCellRefs.forEach(ref => {
-                        if (!existingRefsArray.includes(ref)) {
-                            existingRefsArray.push(ref);
-                        }
-                    });
-                    formulaInput.setAttribute('data-clicked-cell-refs', existingRefsArray.join(' '));
                 }
                 
                 // 如果还有列引用（如 A5），也转换为实际值
@@ -3639,6 +3617,68 @@ function getCurrentProcessId() {
                         // 即使来自 cell click，也要更新显示框
                         updateFormulaDisplay(formulaValue, processValue);
                         return;
+                    }
+                    
+                    // 检测 $数字 的变化，更新 data-clicked-cell-refs
+                    // 重要：只保留当前 formula 中实际存在的 $数字 对应的列引用
+                    if (processValue && formulaValue !== previousValue) {
+                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        if (rowLabel) {
+                            // 收集当前 formulaValue 中的所有 $数字
+                            const dollarPattern = /\$(\d+)(?!\d)/g;
+                            const currentDollarMatches = new Set();
+                            const currentColumnNumbers = new Set();
+                            
+                            dollarPattern.lastIndex = 0;
+                            let match;
+                            while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                                const fullMatch = match[0];
+                                const columnNumber = parseInt(match[1]);
+                                if (!isNaN(columnNumber) && columnNumber > 0) {
+                                    currentDollarMatches.add(fullMatch);
+                                    currentColumnNumbers.add(columnNumber);
+                                }
+                            }
+                            
+                            // 获取现有的 data-clicked-cell-refs
+                            const existingRefs = this.getAttribute('data-clicked-cell-refs') || '';
+                            const existingRefsArray = existingRefs ? existingRefs.split(' ').filter(r => r.trim() !== '') : [];
+                            
+                            // 构建新的列引用列表：只保留当前 formula 中存在的 $数字 对应的列引用
+                            const newRefsArray = [];
+                            existingRefsArray.forEach(ref => {
+                                // 解析引用格式：id_product:row_label:column_index (如 GGG:A:10)
+                                const parts = ref.split(':');
+                                if (parts.length >= 3) {
+                                    const refProcessValue = parts[0];
+                                    const refRowLabel = parts[1];
+                                    const refColumnNumber = parseInt(parts[2]);
+                                    
+                                    // 如果这个引用属于当前 process 和 row，且列号在当前 formula 中存在，则保留
+                                    if (refProcessValue === processValue && refRowLabel === rowLabel && 
+                                        !isNaN(refColumnNumber) && currentColumnNumbers.has(refColumnNumber)) {
+                                        newRefsArray.push(ref);
+                                    } else if (refProcessValue !== processValue || refRowLabel !== rowLabel) {
+                                        // 保留其他 process 或 row 的引用（可能来自其他 id product）
+                                        newRefsArray.push(ref);
+                                    }
+                                } else {
+                                    // 保留无法解析的引用（向后兼容）
+                                    newRefsArray.push(ref);
+                                }
+                            });
+                            
+                            // 添加新的 $数字 对应的列引用（如果还没有）
+                            currentColumnNumbers.forEach(columnNumber => {
+                                const cellRef = `${processValue}:${rowLabel}:${columnNumber}`;
+                                if (!newRefsArray.includes(cellRef)) {
+                                    newRefsArray.push(cellRef);
+                                }
+                            });
+                            
+                            // 更新 data-clicked-cell-refs
+                            this.setAttribute('data-clicked-cell-refs', newRefsArray.join(' '));
+                        }
                     }
                     
                     // 更新 previousValue
@@ -8261,26 +8301,11 @@ function getCurrentProcessId() {
                 formulaValue = '';
                 console.log('editRowFormula - Formula is empty, setting formulaValue to empty string');
             } else {
-                // 优先使用 data-formula-display（转换后的值，如 9+7*0.7/5）
-                // 如果没有，则从表格显示文本读取
-                const storedFormulaDisplay = row.getAttribute('data-formula-display') || '';
-                if (storedFormulaDisplay && storedFormulaDisplay.trim() !== '' && storedFormulaDisplay !== 'Formula') {
-                    // 移除尾部的 Source Percent 部分（如 *(1)）
-                    let formulaDisplayValue = storedFormulaDisplay.trim();
-                    const lastStarIndex = formulaDisplayValue.lastIndexOf('*');
-                    if (lastStarIndex >= 0) {
-                        const beforeStar = formulaDisplayValue.substring(0, lastStarIndex);
-                        const afterStar = formulaDisplayValue.substring(lastStarIndex);
-                        const openParensBefore = (beforeStar.match(/\(/g) || []).length;
-                        const closeParensBefore = (beforeStar.match(/\)/g) || []).length;
-                        const isStarInsideParens = openParensBefore > closeParensBefore;
-                        const sourcePercentPattern = /^\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                        if (!isStarInsideParens && sourcePercentPattern.test(afterStar)) {
-                            formulaDisplayValue = formulaDisplayValue.substring(0, lastStarIndex).trim();
-                        }
-                    }
-                    formulaValue = formulaDisplayValue;
-                    console.log('editRowFormula - Using data-formula-display (converted value):', formulaValue);
+                // 优先使用 data-formula-operators（原始输入，如 $10+$8*0.7/5）
+                // 这是用户实际输入的公式，应该保持不变
+                if (storedFormulaOperators && storedFormulaOperators.trim() !== '' && storedFormulaOperators !== 'Formula') {
+                    formulaValue = storedFormulaOperators.trim();
+                    console.log('editRowFormula - Using data-formula-operators (raw user input):', formulaValue);
                 } else if (isReferenceFormat) {
                     // Use reference format directly from data attribute
                     formulaValue = storedFormulaOperators;
