@@ -2288,6 +2288,13 @@ function getCurrentProcessId() {
                 option.textContent = idProduct;
                 descriptionSelect1.appendChild(option);
             });
+
+            // Auto-select first option if available
+            if (sortedIdProducts.length > 0) {
+                descriptionSelect1.value = sortedIdProducts[0];
+                // Trigger update for second select box
+                updateIdProductRowData(sortedIdProducts[0]);
+            }
         }
 
         // Update second select box with row data for selected id product
@@ -2319,6 +2326,7 @@ function getCurrentProcessId() {
             if (!capturedTableBody) return;
 
             const rows = capturedTableBody.querySelectorAll('tr');
+            let firstOptionValue = null;
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
@@ -2336,11 +2344,21 @@ function getCurrentProcessId() {
                                 option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
                                 option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
                                 descriptionSelect2.appendChild(option);
+                                
+                                // Store first option value for auto-selection
+                                if (firstOptionValue === null) {
+                                    firstOptionValue = option.value;
+                                }
                             }
                         }
                     });
                 }
             });
+
+            // Auto-select first option if available
+            if (firstOptionValue !== null) {
+                descriptionSelect2.value = firstOptionValue;
+            }
         }
 
         // Close add account modal (wrapper for compatibility)
