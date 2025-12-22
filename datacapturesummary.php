@@ -4898,12 +4898,7 @@ function getCurrentProcessId() {
             const sourcePercentEnableValue = sourcePercentValue && sourcePercentValue.trim() !== '';
             
             const formulaCell = cells[4];
-            // 优先使用 data-formula-display（转换后的值，如 9+7*0.7/5*(1)）
-            // 如果没有，则从表格显示文本读取
-            let formulaDisplay = row.getAttribute('data-formula-display') || '';
-            if (!formulaDisplay || formulaDisplay.trim() === '') {
-                formulaDisplay = formulaCell?.querySelector('.formula-text')?.textContent.trim() || formulaCell?.textContent.trim() || '';
-            }
+            const formulaDisplay = formulaCell?.querySelector('.formula-text')?.textContent.trim() || formulaCell?.textContent.trim() || '';
             // Get formula_operators from data attribute (should be source expression without Source %)
             // If not available, extract from formulaDisplay by removing trailing Source % part
             let formulaValue = row.getAttribute('data-formula-operators') || '';
@@ -9320,10 +9315,6 @@ function getCurrentProcessId() {
             if (data.formulaOperators !== undefined) {
                 row.setAttribute('data-formula-operators', data.formulaOperators);
             }
-            // Store formula_display (converted value, e.g., 9+7*0.7/5*(1))
-            if (data.formula !== undefined) {
-                row.setAttribute('data-formula-display', data.formula);
-            }
             // sourceColumns no longer used, but keep for compatibility
             // IMPORTANT: If formula is empty, also clear sourceColumns to prevent regeneration
             if (data.sourceColumns !== undefined) {
@@ -9515,10 +9506,6 @@ function getCurrentProcessId() {
                 }
                 if (data.formulaOperators !== undefined) {
                     row.setAttribute('data-formula-operators', data.formulaOperators);
-                }
-                // Store formula_display (converted value, e.g., 9+7*0.7/5*(1))
-                if (data.formula !== undefined) {
-                    row.setAttribute('data-formula-display', data.formula);
                 }
                 if (data.sourceColumns !== undefined) {
                     row.setAttribute('data-source-columns', data.sourceColumns);
