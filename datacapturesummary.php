@@ -8161,8 +8161,8 @@ function getCurrentProcessId() {
                 sourcePercentValue = cells[5].textContent.trim();
             }
             
-            // Priority: Check if data-formula-operators contains reference format
-            // If so, use it directly instead of parsing from displayed text
+            // Priority 1: Always use data-formula-operators first (this is the user's original input, e.g., $10+$8*0.7/5)
+            // This ensures we load the original formula with $ symbols, not the displayed formula with *(1) etc.
             let formulaValue = '';
             const storedFormulaOperators = row.getAttribute('data-formula-operators') || '';
             const isReferenceFormat = storedFormulaOperators && /\[[^\]]+\s*:\s*\d+\]/.test(storedFormulaOperators);
@@ -8186,6 +8186,11 @@ function getCurrentProcessId() {
                 // Formula is empty, set to empty string and skip all fallbacks
                 formulaValue = '';
                 console.log('editRowFormula - Formula is empty, setting formulaValue to empty string');
+            } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '') {
+                // Priority: Always use stored formula_operators (user's original input with $ symbols)
+                // This is the raw formula before any processing (e.g., $10+$8*0.7/5)
+                formulaValue = storedFormulaOperators;
+                console.log('editRowFormula - Using stored formula_operators (original user input):', formulaValue);
             } else if (isReferenceFormat) {
                 // Use reference format directly from data attribute
                 formulaValue = storedFormulaOperators;
