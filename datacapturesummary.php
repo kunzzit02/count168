@@ -4858,49 +4858,84 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Calculate row_index based on Data Capture Table row order, not Summary Table position
+            // Calculate row_index based on user's click position, not Summary Table position
             // IMPORTANT: row_index should reflect the position in Data Capture Table (A, B, C...)
-            // This ensures that Summary Table order matches Data Capture Table order
-            // CRITICAL: When there are multiple rows with same id_product, we need to match by position
-            // Since Summary Table is created in the same order as Data Capture Table,
-            // the position in Summary Table directly corresponds to Data Capture Table row index
+            // CRITICAL: When user clicks + button on a row, the new row should use that row's row_index
+            // This ensures that rows are saved at the correct position where user added them
             let rowIndex = null;
             try {
-                // First, try to use the position in Summary Table (which matches Data Capture Table order)
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                    const summaryIndex = allSummaryRows.indexOf(row);
-                    if (summaryIndex !== -1) {
-                        // Summary Table position directly corresponds to Data Capture Table row index
-                        // because populateOriginalTableWithColumnAData creates rows in Data Capture Table order
-                        rowIndex = summaryIndex;
-                        console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', formData.processValue || 'unknown');
-                    }
-                }
-                
-                // Verify: Check if the Data Capture Table row at this index matches
-                if (rowIndex !== null) {
-                    const capturedTableBody = document.getElementById('capturedTableBody');
-                    if (capturedTableBody) {
-                        const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
-                        if (rowIndex < capturedRows.length) {
-                            const capturedRow = capturedRows[rowIndex];
-                            const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
-                            if (capturedIdProductCell) {
-                                const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                                const idProduct = productType === 'sub' 
-                                    ? (idProductSub || normalizeIdProductText(formData.processValue))
-                                    : (idProductMain || normalizeIdProductText(formData.processValue));
-                                const normalizedIdProduct = normalizeIdProductText(idProduct);
+                // First, try to use existing data-row-index attribute (if row already has row_index)
+                const existingRowIndex = row.getAttribute('data-row-index');
+                if (existingRowIndex !== null && existingRowIndex !== '' && !Number.isNaN(Number(existingRowIndex))) {
+                    rowIndex = Number(existingRowIndex);
+                    console.log('Using existing data-row-index:', rowIndex, 'id_product:', formData.processValue || 'unknown');
+                } else {
+                    // For new rows, try to get row_index from the row where user clicked + button
+                    // Check if this is a sub row and find its parent main row's row_index
+                    if (productType === 'sub') {
+                        // Find the parent main row (the row before this sub row that has the same id_product_main)
+                        let currentRow = row.previousElementSibling;
+                        while (currentRow) {
+                            const currentIdProductCell = currentRow.querySelector('td:first-child');
+                            const currentProductValues = getProductValuesFromCell(currentIdProductCell);
+                            const currentMainText = (currentProductValues.main || '').trim();
+                            
+                            if (currentMainText) {
+                                // Found a main row, check if it matches
+                                const match = currentMainText.match(/^([^(]+)/);
+                                const cleanMainText = match ? match[1].trim() : currentMainText;
+                                const normalizedMain = normalizeIdProductText(cleanMainText);
+                                const normalizedParent = normalizeIdProductText(idProductMain || formData.processValue);
                                 
-                                if (capturedIdProduct === normalizedIdProduct) {
-                                    // Verified: Summary Table position matches Data Capture Table row
-                                    console.log('Verified row_index matches Data Capture Table:', rowIndex, 'id_product:', idProduct);
-                                } else {
-                                    console.warn('Warning: Summary Table position', rowIndex, 'does not match Data Capture Table id_product. Expected:', normalizedIdProduct, 'Found:', capturedIdProduct);
-                                    // Still use this row_index as it represents the correct position
+                                if (normalizedMain === normalizedParent) {
+                                    // Found parent main row, use its row_index
+                                    const parentRowIndex = currentRow.getAttribute('data-row-index');
+                                    if (parentRowIndex !== null && parentRowIndex !== '' && !Number.isNaN(Number(parentRowIndex))) {
+                                        rowIndex = Number(parentRowIndex);
+                                        console.log('Using parent main row row_index for sub row:', rowIndex, 'id_product:', formData.processValue);
+                                        break;
+                                    }
                                 }
+                            }
+                            currentRow = currentRow.previousElementSibling;
+                        }
+                    }
+                    
+                    // If still no row_index, try to find matching row in Data Capture Table
+                    if (rowIndex === null) {
+                        const capturedTableBody = document.getElementById('capturedTableBody');
+                        if (capturedTableBody) {
+                            const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
+                            const idProduct = productType === 'sub' 
+                                ? (idProductSub || normalizeIdProductText(formData.processValue))
+                                : (idProductMain || normalizeIdProductText(formData.processValue));
+                            const normalizedIdProduct = normalizeIdProductText(idProduct);
+                            
+                            // Find the matching row in Data Capture Table
+                            for (let i = 0; i < capturedRows.length; i++) {
+                                const capturedRow = capturedRows[i];
+                                const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+                                if (capturedIdProductCell) {
+                                    const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                                    if (capturedIdProduct === normalizedIdProduct) {
+                                        rowIndex = i;
+                                        console.log('Found matching row_index in Data Capture Table:', rowIndex, 'id_product:', idProduct);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Last resort: use Summary Table position (but this may not be accurate for new rows)
+                    if (rowIndex === null) {
+                        const summaryTableBody = document.getElementById('summaryTableBody');
+                        if (summaryTableBody) {
+                            const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                            const summaryIndex = allSummaryRows.indexOf(row);
+                            if (summaryIndex !== -1) {
+                                rowIndex = summaryIndex;
+                                console.log('Fallback: Using Summary Table position as row_index:', rowIndex, 'id_product:', formData.processValue || 'unknown');
                             }
                         }
                     }
@@ -4912,7 +4947,7 @@ function getCurrentProcessId() {
                 }
             } catch (e) {
                 console.warn('Failed to compute row_index for template saving', e);
-                // Fallback: try to use existing data-row-index if available
+                // Final fallback: try to use existing data-row-index if available
                 const dataRowIndex = row.getAttribute('data-row-index');
                 if (dataRowIndex !== null && dataRowIndex !== '' && !Number.isNaN(Number(dataRowIndex))) {
                     rowIndex = Number(dataRowIndex);
@@ -5523,9 +5558,38 @@ function getCurrentProcessId() {
                     }, editingRow);
                 }
             } else if (isSubIdProduct) {
-                // 点击的是某个 sub row 的 +：在该 Id Product 下“当前行之后”新增一条 sub 行
+                // 点击的是某个 sub row 的 +：在该 Id Product 下"当前行之后"新增一条 sub 行
                 const baseRow = currentButton ? currentButton.closest('tr') : null;
                 const newRow = addSubIdProductRow(processValue, baseRow);
+                
+                // Set row_index from baseRow (the row where user clicked + button)
+                if (baseRow && newRow) {
+                    const baseRowIndex = baseRow.getAttribute('data-row-index');
+                    if (baseRowIndex !== null && baseRowIndex !== '' && !Number.isNaN(Number(baseRowIndex))) {
+                        newRow.setAttribute('data-row-index', baseRowIndex);
+                        console.log('Set new sub row row_index from baseRow:', baseRowIndex);
+                    } else {
+                        // If baseRow doesn't have row_index, try to find parent main row's row_index
+                        let parentRow = baseRow.previousElementSibling;
+                        while (parentRow) {
+                            const parentIdProductCell = parentRow.querySelector('td:first-child');
+                            const parentProductValues = getProductValuesFromCell(parentIdProductCell);
+                            const parentMainText = (parentProductValues.main || '').trim();
+                            
+                            if (parentMainText) {
+                                // Found a main row, use its row_index
+                                const parentRowIndex = parentRow.getAttribute('data-row-index');
+                                if (parentRowIndex !== null && parentRowIndex !== '' && !Number.isNaN(Number(parentRowIndex))) {
+                                    newRow.setAttribute('data-row-index', parentRowIndex);
+                                    console.log('Set new sub row row_index from parent main row:', parentRowIndex);
+                                    break;
+                                }
+                            }
+                            parentRow = parentRow.previousElementSibling;
+                        }
+                    }
+                }
+                
                 const baseRowSourceCols = baseRow ? (baseRow.getAttribute('data-source-columns') || '') : '';
                 // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
                 const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || baseRowSourceCols || '');
@@ -5617,6 +5681,16 @@ function getCurrentProcessId() {
                     // 主行已有账号：为该 Id Product 在当前主行之后新增一条 sub 行
                     const baseRow = currentButton ? currentButton.closest('tr') : null;
                     const newRow = addSubIdProductRow(processValue, baseRow);
+                    
+                    // Set row_index from baseRow (the main row where user clicked + button)
+                    if (baseRow && newRow) {
+                        const baseRowIndex = baseRow.getAttribute('data-row-index');
+                        if (baseRowIndex !== null && baseRowIndex !== '' && !Number.isNaN(Number(baseRowIndex))) {
+                            newRow.setAttribute('data-row-index', baseRowIndex);
+                            console.log('Set new sub row row_index from main baseRow:', baseRowIndex);
+                        }
+                    }
+                    
                     // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
                     const finalSourceColumnsForSub2 = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || '');
                     updateSubIdProductRow(processValue, {
