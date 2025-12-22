@@ -666,7 +666,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     <thead>
                         <tr class="transaction-table-header">
                             <th class="transaction-history-col-date">Date</th>
-                            <th class="transaction-history-col-product">Product</th>
+                            <th class="transaction-history-col-product">Id Product</th>
                             <th class="transaction-history-col-currency">Currency</th>
                             <th class="transaction-history-col-rate">Rate</th>
                             <th class="transaction-history-col-percent">%</th>
