@@ -507,32 +507,6 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // 如果是 PAYMENT 类型，检查是否有 id product，如果有则格式化为 "id product (description)"
-        $idProduct = null;
-        if ($t['transaction_type'] === 'PAYMENT') {
-            // 查询该 account 在相同日期或之前最近的 data capture 记录中的 id product
-            $stmt = $pdo->prepare("
-                SELECT 
-                    CASE 
-                        WHEN dcd.product_type = 'sub' AND dcd.id_product_sub IS NOT NULL AND dcd.id_product_sub != '' 
-                        THEN dcd.id_product_sub
-                        WHEN dcd.id_product_main IS NOT NULL AND dcd.id_product_main != '' 
-                        THEN dcd.id_product_main
-                        ELSE NULL
-                    END as id_product
-                FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ?
-                  AND dc.company_id = ?
-                  AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-                  AND dc.capture_date <= ?
-                ORDER BY dc.capture_date DESC, dcd.id DESC
-                LIMIT 1
-            ");
-            $stmt->execute([$company_id, $company_id, $account_id, $t['transaction_date']]);
-            $idProduct = $stmt->fetchColumn();
-        }
-        
         // 如果是 CONTRA/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
         if (in_array($t['transaction_type'], ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'RATE'])) {
             if (empty($t['description'])) {
@@ -558,11 +532,6 @@ try {
                     // 如果是 To Account，保持原样
                 }
             }
-        }
-        
-        // 如果是 PAYMENT 且有 id product，将 description 格式化为 "id product (description)"
-        if ($t['transaction_type'] === 'PAYMENT' && !empty($idProduct) && $description !== '-') {
-            $description = $idProduct . ' (' . $description . ')';
         }
         
         $transactionTimestamp = strtotime($t['transaction_date'] . ' ' . ($t['created_at'] ?? '00:00:00'));
