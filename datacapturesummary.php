@@ -3167,18 +3167,22 @@ function getCurrentProcessId() {
                     const match = allMatches[i];
                     // 获取列的实际值
                     const columnReference = rowLabel + match.columnNumber;
+                    console.log('updateFormulaDisplay - Converting $' + match.columnNumber + ' to ' + columnReference);
                     const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                    console.log('updateFormulaDisplay - Column value for ' + columnReference + ':', columnValue);
                     
-                    if (columnValue !== null) {
+                    if (columnValue !== null && columnValue !== '') {
                         // 替换 $数字 为实际值
                         displayFormula = displayFormula.substring(0, match.index) + 
                                         columnValue + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
+                        console.log('updateFormulaDisplay - Replaced $' + match.columnNumber + ' with ' + columnValue);
                     } else {
                         // 如果找不到值，替换为 0
                         displayFormula = displayFormula.substring(0, match.index) + 
                                         '0' + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
+                        console.warn('updateFormulaDisplay - Column value not found for ' + columnReference + ', replaced with 0');
                     }
                 }
                 
@@ -4469,9 +4473,28 @@ function getCurrentProcessId() {
                     if (formulaInput) {
                         console.log('populateFormWithData - Setting formula value:', data.formula);
                         formulaInput.value = data.formula || '';
-                        // 更新显示框
-                        const processValue = document.getElementById('process')?.value;
-                        updateFormulaDisplay(data.formula || '', processValue);
+                        // 更新显示框 - 需要等待 process 值设置完成
+                        setTimeout(() => {
+                            const processValue = document.getElementById('process')?.value;
+                            console.log('populateFormWithData - Calling updateFormulaDisplay with formula:', data.formula, 'processValue:', processValue);
+                            if (data.formula && data.formula.trim() !== '') {
+                                updateFormulaDisplay(data.formula || '', processValue);
+                                // 检查显示框是否更新
+                                const formulaDisplayInput = document.getElementById('formulaDisplay');
+                                if (formulaDisplayInput) {
+                                    console.log('populateFormWithData - formulaDisplay value after update:', formulaDisplayInput.value);
+                                    // 如果显示框还是空的，再试一次
+                                    if (!formulaDisplayInput.value && data.formula && data.formula.trim() !== '') {
+                                        console.warn('populateFormWithData - formulaDisplay is still empty, retrying...');
+                                        setTimeout(() => {
+                                            updateFormulaDisplay(data.formula || '', processValue);
+                                            const retryValue = document.getElementById('formulaDisplay')?.value;
+                                            console.log('populateFormWithData - formulaDisplay value after retry:', retryValue);
+                                        }, 200);
+                                    }
+                                }
+                            }
+                        }, 100);
                         // Restore clicked columns if provided
                         if (data.clickedColumns) {
                             // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
