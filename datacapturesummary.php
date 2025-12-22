@@ -3098,13 +3098,10 @@ function getCurrentProcessId() {
         // 例如 "$5+$10*0.6/7" 会被转换为 "2039+434*0.6/7"
         function updateFormulaDisplay(formulaValue, processValue) {
             const formulaDisplayInput = document.getElementById('formulaDisplay');
-            if (!formulaDisplayInput) {
-                return;
-            }
-            
-            // 如果 formulaValue 为空，清空显示框
-            if (!formulaValue || formulaValue.trim() === '') {
-                formulaDisplayInput.value = '';
+            if (!formulaDisplayInput || !formulaValue) {
+                if (formulaDisplayInput) {
+                    formulaDisplayInput.value = '';
+                }
                 return;
             }
             
@@ -3124,46 +3121,23 @@ function getCurrentProcessId() {
                 // 第一步：将 $数字 转换为列引用 (例如 $5 -> A5)
                 const rowLabel = getRowLabelFromProcessValue(processValue);
                 if (rowLabel) {
-                    // 使用 matchAll 或手动重置 lastIndex 来避免正则表达式状态问题
-                    // 每次创建新的正则表达式对象，避免 lastIndex 状态问题
                     const dollarPattern = /\$(\d+)/g;
+                    let match;
                     const dollarReplacements = [];
                     
-                    // 兼容性处理：优先使用 matchAll，如果不支持则使用 exec
-                    if (typeof String.prototype.matchAll === 'function') {
-                        // 现代浏览器支持 matchAll
-                        const matches = formulaValue.matchAll(dollarPattern);
-                        for (const match of matches) {
-                            const fullMatch = match[0]; // 例如 "$5"
-                            const columnNumber = parseInt(match[1]); // 例如 5
-                            const matchIndex = match.index;
-                            
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                const columnReference = rowLabel + columnNumber;
-                                dollarReplacements.push({
-                                    from: fullMatch,
-                                    to: columnReference,
-                                    index: matchIndex
-                                });
-                            }
-                        }
-                    } else {
-                        // 兼容旧浏览器，使用 exec 并重置 lastIndex
-                        dollarPattern.lastIndex = 0;
-                        let match;
-                        while ((match = dollarPattern.exec(formulaValue)) !== null) {
-                            const fullMatch = match[0]; // 例如 "$5"
-                            const columnNumber = parseInt(match[1]); // 例如 5
-                            const matchIndex = match.index;
-                            
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                const columnReference = rowLabel + columnNumber;
-                                dollarReplacements.push({
-                                    from: fullMatch,
-                                    to: columnReference,
-                                    index: matchIndex
-                                });
-                            }
+                    // 收集所有 $数字 匹配项
+                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                        const fullMatch = match[0]; // 例如 "$5"
+                        const columnNumber = parseInt(match[1]); // 例如 5
+                        const matchIndex = match.index;
+                        
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            const columnReference = rowLabel + columnNumber;
+                            dollarReplacements.push({
+                                from: fullMatch,
+                                to: columnReference,
+                                index: matchIndex
+                            });
                         }
                     }
                     
@@ -5732,38 +5706,27 @@ function getCurrentProcessId() {
                 
                 // First, parse cell references (e.g., "A4", "B3")
                 // Pattern: letter(s) followed by digits (e.g., "A4", "AA10")
-                // 不使用 \b 单词边界，因为列引用可能紧跟在运算符后面（如 +A5, -A10）
-                const cellReferencePattern = /([A-Za-z]+)(\d+)/g;
+                const cellReferencePattern = /\b([A-Za-z]+)(\d+)\b/g;
                 let match;
                 
                 // Store matches to avoid replacing while iterating
                 const cellReferences = [];
-                
-                // 重置正则表达式的 lastIndex（确保每次都是从头开始匹配）
-                cellReferencePattern.lastIndex = 0;
-                
                 while ((match = cellReferencePattern.exec(formula)) !== null) {
                     const fullMatch = match[0]; // e.g., "A4"
                     const rowLabel = match[1]; // e.g., "A"
                     const columnNumber = match[2]; // e.g., "4"
-                    const matchIndex = match.index;
                     
                     // Check if this is a valid cell reference (not part of a number or operator)
-                    const beforeMatch = formula.substring(Math.max(0, matchIndex - 1), matchIndex);
-                    const afterMatch = formula.substring(matchIndex + fullMatch.length, Math.min(formula.length, matchIndex + fullMatch.length + 1));
+                    const beforeMatch = formula.substring(Math.max(0, match.index - 1), match.index);
+                    const afterMatch = formula.substring(match.index + fullMatch.length, Math.min(formula.length, match.index + fullMatch.length + 1));
                     
                     // Only treat as cell reference if:
-                    // - Not preceded by a letter or digit (to avoid matching "A" in "10A4" or "BA4")
+                    // - Not preceded by a letter or digit (to avoid matching "A" in "10A4")
                     // - Not followed by a letter (to avoid matching "A" in "A4B")
-                    // - Preceded by operator, whitespace, or start of string (valid contexts for cell references)
-                    const isValidBefore = matchIndex === 0 || /[\s+\-*/($]/.test(beforeMatch) || beforeMatch === '';
-                    const isValidAfter = !/[A-Za-z]/.test(afterMatch);
-                    const notPrecededByLetterOrDigit = !/[A-Za-z0-9]/.test(beforeMatch);
-                    
-                    if (isValidBefore && isValidAfter && notPrecededByLetterOrDigit) {
+                    if (!/[A-Za-z0-9]/.test(beforeMatch) && !/[A-Za-z]/.test(afterMatch)) {
                         cellReferences.push({
                             fullMatch: fullMatch,
-                            index: matchIndex,
+                            index: match.index,
                             rowLabel: rowLabel,
                             columnNumber: columnNumber
                         });
