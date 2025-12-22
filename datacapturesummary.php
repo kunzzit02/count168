@@ -3145,6 +3145,10 @@ function getCurrentProcessId() {
                 let displayFormula = formulaValue;
                 
                 // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
+                // 使用非贪婪匹配，但需要确保匹配完整的数字
+                // 先找到所有匹配项及其位置
+                const dollarMatches = [];
+                
                 // 使用更精确的正则表达式：匹配 $ 后跟一个或多个数字，但确保后面不是数字
                 // 这样可以避免 $10 被匹配为 $1 和 $10
                 // 使用负向前瞻：\$(\d+)(?!\d) 确保 $ 后的数字后面不是数字
@@ -3155,33 +3159,18 @@ function getCurrentProcessId() {
                 dollarPattern.lastIndex = 0;
                 
                 // 先收集所有匹配项，按位置排序
-                // 使用更精确的匹配：确保 $10 不会被匹配为 $1 和 $10
                 const allMatches = [];
-                const matchRanges = []; // 用于跟踪已匹配的范围
-                
                 while ((match = dollarPattern.exec(formulaValue)) !== null) {
                     const fullMatch = match[0]; // 例如 "$5" 或 "$10"
                     const columnNumber = parseInt(match[1]); // 例如 5 或 10
                     const matchIndex = match.index;
-                    const matchEnd = matchIndex + fullMatch.length;
                     
-                    // 检查这个位置是否与已有匹配重叠（避免 $10 中的 $1 被重复处理）
-                    let isOverlapping = false;
-                    for (const range of matchRanges) {
-                        // 如果当前匹配与已有匹配重叠，跳过
-                        if (matchIndex < range.end && matchEnd > range.start) {
-                            isOverlapping = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!isNaN(columnNumber) && columnNumber > 0 && !isOverlapping) {
+                    if (!isNaN(columnNumber) && columnNumber > 0) {
                         allMatches.push({
                             fullMatch: fullMatch,
                             columnNumber: columnNumber,
                             index: matchIndex
                         });
-                        matchRanges.push({ start: matchIndex, end: matchEnd });
                     }
                 }
                 
@@ -7954,36 +7943,17 @@ function getCurrentProcessId() {
                 formulaDisplay = savedFormulaDisplay;
                 console.log('Using saved formula_display with reference format:', formulaDisplay);
             } else if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
-                // IMPORTANT: savedFormulaDisplay should already be converted (e.g., 9+7*0.7/5)
-                // If it contains $ symbols, it means it wasn't saved correctly - skip it and use resolvedSourceExpression
-                const hasDollarSymbols = /\$\d+/.test(savedFormulaDisplay);
-                if (hasDollarSymbols) {
-                    // Saved formula_display contains $ symbols, which means it wasn't converted properly
-                    // Use resolvedSourceExpression instead (which should be converted)
-                    console.warn('Saved formula_display contains $ symbols (not converted), using resolvedSourceExpression instead:', savedFormulaDisplay);
-                    if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
-                        if (enableSourcePercent && sourcePercentText) {
-                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, sourcePercentText, enableSourcePercent);
-                        } else {
-                            formulaDisplay = resolvedSourceExpression;
-                        }
-                        console.log('Using resolvedSourceExpression instead of saved formula_display:', formulaDisplay);
-                    } else {
-                        formulaDisplay = savedFormulaDisplay; // Fallback to saved value even if it has $ symbols
-                    }
+                // Use preserveFormulaStructure to update numbers while keeping formula structure
+                // Use resolvedSourceExpression (which has *0.008, etc.) instead of simple currentSourceData
+                const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, sourcePercentText, enableSourcePercent);
+                // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
+                if (preservedFormula === null) {
+                    console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                    formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent);
+                    console.log('Recalculated formula from current source data:', formulaDisplay);
                 } else {
-                    // Use preserveFormulaStructure to update numbers while keeping formula structure
-                    // Use resolvedSourceExpression (which has *0.008, etc.) instead of simple currentSourceData
-                    const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, sourcePercentText, enableSourcePercent);
-                    // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
-                    if (preservedFormula === null) {
-                        console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                        formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent);
-                        console.log('Recalculated formula from current source data:', formulaDisplay);
-                    } else {
-                        formulaDisplay = preservedFormula;
-                        console.log('Preserved saved formula_display structure with updated source data:', formulaDisplay);
-                    }
+                    formulaDisplay = preservedFormula;
+                    console.log('Preserved saved formula_display structure with updated source data:', formulaDisplay);
                 }
             } else {
                 // No saved formula structure, create new formula display from display expression (prefer reference)
