@@ -11108,27 +11108,17 @@ function reorderSummaryRowsByRowIndex() {
             };
         });
 
-        // IMPORTANT: Sort ALL rows globally by row_index, then group by id_product
+        // IMPORTANT: Sort ALL rows globally by row_index, not grouped by id_product
         // This ensures Summary Table order matches Data Capture Table order exactly
-        // Same id_product rows should be grouped together within the same row_index
         const withIndex = rowData.filter(r => r.rowIndex !== null);
         const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-        // Sort rows with row_index by row_index (Data Capture Table order), then by id_product
+        // Sort rows with row_index by row_index (Data Capture Table order)
         withIndex.sort((a, b) => {
             if (a.rowIndex !== b.rowIndex) {
                 return a.rowIndex - b.rowIndex;
             }
-            // If same row_index, group by id_product (same id_product together)
-            if (a.normalizedMain !== b.normalizedMain) {
-                // Compare id_product alphabetically
-                const aMain = a.normalizedMain || '';
-                const bMain = b.normalizedMain || '';
-                if (aMain !== bMain) {
-                    return aMain.localeCompare(bMain);
-                }
-            }
-            // If same row_index and same id_product, maintain original order (for sub rows)
+            // If same row_index, maintain original order (for sub rows)
             return a.originalIndex - b.originalIndex;
         });
 

@@ -751,7 +751,6 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
         ORDER BY process_id DESC,
                  CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
                  row_index ASC,
-                 CASE WHEN product_type = 'main' THEN id_product ELSE parent_id_product END ASC,
                  product_type ASC,
                  id ASC
     ");
