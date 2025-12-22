@@ -11366,17 +11366,7 @@ function reorderSummaryRowsByRowIndex() {
                     if (a.productType === 'main') return -1;
                     if (b.productType === 'main') return 1;
                 }
-                // If same row_index and same productType, use display_order if available, otherwise use originalIndex
-                const aDisplayOrder = a.row.getAttribute('data-display-order');
-                const bDisplayOrder = b.row.getAttribute('data-display-order');
-                if (aDisplayOrder !== null && bDisplayOrder !== null) {
-                    const aOrder = parseInt(aDisplayOrder, 10);
-                    const bOrder = parseInt(bDisplayOrder, 10);
-                    if (!isNaN(aOrder) && !isNaN(bOrder)) {
-                        return aOrder - bOrder;
-                    }
-                }
-                // Fallback to originalIndex
+                // If same row_index and same productType, maintain original order
                 return a.originalIndex - b.originalIndex;
             });
             return {
@@ -13087,9 +13077,6 @@ function formatPercentValue(value) {
                 const summaryRows = [];
                 const seenRows = new Set(); // Track seen rows to prevent duplicates
                 
-                // Track display order for stable sorting
-                let displayOrder = 0;
-                
                 rows.forEach(row => {
                     const cells = row.querySelectorAll('td');
                     
@@ -13307,11 +13294,6 @@ function formatPercentValue(value) {
                     }
                     seenRows.add(rowKey);
                     
-                    // Add display_order to maintain stable order when rows have same row_index
-                    const currentDisplayOrder = displayOrder++;
-                    // Set data-display-order attribute on the row for stable sorting
-                    row.setAttribute('data-display-order', String(currentDisplayOrder));
-                    
                     summaryRows.push({
                         idProductMain: cleanIdProductMain || null,
                         descriptionMain: descriptionMain || null,
@@ -13341,8 +13323,7 @@ function formatPercentValue(value) {
                         batchSelection: batchSelectionValue ? 1 : 0,
                         formulaVariant: formulaVariant, // Include formulaVariant to help backend distinguish rows with same account
                         rateChecked: rateChecked, // Rate checkbox state
-                        rateValue: rateValue, // Rate input value (only if checkbox is checked)
-                        displayOrder: currentDisplayOrder // Add display_order for stable sorting
+                        rateValue: rateValue // Rate input value (only if checkbox is checked)
                     });
                 });
                 
