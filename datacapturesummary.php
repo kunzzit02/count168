@@ -5110,6 +5110,32 @@ function getCurrentProcessId() {
                 isSubIdProduct: isSubIdProduct
             });
             
+            // 优先使用 formulaDisplay 输入框的值（转换后的值，如 9+7*0.7/5）
+            // 如果 formulaDisplay 输入框为空，则从 formulaValue 转换
+            const formulaDisplayInput = document.getElementById('formulaDisplay');
+            let formulaDisplay = '';
+            if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
+                // 使用 formulaDisplay 输入框的值（已经转换好的值）
+                // 但需要添加 Source Percent 部分
+                const convertedFormula = formulaDisplayInput.value.trim();
+                formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+                console.log('saveFormula - Using formulaDisplay input value:', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
+            } else if (formulaValue && formulaValue.trim() !== '') {
+                // 如果 formulaDisplay 输入框为空，从 formulaValue 转换
+                const trimmedFormula = formulaValue.trim();
+                // 先将 $数字 转换为实际值
+                const processValueForDisplay = processValue;
+                // 临时更新显示框以获取转换后的值
+                updateFormulaDisplay(trimmedFormula, processValueForDisplay);
+                const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
+                if (convertedFormula && convertedFormula !== '') {
+                    formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+                } else {
+                    formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+                }
+                console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
+            }
+            
             // Evaluate the formula expression directly
             const formulaResult = evaluateFormulaExpression(formulaValue);
             
@@ -5126,23 +5152,11 @@ function getCurrentProcessId() {
                 columnsDisplay = clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
             }
             
-            // Check if formulaValue already contains a percent part (user manually entered it)
-            // Look for * followed by a number (may be at the end or in the middle)
-            let formulaDisplay = '';
-            
-            // If formulaValue is empty or only whitespace, keep formulaDisplay as empty string
-            // Also clear sourceColumns and columnsDisplay when formula is cleared
+            // If formulaValue is empty or only whitespace, clear formulaDisplay and columnsDisplay
             if (!formulaValue || formulaValue.trim() === '') {
                 formulaDisplay = '';
                 columnsDisplay = ''; // Clear columnsDisplay when formula is empty
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
-            } else {
-                const trimmedFormula = formulaValue.trim();
-                // 统一由 Source Percent 控制百分比，不再从公式中自动识别 *0.1 这一类“内置百分比”
-                // 这样就可以保证：只要勾选了 Enable，并填写了 Source Percent，
-                // 整个公式的结果都会再乘上 Source Percent，而不会因为公式里含有 *0.2 等运算而被误判为“已含百分比”
-                formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                console.log('Created formulaDisplay from expression (always use Source Percent):', formulaDisplay);
             }
             
             // Calculate processed amount
@@ -8186,12 +8200,32 @@ function getCurrentProcessId() {
                 // Formula is empty, set to empty string and skip all fallbacks
                 formulaValue = '';
                 console.log('editRowFormula - Formula is empty, setting formulaValue to empty string');
-            } else if (isReferenceFormat) {
-                // Use reference format directly from data attribute
-                formulaValue = storedFormulaOperators;
-                console.log('editRowFormula - Using reference format from data-formula-operators:', formulaValue);
             } else {
-                if (cells[4]) {
+                // 优先使用 data-formula-display（转换后的值，如 9+7*0.7/5）
+                // 如果没有，则从表格显示文本读取
+                const storedFormulaDisplay = row.getAttribute('data-formula-display') || '';
+                if (storedFormulaDisplay && storedFormulaDisplay.trim() !== '' && storedFormulaDisplay !== 'Formula') {
+                    // 移除尾部的 Source Percent 部分（如 *(1)）
+                    let formulaDisplayValue = storedFormulaDisplay.trim();
+                    const lastStarIndex = formulaDisplayValue.lastIndexOf('*');
+                    if (lastStarIndex >= 0) {
+                        const beforeStar = formulaDisplayValue.substring(0, lastStarIndex);
+                        const afterStar = formulaDisplayValue.substring(lastStarIndex);
+                        const openParensBefore = (beforeStar.match(/\(/g) || []).length;
+                        const closeParensBefore = (beforeStar.match(/\)/g) || []).length;
+                        const isStarInsideParens = openParensBefore > closeParensBefore;
+                        const sourcePercentPattern = /^\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
+                        if (!isStarInsideParens && sourcePercentPattern.test(afterStar)) {
+                            formulaDisplayValue = formulaDisplayValue.substring(0, lastStarIndex).trim();
+                        }
+                    }
+                    formulaValue = formulaDisplayValue;
+                    console.log('editRowFormula - Using data-formula-display (converted value):', formulaValue);
+                } else if (isReferenceFormat) {
+                    // Use reference format directly from data attribute
+                    formulaValue = storedFormulaOperators;
+                    console.log('editRowFormula - Using reference format from data-formula-operators:', formulaValue);
+                } else if (cells[4]) {
                     let formulaText = cells[4].querySelector('.formula-text')?.textContent.trim() || cells[4].textContent.trim();
                     if (formulaText && formulaText !== 'Formula') {
                         // IMPORTANT: Remove trailing source percent (e.g., *(1) or *(0.05)) from formula text
