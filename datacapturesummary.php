@@ -641,7 +641,7 @@ function getCurrentProcessId() {
         function renderCapturedTable(tableData) {
             // Create a new container for the captured table
             const capturedTableHTML = `
-                <div class="summary-table-container captured-table-container">
+                <div class="summary-table-container captured-table-container" style="display: none;">
                     <div class="table-header">
                         <span>Data Capture Table</span>
                     </div>
@@ -14089,7 +14089,7 @@ function formatPercentValue(value) {
 
         /* Summary Table fixed viewport (approx 10 rows) with vertical scroll */
         #summaryTableContainer .table-wrapper {
-            height: clamp(230px, 16.67vw, 320px); /* ~10 rows incl. header */
+            /* height: clamp(230px, 16.67vw, 320px); */ /* ~10 rows incl. header - removed height restriction */
             overflow-y: auto;
         }
 
