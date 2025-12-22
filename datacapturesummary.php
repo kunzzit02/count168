@@ -5814,13 +5814,20 @@ function getCurrentProcessId() {
                 
                 // Get column value (column A is at index 1, B at 2, etc.)
                 // Column number corresponds to column index in the table
+                console.log('getColumnValueFromCellReference - cellReference:', cellReference, 'rowLabel:', rowLabel, 'columnNumber:', columnNumber, 'processRow.length:', processRow.length);
                 if (columnNumber >= 1 && columnNumber < processRow.length) {
                     const cellData = processRow[columnNumber];
+                    console.log('getColumnValueFromCellReference - cellData at index', columnNumber, ':', cellData);
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
                         // Remove formatting and return numeric value
                         const numericValue = removeThousandsSeparators(cellData.value.toString());
+                        console.log('getColumnValueFromCellReference - returning value:', numericValue, 'for column', columnNumber);
                         return numericValue;
+                    } else {
+                        console.log('getColumnValueFromCellReference - cellData is null or invalid:', cellData);
                     }
+                } else {
+                    console.log('getColumnValueFromCellReference - columnNumber out of range:', columnNumber, 'processRow.length:', processRow.length);
                 }
                 
                 return null;
@@ -10089,17 +10096,22 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     // Replace from right to left to avoid index shifting
                     matches.sort((a, b) => b.index - a.index);
                     let convertedExpression = resolvedSourceExpression;
+                    console.log('Converting $ symbols in resolvedSourceExpression:', resolvedSourceExpression, 'Matches:', matches);
                     for (const m of matches) {
                         const columnReference = rowLabel + m.columnNumber;
+                        console.log('Processing match:', m.fullMatch, 'columnNumber:', m.columnNumber, 'columnReference:', columnReference);
                         const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                        console.log('getColumnValueFromCellReference returned:', columnValue, 'for reference:', columnReference);
                         if (columnValue !== null) {
                             convertedExpression = convertedExpression.substring(0, m.index) + 
                                                columnValue + 
                                                convertedExpression.substring(m.index + m.fullMatch.length);
+                            console.log('After replacement:', convertedExpression);
                         } else {
                             convertedExpression = convertedExpression.substring(0, m.index) + 
                                                '0' + 
                                                convertedExpression.substring(m.index + m.fullMatch.length);
+                            console.log('Column value not found, replaced with 0:', convertedExpression);
                         }
                     }
                     resolvedSourceExpression = convertedExpression;
