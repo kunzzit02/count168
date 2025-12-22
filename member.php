@@ -219,6 +219,10 @@ $today = date('d/m/Y');
             gap: 10px;
         }
 
+        .transaction-page .transaction-form-group:has(.transaction-date-inputs) {
+            max-width: clamp(300px, 25vw, 400px);
+        }
+
         .transaction-page .transaction-two-col {
             display: flex;
             gap: 12px;
@@ -269,12 +273,20 @@ $today = date('d/m/Y');
 
         .transaction-page .transaction-date-inputs {
             display: flex;
-            flex: 1;
+            align-items: center;
+            gap: 5px;
+            width: 100%;
         }
 
         .transaction-page .transaction-date-input {
             flex: 1;
             min-width: 0;
+        }
+
+        .transaction-page .transaction-date-inputs span {
+            color: #666;
+            font-size: clamp(9px, 0.63vw, 12px);
+            flex-shrink: 0;
         }
 
         .transaction-page .transaction-account-inputs {
@@ -920,7 +932,7 @@ $today = date('d/m/Y');
                     <label class="transaction-label">Capture Date</label>
                     <div class="transaction-date-inputs">
                         <input type="text" id="date_from" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
-                        <span style="margin:0 5px;">to</span>
+                        <span>to</span>
                         <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
                     </div>
                 </div>
