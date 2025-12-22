@@ -11113,8 +11113,11 @@ function reorderSummaryRowsByRowIndex() {
         const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
         // Group rows by id_product (normalizedMain)
+        // IMPORTANT: Sub rows should be grouped with their parent main row's id_product
         const groupedByProduct = {};
         withIndex.forEach(data => {
+            // For sub rows, use the parent's id_product (normalizedMain)
+            // For main rows, use their own id_product
             const key = data.normalizedMain || '__empty__';
             if (!groupedByProduct[key]) {
                 groupedByProduct[key] = [];
@@ -11127,11 +11130,19 @@ function reorderSummaryRowsByRowIndex() {
         const productGroups = Object.keys(groupedByProduct).map(key => {
             const groupRows = groupedByProduct[key];
             const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
-            // Sort rows within each group by row_index, then by originalIndex
+            // Sort rows within each group by row_index first (main and sub rows together)
+            // This ensures sub rows follow their parent main rows based on row_index
             groupRows.sort((a, b) => {
+                // First, sort by row_index (Data Capture Table order)
                 if (a.rowIndex !== b.rowIndex) {
                     return a.rowIndex - b.rowIndex;
                 }
+                // If same row_index, main rows come before sub rows
+                if (a.productType !== b.productType) {
+                    if (a.productType === 'main') return -1;
+                    if (b.productType === 'main') return 1;
+                }
+                // If same row_index and same productType, maintain original order
                 return a.originalIndex - b.originalIndex;
             });
             return {
@@ -11151,6 +11162,7 @@ function reorderSummaryRowsByRowIndex() {
         });
 
         // Flatten groups back into ordered rows array
+        // All rows (main and sub) are now sorted by row_index within each id_product group
         const orderedRowsWithIndex = productGroups.flatMap(group => group.rows.map(data => data.row));
 
         // Sort rows without row_index by originalIndex (maintain their current order)
