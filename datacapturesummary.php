@@ -4858,34 +4858,21 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Calculate row_index based on Data Capture Table row order, not Summary Table position
+            // Calculate row_index based on Data Capture Table row order
             // IMPORTANT: row_index should reflect the position in Data Capture Table (A, B, C...)
             // This ensures that Summary Table order matches Data Capture Table order
-            // CRITICAL: When there are multiple rows with same id_product, we need to match by position
-            // Since Summary Table is created in the same order as Data Capture Table,
-            // the position in Summary Table directly corresponds to Data Capture Table row index
+            // CRITICAL: Find the row in Data Capture Table directly by matching id_product
             let rowIndex = null;
             try {
-                // First, try to use the position in Summary Table (which matches Data Capture Table order)
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                    const summaryIndex = allSummaryRows.indexOf(row);
-                    if (summaryIndex !== -1) {
-                        // Summary Table position directly corresponds to Data Capture Table row index
-                        // because populateOriginalTableWithColumnAData creates rows in Data Capture Table order
-                        rowIndex = summaryIndex;
-                        console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', formData.processValue || 'unknown');
-                    }
-                }
-                
-                // Verify: Check if the Data Capture Table row at this index matches
-                if (rowIndex !== null) {
+                // First, try to use existing data-row-index attribute if available and valid
+                const existingRowIndex = row.getAttribute('data-row-index');
+                if (existingRowIndex !== null && existingRowIndex !== '' && !Number.isNaN(Number(existingRowIndex))) {
                     const capturedTableBody = document.getElementById('capturedTableBody');
                     if (capturedTableBody) {
                         const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
-                        if (rowIndex < capturedRows.length) {
-                            const capturedRow = capturedRows[rowIndex];
+                        const index = Number(existingRowIndex);
+                        if (index >= 0 && index < capturedRows.length) {
+                            const capturedRow = capturedRows[index];
                             const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                             if (capturedIdProductCell) {
                                 const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
@@ -4895,13 +4882,50 @@ function getCurrentProcessId() {
                                 const normalizedIdProduct = normalizeIdProductText(idProduct);
                                 
                                 if (capturedIdProduct === normalizedIdProduct) {
-                                    // Verified: Summary Table position matches Data Capture Table row
-                                    console.log('Verified row_index matches Data Capture Table:', rowIndex, 'id_product:', idProduct);
-                                } else {
-                                    console.warn('Warning: Summary Table position', rowIndex, 'does not match Data Capture Table id_product. Expected:', normalizedIdProduct, 'Found:', capturedIdProduct);
-                                    // Still use this row_index as it represents the correct position
+                                    // Verified: existing row_index is correct
+                                    rowIndex = index;
+                                    console.log('Using existing row_index:', rowIndex, 'id_product:', idProduct);
                                 }
                             }
+                        }
+                    }
+                }
+                
+                // If existing row_index is not valid, find the row in Data Capture Table directly
+                if (rowIndex === null) {
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
+                        const idProduct = productType === 'sub' 
+                            ? (idProductSub || normalizeIdProductText(formData.processValue))
+                            : (idProductMain || normalizeIdProductText(formData.processValue));
+                        const normalizedIdProduct = normalizeIdProductText(idProduct);
+                        
+                        // Find the matching row in Data Capture Table
+                        for (let i = 0; i < capturedRows.length; i++) {
+                            const capturedRow = capturedRows[i];
+                            const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+                            if (capturedIdProductCell) {
+                                const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                                if (capturedIdProduct === normalizedIdProduct) {
+                                    rowIndex = i;
+                                    console.log('Found row_index in Data Capture Table:', rowIndex, 'id_product:', idProduct);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Fallback: use Summary Table position if Data Capture Table lookup failed
+                if (rowIndex === null) {
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    if (summaryTableBody) {
+                        const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                        const summaryIndex = allSummaryRows.indexOf(row);
+                        if (summaryIndex !== -1) {
+                            rowIndex = summaryIndex;
+                            console.log('Fallback: Using Summary Table position as row_index:', rowIndex, 'id_product:', formData.processValue || 'unknown');
                         }
                     }
                 }
@@ -4912,7 +4936,7 @@ function getCurrentProcessId() {
                 }
             } catch (e) {
                 console.warn('Failed to compute row_index for template saving', e);
-                // Fallback: try to use existing data-row-index if available
+                // Final fallback: try to use existing data-row-index if available
                 const dataRowIndex = row.getAttribute('data-row-index');
                 if (dataRowIndex !== null && dataRowIndex !== '' && !Number.isNaN(Number(dataRowIndex))) {
                     rowIndex = Number(dataRowIndex);
@@ -5723,11 +5747,22 @@ function getCurrentProcessId() {
                             targetRow.setAttribute('data-template-key', result.template_key);
                             console.log('Updated data-template-key on row:', result.template_key);
                         }
+                        
+                        // Reorder rows by row_index after saving template
+                        // This ensures new rows are placed in the correct position based on row_index
+                        setTimeout(() => {
+                            reorderSummaryRowsByRowIndex();
+                        }, 100);
                     }
                 }).catch(error => {
                     console.error('Failed to auto-save template:', error);
                     // Don't show error notification to avoid interrupting user workflow
                 });
+            } else {
+                // Even if template save was skipped, reorder rows to ensure correct position
+                setTimeout(() => {
+                    reorderSummaryRowsByRowIndex();
+                }, 100);
             }
 
             // Close form
