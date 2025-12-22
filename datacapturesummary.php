@@ -1462,7 +1462,8 @@ function getCurrentProcessId() {
                                 <div class="form-row formula-row-full-width">
                                     <div class="form-group">
                                         <label for="formula">Formula</label>
-                                        <input type="text" id="formula" placeholder="e.g. (5+4)*(-3)/2">
+                                        <input type="text" id="formula" placeholder="e.g. $5+$10*0.6/7">
+                                        <input type="text" id="formulaDisplay" readonly style="margin-top: 8px; background-color: #f5f5f5; cursor: not-allowed; color: #666; font-style: italic;" placeholder="显示转换后的公式（例如: 2039+434*0.6/7）">
                                     </div>
                                 </div>
                                 
@@ -3093,8 +3094,80 @@ function getCurrentProcessId() {
             }
         }
         
+        // 更新公式显示框：将 formula 中的 $数字 或列引用转换为实际值
+        // 例如 "$5+$10*0.6/7" 会被转换为 "2039+434*0.6/7"
+        function updateFormulaDisplay(formulaValue, processValue) {
+            const formulaDisplayInput = document.getElementById('formulaDisplay');
+            if (!formulaDisplayInput || !formulaValue) {
+                if (formulaDisplayInput) {
+                    formulaDisplayInput.value = '';
+                }
+                return;
+            }
+            
+            if (!processValue) {
+                const processInput = document.getElementById('process');
+                processValue = processInput ? processInput.value.trim() : null;
+            }
+            
+            if (!processValue) {
+                formulaDisplayInput.value = '';
+                return;
+            }
+            
+            try {
+                let displayFormula = formulaValue;
+                
+                // 第一步：将 $数字 转换为列引用 (例如 $5 -> A5)
+                const rowLabel = getRowLabelFromProcessValue(processValue);
+                if (rowLabel) {
+                    const dollarPattern = /\$(\d+)/g;
+                    let match;
+                    const dollarReplacements = [];
+                    
+                    // 收集所有 $数字 匹配项
+                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                        const fullMatch = match[0]; // 例如 "$5"
+                        const columnNumber = parseInt(match[1]); // 例如 5
+                        const matchIndex = match.index;
+                        
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            const columnReference = rowLabel + columnNumber;
+                            dollarReplacements.push({
+                                from: fullMatch,
+                                to: columnReference,
+                                index: matchIndex
+                            });
+                        }
+                    }
+                    
+                    // 从后往前替换 $数字 为列引用
+                    if (dollarReplacements.length > 0) {
+                        dollarReplacements.sort((a, b) => b.index - a.index);
+                        for (let i = 0; i < dollarReplacements.length; i++) {
+                            const replacement = dollarReplacements[i];
+                            displayFormula = displayFormula.substring(0, replacement.index) + 
+                                            replacement.to + 
+                                            displayFormula.substring(replacement.index + replacement.from.length);
+                        }
+                    }
+                }
+                
+                // 第二步：将列引用转换为实际值
+                // 使用 parseReferenceFormula 函数来解析列引用
+                const parsedFormula = parseReferenceFormula(displayFormula);
+                
+                // 更新显示框
+                formulaDisplayInput.value = parsedFormula || displayFormula;
+            } catch (error) {
+                console.error('Error updating formula display:', error);
+                formulaDisplayInput.value = '';
+            }
+        }
+        
         // Process $符号: 将 $数字 转换为列引用 (例如 $5 -> A5)
         // 例如 "$5+$10*0.6/7" 会被转换为 "A5+A10*0.6/7"
+        // 注意：这个函数现在不再自动修改输入框，只用于内部处理
         function processDollarColumnReferences(formulaValue, processValue) {
             if (!formulaValue || !processValue) {
                 return formulaValue;
@@ -3499,49 +3572,28 @@ function getCurrentProcessId() {
                         return;
                     }
                     
-                    // 首先处理 $符号: 将 $数字 转换为列引用 (例如 $5 -> A5)
-                    if (processValue && formulaValue.includes('$')) {
-                        const dollarProcessedValue = processDollarColumnReferences(formulaValue, processValue);
-                        if (dollarProcessedValue !== formulaValue) {
-                            const oldCursorPos = this.selectionStart || this.value.length;
-                            this.value = dollarProcessedValue;
-                            // 调整光标位置
-                            const lengthDiff = dollarProcessedValue.length - formulaValue.length;
-                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, dollarProcessedValue.length));
-                            this.setSelectionRange(newCursorPos, newCursorPos);
-                            previousValue = dollarProcessedValue;
-                            // 继续使用处理后的值
-                            formulaValue = dollarProcessedValue;
-                        }
-                    }
-                    
                     // Process manual keyboard input: replace numbers with column values based on preceding operator
                     // Numbers after + or - (or at start) should be replaced with column values
                     // Numbers after * or / should remain as literal numbers
+                    // 注意：现在不再自动转换，保持用户输入的原样
                     if (processValue && formulaValue !== previousValue) {
-                        const cursorPos = this.selectionStart || this.value.length;
-                        const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
-                        if (newValue !== formulaValue) {
-                            // Update the value
-                            const oldCursorPos = this.selectionStart || this.value.length;
-                            this.value = newValue;
-                            // Restore cursor position (adjust for length change)
-                            const lengthDiff = newValue.length - formulaValue.length;
-                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
-                            this.setSelectionRange(newCursorPos, newCursorPos);
-                            previousValue = newValue;
-                            // Continue processing with the updated value
-                            formulaValue = newValue;
-                        } else {
-                            previousValue = formulaValue;
-                        }
+                        // 不再自动转换，保持原样
+                        previousValue = formulaValue;
                     } else {
                         previousValue = formulaValue;
                     }
                     
+                    // 更新显示框：将 formula 中的 $数字 或列引用转换为实际值显示
+                    // 使用最新的 formulaValue（可能已经被 processManualFormulaInput 修改）
+                    const finalFormulaValue = this.value || formulaValue;
+                    updateFormulaDisplay(finalFormulaValue, processValue);
+                    
                     // Handle empty formula: clear all related attributes
                     // BUT: In edit mode, preserve existing columns even if formula is cleared
-                    if (!formulaValue || formulaValue.trim() === '') {
+                    if (!finalFormulaValue || finalFormulaValue.trim() === '') {
+                        // 清空显示框
+                        updateFormulaDisplay('', processValue);
+                        
                         const isEditMode = !!window.currentEditRow;
                         if (isEditMode) {
                             // In edit mode, preserve existing columns when formula is cleared
@@ -4390,6 +4442,9 @@ function getCurrentProcessId() {
                     if (formulaInput) {
                         console.log('populateFormWithData - Setting formula value:', data.formula);
                         formulaInput.value = data.formula || '';
+                        // 更新显示框
+                        const processValue = document.getElementById('process')?.value;
+                        updateFormulaDisplay(data.formula || '', processValue);
                         // Restore clicked columns if provided
                         if (data.clickedColumns) {
                             // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
