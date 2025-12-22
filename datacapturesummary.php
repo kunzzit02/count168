@@ -14226,9 +14226,12 @@ function formatPercentValue(value) {
         }
 
         /* Remove vertical border between Account (2) and Add (3) columns (only in summary table) */
-        #summaryTable th:nth-child(2),
-        #summaryTable td:nth-child(2) {
+        #summaryTable th:nth-child(2){
             border-right: none;
+        }
+
+        #summaryTable td:nth-child(2) {
+            border-right: 1px solid #d0d7de;
         }
 
         #summaryTable th:nth-child(3),
