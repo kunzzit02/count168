@@ -3098,10 +3098,13 @@ function getCurrentProcessId() {
         // 例如 "$5+$10*0.6/7" 会被转换为 "2039+434*0.6/7"
         function updateFormulaDisplay(formulaValue, processValue) {
             const formulaDisplayInput = document.getElementById('formulaDisplay');
-            if (!formulaDisplayInput || !formulaValue) {
-                if (formulaDisplayInput) {
-                    formulaDisplayInput.value = '';
-                }
+            if (!formulaDisplayInput) {
+                return;
+            }
+            
+            // 如果 formulaValue 为空，清空显示框
+            if (!formulaValue || formulaValue.trim() === '') {
+                formulaDisplayInput.value = '';
                 return;
             }
             
@@ -3116,45 +3119,67 @@ function getCurrentProcessId() {
             }
             
             try {
+                // 获取行标签
+                const rowLabel = getRowLabelFromProcessValue(processValue);
+                if (!rowLabel) {
+                    formulaDisplayInput.value = formulaValue;
+                    return;
+                }
+                
+                // 直接处理：将 $数字 转换为实际值
+                // 使用更精确的匹配方式，确保 $10 不会匹配到 $1
                 let displayFormula = formulaValue;
                 
-                // 第一步：将 $数字 转换为列引用 (例如 $5 -> A5)
-                const rowLabel = getRowLabelFromProcessValue(processValue);
-                if (rowLabel) {
-                    const dollarPattern = /\$(\d+)/g;
-                    let match;
-                    const dollarReplacements = [];
+                // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
+                // 使用非贪婪匹配，但需要确保匹配完整的数字
+                // 先找到所有匹配项及其位置
+                const dollarMatches = [];
+                const dollarPattern = /\$(\d+)/g;
+                let match;
+                
+                // 重置正则表达式的 lastIndex，确保从头开始匹配
+                dollarPattern.lastIndex = 0;
+                
+                while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                    const fullMatch = match[0]; // 例如 "$5" 或 "$10"
+                    const columnNumber = parseInt(match[1]); // 例如 5 或 10
+                    const matchIndex = match.index;
                     
-                    // 收集所有 $数字 匹配项
-                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
-                        const fullMatch = match[0]; // 例如 "$5"
-                        const columnNumber = parseInt(match[1]); // 例如 5
-                        const matchIndex = match.index;
+                    if (!isNaN(columnNumber) && columnNumber > 0) {
+                        // 获取列的实际值
+                        const columnReference = rowLabel + columnNumber;
+                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
                         
-                        if (!isNaN(columnNumber) && columnNumber > 0) {
-                            const columnReference = rowLabel + columnNumber;
-                            dollarReplacements.push({
-                                from: fullMatch,
-                                to: columnReference,
+                        if (columnValue !== null) {
+                            dollarMatches.push({
+                                fullMatch: fullMatch,
+                                value: columnValue,
+                                index: matchIndex
+                            });
+                        } else {
+                            // 如果找不到值，保持原样或显示 0
+                            dollarMatches.push({
+                                fullMatch: fullMatch,
+                                value: '0',
                                 index: matchIndex
                             });
                         }
                     }
-                    
-                    // 从后往前替换 $数字 为列引用
-                    if (dollarReplacements.length > 0) {
-                        dollarReplacements.sort((a, b) => b.index - a.index);
-                        for (let i = 0; i < dollarReplacements.length; i++) {
-                            const replacement = dollarReplacements[i];
-                            displayFormula = displayFormula.substring(0, replacement.index) + 
-                                            replacement.to + 
-                                            displayFormula.substring(replacement.index + replacement.from.length);
-                        }
+                }
+                
+                // 从后往前替换，避免位置偏移
+                if (dollarMatches.length > 0) {
+                    dollarMatches.sort((a, b) => b.index - a.index);
+                    for (let i = 0; i < dollarMatches.length; i++) {
+                        const match = dollarMatches[i];
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        match.value + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
                     }
                 }
                 
-                // 第二步：将列引用转换为实际值
-                // 使用 parseReferenceFormula 函数来解析列引用
+                // 如果还有列引用（如 A5），也转换为实际值
+                // 使用 parseReferenceFormula 来处理列引用
                 const parsedFormula = parseReferenceFormula(displayFormula);
                 
                 // 更新显示框
@@ -3569,24 +3594,17 @@ function getCurrentProcessId() {
                     const fromCellClick = this.getAttribute('data-from-cell-click') === 'true';
                     if (fromCellClick) {
                         previousValue = formulaValue;
+                        // 即使来自 cell click，也要更新显示框
+                        updateFormulaDisplay(formulaValue, processValue);
                         return;
                     }
                     
-                    // Process manual keyboard input: replace numbers with column values based on preceding operator
-                    // Numbers after + or - (or at start) should be replaced with column values
-                    // Numbers after * or / should remain as literal numbers
-                    // 注意：现在不再自动转换，保持用户输入的原样
-                    if (processValue && formulaValue !== previousValue) {
-                        // 不再自动转换，保持原样
-                        previousValue = formulaValue;
-                    } else {
-                        previousValue = formulaValue;
-                    }
+                    // 更新 previousValue
+                    previousValue = formulaValue;
                     
-                    // 更新显示框：将 formula 中的 $数字 或列引用转换为实际值显示
-                    // 使用最新的 formulaValue（可能已经被 processManualFormulaInput 修改）
-                    const finalFormulaValue = this.value || formulaValue;
-                    updateFormulaDisplay(finalFormulaValue, processValue);
+                    // 立即更新显示框：将 formula 中的 $数字 或列引用转换为实际值显示
+                    // 每次输入时立即更新，不需要等待
+                    updateFormulaDisplay(formulaValue, processValue);
                     
                     // Handle empty formula: clear all related attributes
                     // BUT: In edit mode, preserve existing columns even if formula is cleared
