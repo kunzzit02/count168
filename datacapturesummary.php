@@ -11447,15 +11447,9 @@ function reorderSummaryRowsByRowIndex() {
                     if (a.productType === 'main') return -1;
                     if (b.productType === 'main') return 1;
                 }
-                // If same row_index and same productType, sort by template_id (creation order from database)
-                // This preserves the order in which rows were created, not their current DOM position
-                if (a.templateId !== null && b.templateId !== null) {
-                    return a.templateId - b.templateId;
-                }
-                // If one has template_id and the other doesn't, the one with template_id comes first
-                if (a.templateId !== null && b.templateId === null) return -1;
-                if (a.templateId === null && b.templateId !== null) return 1;
-                // If both don't have template_id, maintain original order
+                // If same row_index and same productType (both are sub rows),
+                // Maintain their current DOM order (originalIndex) to preserve user's insertion order
+                // This ensures sub rows stay where user added them, not sorted by creation time
                 return a.originalIndex - b.originalIndex;
             });
             return {
