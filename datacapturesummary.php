@@ -14219,11 +14219,6 @@ function formatPercentValue(value) {
             background-color: #f6f8fa;
         }
 
-        /* 只给 Total Row 的 Skip 欄加左邊框，不影響表頭 */
-        #summaryTable tfoot tr#summaryTotalRow td:nth-child(9) {
-            border-left: 2px solid #d0d7de;
-        }
-
         /* Id Product and Account columns alignment */
         .summary-table td:nth-child(1), /* Id Product (merged) */
         .summary-table td:nth-child(2) { /* Account */
