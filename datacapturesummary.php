@@ -3118,47 +3118,106 @@ function getCurrentProcessId() {
             try {
                 let displayFormula = formulaValue;
                 
-                // 第一步：将 $数字 转换为列引用 (例如 $5 -> A5)
+                // 获取行标签 (A, B, C 等)
                 const rowLabel = getRowLabelFromProcessValue(processValue);
-                if (rowLabel) {
-                    const dollarPattern = /\$(\d+)/g;
-                    let match;
-                    const dollarReplacements = [];
+                if (!rowLabel) {
+                    formulaDisplayInput.value = formulaValue;
+                    return;
+                }
+                
+                // 收集所有需要替换的项：$数字 和列引用（如 A5）
+                const replacements = [];
+                
+                // 第一步：收集所有 $数字 匹配项
+                const dollarPattern = /\$(\d+)/g;
+                let match;
+                while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                    const fullMatch = match[0]; // 例如 "$5"
+                    const columnNumber = parseInt(match[1]); // 例如 5
+                    const matchIndex = match.index;
                     
-                    // 收集所有 $数字 匹配项
-                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
-                        const fullMatch = match[0]; // 例如 "$5"
-                        const columnNumber = parseInt(match[1]); // 例如 5
-                        const matchIndex = match.index;
-                        
-                        if (!isNaN(columnNumber) && columnNumber > 0) {
-                            const columnReference = rowLabel + columnNumber;
-                            dollarReplacements.push({
+                    if (!isNaN(columnNumber) && columnNumber > 0) {
+                        const columnReference = rowLabel + columnNumber;
+                        // 获取列的实际值
+                        const cellValue = getColumnValueFromCellReference(columnReference, processValue);
+                        if (cellValue !== null) {
+                            replacements.push({
                                 from: fullMatch,
-                                to: columnReference,
+                                to: cellValue,
+                                index: matchIndex
+                            });
+                        } else {
+                            // 如果找不到值，替换为 0
+                            replacements.push({
+                                from: fullMatch,
+                                to: '0',
                                 index: matchIndex
                             });
                         }
                     }
+                }
+                
+                // 第二步：收集所有列引用（如 A5, B10）匹配项（排除已经处理的 $数字 转换后的列引用）
+                // 使用更宽松的正则表达式，不依赖单词边界
+                const cellRefPattern = /([A-Za-z]+)(\d+)/g;
+                // 重置正则表达式
+                cellRefPattern.lastIndex = 0;
+                while ((match = cellRefPattern.exec(formulaValue)) !== null) {
+                    const fullMatch = match[0]; // 例如 "A5"
+                    const matchRowLabel = match[1]; // 例如 "A"
+                    const columnNumber = parseInt(match[2]); // 例如 5
+                    const matchIndex = match.index;
                     
-                    // 从后往前替换 $数字 为列引用
-                    if (dollarReplacements.length > 0) {
-                        dollarReplacements.sort((a, b) => b.index - a.index);
-                        for (let i = 0; i < dollarReplacements.length; i++) {
-                            const replacement = dollarReplacements[i];
-                            displayFormula = displayFormula.substring(0, replacement.index) + 
-                                            replacement.to + 
-                                            displayFormula.substring(replacement.index + replacement.from.length);
+                    // 检查是否已经被 $数字 处理过（通过检查前面是否有 $）
+                    const beforeChar = matchIndex > 0 ? formulaValue[matchIndex - 1] : '';
+                    if (beforeChar === '$') {
+                        // 这是 $数字 的一部分，已经处理过了，跳过
+                        continue;
+                    }
+                    
+                    // 检查是否是有效的列引用（行标签匹配且列号有效）
+                    if (matchRowLabel.toUpperCase() === rowLabel.toUpperCase() && !isNaN(columnNumber) && columnNumber > 0) {
+                        // 检查前后字符，确保不是其他内容的一部分
+                        const beforeMatch = formulaValue.substring(Math.max(0, matchIndex - 1), matchIndex);
+                        const afterMatch = formulaValue.substring(matchIndex + fullMatch.length, Math.min(formulaValue.length, matchIndex + fullMatch.length + 1));
+                        const isValidBefore = matchIndex === 0 || /[\s+\-*/(]/.test(beforeMatch) || beforeMatch === '';
+                        const isValidAfter = !/[A-Za-z]/.test(afterMatch);
+                        const notPrecededByLetterOrDigit = !/[A-Za-z0-9]/.test(beforeMatch);
+                        
+                        if (isValidBefore && isValidAfter && notPrecededByLetterOrDigit) {
+                            // 获取列的实际值
+                            const cellValue = getColumnValueFromCellReference(fullMatch, processValue);
+                            if (cellValue !== null) {
+                                replacements.push({
+                                    from: fullMatch,
+                                    to: cellValue,
+                                    index: matchIndex
+                                });
+                            } else {
+                                // 如果找不到值，替换为 0
+                                replacements.push({
+                                    from: fullMatch,
+                                    to: '0',
+                                    index: matchIndex
+                                });
+                            }
                         }
                     }
                 }
                 
-                // 第二步：将列引用转换为实际值
-                // 使用 parseReferenceFormula 函数来解析列引用
-                const parsedFormula = parseReferenceFormula(displayFormula);
+                // 从后往前替换，避免索引位置变化的问题
+                if (replacements.length > 0) {
+                    replacements.sort((a, b) => b.index - a.index);
+                    for (let i = 0; i < replacements.length; i++) {
+                        const replacement = replacements[i];
+                        displayFormula = displayFormula.substring(0, replacement.index) + 
+                                        replacement.to + 
+                                        displayFormula.substring(replacement.index + replacement.from.length);
+                    }
+                }
                 
                 // 更新显示框
-                formulaDisplayInput.value = parsedFormula || displayFormula;
+                formulaDisplayInput.value = displayFormula;
             } catch (error) {
                 console.error('Error updating formula display:', error);
                 formulaDisplayInput.value = '';
@@ -5706,7 +5765,8 @@ function getCurrentProcessId() {
                 
                 // First, parse cell references (e.g., "A4", "B3")
                 // Pattern: letter(s) followed by digits (e.g., "A4", "AA10")
-                const cellReferencePattern = /\b([A-Za-z]+)(\d+)\b/g;
+                // 不使用 \b 单词边界，因为列引用可能紧跟在运算符后面（如 +A5, -A10）
+                const cellReferencePattern = /([A-Za-z]+)(\d+)/g;
                 let match;
                 
                 // Store matches to avoid replacing while iterating
@@ -5715,18 +5775,24 @@ function getCurrentProcessId() {
                     const fullMatch = match[0]; // e.g., "A4"
                     const rowLabel = match[1]; // e.g., "A"
                     const columnNumber = match[2]; // e.g., "4"
+                    const matchIndex = match.index;
                     
                     // Check if this is a valid cell reference (not part of a number or operator)
-                    const beforeMatch = formula.substring(Math.max(0, match.index - 1), match.index);
-                    const afterMatch = formula.substring(match.index + fullMatch.length, Math.min(formula.length, match.index + fullMatch.length + 1));
+                    const beforeMatch = formula.substring(Math.max(0, matchIndex - 1), matchIndex);
+                    const afterMatch = formula.substring(matchIndex + fullMatch.length, Math.min(formula.length, matchIndex + fullMatch.length + 1));
                     
                     // Only treat as cell reference if:
-                    // - Not preceded by a letter or digit (to avoid matching "A" in "10A4")
+                    // - Not preceded by a letter or digit (to avoid matching "A" in "10A4" or "BA4")
                     // - Not followed by a letter (to avoid matching "A" in "A4B")
-                    if (!/[A-Za-z0-9]/.test(beforeMatch) && !/[A-Za-z]/.test(afterMatch)) {
+                    // - Preceded by operator, whitespace, or start of string (valid contexts for cell references)
+                    const isValidBefore = matchIndex === 0 || /[\s+\-*/(]/.test(beforeMatch) || beforeMatch === '';
+                    const isValidAfter = !/[A-Za-z]/.test(afterMatch);
+                    const notPrecededByLetterOrDigit = !/[A-Za-z0-9]/.test(beforeMatch);
+                    
+                    if (isValidBefore && isValidAfter && notPrecededByLetterOrDigit) {
                         cellReferences.push({
                             fullMatch: fullMatch,
-                            index: match.index,
+                            index: matchIndex,
                             rowLabel: rowLabel,
                             columnNumber: columnNumber
                         });
