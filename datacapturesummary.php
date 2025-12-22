@@ -1095,13 +1095,8 @@ function getCurrentProcessId() {
                     console.log('getCellValuesFromNewFormat: new format match - idProduct:', idProduct, 'rowLabel:', rowLabel, 'columnIndex:', columnIndex);
                     const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel);
                     console.log('getCellValuesFromNewFormat: cellValue from new format:', cellValue);
-                    // IMPORTANT: Even if cellValue is null or empty, we should still push a placeholder (0) to maintain the correct order
-                    // This ensures that if column 10's value is not found, we still have the correct number of values
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
-                    } else {
-                        console.warn('getCellValuesFromNewFormat: cellValue is null or empty for column', columnIndex, 'pushing 0 as placeholder');
-                        cellValues.push('0'); // Push 0 as placeholder to maintain order
                     }
                 } else {
                     // Fallback to old format: "id_product:column_index" (backward compatibility)
@@ -1112,12 +1107,8 @@ function getCurrentProcessId() {
                         console.log('getCellValuesFromNewFormat: old format match - idProduct:', idProduct, 'columnIndex:', columnIndex);
                         const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
                         console.log('getCellValuesFromNewFormat: cellValue from old format:', cellValue);
-                        // IMPORTANT: Even if cellValue is null or empty, we should still push a placeholder (0) to maintain the correct order
                         if (cellValue !== null && cellValue !== '') {
                             cellValues.push(cellValue);
-                        } else {
-                            console.warn('getCellValuesFromNewFormat: cellValue is null or empty for column', columnIndex, 'pushing 0 as placeholder');
-                            cellValues.push('0'); // Push 0 as placeholder to maintain order
                         }
                     } else {
                         console.warn('getCellValuesFromNewFormat: part does not match any format:', part);
@@ -1219,53 +1210,15 @@ function getCurrentProcessId() {
                 // So: columnIndex 1 -> processRow index 2, columnIndex 2 -> processRow index 3, etc.
                 const processRowIndex = columnIndex + 1; // Convert 1-based column index to processRow index
                 
-                console.log('getCellValueByIdProductAndColumn - columnIndex:', columnIndex, 'processRowIndex:', processRowIndex, 'processRow.length:', processRow.length);
-                // Debug: Log the entire processRow structure for column 10
-                if (columnIndex === 10) {
-                    console.log('getCellValueByIdProductAndColumn - DEBUG column 10 - processRow structure:', processRow);
-                    console.log('getCellValueByIdProductAndColumn - DEBUG column 10 - processRow[11]:', processRow[11]);
-                    console.log('getCellValueByIdProductAndColumn - DEBUG column 10 - processRow[10]:', processRow[10]);
-                    console.log('getCellValueByIdProductAndColumn - DEBUG column 10 - processRow[9]:', processRow[9]);
-                }
-                
                 if (processRowIndex >= 2 && processRowIndex < processRow.length) {
                     const cellData = processRow[processRowIndex];
-                    console.log('getCellValueByIdProductAndColumn - cellData at index', processRowIndex, ':', cellData);
-                    if (cellData) {
-                        // Check if cellData has a value, even if type is not 'data'
-                        if (cellData.value !== null && cellData.value !== undefined && cellData.value !== '') {
-                            // Extract numeric value (remove formatting)
-                            const cellValue = cellData.value.toString();
-                            const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
-                            console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
-                            return numericValue || cellValue;
-                        } else {
-                            // Even if value is empty, check if type is 'data' - might be a valid empty cell
-                            if (cellData.type === 'data') {
-                                console.warn('getCellValueByIdProductAndColumn - cellData type is data but value is empty for column', columnIndex, 'returning 0');
-                                return '0'; // Return 0 for empty data cells
-                            } else {
-                                console.warn('getCellValueByIdProductAndColumn - cellData check failed:', {
-                                    cellData: cellData,
-                                    hasCellData: !!cellData,
-                                    type: cellData?.type,
-                                    value: cellData?.value,
-                                    isNull: cellData?.value === null,
-                                    isUndefined: cellData?.value === undefined,
-                                    isEmpty: cellData?.value === ''
-                                });
-                            }
-                        }
-                    } else {
-                        console.warn('getCellValueByIdProductAndColumn - cellData is null or undefined at index', processRowIndex);
+                    if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
+                        // Extract numeric value (remove formatting)
+                        const cellValue = cellData.value.toString();
+                        const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                        console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
+                        return numericValue || cellValue;
                     }
-                } else {
-                    console.warn('getCellValueByIdProductAndColumn - processRowIndex out of range:', {
-                        processRowIndex: processRowIndex,
-                        processRowLength: processRow.length,
-                        minRequired: 2,
-                        maxAllowed: processRow.length - 1
-                    });
                 }
                 
                 console.error('Cell not found for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex);
@@ -1649,26 +1602,12 @@ function getCurrentProcessId() {
             if (!formulaInput || !value) return;
 
             // 数字 0-9：按列号去当前行找对应 column 的值
-            // 但是：如果前面有 $ 符号，保持原样，不自动转换（$数字 格式）
             if (/^\d$/.test(value)) {
                 const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
                 const textBefore = formulaInput.value.substring(0, cursorPos);
 
-                // 检查前面是否有 $ 符号（$数字 格式，保持原样）
-                const trimmedBefore = textBefore.trim();
-                const lastChar = trimmedBefore.length > 0 ? trimmedBefore[trimmedBefore.length - 1] : '';
-                
-                // 如果前面是 $ 符号，直接插入数字，不转换
-                if (lastChar === '$') {
-                    const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                    formulaInput.value = textBefore + value + textAfter;
-                    const newCursorPos = cursorPos + value.length;
-                    formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-                    formulaInput.focus();
-                    return;
-                }
-
                 // 判断当前位置是否应该用「列值」而不是字面数字
+                const trimmedBefore = textBefore.trim();
                 let shouldUseColumnValue = false;
 
                 if (trimmedBefore.length === 0) {
@@ -1792,7 +1731,6 @@ function getCurrentProcessId() {
             // 2）电脑键盘输入：和 keypad 完全同一套逻辑
             formulaInput.addEventListener('keydown', function(e) {
                 // 已经在别处处理 Backspace/Delete/剪贴板等，这里只接管数字和常用运算符输入
-                // 注意：$ 符号不需要特殊处理，让它正常输入即可
                 if (
                     e.key &&
                     e.key.length === 1 &&
@@ -1801,7 +1739,6 @@ function getCurrentProcessId() {
                     e.preventDefault();
                     handleFormulaValueInput(this, e.key);
                 }
-                // $ 符号和其他字符正常输入，不需要 preventDefault
             });
         }
         
@@ -3226,10 +3163,6 @@ function getCurrentProcessId() {
                 // 从后往前处理，避免位置偏移
                 allMatches.sort((a, b) => b.index - a.index);
                 
-                // 更新 data-clicked-cell-refs（格式：id_product:row_label:column_index，如 GGG:A:10）
-                const formulaInput = document.getElementById('formula');
-                const clickedCellRefs = [];
-                
                 for (let i = 0; i < allMatches.length; i++) {
                     const match = allMatches[i];
                     // 获取列的实际值
@@ -3241,71 +3174,12 @@ function getCurrentProcessId() {
                         displayFormula = displayFormula.substring(0, match.index) + 
                                         columnValue + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
-                        
-                        // 记录列引用格式：id_product:row_label:column_index（如 GGG:A:10）
-                        if (formulaInput && processValue) {
-                            const cellRef = `${processValue}:${rowLabel}:${match.columnNumber}`;
-                            if (!clickedCellRefs.includes(cellRef)) {
-                                clickedCellRefs.push(cellRef);
-                            }
-                        }
                     } else {
                         // 如果找不到值，替换为 0
                         displayFormula = displayFormula.substring(0, match.index) + 
                                         '0' + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
                     }
-                }
-                
-                // 更新 data-clicked-cell-refs
-                // 重要：只保留当前 formulaValue 中实际存在的 $数字 对应的列引用
-                // 这样可以避免保存输入过程中产生的中间状态（如 $1 变成 $10 时，$1 不应该被保存）
-                if (formulaInput && clickedCellRefs.length > 0) {
-                    // 从当前的 formulaValue 中提取所有实际存在的 $数字
-                    const currentDollarPattern = /\$(\d+)(?!\d)/g;
-                    const currentDollarMatches = new Set();
-                    currentDollarPattern.lastIndex = 0;
-                    let match;
-                    while ((match = currentDollarPattern.exec(formulaValue)) !== null) {
-                        const columnNumber = parseInt(match[1]);
-                        if (!isNaN(columnNumber) && columnNumber > 0) {
-                            currentDollarMatches.add(columnNumber);
-                        }
-                    }
-                    
-                    // 只保留当前 formulaValue 中实际存在的列引用
-                    const validRefs = clickedCellRefs.filter(ref => {
-                        const parts = ref.split(':');
-                        if (parts.length >= 3) {
-                            const refColumnNumber = parseInt(parts[2]);
-                            return !isNaN(refColumnNumber) && currentDollarMatches.has(refColumnNumber);
-                        }
-                        return false;
-                    });
-                    
-                    // 获取现有的引用，但只保留其他 process 或 row 的引用（可能来自其他 id product）
-                    const existingRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
-                    const existingRefsArray = existingRefs ? existingRefs.split(' ').filter(r => r.trim() !== '') : [];
-                    const otherProcessRefs = existingRefsArray.filter(ref => {
-                        const parts = ref.split(':');
-                        if (parts.length >= 3) {
-                            const refProcessValue = parts[0];
-                            const refRowLabel = parts[1];
-                            // 保留其他 process 或 row 的引用
-                            return refProcessValue !== processValue || refRowLabel !== rowLabel;
-                        }
-                        return true; // 保留无法解析的引用（向后兼容）
-                    });
-                    
-                    // 合并：其他 process/row 的引用 + 当前有效的引用
-                    const finalRefsArray = [...otherProcessRefs];
-                    validRefs.forEach(ref => {
-                        if (!finalRefsArray.includes(ref)) {
-                            finalRefsArray.push(ref);
-                        }
-                    });
-                    
-                    formulaInput.setAttribute('data-clicked-cell-refs', finalRefsArray.join(' '));
                 }
                 
                 // 如果还有列引用（如 A5），也转换为实际值
@@ -5236,56 +5110,8 @@ function getCurrentProcessId() {
                 isSubIdProduct: isSubIdProduct
             });
             
-            // 优先使用 formulaDisplay 输入框的值（转换后的值，如 9+7*0.7/5）
-            // 如果 formulaDisplay 输入框为空，则从 formulaValue 转换
-            const formulaDisplayInput = document.getElementById('formulaDisplay');
-            let formulaDisplay = '';
-            if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
-                // 使用 formulaDisplay 输入框的值（已经转换好的值）
-                // 但需要添加 Source Percent 部分
-                const convertedFormula = formulaDisplayInput.value.trim();
-                formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
-                console.log('saveFormula - Using formulaDisplay input value:', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
-            } else if (formulaValue && formulaValue.trim() !== '') {
-                // 如果 formulaDisplay 输入框为空，从 formulaValue 转换
-                const trimmedFormula = formulaValue.trim();
-                // 先将 $数字 转换为实际值
-                const processValueForDisplay = processValue;
-                // 临时更新显示框以获取转换后的值
-                updateFormulaDisplay(trimmedFormula, processValueForDisplay);
-                const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
-                if (convertedFormula && convertedFormula !== '') {
-                    formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
-                } else {
-                    formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                }
-                console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
-            }
-            
-            // 获取转换后的公式值用于计算（移除 Source Percent 部分）
-            let convertedFormulaForCalculation = '';
-            if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
-                convertedFormulaForCalculation = formulaDisplayInput.value.trim();
-            } else if (formulaDisplay && formulaDisplay.trim() !== '') {
-                // 从 formulaDisplay 移除 Source Percent 部分
-                let baseFormula = formulaDisplay.trim();
-                const lastStarIndex = baseFormula.lastIndexOf('*');
-                if (lastStarIndex >= 0) {
-                    const beforeStar = baseFormula.substring(0, lastStarIndex);
-                    const afterStar = baseFormula.substring(lastStarIndex);
-                    const openParensBefore = (beforeStar.match(/\(/g) || []).length;
-                    const closeParensBefore = (beforeStar.match(/\)/g) || []).length;
-                    const isStarInsideParens = openParensBefore > closeParensBefore;
-                    const sourcePercentPattern = /^\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                    if (!isStarInsideParens && sourcePercentPattern.test(afterStar)) {
-                        baseFormula = baseFormula.substring(0, lastStarIndex).trim();
-                    }
-                }
-                convertedFormulaForCalculation = baseFormula;
-            }
-            
-            // Evaluate the formula expression using converted value (without $ symbols)
-            const formulaResult = convertedFormulaForCalculation ? evaluateFormulaExpression(convertedFormulaForCalculation) : 0;
+            // Evaluate the formula expression directly
+            const formulaResult = evaluateFormulaExpression(formulaValue);
             
             // Get Columns display from clicked columns (preferred) or extract from formula
             const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
@@ -5300,26 +5126,39 @@ function getCurrentProcessId() {
                 columnsDisplay = clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
             }
             
-            // If formulaValue is empty or only whitespace, clear formulaDisplay and columnsDisplay
+            // Check if formulaValue already contains a percent part (user manually entered it)
+            // Look for * followed by a number (may be at the end or in the middle)
+            let formulaDisplay = '';
+            
+            // If formulaValue is empty or only whitespace, keep formulaDisplay as empty string
+            // Also clear sourceColumns and columnsDisplay when formula is cleared
             if (!formulaValue || formulaValue.trim() === '') {
                 formulaDisplay = '';
                 columnsDisplay = ''; // Clear columnsDisplay when formula is empty
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
+            } else {
+                const trimmedFormula = formulaValue.trim();
+                // 统一由 Source Percent 控制百分比，不再从公式中自动识别 *0.1 这一类“内置百分比”
+                // 这样就可以保证：只要勾选了 Enable，并填写了 Source Percent，
+                // 整个公式的结果都会再乘上 Source Percent，而不会因为公式里含有 *0.2 等运算而被误判为“已含百分比”
+                formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+                console.log('Created formulaDisplay from expression (always use Source Percent):', formulaDisplay);
             }
             
-            // Calculate processed amount using converted formula (without $ symbols)
+            // Calculate processed amount
             // IMPORTANT: Save raw value (no rounding) to database, but display rounded value on page
             // 重要：保存原始值（不四舍五入）到数据库，但页面显示时使用四舍五入的值
             let processedAmount = 0;
             // If formula is empty, keep processedAmount as 0
-            if (!convertedFormulaForCalculation || convertedFormulaForCalculation.trim() === '' || formulaDisplay === 'formula') {
+            if (!formulaValue || formulaValue.trim() === '' || formulaDisplay === 'formula') {
                 processedAmount = 0;
                 console.log('Formula is empty, processedAmount set to 0');
             } else {
-                // 使用转换后的公式值（不含 $ 符号）进行计算
+                // 不再根据公式中是否包含 *0.1 之类来决定是否应用 Source Percent，
+                // 一律走统一的计算函数，由 enableSourcePercent 和 sourcePercentValue 控制是否乘以百分比
                 // This returns raw value without rounding - will be saved to database as-is
                 // 返回原始值（不四舍五入）- 将原样保存到数据库
-                processedAmount = calculateFormulaResultFromExpression(convertedFormulaForCalculation, sourcePercentValue, inputMethodValue, enableValue, sourcePercentEnableValue);
+                processedAmount = calculateFormulaResultFromExpression(formulaValue, sourcePercentValue, inputMethodValue, enableValue, sourcePercentEnableValue);
             }
             
             // Get Batch Selection checkbox state from the table row
@@ -5861,20 +5700,13 @@ function getCurrentProcessId() {
                 
                 // Get column value (column A is at index 1, B at 2, etc.)
                 // Column number corresponds to column index in the table
-                console.log('getColumnValueFromCellReference - cellReference:', cellReference, 'rowLabel:', rowLabel, 'columnNumber:', columnNumber, 'processRow.length:', processRow.length);
                 if (columnNumber >= 1 && columnNumber < processRow.length) {
                     const cellData = processRow[columnNumber];
-                    console.log('getColumnValueFromCellReference - cellData at index', columnNumber, ':', cellData);
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
                         // Remove formatting and return numeric value
                         const numericValue = removeThousandsSeparators(cellData.value.toString());
-                        console.log('getColumnValueFromCellReference - returning value:', numericValue, 'for column', columnNumber);
                         return numericValue;
-                    } else {
-                        console.log('getColumnValueFromCellReference - cellData is null or invalid:', cellData);
                     }
-                } else {
-                    console.log('getColumnValueFromCellReference - columnNumber out of range:', columnNumber, 'processRow.length:', processRow.length);
                 }
                 
                 return null;
@@ -5998,62 +5830,24 @@ function getCurrentProcessId() {
         }
         
         // Get columns display from clicked columns
-        // 重要：只返回当前 formula 中实际存在的 $数字 对应的列引用
         function getColumnsDisplayFromClickedColumns() {
             const formulaInput = document.getElementById('formula');
             if (!formulaInput) {
                 return '';
             }
             
-            // 从当前的 formulaValue 中提取所有实际存在的 $数字
-            const formulaValue = formulaInput.value || '';
-            const currentDollarPattern = /\$(\d+)(?!\d)/g;
-            const currentDollarMatches = new Set();
-            currentDollarPattern.lastIndex = 0;
-            let match;
-            while ((match = currentDollarPattern.exec(formulaValue)) !== null) {
-                const columnNumber = parseInt(match[1]);
-                if (!isNaN(columnNumber) && columnNumber > 0) {
-                    currentDollarMatches.add(columnNumber);
-                }
-            }
-            
-            // Priority 1: Use new format (id_product:row_label:column_index) - e.g., "GGG:A:10 GGG:A:8"
+            // Priority 1: Use new format (id_product:column_index) - e.g., "ABC123:3 DEF456:4"
             const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
             if (clickedCellRefs && clickedCellRefs.trim() !== '') {
-                // 只返回当前 formula 中实际存在的列引用
-                const refsArray = clickedCellRefs.split(' ').filter(r => r.trim() !== '');
-                const validRefs = refsArray.filter(ref => {
-                    const parts = ref.split(':');
-                    if (parts.length >= 3) {
-                        const refColumnNumber = parseInt(parts[2]);
-                        return !isNaN(refColumnNumber) && currentDollarMatches.has(refColumnNumber);
-                    }
-                    return false; // 无法解析的引用，如果 formula 中有 $数字，则不返回
-                });
-                
-                if (validRefs.length > 0) {
-                    return validRefs.join(' ');
-                }
+                // Return new format as space-separated string (e.g., "ABC123:3 DEF456:4")
+                return clickedCellRefs.trim();
             }
             
             // Priority 2: Use cell positions (e.g., "A7 B5") for backward compatibility
             const clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
             if (clickedCells && clickedCells.trim() !== '') {
-                // 只返回当前 formula 中实际存在的列引用
-                const cellsArray = clickedCells.split(' ').filter(c => c.trim() !== '');
-                const validCells = cellsArray.filter(cell => {
-                    const cellMatch = cell.match(/^([A-Za-z]+)(\d+)$/);
-                    if (cellMatch) {
-                        const columnNumber = parseInt(cellMatch[2]);
-                        return !isNaN(columnNumber) && currentDollarMatches.has(columnNumber);
-                    }
-                    return false;
-                });
-                
-                if (validCells.length > 0) {
-                    return validCells.join(' ');
-                }
+                // Return cell positions as space-separated string (e.g., "A7 B5")
+                return clickedCells.trim();
             }
             
             // Priority 3: Fallback to column numbers for backward compatibility
@@ -6062,8 +5856,8 @@ function getCurrentProcessId() {
                 return '';
             }
             
-            // 只返回当前 formula 中实际存在的列号
-            const columnsArray = clickedColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c) && currentDollarMatches.has(c));
+            // Convert to array and join with space, preserving selection order (e.g., "2 3 9 8 7")
+            const columnsArray = clickedColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c));
             if (columnsArray.length === 0) {
                 return '';
             }
@@ -7295,7 +7089,6 @@ function getCurrentProcessId() {
                 const isCellPositionFormat = sourceParts.length > 0 && /^[A-Z]+\d+$/.test(sourceParts[0]);
                 
                 const columnValues = [];
-                let columnNumbers = []; // Initialize outside if/else to avoid undefined error
                 
                 if (isCellPositionFormat) {
                     // Cell position format (e.g., "A7 B5") - read from specific cells
@@ -7307,7 +7100,7 @@ function getCurrentProcessId() {
                     });
                 } else {
                     // Column number format (e.g., "7 5") - backward compatibility
-                    columnNumbers = sourceColumnValue.split(/\s+/).map(col => parseInt(col.trim())).filter(col => !isNaN(col));
+                    const columnNumbers = sourceColumnValue.split(/\s+/).map(col => parseInt(col.trim())).filter(col => !isNaN(col));
                     
                     if (columnNumbers.length === 0) {
                         console.error('No valid column numbers found');
@@ -7335,7 +7128,7 @@ function getCurrentProcessId() {
                     return sourceColumnValue; // Fallback to original value
                 }
                 
-                console.log('Column data extracted:', columnNumbers.length > 0 ? columnNumbers : 'cell positions', 'Values:', columnValues);
+                console.log('Column data extracted:', columnNumbers, 'Values:', columnValues);
                 
                 // Join values with formula operators
                 if (columnValues.length > 0) {
@@ -8393,32 +8186,12 @@ function getCurrentProcessId() {
                 // Formula is empty, set to empty string and skip all fallbacks
                 formulaValue = '';
                 console.log('editRowFormula - Formula is empty, setting formulaValue to empty string');
+            } else if (isReferenceFormat) {
+                // Use reference format directly from data attribute
+                formulaValue = storedFormulaOperators;
+                console.log('editRowFormula - Using reference format from data-formula-operators:', formulaValue);
             } else {
-                // 优先使用 data-formula-display（转换后的值，如 9+7*0.7/5）
-                // 如果没有，则从表格显示文本读取
-                const storedFormulaDisplay = row.getAttribute('data-formula-display') || '';
-                if (storedFormulaDisplay && storedFormulaDisplay.trim() !== '' && storedFormulaDisplay !== 'Formula') {
-                    // 移除尾部的 Source Percent 部分（如 *(1)）
-                    let formulaDisplayValue = storedFormulaDisplay.trim();
-                    const lastStarIndex = formulaDisplayValue.lastIndexOf('*');
-                    if (lastStarIndex >= 0) {
-                        const beforeStar = formulaDisplayValue.substring(0, lastStarIndex);
-                        const afterStar = formulaDisplayValue.substring(lastStarIndex);
-                        const openParensBefore = (beforeStar.match(/\(/g) || []).length;
-                        const closeParensBefore = (beforeStar.match(/\)/g) || []).length;
-                        const isStarInsideParens = openParensBefore > closeParensBefore;
-                        const sourcePercentPattern = /^\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                        if (!isStarInsideParens && sourcePercentPattern.test(afterStar)) {
-                            formulaDisplayValue = formulaDisplayValue.substring(0, lastStarIndex).trim();
-                        }
-                    }
-                    formulaValue = formulaDisplayValue;
-                    console.log('editRowFormula - Using data-formula-display (converted value):', formulaValue);
-                } else if (isReferenceFormat) {
-                    // Use reference format directly from data attribute
-                    formulaValue = storedFormulaOperators;
-                    console.log('editRowFormula - Using reference format from data-formula-operators:', formulaValue);
-                } else if (cells[4]) {
+                if (cells[4]) {
                     let formulaText = cells[4].querySelector('.formula-text')?.textContent.trim() || cells[4].textContent.trim();
                     if (formulaText && formulaText !== 'Formula') {
                         // IMPORTANT: Remove trailing source percent (e.g., *(1) or *(0.05)) from formula text
@@ -9508,10 +9281,6 @@ function getCurrentProcessId() {
             if (data.formulaOperators !== undefined) {
                 row.setAttribute('data-formula-operators', data.formulaOperators);
             }
-            // Store formula_display (converted value, e.g., 9+7*0.7/5*(1))
-            if (data.formula !== undefined) {
-                row.setAttribute('data-formula-display', data.formula);
-            }
             // sourceColumns no longer used, but keep for compatibility
             // IMPORTANT: If formula is empty, also clear sourceColumns to prevent regeneration
             if (data.sourceColumns !== undefined) {
@@ -9703,10 +9472,6 @@ function getCurrentProcessId() {
                 }
                 if (data.formulaOperators !== undefined) {
                     row.setAttribute('data-formula-operators', data.formulaOperators);
-                }
-                // Store formula_display (converted value, e.g., 9+7*0.7/5*(1))
-                if (data.formula !== undefined) {
-                    row.setAttribute('data-formula-display', data.formula);
                 }
                 if (data.sourceColumns !== undefined) {
                     row.setAttribute('data-source-columns', data.sourceColumns);
@@ -10123,49 +9888,6 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 console.log('No source data available (main)');
             }
 
-            // IMPORTANT: Convert $ symbols in resolvedSourceExpression to actual values before using it
-            if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
-                console.warn('Warning: resolvedSourceExpression contains $ symbols, converting to actual values:', resolvedSourceExpression);
-                const processValue = idProduct;
-                const rowLabel = getRowLabelFromProcessValue(processValue);
-                if (rowLabel) {
-                    const dollarPattern = /\$(\d+)(?!\d)/g;
-                    let match;
-                    dollarPattern.lastIndex = 0;
-                    const matches = [];
-                    while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
-                        matches.push({
-                            fullMatch: match[0],
-                            columnNumber: parseInt(match[1]),
-                            index: match.index
-                        });
-                    }
-                    // Replace from right to left to avoid index shifting
-                    matches.sort((a, b) => b.index - a.index);
-                    let convertedExpression = resolvedSourceExpression;
-                    console.log('Converting $ symbols in resolvedSourceExpression:', resolvedSourceExpression, 'Matches:', matches);
-                    for (const m of matches) {
-                        const columnReference = rowLabel + m.columnNumber;
-                        console.log('Processing match:', m.fullMatch, 'columnNumber:', m.columnNumber, 'columnReference:', columnReference);
-                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                        console.log('getColumnValueFromCellReference returned:', columnValue, 'for reference:', columnReference);
-                        if (columnValue !== null) {
-                            convertedExpression = convertedExpression.substring(0, m.index) + 
-                                               columnValue + 
-                                               convertedExpression.substring(m.index + m.fullMatch.length);
-                            console.log('After replacement:', convertedExpression);
-                        } else {
-                            convertedExpression = convertedExpression.substring(0, m.index) + 
-                                               '0' + 
-                                               convertedExpression.substring(m.index + m.fullMatch.length);
-                            console.log('Column value not found, replaced with 0:', convertedExpression);
-                        }
-                    }
-                    resolvedSourceExpression = convertedExpression;
-                    console.log('Converted resolvedSourceExpression from $ symbols to actual values:', resolvedSourceExpression);
-                }
-            }
-
             // If the template has no source column mapping (纯手动公式，和表格数据无关)，直接使用已保存的公式
             // 避免刷新后因缺少表格数据而清空展示
             if ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
@@ -10212,49 +9934,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
             // If formula_display exists, preserve its structure but update numbers from current source data
             // Otherwise, recalculate formula from current Data Capture Table
             let formulaDisplay = '';
-            let savedFormulaDisplay = mainTemplate.formula_display || '';
-            
-            // IMPORTANT: If saved formula_display contains $ symbols (should not happen, but handle it),
-            // convert them to actual values before using
-            if (savedFormulaDisplay && /\$(\d+)(?!\d)/.test(savedFormulaDisplay)) {
-                console.warn('Warning: saved formula_display contains $ symbols, converting to actual values:', savedFormulaDisplay);
-                // Get process value and row label
-                const processValue = idProduct;
-                const rowLabel = getRowLabelFromProcessValue(processValue);
-                if (rowLabel) {
-                    // Convert $数字 to actual values
-                    const dollarPattern = /\$(\d+)(?!\d)/g;
-                    let match;
-                    dollarPattern.lastIndex = 0;
-                    const matches = [];
-                    while ((match = dollarPattern.exec(savedFormulaDisplay)) !== null) {
-                        matches.push({
-                            fullMatch: match[0],
-                            columnNumber: parseInt(match[1]),
-                            index: match.index
-                        });
-                    }
-                    // Replace from right to left to avoid index shifting
-                    matches.sort((a, b) => b.index - a.index);
-                    let convertedFormula = savedFormulaDisplay;
-                    for (const m of matches) {
-                        const columnReference = rowLabel + m.columnNumber;
-                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                        if (columnValue !== null) {
-                            convertedFormula = convertedFormula.substring(0, m.index) + 
-                                             columnValue + 
-                                             convertedFormula.substring(m.index + m.fullMatch.length);
-                        } else {
-                            convertedFormula = convertedFormula.substring(0, m.index) + 
-                                             '0' + 
-                                             convertedFormula.substring(m.index + m.fullMatch.length);
-                        }
-                    }
-                    savedFormulaDisplay = convertedFormula;
-                    console.log('Converted formula_display from $ symbols to actual values:', savedFormulaDisplay);
-                }
-            }
-            
+            const savedFormulaDisplay = mainTemplate.formula_display || '';
             const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
             
             if (isBatchSelectedTemplate) {
@@ -10275,49 +9955,13 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
                         if (preservedFormula === null) {
                             console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                            // IMPORTANT: Convert $ symbols to actual values before creating formula display
-                            let convertedResolvedExpression = resolvedSourceExpression;
-                            if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
-                                console.warn('Warning: resolvedSourceExpression contains $ symbols (batch), converting to actual values:', resolvedSourceExpression);
-                                const processValue = idProduct;
-                                const rowLabel = getRowLabelFromProcessValue(processValue);
-                                if (rowLabel) {
-                                    const dollarPattern = /\$(\d+)(?!\d)/g;
-                                    let match;
-                                    dollarPattern.lastIndex = 0;
-                                    const matches = [];
-                                    while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
-                                        matches.push({
-                                            fullMatch: match[0],
-                                            columnNumber: parseInt(match[1]),
-                                            index: match.index
-                                        });
-                                    }
-                                    // Replace from right to left to avoid index shifting
-                                    matches.sort((a, b) => b.index - a.index);
-                                    for (const m of matches) {
-                                        const columnReference = rowLabel + m.columnNumber;
-                                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                        if (columnValue !== null) {
-                                            convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
-                                                                         columnValue + 
-                                                                         convertedResolvedExpression.substring(m.index + m.fullMatch.length);
-                                        } else {
-                                            convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
-                                                                         '0' + 
-                                                                         convertedResolvedExpression.substring(m.index + m.fullMatch.length);
-                                        }
-                                    }
-                                    console.log('Converted resolvedSourceExpression from $ symbols to actual values (batch):', convertedResolvedExpression);
-                                }
-                            }
                             // Recalculate formula from current Data Capture Table
-                            if (percentValue && convertedResolvedExpression && enableSourcePercent) {
-                                formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
-                            } else if (percentValue && convertedResolvedExpression) {
-                                formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
+                            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                            } else if (percentValue && resolvedSourceExpression) {
+                                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
                             } else {
-                                formulaDisplay = convertedResolvedExpression || 'Formula';
+                                formulaDisplay = resolvedSourceExpression || 'Formula';
                             }
                             console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
                         } else if (preservedFormula === savedFormulaDisplay) {
@@ -10408,49 +10052,13 @@ function applyTemplateToSummaryRow(idProduct, template) {
                             // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
                             if (preservedFormula === null) {
                                 console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                                // IMPORTANT: Convert $ symbols to actual values before creating formula display
-                                let convertedResolvedExpression = resolvedSourceExpression;
-                                if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
-                                    console.warn('Warning: resolvedSourceExpression contains $ symbols, converting to actual values:', resolvedSourceExpression);
-                                    const processValue = idProduct;
-                                    const rowLabel = getRowLabelFromProcessValue(processValue);
-                                    if (rowLabel) {
-                                        const dollarPattern = /\$(\d+)(?!\d)/g;
-                                        let match;
-                                        dollarPattern.lastIndex = 0;
-                                        const matches = [];
-                                        while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
-                                            matches.push({
-                                                fullMatch: match[0],
-                                                columnNumber: parseInt(match[1]),
-                                                index: match.index
-                                            });
-                                        }
-                                        // Replace from right to left to avoid index shifting
-                                        matches.sort((a, b) => b.index - a.index);
-                                        for (const m of matches) {
-                                            const columnReference = rowLabel + m.columnNumber;
-                                            const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                            if (columnValue !== null) {
-                                                convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
-                                                                             columnValue + 
-                                                                             convertedResolvedExpression.substring(m.index + m.fullMatch.length);
-                                            } else {
-                                                convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
-                                                                             '0' + 
-                                                                             convertedResolvedExpression.substring(m.index + m.fullMatch.length);
-                                            }
-                                        }
-                                        console.log('Converted resolvedSourceExpression from $ symbols to actual values:', convertedResolvedExpression);
-                                    }
-                                }
                                 // Recalculate formula from current Data Capture Table
-                                if (percentValue && convertedResolvedExpression && enableSourcePercent) {
-                                    formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
-                                } else if (percentValue && convertedResolvedExpression) {
-                                    formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
+                                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                                } else if (percentValue && resolvedSourceExpression) {
+                                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
                                 } else {
-                                    formulaDisplay = convertedResolvedExpression || 'Formula';
+                                    formulaDisplay = resolvedSourceExpression || 'Formula';
                                 }
                                 console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
                             } else if (preservedFormula === savedFormulaDisplay) {
@@ -10949,44 +10557,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             console.log('No source data available (main)');
         }
 
-        // IMPORTANT: Convert $ symbols in resolvedSourceExpression to actual values before using it
-        if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
-            console.warn('Warning: resolvedSourceExpression contains $ symbols (applyMainTemplateToRow), converting to actual values:', resolvedSourceExpression);
-            const processValue = idProduct;
-            const rowLabel = getRowLabelFromProcessValue(processValue);
-            if (rowLabel) {
-                const dollarPattern = /\$(\d+)(?!\d)/g;
-                let match;
-                dollarPattern.lastIndex = 0;
-                const matches = [];
-                while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
-                    matches.push({
-                        fullMatch: match[0],
-                        columnNumber: parseInt(match[1]),
-                        index: match.index
-                    });
-                }
-                // Replace from right to left to avoid index shifting
-                matches.sort((a, b) => b.index - a.index);
-                let convertedExpression = resolvedSourceExpression;
-                for (const m of matches) {
-                    const columnReference = rowLabel + m.columnNumber;
-                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                    if (columnValue !== null) {
-                        convertedExpression = convertedExpression.substring(0, m.index) + 
-                                           columnValue + 
-                                           convertedExpression.substring(m.index + m.fullMatch.length);
-                    } else {
-                        convertedExpression = convertedExpression.substring(0, m.index) + 
-                                           '0' + 
-                                           convertedExpression.substring(m.index + m.fullMatch.length);
-                    }
-                }
-                resolvedSourceExpression = convertedExpression;
-                console.log('Converted resolvedSourceExpression from $ symbols to actual values (applyMainTemplateToRow):', resolvedSourceExpression);
-            }
-        }
-
             // 如果模板没有绑定任何表格列（纯手动公式），直接用保存的公式，不尝试从表格重建
             if ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
                 (!formulaOperatorsValue || formulaOperatorsValue.trim() === '') &&
@@ -11030,48 +10600,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         
         // Priority: Use saved formula_display if available
         let formulaDisplay = '';
-        let savedFormulaDisplay = mainTemplate.formula_display || '';
-        
-        // IMPORTANT: If saved formula_display contains $ symbols (should not happen, but handle it),
-        // convert them to actual values before using
-        if (savedFormulaDisplay && /\$(\d+)(?!\d)/.test(savedFormulaDisplay)) {
-            console.warn('Warning: saved formula_display contains $ symbols (sub row), converting to actual values:', savedFormulaDisplay);
-            // Get process value and row label
-            const processValue = idProduct;
-            const rowLabel = getRowLabelFromProcessValue(processValue);
-            if (rowLabel) {
-                // Convert $数字 to actual values
-                const dollarPattern = /\$(\d+)(?!\d)/g;
-                let match;
-                dollarPattern.lastIndex = 0;
-                const matches = [];
-                while ((match = dollarPattern.exec(savedFormulaDisplay)) !== null) {
-                    matches.push({
-                        fullMatch: match[0],
-                        columnNumber: parseInt(match[1]),
-                        index: match.index
-                    });
-                }
-                // Replace from right to left to avoid index shifting
-                matches.sort((a, b) => b.index - a.index);
-                let convertedFormula = savedFormulaDisplay;
-                for (const m of matches) {
-                    const columnReference = rowLabel + m.columnNumber;
-                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                    if (columnValue !== null) {
-                        convertedFormula = convertedFormula.substring(0, m.index) + 
-                                         columnValue + 
-                                         convertedFormula.substring(m.index + m.fullMatch.length);
-                    } else {
-                        convertedFormula = convertedFormula.substring(0, m.index) + 
-                                         '0' + 
-                                         convertedFormula.substring(m.index + m.fullMatch.length);
-                    }
-                }
-                savedFormulaDisplay = convertedFormula;
-                console.log('Converted formula_display from $ symbols to actual values (sub row):', savedFormulaDisplay);
-            }
-        }
+        const savedFormulaDisplay = mainTemplate.formula_display || '';
         const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
         
         if (isBatchSelectedTemplate) {
@@ -11113,48 +10642,12 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
                     if (preservedFormula === null) {
                         console.log('Batch template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                        // IMPORTANT: Convert $ symbols to actual values before creating formula display
-                        let convertedResolvedExpression = resolvedSourceExpression;
-                        if (resolvedSourceExpression && /\$(\d+)(?!\d)/.test(resolvedSourceExpression)) {
-                            console.warn('Warning: resolvedSourceExpression contains $ symbols (batch sub), converting to actual values:', resolvedSourceExpression);
-                            const processValue = idProduct;
-                            const rowLabel = getRowLabelFromProcessValue(processValue);
-                            if (rowLabel) {
-                                const dollarPattern = /\$(\d+)(?!\d)/g;
-                                let match;
-                                dollarPattern.lastIndex = 0;
-                                const matches = [];
-                                while ((match = dollarPattern.exec(resolvedSourceExpression)) !== null) {
-                                    matches.push({
-                                        fullMatch: match[0],
-                                        columnNumber: parseInt(match[1]),
-                                        index: match.index
-                                    });
-                                }
-                                // Replace from right to left to avoid index shifting
-                                matches.sort((a, b) => b.index - a.index);
-                                for (const m of matches) {
-                                    const columnReference = rowLabel + m.columnNumber;
-                                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                    if (columnValue !== null) {
-                                        convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
-                                                                     columnValue + 
-                                                                     convertedResolvedExpression.substring(m.index + m.fullMatch.length);
-                                    } else {
-                                        convertedResolvedExpression = convertedResolvedExpression.substring(0, m.index) + 
-                                                                     '0' + 
-                                                                     convertedResolvedExpression.substring(m.index + m.fullMatch.length);
-                                    }
-                                }
-                                console.log('Converted resolvedSourceExpression from $ symbols to actual values (batch sub):', convertedResolvedExpression);
-                            }
-                        }
-                        if (percentValue && convertedResolvedExpression && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(convertedResolvedExpression, percentValue, enableSourcePercent);
-                        } else if (percentValue && convertedResolvedExpression) {
-                            formulaDisplay = createFormulaDisplay(convertedResolvedExpression, percentValue);
+                        if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                        } else if (percentValue && resolvedSourceExpression) {
+                            formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
                         } else {
-                            formulaDisplay = convertedResolvedExpression || 'Formula';
+                            formulaDisplay = resolvedSourceExpression || 'Formula';
                         }
                         console.log('Batch template: recalculated formula from current Data Capture Table:', formulaDisplay);
                     } else {
