@@ -3211,15 +3211,54 @@ function getCurrentProcessId() {
                 }
                 
                 // 更新 data-clicked-cell-refs
+                // 重要：只保留当前 formulaValue 中实际存在的 $数字 对应的列引用
+                // 这样可以避免保存输入过程中产生的中间状态（如 $1 变成 $10 时，$1 不应该被保存）
                 if (formulaInput && clickedCellRefs.length > 0) {
+                    // 从当前的 formulaValue 中提取所有实际存在的 $数字
+                    const currentDollarPattern = /\$(\d+)(?!\d)/g;
+                    const currentDollarMatches = new Set();
+                    currentDollarPattern.lastIndex = 0;
+                    let match;
+                    while ((match = currentDollarPattern.exec(formulaValue)) !== null) {
+                        const columnNumber = parseInt(match[1]);
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            currentDollarMatches.add(columnNumber);
+                        }
+                    }
+                    
+                    // 只保留当前 formulaValue 中实际存在的列引用
+                    const validRefs = clickedCellRefs.filter(ref => {
+                        const parts = ref.split(':');
+                        if (parts.length >= 3) {
+                            const refColumnNumber = parseInt(parts[2]);
+                            return !isNaN(refColumnNumber) && currentDollarMatches.has(refColumnNumber);
+                        }
+                        return false;
+                    });
+                    
+                    // 获取现有的引用，但只保留其他 process 或 row 的引用（可能来自其他 id product）
                     const existingRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
                     const existingRefsArray = existingRefs ? existingRefs.split(' ').filter(r => r.trim() !== '') : [];
-                    clickedCellRefs.forEach(ref => {
-                        if (!existingRefsArray.includes(ref)) {
-                            existingRefsArray.push(ref);
+                    const otherProcessRefs = existingRefsArray.filter(ref => {
+                        const parts = ref.split(':');
+                        if (parts.length >= 3) {
+                            const refProcessValue = parts[0];
+                            const refRowLabel = parts[1];
+                            // 保留其他 process 或 row 的引用
+                            return refProcessValue !== processValue || refRowLabel !== rowLabel;
+                        }
+                        return true; // 保留无法解析的引用（向后兼容）
+                    });
+                    
+                    // 合并：其他 process/row 的引用 + 当前有效的引用
+                    const finalRefsArray = [...otherProcessRefs];
+                    validRefs.forEach(ref => {
+                        if (!finalRefsArray.includes(ref)) {
+                            finalRefsArray.push(ref);
                         }
                     });
-                    formulaInput.setAttribute('data-clicked-cell-refs', existingRefsArray.join(' '));
+                    
+                    formulaInput.setAttribute('data-clicked-cell-refs', finalRefsArray.join(' '));
                 }
                 
                 // 如果还有列引用（如 A5），也转换为实际值
@@ -5905,24 +5944,62 @@ function getCurrentProcessId() {
         }
         
         // Get columns display from clicked columns
+        // 重要：只返回当前 formula 中实际存在的 $数字 对应的列引用
         function getColumnsDisplayFromClickedColumns() {
             const formulaInput = document.getElementById('formula');
             if (!formulaInput) {
                 return '';
             }
             
-            // Priority 1: Use new format (id_product:column_index) - e.g., "ABC123:3 DEF456:4"
+            // 从当前的 formulaValue 中提取所有实际存在的 $数字
+            const formulaValue = formulaInput.value || '';
+            const currentDollarPattern = /\$(\d+)(?!\d)/g;
+            const currentDollarMatches = new Set();
+            currentDollarPattern.lastIndex = 0;
+            let match;
+            while ((match = currentDollarPattern.exec(formulaValue)) !== null) {
+                const columnNumber = parseInt(match[1]);
+                if (!isNaN(columnNumber) && columnNumber > 0) {
+                    currentDollarMatches.add(columnNumber);
+                }
+            }
+            
+            // Priority 1: Use new format (id_product:row_label:column_index) - e.g., "GGG:A:10 GGG:A:8"
             const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
             if (clickedCellRefs && clickedCellRefs.trim() !== '') {
-                // Return new format as space-separated string (e.g., "ABC123:3 DEF456:4")
-                return clickedCellRefs.trim();
+                // 只返回当前 formula 中实际存在的列引用
+                const refsArray = clickedCellRefs.split(' ').filter(r => r.trim() !== '');
+                const validRefs = refsArray.filter(ref => {
+                    const parts = ref.split(':');
+                    if (parts.length >= 3) {
+                        const refColumnNumber = parseInt(parts[2]);
+                        return !isNaN(refColumnNumber) && currentDollarMatches.has(refColumnNumber);
+                    }
+                    return false; // 无法解析的引用，如果 formula 中有 $数字，则不返回
+                });
+                
+                if (validRefs.length > 0) {
+                    return validRefs.join(' ');
+                }
             }
             
             // Priority 2: Use cell positions (e.g., "A7 B5") for backward compatibility
             const clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
             if (clickedCells && clickedCells.trim() !== '') {
-                // Return cell positions as space-separated string (e.g., "A7 B5")
-                return clickedCells.trim();
+                // 只返回当前 formula 中实际存在的列引用
+                const cellsArray = clickedCells.split(' ').filter(c => c.trim() !== '');
+                const validCells = cellsArray.filter(cell => {
+                    const cellMatch = cell.match(/^([A-Za-z]+)(\d+)$/);
+                    if (cellMatch) {
+                        const columnNumber = parseInt(cellMatch[2]);
+                        return !isNaN(columnNumber) && currentDollarMatches.has(columnNumber);
+                    }
+                    return false;
+                });
+                
+                if (validCells.length > 0) {
+                    return validCells.join(' ');
+                }
             }
             
             // Priority 3: Fallback to column numbers for backward compatibility
@@ -5931,8 +6008,8 @@ function getCurrentProcessId() {
                 return '';
             }
             
-            // Convert to array and join with space, preserving selection order (e.g., "2 3 9 8 7")
-            const columnsArray = clickedColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c));
+            // 只返回当前 formula 中实际存在的列号
+            const columnsArray = clickedColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c) && currentDollarMatches.has(c));
             if (columnsArray.length === 0) {
                 return '';
             }
