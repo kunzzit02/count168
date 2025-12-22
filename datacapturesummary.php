@@ -1461,7 +1461,7 @@ function getCurrentProcessId() {
                                 
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label for="descriptionSelect1">Description</label>
+                                        <label for="descriptionSelect1">Data</label>
                                         <div class="description-select-with-buttons">
                                             <select id="descriptionSelect1">
                                                 <option value="">Select Description</option>
