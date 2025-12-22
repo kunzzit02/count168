@@ -5318,7 +5318,24 @@ function getCurrentProcessId() {
                     // 如果没有填写 Source Percent，则显示/保存为 1 (1 = 100%)
                     sourcePercent: sourcePercentValue || '1',
                     formula: formulaDisplay,
-                    formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
+                    // 保存 formula_operators：优先使用 data-formula-operators（原始输入，如 $10+$8*0.7/5）
+                    // 如果 formulaValue 包含 $ 符号，说明用户输入了新的原始值，使用 formulaValue
+                    // 否则，说明显示的是转换后的值，使用 data-formula-operators
+                    formulaOperators: (() => {
+                        if (isEditMode && editingRow) {
+                            const hasDollarSymbols = formulaValue && /\$(\d+)/.test(formulaValue);
+                            if (hasDollarSymbols) {
+                                // formulaValue 包含 $ 符号，说明用户输入了新的原始值
+                                return formulaValue || '';
+                            } else {
+                                // formulaValue 不包含 $ 符号，说明显示的是转换后的值，使用 data-formula-operators
+                                return editingRow.getAttribute('data-formula-operators') || formulaValue || '';
+                            }
+                        } else {
+                            // 新增模式，使用 formulaValue（用户输入的原始值）
+                            return (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '';
+                        }
+                    })()
                     processedAmount: processedAmount,
                     inputMethod: inputMethodValue,
                     enableInputMethod: enableValue,
@@ -8301,11 +8318,26 @@ function getCurrentProcessId() {
                 formulaValue = '';
                 console.log('editRowFormula - Formula is empty, setting formulaValue to empty string');
             } else {
-                // 优先使用 data-formula-operators（原始输入，如 $10+$8*0.7/5）
-                // 这是用户实际输入的公式，应该保持不变
-                if (storedFormulaOperators && storedFormulaOperators.trim() !== '' && storedFormulaOperators !== 'Formula') {
-                    formulaValue = storedFormulaOperators.trim();
-                    console.log('editRowFormula - Using data-formula-operators (raw user input):', formulaValue);
+                // 优先使用 data-formula-display（转换后的值，如 9+7*0.7/5）
+                // 这是从 table 数据读取的公式，应该显示当前 table 数据对应的值
+                const storedFormulaDisplay = row.getAttribute('data-formula-display') || '';
+                if (storedFormulaDisplay && storedFormulaDisplay.trim() !== '' && storedFormulaDisplay !== 'Formula') {
+                    // 移除尾部的 Source Percent 部分（如 *(1)）
+                    let formulaDisplayValue = storedFormulaDisplay.trim();
+                    const lastStarIndex = formulaDisplayValue.lastIndexOf('*');
+                    if (lastStarIndex >= 0) {
+                        const beforeStar = formulaDisplayValue.substring(0, lastStarIndex);
+                        const afterStar = formulaDisplayValue.substring(lastStarIndex);
+                        const openParensBefore = (beforeStar.match(/\(/g) || []).length;
+                        const closeParensBefore = (beforeStar.match(/\)/g) || []).length;
+                        const isStarInsideParens = openParensBefore > closeParensBefore;
+                        const sourcePercentPattern = /^\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
+                        if (!isStarInsideParens && sourcePercentPattern.test(afterStar)) {
+                            formulaDisplayValue = formulaDisplayValue.substring(0, lastStarIndex).trim();
+                        }
+                    }
+                    formulaValue = formulaDisplayValue;
+                    console.log('editRowFormula - Using data-formula-display (converted value from table data):', formulaValue);
                 } else if (isReferenceFormat) {
                     // Use reference format directly from data attribute
                     formulaValue = storedFormulaOperators;
