@@ -1220,6 +1220,13 @@ function getCurrentProcessId() {
                 const processRowIndex = columnIndex + 1; // Convert 1-based column index to processRow index
                 
                 console.log('getCellValueByIdProductAndColumn - columnIndex:', columnIndex, 'processRowIndex:', processRowIndex, 'processRow.length:', processRow.length);
+                // Debug: Log the entire processRow structure for column 10
+                if (columnIndex === 10) {
+                    console.log('getCellValueByIdProductAndColumn - DEBUG column 10 - processRow structure:', processRow);
+                    console.log('getCellValueByIdProductAndColumn - DEBUG column 10 - processRow[11]:', processRow[11]);
+                    console.log('getCellValueByIdProductAndColumn - DEBUG column 10 - processRow[10]:', processRow[10]);
+                    console.log('getCellValueByIdProductAndColumn - DEBUG column 10 - processRow[9]:', processRow[9]);
+                }
                 
                 if (processRowIndex >= 2 && processRowIndex < processRow.length) {
                     const cellData = processRow[processRowIndex];
