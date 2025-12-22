@@ -1485,8 +1485,8 @@ function getCurrentProcessId() {
                                 
                                 <div class="form-row formula-row-full-width">
                                     <div class="form-group">
-                                        <label for="formulaDisplay">显示转换后的公式</label>
-                                        <input type="text" id="formulaDisplay" readonly style="background-color: #f5f5f5; cursor: not-allowed; color: #666; font-style: italic;" placeholder="显示转换后的公式（例如: 2039+434*0.6/7）">
+                                        <label for="formulaDisplay"></label>
+                                        <input type="text" id="formulaDisplay" readonly style="background-color: #f5f5f5; cursor: not-allowed; color: #666; font-style: italic;" placeholder="">
                                     </div>
                                 </div>
                                 
