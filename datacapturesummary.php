@@ -4861,60 +4861,21 @@ function getCurrentProcessId() {
             // Calculate row_index based on Data Capture Table row order, not Summary Table position
             // IMPORTANT: row_index should reflect the position in Data Capture Table (A, B, C...)
             // This ensures that Summary Table order matches Data Capture Table order
-            // CRITICAL: For sub rows, row_index should match the parent main row's row_index
-            // because sub rows belong to the same Data Capture Table row as their parent main row
+            // CRITICAL: When there are multiple rows with same id_product, we need to match by position
+            // Since Summary Table is created in the same order as Data Capture Table,
+            // the position in Summary Table directly corresponds to Data Capture Table row index
             let rowIndex = null;
             try {
-                // For sub rows, find the parent main row and use its row_index
-                if (productType === 'sub') {
-                    const summaryTableBody = document.getElementById('summaryTableBody');
-                    if (summaryTableBody) {
-                        const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                        const currentRowIndex = allSummaryRows.indexOf(row);
-                        
-                        // Find the parent main row (the main row with same id_product_main that comes before this sub row)
-                        // Look backwards from current row to find the main row
-                        for (let i = currentRowIndex - 1; i >= 0; i--) {
-                            const candidateRow = allSummaryRows[i];
-                            const candidateProductType = candidateRow.getAttribute('data-product-type') || 'main';
-                            
-                            if (candidateProductType === 'main') {
-                                const candidateIdProductCell = candidateRow.querySelector('td:first-child');
-                                const candidateProductValues = getProductValuesFromCell(candidateIdProductCell);
-                                const candidateMainText = candidateProductValues.main || '';
-                                const match = candidateMainText.match(/^([^(]+)/);
-                                const candidateMainIdProduct = match ? match[1].trim() : candidateMainText.trim();
-                                
-                                // Check if this main row matches the sub row's id_product_main
-                                const normalizedCandidateMain = normalizeIdProductText(candidateMainIdProduct);
-                                const normalizedIdProductMain = normalizeIdProductText(idProductMain);
-                                
-                                if (normalizedCandidateMain === normalizedIdProductMain) {
-                                    // Found parent main row, use its row_index
-                                    const mainRowIndexAttr = candidateRow.getAttribute('data-row-index');
-                                    if (mainRowIndexAttr !== null && mainRowIndexAttr !== '' && !Number.isNaN(Number(mainRowIndexAttr))) {
-                                        rowIndex = Number(mainRowIndexAttr);
-                                        console.log('Computed row_index for sub row from parent main row:', rowIndex, 'id_product_main:', idProductMain);
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // For main rows, or if sub row parent not found, use Summary Table position
-                if (rowIndex === null) {
-                    const summaryTableBody = document.getElementById('summaryTableBody');
-                    if (summaryTableBody) {
-                        const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                        const summaryIndex = allSummaryRows.indexOf(row);
-                        if (summaryIndex !== -1) {
-                            // Summary Table position directly corresponds to Data Capture Table row index
-                            // because populateOriginalTableWithColumnAData creates rows in Data Capture Table order
-                            rowIndex = summaryIndex;
-                            console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', formData.processValue || 'unknown', 'productType:', productType);
-                        }
+                // First, try to use the position in Summary Table (which matches Data Capture Table order)
+                const summaryTableBody = document.getElementById('summaryTableBody');
+                if (summaryTableBody) {
+                    const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const summaryIndex = allSummaryRows.indexOf(row);
+                    if (summaryIndex !== -1) {
+                        // Summary Table position directly corresponds to Data Capture Table row index
+                        // because populateOriginalTableWithColumnAData creates rows in Data Capture Table order
+                        rowIndex = summaryIndex;
+                        console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', formData.processValue || 'unknown');
                     }
                 }
                 
@@ -4933,14 +4894,11 @@ function getCurrentProcessId() {
                                     : (idProductMain || normalizeIdProductText(formData.processValue));
                                 const normalizedIdProduct = normalizeIdProductText(idProduct);
                                 
-                                // For sub rows, verify against id_product_main instead of id_product_sub
-                                const verifyIdProduct = productType === 'sub' ? normalizedIdProductMain : normalizedIdProduct;
-                                
-                                if (capturedIdProduct === verifyIdProduct) {
+                                if (capturedIdProduct === normalizedIdProduct) {
                                     // Verified: Summary Table position matches Data Capture Table row
-                                    console.log('Verified row_index matches Data Capture Table:', rowIndex, 'id_product:', verifyIdProduct, 'productType:', productType);
+                                    console.log('Verified row_index matches Data Capture Table:', rowIndex, 'id_product:', idProduct);
                                 } else {
-                                    console.warn('Warning: Summary Table position', rowIndex, 'does not match Data Capture Table id_product. Expected:', verifyIdProduct, 'Found:', capturedIdProduct, 'productType:', productType);
+                                    console.warn('Warning: Summary Table position', rowIndex, 'does not match Data Capture Table id_product. Expected:', normalizedIdProduct, 'Found:', capturedIdProduct);
                                     // Still use this row_index as it represents the correct position
                                 }
                             }
