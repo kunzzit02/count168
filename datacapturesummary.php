@@ -15429,8 +15429,8 @@ function formatPercentValue(value) {
             color: white;
             border: none;
             border-radius: 4px;
-            padding: 6px 12px;
-            font-size: clamp(14px, 0.94vw, 18px);
+            padding: clamp(4px, 0.31vw, 6px) clamp(8px, 0.625vw, 12px);
+            font-size: clamp(10px, 0.94vw, 18px);
             font-weight: bold;
             cursor: pointer;
             display: flex;
