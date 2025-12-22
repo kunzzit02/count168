@@ -1095,8 +1095,13 @@ function getCurrentProcessId() {
                     console.log('getCellValuesFromNewFormat: new format match - idProduct:', idProduct, 'rowLabel:', rowLabel, 'columnIndex:', columnIndex);
                     const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel);
                     console.log('getCellValuesFromNewFormat: cellValue from new format:', cellValue);
+                    // IMPORTANT: Even if cellValue is null or empty, we should still push a placeholder (0) to maintain the correct order
+                    // This ensures that if column 10's value is not found, we still have the correct number of values
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
+                    } else {
+                        console.warn('getCellValuesFromNewFormat: cellValue is null or empty for column', columnIndex, 'pushing 0 as placeholder');
+                        cellValues.push('0'); // Push 0 as placeholder to maintain order
                     }
                 } else {
                     // Fallback to old format: "id_product:column_index" (backward compatibility)
@@ -1107,8 +1112,12 @@ function getCurrentProcessId() {
                         console.log('getCellValuesFromNewFormat: old format match - idProduct:', idProduct, 'columnIndex:', columnIndex);
                         const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
                         console.log('getCellValuesFromNewFormat: cellValue from old format:', cellValue);
+                        // IMPORTANT: Even if cellValue is null or empty, we should still push a placeholder (0) to maintain the correct order
                         if (cellValue !== null && cellValue !== '') {
                             cellValues.push(cellValue);
+                        } else {
+                            console.warn('getCellValuesFromNewFormat: cellValue is null or empty for column', columnIndex, 'pushing 0 as placeholder');
+                            cellValues.push('0'); // Push 0 as placeholder to maintain order
                         }
                     } else {
                         console.warn('getCellValuesFromNewFormat: part does not match any format:', part);
@@ -1215,22 +1224,33 @@ function getCurrentProcessId() {
                 if (processRowIndex >= 2 && processRowIndex < processRow.length) {
                     const cellData = processRow[processRowIndex];
                     console.log('getCellValueByIdProductAndColumn - cellData at index', processRowIndex, ':', cellData);
-                    if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                        // Extract numeric value (remove formatting)
-                        const cellValue = cellData.value.toString();
-                        const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
-                        console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
-                        return numericValue || cellValue;
+                    if (cellData) {
+                        // Check if cellData has a value, even if type is not 'data'
+                        if (cellData.value !== null && cellData.value !== undefined && cellData.value !== '') {
+                            // Extract numeric value (remove formatting)
+                            const cellValue = cellData.value.toString();
+                            const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                            console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
+                            return numericValue || cellValue;
+                        } else {
+                            // Even if value is empty, check if type is 'data' - might be a valid empty cell
+                            if (cellData.type === 'data') {
+                                console.warn('getCellValueByIdProductAndColumn - cellData type is data but value is empty for column', columnIndex, 'returning 0');
+                                return '0'; // Return 0 for empty data cells
+                            } else {
+                                console.warn('getCellValueByIdProductAndColumn - cellData check failed:', {
+                                    cellData: cellData,
+                                    hasCellData: !!cellData,
+                                    type: cellData?.type,
+                                    value: cellData?.value,
+                                    isNull: cellData?.value === null,
+                                    isUndefined: cellData?.value === undefined,
+                                    isEmpty: cellData?.value === ''
+                                });
+                            }
+                        }
                     } else {
-                        console.warn('getCellValueByIdProductAndColumn - cellData check failed:', {
-                            cellData: cellData,
-                            hasCellData: !!cellData,
-                            type: cellData?.type,
-                            value: cellData?.value,
-                            isNull: cellData?.value === null,
-                            isUndefined: cellData?.value === undefined,
-                            isEmpty: cellData?.value === ''
-                        });
+                        console.warn('getCellValueByIdProductAndColumn - cellData is null or undefined at index', processRowIndex);
                     }
                 } else {
                     console.warn('getCellValueByIdProductAndColumn - processRowIndex out of range:', {
