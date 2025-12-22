@@ -2324,7 +2324,6 @@ function getCurrentProcessId() {
                 if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
-                    const rowData = [];
                     
                     cells.forEach((cell, cellIndex) => {
                         const columnIndex = cell.getAttribute('data-column-index');
@@ -2332,17 +2331,14 @@ function getCurrentProcessId() {
                             // Column index > 1 means data columns (skip row header=0 and id_product=1)
                             const cellValue = cell.textContent ? cell.textContent.trim() : '';
                             if (cellValue !== '') {
-                                rowData.push(`[${columnIndex}] ${cellValue}`);
+                                // Create a separate option for each column data
+                                const option = document.createElement('option');
+                                option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
+                                option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
+                                descriptionSelect2.appendChild(option);
                             }
                         }
                     });
-
-                    if (rowData.length > 0) {
-                        const option = document.createElement('option');
-                        option.value = rowIndex; // Store row index as value
-                        option.textContent = rowData.join('：'); // Format: "[1] 30"："[2] 456"
-                        descriptionSelect2.appendChild(option);
-                    }
                 }
             });
         }
