@@ -1602,12 +1602,26 @@ function getCurrentProcessId() {
             if (!formulaInput || !value) return;
 
             // 数字 0-9：按列号去当前行找对应 column 的值
+            // 但是：如果前面有 $ 符号，保持原样，不自动转换（$数字 格式）
             if (/^\d$/.test(value)) {
                 const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
                 const textBefore = formulaInput.value.substring(0, cursorPos);
 
-                // 判断当前位置是否应该用「列值」而不是字面数字
+                // 检查前面是否有 $ 符号（$数字 格式，保持原样）
                 const trimmedBefore = textBefore.trim();
+                const lastChar = trimmedBefore.length > 0 ? trimmedBefore[trimmedBefore.length - 1] : '';
+                
+                // 如果前面是 $ 符号，直接插入数字，不转换
+                if (lastChar === '$') {
+                    const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
+                    formulaInput.value = textBefore + value + textAfter;
+                    const newCursorPos = cursorPos + value.length;
+                    formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+                    formulaInput.focus();
+                    return;
+                }
+
+                // 判断当前位置是否应该用「列值」而不是字面数字
                 let shouldUseColumnValue = false;
 
                 if (trimmedBefore.length === 0) {
@@ -1731,6 +1745,7 @@ function getCurrentProcessId() {
             // 2）电脑键盘输入：和 keypad 完全同一套逻辑
             formulaInput.addEventListener('keydown', function(e) {
                 // 已经在别处处理 Backspace/Delete/剪贴板等，这里只接管数字和常用运算符输入
+                // 注意：$ 符号不需要特殊处理，让它正常输入即可
                 if (
                     e.key &&
                     e.key.length === 1 &&
@@ -1739,6 +1754,7 @@ function getCurrentProcessId() {
                     e.preventDefault();
                     handleFormulaValueInput(this, e.key);
                 }
+                // $ 符号和其他字符正常输入，不需要 preventDefault
             });
         }
         
