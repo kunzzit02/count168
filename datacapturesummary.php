@@ -1210,15 +1210,35 @@ function getCurrentProcessId() {
                 // So: columnIndex 1 -> processRow index 2, columnIndex 2 -> processRow index 3, etc.
                 const processRowIndex = columnIndex + 1; // Convert 1-based column index to processRow index
                 
+                console.log('getCellValueByIdProductAndColumn - columnIndex:', columnIndex, 'processRowIndex:', processRowIndex, 'processRow.length:', processRow.length);
+                
                 if (processRowIndex >= 2 && processRowIndex < processRow.length) {
                     const cellData = processRow[processRowIndex];
+                    console.log('getCellValueByIdProductAndColumn - cellData at index', processRowIndex, ':', cellData);
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
                         // Extract numeric value (remove formatting)
                         const cellValue = cellData.value.toString();
                         const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
                         console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
                         return numericValue || cellValue;
+                    } else {
+                        console.warn('getCellValueByIdProductAndColumn - cellData check failed:', {
+                            cellData: cellData,
+                            hasCellData: !!cellData,
+                            type: cellData?.type,
+                            value: cellData?.value,
+                            isNull: cellData?.value === null,
+                            isUndefined: cellData?.value === undefined,
+                            isEmpty: cellData?.value === ''
+                        });
                     }
+                } else {
+                    console.warn('getCellValueByIdProductAndColumn - processRowIndex out of range:', {
+                        processRowIndex: processRowIndex,
+                        processRowLength: processRow.length,
+                        minRequired: 2,
+                        maxAllowed: processRow.length - 1
+                    });
                 }
                 
                 console.error('Cell not found for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex);
