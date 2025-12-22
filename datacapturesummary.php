@@ -1464,14 +1464,14 @@ function getCurrentProcessId() {
                                         <label for="descriptionSelect1">Data</label>
                                         <div class="description-select-with-buttons">
                                             <select id="descriptionSelect1">
-                                                <option value="">Select Description</option>
-                                                <!-- Description options will be loaded here via JavaScript -->
+                                                <option value="">Select Id Product</option>
+                                                <!-- Id Product options will be loaded here via JavaScript -->
                                             </select>
                                             <select id="descriptionSelect2">
-                                                <option value="">Select Description</option>
-                                                <!-- Description options will be loaded here via JavaScript -->
+                                                <option value="">Select Row Data</option>
+                                                <!-- Row data options will be loaded here via JavaScript -->
                                             </select>
-                                            <button type="button" class="description-add-btn" onclick="showAddDescriptionModal()" title="Add New Description">Add</button>
+                                            <button type="button" class="description-add-btn" onclick="addSelectedDataToFormula()" title="Add Selected Data To Formula">Add</button>
                                         </div>
                                     </div>
                                 </div>
@@ -2232,6 +2232,62 @@ function getCurrentProcessId() {
         function showAddDescriptionModal() {
             // TODO: Implement add description modal functionality
             alert('Add Description功能待实现');
+        }
+
+        // Add selected row data (from second select) into Formula, same behavior as clicking table cell
+        function addSelectedDataToFormula() {
+            const descriptionSelect2 = document.getElementById('descriptionSelect2');
+            if (!descriptionSelect2) return;
+
+            const selectedValue = descriptionSelect2.value;
+            if (!selectedValue) {
+                showNotification('Info', 'Please select row data first.', 'info');
+                return;
+            }
+
+            const parts = selectedValue.split(':');
+            if (parts.length !== 2) {
+                console.warn('Invalid selected value format for descriptionSelect2:', selectedValue);
+                return;
+            }
+
+            const rowIndex = parseInt(parts[0], 10);
+            const columnIndex = parts[1];
+            if (isNaN(rowIndex)) {
+                console.warn('Invalid row index in selected value for descriptionSelect2:', selectedValue);
+                return;
+            }
+
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            if (!capturedTableBody) {
+                console.warn('Captured data table body not found.');
+                return;
+            }
+
+            const rows = capturedTableBody.querySelectorAll('tr');
+            const targetRow = rows[rowIndex];
+            if (!targetRow) {
+                console.warn('Row not found for index:', rowIndex);
+                return;
+            }
+
+            // Find the cell with matching data-column-index
+            const cells = targetRow.querySelectorAll('td');
+            let targetCell = null;
+            cells.forEach(cell => {
+                const colIdx = cell.getAttribute('data-column-index');
+                if (colIdx === columnIndex) {
+                    targetCell = cell;
+                }
+            });
+
+            if (!targetCell) {
+                console.warn('Cell not found for column index:', columnIndex, 'in row index:', rowIndex);
+                return;
+            }
+
+            // Reuse existing logic: behave exactly like clicking the cell
+            insertCellValueToFormula(targetCell);
         }
 
         // Load all unique id products from table into first select box
