@@ -11524,6 +11524,12 @@ function reorderSummaryRowsByRowIndex() {
             const accountCell = row.querySelector('td:nth-child(2)'); // Account column
             const accountId = accountCell ? accountCell.getAttribute('data-account-id') : null;
             
+            // Get formula_variant for sorting rows with same id_product
+            const formulaVariantAttr = row.getAttribute('data-formula-variant');
+            const formulaVariant = (formulaVariantAttr !== null && formulaVariantAttr !== '' && !Number.isNaN(Number(formulaVariantAttr)))
+                ? Number(formulaVariantAttr)
+                : 999999; // Use large number for rows without formula_variant so they appear last
+            
             // Get creation order for stable sorting
             const creationOrderAttr = row.getAttribute('data-creation-order');
             const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000; // Use large multiplier to ensure originalIndex doesn't interfere
@@ -11536,6 +11542,7 @@ function reorderSummaryRowsByRowIndex() {
                 hasMain: !!mainTextRaw,
                 productType,
                 accountId,
+                formulaVariant,
                 creationOrder
             };
         });
@@ -11562,26 +11569,26 @@ function reorderSummaryRowsByRowIndex() {
         const productGroups = Object.keys(groupedByProduct).map(key => {
             const groupRows = groupedByProduct[key];
             const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
-            // Sort rows within each group by row_index first (main and sub rows together)
-            // This ensures sub rows follow their parent main rows based on row_index
+            // Sort rows within each group by formula_variant first (so same id_product formulas are grouped together)
+            // This ensures all formulas for the same id_product appear consecutively, ordered by formula_variant
             groupRows.sort((a, b) => {
-                // First, sort by row_index (Data Capture Table order)
-                if (a.rowIndex !== b.rowIndex) {
-                    return a.rowIndex - b.rowIndex;
-                }
-                // If same row_index, main rows come before sub rows
+                // First, sort by product_type (main rows before sub rows)
                 if (a.productType !== b.productType) {
                     if (a.productType === 'main') return -1;
                     if (b.productType === 'main') return 1;
                 }
-                // If same row_index and same productType
-                // For sub rows with same account, use creation order to maintain stable order
-                if (a.productType === 'sub' && b.productType === 'sub' && 
-                    a.accountId && b.accountId && a.accountId === b.accountId) {
-                    return a.creationOrder - b.creationOrder;
+                // For same product_type, sort by formula_variant (smaller numbers first)
+                if (a.formulaVariant !== b.formulaVariant) {
+                    return a.formulaVariant - b.formulaVariant;
                 }
-                // Otherwise, maintain original order
-                return a.originalIndex - b.originalIndex;
+                // If same formula_variant, sort by account_id (for stable ordering)
+                if (a.accountId !== b.accountId) {
+                    const aAccount = a.accountId || '';
+                    const bAccount = b.accountId || '';
+                    return aAccount.localeCompare(bAccount);
+                }
+                // If same account_id, use creation order to maintain stable order
+                return a.creationOrder - b.creationOrder;
             });
             return {
                 key,
