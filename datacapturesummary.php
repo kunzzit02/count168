@@ -15582,7 +15582,7 @@ function formatPercentValue(value) {
             overflow-x: auto;
             overflow-y: visible;
             padding-bottom: 4px;
-            padding-top: 0px;
+            padding-top: 2px;
         }
 
         .formula-data-grid-item {
