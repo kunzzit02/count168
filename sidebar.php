@@ -80,6 +80,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         min-height: 50px;
         contain: layout style;
         will-change: auto;
+        /* 确保头像选择菜单不被裁剪 */
+        overflow: visible;
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -132,7 +134,10 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         width: fit-content;
         /* 优化渲染性能，防止页面切换时的布局重排 */
         min-width: clamp(40px, 3.65vw, 70px);
-        contain: layout style paint;
+        /* 移除 paint 限制，允许头像选择菜单超出容器边界显示 */
+        contain: layout style;
+        /* 确保头像选择菜单不被裁剪 */
+        overflow: visible;
     }
 
     /* 当前头像显示 */
@@ -403,6 +408,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        /* 确保头像选择菜单不被裁剪 */
+        overflow: visible;
     }
 
     .informationmenu-logo {
