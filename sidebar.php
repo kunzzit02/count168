@@ -75,6 +75,10 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
+        /* 优化渲染性能，防止页面切换时的布局重排 */
+        min-height: 50px;
+        contain: layout style;
+        will-change: auto;
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -87,10 +91,14 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         cursor: pointer;
         padding: clamp(2px, 0.4vw, 8px);
         border-radius: 25px;
-        transition: all 0.3s ease;
+        /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
+        transition: background-color 0.3s ease;
         text-align: left;
         color: white;
         flex: 1;
+        /* 优化渲染性能 */
+        min-width: 0;
+        contain: layout style;
     }
 
     .user-avatar-dropdown:hover {
@@ -122,8 +130,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         flex-shrink: 0;
         width: fit-content;
         /* 优化渲染性能，防止页面切换时的布局重排 */
-        will-change: auto;
-        contain: layout style;
+        min-width: clamp(40px, 3.65vw, 70px);
+        contain: layout style paint;
     }
 
     /* 当前头像显示 */
@@ -144,10 +152,15 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         position: relative;
         overflow: hidden;
         box-sizing: border-box;
-        /* 优化渲染性能，防止闪烁 */
+        /* 优化渲染性能，防止闪烁 - 强制 GPU 加速并隔离布局 */
+        transform: translateZ(0);
         will-change: border-color, box-shadow;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
+        /* 确保尺寸固定，避免 flex 布局重新计算时的抖动 */
+        flex-shrink: 0;
+        min-width: clamp(40px, 3.65vw, 70px);
+        min-height: clamp(40px, 3.65vw, 70px);
     }
 
     .current-avatar:hover {
@@ -1086,7 +1099,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
             <div class="avatar-selector-container">
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
                     <!-- 移除默认 src，避免每次切换页面先闪一下默认头像；实际头像由 JS 根据 localStorage 设置 -->
-                    <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;">
+                    <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;" loading="eager">
                     <script>
                         // 立即设置头像，避免闪烁（在DOMContentLoaded之前执行）
                         (function() {
@@ -1114,6 +1127,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
                             const avatarId = (savedAvatar && avatarImages[savedAvatar]) ? savedAvatar : 'male1';
                             const img = document.getElementById('currentAvatarImg');
                             if (img) {
+                                // 直接设置 src，图片尺寸已固定，不会导致布局变化
                                 img.src = avatarImages[avatarId];
                             }
                         })();
