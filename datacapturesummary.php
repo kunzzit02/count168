@@ -1455,7 +1455,7 @@ function getCurrentProcessId() {
                                 <div class="form-row source-percent-row">
                                     <div class="form-group source-percent-group">
                                         <label for="sourcePercent">Source</label>
-                                        <input type="text" id="sourcePercent" placeholder="e.g. 1 or 2 or 0.5 (倍数)">
+                                        <input type="text" id="sourcePercent" value="0" placeholder="e.g. 0 or 1 or 2 or 0.5 (倍数)">
                                     </div>
                                 </div>
                                 
@@ -4736,8 +4736,8 @@ function getCurrentProcessId() {
                 const formulaValue = formulaInput.value;
                 const inputMethod = inputMethodSelect ? inputMethodSelect.value : '';
                 const enableInputMethod = inputMethod ? true : false;
-                // Auto-enable if source percent has value
-                const enableSourcePercent = sourcePercentValue && sourcePercentValue.trim() !== '';
+                // Auto-enable if source percent has value and is not 0
+                const enableSourcePercent = sourcePercentValue && sourcePercentValue.trim() !== '' && parseFloat(sourcePercentValue) !== 0;
                 
                 if (formulaValue) {
                     // Calculate processed amount directly from formula expression
@@ -5055,9 +5055,9 @@ function getCurrentProcessId() {
             const sourceColumns = isFormulaEmpty ? '' : (row.getAttribute('data-source-columns') || formData.clickedColumnsDisplay || '');
             const formulaOperators = row.getAttribute('data-formula-operators') || formData.formulaValue || '';
             const sourcePercentAttr = row.getAttribute('data-source-percent') || '';
-            const sourcePercent = sourcePercentAttr || formData.sourcePercentValue || '1';
-            // Auto-enable if source percent has value
-            const enableSourcePercent = sourcePercent && sourcePercent.trim() !== '';
+            const sourcePercent = sourcePercentAttr || formData.sourcePercentValue || '0';
+            // Auto-enable if source percent has value and is not 0
+            const enableSourcePercent = sourcePercent && sourcePercent.trim() !== '' && parseFloat(sourcePercent) !== 0;
             const templateKey = row.getAttribute('data-template-key') || (productType === 'main' ? idProduct : null);
             
             // Get batch selection from checkbox
@@ -5102,8 +5102,8 @@ function getCurrentProcessId() {
                 currency_display: formData.currencyName || null,
                 source_columns: sourceColumns,
                 formula_operators: formulaOperators,
-                // 如果为空则默认 1 (1 = 100%)
-                source_percent: sourcePercent.trim() || '1',
+                // 如果为空则默认 0 (0 = 不乘以 source)
+                source_percent: sourcePercent.trim() || '0',
                 enable_source_percent: enableSourcePercent ? 1 : 0,
                 input_method: formData.inputMethodValue || null,
                 enable_input_method: (formData.inputMethodValue && formData.inputMethodValue.trim() !== '') ? 1 : 0,
@@ -5227,15 +5227,15 @@ function getCurrentProcessId() {
             let sourcePercentValue = sourcePercentAttr;
             if (!sourcePercentValue || sourcePercentValue.trim() === '') {
                 // Fallback: if data attribute is empty, read from cell display (should be multiplier format)
-                const sourcePercentDisplay = sourcePercentCell ? sourcePercentCell.textContent.trim() : '1';
+                const sourcePercentDisplay = sourcePercentCell ? sourcePercentCell.textContent.trim() : '0';
                 // Remove any % symbol if present (shouldn't be there, but just in case)
-                sourcePercentValue = sourcePercentDisplay.replace('%', '').trim() || '1';
+                sourcePercentValue = sourcePercentDisplay.replace('%', '').trim() || '0';
             }
             // Ensure value is in multiplier format (not percentage)
             // If somehow we got a value >= 10, it might be old percentage format, but we should not convert it here
             // because the data-source-percent attribute should already be in multiplier format
-            // Auto-enable if source percent has value
-            const sourcePercentEnableValue = sourcePercentValue && sourcePercentValue.trim() !== '';
+            // Auto-enable if source percent has value and is not 0
+            const sourcePercentEnableValue = sourcePercentValue && sourcePercentValue.trim() !== '' && parseFloat(sourcePercentValue) !== 0;
             
             const formulaCell = cells[4];
             const formulaDisplay = formulaCell?.querySelector('.formula-text')?.textContent.trim() || formulaCell?.textContent.trim() || '';
@@ -5389,10 +5389,10 @@ function getCurrentProcessId() {
             const accountSelect = document.getElementById('account');
             const accountValue = accountSelect.value; // Database ID
             const accountId = accountSelect.options[accountSelect.selectedIndex].text; // Display text
-            // Source Percent：如果用户没有填写，则默认 1 (1 = 100%)
+            // Source Percent：如果用户没有填写，则默认 0 (0 = 不乘以 source)
             let sourcePercentValue = document.getElementById('sourcePercent').value.trim();
             if (!sourcePercentValue) {
-                sourcePercentValue = '1';
+                sourcePercentValue = '0';
             }
             const currencySelect = document.getElementById('currency');
             const currencyValue = currencySelect.value; // Database ID
@@ -5605,8 +5605,8 @@ function getCurrentProcessId() {
                     sourceColumns: sourceColumns || finalSourceColumns,
                     batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
                     source: formulaValue || 'Source', // Use formula as source
-                    // 如果没有填写 Source Percent，则显示/保存为 1 (1 = 100%)
-                    sourcePercent: sourcePercentValue || '1',
+                    // 如果没有填写 Source Percent，则显示/保存为 0 (0 = 不乘以 source)
+                    sourcePercent: sourcePercentValue || '0',
                     formula: formulaDisplay,
                     formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
                     processedAmount: processedAmount,
@@ -5657,7 +5657,7 @@ function getCurrentProcessId() {
                     sourceColumns: finalSourceColumnsForSub, // Store clicked column numbers
                     batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
                     source: formulaValue || 'Source', // Use formula as source
-                    sourcePercent: sourcePercentValue || '1',
+                    sourcePercent: sourcePercentValue || '0',
                     formula: formulaDisplay,
                     formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
                     processedAmount: processedAmount,
@@ -5747,7 +5747,7 @@ function getCurrentProcessId() {
                         sourceColumns: finalSourceColumnsForSub2, // Store clicked column numbers
                         batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
                         source: formulaValue || 'Source', // Use formula as source
-                        sourcePercent: sourcePercentValue || '1',
+                        sourcePercent: sourcePercentValue || '0',
                         formula: formulaDisplay,
                         formulaOperators: (formulaValue !== undefined && formulaValue !== null) ? formulaValue : '', // Store the full formula expression (including empty string)
                         processedAmount: processedAmount,
@@ -6447,10 +6447,22 @@ function getCurrentProcessId() {
                     return formula.trim();
                 }
                 
-                // If enableSourcePercent is true but sourcePercentValue is empty, treat as 0
+                // If enableSourcePercent is true but sourcePercentValue is empty or 0, return formula as-is (don't multiply)
                 if (!sourcePercentValue || sourcePercentValue.trim() === '') {
-                    const trimmedFormula = formula.trim();
-                    return `${trimmedFormula}*(0)`;
+                    return formula.trim();
+                }
+                
+                // Check if sourcePercentValue is 0
+                const sourcePercentExpr = sourcePercentValue.trim();
+                const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
+                try {
+                    const decimalValue = evaluateExpression(sanitizedSourcePercent);
+                    if (decimalValue === 0) {
+                        // If source percent is 0, return formula as-is (don't multiply)
+                        return formula.trim();
+                    }
+                } catch (e) {
+                    // If evaluation fails, continue with normal processing
                 }
                 
                 // 保持公式本体不动，只在结尾统一乘上 Source Percent 展示
@@ -6521,23 +6533,34 @@ function getCurrentProcessId() {
                     return result;
                 }
                 
-                // If enableSourcePercent is true but sourcePercentValue is empty, treat as 0
+                // If enableSourcePercent is true but sourcePercentValue is empty or 0, return formula result directly (without multiplying)
                 if (!sourcePercentValue || sourcePercentValue.trim() === '') {
-                    let result = formulaResult * 0; // 0% means result is 0
+                    let result = formulaResult; // 0 means don't multiply, just return formula result
                     // Apply input method transformation if enabled
                     if (enableInputMethod && inputMethod) {
                         result = applyInputMethodTransformation(result, inputMethod);
                     }
-                    console.log('Formula result calculated from expression (source percent is 0):', result);
+                    console.log('Formula result calculated from expression (source percent is empty, returning formula result directly):', result);
                     return result;
                 }
                 
-                // Source percent is now in decimal format (e.g., 1 = 100%, 0.5 = 50%)
-                // Evaluate the source percent expression directly (no need to divide by 100)
+                // Check if sourcePercentValue is 0
                 const sourcePercentExpr = sourcePercentValue.trim();
                 const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
                 const decimalValue = evaluateExpression(sanitizedSourcePercent);
                 
+                // If source percent is 0, return formula result directly (without multiplying)
+                if (decimalValue === 0) {
+                    let result = formulaResult;
+                    // Apply input method transformation if enabled
+                    if (enableInputMethod && inputMethod) {
+                        result = applyInputMethodTransformation(result, inputMethod);
+                    }
+                    console.log('Formula result calculated from expression (source percent is 0, returning formula result directly):', result);
+                    return result;
+                }
+                
+                // Source percent is now in decimal format (e.g., 1 = 100%, 0.5 = 50%)
                 // Calculate: formula result * source percent (already in decimal format)
                 let result = formulaResult * decimalValue;
                 
@@ -8923,7 +8946,7 @@ function getCurrentProcessId() {
                     // Get current Source % value from row (as fallback)
                     const sourcePercentCell = cells[5];
                     const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                    let currentSourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(sourcePercentText || '1');
+                    let currentSourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(sourcePercentText || '0');
                     
                     // If user included source percent in the formula, use it
                     if (newSourcePercent) {
@@ -9703,9 +9726,9 @@ function getCurrentProcessId() {
             // Store sourcePercent in data attribute (without % symbol for easier retrieval)
             if (data.sourcePercent !== undefined) {
                 let sourcePercentValue = data.sourcePercent.toString().trim();
-                // If sourcePercent is empty or "Source", store as "1" (1 = 100%)
+                // If sourcePercent is empty or "Source", store as "0" (0 = 不乘以 source)
                 if (!sourcePercentValue || sourcePercentValue.toLowerCase() === 'source') {
-                    sourcePercentValue = '1';
+                    sourcePercentValue = '0';
                 } else {
                     // Convert old percentage format (100/50) to new decimal format (1/0.5)
                     // Convert old percentage format to new decimal format if needed
@@ -10564,8 +10587,8 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 sourceColumns: sourceColumnsValue,
                 batchSelection: mainTemplate.batch_selection == 1,
                 source: resolvedSourceExpression || 'Source',
-                // 如果模板里没有百分比，默认 1 (1 = 100%)
-                sourcePercent: convertedPercentValue || '1',
+                // 如果模板里没有百分比，默认 0 (0 = 不乘以 source)
+                sourcePercent: convertedPercentValue || '0',
                 formula: formulaDisplay,
                 formulaOperators: formulaOperatorsValue,
                 processedAmount: processedAmount,
@@ -13297,12 +13320,12 @@ function formatPercentValue(value) {
                     if (sourcePercentCell) {
                             const displayValue = sourcePercentCell.textContent.trim();
                             // Remove any % symbol if present (shouldn't be there, but just in case)
-                            sourcePercent = displayValue.replace('%', '').trim() || '1';
+                            sourcePercent = displayValue.replace('%', '').trim() || '0';
                     }
                     }
-                    // If sourcePercent is still empty, set it to "1" (multiplier format)
+                    // If sourcePercent is still empty, set it to "0" (0 = 不乘以 source)
                     if (!sourcePercent || sourcePercent.trim() === '' || sourcePercent.trim().toLowerCase() === 'source') {
-                        sourcePercent = '1';
+                        sourcePercent = '0';
                     }
                     // Formula column is at index 4
                     const formulaCell = cells[4];
@@ -13456,9 +13479,9 @@ function formatPercentValue(value) {
                         columns: columnsValue,
                         sourceColumns: sourceColumnsAttr || columnsValue, // Use saved sourceColumns or fallback to columnsValue
                         source: sourceValue,
-                        // 如果为空则默认 1 (1 = 100%)
+                        // 如果为空则默认 0 (0 = 不乘以 source)
                         // sourcePercent has already been converted above (lines 9300-9312)
-                        sourcePercent: sourcePercent || '1', // Save as string to preserve expressions like "1/2"
+                        sourcePercent: sourcePercent || '0', // Save as string to preserve expressions like "1/2"
                         enableSourcePercent: enableSourcePercentAttr ? 1 : 0,
                         formulaOperators: formulaOperatorsAttr, // Now stores the full formula expression
                         formula: formula,
