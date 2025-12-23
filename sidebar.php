@@ -121,6 +121,9 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         margin-left: clamp(8px, 0.83vw, 16px);
         flex-shrink: 0;
         width: fit-content;
+        /* 优化渲染性能，防止页面切换时的布局重排 */
+        will-change: auto;
+        contain: layout style;
     }
 
     /* 当前头像显示 */
@@ -129,7 +132,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         height: clamp(40px, 3.65vw, 70px);
         border-radius: 50%;
         cursor: pointer;
-        transition: all 0.3s ease;
+        /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
+        transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
         border: 3px solid rgba(255, 255, 255, 0.3);
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
@@ -140,6 +144,10 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         position: relative;
         overflow: hidden;
         box-sizing: border-box;
+        /* 优化渲染性能，防止闪烁 */
+        will-change: border-color, box-shadow;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
     }
 
     .current-avatar:hover {
@@ -1078,7 +1086,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
             <div class="avatar-selector-container">
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
                     <!-- 移除默认 src，避免每次切换页面先闪一下默认头像；实际头像由 JS 根据 localStorage 设置 -->
-                    <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;">
                     <script>
                         // 立即设置头像，避免闪烁（在DOMContentLoaded之前执行）
                         (function() {
