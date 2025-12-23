@@ -15572,35 +15572,60 @@ function formatPercentValue(value) {
 
         /* Formula Data Grid Styles */
         .formula-data-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
-            gap: 8px;
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 6px;
             margin-top: 8px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 4px;
         }
 
         .formula-data-grid-item {
             background: #f5f5f5;
             border: 1px solid #ddd;
             border-radius: 4px;
-            padding: 8px;
+            padding: 4px 8px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s ease;
-            font-size: clamp(11px, 0.73vw, 14px);
+            font-size: clamp(10px, 0.63vw, 12px);
             color: #333;
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-width: fit-content;
         }
 
         .formula-data-grid-item:hover {
             background: #e0e0e0;
             border-color: #007bff;
-            transform: translateY(-2px);
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .formula-data-grid-item:active {
             transform: translateY(0);
             background: #007bff;
             color: white;
+        }
+        
+        /* Scrollbar styling for formula data grid */
+        .formula-data-grid::-webkit-scrollbar {
+            height: 6px;
+        }
+        
+        .formula-data-grid::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+        
+        .formula-data-grid::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+        
+        .formula-data-grid::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
         }
 
         /* Print Styles */
