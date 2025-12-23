@@ -5663,12 +5663,32 @@ function getCurrentProcessId() {
             } else if (isEditMode && window.currentEditRow) {
                 targetRow = window.currentEditRow;
             } else {
-                // Find row by idProduct, accountId, and product type (most reliable after update)
-                targetRow = findSummaryRowForTemplate(processValue, accountValue, isSubIdProduct);
-                
-                // Fallback to currentButton's row if not found
-                if (!targetRow && currentButton) {
+                // CRITICAL: 优先使用 currentButton 所在的行，因为这是用户点击的按钮所在的行
+                // 这是最准确的方式，确保保存到正确的 row
+                // 如果使用 findSummaryRowForTemplate，可能会找到错误的 row（比如相同 id_product 和 account 的其他 row）
+                if (currentButton) {
                     targetRow = currentButton.closest('tr');
+                    // 验证这个 row 的 id_product 是否匹配
+                    if (targetRow) {
+                        const idProductCell = targetRow.querySelector('td:first-child');
+                        const productValues = getProductValuesFromCell(idProductCell);
+                        const rowIdProduct = isSubIdProduct 
+                            ? normalizeIdProductText(productValues.sub || '')
+                            : normalizeIdProductText(productValues.main || '');
+                        const expectedIdProduct = normalizeIdProductText(processValue);
+                        if (rowIdProduct !== expectedIdProduct) {
+                            console.warn('Warning: Button row id_product mismatch. Expected:', expectedIdProduct, 'Found:', rowIdProduct);
+                            // 如果 id_product 不匹配，尝试通过 findSummaryRowForTemplate 查找
+                            targetRow = findSummaryRowForTemplate(processValue, accountValue, isSubIdProduct);
+                            // 如果还是找不到，fallback 到 button 的 row
+                            if (!targetRow) {
+                                targetRow = currentButton.closest('tr');
+                            }
+                        }
+                    }
+                } else {
+                    // Fallback: Find row by idProduct, accountId, and product type
+                    targetRow = findSummaryRowForTemplate(processValue, accountValue, isSubIdProduct);
                 }
             }
             
