@@ -125,7 +125,7 @@ $company_id = $_SESSION['company_id'] ?? null;
             <button type="button" class="btn btn-submit" id="summarySubmitBtn" onclick="submitSummaryData()">Submit</button>
             <button type="button" class="btn btn-cancel" onclick="goBackToDataCapture()" style="margin-left: 10px;">Back</button>
             <button type="button" class="btn btn-refresh" onclick="refreshPage()" title="Refresh page">
-                <img src="images/refresh.svg" alt="Refresh" style="width: 35px; height: 35px;" />
+                <img src="images/refresh.svg" alt="Refresh" style="width: clamp(23px, 1.8vw, 35px; height: clamp(23px, 1.8vw, 35px);" />
             </button>
         </div>
         
