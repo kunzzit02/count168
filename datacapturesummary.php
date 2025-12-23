@@ -4796,6 +4796,12 @@ function getCurrentProcessId() {
                         const sourcePercentValue = convertDisplayPercentToDecimal(data.sourcePercent.toString());
                         sourcePercentInput.value = sourcePercentValue;
                     }
+                } else {
+                    // If no sourcePercent in data, ensure default value is 0 (for new records)
+                    const sourcePercentInput = document.getElementById('sourcePercent');
+                    if (sourcePercentInput && (!sourcePercentInput.value || sourcePercentInput.value.trim() === '')) {
+                        sourcePercentInput.value = '0';
+                    }
                 }
                 
                 // Enable checkbox removed - source percent is auto-enabled when value exists
@@ -10346,11 +10352,11 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     percentValue = (numValue / 100).toString();
                 }
             } else {
-                percentValue = '1'; // Default to 1 (1 = 100%)
+                percentValue = '0'; // Default to 0 (不乘以source)
             }
             const columnsDisplay = sourceColumnsValue ? createColumnsDisplay(sourceColumnsValue, formulaOperatorsValue) : '';
             // Auto-enable if source percent has value
-            const enableSourcePercent = percentValue && percentValue.trim() !== '';
+            const enableSourcePercent = percentValue && percentValue.trim() !== '' && percentValue.trim() !== '0';
             
             // Priority: Use saved formula_display if available (preserves user's manual edits like *0.1)
             // If formula_display exists, preserve its structure but update numbers from current source data
