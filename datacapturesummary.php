@@ -4567,16 +4567,22 @@ function getCurrentProcessId() {
             
             // Calculate data column number (colIndex 1 = id_product, colIndex 2 = data column 1, etc.)
             // Data column index starts from 1: colIndex 2 = column 1, colIndex 3 = column 2, etc.
+            // dataColumnIndex: 1-based index within data columns (used for internal references)
+            // displayColumnIndex: actual table column index shown to用户 (用于 $数字 显示)
             let dataColumnIndex = null;
+            let displayColumnIndex = null;
             if (columnIndex !== null) {
                 const colIdx = parseInt(columnIndex);
-                if (colIdx >= 2) {
-                    // colIndex 2 = data column 1, colIndex 3 = data column 2, etc.
-                    dataColumnIndex = colIdx - 1; // Convert to 1-based data column index
-                } else if (colIdx === 1) {
-                    // This is the id_product column itself, skip it
-                    console.warn('Clicked on id_product column, skipping');
-                    return;
+                if (!isNaN(colIdx)) {
+                    displayColumnIndex = colIdx; // e.g. 第四个实际列 => 4
+                    if (colIdx >= 2) {
+                        // colIndex 2 = data column 1, colIndex 3 = data column 2, etc.
+                        dataColumnIndex = colIdx - 1; // Convert to 1-based data column index
+                    } else if (colIdx === 1) {
+                        // This is the id_product column itself, skip it
+                        console.warn('Clicked on id_product column, skipping');
+                        return;
+                    }
                 }
             }
             
@@ -4638,10 +4644,13 @@ function getCurrentProcessId() {
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
             // Insert column reference ($columnNumber) instead of value at cursor position
-            // Use dataColumnIndex to create column reference like $3, $4, etc.
+            // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
             let valueToInsert;
-            if (dataColumnIndex !== null) {
+            if (displayColumnIndex !== null) {
                 // Insert column reference format: $columnNumber (e.g., $3, $4)
+                valueToInsert = `$${displayColumnIndex}`;
+            } else if (dataColumnIndex !== null) {
+                // Fallback: still尝试使用内部 dataColumnIndex
                 valueToInsert = `$${dataColumnIndex}`;
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
