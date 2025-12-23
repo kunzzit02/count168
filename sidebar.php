@@ -734,7 +734,9 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         display: flex;
         align-items: center;
         justify-content: center;
+        gap: clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(4px, 0.52vw, 10px);
+        width: 100%;
     }
 
     .header-logo {
@@ -881,9 +883,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         cursor: pointer;
         color: white;
         transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-        margin: clamp(8px, 0.83vw, 16px) 0;
         flex-shrink: 0;
-        align-self: center;
     }
 
     .notification-bell:hover {
@@ -1064,13 +1064,12 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
     <div class="informationmenu-header">
         <div class="header-logo-section">
             <img src="images/count_whitelogo.png" alt="EAZYCOUNT Logo" class="header-logo">
-        </div>
-
-        <!-- 通知铃铛 -->
-        <div class="notification-bell" title="Notifications" onclick="toggleNotificationPanel(event)">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z"/>
-            </svg>
+            <!-- 通知铃铛 -->
+            <div class="notification-bell" title="Notifications" onclick="toggleNotificationPanel(event)">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z"/>
+                </svg>
+            </div>
         </div>
 
         <!-- 用户信息容器（头像和用户信息左右排版） -->
