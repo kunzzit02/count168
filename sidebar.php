@@ -872,8 +872,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
     /* 通知铃铛样式 */
     .notification-bell {
         position: relative;
-        width: clamp(32px, 2.6vw, 40px);
-        height: clamp(32px, 2.6vw, 40px);
+        width: clamp(26px, 1.88vw, 36px);
+        height: clamp(26px, 1.88vw, 36px);
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.15);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -893,8 +893,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
     }
 
     .notification-bell svg {
-        width: clamp(18px, 1.56vw, 24px);
-        height: clamp(18px, 1.56vw, 24px);
+        width: clamp(16px, 1.14vw, 22px);
+        height: clamp(16px, 1.14vw, 22px);
         transform-origin: 50% 10%;
         animation: bell-shake 1s ease-in-out infinite;
     }
