@@ -4875,7 +4875,15 @@ function getCurrentProcessId() {
                         // Summary Table position directly corresponds to Data Capture Table row index
                         // because populateOriginalTableWithColumnAData creates rows in Data Capture Table order
                         rowIndex = summaryIndex;
-                        console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', formData.processValue || 'unknown');
+                        // Get id_product from row for debugging
+                        const idProductCell = row.querySelector('td:first-child');
+                        const productValues = getProductValuesFromCell(idProductCell);
+                        const rowIdProduct = productType === 'sub' 
+                            ? normalizeIdProductText(productValues.sub || '')
+                            : normalizeIdProductText(productValues.main || '');
+                        console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', rowIdProduct, 'expected:', formData.processValue || 'unknown');
+                    } else {
+                        console.warn('Warning: Row not found in Summary Table when computing row_index');
                     }
                 }
                 
@@ -10638,7 +10646,18 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 4: Match by account_id only (if formula_variant not available)
+        // Priority 4: Match by row_index + account_id (more precise than account_id alone)
+        if (!targetRow && templateAccountId && templateRowIndex !== null) {
+            for (const candidate of candidateRows) {
+                if (candidate.accountId === templateAccountId && candidate.rowIndex === templateRowIndex) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by row_index + account_id:', templateRowIndex, templateAccountId);
+                    break;
+                }
+            }
+        }
+        
+        // Priority 5: Match by account_id only (if formula_variant not available)
         if (!targetRow && templateAccountId) {
             for (const candidate of candidateRows) {
                 if (candidate.accountId === templateAccountId) {
@@ -10649,7 +10668,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 5: Match by row_index only (if account_id not available)
+        // Priority 6: Match by row_index only (if account_id not available)
         if (!targetRow && templateRowIndex !== null) {
             for (const candidate of candidateRows) {
                 if (candidate.rowIndex === templateRowIndex) {
@@ -10660,7 +10679,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 6: Use first empty row (no account yet)
+        // Priority 7: Use first empty row (no account yet)
         if (!targetRow) {
             for (const candidate of candidateRows) {
                 if (!candidate.accountId) {
@@ -10671,7 +10690,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 7: Use first available row as fallback
+        // Priority 8: Use first available row as fallback
         if (!targetRow && candidateRows.length > 0) {
             targetRow = candidateRows[0].row;
             console.log('Using first available row as fallback');
