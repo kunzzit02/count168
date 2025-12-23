@@ -27,10 +27,15 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
-    /* 全局字体加粗 */
-    body.transaction-page,
-    body.transaction-page * {
+    /* 只对 transaction 内容区域应用字体加粗，排除 sidebar */
+    body.transaction-page .transaction-container,
+    body.transaction-page .transaction-container * {
         font-weight: 700;
+    }
+    /* 确保 sidebar 保持正常字体粗细 */
+    body.transaction-page .informationmenu,
+    body.transaction-page .informationmenu * {
+        font-weight: normal !important;
     }
     /* 表格自然展开，页面整体滚动 */
     .transaction-table-wrapper { 
