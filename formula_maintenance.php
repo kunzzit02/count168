@@ -764,9 +764,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         <select class="account-select" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);"></select>
                     </div>
                     <div class="maintenance-list-card-item currency-cell">${toUpperDisplay(row.currency)}</div>
-                    <div class="maintenance-list-card-item source-cell" data-original-source="${escapeHtml(row.source || '0')}">
-                        <span class="source-display">${toUpperDisplay(row.source || '0')}</span>
-                        <input type="text" class="source-input" value="${escapeHtml(row.source || '0')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
+                    <div class="maintenance-list-card-item source-cell" data-original-source="${escapeHtml(row.source || '')}">
+                        <span class="source-display">${toUpperDisplay(row.source)}</span>
+                        <input type="text" class="source-input" value="${escapeHtml(row.source || '')}" style="display: none; width: 100%; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; font-size: clamp(9px, 0.63vw, 12px);">
                     </div>
                     <div class="maintenance-list-card-item">${toUpperDisplay(row.product)}</div>
                     <div class="maintenance-list-card-item input-method-cell" data-original-input-method="${escapeHtml(row.input_method || '')}">
@@ -979,7 +979,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             
             // 恢复原始值
             accountSelect.value = rowData.account_id || '';
-            sourceInput.value = rowData.source || '0';
+            sourceInput.value = rowData.source || '';
             inputMethodSelect.value = rowData.input_method || '';
             formulaInput.value = rowData.formula || '';
             descriptionInput.value = rowData.description || '';
