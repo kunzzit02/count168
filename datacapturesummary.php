@@ -11512,8 +11512,23 @@ function reorderSummaryRowsByRowIndex() {
             const idProductCell = row.querySelector('td:first-child');
             const productValues = getProductValuesFromCell(idProductCell);
             const mainTextRaw = (productValues.main || '').trim();
-            const normalizedMain = normalizeIdProductText(mainTextRaw);
             const productType = row.getAttribute('data-product-type') || 'main';
+            
+            // For sub rows, get parent id_product from data attribute or from cell
+            let normalizedMain = '';
+            if (productType === 'sub') {
+                // Try to get parent id_product from data attribute first
+                const parentIdProduct = row.getAttribute('data-parent-id-product');
+                if (parentIdProduct) {
+                    normalizedMain = normalizeIdProductText(parentIdProduct);
+                } else if (mainTextRaw) {
+                    // Fallback to main text from cell (which should be parent id_product for sub rows)
+                    normalizedMain = normalizeIdProductText(mainTextRaw);
+                }
+            } else {
+                // For main rows, use their own id_product
+                normalizedMain = normalizeIdProductText(mainTextRaw);
+            }
             
             const attr = row.getAttribute('data-row-index');
             const rowIndex = (attr !== null && attr !== '' && !Number.isNaN(Number(attr)))
@@ -11562,26 +11577,17 @@ function reorderSummaryRowsByRowIndex() {
         const productGroups = Object.keys(groupedByProduct).map(key => {
             const groupRows = groupedByProduct[key];
             const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
-            // Sort rows within each group by row_index first (main and sub rows together)
-            // This ensures sub rows follow their parent main rows based on row_index
+            // Sort rows within each group by row_index (Data Capture Table order)
+            // IMPORTANT: All rows (main and sub) are sorted purely by row_index, maintaining the order they were added
+            // No priority between main and sub - just follow row_index order
             groupRows.sort((a, b) => {
-                // First, sort by row_index (Data Capture Table order)
+                // First, sort by row_index (where user added the data in Data Capture Table)
                 if (a.rowIndex !== b.rowIndex) {
                     return a.rowIndex - b.rowIndex;
                 }
-                // If same row_index, main rows come before sub rows
-                if (a.productType !== b.productType) {
-                    if (a.productType === 'main') return -1;
-                    if (b.productType === 'main') return 1;
-                }
-                // If same row_index and same productType
-                // For sub rows with same account, use creation order to maintain stable order
-                if (a.productType === 'sub' && b.productType === 'sub' && 
-                    a.accountId && b.accountId && a.accountId === b.accountId) {
-                    return a.creationOrder - b.creationOrder;
-                }
-                // Otherwise, maintain original order
-                return a.originalIndex - b.originalIndex;
+                // If same row_index, use creation order to maintain stable order
+                // This ensures rows added at the same position maintain their relative order
+                return a.creationOrder - b.creationOrder;
             });
             return {
                 key,
