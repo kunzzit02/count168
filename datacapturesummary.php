@@ -15589,11 +15589,11 @@ function formatPercentValue(value) {
             background: #f5f5f5;
             border: 1px solid #ddd;
             border-radius: 4px;
-            padding: 4px 8px;
+            padding: clamp(2px, 0.21vw, 4px) clamp(4px, 0.42vw, 8px);
             text-align: center;
             cursor: pointer;
             transition: all 0.2s ease;
-            font-size: clamp(10px, 0.63vw, 12px);
+            font-size: clamp(8px, 0.63vw, 12px);
             color: #333;
             white-space: nowrap;
             flex-shrink: 0;
