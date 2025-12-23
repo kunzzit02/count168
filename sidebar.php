@@ -126,7 +126,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         display: flex;
         flex-direction: column;     
         align-items: center;
-        margin-left: clamp(4px, 0.42vw, 8px);
+        margin-left: clamp(8px, 0.83vw, 16px);
         flex-shrink: 0;
         width: fit-content;
         /* 优化渲染性能，防止页面切换时的布局重排 */
