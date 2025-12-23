@@ -3740,35 +3740,23 @@ function getCurrentProcessId() {
                     if (shouldReplace && rowLabel) {
                         const matchedColumnIndex = findColumnIndexByValue(processValue, numericValue);
                         
-                        // 验证匹配的列的值是否真的等于输入的数字
-                        // 如果值不匹配，则不替换，保持原样（用户可能想要输入字面量数字）
                         if (matchedColumnIndex !== null) {
                             const columnReference = rowLabel + matchedColumnIndex;
-                            const actualColumnValue = getColumnValueFromCellReference(columnReference, processValue);
+                            processedNewInput = newInput.substring(0, firstMatch.startIndex) + 
+                                               columnReference + 
+                                               newInput.substring(firstMatch.endIndex);
+                            clickedColumns.push(matchedColumnIndex);
+                            valueColumnMap.push(`${columnReference}:${matchedColumnIndex}`);
                             
-                            // 只有当实际列值等于输入的数字时，才进行替换
-                            // 这样可以避免将字面量数字误替换为列引用
-                            if (actualColumnValue !== null) {
-                                const actualValue = parseFloat(actualColumnValue);
-                                if (!isNaN(actualValue) && Math.abs(actualValue - numericValue) < 0.0001) {
-                                    processedNewInput = newInput.substring(0, firstMatch.startIndex) + 
-                                                       columnReference + 
-                                                       newInput.substring(firstMatch.endIndex);
-                                    clickedColumns.push(matchedColumnIndex);
-                                    valueColumnMap.push(`${columnReference}:${matchedColumnIndex}`);
-                                    
-                                    // 记录 cell 位置，便于 columns_display / source_columns 存储
-                                    const formulaInput = document.getElementById('formula');
-                                    if (formulaInput) {
-                                        let clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
-                                        const cellsArray = clickedCells ? clickedCells.split(' ').filter(c => c.trim() !== '') : [];
-                                        if (!cellsArray.includes(columnReference)) {
-                                            cellsArray.push(columnReference);
-                                            formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
-                                        }
-                                    }
+                            // 记录 cell 位置，便于 columns_display / source_columns 存储
+                            const formulaInput = document.getElementById('formula');
+                            if (formulaInput) {
+                                let clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
+                                const cellsArray = clickedCells ? clickedCells.split(' ').filter(c => c.trim() !== '') : [];
+                                if (!cellsArray.includes(columnReference)) {
+                                    cellsArray.push(columnReference);
+                                    formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
                                 }
-                                // 如果值不匹配，不替换，保持原样（用户输入的是字面量数字）
                             }
                         }
                     }
