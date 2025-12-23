@@ -10348,51 +10348,52 @@ function applyTemplateToSummaryRow(idProduct, template) {
                             const hasManualInput = /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
                             
                             if (hasManualInput) {
-                            // Formula contains manually entered parts (e.g., *0.9/2), preserve it as-is
-                            // Only update numbers that come from data capture table, not manual inputs
-                            console.log('Saved formula_display contains manual input, preserving structure:', savedFormulaDisplay);
-                            const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                            
-                            if (preservedFormula === null) {
-                                // If preserveFormulaStructure returns null, use saved formula as-is to preserve manual inputs
-                                console.log('preserveFormulaStructure returned null, using saved formula_display as-is to preserve manual inputs');
-                                formulaDisplay = savedFormulaDisplay;
-                            } else if (preservedFormula === savedFormulaDisplay) {
-                                // If preserved formula is same as saved, use it as-is
-                                formulaDisplay = savedFormulaDisplay;
-                                console.log('Using saved formula_display as-is (preserves manual inputs and structure):', formulaDisplay);
-                            } else {
-                                // Use preserved formula (numbers updated but manual inputs preserved)
-                                formulaDisplay = preservedFormula;
-                                console.log('Preserved saved formula_display structure with updated source data (manual inputs preserved):', formulaDisplay);
-                            }
-                            } else {
-                            // No manual input detected, proceed with normal preservation logic
-                            // IMPORTANT: Even if formula contains percentage part, we should still update numbers
-                            // from current Data Capture Table data, while preserving the formula structure
-                            // This ensures formula reflects current table data (e.g., (-4014.6*0.1)+0 -> (1*0.1)+1)
-                            // 非 Batch 行仍然优先保留用户自定义的公式结构
-                            const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                            // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
-                            if (preservedFormula === null) {
-                                console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                                // Recalculate formula from current Data Capture Table
-                                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                                } else if (percentValue && resolvedSourceExpression) {
-                                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                                // Formula contains manually entered parts (e.g., *0.9/2), preserve it as-is
+                                // Only update numbers that come from data capture table, not manual inputs
+                                console.log('Saved formula_display contains manual input, preserving structure:', savedFormulaDisplay);
+                                const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
+                                
+                                if (preservedFormula === null) {
+                                    // If preserveFormulaStructure returns null, use saved formula as-is to preserve manual inputs
+                                    console.log('preserveFormulaStructure returned null, using saved formula_display as-is to preserve manual inputs');
+                                    formulaDisplay = savedFormulaDisplay;
+                                } else if (preservedFormula === savedFormulaDisplay) {
+                                    // If preserved formula is same as saved, use it as-is
+                                    formulaDisplay = savedFormulaDisplay;
+                                    console.log('Using saved formula_display as-is (preserves manual inputs and structure):', formulaDisplay);
                                 } else {
-                                    formulaDisplay = resolvedSourceExpression || 'Formula';
+                                    // Use preserved formula (numbers updated but manual inputs preserved)
+                                    formulaDisplay = preservedFormula;
+                                    console.log('Preserved saved formula_display structure with updated source data (manual inputs preserved):', formulaDisplay);
                                 }
-                                console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
-                            } else if (preservedFormula === savedFormulaDisplay) {
-                                // 如果返回的结果与原始 formula_display 相同，说明替换后结果相同，使用保存的值
-                                console.log('preserveFormulaStructure returned unchanged formula, using saved formula_display as-is to preserve structure (e.g., parentheses)');
-                                formulaDisplay = savedFormulaDisplay;
-                                console.log('Using saved formula_display as-is (preserves structure like parentheses):', formulaDisplay);
                             } else {
-                                formulaDisplay = preservedFormula;
-                                console.log('Preserved saved formula_display structure with updated source data:', formulaDisplay);
+                                // No manual input detected, proceed with normal preservation logic
+                                // IMPORTANT: Even if formula contains percentage part, we should still update numbers
+                                // from current Data Capture Table data, while preserving the formula structure
+                                // This ensures formula reflects current table data (e.g., (-4014.6*0.1)+0 -> (1*0.1)+1)
+                                // 非 Batch 行仍然优先保留用户自定义的公式结构
+                                const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
+                                // 如果 preserveFormulaStructure 返回 null，说明数字数量不匹配，需要重新计算formula
+                                if (preservedFormula === null) {
+                                    console.log('preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                                    // Recalculate formula from current Data Capture Table
+                                    if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                                        formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                                    } else if (percentValue && resolvedSourceExpression) {
+                                        formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                                    } else {
+                                        formulaDisplay = resolvedSourceExpression || 'Formula';
+                                    }
+                                    console.log('Recalculated formula from current Data Capture Table:', formulaDisplay);
+                                } else if (preservedFormula === savedFormulaDisplay) {
+                                    // 如果返回的结果与原始 formula_display 相同，说明替换后结果相同，使用保存的值
+                                    console.log('preserveFormulaStructure returned unchanged formula, using saved formula_display as-is to preserve structure (e.g., parentheses)');
+                                    formulaDisplay = savedFormulaDisplay;
+                                    console.log('Using saved formula_display as-is (preserves structure like parentheses):', formulaDisplay);
+                                } else {
+                                    formulaDisplay = preservedFormula;
+                                    console.log('Preserved saved formula_display structure with updated source data:', formulaDisplay);
+                                }
                             }
                         }
                     } else {
