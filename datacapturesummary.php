@@ -5693,6 +5693,14 @@ function getCurrentProcessId() {
 
                 // 记录刚创建的 sub 行，供后面的模板保存使用
                 window.lastCreatedRowForTemplateSave = newRow;
+                
+                // Reorder rows after adding new sub row to ensure correct position
+                // Use setTimeout to ensure DOM is updated first
+                setTimeout(() => {
+                    if (typeof reorderSummaryRowsByRowIndex === 'function') {
+                        reorderSummaryRowsByRowIndex();
+                    }
+                }, 10);
             } else {
                 // main 行点击 +：如果主行还没有账号，就更新主行；否则为该 Id Product 新增一条 sub 行
                 const targetRow = currentButton ? currentButton.closest('tr') : null;
@@ -5783,6 +5791,14 @@ function getCurrentProcessId() {
 
                     // 记录刚创建的 sub 行，供后面的模板保存使用
                     window.lastCreatedRowForTemplateSave = newRow;
+                    
+                    // Reorder rows after adding new sub row to ensure correct position
+                    // Use setTimeout to ensure DOM is updated first
+                    setTimeout(() => {
+                        if (typeof reorderSummaryRowsByRowIndex === 'function') {
+                            reorderSummaryRowsByRowIndex();
+                        }
+                    }, 10);
                 }
             }
             
@@ -9545,41 +9561,88 @@ function getCurrentProcessId() {
             checkboxCell.appendChild(checkbox);
             row.appendChild(checkboxCell);
             
-            // Set creation order timestamp for stable sorting when sub rows have same account
-            const creationOrder = Date.now();
-            row.setAttribute('data-creation-order', String(creationOrder));
-            
-            // Insert the new row after the parent row
+            // Insert the new row first, then set creation order based on position
+            // This ensures creation_order reflects the insertion position
             if (insertAfterIndex >= 0) {
-                // Get the parent row element
-                const parentRow = rows[insertAfterIndex];
-                // Insert after the parent row
-                parentRow.insertAdjacentElement('afterend', row);
-                // Set row_index: use provided rowIndex if available, otherwise calculate
+                // Get the parent row element (or the row we're inserting after)
+                const insertAfterRow = rows[insertAfterIndex];
+                
+                // Get row_index from the row we're inserting after
+                // IMPORTANT: New sub rows should use the same row_index as the row they're inserted after
+                // This ensures they maintain the correct position relative to Data Capture Table
+                let newRowIndex = null;
                 if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
-                    row.setAttribute('data-row-index', String(Number(rowIndex)));
-                    console.log('Inserted sub row after parent row at index:', insertAfterIndex, 'using provided row_index:', rowIndex);
-                } else {
-                    // Calculate and set row_index immediately after insertion
-                    // The new row is at position insertAfterIndex + 1
-                    const newRowIndex = insertAfterIndex + 1;
-                    row.setAttribute('data-row-index', String(newRowIndex));
-                    console.log('Inserted sub row after parent row at index:', insertAfterIndex, 'calculated row_index:', newRowIndex);
+                    // Use provided rowIndex if available
+                    newRowIndex = Number(rowIndex);
+                } else if (insertAfterRow) {
+                    // Get row_index from the row we're inserting after
+                    const insertAfterRowIndexAttr = insertAfterRow.getAttribute('data-row-index');
+                    if (insertAfterRowIndexAttr !== null && insertAfterRowIndexAttr !== '' && !Number.isNaN(Number(insertAfterRowIndexAttr))) {
+                        newRowIndex = Number(insertAfterRowIndexAttr);
+                    }
                 }
+                
+                // Insert after the row
+                insertAfterRow.insertAdjacentElement('afterend', row);
+                
+                // Set row_index on the new row
+                if (newRowIndex !== null) {
+                    row.setAttribute('data-row-index', String(newRowIndex));
+                    console.log('Inserted sub row after row at index:', insertAfterIndex, 'using row_index:', newRowIndex, 'from insertAfterRow');
+                } else {
+                    // Fallback: use current position in Summary Table (should rarely happen)
+                    const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
+                    const fallbackIndex = Array.from(allRowsAfterInsert).indexOf(row);
+                    row.setAttribute('data-row-index', String(fallbackIndex));
+                    console.warn('Inserted sub row but could not get row_index from insertAfterRow, using fallback:', fallbackIndex);
+                }
+                
+                // Set creation order based on insertion position
+                // Get creation order from the row we inserted after, and use a value slightly larger
+                // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
+                let creationOrder = Date.now();
+                if (insertAfterRow) {
+                    const insertAfterCreationOrderAttr = insertAfterRow.getAttribute('data-creation-order');
+                    if (insertAfterCreationOrderAttr) {
+                        const insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
+                        // Use a value slightly larger than the row we inserted after
+                        // This ensures new row appears right after it when rows have same row_index
+                        creationOrder = insertAfterCreationOrder + 1;
+                    }
+                }
+                row.setAttribute('data-creation-order', String(creationOrder));
             } else {
                 // Fallback: append to the end
                 summaryTableBody.appendChild(row);
-                // Set row_index: use provided rowIndex if available, otherwise calculate
+                // Set row_index: use provided rowIndex if available, otherwise try to get from last row
                 if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
                     row.setAttribute('data-row-index', String(Number(rowIndex)));
                     console.log('Appended sub row to end, using provided row_index:', rowIndex);
                 } else {
-                    // Calculate row_index for appended row
-                    const allRows = summaryTableBody.querySelectorAll('tr');
-                    const newRowIndex = allRows.length - 1; // 0-based index
-                    row.setAttribute('data-row-index', String(newRowIndex));
-                    console.log('Could not find parent row, appended to end, calculated row_index:', newRowIndex);
+                    // Try to get row_index from the last row before appending
+                    const allRowsBeforeAppend = summaryTableBody.querySelectorAll('tr');
+                    if (allRowsBeforeAppend.length > 0) {
+                        const lastRow = allRowsBeforeAppend[allRowsBeforeAppend.length - 1];
+                        const lastRowIndexAttr = lastRow.getAttribute('data-row-index');
+                        if (lastRowIndexAttr !== null && lastRowIndexAttr !== '' && !Number.isNaN(Number(lastRowIndexAttr))) {
+                            const lastRowIndex = Number(lastRowIndexAttr);
+                            row.setAttribute('data-row-index', String(lastRowIndex));
+                            console.log('Appended sub row to end, using row_index from last row:', lastRowIndex);
+                        } else {
+                            // Last resort: use position index
+                            const fallbackIndex = allRowsBeforeAppend.length; // 0-based index, new row will be at this position
+                            row.setAttribute('data-row-index', String(fallbackIndex));
+                            console.warn('Appended sub row but could not get row_index from last row, using fallback:', fallbackIndex);
+                        }
+                    } else {
+                        row.setAttribute('data-row-index', '0');
+                        console.log('Appended sub row as first row, using row_index: 0');
+                    }
                 }
+                
+                // Set creation order for appended row (use current timestamp)
+                const creationOrder = Date.now();
+                row.setAttribute('data-creation-order', String(creationOrder));
             }
 
             return row;
