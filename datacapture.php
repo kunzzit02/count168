@@ -1168,6 +1168,13 @@ if ($current_user_id && count($user_companies) > 0) {
             const titleEl = document.getElementById('notificationTitle');
             const messageEl = document.getElementById('notificationMessage');
             
+            if (!popup || !titleEl || !messageEl) {
+                console.error('Notification elements not found');
+                // Fallback: use alert if notification popup doesn't exist
+                alert(title + ': ' + message);
+                return;
+            }
+            
             titleEl.textContent = title;
             messageEl.textContent = message;
             
@@ -7406,6 +7413,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
                 
                 const result = await response.json();
+                console.log('Add description result:', result);
                 
                 if (result.success) {
                     showNotification('Success', 'Description added successfully!', 'success');
@@ -7430,6 +7438,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else {
                     // 如果是重复的 description，显示英文提示
                     const errorMsg = result.error || '';
+                    console.log('Error adding description:', errorMsg, 'duplicate:', result.duplicate);
                     if (result.duplicate === true || errorMsg.includes('already exists') || errorMsg.includes('Description name already exists')) {
                         showNotification('Error', 'Description name already exists', 'error');
                     } else {
@@ -9629,6 +9638,85 @@ if ($current_user_id && count($user_companies) > 0) {
             color: #fff;
             border-color: transparent;
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        }
+        
+        /* Notification Popup Styles */
+        .notification-popup {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            padding: 0;
+            min-width: 300px;
+            max-width: 400px;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+            border-left: 4px solid #28a745;
+        }
+        
+        .notification-popup.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .notification-popup.error {
+            border-left-color: #dc3545;
+        }
+        
+        .notification-popup.success {
+            border-left-color: #28a745;
+        }
+        
+        .notification-popup .notification-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .notification-popup .notification-title {
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+        }
+        
+        .notification-popup.success .notification-title {
+            color: #28a745;
+        }
+        
+        .notification-popup.error .notification-title {
+            color: #dc3545;
+        }
+        
+        .notification-popup .notification-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        
+        .notification-popup .notification-close:hover {
+            color: #333;
+        }
+        
+        .notification-popup .notification-message {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.4;
+            padding: 12px 16px;
         }
     </style>
 </body>
