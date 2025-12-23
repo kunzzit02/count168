@@ -11785,6 +11785,24 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         return;
     }
 
+    // IMPORTANT: Sort sub templates by row_index first, then by id to maintain correct order
+    // Use id (database primary key) instead of updated_at because updated_at changes when saving,
+    // which would cause newly saved rows to move to the end
+    // This ensures sub rows are applied in the correct order when loading from database
+    validSubTemplates.sort((a, b) => {
+        // First sort by row_index (where user added the data in Data Capture Table)
+        const aRowIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
+        const bRowIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
+        if (aRowIndex !== bRowIndex) {
+            return aRowIndex - bRowIndex;
+        }
+        // If same row_index, sort by id (database primary key) to maintain relative order
+        // id is auto-increment, so it reflects the creation order
+        const aId = a.id || 0;
+        const bId = b.id || 0;
+        return aId - bId;
+    });
+
     // 先收集当前表格中属于同一个 Id Product 的所有 main 行（可能有多行 UUU）
     const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
     const normalizedTargetId = normalizeIdProductText(idProduct);
@@ -11910,16 +11928,24 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 return;
             }
             // Set creation order based on template index to maintain stable order when loading from database
-            // Use templateIndex * 1000 to ensure it doesn't conflict with real-time creation timestamps
-            const creationOrder = Date.now() - (validSubTemplates.length - templateIndex) * 1000;
+            // Since templates are now sorted by row_index and updated_at, use templateIndex to preserve order
+            // Use a base timestamp plus templateIndex * 1000 to ensure correct relative order
+            // This ensures sub rows with same row_index maintain their relative order from database
+            const baseTime = Date.now() - validSubTemplates.length * 1000;
+            const creationOrder = baseTime + templateIndex * 1000;
             newRow.setAttribute('data-creation-order', String(creationOrder));
             targetRow = newRow;
-            console.log('Created new sub row for template with creation-order:', creationOrder);
+            console.log('Created new sub row for template with row_index:', templateRowIndex, 'creation-order:', creationOrder, 'templateIndex:', templateIndex);
         } else {
-            // If updating existing row, ensure it has creation-order if missing
+            // If updating existing row, preserve its existing creation-order if it has one
+            // Only set if missing to maintain the original order
             if (!targetRow.getAttribute('data-creation-order')) {
-                const creationOrder = Date.now() - (validSubTemplates.length - templateIndex) * 1000;
+                const baseTime = Date.now() - validSubTemplates.length * 1000;
+                const creationOrder = baseTime + templateIndex * 1000;
                 targetRow.setAttribute('data-creation-order', String(creationOrder));
+                console.log('Set missing creation-order on existing sub row:', creationOrder);
+            } else {
+                console.log('Preserving existing creation-order on sub row:', targetRow.getAttribute('data-creation-order'));
             }
             console.log('Updating existing sub row instead of creating new one');
         }
