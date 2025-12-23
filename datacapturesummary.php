@@ -5881,6 +5881,10 @@ function getCurrentProcessId() {
             window.currentEditRow = null;
             window.isEditMode = false;
             
+            // Reorder rows to ensure same id_product formulas are grouped together
+            // This is important when adding new formulas for existing id_products
+            reorderSummaryRowsByRowIndex();
+            
             const actionText = wasEditMode ? 'updated' : 'saved';
             showNotification('Success', `Formula ${actionText} successfully! Processed Amount: ${processedAmount}`, 'success');
         }
