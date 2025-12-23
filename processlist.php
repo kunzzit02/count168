@@ -2027,7 +2027,12 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                     } else {
-                        showNotification('Failed to add description: ' + (result.error || 'Unknown error'), 'danger');
+                        // 如果是重复的 description，显示中文提示
+                        if (result.duplicate || (result.error && result.error.includes('已有相同的'))) {
+                            showNotification('已有相同的 description', 'danger');
+                        } else {
+                            showNotification('Failed to add description: ' + (result.error || 'Unknown error'), 'danger');
+                        }
                     }
                 } catch (error) {
                     console.error('Error adding description:', error);
