@@ -10776,14 +10776,10 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
         }
 
-        // CRITICAL: If source_columns is empty, this is a pure manual input formula
-        // (user typed numbers directly, not from Data Capture Table)
-        // Do NOT try to extract columns from formula or rebuild from Data Capture Table
-        // This prevents manual formulas like "5+3" from being incorrectly rebuilt as "5+7"
-        // Only try to extract columns if we don't have currentSourceData AND sourceColumnsValue is not empty
-        // (This handles cases where sourceColumnsValue was lost but we need to rebuild)
-        if (!currentSourceData && sourceColumnsValue && sourceColumnsValue.trim() !== '' && formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && !isCompleteExpression) {
-            console.log('source_columns exists but currentSourceData is empty, trying to find columns from formula:', formulaOperatorsValue);
+        // If source_columns is empty but formula_operators exists (user manually entered formula),
+        // try to extract numbers from formula and find corresponding columns from Data Capture Table
+        if (!currentSourceData && !sourceColumnsValue && formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && !isCompleteExpression) {
+            console.log('source_columns is empty but formula_operators exists, trying to find columns from formula:', formulaOperatorsValue);
             const processValue = idProduct;
             const foundColumns = findColumnsFromFormula(formulaOperatorsValue, processValue);
             if (foundColumns && foundColumns.length > 0) {
@@ -10826,14 +10822,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // CRITICAL: If sourceColumnsValue is empty, this is a pure manual input formula
-        // Do NOT build resolvedSourceExpression from Data Capture Table
-        // This ensures manual formulas like "5+3" are not incorrectly rebuilt
-        if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
-            resolvedSourceExpression = '';
-            console.log('Pure manual input formula detected (no sourceColumnsValue), setting resolvedSourceExpression to empty');
-        } else if (currentSourceData && currentSourceData.trim() !== '') {
-            // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
+        // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
+        if (currentSourceData && currentSourceData.trim() !== '') {
             if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source' && /[*/]/.test(savedSourceValue)) {
                 try {
                     const preserved = preserveSourceStructure(savedSourceValue, currentSourceData);
@@ -11067,13 +11057,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 console.log('Batch template: recalculated formula from current Data Capture Table (no saved formula):', formulaDisplay);
             }
         } else if (!hasCalculatedFormulaDisplay && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
-            // CRITICAL: If sourceColumnsValue is empty, this is a pure manual input formula
-            // (user typed numbers directly, not from Data Capture Table)
-            // In this case, use saved formula_display directly without rebuilding from Data Capture Table
-            if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
-                formulaDisplay = savedFormulaDisplay;
-                console.log('Pure manual input formula detected (no sourceColumnsValue), using saved formula_display directly:', formulaDisplay);
-            } else {
             // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
             // If so, extract the base expression by removing ALL trailing Source % patterns
             // Iteratively remove all trailing *(...) patterns to get the true base expression
@@ -11186,7 +11169,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 formulaDisplay = savedFormulaDisplay;
                 console.log('Using saved formula_display as-is (no current source data):', formulaDisplay);
                 }
-            }
             }
         } else if (!hasCalculatedFormulaDisplay) {
             if (percentValue && resolvedSourceExpression && enableSourcePercent) {
