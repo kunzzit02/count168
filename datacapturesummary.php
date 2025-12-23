@@ -14231,7 +14231,11 @@ function formatPercentValue(value) {
         }
 
         #summaryTable td:nth-child(2) {
-            border-right: 1px solid #d0d7de;
+            border-right: none;
+        }
+        
+        #summaryTable tfoot td:nth-child(2) {
+            border-right: none;
         }
 
         #summaryTable th:nth-child(3),
