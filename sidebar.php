@@ -65,7 +65,6 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
     .informationmenu,
     .informationmenu * {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-        font-weight: normal !important;
     }
 
     /* 用户信息容器（包裹头像和用户信息） */
