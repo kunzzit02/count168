@@ -15577,12 +15577,12 @@ function formatPercentValue(value) {
         .formula-data-grid {
             display: flex;
             flex-wrap: nowrap;
-            gap: 6px;
-            margin-top: 8px;
+            gap: 4px;
+            margin-top: 0px;
             overflow-x: auto;
             overflow-y: visible;
             padding-bottom: 4px;
-            padding-top: 2px;
+            padding-top: 0px;
         }
 
         .formula-data-grid-item {
