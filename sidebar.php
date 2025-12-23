@@ -82,6 +82,9 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         will-change: auto;
         /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
+        /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
+        position: relative;
+        z-index: 9999;
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -140,8 +143,9 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         contain: layout style;
         /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
-        /* 创建定位上下文，确保子元素（头像选择菜单）的z-index生效 */
-        z-index: 10;
+        /* 创建新的堆叠上下文，确保子元素（头像选择菜单）的z-index能够覆盖其他元素 */
+        z-index: 10000;
+        isolation: isolate;
     }
 
     /* 当前头像显示 */
@@ -180,8 +184,9 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
     /* 头像选择菜单 */
     .avatar-options {
-        position: fixed;
-        /* left 和 top 由 JavaScript 动态设置 */
+        position: absolute;
+        top: 75%;
+        left: calc(100% + clamp(8px, 0.83vw, 16px));
         transform: translateY(-50%);
         background: rgba(255, 255, 255, 0.95);
         border-radius: 12px;
@@ -190,7 +195,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         backdrop-filter: blur(20px);
         opacity: 0;
         visibility: hidden;
-        transition: opacity 0.3s ease, visibility 0.3s ease;
+        transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
         /* 使用非常高的 z-index 确保显示在所有内容之上 */
         z-index: 9999;
         width: clamp(120px, 10vw, 180px);
@@ -1845,26 +1850,11 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
     function toggleAvatarOptions() {
         const options = document.getElementById('avatarOptions');
-        const avatar = document.getElementById('currentAvatar');
         const isShowing = options.classList.contains('show');
         
         if (!isShowing) {
             // 打开时重置到性别选择
             backToGenderSelection();
-            
-            // 使用 fixed 定位时，需要动态计算位置
-            if (avatar) {
-                const avatarRect = avatar.getBoundingClientRect();
-                
-                // 计算菜单位置：头像右侧，垂直居中偏下（75%位置）
-                const gap = Math.max(8, Math.min(window.innerWidth * 0.0083, 16)); // 8-16px 之间
-                const left = avatarRect.right + gap;
-                const top = avatarRect.top + (avatarRect.height * 0.75);
-                
-                options.style.left = left + 'px';
-                options.style.top = top + 'px';
-                options.style.transform = 'translateY(-50%)';
-            }
         }
         
         options.classList.toggle('show');
@@ -1980,25 +1970,6 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
             avatarOptions.classList.remove('show');
         }
     });
-    
-    // 窗口大小调整或滚动时，重新定位头像选择菜单
-    function repositionAvatarOptions() {
-        const options = document.getElementById('avatarOptions');
-        const avatar = document.getElementById('currentAvatar');
-        
-        if (options && avatar && options.classList.contains('show')) {
-            const avatarRect = avatar.getBoundingClientRect();
-            const gap = Math.max(8, Math.min(window.innerWidth * 0.0083, 16));
-            const left = avatarRect.right + gap;
-            const top = avatarRect.top + (avatarRect.height * 0.75);
-            
-            options.style.left = left + 'px';
-            options.style.top = top + 'px';
-        }
-    }
-    
-    window.addEventListener('resize', repositionAvatarOptions);
-    window.addEventListener('scroll', repositionAvatarOptions, true);
 
     // 设置当前页面的高亮状态
     function setCurrentPageHighlight() {
