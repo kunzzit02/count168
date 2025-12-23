@@ -14972,6 +14972,7 @@ function formatPercentValue(value) {
             width: calc(500px + 30px + 500px); /* left column max-width + gap + middle column max-width */
             max-width: calc(500px + 30px + 500px);
             z-index: 1;
+            overflow: visible;
         }
         
         .edit-formula-form-container .form-left-column .form-row.formula-row-full-width .form-group {
@@ -15119,6 +15120,7 @@ function formatPercentValue(value) {
             display: flex;
             gap: clamp(12px, 1.04vw, 20px);
             align-items: flex-end;
+            overflow: visible;
         }
         
         .edit-formula-form-container .form-left-column .form-row {
@@ -15137,6 +15139,7 @@ function formatPercentValue(value) {
             align-items: center;
             gap: 12px;
             flex: 1;
+            overflow: visible;
         }
 
         .edit-formula-form-container .form-group.checkbox-group {
@@ -15577,8 +15580,9 @@ function formatPercentValue(value) {
             gap: 6px;
             margin-top: 8px;
             overflow-x: auto;
-            overflow-y: hidden;
+            overflow-y: visible;
             padding-bottom: 4px;
+            padding-top: 2px;
         }
 
         .formula-data-grid-item {
@@ -15594,6 +15598,8 @@ function formatPercentValue(value) {
             white-space: nowrap;
             flex-shrink: 0;
             min-width: fit-content;
+            position: relative;
+            z-index: 1;
         }
 
         .formula-data-grid-item:hover {
@@ -15601,6 +15607,7 @@ function formatPercentValue(value) {
             border-color: #007bff;
             transform: translateY(-1px);
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            z-index: 10;
         }
 
         .formula-data-grid-item:active {
