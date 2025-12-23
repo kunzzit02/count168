@@ -4875,15 +4875,7 @@ function getCurrentProcessId() {
                         // Summary Table position directly corresponds to Data Capture Table row index
                         // because populateOriginalTableWithColumnAData creates rows in Data Capture Table order
                         rowIndex = summaryIndex;
-                        // Get id_product from row for debugging
-                        const idProductCell = row.querySelector('td:first-child');
-                        const productValues = getProductValuesFromCell(idProductCell);
-                        const rowIdProduct = productType === 'sub' 
-                            ? normalizeIdProductText(productValues.sub || '')
-                            : normalizeIdProductText(productValues.main || '');
-                        console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', rowIdProduct, 'expected:', formData.processValue || 'unknown');
-                    } else {
-                        console.warn('Warning: Row not found in Summary Table when computing row_index');
+                        console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', formData.processValue || 'unknown');
                     }
                 }
                 
@@ -5671,32 +5663,12 @@ function getCurrentProcessId() {
             } else if (isEditMode && window.currentEditRow) {
                 targetRow = window.currentEditRow;
             } else {
-                // CRITICAL: 优先使用 currentButton 所在的行，因为这是用户点击的按钮所在的行
-                // 这是最准确的方式，确保保存到正确的 row
-                // 如果使用 findSummaryRowForTemplate，可能会找到错误的 row（比如相同 id_product 和 account 的其他 row）
-                if (currentButton) {
+                // Find row by idProduct, accountId, and product type (most reliable after update)
+                targetRow = findSummaryRowForTemplate(processValue, accountValue, isSubIdProduct);
+                
+                // Fallback to currentButton's row if not found
+                if (!targetRow && currentButton) {
                     targetRow = currentButton.closest('tr');
-                    // 验证这个 row 的 id_product 是否匹配
-                    if (targetRow) {
-                        const idProductCell = targetRow.querySelector('td:first-child');
-                        const productValues = getProductValuesFromCell(idProductCell);
-                        const rowIdProduct = isSubIdProduct 
-                            ? normalizeIdProductText(productValues.sub || '')
-                            : normalizeIdProductText(productValues.main || '');
-                        const expectedIdProduct = normalizeIdProductText(processValue);
-                        if (rowIdProduct !== expectedIdProduct) {
-                            console.warn('Warning: Button row id_product mismatch. Expected:', expectedIdProduct, 'Found:', rowIdProduct);
-                            // 如果 id_product 不匹配，尝试通过 findSummaryRowForTemplate 查找
-                            targetRow = findSummaryRowForTemplate(processValue, accountValue, isSubIdProduct);
-                            // 如果还是找不到，fallback 到 button 的 row
-                            if (!targetRow) {
-                                targetRow = currentButton.closest('tr');
-                            }
-                        }
-                    }
-                } else {
-                    // Fallback: Find row by idProduct, accountId, and product type
-                    targetRow = findSummaryRowForTemplate(processValue, accountValue, isSubIdProduct);
                 }
             }
             
@@ -10646,18 +10618,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 4: Match by row_index + account_id (more precise than account_id alone)
-        if (!targetRow && templateAccountId && templateRowIndex !== null) {
-            for (const candidate of candidateRows) {
-                if (candidate.accountId === templateAccountId && candidate.rowIndex === templateRowIndex) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by row_index + account_id:', templateRowIndex, templateAccountId);
-                    break;
-                }
-            }
-        }
-        
-        // Priority 5: Match by account_id only (if formula_variant not available)
+        // Priority 4: Match by account_id only (if formula_variant not available)
         if (!targetRow && templateAccountId) {
             for (const candidate of candidateRows) {
                 if (candidate.accountId === templateAccountId) {
@@ -10668,7 +10629,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 6: Match by row_index only (if account_id not available)
+        // Priority 5: Match by row_index only (if account_id not available)
         if (!targetRow && templateRowIndex !== null) {
             for (const candidate of candidateRows) {
                 if (candidate.rowIndex === templateRowIndex) {
@@ -10679,7 +10640,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 7: Use first empty row (no account yet)
+        // Priority 6: Use first empty row (no account yet)
         if (!targetRow) {
             for (const candidate of candidateRows) {
                 if (!candidate.accountId) {
@@ -10690,7 +10651,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 8: Use first available row as fallback
+        // Priority 7: Use first available row as fallback
         if (!targetRow && candidateRows.length > 0) {
             targetRow = candidateRows[0].row;
             console.log('Using first available row as fallback');
