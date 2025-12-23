@@ -180,9 +180,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
     /* 头像选择菜单 */
     .avatar-options {
-        position: absolute;
-        top: 75%;
-        left: calc(100% + clamp(8px, 0.83vw, 16px));
+        position: fixed;
+        /* left 和 top 由 JavaScript 动态设置 */
         transform: translateY(-50%);
         background: rgba(255, 255, 255, 0.95);
         border-radius: 12px;
@@ -191,8 +190,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         backdrop-filter: blur(20px);
         opacity: 0;
         visibility: hidden;
-        transition: all 0.3s ease;
-        /* 使用非常高的 z-index 确保显示在所有内容之上，包括用户名和按钮 */
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+        /* 使用非常高的 z-index 确保显示在所有内容之上 */
         z-index: 9999;
         width: clamp(120px, 10vw, 180px);
         max-height: clamp(300px, 40vh, 500px);
@@ -1846,11 +1845,26 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
     function toggleAvatarOptions() {
         const options = document.getElementById('avatarOptions');
+        const avatar = document.getElementById('currentAvatar');
         const isShowing = options.classList.contains('show');
         
         if (!isShowing) {
             // 打开时重置到性别选择
             backToGenderSelection();
+            
+            // 使用 fixed 定位时，需要动态计算位置
+            if (avatar) {
+                const avatarRect = avatar.getBoundingClientRect();
+                
+                // 计算菜单位置：头像右侧，垂直居中偏下（75%位置）
+                const gap = Math.max(8, Math.min(window.innerWidth * 0.0083, 16)); // 8-16px 之间
+                const left = avatarRect.right + gap;
+                const top = avatarRect.top + (avatarRect.height * 0.75);
+                
+                options.style.left = left + 'px';
+                options.style.top = top + 'px';
+                options.style.transform = 'translateY(-50%)';
+            }
         }
         
         options.classList.toggle('show');
@@ -1962,10 +1976,29 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         const avatarContainer = document.querySelector('.avatar-selector-container');
         const avatarOptions = document.getElementById('avatarOptions');
         
-        if (!avatarContainer.contains(e.target)) {
+        if (!avatarContainer.contains(e.target) && !avatarOptions.contains(e.target)) {
             avatarOptions.classList.remove('show');
         }
     });
+    
+    // 窗口大小调整或滚动时，重新定位头像选择菜单
+    function repositionAvatarOptions() {
+        const options = document.getElementById('avatarOptions');
+        const avatar = document.getElementById('currentAvatar');
+        
+        if (options && avatar && options.classList.contains('show')) {
+            const avatarRect = avatar.getBoundingClientRect();
+            const gap = Math.max(8, Math.min(window.innerWidth * 0.0083, 16));
+            const left = avatarRect.right + gap;
+            const top = avatarRect.top + (avatarRect.height * 0.75);
+            
+            options.style.left = left + 'px';
+            options.style.top = top + 'px';
+        }
+    }
+    
+    window.addEventListener('resize', repositionAvatarOptions);
+    window.addEventListener('scroll', repositionAvatarOptions, true);
 
     // 设置当前页面的高亮状态
     function setCurrentPageHighlight() {
