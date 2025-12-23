@@ -734,7 +734,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: clamp(8px, 0.83vw, 16px);
+        gap: 0px;
         margin-bottom: clamp(4px, 0.52vw, 10px);
         width: 100%;
     }
