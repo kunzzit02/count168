@@ -1490,6 +1490,15 @@ function getCurrentProcessId() {
                                     </div>
                                 </div>
                                 
+                                <div class="form-row formula-row-full-width">
+                                    <div class="form-group">
+                                        <label>Product Data</label>
+                                        <div id="productDataGrid" class="product-data-grid">
+                                            <!-- Product data items will be loaded here -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
                             </div>
                             
                             <!-- Middle Column -->
@@ -1600,6 +1609,11 @@ function getCurrentProcessId() {
             
             // Load id product list into first select box
             loadIdProductList();
+            
+            // Load product data grid for current id product
+            setTimeout(() => {
+                loadProductDataGrid(productValue);
+            }, 100);
             
             // Add event listener for first select box change
             setTimeout(() => {
@@ -2415,6 +2429,94 @@ function getCurrentProcessId() {
             if (firstOptionValue !== null) {
                 descriptionSelect2.value = firstOptionValue;
             }
+        }
+
+        // Load product data grid for current id product
+        function loadProductDataGrid(idProduct) {
+            const productDataGrid = document.getElementById('productDataGrid');
+            if (!productDataGrid) return;
+
+            // Clear existing items
+            productDataGrid.innerHTML = '';
+
+            if (!idProduct || idProduct.trim() === '') {
+                return;
+            }
+
+            // Get table data
+            let parsedTableData;
+            if (window.transformedTableData) {
+                parsedTableData = window.transformedTableData;
+            } else {
+                const tableData = localStorage.getItem('capturedTableData');
+                if (!tableData) {
+                    console.log('No table data found for product data grid');
+                    return;
+                }
+                parsedTableData = JSON.parse(tableData);
+            }
+
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            if (!capturedTableBody) return;
+
+            const rows = capturedTableBody.querySelectorAll('tr');
+            rows.forEach((row, rowIndex) => {
+                const rowIdProduct = row.getAttribute('data-id-product');
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
+                    const dataItems = [];
+                    
+                    cells.forEach((cell, cellIndex) => {
+                        const columnIndex = cell.getAttribute('data-column-index');
+                        if (columnIndex && parseInt(columnIndex) > 1) {
+                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            if (cellValue !== '') {
+                                dataItems.push({
+                                    columnIndex: columnIndex,
+                                    value: cellValue,
+                                    rowIndex: rowIndex
+                                });
+                            }
+                        }
+                    });
+
+                    // Sort by column index
+                    dataItems.sort((a, b) => parseInt(a.columnIndex) - parseInt(b.columnIndex));
+
+                    // Create grid items
+                    dataItems.forEach(item => {
+                        // Find the actual cell element
+                        const cells = row.querySelectorAll('td');
+                        let targetCell = null;
+                        cells.forEach(cell => {
+                            const colIdx = cell.getAttribute('data-column-index');
+                            if (colIdx === item.columnIndex) {
+                                targetCell = cell;
+                            }
+                        });
+
+                        if (!targetCell) return;
+
+                        const gridItem = document.createElement('div');
+                        gridItem.className = 'product-data-grid-item';
+                        gridItem.textContent = `[${item.columnIndex}] ${item.value}`;
+                        gridItem.setAttribute('data-row-index', item.rowIndex);
+                        gridItem.setAttribute('data-column-index', item.columnIndex);
+                        gridItem.setAttribute('data-value', item.value);
+                        gridItem.setAttribute('title', `Click to add [${item.columnIndex}] ${item.value} to formula`);
+                        
+                        // Add click event to add to formula (same behavior as clicking table cell)
+                        gridItem.addEventListener('click', function() {
+                            // Reuse existing logic: behave exactly like clicking the cell
+                            insertCellValueToFormula(targetCell);
+                        });
+
+                        productDataGrid.appendChild(gridItem);
+                    });
+                }
+            });
         }
 
         // Close add account modal (wrapper for compatibility)
@@ -14865,6 +14967,42 @@ function formatPercentValue(value) {
         .edit-formula-form-container .form-left-column .form-row.formula-row-full-width input {
             width: 100%;
             box-sizing: border-box;
+        }
+        
+        /* Product Data Grid Styles */
+        .product-data-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+            padding: 8px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        
+        .product-data-grid-item {
+            background-color: #e8e8e8;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            padding: 8px 12px;
+            text-align: center;
+            cursor: pointer;
+            font-size: clamp(10px, 0.83vw, 14px);
+            color: #000;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        
+        .product-data-grid-item:hover {
+            background-color: #d0d0d0;
+            border-color: #999;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .product-data-grid-item:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
         }
         
         /* Responsive adjustment for Formula width */
