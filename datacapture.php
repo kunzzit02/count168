@@ -96,7 +96,6 @@ if ($current_user_id && count($user_companies) > 0) {
     <style>
         /* Ensure modals and popups are hidden before main CSS loads */
         #descriptionSelectionModal:not(.show),
-        #notificationPopup:not(.show),
         #contextMenu:not(.show) {
             display: none;
         }
@@ -293,14 +292,8 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
     </div>
 
-    <!-- Notification Popup -->
-    <div id="notificationPopup" class="notification-popup" style="display: none;">
-        <div class="notification-header">
-            <span class="notification-title" id="notificationTitle">Notification</span>
-            <button class="notification-close" onclick="hideNotification()">&times;</button>
-        </div>
-        <div class="notification-message" id="notificationMessage">Message</div>
-    </div>
+    <!-- Notification Container -->
+    <div id="processNotificationContainer" class="process-notification-container"></div>
 
     <!-- Context Menu -->
     <div id="contextMenu" class="context-menu" style="display: none;">
@@ -1071,7 +1064,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 handleCellPaste(mockEvent);
             }).catch(err => {
                 console.error('Failed to read from clipboard:', err);
-                showNotification('Error', 'Failed to access clipboard', 'error');
+                showNotification('Failed to access clipboard', 'danger');
             });
             
             hideContextMenu();
@@ -1110,11 +1103,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('Process submission saved to database');
                 } else {
                     console.error('Failed to save submission:', result.error);
-                    showNotification('Error', 'Failed to save submission: ' + result.error, 'error');
+                    showNotification('Failed to save submission: ' + result.error, 'danger');
                 }
             } catch (error) {
                 console.error('Error saving submission:', error);
-                showNotification('Error', 'Failed to save submission', 'error');
+                showNotification('Failed to save submission', 'danger');
             }
         }
 
@@ -1163,44 +1156,52 @@ if ($current_user_id && count($user_companies) > 0) {
             
             listContainer.innerHTML = html;
         }
-        function showNotification(title, message, type = 'success') {
-            const popup = document.getElementById('notificationPopup');
-            const titleEl = document.getElementById('notificationTitle');
-            const messageEl = document.getElementById('notificationMessage');
+        // Notification functions
+        function showNotification(message, type = 'success') {
+            const container = document.getElementById('processNotificationContainer');
             
-            if (!popup || !titleEl || !messageEl) {
-                console.error('Notification elements not found');
-                // Fallback: use alert if notification popup doesn't exist
-                alert(title + ': ' + message);
+            if (!container) {
+                console.error('Notification container not found');
+                alert(message);
                 return;
             }
             
-            titleEl.textContent = title;
-            messageEl.textContent = message;
+            // 检查现有通知数量，最多保留2个
+            const existingNotifications = container.querySelectorAll('.process-notification');
+            if (existingNotifications.length >= 2) {
+                // 移除最旧的通知
+                const oldestNotification = existingNotifications[0];
+                oldestNotification.classList.remove('show');
+                setTimeout(() => {
+                    if (oldestNotification.parentNode) {
+                        oldestNotification.remove();
+                    }
+                }, 300);
+            }
             
-            // Remove existing type classes
-            popup.classList.remove('success', 'error');
-            // Add new type class
-            popup.classList.add(type);
+            // 创建新通知
+            const notification = document.createElement('div');
+            notification.className = `process-notification process-notification-${type}`;
+            notification.textContent = message;
             
-            // Show popup
-            popup.style.display = 'block';
-            setTimeout(() => {
-                popup.classList.add('show');
-            }, 100);
+            // 添加到容器
+            container.appendChild(notification);
             
-            // Auto hide after 5 seconds
+            // 触发显示动画
             setTimeout(() => {
-                hideNotification();
-            }, 5000);
-        }
-
-        function hideNotification() {
-            const popup = document.getElementById('notificationPopup');
-            popup.classList.remove('show');
+                notification.classList.add('show');
+            }, 10);
+            
+            // 1.5秒后开始消失动画
             setTimeout(() => {
-                popup.style.display = 'none';
-            }, 300);
+                notification.classList.remove('show');
+                // 0.3秒后完全移除
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, 1500);
         }
 
         // ==================== 获取 Process ID（从自定义下拉选单的data-value获取）====================
@@ -1523,11 +1524,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('Process data loaded successfully:', processData);
                 } else {
                     console.error('Failed to load process data:', result.error);
-                    showNotification('Error', 'Failed to load process data: ' + (result.error || 'Unknown error'), 'error');
+                    showNotification('Failed to load process data: ' + (result.error || 'Unknown error'), 'danger');
                 }
             } catch (error) {
                 console.error('Error loading process data:', error);
-                showNotification('Error', 'Failed to load process data', 'error');
+                showNotification('Failed to load process data', 'danger');
             }
         }
 
@@ -1643,11 +1644,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     // Load processes based on selected date
                     await loadProcessesByDate();
                 } else {
-                    showNotification('Error', 'Failed to load form data: ' + result.error, 'error');
+                    showNotification('Failed to load form data: ' + result.error, 'danger');
                 }
             } catch (error) {
                 console.error('Error loading form data:', error);
-                showNotification('Error', 'Failed to load form data', 'error');
+                showNotification('Failed to load form data', 'danger');
             }
         }
 
@@ -1758,11 +1759,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     updateSubmitButtonState();
                 } else {
                     console.error('Failed to load processes by date:', result.error);
-                    showNotification('Error', 'Failed to load processes: ' + result.error, 'error');
+                    showNotification('Failed to load processes: ' + result.error, 'danger');
                 }
             } catch (error) {
                 console.error('Error loading processes by date:', error);
-                showNotification('Error', 'Failed to load processes', 'error');
+                showNotification('Failed to load processes', 'danger');
             }
         }
 
@@ -1844,11 +1845,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         descriptionsList.innerHTML = '<div class="no-descriptions">No descriptions found</div>';
                     }
                 } else {
-                    showNotification('Error', 'Failed to load descriptions: ' + result.error, 'error');
+                    showNotification('Failed to load descriptions: ' + result.error, 'danger');
                 }
             } catch (error) {
                 console.error('Error loading descriptions:', error);
-                showNotification('Error', 'Failed to load descriptions', 'error');
+                showNotification('Failed to load descriptions', 'danger');
             }
         }
 
@@ -2039,13 +2040,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         descriptionsList.innerHTML = '<div class="no-descriptions">No descriptions found</div>';
                     }
 
-                    showNotification('Success', 'Description deleted successfully', 'success');
+                    showNotification('Description deleted successfully', 'success');
                 } else {
-                    showNotification('Error', result.error || 'Failed to delete description', 'error');
+                    showNotification(result.error || 'Failed to delete description', 'danger');
                 }
             } catch (error) {
                 console.error('Error deleting description:', error);
-                showNotification('Error', 'Failed to delete description', 'error');
+                showNotification('Failed to delete description', 'danger');
             }
         }
 
@@ -2072,7 +2073,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 closeDescriptionSelectionModal();
             } else {
-                showNotification('Error', 'Please select at least one description', 'error');
+                showNotification('Please select at least one description', 'danger');
             }
         }
 
@@ -2369,7 +2370,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // Undo last paste operation
         function undoLastPaste() {
             if (pasteHistory.length === 0) {
-                showNotification('Info', 'No paste operation to undo', 'error');
+                showNotification('No paste operation to undo', 'danger');
                 return;
             }
             
@@ -2389,7 +2390,7 @@ if ($current_user_id && count($user_companies) > 0) {
             });
             
             console.log(`Undo completed: ${undoCount} cells restored`);
-            showNotification('Success', `Undo completed: ${undoCount} cells restored`, 'success');
+            showNotification(`Undo completed: ${undoCount} cells restored`, 'success');
         }
 
         // 智能解析粘贴数据 - 支持 Text Format 和 Table Format
@@ -3263,7 +3264,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 console.log('HTML table filled directly:', dataMatrix.length, 'rows x', maxCols, 'columns');
-                showNotification('Success', `Successfully pasted HTML table (${dataMatrix.length} rows x ${maxCols} cols)! Press Ctrl+Z to undo`, 'success');
+                showNotification(`Successfully pasted HTML table (${dataMatrix.length} rows x ${maxCols} cols)! Press Ctrl+Z to undo`, 'success');
                 
                 // 粘贴完成后立即应用格式转换
                 setTimeout(() => {
@@ -4916,9 +4917,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
 
                 if (successCount > 0) {
-                    showNotification('Success', `Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
+                    showNotification(`Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
                 } else {
-                    showNotification('Warning', 'No cells were pasted from Citibet report.', 'error');
+                    showNotification('No cells were pasted from Citibet report.', 'danger');
                 }
 
                 setTimeout(updateSubmitButtonState, 0);
@@ -5024,9 +5025,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
 
                 if (successCount > 0) {
-                    showNotification('Success', `Successfully pasted Excel format (${successCount} cells, ${maxRows} rows x ${maxCols} cols)!`, 'success');
+                    showNotification(`Successfully pasted Excel format (${successCount} cells, ${maxRows} rows x ${maxCols} cols)!`, 'success');
                 } else {
-                    showNotification('Warning', 'No cells were pasted from Excel format.', 'error');
+                    showNotification('No cells were pasted from Excel format.', 'danger');
                 }
 
                 setTimeout(updateSubmitButtonState, 0);
@@ -5097,9 +5098,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
 
                 if (successCount > 0) {
-                    showNotification('Success', `Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
+                    showNotification(`Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
                 } else {
-                    showNotification('Warning', 'No cells were pasted from payment report.', 'error');
+                    showNotification('No cells were pasted from payment report.', 'danger');
                 }
 
                 setTimeout(updateSubmitButtonState, 0);
@@ -5171,9 +5172,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 if (successCount > 0) {
-                    showNotification('Success', `Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
+                    showNotification(`Successfully pasted ${successCount} cells (${maxRows} rows x ${maxCols} cols)!`, 'success');
                 } else {
-                    showNotification('Warning', 'No cells were pasted from payment report.', 'error');
+                    showNotification('No cells were pasted from payment report.', 'danger');
                 }
                 
                 setTimeout(updateSubmitButtonState, 0);
@@ -5379,7 +5380,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     if (successCount > 0) {
-                        showNotification('Success', `Successfully pasted ${successCount} cells in ${finalSplit.length} columns!`, 'success');
+                        showNotification(`Successfully pasted ${successCount} cells in ${finalSplit.length} columns!`, 'success');
                     }
                     
                     setTimeout(updateSubmitButtonState, 0);
@@ -6897,7 +6898,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             if (dataMatrix.length === 0) {
                 console.warn('All pasted rows were empty after filtering; aborting paste.');
-                showNotification('Warning', 'Pasted content is empty after filtering blank lines.', 'error');
+                showNotification('Pasted content is empty after filtering blank lines.', 'danger');
                 return;
             }
 
@@ -7172,9 +7173,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (skippedRows > 0) {
                     message += `\nNote: ${skippedRows} rows were skipped due to table size limit.`;
                 }
-                showNotification('Success', message, 'success');
+                showNotification(message, 'success');
             } else {
-                showNotification('Warning', 'No cells were pasted. Check console for details.', 'error');
+                showNotification('No cells were pasted. Check console for details.', 'danger');
             }
             
             // 粘贴完成后强制刷新一次提交按钮状态
@@ -7392,7 +7393,7 @@ if ($current_user_id && count($user_companies) > 0) {
             
             const descriptionName = document.getElementById('new_description_name').value.trim();
             if (!descriptionName) {
-                showNotification('Error', 'Please enter a description name', 'error');
+                showNotification('Please enter a description name', 'danger');
                 return;
             }
             
@@ -7416,7 +7417,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('Add description result:', result);
                 
                 if (result.success) {
-                    showNotification('Success', 'Description added successfully!', 'success');
+                    showNotification('Description added successfully!', 'success');
                     // Add the new description to selected list
                     if (!window.selectedDescriptions) {
                         window.selectedDescriptions = [];
@@ -7440,14 +7441,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     const errorMsg = result.error || '';
                     console.log('Error adding description:', errorMsg, 'duplicate:', result.duplicate);
                     if (result.duplicate === true || errorMsg.includes('already exists') || errorMsg.includes('Description name already exists')) {
-                        showNotification('Error', 'Description name already exists', 'error');
+                        showNotification('Description name already exists', 'danger');
                     } else {
-                        showNotification('Error', errorMsg || 'Failed to add description', 'error');
+                        showNotification(errorMsg || 'Failed to add description', 'danger');
                     }
                 }
             } catch (error) {
                 console.error('Error adding description:', error);
-                showNotification('Error', 'Failed to add description', 'error');
+                showNotification('Failed to add description', 'danger');
             }
         });
 
@@ -7535,19 +7536,19 @@ if ($current_user_id && count($user_companies) > 0) {
             // Check if process is selected
             const processId = getProcessId(processInput);
             if (!processId || !processInput.getAttribute('data-value')) {
-                showNotification('Error', 'Please select a process', 'error');
+                showNotification('Please select a process', 'danger');
                 return false;
             }
             
             // Check if descriptions are selected
             if (descriptions.length === 0) {
-                showNotification('Error', 'Please select at least one description', 'error');
+                showNotification('Please select at least one description', 'danger');
                 return false;
             }
             
             // Check if currency is selected
             if (!currencySelect.value || currencySelect.value === '') {
-                showNotification('Error', 'Please select a currency', 'error');
+                showNotification('Please select a currency', 'danger');
                 return false;
             }
             
@@ -7562,7 +7563,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
                 
                 if (!hasTableData) {
-                    showNotification('Error', 'Please enter data in the table', 'error');
+                    showNotification('Please enter data in the table', 'danger');
                     return false;
                 }
             }
@@ -8032,7 +8033,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 // after final submission on datacapturesummary.php
                 
                 // Show success notification
-                showNotification('Success', 'Data captured successfully! Redirecting to summary...', 'success');
+                showNotification('Data captured successfully! Redirecting to summary...', 'success');
                 
                 // Redirect to summary page after a short delay
                 setTimeout(() => {
@@ -8041,7 +8042,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
             } catch (error) {
                 console.error('Error submitting data:', error);
-                showNotification('Error', 'Failed to capture data', 'error');
+                showNotification('Failed to capture data', 'danger');
             }
         }
 
@@ -8559,11 +8560,11 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // Check for URL parameters and show notifications
             if (urlParams.get('success') === '1') {
-                showNotification('Success', 'Data captured successfully!', 'success');
+                showNotification('Data captured successfully!', 'success');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (urlParams.get('error') === '1') {
-                showNotification('Error', 'Failed to capture data. Please try again.', 'error');
+                showNotification('Failed to capture data. Please try again.', 'danger');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (shouldRestore) {
@@ -9640,83 +9641,53 @@ if ($current_user_id && count($user_companies) > 0) {
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
         
-        /* Notification Popup Styles */
-        .notification-popup {
+        /* Notification Container Styles - Same as processlist.php */
+        .process-notification-container {
             position: fixed;
             top: 20px;
             right: 20px;
             z-index: 10000;
-            background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            padding: 0;
-            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
             max-width: 400px;
-            transform: translateX(400px);
-            opacity: 0;
-            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
-            border-left: 4px solid #28a745;
         }
         
-        .notification-popup.show {
+        .process-notification {
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transform: translateX(100%);
+            transition: all 0.3s ease-in-out;
+            font-weight: 500;
+            position: relative;
+            word-wrap: break-word;
+            border-left: 4px solid;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .process-notification.show {
             transform: translateX(0);
-            opacity: 1;
         }
         
-        .notification-popup.error {
-            border-left-color: #dc3545;
+        .process-notification-success {
+            background-color: #f0fdf4;
+            color: #166534;
+            border-left-color: #22c55e;
         }
         
-        .notification-popup.success {
-            border-left-color: #28a745;
+        .process-notification-danger {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border-left-color: #ef4444;
         }
         
-        .notification-popup .notification-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 16px;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .notification-popup .notification-title {
-            font-weight: bold;
-            font-size: 14px;
-            color: #333;
-        }
-        
-        .notification-popup.success .notification-title {
-            color: #28a745;
-        }
-        
-        .notification-popup.error .notification-title {
-            color: #dc3545;
-        }
-        
-        .notification-popup .notification-close {
-            background: none;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: #666;
-            padding: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-        }
-        
-        .notification-popup .notification-close:hover {
-            color: #333;
-        }
-        
-        .notification-popup .notification-message {
-            font-size: 14px;
-            color: #666;
-            line-height: 1.4;
-            padding: 12px 16px;
+        .process-notification-error {
+            background-color: #fef2f2;
+            color: #991b1b;
+            border-left-color: #ef4444;
         }
     </style>
 </body>
