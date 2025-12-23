@@ -5387,10 +5387,24 @@ function getCurrentProcessId() {
                 }
             }
             
+            // CRITICAL: If formula is pure manual input (no $numbers, no clicked columns),
+            // clear sourceColumns to prevent rebuilding from Data Capture Table on refresh
+            const isPureManualInput = !sourceColumns && 
+                                     (!clickedColumnsDisplay || clickedColumnsDisplay.trim() === '') &&
+                                     formulaValue && 
+                                     !formulaValue.includes('$') &&
+                                     !formulaValue.includes('[');
+            
+            if (isPureManualInput) {
+                sourceColumns = ''; // Clear sourceColumns for pure manual input
+                console.log('Detected pure manual input formula, clearing sourceColumns to prevent rebuilding from Data Capture Table');
+            }
+            
             // In edit mode, prefer existing sourceColumns over extracting from formula
             // This prevents incorrect column extraction when formula contains manual inputs like /4
+            // BUT: If formula is pure manual input, don't use existing sourceColumns
             let columnsDisplay = '';
-            if (isEditMode && window.currentEditRow) {
+            if (isEditMode && window.currentEditRow && !isPureManualInput) {
                 const existingSourceColumns = window.currentEditRow.getAttribute('data-source-columns') || '';
                 columnsDisplay = sourceColumns || clickedColumnsDisplay || existingSourceColumns || extractNumbersFromFormula(formulaValue);
             } else {
@@ -10314,11 +10328,26 @@ function applyTemplateToSummaryRow(idProduct, template) {
                         }
                         console.log('Using reference format from resolvedSourceExpression:', formulaDisplay);
                     } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
-                        // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2)
-                        // If it does, we should preserve the entire formula structure including manual inputs
-                        const hasManualInput = /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
+                        // CRITICAL: Check if this is a pure manual input formula (not dependent on Data Capture Table)
+                        // If sourceColumnsValue is empty or invalid, and formula doesn't contain reference format,
+                        // it means the user manually entered the formula (e.g., "5+3"), so use saved formula directly
+                        const isPureManualInput = (!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
+                                                  !savedHasReferenceFormat &&
+                                                  !isResolvedReferenceFormat &&
+                                                  savedFormulaDisplay &&
+                                                  !savedFormulaDisplay.includes('[') &&
+                                                  !savedFormulaDisplay.includes('$');
                         
-                        if (hasManualInput) {
+                        if (isPureManualInput) {
+                            // Pure manual input formula, use saved formula_display directly without rebuilding from Data Capture Table
+                            formulaDisplay = savedFormulaDisplay;
+                            console.log('Detected pure manual input formula (no sourceColumnsValue), using saved formula_display directly:', formulaDisplay);
+                        } else {
+                            // IMPORTANT: Check if saved formula contains manually entered parts (e.g., *0.9/2)
+                            // If it does, we should preserve the entire formula structure including manual inputs
+                            const hasManualInput = /[*\/]\s*\d+\.?\d*\s*[\/\*]/.test(savedFormulaDisplay);
+                            
+                            if (hasManualInput) {
                             // Formula contains manually entered parts (e.g., *0.9/2), preserve it as-is
                             // Only update numbers that come from data capture table, not manual inputs
                             console.log('Saved formula_display contains manual input, preserving structure:', savedFormulaDisplay);
@@ -10337,7 +10366,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                                 formulaDisplay = preservedFormula;
                                 console.log('Preserved saved formula_display structure with updated source data (manual inputs preserved):', formulaDisplay);
                             }
-                        } else {
+                            } else {
                             // No manual input detected, proceed with normal preservation logic
                             // IMPORTANT: Even if formula contains percentage part, we should still update numbers
                             // from current Data Capture Table data, while preserving the formula structure
