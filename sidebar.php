@@ -177,9 +177,9 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
     /* 头像选择菜单 */
     .avatar-options {
         position: absolute;
-        top: calc(100% + clamp(8px, 0.83vw, 16px));
-        left: 50%;
-        transform: translateX(-50%);
+        top: 75%;
+        left: calc(100% + clamp(8px, 0.83vw, 16px));
+        transform: translateY(-50%);
         background: rgba(255, 255, 255, 0.95);
         border-radius: 12px;
         padding: clamp(8px, 0.78vw, 15px);
@@ -197,18 +197,18 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
     .avatar-options.show {
         opacity: 1;
         visibility: visible;
-        transform: translateX(-50%);
+        transform: translateY(-50%);
     }
 
     .avatar-options::before {
         content: '';
         position: absolute;
-        bottom: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        border-left: 8px solid transparent;
-        border-right: 8px solid transparent;
-        border-bottom: 8px solid rgba(255, 255, 255, 0.95);
+        top: 50%;
+        left: -8px;
+        transform: translateY(-50%);
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        border-right: 8px solid rgba(255, 255, 255, 0.95);
     }
 
     .avatar-option {
