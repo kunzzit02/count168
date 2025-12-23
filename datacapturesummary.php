@@ -6457,10 +6457,29 @@ function getCurrentProcessId() {
                 const trimmedFormula = formula.trim();
                 const formulaPart = trimmedFormula;
 
-                const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
-                const formulaDisplay = `${formulaPart}*${percentDisplay}`;
-                console.log('Formula display created from expression:', formulaDisplay);
-                return formulaDisplay;
+                // If source is 1, don't add *(1) to the display
+                // Only add source percent when it's a different number
+                const sourcePercentExpr = sourcePercentValue.trim();
+                const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
+                let decimalValue;
+                try {
+                    decimalValue = evaluateExpression(sanitizedSourcePercent);
+                } catch (e) {
+                    // If evaluation fails, treat as non-1 and add to display
+                    decimalValue = 0;
+                }
+                
+                if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+                    // Source is 1, return formula without multiplying
+                    console.log('Formula display created from expression (source is 1, no multiplication):', trimmedFormula);
+                    return trimmedFormula;
+                } else {
+                    // Source is not 1, add source percent to display
+                    const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
+                    const formulaDisplay = `${formulaPart}*${percentDisplay}`;
+                    console.log('Formula display created from expression:', formulaDisplay);
+                    return formulaDisplay;
+                }
             } catch (error) {
                 console.error('Error creating formula display from expression:', error);
                 return formula || 'Formula';
@@ -6538,8 +6557,15 @@ function getCurrentProcessId() {
                 const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
                 const decimalValue = evaluateExpression(sanitizedSourcePercent);
                 
-                // Calculate: formula result * source percent (already in decimal format)
-                let result = formulaResult * decimalValue;
+                // If source is 1, don't multiply (multiplying by 1 has no effect)
+                // Only multiply when source is a different number
+                let result;
+                if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+                    result = formulaResult; // Don't multiply by 1
+                } else {
+                    // Calculate: formula result * source percent (already in decimal format)
+                    result = formulaResult * decimalValue;
+                }
                 
                 // Apply input method transformation if enabled
                 if (enableInputMethod && inputMethod) {
@@ -7189,6 +7215,27 @@ function getCurrentProcessId() {
                 
                 // 若百分比是表达式（如 "0.85/2"），保留表达式，并把首个数字除以100：0.85/2 -> (0.0085/2)
                 let percentExpr = sourcePercentValue.toString().trim();
+                
+                // Check if source percent equals 1 (100% = 1 after dividing by 100)
+                // If source is 1, don't add *(1) to the display
+                const sanitizedPercent = removeThousandsSeparators(percentExpr);
+                let decimalValue;
+                try {
+                    const percentEval = evaluateExpression(sanitizedPercent);
+                    decimalValue = percentEval / 100;
+                    decimalValue = parseFloat(decimalValue.toFixed(4));
+                } catch (e) {
+                    // If evaluation fails, treat as non-1 and add to display
+                    decimalValue = 0;
+                }
+                
+                if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+                    // Source is 1 (100%), return formula without multiplying
+                    console.log('Formula display created (source is 1, no multiplication):', trimmedSourceData);
+                    return trimmedSourceData;
+                }
+                
+                // Source is not 1, add source percent to display
                 let percentDisplay = '';
                 const m = percentExpr.match(/^(\d+(?:\.\d+)?)(.*)$/);
                 if (m) {
@@ -7244,8 +7291,15 @@ function getCurrentProcessId() {
                 // Limit to maximum 4 decimal places
                 decimalValue = parseFloat(decimalValue.toFixed(4));
                 
-                // Calculate the final result: source result * decimal value
-                let result = sourceResult * decimalValue;
+                // If source is 1 (or 100% which equals 1 after dividing by 100), don't multiply
+                // Only multiply when source is a different number
+                let result;
+                if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+                    result = sourceResult; // Don't multiply by 1
+                } else {
+                    // Calculate the final result: source result * decimal value
+                    result = sourceResult * decimalValue;
+                }
                 
                 // Apply input method transformation if enabled
                 if (enableInputMethod && inputMethod) {
