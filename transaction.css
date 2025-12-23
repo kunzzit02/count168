@@ -16,6 +16,33 @@ body.transaction-page {
     overflow-y: auto;
 }
 
+/* 确保 sidebar 字体权重不受 transaction 页面全局字体加粗影响 */
+body.transaction-page .informationmenu,
+body.transaction-page .informationmenu * {
+    font-weight: normal !important;
+}
+
+/* 恢复 sidebar 特定元素的正常字体权重 */
+body.transaction-page .informationmenu-section-title {
+    font-weight: 600 !important;
+}
+
+body.transaction-page .informationmenu-item {
+    font-weight: 500 !important;
+}
+
+body.transaction-page .submenu-item {
+    font-weight: bold !important;
+}
+
+body.transaction-page .user-name {
+    font-weight: 600 !important;
+}
+
+body.transaction-page .user-role {
+    font-weight: 500 !important;
+}
+
 .transaction-page .transaction-container {
     max-width: none;
     margin: 0;
