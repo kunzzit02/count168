@@ -10852,9 +10852,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             console.log('No source data available (main)');
         }
 
-        // Priority: Use saved formula_display if available (declare before use)
-        const savedFormulaDisplay = mainTemplate.formula_display || '';
-
             // 如果模板没有绑定任何表格列（纯手动公式），直接用保存的公式，不尝试从表格重建
             if ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
                 (!formulaOperatorsValue || formulaOperatorsValue.trim() === '') &&
@@ -10896,8 +10893,9 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         // Auto-enable if source percent has value
         const enableSourcePercent = percentValue && percentValue.trim() !== '';
         
-        // savedFormulaDisplay already declared above
+        // Priority: Use saved formula_display if available
         let formulaDisplay = '';
+        const savedFormulaDisplay = mainTemplate.formula_display || '';
         const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
         
         // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
