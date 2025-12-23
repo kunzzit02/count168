@@ -102,6 +102,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         /* 优化渲染性能 */
         min-width: 0;
         contain: layout style;
+        /* 确保不会被头像选择菜单覆盖，但也不覆盖菜单 */
+        z-index: 1;
     }
 
     .user-avatar-dropdown:hover {
@@ -138,6 +140,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         contain: layout style;
         /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
+        /* 创建定位上下文，确保子元素（头像选择菜单）的z-index生效 */
+        z-index: 10;
     }
 
     /* 当前头像显示 */
@@ -188,7 +192,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         opacity: 0;
         visibility: hidden;
         transition: all 0.3s ease;
-        z-index: 2000;
+        /* 使用非常高的 z-index 确保显示在所有内容之上，包括用户名和按钮 */
+        z-index: 9999;
         width: clamp(120px, 10vw, 180px);
         max-height: clamp(300px, 40vh, 500px);
         overflow-y: auto;
