@@ -2027,9 +2027,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                     } else {
-                        // 如果是重复的 description，显示中文提示
-                        if (result.duplicate || (result.error && result.error.includes('已有相同的'))) {
-                            showNotification('已有相同的 description', 'danger');
+                        // 如果是重复的 description，显示英文提示
+                        if (result.duplicate || (result.error && result.error.includes('already exists'))) {
+                            showNotification('Description name already exists', 'danger');
                         } else {
                             showNotification('Failed to add description: ' + (result.error || 'Unknown error'), 'danger');
                         }

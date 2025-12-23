@@ -327,7 +327,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if ($existsCount > 0) {
             echo json_encode([
                 'success' => false,
-                'error' => '已有相同的 description',
+                'error' => 'Description name already exists for this company',
                 'duplicate' => true
             ]);
             exit;

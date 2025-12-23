@@ -7428,11 +7428,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     // Clear the form
                     document.getElementById('addDescriptionForm').reset();
                 } else {
-                    // 如果是重复的 description，显示中文提示
-                    if (result.duplicate || (result.error && result.error.includes('已有相同的'))) {
-                        showNotification('Error', '已有相同的 description', 'error');
+                    // 如果是重复的 description，显示英文提示
+                    const errorMsg = result.error || '';
+                    if (result.duplicate === true || errorMsg.includes('already exists') || errorMsg.includes('Description name already exists')) {
+                        showNotification('Error', 'Description name already exists', 'error');
                     } else {
-                        showNotification('Error', result.error, 'error');
+                        showNotification('Error', errorMsg || 'Failed to add description', 'error');
                     }
                 }
             } catch (error) {
