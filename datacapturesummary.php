@@ -14230,11 +14230,7 @@ function formatPercentValue(value) {
             border-right: none;
         }
 
-        #summaryTable td:nth-child(2) {
-            border-right: none;
-        }
-        
-        #summaryTable tfoot td:nth-child(2) {
+        #summaryTable tbody td:nth-child(2) {
             border-right: none;
         }
 
