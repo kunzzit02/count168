@@ -1490,6 +1490,15 @@ function getCurrentProcessId() {
                                     </div>
                                 </div>
                                 
+                                <div class="form-row formula-row-full-width">
+                                    <div class="form-group">
+                                        <label>Data Options</label>
+                                        <div id="formulaDataGrid" class="formula-data-grid">
+                                            <!-- Grid options will be loaded here via JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
                             </div>
                             
                             <!-- Middle Column -->
@@ -1600,6 +1609,11 @@ function getCurrentProcessId() {
             
             // Load id product list into first select box
             loadIdProductList();
+            
+            // Update formula data grid for current editing id product
+            setTimeout(() => {
+                updateFormulaDataGrid();
+            }, 100);
             
             // Add event listener for first select box change
             setTimeout(() => {
@@ -2415,6 +2429,105 @@ function getCurrentProcessId() {
             if (firstOptionValue !== null) {
                 descriptionSelect2.value = firstOptionValue;
             }
+        }
+
+        // Update formula data grid with row data for current editing id product
+        function updateFormulaDataGrid() {
+            const formulaDataGrid = document.getElementById('formulaDataGrid');
+            if (!formulaDataGrid) return;
+
+            // Clear existing grid items
+            formulaDataGrid.innerHTML = '';
+
+            // Get current editing id product from process input
+            const processInput = document.getElementById('process');
+            if (!processInput) return;
+
+            const idProduct = processInput.value.trim();
+            if (!idProduct || idProduct === '') {
+                return;
+            }
+
+            // Get table data
+            let parsedTableData;
+            if (window.transformedTableData) {
+                parsedTableData = window.transformedTableData;
+            } else {
+                const tableData = localStorage.getItem('capturedTableData');
+                if (!tableData) {
+                    console.log('No table data found for formula data grid');
+                    return;
+                }
+                parsedTableData = JSON.parse(tableData);
+            }
+
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            if (!capturedTableBody) return;
+
+            const rows = capturedTableBody.querySelectorAll('tr');
+            rows.forEach((row, rowIndex) => {
+                const rowIdProduct = row.getAttribute('data-id-product');
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
+                    
+                    cells.forEach((cell, cellIndex) => {
+                        const columnIndex = cell.getAttribute('data-column-index');
+                        if (columnIndex && parseInt(columnIndex) > 1) {
+                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            if (cellValue !== '') {
+                                // Create a grid item for each column data
+                                const gridItem = document.createElement('div');
+                                gridItem.className = 'formula-data-grid-item';
+                                gridItem.textContent = `[${columnIndex}] ${cellValue}`;
+                                gridItem.setAttribute('data-row-index', rowIndex);
+                                gridItem.setAttribute('data-column-index', columnIndex);
+                                
+                                // Add click event to insert value into formula (same behavior as descriptionSelect2)
+                                gridItem.addEventListener('click', function() {
+                                    const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
+                                    const targetColumnIndex = this.getAttribute('data-column-index');
+                                    
+                                    // Re-get rows to ensure we have the latest data
+                                    const capturedTableBody = document.getElementById('capturedTableBody');
+                                    if (!capturedTableBody) {
+                                        console.warn('Captured data table body not found.');
+                                        return;
+                                    }
+                                    
+                                    const currentRows = capturedTableBody.querySelectorAll('tr');
+                                    const targetRow = currentRows[targetRowIndex];
+                                    if (!targetRow) {
+                                        console.warn('Row not found for index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Find the cell with matching data-column-index
+                                    const targetCells = targetRow.querySelectorAll('td');
+                                    let targetCell = null;
+                                    targetCells.forEach(cell => {
+                                        const colIdx = cell.getAttribute('data-column-index');
+                                        if (colIdx === targetColumnIndex) {
+                                            targetCell = cell;
+                                        }
+                                    });
+                                    
+                                    if (!targetCell) {
+                                        console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Reuse existing logic: behave exactly like clicking the cell
+                                    insertCellValueToFormula(targetCell);
+                                });
+                                
+                                formulaDataGrid.appendChild(gridItem);
+                            }
+                        }
+                    });
+                }
+            });
         }
 
         // Close add account modal (wrapper for compatibility)
@@ -4736,6 +4849,9 @@ function getCurrentProcessId() {
                         descriptionInput.value = data.description;
                     }
                 }
+                
+                // Update formula data grid after form is populated
+                updateFormulaDataGrid();
                 
                 // Set input method if provided
                 if (data.inputMethod) {
@@ -15454,7 +15570,38 @@ function formatPercentValue(value) {
             transform: scale(0.95);
         }
 
-        
+        /* Formula Data Grid Styles */
+        .formula-data-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .formula-data-grid-item {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: clamp(11px, 0.73vw, 14px);
+            color: #333;
+        }
+
+        .formula-data-grid-item:hover {
+            background: #e0e0e0;
+            border-color: #007bff;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .formula-data-grid-item:active {
+            transform: translateY(0);
+            background: #007bff;
+            color: white;
+        }
 
         /* Print Styles */
         @media print {
