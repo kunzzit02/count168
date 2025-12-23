@@ -1492,7 +1492,7 @@ function getCurrentProcessId() {
                                 
                                 <div class="form-row formula-row-full-width">
                                     <div class="form-group">
-                                        <label>Data Options</label>
+                                        <label></label>
                                         <div id="formulaDataGrid" class="formula-data-grid">
                                             <!-- Grid options will be loaded here via JavaScript -->
                                         </div>
