@@ -4646,15 +4646,20 @@ function getCurrentProcessId() {
             // Insert column reference ($columnNumber) instead of value at cursor position
             // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
             let valueToInsert;
-            if (displayColumnIndex !== null) {
-                // Insert column reference format: $columnNumber (e.g., $3, $4)
+            if (displayColumnIndex !== null && displayColumnIndex > 0) {
+                // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
+                // displayColumnIndex 就是 data-column-index 的值，直接使用
                 valueToInsert = `$${displayColumnIndex}`;
-            } else if (dataColumnIndex !== null) {
-                // Fallback: still尝试使用内部 dataColumnIndex
-                valueToInsert = `$${dataColumnIndex}`;
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
+            } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
+                // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
+                // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
+                valueToInsert = `$${dataColumnIndex + 1}`;
+                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex);
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
                 valueToInsert = numValue;
+                console.log('Inserting numeric value (fallback):', valueToInsert);
             }
             
             const currentValue = formulaInput.value;
