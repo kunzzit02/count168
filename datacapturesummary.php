@@ -4637,9 +4637,19 @@ function getCurrentProcessId() {
             // Get cursor position
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
-            // Insert value at cursor position
+            // Insert column reference ($columnNumber) instead of value at cursor position
+            // Use dataColumnIndex to create column reference like $3, $4, etc.
+            let valueToInsert;
+            if (dataColumnIndex !== null) {
+                // Insert column reference format: $columnNumber (e.g., $3, $4)
+                valueToInsert = `$${dataColumnIndex}`;
+            } else {
+                // Fallback to inserting the numeric value if column index cannot be determined
+                valueToInsert = numValue;
+            }
+            
             const currentValue = formulaInput.value;
-            const newValue = currentValue.slice(0, cursorPos) + numValue + currentValue.slice(cursorPos);
+            const newValue = currentValue.slice(0, cursorPos) + valueToInsert + currentValue.slice(cursorPos);
             
             // Set a flag to indicate this value came from a cell click, not manual input
             // This prevents processManualFormulaInput from re-processing it based on column
@@ -4647,7 +4657,7 @@ function getCurrentProcessId() {
             formulaInput.value = newValue;
             
             // Set cursor position after inserted value
-            const newCursorPos = cursorPos + numValue.toString().length;
+            const newCursorPos = cursorPos + valueToInsert.length;
             setTimeout(() => {
                 formulaInput.setSelectionRange(newCursorPos, newCursorPos);
                 formulaInput.focus();
@@ -4669,7 +4679,7 @@ function getCurrentProcessId() {
                 cell.style.backgroundColor = originalBg;
             }, 300);
             
-            console.log('Inserted value:', numValue, 'into formula at position:', cursorPos);
+            console.log('Inserted column reference:', valueToInsert, 'into formula at position:', cursorPos);
         }
 
         
