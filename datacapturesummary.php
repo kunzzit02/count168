@@ -14267,7 +14267,6 @@ function formatPercentValue(value) {
             margin: 0;
             padding: 0;
             min-height: 100vh;
-            height: 100vh;
             background-color: #e9f1ff;
             background-image:
                 radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -14278,7 +14277,7 @@ function formatPercentValue(value) {
             background-blend-mode: screen, screen, multiply, screen, normal;
             color: #334155;
             overflow-x: hidden;
-            overflow-y: hidden;
+            overflow-y: auto;
         }
 
         .container {
