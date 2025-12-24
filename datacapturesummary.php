@@ -5585,6 +5585,14 @@ function getCurrentProcessId() {
                 // This returns raw value without rounding - will be saved to database as-is
                 // 返回原始值（不四舍五入）- 将原样保存到数据库
                 processedAmount = calculateFormulaResultFromExpression(formulaValue, sourcePercentValue, inputMethodValue, enableValue, sourcePercentEnableValue);
+                console.log('saveFormula - Calculated processedAmount:', {
+                    formulaValue: formulaValue,
+                    sourcePercentValue: sourcePercentValue,
+                    inputMethodValue: inputMethodValue,
+                    enableValue: enableValue,
+                    sourcePercentEnableValue: sourcePercentEnableValue,
+                    processedAmount: processedAmount
+                });
             }
             
             // Get Batch Selection checkbox state from the table row
@@ -8531,14 +8539,12 @@ function getCurrentProcessId() {
             // If data.processedAmount is 0, undefined, null, or not provided, recalculate from formula
             let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
             
-            // Check if input method changed (need to recalculate)
-            const currentInputMethod = row.getAttribute('data-input-method') || '';
-            const newInputMethod = data.inputMethod !== undefined ? data.inputMethod : '';
-            const inputMethodChanged = newInputMethod !== currentInputMethod;
+            // Only recalculate if processedAmount is invalid (0, null, undefined, NaN)
+            // If data.processedAmount has a valid value, use it directly (it was calculated correctly in saveFormula)
+            // Only recalculate when absolutely necessary
+            const needsRecalculation = baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount);
             
-            // If processedAmount is 0, undefined, null, NaN, or input method changed, recalculate from formula
-            // Always recalculate if processedAmount is 0 or invalid, or if input method changed, using data object values (not DOM)
-            if (baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount) || inputMethodChanged) {
+            if (needsRecalculation) {
                 // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
                 const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
                 const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
@@ -8551,13 +8557,20 @@ function getCurrentProcessId() {
                 } else {
                     const sourcePercentCell = cells[5];
                     sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
+                    // If still empty, use default value '1' (100%)
+                    if (!sourcePercentText || sourcePercentText.trim() === '') {
+                        sourcePercentText = '1';
+                    }
                 }
                 
                 // Get source percent enable state
-                // If sourcePercentText is empty, disable source percent
+                // If sourcePercentText is empty, disable source percent (shouldn't happen now, but keep as safety check)
                 let enableSourcePercent = data.enableSourcePercent !== undefined ? data.enableSourcePercent : (row.getAttribute('data-enable-source-percent') === 'true');
                 if (!sourcePercentText || sourcePercentText.trim() === '') {
                     enableSourcePercent = false;
+                } else {
+                    // If sourcePercentText has a value, enable it
+                    enableSourcePercent = true;
                 }
                 
                 // Use formulaOperators from data first (contains the actual formula expression)
