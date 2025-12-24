@@ -363,6 +363,10 @@ $company_id = $_SESSION['company_id'] ?? null;
         // Initialize page
         document.addEventListener('DOMContentLoaded', function() {
             try {
+            // 确保页面可以滚动（覆盖 accountCSS.css 中的 overflow: hidden）
+            document.body.style.overflowY = 'auto';
+            document.body.style.height = 'auto';
+            
             // 确保隐藏任何可能存在的 company 按钮（此页面不需要 company 按钮）
             // 因为 company 是根据 process 自动计算的
             const companyFilter = document.getElementById('data-capture-summary-company-filter');
@@ -14266,7 +14270,8 @@ function formatPercentValue(value) {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             margin: 0;
             padding: 0;
-            min-height: 100vh;
+            min-height: 100vh !important;
+            height: auto !important;
             background-color: #e9f1ff;
             background-image:
                 radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
@@ -14276,8 +14281,8 @@ function formatPercentValue(value) {
                 linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
             background-blend-mode: screen, screen, multiply, screen, normal;
             color: #334155;
-            overflow-x: hidden;
-            overflow-y: auto;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
         }
 
         .container {
@@ -14285,8 +14290,10 @@ function formatPercentValue(value) {
             margin: 0;
             padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
             width: 100%;
-            min-height: 100vh;
+            min-height: 100vh !important;
+            height: auto !important;
             box-sizing: border-box;
+            overflow: visible !important;
         }
 
         h1 {
