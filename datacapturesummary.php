@@ -9464,8 +9464,69 @@ function getCurrentProcessId() {
                     }
                     
                     if (sourceExpression && sourceExpression.trim() !== '') {
-                        // Recreate formula display with new source percent
-                        const newFormulaDisplay = createFormulaDisplayFromExpression(sourceExpression, newValue, enableSourcePercent);
+                        // Check if sourceExpression contains column references (like $3)
+                        // If so, parse them to actual values for display
+                        let displayExpression = sourceExpression;
+                        const hasColumnRefs = /\$(\d+)/.test(sourceExpression);
+                        
+                        if (hasColumnRefs) {
+                            // Parse column references to actual values for display
+                            const processValue = getProcessValueFromRow(row);
+                            if (processValue) {
+                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                if (rowLabel) {
+                                    // Replace $number references with actual column values
+                                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                                    const allMatches = [];
+                                    let match;
+                                    dollarPattern.lastIndex = 0;
+                                    
+                                    while ((match = dollarPattern.exec(sourceExpression)) !== null) {
+                                        const fullMatch = match[0];
+                                        const columnNumber = parseInt(match[1]);
+                                        const matchIndex = match.index;
+                                        
+                                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                                            allMatches.push({
+                                                fullMatch: fullMatch,
+                                                columnNumber: columnNumber,
+                                                index: matchIndex
+                                            });
+                                        }
+                                    }
+                                    
+                                    // Replace from back to front to preserve indices
+                                    allMatches.sort((a, b) => b.index - a.index);
+                                    
+                                    for (let i = 0; i < allMatches.length; i++) {
+                                        const match = allMatches[i];
+                                        const columnReference = rowLabel + match.columnNumber;
+                                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                        
+                                        if (columnValue !== null) {
+                                            displayExpression = displayExpression.substring(0, match.index) +
+                                                                columnValue +
+                                                                displayExpression.substring(match.index + match.fullMatch.length);
+                                        } else {
+                                            displayExpression = displayExpression.substring(0, match.index) +
+                                                                '0' +
+                                                                displayExpression.substring(match.index + match.fullMatch.length);
+                                        }
+                                    }
+                                    
+                                    // Also parse other reference formats (A4, [id_product:column])
+                                    const parsedFormula = parseReferenceFormula(displayExpression);
+                                    if (parsedFormula) {
+                                        displayExpression = parsedFormula;
+                                    }
+                                    
+                                    console.log('enableSourcePercentInlineEdit: Parsed column references for display:', sourceExpression, '->', displayExpression);
+                                }
+                            }
+                        }
+                        
+                        // Recreate formula display with new source percent (using parsed expression)
+                        const newFormulaDisplay = createFormulaDisplayFromExpression(displayExpression, newValue, enableSourcePercent);
                         
                         // Update formula cell display
                         const formulaTextSpan = formulaCell.querySelector('.formula-text');
