@@ -6182,21 +6182,74 @@ function getCurrentProcessId() {
                 
                 let parsedFormula = formula;
                 
-                // First, parse cell references (e.g., "A4", "B3")
+                // First, parse $数字 format (e.g., "$2", "$3", "$10")
+                // This must be done before other parsing to avoid conflicts
+                if (processValue) {
+                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    if (rowLabel) {
+                        // Match $ followed by digits (e.g., $2, $10, $123)
+                        // Use negative lookahead to ensure we match complete numbers (e.g., $10 not $1 and $0)
+                        const dollarPattern = /\$(\d+)(?!\d)/g;
+                        const dollarMatches = [];
+                        let match;
+                        
+                        // Reset regex lastIndex
+                        dollarPattern.lastIndex = 0;
+                        
+                        // Collect all matches
+                        while ((match = dollarPattern.exec(formula)) !== null) {
+                            const fullMatch = match[0]; // e.g., "$2"
+                            const columnNumber = parseInt(match[1]); // e.g., 2
+                            const matchIndex = match.index;
+                            
+                            if (!isNaN(columnNumber) && columnNumber > 0) {
+                                dollarMatches.push({
+                                    fullMatch: fullMatch,
+                                    columnNumber: columnNumber,
+                                    index: matchIndex
+                                });
+                            }
+                        }
+                        
+                        // Replace from end to start to preserve indices
+                        dollarMatches.sort((a, b) => b.index - a.index);
+                        
+                        for (let i = 0; i < dollarMatches.length; i++) {
+                            const dollarMatch = dollarMatches[i];
+                            // Convert $数字 to cell reference (e.g., $2 -> A2)
+                            const columnReference = rowLabel + dollarMatch.columnNumber;
+                            const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                            
+                            if (columnValue !== null) {
+                                // Replace $数字 with actual value
+                                parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
+                                               columnValue + 
+                                               parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                            } else {
+                                // If value not found, replace with 0
+                                console.warn(`Cell value not found for $${dollarMatch.columnNumber} (${columnReference})`);
+                                parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
+                                               '0' + 
+                                               parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                            }
+                        }
+                    }
+                }
+                
+                // Then, parse cell references (e.g., "A4", "B3")
                 // Pattern: letter(s) followed by digits (e.g., "A4", "AA10")
                 const cellReferencePattern = /\b([A-Za-z]+)(\d+)\b/g;
-                let match;
                 
                 // Store matches to avoid replacing while iterating
                 const cellReferences = [];
-                while ((match = cellReferencePattern.exec(formula)) !== null) {
+                while ((match = cellReferencePattern.exec(parsedFormula)) !== null) {
                     const fullMatch = match[0]; // e.g., "A4"
                     const rowLabel = match[1]; // e.g., "A"
                     const columnNumber = match[2]; // e.g., "4"
                     
                     // Check if this is a valid cell reference (not part of a number or operator)
-                    const beforeMatch = formula.substring(Math.max(0, match.index - 1), match.index);
-                    const afterMatch = formula.substring(match.index + fullMatch.length, Math.min(formula.length, match.index + fullMatch.length + 1));
+                    const beforeMatch = parsedFormula.substring(Math.max(0, match.index - 1), match.index);
+                    const afterMatch = parsedFormula.substring(match.index + fullMatch.length, Math.min(parsedFormula.length, match.index + fullMatch.length + 1));
                     
                     // Only treat as cell reference if:
                     // - Not preceded by a letter or digit (to avoid matching "A" in "10A4")
@@ -6230,7 +6283,7 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Then, parse reference format if present (e.g., [id_product : column_number])
+                // Finally, parse reference format if present (e.g., [id_product : column_number])
                 const referencePattern = /\[([^\]]+)\s*:\s*(\d+)\]/g;
                 
                 while ((match = referencePattern.exec(parsedFormula)) !== null) {
