@@ -8531,26 +8531,49 @@ function getCurrentProcessId() {
             // If data.processedAmount is 0, undefined, null, or not provided, recalculate from formula
             let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
             
-            // If processedAmount is 0, undefined, null, or NaN, try to recalculate from formula
-            if (baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount)) {
-                const sourcePercentCell = cells[5];
-                const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                // Get input method from data (new value) or row attribute (existing value)
-                const inputMethod = data.inputMethod || row.getAttribute('data-input-method') || '';
+            // Check if input method changed (need to recalculate)
+            const currentInputMethod = row.getAttribute('data-input-method') || '';
+            const newInputMethod = data.inputMethod !== undefined ? data.inputMethod : '';
+            const inputMethodChanged = newInputMethod !== currentInputMethod;
+            
+            // If processedAmount is 0, undefined, null, NaN, or input method changed, recalculate from formula
+            // Always recalculate if processedAmount is 0 or invalid, or if input method changed, using data object values (not DOM)
+            if (baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount) || inputMethodChanged) {
+                // Get values from data object first (most up-to-date), then fallback to row attributes or DOM
+                const inputMethod = data.inputMethod !== undefined ? data.inputMethod : (row.getAttribute('data-input-method') || '');
                 const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
-                const formulaCell = cells[4];
-                const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                
+                // Get source percent from data first, then from cell display
+                let sourcePercentText = '';
+                if (data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '') {
+                    // Convert from decimal format (1 = 100%) to display format for calculation
+                    sourcePercentText = data.sourcePercent.toString().trim();
+                } else {
+                    const sourcePercentCell = cells[5];
+                    sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
+                }
                 
                 // Get source percent enable state
-                const enableSourcePercent = data.enableSourcePercent !== undefined ? data.enableSourcePercent : (row.getAttribute('data-enable-source-percent') === 'true');
+                // If sourcePercentText is empty, disable source percent
+                let enableSourcePercent = data.enableSourcePercent !== undefined ? data.enableSourcePercent : (row.getAttribute('data-enable-source-percent') === 'true');
+                if (!sourcePercentText || sourcePercentText.trim() === '') {
+                    enableSourcePercent = false;
+                }
                 
-                // Use formulaOperators if available (contains the actual formula expression)
-                const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || formulaText;
+                // Use formulaOperators from data first (contains the actual formula expression)
+                // This is the most reliable source as it's passed directly from saveFormula
+                const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
                 
                 if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
                     baseProcessedAmount = calculateFormulaResultFromExpression(formulaOperators, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
-                } else if (formulaText && formulaText.trim() !== '' && formulaText !== 'Formula') {
-                    baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                    console.log('Recalculated processedAmount from formulaOperators:', formulaOperators, 'result:', baseProcessedAmount);
+                } else {
+                    // Fallback: try to get formula from data.formula or DOM
+                    const formulaText = data.formula || (cells[4] ? (cells[4].querySelector('.formula-text')?.textContent.trim() || cells[4].textContent.trim()) : '');
+                    if (formulaText && formulaText.trim() !== '' && formulaText !== 'Formula') {
+                        baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                        console.log('Recalculated processedAmount from formulaText:', formulaText, 'result:', baseProcessedAmount);
+                    }
                 }
                 
                 // Ensure baseProcessedAmount is a valid number
