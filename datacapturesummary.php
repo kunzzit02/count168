@@ -8584,8 +8584,116 @@ function getCurrentProcessId() {
             
             // Update Formula column (now index 4)
             if (cells[4]) {
-                // If formula is empty, don't display "Formula" text, just leave it empty
-                const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                // Get the formula to display - prioritize data.formula, then data.formulaOperators
+                let formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                
+                // If formula is empty, try to get from formulaOperators
+                if (!formulaText || formulaText.trim() === '') {
+                    const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
+                    if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
+                        // Check if formulaOperators contains column references (like $3)
+                        const hasColumnRefs = /\$(\d+)/.test(formulaOperators);
+                        if (hasColumnRefs) {
+                            // Parse column references to actual values for display
+                            const processValue = getProcessValueFromRow(row);
+                            if (processValue) {
+                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                if (rowLabel) {
+                                    let displayFormula = formulaOperators;
+                                    
+                                    // Replace $number references with actual column values
+                                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                                    const allMatches = [];
+                                    let match;
+                                    dollarPattern.lastIndex = 0;
+                                    
+                                    while ((match = dollarPattern.exec(formulaOperators)) !== null) {
+                                        const fullMatch = match[0];
+                                        const columnNumber = parseInt(match[1]);
+                                        const matchIndex = match.index;
+                                        
+                                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                                            allMatches.push({
+                                                fullMatch: fullMatch,
+                                                columnNumber: columnNumber,
+                                                index: matchIndex
+                                            });
+                                        }
+                                    }
+                                    
+                                    // Replace from back to front to preserve indices
+                                    allMatches.sort((a, b) => b.index - a.index);
+                                    
+                                    for (let i = 0; i < allMatches.length; i++) {
+                                        const match = allMatches[i];
+                                        const columnReference = rowLabel + match.columnNumber;
+                                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                        
+                                        if (columnValue !== null) {
+                                            displayFormula = displayFormula.substring(0, match.index) +
+                                                            columnValue +
+                                                            displayFormula.substring(match.index + match.fullMatch.length);
+                                        } else {
+                                            displayFormula = displayFormula.substring(0, match.index) +
+                                                            '0' +
+                                                            displayFormula.substring(match.index + match.fullMatch.length);
+                                        }
+                                    }
+                                    
+                                    // Also parse other reference formats (A4, [id_product:column])
+                                    const parsedFormula = parseReferenceFormula(displayFormula);
+                                    if (parsedFormula) {
+                                        displayFormula = parsedFormula;
+                                    }
+                                    
+                                    // Apply source percent if needed
+                                    const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                                        ? data.sourcePercent.toString().trim() 
+                                        : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                                    const enableSourcePercent = data.enableSourcePercent !== undefined 
+                                        ? data.enableSourcePercent 
+                                        : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                                    
+                                    formulaText = createFormulaDisplayFromExpression(displayFormula, sourcePercentText, enableSourcePercent);
+                                    console.log('updateFormulaAndProcessedAmount: Parsed column references for display:', formulaOperators, '->', formulaText);
+                                } else {
+                                    // No row label, use formulaOperators as-is
+                                    const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                                        ? data.sourcePercent.toString().trim() 
+                                        : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                                    const enableSourcePercent = data.enableSourcePercent !== undefined 
+                                        ? data.enableSourcePercent 
+                                        : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                                    formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
+                                }
+                            } else {
+                                // No process value, use formulaOperators as-is
+                                const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                                    ? data.sourcePercent.toString().trim() 
+                                    : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                                const enableSourcePercent = data.enableSourcePercent !== undefined 
+                                    ? data.enableSourcePercent 
+                                    : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                                formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
+                            }
+                        } else {
+                            // No column references, use formulaOperators directly with source percent
+                            const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                                ? data.sourcePercent.toString().trim() 
+                                : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                            const enableSourcePercent = data.enableSourcePercent !== undefined 
+                                ? data.enableSourcePercent 
+                                : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                            formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
+                        }
+                    }
+                }
+                
+                // If formula is still empty, don't display "Formula" text, just leave it empty
+                if (!formulaText || formulaText.trim() === '' || formulaText === 'Formula') {
+                    formulaText = '';
+                }
+                
                 // Get input method from row or data for tooltip
                 const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
                 const inputMethodTooltip = inputMethod || '';
