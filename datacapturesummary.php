@@ -8527,8 +8527,44 @@ function getCurrentProcessId() {
                 // cells[4].style.backgroundColor = '#e8f5e8'; // Removed
             }
             
+            // Calculate or get base processed amount
+            // If data.processedAmount is 0, undefined, null, or not provided, recalculate from formula
+            let baseProcessedAmount = data.processedAmount !== undefined && data.processedAmount !== null ? Number(data.processedAmount) : null;
+            
+            // If processedAmount is 0, undefined, null, or NaN, try to recalculate from formula
+            if (baseProcessedAmount === null || baseProcessedAmount === 0 || isNaN(baseProcessedAmount)) {
+                const sourcePercentCell = cells[5];
+                const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
+                // Get input method from data (new value) or row attribute (existing value)
+                const inputMethod = data.inputMethod || row.getAttribute('data-input-method') || '';
+                const enableInputMethod = data.enableInputMethod !== undefined ? data.enableInputMethod : (row.getAttribute('data-enable-input-method') === 'true');
+                const formulaCell = cells[4];
+                const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                
+                // Get source percent enable state
+                const enableSourcePercent = data.enableSourcePercent !== undefined ? data.enableSourcePercent : (row.getAttribute('data-enable-source-percent') === 'true');
+                
+                // Use formulaOperators if available (contains the actual formula expression)
+                const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || formulaText;
+                
+                if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
+                    baseProcessedAmount = calculateFormulaResultFromExpression(formulaOperators, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
+                } else if (formulaText && formulaText.trim() !== '' && formulaText !== 'Formula') {
+                    baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                }
+                
+                // Ensure baseProcessedAmount is a valid number
+                if (baseProcessedAmount === null || isNaN(baseProcessedAmount)) {
+                    baseProcessedAmount = 0;
+                }
+            }
+            
+            // Ensure baseProcessedAmount is always a valid number (fallback to 0)
+            if (baseProcessedAmount === null || isNaN(baseProcessedAmount)) {
+                baseProcessedAmount = 0;
+            }
+            
             // Store base processed amount BEFORE creating Rate checkbox (so event listener can use it)
-            const baseProcessedAmount = Number(data.processedAmount) || 0;
             row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
             
             // Update Rate column (index 6)
