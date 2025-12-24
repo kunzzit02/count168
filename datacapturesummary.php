@@ -6429,7 +6429,10 @@ function getCurrentProcessId() {
                 return '0.00';
             }
             // Round to 2 decimal places for display (四舍五入到2位小数用于显示)
-            const rounded = Math.round(num * 100) / 100;
+            // 使用一致的舍入逻辑：先取绝对值舍入，再恢复符号，确保正负数舍入结果一致
+            const sign = num >= 0 ? 1 : -1;
+            const absNum = Math.abs(num);
+            const rounded = sign * (Math.round(absNum * 100) / 100);
             return rounded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         }
 
