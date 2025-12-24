@@ -10303,8 +10303,23 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
             
             // Recalculate row_index for each Summary Table row based on Data Capture Table position
-            // Match each Summary Table row to its corresponding Data Capture Table row by id_product
-            // This ensures row_index reflects the actual position in Data Capture Table, not Summary Table position
+            // IMPORTANT: All rows with the same id_product should use the same row_index (their position in Data Capture Table)
+            // This ensures they are grouped together and sorted correctly
+            const idProductToRowIndex = new Map(); // Cache id_product -> row_index mapping
+            
+            // First pass: Build mapping from Data Capture Table
+            capturedRows.forEach((capturedRow, capturedIndex) => {
+                const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+                if (capturedIdProductCell) {
+                    const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                    if (capturedIdProduct && !idProductToRowIndex.has(capturedIdProduct)) {
+                        // Store the first occurrence (position in Data Capture Table)
+                        idProductToRowIndex.set(capturedIdProduct, capturedIndex);
+                    }
+                }
+            });
+            
+            // Second pass: Set row_index for all Summary Table rows
             allSummaryRows.forEach((summaryRow) => {
                 const summaryIdProductCell = summaryRow.querySelector('td:first-child');
                 if (!summaryIdProductCell) return;
@@ -10312,39 +10327,37 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 const productValues = getProductValuesFromCell(summaryIdProductCell);
                 const summaryIdProduct = normalizeIdProductText(productValues.main || '');
                 
-                if (!summaryIdProduct) return;
-                
-                // Find the first matching row in Data Capture Table (for main rows)
-                // For sub rows, they should use the same row_index as their parent main row
-                let matchedIndex = -1;
-                for (let i = 0; i < capturedRows.length; i++) {
-                    const capturedRow = capturedRows[i];
-                    const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
-                    
-                    if (capturedIdProductCell) {
-                        const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                        if (capturedIdProduct === summaryIdProduct) {
-                            matchedIndex = i;
-                            break; // Use first match (main row position)
-                        }
+                if (!summaryIdProduct) {
+                    // For rows without id_product, try to preserve existing row_index
+                    const existingRowIndex = summaryRow.getAttribute('data-row-index');
+                    if (!existingRowIndex || existingRowIndex === '') {
+                        summaryRow.setAttribute('data-row-index', '999999');
                     }
+                    return;
                 }
                 
+                // Get row_index from cache (all rows with same id_product get same row_index)
+                const matchedIndex = idProductToRowIndex.get(summaryIdProduct);
+                
                 // Set row_index based on Data Capture Table position
-                if (matchedIndex >= 0) {
+                if (matchedIndex !== undefined && matchedIndex >= 0) {
                     summaryRow.setAttribute('data-row-index', String(matchedIndex));
                     console.log('Set row_index:', matchedIndex, 'for id_product:', summaryIdProduct, 'based on Data Capture Table position');
                 } else {
-                    // If no match found, try to preserve existing row_index or use fallback
+                    // If no match found in Data Capture Table, this might be a new row
+                    // Try to preserve existing row_index if it exists and is valid
                     const existingRowIndex = summaryRow.getAttribute('data-row-index');
-                    if (!existingRowIndex || existingRowIndex === '') {
-                        // Use a large number as fallback to place at end
-                        summaryRow.setAttribute('data-row-index', '999999');
-                        console.warn('No Data Capture Table match found for id_product:', summaryIdProduct, 'using fallback row_index');
-                    } else {
-                        // Preserve existing row_index if it exists
-                        console.log('Preserved existing row_index:', existingRowIndex, 'for id_product:', summaryIdProduct);
+                    if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
+                        // Preserve existing row_index if it exists and is not the fallback value
+                        const existingIndexNum = Number(existingRowIndex);
+                        if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
+                            console.log('Preserved existing row_index:', existingRowIndex, 'for id_product:', summaryIdProduct);
+                            return; // Keep existing row_index
+                        }
                     }
+                    // Use a large number as fallback to place at end
+                    summaryRow.setAttribute('data-row-index', '999999');
+                    console.warn('No Data Capture Table match found for id_product:', summaryIdProduct, 'using fallback row_index 999999');
                 }
             });
         } else if (summaryTableBody) {
