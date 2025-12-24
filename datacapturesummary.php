@@ -10292,9 +10292,9 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         const templates = result.templates || {};
 
-        // IMPORTANT: Recalculate row_index for all Summary Table rows based on Data Capture Table order
+        // IMPORTANT: Recalculate row_index for all Summary Table rows based on current Data Capture Table order
         // This is critical when rows are added/removed in Data Capture Table
-        // Summary Table row should have row_index matching its position in Data Capture Table
+        // Summary Table row at position N should have row_index = N (matching Data Capture Table row N)
         const summaryTableBody = document.getElementById('summaryTableBody');
         const capturedTableBody = document.getElementById('capturedTableBody');
         
@@ -10302,59 +10302,37 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
             const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
             
-            // Recalculate row_index for each Summary Table row based on Data Capture Table position
-            // Match each Summary Table row to its corresponding Data Capture Table row by id_product
-            // This ensures row_index reflects the actual position in Data Capture Table, not Summary Table position
-            allSummaryRows.forEach((summaryRow) => {
-                const summaryIdProductCell = summaryRow.querySelector('td:first-child');
-                if (!summaryIdProductCell) return;
+            // Recalculate row_index for each Summary Table row based on its position
+            // Since Summary Table is created in Data Capture Table order, position = row_index
+            allSummaryRows.forEach((summaryRow, summaryIndex) => {
+                // Always recalculate row_index based on current Summary Table position
+                // This ensures it matches the current Data Capture Table order
+                summaryRow.setAttribute('data-row-index', String(summaryIndex));
                 
-                const productValues = getProductValuesFromCell(summaryIdProductCell);
-                const summaryIdProduct = normalizeIdProductText(productValues.main || '');
-                
-                if (!summaryIdProduct) return;
-                
-                // Find the first matching row in Data Capture Table (for main rows)
-                // For sub rows, they should use the same row_index as their parent main row
-                let matchedIndex = -1;
-                for (let i = 0; i < capturedRows.length; i++) {
-                    const capturedRow = capturedRows[i];
+                // Verify: Check if Data Capture Table row at this index matches
+                if (summaryIndex < capturedRows.length) {
+                    const capturedRow = capturedRows[summaryIndex];
                     const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+                    const summaryIdProductCell = summaryRow.querySelector('td:first-child');
                     
-                    if (capturedIdProductCell) {
+                    if (capturedIdProductCell && summaryIdProductCell) {
                         const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                        const productValues = getProductValuesFromCell(summaryIdProductCell);
+                        const summaryIdProduct = normalizeIdProductText(productValues.main || '');
+                        
                         if (capturedIdProduct === summaryIdProduct) {
-                            matchedIndex = i;
-                            break; // Use first match (main row position)
+                            console.log('Verified row_index:', summaryIndex, 'matches Data Capture Table for id_product:', summaryIdProduct);
+                        } else {
+                            console.warn('Warning: row_index', summaryIndex, 'mismatch - Summary:', summaryIdProduct, 'Data Capture:', capturedIdProduct);
                         }
-                    }
-                }
-                
-                // Set row_index based on Data Capture Table position
-                if (matchedIndex >= 0) {
-                    summaryRow.setAttribute('data-row-index', String(matchedIndex));
-                    console.log('Set row_index:', matchedIndex, 'for id_product:', summaryIdProduct, 'based on Data Capture Table position');
-                } else {
-                    // If no match found, try to preserve existing row_index or use fallback
-                    const existingRowIndex = summaryRow.getAttribute('data-row-index');
-                    if (!existingRowIndex || existingRowIndex === '') {
-                        // Use a large number as fallback to place at end
-                        summaryRow.setAttribute('data-row-index', '999999');
-                        console.warn('No Data Capture Table match found for id_product:', summaryIdProduct, 'using fallback row_index');
-                    } else {
-                        // Preserve existing row_index if it exists
-                        console.log('Preserved existing row_index:', existingRowIndex, 'for id_product:', summaryIdProduct);
                     }
                 }
             });
         } else if (summaryTableBody) {
-            // Fallback: if Data Capture Table not available, preserve existing row_index or use position
+            // Fallback: if Data Capture Table not available, use Summary Table position
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
             allSummaryRows.forEach((summaryRow, index) => {
-                const existingRowIndex = summaryRow.getAttribute('data-row-index');
-                if (!existingRowIndex || existingRowIndex === '') {
-                    summaryRow.setAttribute('data-row-index', String(index));
-                }
+                summaryRow.setAttribute('data-row-index', String(index));
             });
         }
 
