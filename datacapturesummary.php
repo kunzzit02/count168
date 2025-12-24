@@ -52,7 +52,7 @@ $company_id = $_SESSION['company_id'] ?? null;
             <div style="flex: 1;"></div>
             <div class="batch-controls-group">
                 <label for="rateInput" class="batch-label">Rate</label>
-                <input type="text" id="rateInput" class="batch-input" placeholder="Enter rate" />
+                <input type="text" id="rateInput" class="batch-input" placeholder="e.g. *3 or /3" />
                 <button class="btn-update-all" id="rateSelectAllBtn" onclick="toggleAllRate(this)">Select All</button>
             </div>
             <div style="flex: 1;"></div>
@@ -125,7 +125,7 @@ $company_id = $_SESSION['company_id'] ?? null;
             <button type="button" class="btn btn-submit" id="summarySubmitBtn" onclick="submitSummaryData()">Submit</button>
             <button type="button" class="btn btn-cancel" onclick="goBackToDataCapture()" style="margin-left: 10px;">Back</button>
             <button type="button" class="btn btn-refresh" onclick="refreshPage()" title="Refresh page">
-                <img src="images/refresh.svg" alt="Refresh" style="width: 35px; height: 35px;" />
+                <img src="images/refresh.svg" alt="Refresh" style="width: clamp(23px, 1.8vw, 35px); height: clamp(23px, 1.8vw, 35px);" />
             </button>
         </div>
         
@@ -641,7 +641,7 @@ function getCurrentProcessId() {
         function renderCapturedTable(tableData) {
             // Create a new container for the captured table
             const capturedTableHTML = `
-                <div class="summary-table-container captured-table-container">
+                <div class="summary-table-container captured-table-container" style="display: none;">
                     <div class="table-header">
                         <span>Data Capture Table</span>
                     </div>
@@ -768,9 +768,15 @@ function getCurrentProcessId() {
             console.log('Column A data:', columnAData);
             
             // Create rows for the original table
+            // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
             columnAData.forEach((value, index) => {
                 if (value && value.trim() !== '') { // Only add non-empty values
                     const row = document.createElement('tr');
+                    
+                    // Set data-row-index to match Data Capture Table row position
+                    // This ensures Summary Table order matches Data Capture Table order
+                    row.setAttribute('data-row-index', String(index));
+                    row.setAttribute('data-product-type', 'main');
                     
                     // Id Product column (merged main and sub)
                     const idProductCell = document.createElement('td');
@@ -1043,7 +1049,10 @@ function getCurrentProcessId() {
             }
         }
 
-        // Check if sourceColumnsValue is in new format (id_product:column_index)
+        // Check if sourceColumnsValue is in new format
+        // Supports two formats:
+        // 1. "id_product:row_label:column_index" (e.g., "BB:C:3") - with row label
+        // 2. "id_product:column_index" (e.g., "BB:3") - backward compatibility
         function isNewIdProductColumnFormat(sourceColumnsValue) {
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 return false;
@@ -1052,14 +1061,21 @@ function getCurrentProcessId() {
             if (parts.length === 0) {
                 return false;
             }
-            // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
-            const newFormatPattern = /^[^:]+:\d+$/;
-            return newFormatPattern.test(parts[0]);
+            // Check for new format with row label: "id_product:row_label:column_index" (e.g., "BB:C:3")
+            const newFormatWithRowLabel = /^[^:]+:[A-Z]+:\d+$/;
+            // Check for new format without row label: "id_product:column_index" (e.g., "BB:3")
+            const newFormatWithoutRowLabel = /^[^:]+:\d+$/;
+            // Return true if matches either format
+            return newFormatWithRowLabel.test(parts[0]) || newFormatWithoutRowLabel.test(parts[0]);
         }
         
         // Parse new format source_columns and get cell values
+        // Supports two formats:
+        // 1. "id_product:row_label:column_index" (e.g., "BB:C:3") - with row label to distinguish multiple rows
+        // 2. "id_product:column_index" (e.g., "BB:3") - backward compatibility, uses first matching row
         function getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue) {
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
+                console.log('getCellValuesFromNewFormat: sourceColumnsValue is empty');
                 return [];
             }
             
@@ -1067,23 +1083,47 @@ function getCurrentProcessId() {
             const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
             const cellValues = [];
             
+            console.log('getCellValuesFromNewFormat: parsing parts:', parts, 'sourceColumnsValue:', sourceColumnsValue);
+            
             parts.forEach(part => {
-                const match = part.match(/^([^:]+):(\d+)$/);
+                // Try new format with row label first: "id_product:row_label:column_index"
+                let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                 if (match) {
                     const idProduct = match[1];
-                    const columnIndex = parseInt(match[2]);
-                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
+                    const rowLabel = match[2];
+                    const columnIndex = parseInt(match[3]);
+                    console.log('getCellValuesFromNewFormat: new format match - idProduct:', idProduct, 'rowLabel:', rowLabel, 'columnIndex:', columnIndex);
+                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel);
+                    console.log('getCellValuesFromNewFormat: cellValue from new format:', cellValue);
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
+                    }
+                } else {
+                    // Fallback to old format: "id_product:column_index" (backward compatibility)
+                    match = part.match(/^([^:]+):(\d+)$/);
+                    if (match) {
+                        const idProduct = match[1];
+                        const columnIndex = parseInt(match[2]);
+                        console.log('getCellValuesFromNewFormat: old format match - idProduct:', idProduct, 'columnIndex:', columnIndex);
+                        const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
+                        console.log('getCellValuesFromNewFormat: cellValue from old format:', cellValue);
+                        if (cellValue !== null && cellValue !== '') {
+                            cellValues.push(cellValue);
+                        }
+                    } else {
+                        console.warn('getCellValuesFromNewFormat: part does not match any format:', part);
                     }
                 }
             });
             
+            console.log('getCellValuesFromNewFormat: final cellValues:', cellValues);
             return cellValues;
         }
         
-        // Get cell value from data capture table by id_product and column index (new format: "id_product:column_index")
-        function getCellValueByIdProductAndColumn(idProduct, columnIndex) {
+        // Get cell value from data capture table by id_product and column index
+        // Supports row_label parameter to distinguish between multiple rows with same id_product
+        // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
+        function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null) {
             try {
                 // Use transformed table data if available, otherwise get from localStorage
                 let parsedTableData;
@@ -1098,10 +1138,70 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 }
                 
-                // Find the row that matches the id_product
-                const processRow = findProcessRow(parsedTableData, idProduct);
+                // If row_label is provided, find the row by both id_product and row_label
+                let processRow = null;
+                let rowIndex = null;
+                
+                if (rowLabel) {
+                    // Find row by row_label first, then verify id_product matches
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const rows = capturedTableBody.querySelectorAll('tr');
+                        console.log('getCellValueByIdProductAndColumn: Searching for row_label:', rowLabel, 'id_product:', idProduct, 'total rows:', rows.length);
+                        for (let i = 0; i < rows.length; i++) {
+                            const row = rows[i];
+                            const rowHeaderCell = row.querySelector('.row-header');
+                            if (!rowHeaderCell) {
+                                continue; // Skip rows without header
+                            }
+                            
+                            const rowHeaderTextRaw = rowHeaderCell.textContent;
+                            const rowHeaderTextTrimmed = rowHeaderTextRaw ? rowHeaderTextRaw.trim() : '';
+                            console.log('getCellValueByIdProductAndColumn: Checking row', i, 'row_header:', JSON.stringify(rowHeaderTextTrimmed), 'rowLabel:', JSON.stringify(rowLabel), 'match:', rowHeaderTextTrimmed === rowLabel);
+                            
+                            // Check if row header matches rowLabel (case-sensitive)
+                                if (rowHeaderTextTrimmed === rowLabel) {
+                                    // Found row by label, now get the row index
+                                    // CRITICAL: Use row_label match - row_label is more reliable than id_product when there are multiple rows with same id_product
+                                    // The row index in DOM directly corresponds to the row index in parsedTableData
+                                    rowIndex = i;
+                                    console.log('getCellValueByIdProductAndColumn: Found row by row_label! rowIndex:', rowIndex, 'rowLabel:', rowLabel);
+                                    
+                                    // Optional: Verify id_product for logging (but don't require it)
+                                    const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
+                                    if (idProductCell) {
+                                        const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                        const cellIdProduct = normalizeIdProductText(cellIdProductText);
+                                        const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                        console.log('getCellValueByIdProductAndColumn: Verified id_product - cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct, 'match:', cellIdProduct === normalizedIdProduct);
+                                    } else {
+                                        console.log('getCellValueByIdProductAndColumn: idProductCell not found, but using row by row_label anyway (rowIndex:', rowIndex, ')');
+                                    }
+                                    break;
+                                }
+                        }
+                    }
+                    
+                    // If found row by label, use findProcessRow with rowIndex
+                    if (rowIndex !== null) {
+                        console.log('getCellValueByIdProductAndColumn: Using rowIndex:', rowIndex, 'for row_label:', rowLabel);
+                        processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
+                        console.log('getCellValueByIdProductAndColumn: Found row by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProduct, 'processRow:', processRow ? 'found' : 'not found');
+                    } else {
+                        console.warn('getCellValueByIdProductAndColumn: row_label not found:', rowLabel);
+                    }
+                }
+                
+                // If row_label not provided or not found, fallback to original behavior
                 if (!processRow) {
-                    console.error('Process row not found for id_product:', idProduct);
+                    processRow = findProcessRow(parsedTableData, idProduct);
+                    if (rowLabel) {
+                        console.warn('Row not found by row_label:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
+                    }
+                }
+                
+                if (!processRow) {
+                    console.error('Process row not found for id_product:', idProduct, 'row_label:', rowLabel);
                     return null;
                 }
                 
@@ -1116,11 +1216,12 @@ function getCurrentProcessId() {
                         // Extract numeric value (remove formatting)
                         const cellValue = cellData.value.toString();
                         const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                        console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
                         return numericValue || cellValue;
                     }
                 }
                 
-                console.error('Cell not found for id_product:', idProduct, 'column:', columnIndex);
+                console.error('Cell not found for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex);
                 return null;
             } catch (error) {
                 console.error('Error getting cell value by id_product and column:', error);
@@ -1358,10 +1459,43 @@ function getCurrentProcessId() {
                                     </div>
                                 </div>
                                 
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="descriptionSelect1">Data</label>
+                                        <div class="description-select-with-buttons">
+                                            <select id="descriptionSelect1">
+                                                <option value="">Select Id Product</option>
+                                                <!-- Id Product options will be loaded here via JavaScript -->
+                                            </select>
+                                            <select id="descriptionSelect2">
+                                                <option value="">Select Row Data</option>
+                                                <!-- Row data options will be loaded here via JavaScript -->
+                                            </select>
+                                            <button type="button" class="description-add-btn" onclick="addSelectedDataToFormula()" title="Add Selected Data To Formula">Add</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 <div class="form-row formula-row-full-width">
                                     <div class="form-group">
                                         <label for="formula">Formula</label>
-                                        <input type="text" id="formula" placeholder="e.g. (5+4)*(-3)/2">
+                                        <input type="text" id="formula" placeholder="e.g. $5+$10*0.6/7">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row formula-row-full-width">
+                                    <div class="form-group">
+                                        <label for="formulaDisplay"></label>
+                                        <input type="text" id="formulaDisplay" readonly style="background-color: #f5f5f5; cursor: not-allowed; color: #666; font-style: italic;" placeholder="">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row formula-row-full-width">
+                                    <div class="form-group">
+                                        <label></label>
+                                        <div id="formulaDataGrid" class="formula-data-grid">
+                                            <!-- Grid options will be loaded here via JavaScript -->
+                                        </div>
                                     </div>
                                 </div>
                                 
@@ -1472,6 +1606,24 @@ function getCurrentProcessId() {
                     populateFormWithData({});
                 }
             });
+            
+            // Load id product list into first select box
+            loadIdProductList();
+            
+            // Update formula data grid for current editing id product
+            setTimeout(() => {
+                updateFormulaDataGrid();
+            }, 100);
+            
+            // Add event listener for first select box change
+            setTimeout(() => {
+                const descriptionSelect1 = document.getElementById('descriptionSelect1');
+                if (descriptionSelect1) {
+                    descriptionSelect1.addEventListener('change', function() {
+                        updateIdProductRowData(this.value);
+                    });
+                }
+            }, 100);
             
             // Add input validation for Source Percent
             addSourcePercentValidation();
@@ -2089,6 +2241,293 @@ function getCurrentProcessId() {
         // Show add account modal (wrapper for compatibility)
         function showAddAccountModal() {
             addAccount();
+        }
+
+        function showAddDescriptionModal() {
+            // TODO: Implement add description modal functionality
+            alert('Add Description功能待实现');
+        }
+
+        // Add selected row data (from second select) into Formula, same behavior as clicking table cell
+        function addSelectedDataToFormula() {
+            const descriptionSelect2 = document.getElementById('descriptionSelect2');
+            if (!descriptionSelect2) return;
+
+            const selectedValue = descriptionSelect2.value;
+            if (!selectedValue) {
+                showNotification('Info', 'Please select row data first.', 'info');
+                return;
+            }
+
+            const parts = selectedValue.split(':');
+            if (parts.length !== 2) {
+                console.warn('Invalid selected value format for descriptionSelect2:', selectedValue);
+                return;
+            }
+
+            const rowIndex = parseInt(parts[0], 10);
+            const columnIndex = parts[1];
+            if (isNaN(rowIndex)) {
+                console.warn('Invalid row index in selected value for descriptionSelect2:', selectedValue);
+                return;
+            }
+
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            if (!capturedTableBody) {
+                console.warn('Captured data table body not found.');
+                return;
+            }
+
+            const rows = capturedTableBody.querySelectorAll('tr');
+            const targetRow = rows[rowIndex];
+            if (!targetRow) {
+                console.warn('Row not found for index:', rowIndex);
+                return;
+            }
+
+            // Find the cell with matching data-column-index
+            const cells = targetRow.querySelectorAll('td');
+            let targetCell = null;
+            cells.forEach(cell => {
+                const colIdx = cell.getAttribute('data-column-index');
+                if (colIdx === columnIndex) {
+                    targetCell = cell;
+                }
+            });
+
+            if (!targetCell) {
+                console.warn('Cell not found for column index:', columnIndex, 'in row index:', rowIndex);
+                return;
+            }
+
+            // Reuse existing logic: behave exactly like clicking the cell
+            insertCellValueToFormula(targetCell);
+        }
+
+        // Load all unique id products from table into first select box
+        function loadIdProductList() {
+            const descriptionSelect1 = document.getElementById('descriptionSelect1');
+            if (!descriptionSelect1) return;
+
+            // Clear existing options except the first one
+            descriptionSelect1.innerHTML = '<option value="">Select Id Product</option>';
+
+            // Get table data
+            let parsedTableData;
+            if (window.transformedTableData) {
+                parsedTableData = window.transformedTableData;
+            } else {
+                const tableData = localStorage.getItem('capturedTableData');
+                if (!tableData) {
+                    console.log('No table data found');
+                    return;
+                }
+                parsedTableData = JSON.parse(tableData);
+            }
+
+            // Get unique id products from table
+            const idProductSet = new Set();
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            
+            if (capturedTableBody) {
+                // Get from DOM
+                const rows = capturedTableBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    const idProduct = row.getAttribute('data-id-product');
+                    if (idProduct && idProduct.trim() !== '') {
+                        idProductSet.add(idProduct.trim());
+                    }
+                });
+            } else if (parsedTableData && parsedTableData.rows) {
+                // Get from parsed data
+                parsedTableData.rows.forEach(row => {
+                    if (row && row.length > 1 && row[1] && row[1].type === 'data') {
+                        const idProduct = row[1].value;
+                        if (idProduct && idProduct.trim() !== '') {
+                            idProductSet.add(idProduct.trim());
+                        }
+                    }
+                });
+            }
+
+            // Add options to select box
+            const sortedIdProducts = Array.from(idProductSet).sort();
+            sortedIdProducts.forEach(idProduct => {
+                const option = document.createElement('option');
+                option.value = idProduct;
+                option.textContent = idProduct;
+                descriptionSelect1.appendChild(option);
+            });
+
+            // Auto-select first option if available
+            if (sortedIdProducts.length > 0) {
+                descriptionSelect1.value = sortedIdProducts[0];
+                // Trigger update for second select box
+                updateIdProductRowData(sortedIdProducts[0]);
+            }
+        }
+
+        // Update second select box with row data for selected id product
+        function updateIdProductRowData(idProduct) {
+            const descriptionSelect2 = document.getElementById('descriptionSelect2');
+            if (!descriptionSelect2) return;
+
+            // Clear existing options
+            descriptionSelect2.innerHTML = '<option value="">Select Row Data</option>';
+
+            if (!idProduct || idProduct.trim() === '') {
+                return;
+            }
+
+            // Get table data
+            let parsedTableData;
+            if (window.transformedTableData) {
+                parsedTableData = window.transformedTableData;
+            } else {
+                const tableData = localStorage.getItem('capturedTableData');
+                if (!tableData) {
+                    console.log('No table data found');
+                    return;
+                }
+                parsedTableData = JSON.parse(tableData);
+            }
+
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            if (!capturedTableBody) return;
+
+            const rows = capturedTableBody.querySelectorAll('tr');
+            let firstOptionValue = null;
+            rows.forEach((row, rowIndex) => {
+                const rowIdProduct = row.getAttribute('data-id-product');
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
+                    
+                    cells.forEach((cell, cellIndex) => {
+                        const columnIndex = cell.getAttribute('data-column-index');
+                        if (columnIndex && parseInt(columnIndex) > 1) {
+                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            if (cellValue !== '') {
+                                // Create a separate option for each column data
+                                const option = document.createElement('option');
+                                option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
+                                option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
+                                descriptionSelect2.appendChild(option);
+                                
+                                // Store first option value for auto-selection
+                                if (firstOptionValue === null) {
+                                    firstOptionValue = option.value;
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+
+            // Auto-select first option if available
+            if (firstOptionValue !== null) {
+                descriptionSelect2.value = firstOptionValue;
+            }
+        }
+
+        // Update formula data grid with row data for current editing id product
+        function updateFormulaDataGrid() {
+            const formulaDataGrid = document.getElementById('formulaDataGrid');
+            if (!formulaDataGrid) return;
+
+            // Clear existing grid items
+            formulaDataGrid.innerHTML = '';
+
+            // Get current editing id product from process input
+            const processInput = document.getElementById('process');
+            if (!processInput) return;
+
+            const idProduct = processInput.value.trim();
+            if (!idProduct || idProduct === '') {
+                return;
+            }
+
+            // Get table data
+            let parsedTableData;
+            if (window.transformedTableData) {
+                parsedTableData = window.transformedTableData;
+            } else {
+                const tableData = localStorage.getItem('capturedTableData');
+                if (!tableData) {
+                    console.log('No table data found for formula data grid');
+                    return;
+                }
+                parsedTableData = JSON.parse(tableData);
+            }
+
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            if (!capturedTableBody) return;
+
+            const rows = capturedTableBody.querySelectorAll('tr');
+            rows.forEach((row, rowIndex) => {
+                const rowIdProduct = row.getAttribute('data-id-product');
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
+                    
+                    cells.forEach((cell, cellIndex) => {
+                        const columnIndex = cell.getAttribute('data-column-index');
+                        if (columnIndex && parseInt(columnIndex) > 1) {
+                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            if (cellValue !== '') {
+                                // Create a grid item for each column data
+                                const gridItem = document.createElement('div');
+                                gridItem.className = 'formula-data-grid-item';
+                                gridItem.textContent = `[${columnIndex}] ${cellValue}`;
+                                gridItem.setAttribute('data-row-index', rowIndex);
+                                gridItem.setAttribute('data-column-index', columnIndex);
+                                
+                                // Add click event to insert value into formula (same behavior as descriptionSelect2)
+                                gridItem.addEventListener('click', function() {
+                                    const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
+                                    const targetColumnIndex = this.getAttribute('data-column-index');
+                                    
+                                    // Re-get rows to ensure we have the latest data
+                                    const capturedTableBody = document.getElementById('capturedTableBody');
+                                    if (!capturedTableBody) {
+                                        console.warn('Captured data table body not found.');
+                                        return;
+                                    }
+                                    
+                                    const currentRows = capturedTableBody.querySelectorAll('tr');
+                                    const targetRow = currentRows[targetRowIndex];
+                                    if (!targetRow) {
+                                        console.warn('Row not found for index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Find the cell with matching data-column-index
+                                    const targetCells = targetRow.querySelectorAll('td');
+                                    let targetCell = null;
+                                    targetCells.forEach(cell => {
+                                        const colIdx = cell.getAttribute('data-column-index');
+                                        if (colIdx === targetColumnIndex) {
+                                            targetCell = cell;
+                                        }
+                                    });
+                                    
+                                    if (!targetCell) {
+                                        console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Reuse existing logic: behave exactly like clicking the cell
+                                    insertCellValueToFormula(targetCell);
+                                });
+                                
+                                formulaDataGrid.appendChild(gridItem);
+                            }
+                        }
+                    });
+                }
+            });
         }
 
         // Close add account modal (wrapper for compatibility)
@@ -2992,6 +3431,238 @@ function getCurrentProcessId() {
             }
         }
         
+        // 更新公式显示框：将 formula 中的 $数字 或列引用转换为实际值
+        // 例如 "$5+$10*0.6/7" 会被转换为 "2039+434*0.6/7"
+        function updateFormulaDisplay(formulaValue, processValue) {
+            const formulaDisplayInput = document.getElementById('formulaDisplay');
+            if (!formulaDisplayInput) {
+                return;
+            }
+            
+            // 如果 formulaValue 为空，清空显示框
+            if (!formulaValue || formulaValue.trim() === '') {
+                formulaDisplayInput.value = '';
+                return;
+            }
+            
+            if (!processValue) {
+                const processInput = document.getElementById('process');
+                processValue = processInput ? processInput.value.trim() : null;
+            }
+            
+            if (!processValue) {
+                formulaDisplayInput.value = '';
+                return;
+            }
+            
+            try {
+                // 获取行标签
+                const rowLabel = getRowLabelFromProcessValue(processValue);
+                if (!rowLabel) {
+                    formulaDisplayInput.value = formulaValue;
+                    return;
+                }
+                
+                // 直接处理：将 $数字 转换为实际值
+                // 使用更精确的匹配方式，确保 $10 不会匹配到 $1
+                let displayFormula = formulaValue;
+                
+                // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
+                // 使用非贪婪匹配，但需要确保匹配完整的数字
+                // 先找到所有匹配项及其位置
+                const dollarMatches = [];
+                
+                // 使用更精确的正则表达式：匹配 $ 后跟一个或多个数字，但确保后面不是数字
+                // 这样可以避免 $10 被匹配为 $1 和 $10
+                // 使用负向前瞻：\$(\d+)(?!\d) 确保 $ 后的数字后面不是数字
+                const dollarPattern = /\$(\d+)(?!\d)/g;
+                let match;
+                
+                // 重置正则表达式的 lastIndex，确保从头开始匹配
+                dollarPattern.lastIndex = 0;
+                
+                // 先收集所有匹配项，按位置排序
+                const allMatches = [];
+                while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                    const fullMatch = match[0]; // 例如 "$5" 或 "$10"
+                    const columnNumber = parseInt(match[1]); // 例如 5 或 10
+                    const matchIndex = match.index;
+                    
+                    if (!isNaN(columnNumber) && columnNumber > 0) {
+                        allMatches.push({
+                            fullMatch: fullMatch,
+                            columnNumber: columnNumber,
+                            index: matchIndex
+                        });
+                    }
+                }
+                
+                // 从后往前处理，避免位置偏移
+                allMatches.sort((a, b) => b.index - a.index);
+                
+                for (let i = 0; i < allMatches.length; i++) {
+                    const match = allMatches[i];
+                    // 获取列的实际值
+                    const columnReference = rowLabel + match.columnNumber;
+                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                    
+                    if (columnValue !== null) {
+                        // 替换 $数字 为实际值
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        columnValue + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
+                    } else {
+                        // 如果找不到值，替换为 0
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        '0' + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
+                    }
+                }
+                
+                // 如果还有列引用（如 A5），也转换为实际值
+                // 使用 parseReferenceFormula 来处理列引用
+                const parsedFormula = parseReferenceFormula(displayFormula);
+                
+                // 更新显示框
+                formulaDisplayInput.value = parsedFormula || displayFormula;
+            } catch (error) {
+                console.error('Error updating formula display:', error);
+                formulaDisplayInput.value = '';
+            }
+        }
+        
+        // Process $符号: 将 $数字 转换为列引用 (例如 $5 -> A5)
+        // 例如 "$5+$10*0.6/7" 会被转换为 "A5+A10*0.6/7"
+        // 注意：这个函数现在不再自动修改输入框，只用于内部处理
+        function processDollarColumnReferences(formulaValue, processValue) {
+            if (!formulaValue || !processValue) {
+                return formulaValue;
+            }
+            
+            // 匹配 $ 后跟数字的模式 (例如 $5, $10, $123)
+            // 使用正则表达式: \$(\d+)
+            const dollarPattern = /\$(\d+)/g;
+            let result = formulaValue;
+            let match;
+            const replacements = [];
+            
+            // 获取行标签 (A, B, C 等)
+            const rowLabel = getRowLabelFromProcessValue(processValue);
+            if (!rowLabel) {
+                return formulaValue; // 如果无法获取行标签，返回原值
+            }
+            
+            // 获取当前选中的行
+            let targetRow = currentSelectedRowForCalculator;
+            if (!targetRow) {
+                const processInput = document.getElementById('process');
+                if (processInput && processInput.value) {
+                    const processValueFromInput = processInput.value.trim();
+                    if (processValueFromInput) {
+                        const summaryTableBody = document.getElementById('summaryTableBody');
+                        if (summaryTableBody) {
+                            const rows = summaryTableBody.querySelectorAll('tr');
+                            for (let row of rows) {
+                                const rowProcessValue = getProcessValueFromRow(row);
+                                if (rowProcessValue === processValueFromInput) {
+                                    targetRow = row;
+                                    currentSelectedRowForCalculator = row;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 查找所有 $数字 模式，并记录它们的索引位置
+            while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                const fullMatch = match[0]; // 例如 "$5"
+                const columnNumber = parseInt(match[1]); // 例如 5
+                const matchIndex = match.index; // 匹配位置
+                
+                if (!isNaN(columnNumber) && columnNumber > 0) {
+                    // 构建列引用 (例如 "A5")
+                    const columnReference = rowLabel + columnNumber;
+                    
+                    // 记录替换信息（包括索引位置）
+                    replacements.push({
+                        from: fullMatch,
+                        to: columnReference,
+                        columnNumber: columnNumber,
+                        index: matchIndex
+                    });
+                }
+            }
+            
+            // 执行替换 (从后往前替换，避免位置偏移问题)
+            if (replacements.length > 0) {
+                // 按索引从大到小排序，从后往前替换
+                replacements.sort((a, b) => b.index - a.index);
+                
+                // 从后往前替换，避免位置偏移
+                for (let i = 0; i < replacements.length; i++) {
+                    const replacement = replacements[i];
+                    // 使用记录的索引位置进行精确替换
+                    result = result.substring(0, replacement.index) + 
+                            replacement.to + 
+                            result.substring(replacement.index + replacement.from.length);
+                }
+                
+                // 更新 data-clicked-columns 和 data-value-column-map
+                const formulaInput = document.getElementById('formula');
+                if (formulaInput) {
+                    const clickedColumns = [];
+                    const valueColumnMap = [];
+                    
+                    replacements.forEach(replacement => {
+                        clickedColumns.push(replacement.columnNumber);
+                        // 获取列的实际值
+                        const columnValue = getColumnValueFromSelectedRow(replacement.columnNumber);
+                        if (columnValue !== null) {
+                            valueColumnMap.push(`${replacement.to}:${replacement.columnNumber}`);
+                        }
+                    });
+                    
+                    // 更新 data-clicked-columns
+                    if (clickedColumns.length > 0) {
+                        const existingColumns = formulaInput.getAttribute('data-clicked-columns') || '';
+                        const existingColumnsArray = existingColumns ? existingColumns.split(',').map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
+                        clickedColumns.forEach(col => {
+                            if (!existingColumnsArray.includes(col)) {
+                                existingColumnsArray.push(col);
+                            }
+                        });
+                        formulaInput.setAttribute('data-clicked-columns', existingColumnsArray.join(','));
+                    }
+                    
+                    // 更新 data-value-column-map
+                    if (valueColumnMap.length > 0) {
+                        const existingMap = formulaInput.getAttribute('data-value-column-map') || '';
+                        const existingMapArray = existingMap ? existingMap.split(',') : [];
+                        valueColumnMap.forEach(entry => {
+                            if (!existingMapArray.includes(entry)) {
+                                existingMapArray.push(entry);
+                            }
+                        });
+                        formulaInput.setAttribute('data-value-column-map', existingMapArray.join(','));
+                    }
+                    
+                    // 更新 data-clicked-cells
+                    replacements.forEach(replacement => {
+                        let clickedCells = formulaInput.getAttribute('data-clicked-cells') || '';
+                        const cellsArray = clickedCells ? clickedCells.split(' ').filter(c => c.trim() !== '') : [];
+                        if (!cellsArray.includes(replacement.to)) {
+                            cellsArray.push(replacement.to);
+                            formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
+                        }
+                    });
+                }
+            }
+            
+            return result;
+        }
+        
         // Process manual keyboard input for formula: replace numbers with column references based on preceding operator
         // Numbers after + or - (or at start) should be replaced with column references (e.g., "4" -> "A4")
         // Numbers after * or / should remain as literal numbers
@@ -3264,36 +3935,24 @@ function getCurrentProcessId() {
                     const fromCellClick = this.getAttribute('data-from-cell-click') === 'true';
                     if (fromCellClick) {
                         previousValue = formulaValue;
+                        // 即使来自 cell click，也要更新显示框
+                        updateFormulaDisplay(formulaValue, processValue);
                         return;
                     }
                     
-                    // Process manual keyboard input: replace numbers with column values based on preceding operator
-                    // Numbers after + or - (or at start) should be replaced with column values
-                    // Numbers after * or / should remain as literal numbers
-                    if (processValue && formulaValue !== previousValue) {
-                        const cursorPos = this.selectionStart || this.value.length;
-                        const newValue = processManualFormulaInput(formulaValue, previousValue, cursorPos, processValue);
-                        if (newValue !== formulaValue) {
-                            // Update the value
-                            const oldCursorPos = this.selectionStart || this.value.length;
-                            this.value = newValue;
-                            // Restore cursor position (adjust for length change)
-                            const lengthDiff = newValue.length - formulaValue.length;
-                            const newCursorPos = Math.max(0, Math.min(oldCursorPos + lengthDiff, newValue.length));
-                            this.setSelectionRange(newCursorPos, newCursorPos);
-                            previousValue = newValue;
-                            // Continue processing with the updated value
-                            formulaValue = newValue;
-                        } else {
-                            previousValue = formulaValue;
-                        }
-                    } else {
-                        previousValue = formulaValue;
-                    }
+                    // 更新 previousValue
+                    previousValue = formulaValue;
+                    
+                    // 立即更新显示框：将 formula 中的 $数字 或列引用转换为实际值显示
+                    // 每次输入时立即更新，不需要等待
+                    updateFormulaDisplay(formulaValue, processValue);
                     
                     // Handle empty formula: clear all related attributes
                     // BUT: In edit mode, preserve existing columns even if formula is cleared
                     if (!formulaValue || formulaValue.trim() === '') {
+                        // 清空显示框
+                        updateFormulaDisplay('', processValue);
+                        
                         const isEditMode = !!window.currentEditRow;
                         if (isEditMode) {
                             // In edit mode, preserve existing columns when formula is cleared
@@ -3748,6 +4407,11 @@ function getCurrentProcessId() {
                 // 添加额外的键盘事件监听器，确保全选删除时也能正确更新
                 // 处理 Backspace 和 Delete 键
                 formulaInput.addEventListener('keyup', function(e) {
+                    // 每次按键后都更新显示框，确保实时更新
+                    const formulaValue = this.value;
+                    const processValue = document.getElementById('process')?.value;
+                    updateFormulaDisplay(formulaValue, processValue);
+                    
                     // 当按下 Backspace 或 Delete 键后，确保值被正确更新
                     if (e.key === 'Backspace' || e.key === 'Delete') {
                         // 触发 input 事件以确保值被正确处理
@@ -3903,23 +4567,48 @@ function getCurrentProcessId() {
             
             // Calculate data column number (colIndex 1 = id_product, colIndex 2 = data column 1, etc.)
             // Data column index starts from 1: colIndex 2 = column 1, colIndex 3 = column 2, etc.
+            // dataColumnIndex: 1-based index within data columns (used for internal references)
+            // displayColumnIndex: actual table column index shown to用户 (用于 $数字 显示)
             let dataColumnIndex = null;
+            let displayColumnIndex = null;
             if (columnIndex !== null) {
                 const colIdx = parseInt(columnIndex);
-                if (colIdx >= 2) {
-                    // colIndex 2 = data column 1, colIndex 3 = data column 2, etc.
-                    dataColumnIndex = colIdx - 1; // Convert to 1-based data column index
-                } else if (colIdx === 1) {
-                    // This is the id_product column itself, skip it
-                    console.warn('Clicked on id_product column, skipping');
-                    return;
+                if (!isNaN(colIdx)) {
+                    displayColumnIndex = colIdx; // e.g. 第四个实际列 => 4
+                    if (colIdx >= 2) {
+                        // colIndex 2 = data column 1, colIndex 3 = data column 2, etc.
+                        dataColumnIndex = colIdx - 1; // Convert to 1-based data column index
+                    } else if (colIdx === 1) {
+                        // This is the id_product column itself, skip it
+                        console.warn('Clicked on id_product column, skipping');
+                        return;
+                    }
                 }
             }
             
             // Store id_product:column_index reference (new format)
+            // IMPORTANT: Include row_label to distinguish between multiple rows with same id_product
+            // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
             if (idProduct && dataColumnIndex !== null) {
-                // Format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
-                const cellReference = `${idProduct}:${dataColumnIndex}`;
+                // Get row label from cell or row
+                let rowLabel = cell.getAttribute('data-row-label');
+                if (!rowLabel && row) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    if (rowHeaderCell) {
+                        rowLabel = rowHeaderCell.textContent.trim();
+                        cell.setAttribute('data-row-label', rowLabel);
+                    }
+                }
+                
+                // Build cell reference with row label if available
+                let cellReference;
+                if (rowLabel) {
+                    // New format with row label: "id_product:row_label:column_index" (e.g., "BB:C:3")
+                    cellReference = `${idProduct}:${rowLabel}:${dataColumnIndex}`;
+                } else {
+                    // Backward compatibility: "id_product:column_index" (e.g., "BB:3")
+                    cellReference = `${idProduct}:${dataColumnIndex}`;
+                }
                 
                 // Store clicked cell references in new format
                 let clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
@@ -3932,15 +4621,9 @@ function getCurrentProcessId() {
                 
                 // Also keep backward compatibility with old format (cell positions)
                 let cellPosition = cell.getAttribute('data-cell-position');
-                let rowLabel = cell.getAttribute('data-row-label');
-                if (!cellPosition && row) {
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    if (rowHeaderCell) {
-                        rowLabel = rowHeaderCell.textContent.trim();
-                        cellPosition = rowLabel + columnIndex;
-                        cell.setAttribute('data-row-label', rowLabel);
-                        cell.setAttribute('data-cell-position', cellPosition);
-                    }
+                if (!cellPosition && rowLabel) {
+                    cellPosition = rowLabel + columnIndex;
+                    cell.setAttribute('data-cell-position', cellPosition);
                 }
                 
                 if (cellPosition) {
@@ -3960,9 +4643,27 @@ function getCurrentProcessId() {
             // Get cursor position
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
-            // Insert value at cursor position
+            // Insert column reference ($columnNumber) instead of value at cursor position
+            // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
+            let valueToInsert;
+            if (displayColumnIndex !== null && displayColumnIndex > 0) {
+                // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
+                // displayColumnIndex 就是 data-column-index 的值，直接使用
+                valueToInsert = `$${displayColumnIndex}`;
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
+            } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
+                // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
+                // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
+                valueToInsert = `$${dataColumnIndex + 1}`;
+                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex);
+            } else {
+                // Fallback to inserting the numeric value if column index cannot be determined
+                valueToInsert = numValue;
+                console.log('Inserting numeric value (fallback):', valueToInsert);
+            }
+            
             const currentValue = formulaInput.value;
-            const newValue = currentValue.slice(0, cursorPos) + numValue + currentValue.slice(cursorPos);
+            const newValue = currentValue.slice(0, cursorPos) + valueToInsert + currentValue.slice(cursorPos);
             
             // Set a flag to indicate this value came from a cell click, not manual input
             // This prevents processManualFormulaInput from re-processing it based on column
@@ -3970,7 +4671,7 @@ function getCurrentProcessId() {
             formulaInput.value = newValue;
             
             // Set cursor position after inserted value
-            const newCursorPos = cursorPos + numValue.toString().length;
+            const newCursorPos = cursorPos + valueToInsert.length;
             setTimeout(() => {
                 formulaInput.setSelectionRange(newCursorPos, newCursorPos);
                 formulaInput.focus();
@@ -3992,7 +4693,7 @@ function getCurrentProcessId() {
                 cell.style.backgroundColor = originalBg;
             }, 300);
             
-            console.log('Inserted value:', numValue, 'into formula at position:', cursorPos);
+            console.log('Inserted column reference:', valueToInsert, 'into formula at position:', cursorPos);
         }
 
         
@@ -4129,13 +4830,33 @@ function getCurrentProcessId() {
                     if (formulaInput) {
                         console.log('populateFormWithData - Setting formula value:', data.formula);
                         formulaInput.value = data.formula || '';
+                        // 更新显示框
+                        const processValue = document.getElementById('process')?.value;
+                        updateFormulaDisplay(data.formula || '', processValue);
                         // Restore clicked columns if provided
                         if (data.clickedColumns) {
-                            formulaInput.setAttribute('data-clicked-columns', data.clickedColumns);
+                            // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
+                            // If so, restore to data-clicked-cell-refs instead of data-clicked-columns
+                            const isNewFormat = isNewIdProductColumnFormat(data.clickedColumns);
+                            
+                            if (isNewFormat) {
+                                // New format: restore to data-clicked-cell-refs (preserves id_product:column format)
+                                formulaInput.setAttribute('data-clicked-cell-refs', data.clickedColumns);
+                                console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs:', data.clickedColumns);
+                            } else {
+                                // Old format: restore to data-clicked-columns (backward compatibility)
+                                formulaInput.setAttribute('data-clicked-columns', data.clickedColumns);
+                                console.log('Edit mode: Restored old format to data-clicked-columns:', data.clickedColumns);
+                            }
+                            
                             // In edit mode, save original columns to preserve them when user adds new columns
                             const isEditMode = !!window.currentEditRow;
                             if (isEditMode) {
-                                formulaInput.setAttribute('data-original-clicked-columns', data.clickedColumns);
+                                if (isNewFormat) {
+                                    formulaInput.setAttribute('data-original-clicked-cell-refs', data.clickedColumns);
+                                } else {
+                                    formulaInput.setAttribute('data-original-clicked-columns', data.clickedColumns);
+                                }
                                 console.log('Edit mode: Saved original columns:', data.clickedColumns);
                             }
                         }
@@ -4152,6 +4873,9 @@ function getCurrentProcessId() {
                         descriptionInput.value = data.description;
                     }
                 }
+                
+                // Update formula data grid after form is populated
+                updateFormulaDataGrid();
                 
                 // Set input method if provided
                 if (data.inputMethod) {
@@ -4238,31 +4962,7 @@ function getCurrentProcessId() {
             const cells = row.querySelectorAll('td');
             const productType = row.getAttribute('data-product-type') || (formData.isSubIdProduct ? 'sub' : 'main');
             
-            // Calculate current row index within summary table body (0-based)
-            // First try to use data-row-index attribute if available (more accurate)
-            let rowIndex = null;
-            const dataRowIndex = row.getAttribute('data-row-index');
-            if (dataRowIndex !== null && dataRowIndex !== '' && !Number.isNaN(Number(dataRowIndex))) {
-                rowIndex = Number(dataRowIndex);
-            } else {
-                // Fallback: calculate from current position in table
-                try {
-                    const summaryTableBody = document.getElementById('summaryTableBody');
-                    if (summaryTableBody) {
-                        const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                        const index = allRows.indexOf(row);
-                        if (index !== -1) {
-                            rowIndex = index;
-                            // Also update the data attribute for future use
-                            row.setAttribute('data-row-index', String(index));
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Failed to compute row_index for template saving', e);
-                }
-            }
-            
-            // Get id_product_main and id_product_sub from row
+            // Get id_product_main and id_product_sub from row first
             const idProductCell = cells[0];
             const productValues = getProductValuesFromCell(idProductCell);
             let idProductMain = '';
@@ -4295,6 +4995,68 @@ function getCurrentProcessId() {
                 } else {
                     // Even without parentheses, clean trailing colons and spaces
                     idProductSub = subText.replace(/[: ]+$/, '').trim();
+                }
+            }
+            
+            // Calculate row_index based on Data Capture Table row order, not Summary Table position
+            // IMPORTANT: row_index should reflect the position in Data Capture Table (A, B, C...)
+            // This ensures that Summary Table order matches Data Capture Table order
+            // CRITICAL: When there are multiple rows with same id_product, we need to match by position
+            // Since Summary Table is created in the same order as Data Capture Table,
+            // the position in Summary Table directly corresponds to Data Capture Table row index
+            let rowIndex = null;
+            try {
+                // First, try to use the position in Summary Table (which matches Data Capture Table order)
+                const summaryTableBody = document.getElementById('summaryTableBody');
+                if (summaryTableBody) {
+                    const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const summaryIndex = allSummaryRows.indexOf(row);
+                    if (summaryIndex !== -1) {
+                        // Summary Table position directly corresponds to Data Capture Table row index
+                        // because populateOriginalTableWithColumnAData creates rows in Data Capture Table order
+                        rowIndex = summaryIndex;
+                        console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', formData.processValue || 'unknown');
+                    }
+                }
+                
+                // Verify: Check if the Data Capture Table row at this index matches
+                if (rowIndex !== null) {
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
+                        if (rowIndex < capturedRows.length) {
+                            const capturedRow = capturedRows[rowIndex];
+                            const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+                            if (capturedIdProductCell) {
+                                const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                                const idProduct = productType === 'sub' 
+                                    ? (idProductSub || normalizeIdProductText(formData.processValue))
+                                    : (idProductMain || normalizeIdProductText(formData.processValue));
+                                const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                
+                                if (capturedIdProduct === normalizedIdProduct) {
+                                    // Verified: Summary Table position matches Data Capture Table row
+                                    console.log('Verified row_index matches Data Capture Table:', rowIndex, 'id_product:', idProduct);
+                                } else {
+                                    console.warn('Warning: Summary Table position', rowIndex, 'does not match Data Capture Table id_product. Expected:', normalizedIdProduct, 'Found:', capturedIdProduct);
+                                    // Still use this row_index as it represents the correct position
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Update the data attribute for future use
+                if (rowIndex !== null) {
+                    row.setAttribute('data-row-index', String(rowIndex));
+                }
+            } catch (e) {
+                console.warn('Failed to compute row_index for template saving', e);
+                // Fallback: try to use existing data-row-index if available
+                const dataRowIndex = row.getAttribute('data-row-index');
+                if (dataRowIndex !== null && dataRowIndex !== '' && !Number.isNaN(Number(dataRowIndex))) {
+                    rowIndex = Number(dataRowIndex);
+                    console.log('Using fallback data-row-index:', rowIndex);
                 }
             }
             
@@ -4717,25 +5479,96 @@ function getCurrentProcessId() {
             
             // Get Columns display from clicked columns (preferred) or extract from formula
             const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
-            let columnsDisplay = clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
             
-            // Check if formulaValue already contains a percent part (user manually entered it)
-            // Look for * followed by a number (may be at the end or in the middle)
+            // 获取列引用格式（用于保存到 sourceColumns）
+            // 格式：id_product:row_label:column_index，如 "GGG:A:10 GGG:A:8"
+            let sourceColumns = '';
+            // formulaInput 已经在上面声明过了，直接使用
+            if (formulaInput && formulaValue && formulaValue.trim() !== '') {
+                // 从 formulaValue 中提取所有 $数字，转换为列引用格式
+                const rowLabel = getRowLabelFromProcessValue(processValue);
+                if (rowLabel) {
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                    let match;
+                    dollarPattern.lastIndex = 0;
+                    const columnRefs = [];
+                    
+                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                        const columnNumber = parseInt(match[1]);
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            // 格式：id_product:row_label:column_index
+                            const columnRef = `${processValue}:${rowLabel}:${columnNumber}`;
+                            if (!columnRefs.includes(columnRef)) {
+                                columnRefs.push(columnRef);
+                            }
+                        }
+                    }
+                    
+                    if (columnRefs.length > 0) {
+                        sourceColumns = columnRefs.join(' ');
+                    }
+                }
+                
+                // 如果从 $数字 格式中没有提取到列引用，尝试从 data-clicked-columns 属性中获取
+                // 这适用于用户通过键盘直接输入数字（如"2+6"）的情况
+                if (!sourceColumns && formulaInput) {
+                    const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
+                    if (clickedColumns && clickedColumns.trim() !== '') {
+                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        if (rowLabel) {
+                            const columnsArray = clickedColumns.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c) && c > 0);
+                            if (columnsArray.length > 0) {
+                                const columnRefs = columnsArray.map(colNum => `${processValue}:${rowLabel}:${colNum}`);
+                                sourceColumns = columnRefs.join(' ');
+                                console.log('saveFormula - Built sourceColumns from data-clicked-columns:', sourceColumns);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // In edit mode, prefer existing sourceColumns over extracting from formula
+            // This prevents incorrect column extraction when formula contains manual inputs like /4
+            let columnsDisplay = '';
+            if (isEditMode && window.currentEditRow) {
+                const existingSourceColumns = window.currentEditRow.getAttribute('data-source-columns') || '';
+                columnsDisplay = sourceColumns || clickedColumnsDisplay || existingSourceColumns || extractNumbersFromFormula(formulaValue);
+            } else {
+                columnsDisplay = sourceColumns || clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
+            }
+            
+            // 优先使用 formulaDisplay 输入框的值（转换后的值，如 "9+7*0.7/5"）
+            // 如果 formulaDisplay 输入框为空，则从 formulaValue 转换
+            const formulaDisplayInput = document.getElementById('formulaDisplay');
             let formulaDisplay = '';
             
-            // If formulaValue is empty or only whitespace, keep formulaDisplay as empty string
-            // Also clear sourceColumns and columnsDisplay when formula is cleared
             if (!formulaValue || formulaValue.trim() === '') {
                 formulaDisplay = '';
                 columnsDisplay = ''; // Clear columnsDisplay when formula is empty
+                sourceColumns = ''; // Clear sourceColumns when formula is empty
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
             } else {
-                const trimmedFormula = formulaValue.trim();
-                // 统一由 Source Percent 控制百分比，不再从公式中自动识别 *0.1 这一类“内置百分比”
-                // 这样就可以保证：只要勾选了 Enable，并填写了 Source Percent，
-                // 整个公式的结果都会再乘上 Source Percent，而不会因为公式里含有 *0.2 等运算而被误判为“已含百分比”
-                formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                console.log('Created formulaDisplay from expression (always use Source Percent):', formulaDisplay);
+                // 优先使用 formulaDisplay 输入框的值（已经转换好的值）
+                if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
+                    const convertedFormula = formulaDisplayInput.value.trim();
+                    // 添加 Source Percent 部分（如果需要）
+                    formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    console.log('saveFormula - Using formulaDisplay input value:', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
+                } else {
+                    // 如果 formulaDisplay 输入框为空，从 formulaValue 转换
+                    const trimmedFormula = formulaValue.trim();
+                    // 先将 $数字 转换为实际值
+                    const processValueForDisplay = processValue;
+                    // 临时更新显示框以获取转换后的值
+                    updateFormulaDisplay(trimmedFormula, processValueForDisplay);
+                    const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
+                    if (convertedFormula && convertedFormula !== '') {
+                        formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    } else {
+                        formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    }
+                    console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
+                }
             }
             
             // Calculate processed amount
@@ -4780,7 +5613,8 @@ function getCurrentProcessId() {
                 const editingType = editingRow.getAttribute('data-product-type') || 'main';
                 const existingSourceColumns = editingRow.getAttribute('data-source-columns') || '';
                 // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                const finalSourceColumns = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || existingSourceColumns || '');
+                // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
+                const finalSourceColumns = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || existingSourceColumns || '');
                 const basePayload = {
                     idProduct: processValue,
                     description: descriptionValue,
@@ -4790,9 +5624,9 @@ function getCurrentProcessId() {
                     currency: currencyName || 'Currency',
                     currencyDbId: currencyValue,
                     columns: columnsDisplay,
-                    // 优先使用用户本次点击的列；若未点击则保留行里已有的列映射，方便引用格式展示
+                    // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
                     // 如果formula为空，清空sourceColumns以防止页面刷新时重新生成formula
-                    sourceColumns: finalSourceColumns,
+                    sourceColumns: sourceColumns || finalSourceColumns,
                     batchSelection: batchSelectionChecked, // Use actual checkbox state from table row
                     source: formulaValue || 'Source', // Use formula as source
                     // 如果没有填写 Source Percent，则显示/保存为 1 (1 = 100%)
@@ -4834,7 +5668,7 @@ function getCurrentProcessId() {
                 const newRow = addSubIdProductRow(processValue, baseRow);
                 const baseRowSourceCols = baseRow ? (baseRow.getAttribute('data-source-columns') || '') : '';
                 // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || baseRowSourceCols || '');
+                const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || baseRowSourceCols || '');
                 updateSubIdProductRow(processValue, {
                     idProduct: processValue,
                     description: descriptionValue,
@@ -4859,6 +5693,14 @@ function getCurrentProcessId() {
 
                 // 记录刚创建的 sub 行，供后面的模板保存使用
                 window.lastCreatedRowForTemplateSave = newRow;
+                
+                // Reorder rows after adding new sub row to ensure correct position
+                // Use setTimeout to ensure DOM is updated first
+                setTimeout(() => {
+                    if (typeof reorderSummaryRowsByRowIndex === 'function') {
+                        reorderSummaryRowsByRowIndex();
+                    }
+                }, 10);
             } else {
                 // main 行点击 +：如果主行还没有账号，就更新主行；否则为该 Id Product 新增一条 sub 行
                 const targetRow = currentButton ? currentButton.closest('tr') : null;
@@ -4871,7 +5713,7 @@ function getCurrentProcessId() {
                     if (targetRow) {
                         const targetRowSourceCols = targetRow.getAttribute('data-source-columns') || '';
                         // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                        const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || targetRowSourceCols || '');
+                        const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
                         updateSummaryTableRow(processValue, {
                             idProduct: processValue,
                             description: descriptionValue,
@@ -4896,7 +5738,7 @@ function getCurrentProcessId() {
                     } else {
                         const baseSourceCols = targetRow ? (targetRow.getAttribute('data-source-columns') || '') : '';
                         // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                        const finalSourceColumnsForMain2 = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || baseSourceCols || '');
+                        const finalSourceColumnsForMain2 = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || baseSourceCols || '');
                         updateSummaryTableRow(processValue, {
                             idProduct: processValue,
                             description: descriptionValue,
@@ -4924,7 +5766,7 @@ function getCurrentProcessId() {
                     const baseRow = currentButton ? currentButton.closest('tr') : null;
                     const newRow = addSubIdProductRow(processValue, baseRow);
                     // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                    const finalSourceColumnsForSub2 = (!formulaValue || formulaValue.trim() === '') ? '' : (clickedColumnsDisplay || '');
+                    const finalSourceColumnsForSub2 = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || '');
                     updateSubIdProductRow(processValue, {
                         idProduct: processValue,
                         description: descriptionValue,
@@ -4949,6 +5791,14 @@ function getCurrentProcessId() {
 
                     // 记录刚创建的 sub 行，供后面的模板保存使用
                     window.lastCreatedRowForTemplateSave = newRow;
+                    
+                    // Reorder rows after adding new sub row to ensure correct position
+                    // Use setTimeout to ensure DOM is updated first
+                    setTimeout(() => {
+                        if (typeof reorderSummaryRowsByRowIndex === 'function') {
+                            reorderSummaryRowsByRowIndex();
+                        }
+                    }, 10);
                 }
             }
             
@@ -5152,11 +6002,13 @@ function getCurrentProcessId() {
         // Find the row that matches the process value
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
-            
+
             // Normalize the process value for comparison
             const normalizedProcessValue = normalizeIdProductText(processValue);
-            
+
             // If rowIndex is provided, try to use it first (for cases with multiple rows with same id_product)
+            // CRITICAL: When rowIndex is provided, we should use that row even if id_product doesn't match
+            // because the rowIndex was determined by row_label, which is more reliable
             if (rowIndex !== null && rowIndex >= 0 && rowIndex < tableData.rows.length) {
                 const row = tableData.rows[rowIndex];
                 if (row && row.length > 1 && row[1].type === 'data') {
@@ -5164,26 +6016,40 @@ function getCurrentProcessId() {
                     const normalizedRowValue = normalizeIdProductText(rowValue);
                     // Check if this row matches the process value
                     if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
+                        console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValue);
                         return row;
+                    } else {
+                        // CRITICAL: Even if id_product doesn't match, if rowIndex was explicitly provided (from row_label),
+                        // we should still use this row because row_label is more reliable than id_product matching
+                        // This handles cases where the row might have been moved or id_product changed
+                        console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValue, 'Found:', rowValue, '. Using rowIndex anyway because it was determined by row_label.');
+                        return row;
+                    }
+                }
+            }
+
+            // Look for the row where column A (index 1) matches the process value
+            // Only search all rows if rowIndex was not provided or was invalid
+            if (rowIndex === null || rowIndex < 0 || rowIndex >= tableData.rows.length) {
+                console.log('findProcessRow: rowIndex not provided or invalid, searching all rows for:', processValue);
+                for (let i = 0; i < tableData.rows.length; i++) {
+                    const row = tableData.rows[i];
+                    if (row.length > 1 && row[1].type === 'data') {
+                        const rowValue = row[1].value;
+                        if (rowValue === processValue) {
+                            console.log('findProcessRow: Found row at index:', i, 'by exact match');
+                            return row;
+                        }
+                        const normalizedRowValue = normalizeIdProductText(rowValue);
+                        if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
+                            console.log('findProcessRow: Found row at index:', i, 'by normalized match');
+                            return row;
+                        }
                     }
                 }
             }
             
-            // Look for the row where column A (index 1) matches the process value
-            // If rowIndex was provided but didn't match, still search all rows
-            for (let i = 0; i < tableData.rows.length; i++) {
-                const row = tableData.rows[i];
-                if (row.length > 1 && row[1].type === 'data') {
-                    const rowValue = row[1].value;
-                    if (rowValue === processValue) {
-                        return row;
-                    }
-                    const normalizedRowValue = normalizeIdProductText(rowValue);
-                    if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
-                        return row;
-                    }
-                }
-            }
+            console.error('findProcessRow: No row found for processValue:', processValue, 'rowIndex:', rowIndex);
             return null;
         }
 
@@ -5514,6 +6380,7 @@ function getCurrentProcessId() {
         }
 
         // Extract numbers from formula for display
+        // IMPORTANT: Exclude numbers after / operator (they are manual inputs, not from data capture table)
         function extractNumbersFromFormula(formula) {
             try {
                 if (!formula || formula.trim() === '') {
@@ -5525,11 +6392,31 @@ function getCurrentProcessId() {
                     return formula; // Return original if no numbers found
                 }
                 
-                let result = matches[0].displayValue;
+                // Filter out numbers that come after / operator (manual inputs)
+                const validMatches = [];
+                for (let i = 0; i < matches.length; i++) {
+                    const match = matches[i];
+                    const charBefore = match.startIndex > 0 ? formula[match.startIndex - 1] : '';
+                    
+                    // CRITICAL FIX: Exclude numbers after / operator
+                    // User explicitly stated that numbers after / are NOT from data capture table
+                    if (charBefore === '/') {
+                        console.log(`Skipping number ${match.displayValue} at position ${match.startIndex} (after / operator, manual input)`);
+                        continue; // Skip this number
+                    }
+                    
+                    validMatches.push(match);
+                }
                 
-                for (let i = 1; i < matches.length; i++) {
-                    const previousMatch = matches[i - 1];
-                    const currentMatch = matches[i];
+                if (validMatches.length === 0) {
+                    return ''; // No valid numbers found (all were after /)
+                }
+                
+                let result = validMatches[0].displayValue;
+                
+                for (let i = 1; i < validMatches.length; i++) {
+                    const previousMatch = validMatches[i - 1];
+                    const currentMatch = validMatches[i];
                     
                     let operator = currentMatch.binaryOperator || '';
                     if (!operator) {
@@ -5610,10 +6497,29 @@ function getCurrentProcessId() {
                 const trimmedFormula = formula.trim();
                 const formulaPart = trimmedFormula;
 
-                const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
-                const formulaDisplay = `${formulaPart}*${percentDisplay}`;
-                console.log('Formula display created from expression:', formulaDisplay);
-                return formulaDisplay;
+                // If source is 1, don't add *(1) to the display
+                // Only add source percent when it's a different number
+                const sourcePercentExpr = sourcePercentValue.trim();
+                const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
+                let decimalValue;
+                try {
+                    decimalValue = evaluateExpression(sanitizedSourcePercent);
+                } catch (e) {
+                    // If evaluation fails, treat as non-1 and add to display
+                    decimalValue = 0;
+                }
+                
+                if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+                    // Source is 1, return formula without multiplying
+                    console.log('Formula display created from expression (source is 1, no multiplication):', trimmedFormula);
+                    return trimmedFormula;
+                } else {
+                    // Source is not 1, add source percent to display
+                    const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
+                    const formulaDisplay = `${formulaPart}*${percentDisplay}`;
+                    console.log('Formula display created from expression:', formulaDisplay);
+                    return formulaDisplay;
+                }
             } catch (error) {
                 console.error('Error creating formula display from expression:', error);
                 return formula || 'Formula';
@@ -5691,8 +6597,15 @@ function getCurrentProcessId() {
                 const sanitizedSourcePercent = removeThousandsSeparators(sourcePercentExpr);
                 const decimalValue = evaluateExpression(sanitizedSourcePercent);
                 
-                // Calculate: formula result * source percent (already in decimal format)
-                let result = formulaResult * decimalValue;
+                // If source is 1, don't multiply (multiplying by 1 has no effect)
+                // Only multiply when source is a different number
+                let result;
+                if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+                    result = formulaResult; // Don't multiply by 1
+                } else {
+                    // Calculate: formula result * source percent (already in decimal format)
+                    result = formulaResult * decimalValue;
+                }
                 
                 // Apply input method transformation if enabled
                 if (enableInputMethod && inputMethod) {
@@ -5995,6 +6908,15 @@ function getCurrentProcessId() {
                     const startPos = matchObj.startIndex;
                     const endPos = matchObj.endIndex;
                     
+                    // CRITICAL FIX: Always exclude numbers after / operator
+                    // User explicitly stated that numbers after / are NOT from data capture table
+                    // They are manual inputs and should not be counted in savedNumbers
+                    const charBefore = startPos > 0 ? formulaPart[startPos - 1] : '';
+                    if (charBefore === '/') {
+                        // Skip numbers after / operator (they are manual inputs, not from data capture table)
+                        return;
+                    }
+                    
                     // Check if this number is part of a structure pattern (*0.008, /0.90, etc.)
                     const contextBefore = formulaPart.substring(Math.max(0, startPos - 3), startPos);
                     const contextAfter = formulaPart.substring(endPos, Math.min(formulaPart.length, endPos + 3));
@@ -6005,7 +6927,6 @@ function getCurrentProcessId() {
                     let isPercentNumber = false;
                     if (isPercentInsideParens) {
                         // Check if this number is immediately after a * and between 0-1 (likely percentage)
-                        const charBefore = startPos > 0 ? formulaPart[startPos - 1] : '';
                         const numValue = parseFloat(numStr);
                         if (charBefore === '*' && !isNaN(numValue) && numValue >= 0 && numValue <= 1) {
                             isPercentNumber = true;
@@ -6072,7 +6993,15 @@ function getCurrentProcessId() {
                     // Check if this number is immediately after a * or / operator
                     const charBefore = offset > 0 ? string[offset - 1] : '';
                     if (charBefore === '*' || charBefore === '/') {
-                        // Check if this is part of a manual expression (e.g., *0.9/2, /0.5*3)
+                        // CRITICAL FIX: Always preserve numbers after / operator
+                        // User explicitly stated that numbers after / are NOT from data capture table
+                        // They are manual inputs and should never be replaced
+                        if (charBefore === '/') {
+                            console.log(`Preserving manually entered number ${match} at position ${offset} (after / operator, always manual input)`);
+                            return match;
+                        }
+                        
+                        // For * operator, check if this is part of a manual expression (e.g., *0.9/2, /0.5*3)
                         // Look ahead to see if there's a / or * after this number
                         const afterMatch = string.substring(offset + match.length).trim();
                         if (afterMatch.startsWith('/') || afterMatch.startsWith('*')) {
@@ -6326,6 +7255,27 @@ function getCurrentProcessId() {
                 
                 // 若百分比是表达式（如 "0.85/2"），保留表达式，并把首个数字除以100：0.85/2 -> (0.0085/2)
                 let percentExpr = sourcePercentValue.toString().trim();
+                
+                // Check if source percent equals 1 (100% = 1 after dividing by 100)
+                // If source is 1, don't add *(1) to the display
+                const sanitizedPercent = removeThousandsSeparators(percentExpr);
+                let decimalValue;
+                try {
+                    const percentEval = evaluateExpression(sanitizedPercent);
+                    decimalValue = percentEval / 100;
+                    decimalValue = parseFloat(decimalValue.toFixed(4));
+                } catch (e) {
+                    // If evaluation fails, treat as non-1 and add to display
+                    decimalValue = 0;
+                }
+                
+                if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+                    // Source is 1 (100%), return formula without multiplying
+                    console.log('Formula display created (source is 1, no multiplication):', trimmedSourceData);
+                    return trimmedSourceData;
+                }
+                
+                // Source is not 1, add source percent to display
                 let percentDisplay = '';
                 const m = percentExpr.match(/^(\d+(?:\.\d+)?)(.*)$/);
                 if (m) {
@@ -6381,8 +7331,15 @@ function getCurrentProcessId() {
                 // Limit to maximum 4 decimal places
                 decimalValue = parseFloat(decimalValue.toFixed(4));
                 
-                // Calculate the final result: source result * decimal value
-                let result = sourceResult * decimalValue;
+                // If source is 1 (or 100% which equals 1 after dividing by 100), don't multiply
+                // Only multiply when source is a different number
+                let result;
+                if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
+                    result = sourceResult; // Don't multiply by 1
+                } else {
+                    // Calculate the final result: source result * decimal value
+                    result = sourceResult * decimalValue;
+                }
                 
                 // Apply input method transformation if enabled
                 if (enableInputMethod && inputMethod) {
@@ -7043,7 +8000,8 @@ function getCurrentProcessId() {
             }
         }
 
-        // Apply rate multiplication to processed amount if rate checkbox is checked
+        // Apply rate multiplication or division to processed amount if rate checkbox is checked
+        // Supports "*3" for multiplication and "/3" for division
         function applyRateToProcessedAmount(row, processedAmount) {
             if (!row) {
                 return processedAmount;
@@ -7063,10 +8021,32 @@ function getCurrentProcessId() {
             
             if (rateCheckbox && rateCheckbox.checked) {
                 const rateInput = document.getElementById('rateInput');
-                const rateValue = rateInput ? parseFloat(rateInput.value) : 1;
+                if (!rateInput || !rateInput.value) {
+                    return processedAmount;
+                }
                 
-                if (!isNaN(rateValue) && rateValue !== 0) {
-                    return processedAmount * rateValue;
+                const rateInputValue = rateInput.value.trim();
+                
+                // Check if input starts with "*" for multiplication
+                if (rateInputValue.startsWith('*')) {
+                    const rateValue = parseFloat(rateInputValue.substring(1));
+                    if (!isNaN(rateValue) && rateValue !== 0) {
+                        return processedAmount * rateValue;
+                    }
+                }
+                // Check if input starts with "/" for division
+                else if (rateInputValue.startsWith('/')) {
+                    const rateValue = parseFloat(rateInputValue.substring(1));
+                    if (!isNaN(rateValue) && rateValue !== 0) {
+                        return processedAmount / rateValue;
+                    }
+                }
+                // Default: treat as multiplication (backward compatibility)
+                else {
+                    const rateValue = parseFloat(rateInputValue);
+                    if (!isNaN(rateValue) && rateValue !== 0) {
+                        return processedAmount * rateValue;
+                    }
                 }
             }
             
@@ -7649,12 +8629,25 @@ function getCurrentProcessId() {
             // Extract source value from formula (source column no longer exists)
             let sourceValue = '';
             
-            // Extract columns from cells[4] (e.g., "10 10" -> "10,10" - preserve duplicates and order)
-            // Columns column removed, get from data attribute instead
+            // Extract columns from data-source-columns attribute
+            // CRITICAL FIX: Preserve id_product:column format (e.g., "ABC123:3 DEF456:4")
+            // Do NOT convert to pure numbers, as this loses id_product information
             const columnsValue = row.getAttribute('data-source-columns') || '';
-            const columnsArray = columnsValue ? columnsValue.split(/\s+/).map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
-            // Preserve original order and duplicates (don't sort)
-            const clickedColumns = columnsArray.join(',');
+            
+            // Check if columnsValue is in new format (id_product:column_index)
+            const isNewFormat = isNewIdProductColumnFormat(columnsValue);
+            
+            // For backward compatibility: if old format (pure numbers), convert to comma-separated
+            // But preserve new format as-is
+            let clickedColumns = '';
+            if (isNewFormat) {
+                // New format: preserve as-is (e.g., "ABC123:3 DEF456:4")
+                clickedColumns = columnsValue;
+            } else {
+                // Old format: convert to comma-separated numbers for backward compatibility
+                const columnsArray = columnsValue ? columnsValue.split(/\s+/).map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
+                clickedColumns = columnsArray.join(',');
+            }
             
             // Extract sourceColumns from data attribute or use columnsValue
             const sourceColumnsValue = row.getAttribute('data-source-columns') || columnsValue || '';
@@ -7668,8 +8661,8 @@ function getCurrentProcessId() {
                 sourcePercentValue = cells[5].textContent.trim();
             }
             
-            // Priority: Check if data-formula-operators contains reference format
-            // If so, use it directly instead of parsing from displayed text
+            // Priority: 使用 data-formula-operators（原始值，包含 $数字）
+            // 这样编辑时显示的是原始值（如 "$10+$8*0.7/5"），而不是转换后的值（如 "9+7*0.7/5"）
             let formulaValue = '';
             const storedFormulaOperators = row.getAttribute('data-formula-operators') || '';
             const isReferenceFormat = storedFormulaOperators && /\[[^\]]+\s*:\s*\d+\]/.test(storedFormulaOperators);
@@ -7693,6 +8686,10 @@ function getCurrentProcessId() {
                 // Formula is empty, set to empty string and skip all fallbacks
                 formulaValue = '';
                 console.log('editRowFormula - Formula is empty, setting formulaValue to empty string');
+            } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '') {
+                // 优先使用 data-formula-operators（原始值，包含 $数字）
+                formulaValue = storedFormulaOperators;
+                console.log('editRowFormula - Using data-formula-operators (original value with $):', formulaValue);
             } else if (isReferenceFormat) {
                 // Use reference format directly from data attribute
                 formulaValue = storedFormulaOperators;
@@ -7910,6 +8907,45 @@ function getCurrentProcessId() {
             // sourcePercentCell.style.backgroundColor = '#e8f5e8'; // Removed
         }
         
+        // Helper function to parse complete formula and extract base formula and source percent
+        function parseCompleteFormula(completeFormula) {
+            if (!completeFormula || !completeFormula.trim()) {
+                return { baseFormula: '', sourcePercent: '' };
+            }
+            
+            let formula = completeFormula.trim();
+            let sourcePercent = '';
+            
+            // Try to extract source percent from the end: ...*(expression)
+            // Use similar logic to removeTrailingSourcePercentExpression but extract the source percent
+            const lastStarIndex = formula.lastIndexOf('*');
+            if (lastStarIndex >= 0) {
+                const beforeStar = formula.substring(0, lastStarIndex);
+                const afterStar = formula.substring(lastStarIndex);
+                
+                // Check if the * is not inside parentheses
+                const openParens = (beforeStar.match(/\(/g) || []).length;
+                const closeParens = (beforeStar.match(/\)/g) || []).length;
+                const isStarInsideParens = openParens > closeParens;
+                
+                // Pattern matches: "*(expression)" where expression is a valid source percent
+                // Source percent is always appended as "*(number)" or "*(expression)" at the end
+                const trailingPattern = /^\*\s*\(([0-9.\+\-*/\s]+)\)\s*$/;
+                const trailingMatch = afterStar.match(trailingPattern);
+                
+                if (!isStarInsideParens && trailingMatch) {
+                    // Found trailing source percent, extract it
+                    sourcePercent = trailingMatch[1].trim();
+                    formula = beforeStar.trim();
+                }
+            }
+            
+            return {
+                baseFormula: formula,
+                sourcePercent: sourcePercent
+            };
+        }
+        
         // Enable inline editing for Formula column (double-click)
         function enableFormulaInlineEdit(element, row) {
             const cells = row.querySelectorAll('td');
@@ -7921,50 +8957,13 @@ function getCurrentProcessId() {
             const formulaContent = formulaCell.querySelector('.formula-cell-content');
             if (!formulaContent) return;
             
-            // Extract base formula by removing trailing Source % part (e.g., "*(0.25)" or "*(1)")
-            // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
-            // Use the same logic as in other parts of the code
-            let baseFormula = currentFormulaDisplay;
-            let previousExpression = '';
+            // Store original complete formula value (for comparison)
+            const originalCompleteFormula = currentFormulaDisplay;
             
-            // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
-            while (baseFormula !== previousExpression) {
-                previousExpression = baseFormula;
-                
-                // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
-                const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                const trailingMatch = baseFormula.match(trailingSourcePercentPattern);
-                if (trailingMatch) {
-                    // Found trailing source percent, remove it
-                    baseFormula = trailingMatch[1].trim();
-                    continue;
-                }
-                
-                // Try pattern without parentheses: ...*number at the end
-                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                const simpleMatch = baseFormula.match(simplePattern);
-                if (simpleMatch) {
-                    baseFormula = simpleMatch[1].trim();
-                    continue;
-                }
-                
-                // No more patterns found, break
-                break;
-            }
-            
-            // Store original base formula value (for comparison)
-            const originalBaseValue = baseFormula;
-            
-            // Get current Source % value from row
-            const sourcePercentCell = cells[5];
-            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-            const sourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(sourcePercentText || '1');
-            const enableSourcePercent = sourcePercentDecimal && sourcePercentDecimal.trim() !== '';
-            
-            // Create input field - only show base formula (without Source % part)
+            // Create input field - show complete formula (including Source % part)
             const input = document.createElement('input');
             input.type = 'text';
-            input.value = baseFormula;
+            input.value = currentFormulaDisplay; // Show complete formula, not just base formula
             input.className = 'inline-edit-input';
             input.style.width = '100%';
             input.style.maxWidth = '100%';
@@ -8002,7 +9001,7 @@ function getCurrentProcessId() {
             
             // Save function
             const saveEdit = () => {
-                const newBaseValue = input.value.trim();
+                const newCompleteFormula = input.value.trim();
                 // Remove input
                 input.remove();
                 
@@ -8012,14 +9011,43 @@ function getCurrentProcessId() {
                     span.style.display = '';
                 });
                 
-                if (newBaseValue !== originalBaseValue) {
-                    // Get current Source % value (may have changed since edit started)
-                    const currentSourcePercentText = cells[5] ? cells[5].textContent.trim() : '';
-                    const currentSourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(currentSourcePercentText || '1');
-                    const currentEnableSourcePercent = currentSourcePercentDecimal && currentSourcePercentDecimal.trim() !== '';
+                if (newCompleteFormula !== originalCompleteFormula) {
+                    // Parse the complete formula to extract base formula and source percent
+                    const parsed = parseCompleteFormula(newCompleteFormula);
+                    const newBaseFormula = parsed.baseFormula;
+                    const newSourcePercent = parsed.sourcePercent;
                     
-                    // Recreate full formula display using base formula + current Source %
-                    const newFormulaDisplay = createFormulaDisplayFromExpression(newBaseValue, currentSourcePercentDecimal, currentEnableSourcePercent);
+                    // Get current Source % value from row (as fallback)
+                    const sourcePercentCell = cells[5];
+                    const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
+                    let currentSourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(sourcePercentText || '1');
+                    
+                    // If user included source percent in the formula, use it
+                    if (newSourcePercent) {
+                        // Evaluate the source percent expression to get decimal value
+                        try {
+                            const sanitized = removeThousandsSeparators(newSourcePercent);
+                            const evaluated = evaluateExpression(sanitized);
+                            currentSourcePercentDecimal = evaluated.toString();
+                            
+                            // Update Source % cell display
+                            if (sourcePercentCell) {
+                                sourcePercentCell.textContent = formatSourcePercentForDisplay(currentSourcePercentDecimal);
+                                row.setAttribute('data-source-percent', currentSourcePercentDecimal);
+                            }
+                        } catch (error) {
+                            console.error('Error evaluating source percent:', error);
+                            // Keep current source percent if evaluation fails
+                        }
+                    }
+                    
+                    const currentEnableSourcePercent = currentSourcePercentDecimal && currentSourcePercentDecimal.trim() !== '' && currentSourcePercentDecimal !== '0';
+                    
+                    // Use the parsed base formula, or the complete formula if no source percent was extracted
+                    const finalBaseFormula = newBaseFormula || newCompleteFormula;
+                    
+                    // Recreate full formula display using base formula + source percent
+                    const newFormulaDisplay = createFormulaDisplayFromExpression(finalBaseFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
                     
                     // Update formula display
                     formulaTextSpans.forEach(span => {
@@ -8027,13 +9055,13 @@ function getCurrentProcessId() {
                     });
                     
                     // Update data attribute with base formula (without Source %)
-                    row.setAttribute('data-formula-operators', newBaseValue);
+                    row.setAttribute('data-formula-operators', finalBaseFormula);
                     
                     // Recalculate processed amount
                     const inputMethod = row.getAttribute('data-input-method') || '';
                     const enableInputMethod = inputMethod ? true : false;
                     
-                    const processedAmount = calculateFormulaResultFromExpression(newBaseValue, currentSourcePercentDecimal, inputMethod, enableInputMethod, currentEnableSourcePercent);
+                    const processedAmount = calculateFormulaResultFromExpression(finalBaseFormula, currentSourcePercentDecimal, inputMethod, enableInputMethod, currentEnableSourcePercent);
                     
                     // Update processed amount cell
                     if (cells[7]) {
@@ -8536,37 +9564,88 @@ function getCurrentProcessId() {
             checkboxCell.appendChild(checkbox);
             row.appendChild(checkboxCell);
             
-            // Insert the new row after the parent row
+            // Insert the new row first, then set creation order based on position
+            // This ensures creation_order reflects the insertion position
             if (insertAfterIndex >= 0) {
-                // Get the parent row element
-                const parentRow = rows[insertAfterIndex];
-                // Insert after the parent row
-                parentRow.insertAdjacentElement('afterend', row);
-                // Set row_index: use provided rowIndex if available, otherwise calculate
+                // Get the parent row element (or the row we're inserting after)
+                const insertAfterRow = rows[insertAfterIndex];
+                
+                // Get row_index from the row we're inserting after
+                // IMPORTANT: New sub rows should use the same row_index as the row they're inserted after
+                // This ensures they maintain the correct position relative to Data Capture Table
+                let newRowIndex = null;
                 if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
-                    row.setAttribute('data-row-index', String(Number(rowIndex)));
-                    console.log('Inserted sub row after parent row at index:', insertAfterIndex, 'using provided row_index:', rowIndex);
-                } else {
-                    // Calculate and set row_index immediately after insertion
-                    // The new row is at position insertAfterIndex + 1
-                    const newRowIndex = insertAfterIndex + 1;
-                    row.setAttribute('data-row-index', String(newRowIndex));
-                    console.log('Inserted sub row after parent row at index:', insertAfterIndex, 'calculated row_index:', newRowIndex);
+                    // Use provided rowIndex if available
+                    newRowIndex = Number(rowIndex);
+                } else if (insertAfterRow) {
+                    // Get row_index from the row we're inserting after
+                    const insertAfterRowIndexAttr = insertAfterRow.getAttribute('data-row-index');
+                    if (insertAfterRowIndexAttr !== null && insertAfterRowIndexAttr !== '' && !Number.isNaN(Number(insertAfterRowIndexAttr))) {
+                        newRowIndex = Number(insertAfterRowIndexAttr);
+                    }
                 }
+                
+                // Insert after the row
+                insertAfterRow.insertAdjacentElement('afterend', row);
+                
+                // Set row_index on the new row
+                if (newRowIndex !== null) {
+                    row.setAttribute('data-row-index', String(newRowIndex));
+                    console.log('Inserted sub row after row at index:', insertAfterIndex, 'using row_index:', newRowIndex, 'from insertAfterRow');
+                } else {
+                    // Fallback: use current position in Summary Table (should rarely happen)
+                    const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
+                    const fallbackIndex = Array.from(allRowsAfterInsert).indexOf(row);
+                    row.setAttribute('data-row-index', String(fallbackIndex));
+                    console.warn('Inserted sub row but could not get row_index from insertAfterRow, using fallback:', fallbackIndex);
+                }
+                
+                // Set creation order based on insertion position
+                // Get creation order from the row we inserted after, and use a value slightly larger
+                // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
+                let creationOrder = Date.now();
+                if (insertAfterRow) {
+                    const insertAfterCreationOrderAttr = insertAfterRow.getAttribute('data-creation-order');
+                    if (insertAfterCreationOrderAttr) {
+                        const insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
+                        // Use a value slightly larger than the row we inserted after
+                        // This ensures new row appears right after it when rows have same row_index
+                        creationOrder = insertAfterCreationOrder + 1;
+                    }
+                }
+                row.setAttribute('data-creation-order', String(creationOrder));
             } else {
                 // Fallback: append to the end
                 summaryTableBody.appendChild(row);
-                // Set row_index: use provided rowIndex if available, otherwise calculate
+                // Set row_index: use provided rowIndex if available, otherwise try to get from last row
                 if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
                     row.setAttribute('data-row-index', String(Number(rowIndex)));
                     console.log('Appended sub row to end, using provided row_index:', rowIndex);
                 } else {
-                    // Calculate row_index for appended row
-                    const allRows = summaryTableBody.querySelectorAll('tr');
-                    const newRowIndex = allRows.length - 1; // 0-based index
-                    row.setAttribute('data-row-index', String(newRowIndex));
-                    console.log('Could not find parent row, appended to end, calculated row_index:', newRowIndex);
+                    // Try to get row_index from the last row before appending
+                    const allRowsBeforeAppend = summaryTableBody.querySelectorAll('tr');
+                    if (allRowsBeforeAppend.length > 0) {
+                        const lastRow = allRowsBeforeAppend[allRowsBeforeAppend.length - 1];
+                        const lastRowIndexAttr = lastRow.getAttribute('data-row-index');
+                        if (lastRowIndexAttr !== null && lastRowIndexAttr !== '' && !Number.isNaN(Number(lastRowIndexAttr))) {
+                            const lastRowIndex = Number(lastRowIndexAttr);
+                            row.setAttribute('data-row-index', String(lastRowIndex));
+                            console.log('Appended sub row to end, using row_index from last row:', lastRowIndex);
+                        } else {
+                            // Last resort: use position index
+                            const fallbackIndex = allRowsBeforeAppend.length; // 0-based index, new row will be at this position
+                            row.setAttribute('data-row-index', String(fallbackIndex));
+                            console.warn('Appended sub row but could not get row_index from last row, using fallback:', fallbackIndex);
+                        }
+                    } else {
+                        row.setAttribute('data-row-index', '0');
+                        console.log('Appended sub row as first row, using row_index: 0');
+                    }
                 }
+                
+                // Set creation order for appended row (use current timestamp)
+                const creationOrder = Date.now();
+                row.setAttribute('data-creation-order', String(creationOrder));
             }
 
             return row;
@@ -9088,6 +10167,50 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         const templates = result.templates || {};
 
+        // IMPORTANT: Recalculate row_index for all Summary Table rows based on current Data Capture Table order
+        // This is critical when rows are added/removed in Data Capture Table
+        // Summary Table row at position N should have row_index = N (matching Data Capture Table row N)
+        const summaryTableBody = document.getElementById('summaryTableBody');
+        const capturedTableBody = document.getElementById('capturedTableBody');
+        
+        if (summaryTableBody && capturedTableBody) {
+            const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+            const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
+            
+            // Recalculate row_index for each Summary Table row based on its position
+            // Since Summary Table is created in Data Capture Table order, position = row_index
+            allSummaryRows.forEach((summaryRow, summaryIndex) => {
+                // Always recalculate row_index based on current Summary Table position
+                // This ensures it matches the current Data Capture Table order
+                summaryRow.setAttribute('data-row-index', String(summaryIndex));
+                
+                // Verify: Check if Data Capture Table row at this index matches
+                if (summaryIndex < capturedRows.length) {
+                    const capturedRow = capturedRows[summaryIndex];
+                    const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+                    const summaryIdProductCell = summaryRow.querySelector('td:first-child');
+                    
+                    if (capturedIdProductCell && summaryIdProductCell) {
+                        const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                        const productValues = getProductValuesFromCell(summaryIdProductCell);
+                        const summaryIdProduct = normalizeIdProductText(productValues.main || '');
+                        
+                        if (capturedIdProduct === summaryIdProduct) {
+                            console.log('Verified row_index:', summaryIndex, 'matches Data Capture Table for id_product:', summaryIdProduct);
+                        } else {
+                            console.warn('Warning: row_index', summaryIndex, 'mismatch - Summary:', summaryIdProduct, 'Data Capture:', capturedIdProduct);
+                        }
+                    }
+                }
+            });
+        } else if (summaryTableBody) {
+            // Fallback: if Data Capture Table not available, use Summary Table position
+            const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+            allSummaryRows.forEach((summaryRow, index) => {
+                summaryRow.setAttribute('data-row-index', String(index));
+            });
+        }
+
         // Match templates using original case-sensitive idProduct
         // But use normalized version to find the row in the table
         uniqueIds.forEach(normalizedIdProduct => {
@@ -9095,8 +10218,15 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 // Check if there are multiple main templates for the same id_product (different accounts)
                 const template = templates[normalizedIdProduct];
                 if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
-                    // Apply each main template to its corresponding row based on account_id
-                    template.allMains.forEach(mainTemplate => {
+                    // Sort templates by row_index to apply them in the correct order
+                    const sortedTemplates = [...template.allMains].sort((a, b) => {
+                        const aIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
+                        const bIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
+                        return aIndex - bIndex;
+                    });
+                    
+                    // Apply each main template to its corresponding row based on account_id and row_index
+                    sortedTemplates.forEach(mainTemplate => {
                         const mainRow = applyMainTemplateToRow(normalizedIdProduct, mainTemplate);
                         // Apply sub templates to each main row
                         if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
@@ -9200,13 +10330,29 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     console.log('Cell values not found, using reference format:', currentSourceData);
                 }
             } else if (isReferenceFormat) {
-                // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
-                currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
+                // CRITICAL: Even for reference format, if we have sourceColumnsValue, 
+                // we should rebuild from current Data Capture Table to get latest data
+                if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                    // Rebuild from current Data Capture Table
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('Rebuilt reference format from current Data Capture Table:', currentSourceData);
+                } else {
+                    // No sourceColumnsValue, use saved reference format
+                    currentSourceData = formulaOperatorsValue;
+                    console.log('Using saved formulaOperatorsValue as reference format (no sourceColumnsValue):', currentSourceData);
+                }
             } else if (isCompleteExpression) {
-                // Use the saved formula expression directly (preserves values from other id product rows)
-                currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+                // CRITICAL: Even for complete expression, if we have sourceColumnsValue,
+                // we should rebuild from current Data Capture Table to get latest data
+                if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                    // Rebuild from current Data Capture Table
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('Rebuilt complete expression from current Data Capture Table:', currentSourceData);
+                } else {
+                    // No sourceColumnsValue, use saved expression (preserves values from other id product rows)
+                    currentSourceData = formulaOperatorsValue;
+                    console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows):', currentSourceData);
+                }
             } else {
                 // Build reference format from columns
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -9227,6 +10373,34 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     const operators = operatorsString || '+'.repeat(foundColumns.length - 1);
                     currentSourceData = buildSourceExpressionFromTable(idProduct, columnNumbers, operators, targetRow);
                     console.log('Found columns from formula, built source expression:', currentSourceData);
+                }
+            }
+
+            // CRITICAL: Always try to read from current Data Capture Table if sourceColumnsValue exists
+            // Even if currentSourceData is empty, try to rebuild from sourceColumnsValue
+            if (!currentSourceData || currentSourceData.trim() === '') {
+                if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                    console.log('currentSourceData is empty, attempting to rebuild from sourceColumnsValue:', sourceColumnsValue);
+                    // Try to rebuild from sourceColumnsValue
+                    if (isNewFormat) {
+                        const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+                        const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+                        if (cellValues.length > 0) {
+                            let expression = cellValues[0];
+                            for (let i = 1; i < cellValues.length; i++) {
+                                const operator = operatorsString[i - 1] || '+';
+                                expression += operator + cellValues[i];
+                            }
+                            currentSourceData = expression;
+                            console.log('Rebuilt currentSourceData from new format (applyTemplateToSummaryRow):', currentSourceData);
+                        }
+                    }
+                    
+                    // If still empty, try buildSourceExpressionFromTable
+                    if (!currentSourceData || currentSourceData.trim() === '') {
+                        currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                        console.log('Rebuilt currentSourceData from buildSourceExpressionFromTable (applyTemplateToSummaryRow):', currentSourceData);
+                    }
                 }
             }
 
@@ -9261,6 +10435,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 }
             } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
                 // 没有当前表格数据时，再退回到已保存的表达式
+                console.warn('WARNING: Using saved last_source_value because currentSourceData is empty. sourceColumnsValue:', sourceColumnsValue);
                 resolvedSourceExpression = savedSourceValue;
                 console.log('Using saved last_source_value (main):', resolvedSourceExpression);
             } else {
@@ -9570,8 +10745,8 @@ function applyTemplateToSummaryRow(idProduct, template) {
     }
 }
 
-// Apply a main template to a specific row based on account_id
-// This function handles cases where multiple rows have the same id_product but different accounts
+// Apply a main template to a specific row based on account_id, row_index, and formula_variant
+// This function handles cases where multiple rows have the same id_product but different accounts/formulas
 function applyMainTemplateToRow(idProduct, mainTemplate) {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -9588,52 +10763,158 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
         let targetRow = null;
 
-        // First, try to find a row that matches both id_product and account_id
+        // Get template matching criteria
         const templateAccountId = mainTemplate.account_id ? String(mainTemplate.account_id) : null;
-        
-        for (const row of allRows) {
+        const templateFormulaVariant = mainTemplate.formula_variant !== undefined && mainTemplate.formula_variant !== null 
+            ? String(mainTemplate.formula_variant) : null;
+        const templateRowIndex = mainTemplate.row_index !== undefined && mainTemplate.row_index !== null 
+            ? Number(mainTemplate.row_index) : null;
+        const templateId = mainTemplate.id ? String(mainTemplate.id) : null;
+
+        // Collect all matching rows (same id_product)
+        const candidateRows = [];
+        allRows.forEach((row, index) => {
             const productType = row.getAttribute('data-product-type') || 'main';
-            if (productType !== 'main') continue;
+            if (productType !== 'main') return;
 
             const idProductCell = row.querySelector('td:first-child');
             const productValues = getProductValuesFromCell(idProductCell);
             const mainCellText = normalizeIdProductText(productValues.main || '');
             
             if (mainCellText === normalizedTargetId) {
-                // Check if account matches
                 const accountCell = row.querySelector('td:nth-child(2)');
                 const rowAccountId = accountCell?.getAttribute('data-account-id');
-                
-                if (templateAccountId && rowAccountId && rowAccountId === templateAccountId) {
-                    // Found exact match by id_product and account_id
-                    targetRow = row;
+                const rowFormulaVariant = row.getAttribute('data-formula-variant');
+                const rowTemplateId = row.getAttribute('data-template-id');
+                const rowRowIndexAttr = row.getAttribute('data-row-index');
+                const rowRowIndex = (rowRowIndexAttr !== null && rowRowIndexAttr !== '' && !Number.isNaN(Number(rowRowIndexAttr)))
+                    ? Number(rowRowIndexAttr) : null;
+
+                candidateRows.push({
+                    row,
+                    index,
+                    accountId: rowAccountId,
+                    formulaVariant: rowFormulaVariant,
+                    templateId: rowTemplateId,
+                    rowIndex: rowRowIndex
+                });
+            }
+        });
+
+        // Priority 1: Match by template_id (most precise)
+        if (templateId) {
+            for (const candidate of candidateRows) {
+                if (candidate.templateId === templateId) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by template_id:', templateId);
                     break;
-                } else if (!templateAccountId && !rowAccountId) {
-                    // Both are empty, use this row
-                    targetRow = row;
-                    break;
-                } else if (!targetRow && !rowAccountId) {
-                    // Row has no account yet, use it as fallback (will be updated with template's account)
-                    targetRow = row;
                 }
             }
         }
 
-        // If no matching row found, use the first row with matching id_product
-        if (!targetRow) {
-            for (const row of allRows) {
-                const productType = row.getAttribute('data-product-type') || 'main';
-                if (productType !== 'main') continue;
-
-                const idProductCell = row.querySelector('td:first-child');
-                const productValues = getProductValuesFromCell(idProductCell);
-                const mainCellText = normalizeIdProductText(productValues.main || '');
-                
-                if (mainCellText === normalizedTargetId) {
-                    targetRow = row;
+        // Priority 2: Match by row_index (exact match) - this is the most reliable way to match rows
+        // IMPORTANT: When row_index matches, we should use that row regardless of account_id/formula_variant
+        // This ensures that templates are applied to the correct row position even if account_id changes
+        // CRITICAL: If exact row_index match fails (e.g., row was moved due to new rows inserted in Data Capture Table),
+        // find the next matching row with same id_product at or after the desired row_index
+        // This handles the case: A=BB, B=BB, C=BB -> A=BB, B=BB, C=TT, D=BB
+        // Template saved with row_index=2 (C=BB) should match to D=BB (row_index=3)
+        if (!targetRow && templateRowIndex !== null) {
+            // First, try exact match
+            for (const candidate of candidateRows) {
+                if (candidate.rowIndex === templateRowIndex) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by row_index (exact match):', templateRowIndex, 'template account_id:', templateAccountId, 'candidate account_id:', candidate.accountId);
                     break;
                 }
             }
+            
+            // If exact match failed, find the next row with same id_product at or after the desired row_index
+            // This handles the case where new rows were inserted in Data Capture Table, shifting rows down
+            if (!targetRow) {
+                // First, try to find a row at or after the desired row_index (rows shifted down)
+                let nextCandidate = null;
+                for (const candidate of candidateRows) {
+                    if (candidate.rowIndex !== null && candidate.rowIndex >= templateRowIndex) {
+                        if (!nextCandidate || candidate.rowIndex < nextCandidate.rowIndex) {
+                            nextCandidate = candidate;
+                        }
+                    }
+                }
+                
+                // If found a row at or after desired position, use it
+                if (nextCandidate) {
+                    targetRow = nextCandidate.row;
+                    console.log('Matched row by row_index (next match after):', templateRowIndex, 'found at row_index:', nextCandidate.rowIndex, 'id_product:', idProduct);
+                } else {
+                    // If no row found at or after, find the closest row before (fallback)
+                    let closestCandidate = null;
+                    let maxRowIndex = -1;
+                    for (const candidate of candidateRows) {
+                        if (candidate.rowIndex !== null && candidate.rowIndex < templateRowIndex) {
+                            if (candidate.rowIndex > maxRowIndex) {
+                                maxRowIndex = candidate.rowIndex;
+                                closestCandidate = candidate;
+                            }
+                        }
+                    }
+                    
+                    if (closestCandidate) {
+                        targetRow = closestCandidate.row;
+                        console.log('Matched row by row_index (closest before):', templateRowIndex, 'found at row_index:', closestCandidate.rowIndex, 'id_product:', idProduct);
+                    }
+                }
+            }
+        }
+
+        // Priority 3: Match by account_id + formula_variant (if row_index not available)
+        if (!targetRow && templateAccountId && templateFormulaVariant) {
+            for (const candidate of candidateRows) {
+                if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
+                    break;
+                }
+            }
+        }
+
+        // Priority 4: Match by account_id only (if formula_variant not available)
+        if (!targetRow && templateAccountId) {
+            for (const candidate of candidateRows) {
+                if (candidate.accountId === templateAccountId) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by account_id:', templateAccountId);
+                    break;
+                }
+            }
+        }
+
+        // Priority 5: Match by row_index only (if account_id not available)
+        if (!targetRow && templateRowIndex !== null) {
+            for (const candidate of candidateRows) {
+                if (candidate.rowIndex === templateRowIndex) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by row_index:', templateRowIndex);
+                    break;
+                }
+            }
+        }
+
+        // Priority 6: Use first empty row (no account yet)
+        if (!targetRow) {
+            for (const candidate of candidateRows) {
+                if (!candidate.accountId) {
+                    targetRow = candidate.row;
+                    console.log('Matched empty row (no account)');
+                    break;
+                }
+            }
+        }
+
+        // Priority 7: Use first available row as fallback
+        if (!targetRow && candidateRows.length > 0) {
+            targetRow = candidateRows[0].row;
+            console.log('Using first available row as fallback');
         }
 
         if (!targetRow) {
@@ -9664,6 +10945,9 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         // Always prefer the latest numbers from Data Capture Table when available
         let resolvedSourceExpression = '';
         const savedSourceValue = mainTemplate.last_source_value || '';
+        
+        // DEBUG: Log template data
+        console.log('applyMainTemplateToRow DEBUG - idProduct:', idProduct, 'sourceColumnsValue:', sourceColumnsValue, 'formulaOperatorsValue:', formulaOperatorsValue, 'last_source_value:', savedSourceValue);
         
         // Check if sourceColumnsValue is in new format (id_product:column_index)
         const isNewFormat = isNewIdProductColumnFormat(sourceColumnsValue);
@@ -9724,13 +11008,29 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 console.log('Cell values not found (main), using reference format:', currentSourceData);
             }
         } else if (isReferenceFormat) {
-            // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
-            currentSourceData = formulaOperatorsValue;
-            console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
+            // CRITICAL: Even for reference format, if we have sourceColumnsValue, 
+            // we should rebuild from current Data Capture Table to get latest data
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                // Rebuild from current Data Capture Table
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Rebuilt reference format from current Data Capture Table (main):', currentSourceData);
+            } else {
+                // No sourceColumnsValue, use saved reference format
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as reference format (no sourceColumnsValue, main):', currentSourceData);
+            }
         } else if (isCompleteExpression) {
-            // Use the saved formula expression directly (preserves values from other id product rows)
-            currentSourceData = formulaOperatorsValue;
-            console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+            // CRITICAL: Even for complete expression, if we have sourceColumnsValue,
+            // we should rebuild from current Data Capture Table to get latest data
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                // Rebuild from current Data Capture Table
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Rebuilt complete expression from current Data Capture Table (main):', currentSourceData);
+            } else {
+                // No sourceColumnsValue, use saved expression (preserves values from other id product rows)
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows, main):', currentSourceData);
+            }
         } else {
             // Build reference format from columns
             currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -9748,6 +11048,37 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 const operators = operatorsString || '+'.repeat(foundColumns.length - 1);
                 currentSourceData = buildSourceExpressionFromTable(idProduct, columnNumbers, operators, targetRow);
                 console.log('Found columns from formula, built source expression:', currentSourceData);
+            }
+        }
+
+        // CRITICAL: Always try to read from current Data Capture Table if sourceColumnsValue exists
+        // Even if currentSourceData is empty, try to rebuild from sourceColumnsValue
+        if (!currentSourceData || currentSourceData.trim() === '') {
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                console.log('applyMainTemplateToRow: currentSourceData is empty, attempting to rebuild from sourceColumnsValue:', sourceColumnsValue);
+                // Try to rebuild from sourceColumnsValue
+                if (isNewFormat) {
+                    const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
+                    const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
+                    console.log('applyMainTemplateToRow: getCellValuesFromNewFormat returned:', cellValues);
+                    if (cellValues.length > 0) {
+                        let expression = cellValues[0];
+                        for (let i = 1; i < cellValues.length; i++) {
+                            const operator = operatorsString[i - 1] || '+';
+                            expression += operator + cellValues[i];
+                        }
+                        currentSourceData = expression;
+                        console.log('applyMainTemplateToRow: Rebuilt currentSourceData from new format:', currentSourceData);
+                    }
+                }
+                
+                // If still empty, try buildSourceExpressionFromTable
+                if (!currentSourceData || currentSourceData.trim() === '') {
+                    currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                    console.log('applyMainTemplateToRow: Rebuilt currentSourceData from buildSourceExpressionFromTable:', currentSourceData);
+                }
+            } else {
+                console.log('applyMainTemplateToRow: sourceColumnsValue is empty, cannot rebuild currentSourceData');
             }
         }
 
@@ -9772,6 +11103,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 console.log('Using current source data (main):', resolvedSourceExpression);
             }
         } else if (savedSourceValue && savedSourceValue.trim() !== '' && savedSourceValue !== 'Source') {
+            // Only use saved value if we truly cannot get current data
+            console.warn('WARNING: Using saved last_source_value because currentSourceData is empty. sourceColumnsValue:', sourceColumnsValue);
             resolvedSourceExpression = savedSourceValue;
             console.log('Using saved last_source_value (main):', resolvedSourceExpression);
         } else {
@@ -9825,7 +11158,85 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const savedFormulaDisplay = mainTemplate.formula_display || '';
         const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
         
-        if (isBatchSelectedTemplate) {
+        // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
+        // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
+        // 这样当用户修改表格数据后，公式会反映最新的数据
+        const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
+        if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+            // 从当前表格数据重新计算 formula
+            // 获取行标签
+            const rowLabel = getRowLabelFromProcessValue(idProduct);
+            if (rowLabel) {
+                let displayFormula = formulaOperatorsValue;
+                
+                // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
+                const dollarPattern = /\$(\d+)(?!\d)/g;
+                const allMatches = [];
+                let match;
+                
+                // 重置正则表达式的 lastIndex
+                dollarPattern.lastIndex = 0;
+                
+                // 收集所有匹配项
+                while ((match = dollarPattern.exec(formulaOperatorsValue)) !== null) {
+                    const fullMatch = match[0];
+                    const columnNumber = parseInt(match[1]);
+                    const matchIndex = match.index;
+                    
+                    if (!isNaN(columnNumber) && columnNumber > 0) {
+                        allMatches.push({
+                            fullMatch: fullMatch,
+                            columnNumber: columnNumber,
+                            index: matchIndex
+                        });
+                    }
+                }
+                
+                // 从后往前处理，避免位置偏移
+                allMatches.sort((a, b) => b.index - a.index);
+                
+                for (let i = 0; i < allMatches.length; i++) {
+                    const match = allMatches[i];
+                    // 获取列的实际值
+                    const columnReference = rowLabel + match.columnNumber;
+                    const columnValue = getColumnValueFromCellReference(columnReference, idProduct);
+                    
+                    if (columnValue !== null) {
+                        // 替换 $数字 为实际值
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        columnValue + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
+                    } else {
+                        // 如果找不到值，替换为 0
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        '0' + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
+                    }
+                }
+                
+                // 如果还有列引用（如 A5），也转换为实际值
+                const parsedFormula = parseReferenceFormula(displayFormula);
+                const baseFormula = parsedFormula || displayFormula;
+                
+                // 应用 source percent
+                if (percentValue && enableSourcePercent) {
+                    formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
+                } else {
+                    formulaDisplay = baseFormula;
+                }
+                
+                console.log('applyMainTemplateToRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
+            } else {
+                // 如果无法获取行标签，使用保存的 formula_display 作为后备
+                formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
+                console.log('applyMainTemplateToRow: cannot get row label, using saved formula_display:', formulaDisplay);
+            }
+        }
+        
+        // 如果已经计算好 formulaDisplay（包含 $数字 的情况），跳过后续的 batch selection 逻辑
+        const hasCalculatedFormulaDisplay = hasDollarSigns && formulaDisplay && formulaDisplay.trim() !== '';
+        
+        if (isBatchSelectedTemplate && !hasCalculatedFormulaDisplay) {
             if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
                 // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
                 // If so, extract the base expression by removing ALL trailing Source % patterns
@@ -9905,7 +11316,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 }
                 console.log('Batch template: recalculated formula from current Data Capture Table (no saved formula):', formulaDisplay);
             }
-        } else if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+        } else if (!hasCalculatedFormulaDisplay && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
             // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
             // If so, extract the base expression by removing ALL trailing Source % patterns
             // Iteratively remove all trailing *(...) patterns to get the true base expression
@@ -10019,7 +11430,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 console.log('Using saved formula_display as-is (no current source data):', formulaDisplay);
                 }
             }
-        } else {
+        } else if (!hasCalculatedFormulaDisplay) {
             if (percentValue && resolvedSourceExpression && enableSourcePercent) {
                 formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
             } else if (percentValue && resolvedSourceExpression) {
@@ -10124,6 +11535,21 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         };
 
         updateSummaryTableRow(idProduct, data, targetRow);
+        
+        // IMPORTANT: Set data-row-index attribute on the row to preserve row order
+        if (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null) {
+            targetRow.setAttribute('data-row-index', String(mainTemplate.row_index));
+            console.log('Set data-row-index on row:', mainTemplate.row_index);
+        }
+        
+        // Also set template_id and formula_variant for precise matching
+        if (mainTemplate.id) {
+            targetRow.setAttribute('data-template-id', String(mainTemplate.id));
+        }
+        if (mainTemplate.formula_variant !== undefined && mainTemplate.formula_variant !== null) {
+            targetRow.setAttribute('data-formula-variant', String(mainTemplate.formula_variant));
+        }
+        
         console.log('Applied main template to row with account_id:', mainTemplate.account_id);
         return targetRow; // Return the row so sub templates can be applied to it
     } catch (error) {
@@ -10133,6 +11559,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
 }
 
 // After all templates are applied, reorder rows globally by row_index (if present)
+// IMPORTANT: This function should maintain the order of Data Capture Table
+// Rows with same id_product should be grouped together, ordered by their first appearance in Data Capture Table
 function reorderSummaryRowsByRowIndex() {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -10145,67 +11573,119 @@ function reorderSummaryRowsByRowIndex() {
             return;
         }
 
-        // 按 Id Product 分组，同时在每个分组内部按 row_index 排序
-        const groups = [];
-        let currentGroup = null;
-
-        rows.forEach((row, originalIndex) => {
+        // Collect all rows with their metadata
+        const rowData = rows.map((row, originalIndex) => {
             const idProductCell = row.querySelector('td:first-child');
             const productValues = getProductValuesFromCell(idProductCell);
             const mainTextRaw = (productValues.main || '').trim();
-            const hasMain = !!mainTextRaw;
-
-            if (hasMain || !currentGroup) {
-                // 遇到新的 main row，开始新的分组
-                const normalizedMain = normalizeIdProductText(mainTextRaw);
-                currentGroup = {
-                    key: normalizedMain,
-                    firstOriginalIndex: originalIndex,
-                    rows: []
-                };
-                groups.push(currentGroup);
+            const productType = row.getAttribute('data-product-type') || 'main';
+            
+            // For sub rows, get parent id_product from data attribute or from cell
+            let normalizedMain = '';
+            if (productType === 'sub') {
+                // Try to get parent id_product from data attribute first
+                const parentIdProduct = row.getAttribute('data-parent-id-product');
+                if (parentIdProduct) {
+                    normalizedMain = normalizeIdProductText(parentIdProduct);
+                } else if (mainTextRaw) {
+                    // Fallback to main text from cell (which should be parent id_product for sub rows)
+                    normalizedMain = normalizeIdProductText(mainTextRaw);
+                }
+            } else {
+                // For main rows, use their own id_product
+                normalizedMain = normalizeIdProductText(mainTextRaw);
             }
-
+            
             const attr = row.getAttribute('data-row-index');
             const rowIndex = (attr !== null && attr !== '' && !Number.isNaN(Number(attr)))
                 ? Number(attr)
                 : null;
 
-            currentGroup.rows.push({
+            // Get account ID for sorting sub rows with same account
+            const accountCell = row.querySelector('td:nth-child(2)'); // Account column
+            const accountId = accountCell ? accountCell.getAttribute('data-account-id') : null;
+            
+            // Get creation order for stable sorting
+            const creationOrderAttr = row.getAttribute('data-creation-order');
+            const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000; // Use large multiplier to ensure originalIndex doesn't interfere
+
+            return {
                 row,
                 rowIndex,
-                originalIndex
-            });
+                originalIndex,
+                normalizedMain,
+                hasMain: !!mainTextRaw,
+                productType,
+                accountId,
+                creationOrder
+            };
         });
 
-        if (groups.length === 0) {
-            return;
-        }
+        // Separate rows with and without row_index
+        const withIndex = rowData.filter(r => r.rowIndex !== null);
+        const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-        // 分组之间保持原始顺序（firstOriginalIndex 由当前页面决定）
-        groups.sort((a, b) => a.firstOriginalIndex - b.firstOriginalIndex);
+        // Group rows by id_product (normalizedMain)
+        // IMPORTANT: Sub rows should be grouped with their parent main row's id_product
+        const groupedByProduct = {};
+        withIndex.forEach(data => {
+            // For sub rows, use the parent's id_product (normalizedMain)
+            // For main rows, use their own id_product
+            const key = data.normalizedMain || '__empty__';
+            if (!groupedByProduct[key]) {
+                groupedByProduct[key] = [];
+            }
+            groupedByProduct[key].push(data);
+        });
 
-        const orderedRows = [];
-
-        groups.forEach(group => {
-            const withIndex = group.rows.filter(r => r.rowIndex !== null);
-            const withoutIndex = group.rows.filter(r => r.rowIndex === null);
-
-            // 同一个 Id Product 分组内部：先按 row_index，再按原始顺序
-            withIndex.sort((a, b) => {
+        // For each id_product group, find the minimum row_index (first appearance in Data Capture Table)
+        // Then sort groups by this minimum row_index
+        const productGroups = Object.keys(groupedByProduct).map(key => {
+            const groupRows = groupedByProduct[key];
+            const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
+            // Sort rows within each group by row_index (Data Capture Table order)
+            // IMPORTANT: All rows (main and sub) are sorted purely by row_index, maintaining the order they were added
+            // No priority between main and sub - just follow row_index order
+            groupRows.sort((a, b) => {
+                // First, sort by row_index (where user added the data in Data Capture Table)
                 if (a.rowIndex !== b.rowIndex) {
                     return a.rowIndex - b.rowIndex;
                 }
-                return a.originalIndex - b.originalIndex;
+                // If same row_index, use creation order to maintain stable order
+                // This ensures rows added at the same position maintain their relative order
+                return a.creationOrder - b.creationOrder;
             });
-            withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
-
-            withIndex.forEach(info => orderedRows.push(info.row));
-            withoutIndex.forEach(info => orderedRows.push(info.row));
+            return {
+                key,
+                minRowIndex,
+                rows: groupRows
+            };
         });
 
-        // 重新按新顺序附加行
+        // Sort product groups by minimum row_index (Data Capture Table order)
+        productGroups.sort((a, b) => {
+            if (a.minRowIndex !== b.minRowIndex) {
+                return a.minRowIndex - b.minRowIndex;
+            }
+            // If same minRowIndex, maintain order by first row's originalIndex
+            return a.rows[0].originalIndex - b.rows[0].originalIndex;
+        });
+
+        // Flatten groups back into ordered rows array
+        // All rows (main and sub) are now sorted by row_index within each id_product group
+        const orderedRowsWithIndex = productGroups.flatMap(group => group.rows.map(data => data.row));
+
+        // Sort rows without row_index by originalIndex (maintain their current order)
+        withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
+        const orderedRowsWithoutIndex = withoutIndex.map(data => data.row);
+
+        // Combine: rows with index first (grouped by id_product, sorted by Data Capture Table order), then rows without index
+        const orderedRows = [...orderedRowsWithIndex, ...orderedRowsWithoutIndex];
+
+        // Re-append rows in new order
         orderedRows.forEach(row => summaryTableBody.appendChild(row));
+        
+        console.log('Reordered rows by id_product groups (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length, 'product groups:', productGroups.length);
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
@@ -10308,6 +11788,24 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         return;
     }
 
+    // IMPORTANT: Sort sub templates by row_index first, then by id to maintain correct order
+    // Use id (database primary key) instead of updated_at because updated_at changes when saving,
+    // which would cause newly saved rows to move to the end
+    // This ensures sub rows are applied in the correct order when loading from database
+    validSubTemplates.sort((a, b) => {
+        // First sort by row_index (where user added the data in Data Capture Table)
+        const aRowIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
+        const bRowIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
+        if (aRowIndex !== bRowIndex) {
+            return aRowIndex - bRowIndex;
+        }
+        // If same row_index, sort by id (database primary key) to maintain relative order
+        // id is auto-increment, so it reflects the creation order
+        const aId = a.id || 0;
+        const bId = b.id || 0;
+        return aId - bId;
+    });
+
     // 先收集当前表格中属于同一个 Id Product 的所有 main 行（可能有多行 UUU）
     const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
     const normalizedTargetId = normalizeIdProductText(idProduct);
@@ -10331,7 +11829,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     // 这样既保证分组不乱，又能尽量还原之前的 vertical 位置。
     let lastRowInGroup = mainRow;
 
-    validSubTemplates.forEach((template) => {
+    validSubTemplates.forEach((template, templateIndex) => {
         let insertAfterRow = lastRowInGroup;
 
         if (template.row_index !== undefined && template.row_index !== null) {
@@ -10432,9 +11930,26 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 console.warn('Failed to create sub row for template', template);
                 return;
             }
+            // Set creation order based on template index to maintain stable order when loading from database
+            // Since templates are now sorted by row_index and updated_at, use templateIndex to preserve order
+            // Use a base timestamp plus templateIndex * 1000 to ensure correct relative order
+            // This ensures sub rows with same row_index maintain their relative order from database
+            const baseTime = Date.now() - validSubTemplates.length * 1000;
+            const creationOrder = baseTime + templateIndex * 1000;
+            newRow.setAttribute('data-creation-order', String(creationOrder));
             targetRow = newRow;
-            console.log('Created new sub row for template');
+            console.log('Created new sub row for template with row_index:', templateRowIndex, 'creation-order:', creationOrder, 'templateIndex:', templateIndex);
         } else {
+            // If updating existing row, preserve its existing creation-order if it has one
+            // Only set if missing to maintain the original order
+            if (!targetRow.getAttribute('data-creation-order')) {
+                const baseTime = Date.now() - validSubTemplates.length * 1000;
+                const creationOrder = baseTime + templateIndex * 1000;
+                targetRow.setAttribute('data-creation-order', String(creationOrder));
+                console.log('Set missing creation-order on existing sub row:', creationOrder);
+            } else {
+                console.log('Preserving existing creation-order on sub row:', targetRow.getAttribute('data-creation-order'));
+            }
             console.log('Updating existing sub row instead of creating new one');
         }
 
@@ -10507,13 +12022,29 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 console.log('Cell values not found (sub), using reference format:', currentSourceData);
             }
         } else if (isReferenceFormat) {
-            // Use the saved reference format directly (e.g., [iphsp3 : 4] + [iphsp3 : 2])
-            currentSourceData = formulaOperatorsValue;
-            console.log('Using saved formulaOperatorsValue as reference format:', currentSourceData);
+            // CRITICAL: Even for reference format, if we have sourceColumnsValue, 
+            // we should rebuild from current Data Capture Table to get latest data
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                // Rebuild from current Data Capture Table
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Rebuilt reference format from current Data Capture Table (sub):', currentSourceData);
+            } else {
+                // No sourceColumnsValue, use saved reference format
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as reference format (no sourceColumnsValue, sub):', currentSourceData);
+            }
         } else if (isCompleteExpression) {
-            // Use the saved formula expression directly (preserves values from other id product rows)
-            currentSourceData = formulaOperatorsValue;
-            console.log('Using saved formulaOperatorsValue as complete expression (preserves values from other rows):', currentSourceData);
+            // CRITICAL: Even for complete expression, if we have sourceColumnsValue,
+            // we should rebuild from current Data Capture Table to get latest data
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                // Rebuild from current Data Capture Table
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+                console.log('Rebuilt complete expression from current Data Capture Table (sub):', currentSourceData);
+            } else {
+                // No sourceColumnsValue, use saved expression (preserves values from other id product rows)
+                currentSourceData = formulaOperatorsValue;
+                console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows, sub):', currentSourceData);
+            }
         } else {
             // Build reference format from columns
             currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
@@ -10582,21 +12113,103 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         const savedFormulaDisplay = template.formula_display || '';
         const isBatchSelectedTemplate = template.batch_selection == 1;
         
-            if (isBatchSelectedTemplate) {
+        // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
+        // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
+        // 这样当用户修改表格数据后，公式会反映最新的数据
+        const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
+        if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+            // 从当前表格数据重新计算 formula
+            // 获取行标签
+            const rowLabel = getRowLabelFromProcessValue(idProduct);
+            if (rowLabel) {
+                let displayFormula = formulaOperatorsValue;
+                
+                // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
+                const dollarPattern = /\$(\d+)(?!\d)/g;
+                const allMatches = [];
+                let match;
+                
+                // 重置正则表达式的 lastIndex
+                dollarPattern.lastIndex = 0;
+                
+                // 收集所有匹配项
+                while ((match = dollarPattern.exec(formulaOperatorsValue)) !== null) {
+                    const fullMatch = match[0];
+                    const columnNumber = parseInt(match[1]);
+                    const matchIndex = match.index;
+                    
+                    if (!isNaN(columnNumber) && columnNumber > 0) {
+                        allMatches.push({
+                            fullMatch: fullMatch,
+                            columnNumber: columnNumber,
+                            index: matchIndex
+                        });
+                    }
+                }
+                
+                // 从后往前处理，避免位置偏移
+                allMatches.sort((a, b) => b.index - a.index);
+                
+                for (let i = 0; i < allMatches.length; i++) {
+                    const match = allMatches[i];
+                    // 获取列的实际值
+                    const columnReference = rowLabel + match.columnNumber;
+                    const columnValue = getColumnValueFromCellReference(columnReference, idProduct);
+                    
+                    if (columnValue !== null) {
+                        // 替换 $数字 为实际值
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        columnValue + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
+                    } else {
+                        // 如果找不到值，替换为 0
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        '0' + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
+                    }
+                }
+                
+                // 如果还有列引用（如 A5），也转换为实际值
+                const parsedFormula = parseReferenceFormula(displayFormula);
+                const baseFormula = parsedFormula || displayFormula;
+                
+                // 应用 source percent
+                if (percentValue && enableSourcePercent) {
+                    formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
+                } else {
+                    formulaDisplay = baseFormula;
+                }
+                
+                console.log('applySubTemplatesToSummaryRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
+            } else {
+                // 如果无法获取行标签，使用保存的 formula_display 作为后备
+                formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
+                console.log('applySubTemplatesToSummaryRow: cannot get row label, using saved formula_display:', formulaDisplay);
+            }
+        }
+        
+        // 如果已经计算好 formulaDisplay（包含 $数字 的情况），跳过后续的 batch selection 逻辑
+        const hasCalculatedFormulaDisplay = hasDollarSigns && formulaDisplay && formulaDisplay.trim() !== '';
+        
+            if (isBatchSelectedTemplate && !hasCalculatedFormulaDisplay) {
                 // 对于 Batch Selection 的子模板，优先使用保存的 formula_display
                 // 使用 preserveFormulaStructure 来保留公式结构（包括括号）
                 if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
                     // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
                     // If so, extract the base expression by removing ALL trailing Source % patterns
+                    // IMPORTANT: Only remove Source % patterns with parentheses like *(1) or *(0.5)
+                    // Do NOT remove patterns without parentheses like *0.6, as these are user-manual multipliers
                     // Iteratively remove all trailing *(...) patterns to get the true base expression
                     let baseExpression = savedFormulaDisplay.trim();
                     let previousExpression = '';
                     
                     // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
+                    // Only match patterns with parentheses to avoid removing user-manual multipliers like *0.6
                     while (baseExpression !== previousExpression) {
                         previousExpression = baseExpression;
                         
                         // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
+                        // This is the Source % pattern added by the system
                         const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
                         const trailingMatch = baseExpression.match(trailingSourcePercentPattern);
                         if (trailingMatch) {
@@ -10605,13 +12218,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                             continue;
                         }
                         
-                        // Try pattern without parentheses: ...*number at the end
-                        const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                        const simpleMatch = baseExpression.match(simplePattern);
-                        if (simpleMatch) {
-                            baseExpression = simpleMatch[1].trim();
-                            continue;
-                        }
+                        // Do NOT match pattern without parentheses (*number) as this might be user-manual multiplier
+                        // Source % is always added with parentheses by createFormulaDisplayFromExpression
                         
                         // No more patterns found, break
                         break;
@@ -10733,18 +12341,22 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 }
                 console.log('Batch sub-template: recalculated formula from current Data Capture Table (no saved formula):', formulaDisplay);
             }
-        } else if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+        } else if (!hasCalculatedFormulaDisplay && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
             // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
             // If so, extract the base expression by removing ALL trailing Source % patterns
+            // IMPORTANT: Only remove Source % patterns with parentheses like *(1) or *(0.5)
+            // Do NOT remove patterns without parentheses like *0.6, as these are user-manual multipliers
             // Iteratively remove all trailing *(...) patterns to get the true base expression
             let baseExpression = savedFormulaDisplay.trim();
             let previousExpression = '';
             
             // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
+            // Only match patterns with parentheses to avoid removing user-manual multipliers like *0.6
             while (baseExpression !== previousExpression) {
                 previousExpression = baseExpression;
                 
                 // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
+                // This is the Source % pattern added by the system
                 const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
                 const trailingMatch = baseExpression.match(trailingSourcePercentPattern);
                 if (trailingMatch) {
@@ -10753,13 +12365,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     continue;
                 }
                 
-                // Try pattern without parentheses: ...*number at the end
-                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                const simpleMatch = baseExpression.match(simplePattern);
-                if (simpleMatch) {
-                    baseExpression = simpleMatch[1].trim();
-                    continue;
-                }
+                // Do NOT match pattern without parentheses (*number) as this might be user-manual multiplier
+                // Source % is always added with parentheses by createFormulaDisplayFromExpression
                 
                 // No more patterns found, break
                 break;
@@ -10836,7 +12443,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 console.log('Using saved formula_display as-is (sub, no current source data):', formulaDisplay);
                 }
             }
-        } else {
+        } else if (!hasCalculatedFormulaDisplay) {
             // No saved formula_display, recalculate from current Data Capture Table
             if (percentValue && resolvedSourceExpression && enableSourcePercent) {
                 formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
@@ -10943,6 +12550,21 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
         window.currentAddAccountButton = targetButton;
         updateSubIdProductRow(idProduct, data, targetRow);
+        
+        // IMPORTANT: Set data-row-index attribute on the row to preserve row order
+        if (template.row_index !== undefined && template.row_index !== null) {
+            targetRow.setAttribute('data-row-index', String(template.row_index));
+            console.log('Set data-row-index on sub row:', template.row_index);
+        }
+        
+        // Also set template_id and formula_variant for precise matching
+        if (template.id) {
+            targetRow.setAttribute('data-template-id', String(template.id));
+        }
+        if (template.formula_variant !== undefined && template.formula_variant !== null) {
+            targetRow.setAttribute('data-formula-variant', String(template.formula_variant));
+        }
+        
         lastRowInGroup = targetRow;
     });
 }
@@ -11908,7 +13530,18 @@ function formatPercentValue(value) {
                     const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                     const rateChecked = rateCheckbox ? rateCheckbox.checked : false;
                     const rateInput = document.getElementById('rateInput');
-                    const rateValue = rateChecked && rateInput && rateInput.value ? rateInput.value : null;
+                    // Extract numeric value from rate input (remove "*" or "/" prefix for saving)
+                    let rateValue = null;
+                    if (rateChecked && rateInput && rateInput.value) {
+                        const rateInputValue = rateInput.value.trim();
+                        if (rateInputValue.startsWith('*') || rateInputValue.startsWith('/')) {
+                            // Extract number after "*" or "/"
+                            rateValue = rateInputValue.substring(1);
+                        } else {
+                            // Use value as is (backward compatibility)
+                            rateValue = rateInputValue;
+                        }
+                    }
                     const templateKeyAttr = row.getAttribute('data-template-key') || '';
                     const productTypeAttr = row.getAttribute('data-product-type');
                     const parentIdProductAttr = row.getAttribute('data-parent-id-product');
@@ -12748,7 +14381,7 @@ function formatPercentValue(value) {
 
         /* Summary Table fixed viewport (approx 10 rows) with vertical scroll */
         #summaryTableContainer .table-wrapper {
-            height: clamp(230px, 16.67vw, 320px); /* ~10 rows incl. header */
+            /* height: clamp(230px, 16.67vw, 320px); */ /* ~10 rows incl. header - removed height restriction */
             overflow-y: auto;
         }
 
@@ -12875,6 +14508,7 @@ function formatPercentValue(value) {
 
         #summaryTotalAmount {
             text-align: center;
+            background-color: #f6f8fa;
         }
 
         /* Id Product and Account columns alignment */
@@ -12884,8 +14518,11 @@ function formatPercentValue(value) {
         }
 
         /* Remove vertical border between Account (2) and Add (3) columns (only in summary table) */
-        #summaryTable th:nth-child(2),
-        #summaryTable td:nth-child(2) {
+        #summaryTable th:nth-child(2){
+            border-right: none;
+        }
+
+        #summaryTable tbody td:nth-child(2) {
             border-right: none;
         }
 
@@ -13474,6 +15111,15 @@ function formatPercentValue(value) {
             min-width: 0;
         }
         
+        .edit-formula-form-container .form-left-column .description-select-with-buttons {
+            width: 100%;
+        }
+        
+        .edit-formula-form-container .form-left-column .description-select-with-buttons select {
+            width: 100%;
+            min-width: 0;
+        }
+        
         .edit-formula-form-container .form-left-column .source-percent-group {
             flex: 1;
             min-width: 0;
@@ -13502,6 +15148,7 @@ function formatPercentValue(value) {
             width: calc(500px + 30px + 500px); /* left column max-width + gap + middle column max-width */
             max-width: calc(500px + 30px + 500px);
             z-index: 1;
+            overflow: visible;
         }
         
         .edit-formula-form-container .form-left-column .form-row.formula-row-full-width .form-group {
@@ -13649,6 +15296,7 @@ function formatPercentValue(value) {
             display: flex;
             gap: clamp(12px, 1.04vw, 20px);
             align-items: flex-end;
+            overflow: visible;
         }
         
         .edit-formula-form-container .form-left-column .form-row {
@@ -13667,6 +15315,7 @@ function formatPercentValue(value) {
             align-items: center;
             gap: 12px;
             flex: 1;
+            overflow: visible;
         }
 
         .edit-formula-form-container .form-group.checkbox-group {
@@ -14062,7 +15711,105 @@ function formatPercentValue(value) {
             transform: scale(0.95);
         }
 
+        /* Description Select with Buttons Styles */
+        .description-select-with-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .description-select-with-buttons select {
+            flex: 1;
+        }
+
+        .description-add-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: clamp(2px, 0.21vw, 4px) clamp(6px, 0.52vw, 10px);
+            font-size: clamp(10px, 0.73vw, 14px);
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .description-add-btn:hover {
+            background: #0056b3;
+            transform: scale(1.05);
+        }
+
+        .description-add-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Formula Data Grid Styles */
+        .formula-data-grid {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 4px;
+            margin-top: 0px;
+            overflow-x: auto;
+            overflow-y: visible;
+            padding-bottom: 4px;
+            padding-top: 2px;
+        }
+
+        .formula-data-grid-item {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: clamp(2px, 0.21vw, 4px) clamp(4px, 0.42vw, 8px);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: clamp(8px, 0.63vw, 12px);
+            color: #333;
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-width: fit-content;
+            position: relative;
+            z-index: 1;
+        }
+
+        .formula-data-grid-item:hover {
+            background: #e0e0e0;
+            border-color: #007bff;
+            transform: translateY(-1px);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        .formula-data-grid-item:active {
+            transform: translateY(0);
+            background: #007bff;
+            color: white;
+        }
         
+        /* Scrollbar styling for formula data grid */
+        .formula-data-grid::-webkit-scrollbar {
+            height: 6px;
+        }
+        
+        .formula-data-grid::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+        
+        .formula-data-grid::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+        
+        .formula-data-grid::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.3);
+        }
 
         /* Print Styles */
         @media print {

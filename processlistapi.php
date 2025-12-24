@@ -202,13 +202,13 @@ function getProcesses() {
         
         // 根据 showAll 和 showInactive 参数过滤状态
         if ($showAll) {
-            // 如果勾选了 Show All，显示所有流程（不添加状态过滤）
-            // 不添加任何状态过滤条件
+            // Show All：显示所有 active 流程（不包含 inactive），但前端不分页
+            $conditions[] = "p.status = 'active'";
         } elseif ($showInactive) {
             // 勾选 showInactive 时，只显示 inactive 流程
             $conditions[] = "p.status = 'inactive'";
         } else {
-            // 未勾选时，只显示 active 流程
+            // 未勾选时，只显示 active 流程（分页）
             $conditions[] = "p.status = 'active'";
         }
         

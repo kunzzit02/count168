@@ -231,14 +231,25 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="edit_process_name">Process Name *</label>
-                                <input type="text" id="edit_process_name" name="process_name" required>
+                                <input type="text" id="edit_process_name" name="process_name" required readonly style="background-color: #f5f5f5; cursor: not-allowed;">
                             </div>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="edit_description">Description</label>
-                                <input type="text" id="edit_description" name="description" readonly>
+                                <div class="input-with-icon">
+                                    <input type="text" id="edit_description" name="description" readonly placeholder="Click + to select descriptions">
+                                    <button type="button" class="add-icon" onclick="expandEditDescription()">+</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Descriptions Display for Edit (hidden by default) -->
+                        <div class="form-row" id="edit_selected_descriptions_display" style="display: none;">
+                            <div class="form-group">
+                                <label>Selected Descriptions</label>
+                                <div class="selected-descriptions" id="edit_selected_descriptions_list"></div>
                             </div>
                         </div>
 
@@ -835,6 +846,13 @@ if ($current_user_id && count($user_companies) > 0) {
             if (allDayCheckbox) {
                 allDayCheckbox.checked = false;
             }
+            
+            // 清除选中的描述
+            if (window.selectedDescriptions) {
+                window.selectedDescriptions = [];
+            }
+            document.getElementById('edit_selected_descriptions_display').style.display = 'none';
+            document.getElementById('edit_description').value = '';
         }
 
         async function editProcess(id) {
@@ -925,20 +943,30 @@ if ($current_user_id && count($user_companies) > 0) {
                         updateAllDayCheckbox('edit');
                     }
                     
-                    // Handle description - simple display
+                    // Handle description - initialize selected descriptions
                     const descInput = document.getElementById('edit_description');
-                    let descriptionText = '';
+                    let descriptionNames = [];
                     
                     if (process.description_names && Array.isArray(process.description_names) && process.description_names.length > 0) {
-                        descriptionText = process.description_names[0];
+                        descriptionNames = process.description_names;
                     } else if (process.description_names && typeof process.description_names === 'string') {
-                        descriptionText = process.description_names;
+                        // 如果是逗号分隔的字符串，分割它
+                        descriptionNames = process.description_names.split(',').map(d => d.trim()).filter(d => d);
                     } else if (process.description_name) {
-                        descriptionText = process.description_name;
+                        descriptionNames = [process.description_name];
                     }
                     
+                    // 初始化选中的描述
+                    window.selectedDescriptions = descriptionNames;
+                    
                     if (descInput) {
-                        descInput.value = descriptionText;
+                        if (descriptionNames.length > 0) {
+                            descInput.value = `${descriptionNames.length} description(s) selected`;
+                            // 显示选中的描述列表
+                            displayEditSelectedDescriptions(descriptionNames);
+                        } else {
+                            descInput.value = '';
+                        }
                     }
                     
                     // Populate read-only information fields (date on left, user on right)
@@ -1106,7 +1134,19 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
+        // 全局变量：当前描述选择模式（'add' 或 'edit'）
+        let descriptionSelectionMode = 'add';
+
         function expandDescription() {
+            descriptionSelectionMode = 'add';
+            loadExistingDescriptions();
+            updateSelectedDescriptionsInModal();
+            const modal = document.getElementById('descriptionSelectionModal');
+            if (modal) modal.style.display = 'block';
+        }
+
+        function expandEditDescription() {
+            descriptionSelectionMode = 'edit';
             loadExistingDescriptions();
             updateSelectedDescriptionsInModal();
             const modal = document.getElementById('descriptionSelectionModal');
@@ -1166,6 +1206,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                     moveDescriptionToAvailable(this);
                                 }
                             });
+                            
+                            // 如果是编辑模式且该描述已被选中，自动选中并移动到已选择列表
+                            if (descriptionSelectionMode === 'edit' && window.selectedDescriptions && window.selectedDescriptions.includes(description.name)) {
+                                checkbox.checked = true;
+                                moveDescriptionToSelected(checkbox);
+                            }
                         });
                     } else {
                         descriptionsList.innerHTML = '<div class="no-descriptions">No descriptions found</div>';
@@ -1339,13 +1385,24 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
 
                 updateSelectedDescriptionsInModal();
-                displaySelectedDescriptions(window.selectedDescriptions || []);
-
-                const addDescInput = document.getElementById('add_description');
-                if (addDescInput) {
-                    addDescInput.value = (window.selectedDescriptions && window.selectedDescriptions.length > 0)
-                        ? `${window.selectedDescriptions.length} description(s) selected`
-                        : '';
+                
+                // 根据当前模式更新相应的显示
+                if (descriptionSelectionMode === 'edit') {
+                    displayEditSelectedDescriptions(window.selectedDescriptions || []);
+                    const editDescInput = document.getElementById('edit_description');
+                    if (editDescInput) {
+                        editDescInput.value = (window.selectedDescriptions && window.selectedDescriptions.length > 0)
+                            ? `${window.selectedDescriptions.length} description(s) selected`
+                            : '';
+                    }
+                } else {
+                    displaySelectedDescriptions(window.selectedDescriptions || []);
+                    const addDescInput = document.getElementById('add_description');
+                    if (addDescInput) {
+                        addDescInput.value = (window.selectedDescriptions && window.selectedDescriptions.length > 0)
+                            ? `${window.selectedDescriptions.length} description(s) selected`
+                            : '';
+                    }
                 }
 
                 const descriptionsList = document.getElementById('existingDescriptions');
@@ -1524,11 +1581,20 @@ if ($current_user_id && count($user_companies) > 0) {
 
         function confirmDescriptions() {
             if (window.selectedDescriptions && window.selectedDescriptions.length > 0) {
-                // Update the input field to show selected count
-                document.getElementById('add_description').value = `${window.selectedDescriptions.length} description(s) selected`;
-                
-                // Display selected descriptions
-                displaySelectedDescriptions(window.selectedDescriptions);
+                if (descriptionSelectionMode === 'edit') {
+                    // 编辑模式：更新编辑表单的字段
+                    const editDescInput = document.getElementById('edit_description');
+                    if (editDescInput) {
+                        editDescInput.value = `${window.selectedDescriptions.length} description(s) selected`;
+                    }
+                    // 显示选中的描述列表
+                    displayEditSelectedDescriptions(window.selectedDescriptions);
+                } else {
+                    // 添加模式：更新添加表单的字段
+                    document.getElementById('add_description').value = `${window.selectedDescriptions.length} description(s) selected`;
+                    // Display selected descriptions
+                    displaySelectedDescriptions(window.selectedDescriptions);
+                }
                 
                 closeDescriptionSelectionModal();
             } else {
@@ -1572,6 +1638,33 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
+        // Display selected descriptions for edit mode
+        function displayEditSelectedDescriptions(descriptions) {
+            const displayDiv = document.getElementById('edit_selected_descriptions_display');
+            const listDiv = document.getElementById('edit_selected_descriptions_list');
+            
+            if (descriptions.length > 0) {
+                displayDiv.style.display = 'block';
+                listDiv.innerHTML = '';
+                
+                descriptions.forEach((desc, index) => {
+                    const descItem = document.createElement('div');
+                    descItem.className = 'selected-description-item';
+                    descItem.innerHTML = `
+                        <span>${desc.toUpperCase()}</span>
+                        <button type="button" class="remove-description" onclick="removeEditDescription(${index})">&times;</button>
+                    `;
+                    listDiv.appendChild(descItem);
+                });
+                
+                // Store selected descriptions for form submission
+                window.selectedDescriptions = descriptions;
+            } else {
+                displayDiv.style.display = 'none';
+                window.selectedDescriptions = [];
+            }
+        }
+
         // Remove a description from selection
         function removeDescription(index) {
             if (window.selectedDescriptions) {
@@ -1584,6 +1677,25 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else {
                     document.getElementById('add_description').value = '';
                     document.getElementById('selected_descriptions_display').style.display = 'none';
+                }
+            }
+        }
+
+        // Remove a description from edit selection
+        function removeEditDescription(index) {
+            if (window.selectedDescriptions) {
+                window.selectedDescriptions.splice(index, 1);
+                displayEditSelectedDescriptions(window.selectedDescriptions);
+                
+                // Update input field
+                const editDescInput = document.getElementById('edit_description');
+                if (editDescInput) {
+                    if (window.selectedDescriptions.length > 0) {
+                        editDescInput.value = `${window.selectedDescriptions.length} description(s) selected`;
+                    } else {
+                        editDescInput.value = '';
+                        document.getElementById('edit_selected_descriptions_display').style.display = 'none';
+                    }
                 }
             }
         }
@@ -1839,6 +1951,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 const formData = new FormData(this);
                 
+                // Add selected descriptions
+                if (window.selectedDescriptions && window.selectedDescriptions.length > 0) {
+                    formData.append('selected_descriptions', JSON.stringify(window.selectedDescriptions));
+                }
+                
                 // Add selected day use checkboxes
                 const selectedDays = [];
                 document.querySelectorAll('#edit_day_checkboxes input[name="edit_day_use[]"]:checked').forEach(checkbox => {
@@ -1910,7 +2027,12 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                     } else {
-                        showNotification('Failed to add description: ' + (result.error || 'Unknown error'), 'danger');
+                        // 如果是重复的 description，显示英文提示
+                        if (result.duplicate || (result.error && result.error.includes('already exists'))) {
+                            showNotification('Description name already exists', 'danger');
+                        } else {
+                            showNotification('Failed to add description: ' + (result.error || 'Unknown error'), 'danger');
+                        }
                     }
                 } catch (error) {
                     console.error('Error adding description:', error);

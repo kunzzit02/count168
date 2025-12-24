@@ -301,7 +301,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['act
     exit;
 }
 
-// 处理添加描述请求
+// 处理添加描述请求（不允许同一公司内重名）
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_description') {
     try {
         $descriptionName = trim($_POST['description_name'] ?? '');
@@ -313,8 +313,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if (!$companyId) {
             throw new Exception('User company_id not found');
         }
+
+        // 检查当前 company 是否已经存在同名 description（同一个公司内禁止重复）
+        // 使用表的默认排序规则（utf8mb4_unicode_ci），已经是不区分大小写比较
+        $checkStmt = $pdo->prepare("
+            SELECT COUNT(*) 
+            FROM description 
+            WHERE company_id = ? AND name = ?
+        ");
+        $checkStmt->execute([$companyId, $descriptionName]);
+        $existsCount = (int)$checkStmt->fetchColumn();
+
+        if ($existsCount > 0) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Description name already exists for this company',
+                'duplicate' => true
+            ]);
+            exit;
+        }
         
-        // 允许重复的描述名称，直接插入新描述
         // 插入新描述，包含 company_id
         $stmt = $pdo->prepare("INSERT INTO description (name, company_id) VALUES (?, ?)");
         $stmt->execute([$descriptionName, $companyId]);

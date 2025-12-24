@@ -61,6 +61,12 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
 <!-- Sidebar CSS -->
 <style>
+    /* Sidebar 自己的字体设置，避免被各页面 body 的全局字体覆盖导致闪一下样式 */
+    .informationmenu,
+    .informationmenu * {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
     /* 用户信息容器（包裹头像和用户信息） */
     .user-info-container {
         display: flex;
@@ -69,6 +75,16 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
+        gap: clamp(6px, 0.63vw, 12px);
+        /* 优化渲染性能，防止页面切换时的布局重排 */
+        min-height: 50px;
+        contain: layout style;
+        will-change: auto;
+        /* 确保头像选择菜单不被裁剪 */
+        overflow: visible;
+        /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
+        position: relative;
+        z-index: 9999;
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -76,15 +92,21 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         position: relative;
         display: flex;
         align-items: center;
-        flex-direction: column;
-        gap: 4px;
+        flex-direction: row;
+        gap: 0;
         cursor: pointer;
         padding: clamp(2px, 0.4vw, 8px);
         border-radius: 25px;
-        transition: all 0.3s ease;
+        /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
+        transition: background-color 0.3s ease;
         text-align: left;
         color: white;
-        flex: 1;
+        flex-shrink: 0;
+        /* 优化渲染性能 */
+        min-width: 0;
+        contain: layout style;
+        /* 确保不会被头像选择菜单覆盖，但也不覆盖菜单 */
+        z-index: 1;
     }
 
     .user-avatar-dropdown:hover {
@@ -112,9 +134,18 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         display: flex;
         flex-direction: column;     
         align-items: center;
-        margin-left: clamp(8px, 0.83vw, 16px);
+        margin-left: 0;
         flex-shrink: 0;
         width: fit-content;
+        /* 优化渲染性能，防止页面切换时的布局重排 */
+        min-width: clamp(40px, 3.65vw, 70px);
+        /* 移除 paint 限制，允许头像选择菜单超出容器边界显示 */
+        contain: layout style;
+        /* 确保头像选择菜单不被裁剪 */
+        overflow: visible;
+        /* 创建新的堆叠上下文，确保子元素（头像选择菜单）的z-index能够覆盖其他元素 */
+        z-index: 10000;
+        isolation: isolate;
     }
 
     /* 当前头像显示 */
@@ -123,7 +154,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         height: clamp(40px, 3.65vw, 70px);
         border-radius: 50%;
         cursor: pointer;
-        transition: all 0.3s ease;
+        /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
+        transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
         border: 3px solid rgba(255, 255, 255, 0.3);
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
@@ -134,6 +166,15 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         position: relative;
         overflow: hidden;
         box-sizing: border-box;
+        /* 优化渲染性能，防止闪烁 - 强制 GPU 加速并隔离布局 */
+        transform: translateZ(0);
+        will-change: border-color, box-shadow;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        /* 确保尺寸固定，避免 flex 布局重新计算时的抖动 */
+        flex-shrink: 0;
+        min-width: clamp(40px, 3.65vw, 70px);
+        min-height: clamp(40px, 3.65vw, 70px);
     }
 
     .current-avatar:hover {
@@ -154,8 +195,9 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         backdrop-filter: blur(20px);
         opacity: 0;
         visibility: hidden;
-        transition: all 0.3s ease;
-        z-index: 2000;
+        transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+        /* 使用非常高的 z-index 确保显示在所有内容之上 */
+        z-index: 9999;
         width: clamp(120px, 10vw, 180px);
         max-height: clamp(300px, 40vh, 500px);
         overflow-y: auto;
@@ -288,6 +330,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         justify-content: center;
         align-items: flex-start;
         gap: 2px;
+        margin-left: clamp(4px, 0.42vw, 8px);
     }
 
     .user-name {
@@ -342,11 +385,21 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         top: 0;
         overflow: visible;
         z-index: 1000;
-        transform: translateX(0);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transform: translateX(0) translateZ(0);
+        /* 只对transform应用过渡，避免页面切换时其他CSS属性变化导致的闪烁 */
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         flex-direction: column;
         border-right: 1px solid rgba(255, 255, 255, 0.2);
+        /* 优化渲染性能，防止闪烁 */
+        will-change: transform;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        /* 确保sidebar始终可见，不会被重新渲染影响 */
+        visibility: visible;
+        opacity: 1;
+        /* 强制GPU加速，提高渲染稳定性 */
+        -webkit-transform: translateX(0) translateZ(0);
     }
 
     .informationmenu.show {
@@ -364,6 +417,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        /* 确保头像选择菜单不被裁剪 */
+        overflow: visible;
     }
 
     .informationmenu-logo {
@@ -718,7 +773,9 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         display: flex;
         align-items: center;
         justify-content: center;
+        gap: 0px;
         margin-bottom: clamp(4px, 0.52vw, 10px);
+        width: 100%;
     }
 
     .header-logo {
@@ -850,6 +907,191 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         font-weight: 600;
         color: #333;
     }
+
+    /* 通知铃铛样式 */
+    .notification-bell {
+        position: relative;
+        width: clamp(26px, 1.88vw, 36px);
+        height: clamp(26px, 1.88vw, 36px);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: white;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        flex-shrink: 0;
+    }
+
+    .notification-bell:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    .notification-bell svg {
+        width: clamp(16px, 1.14vw, 22px);
+        height: clamp(16px, 1.14vw, 22px);
+        transform-origin: 50% 10%;
+        animation: bell-shake 1s ease-in-out infinite;
+    }
+
+    @keyframes bell-shake {
+        0%   { transform: rotate(0deg); }
+        15%  { transform: rotate(12deg); }
+        30%  { transform: rotate(-10deg); }
+        45%  { transform: rotate(8deg); }
+        60%  { transform: rotate(-6deg); }
+        75%  { transform: rotate(3deg); }
+        100% { transform: rotate(0deg); }
+    }
+
+    /* 通知面板遮罩层 */
+    .notification-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: 1200;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .notification-overlay.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* 通知面板 */
+    .notification-panel {
+        position: fixed;
+        top: 0;
+        right: -400px;
+        width: clamp(260px, 20.83vw, 400px);
+        height: 100vh;
+        background: #ffffff;
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+        z-index: 1300;
+        transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .notification-panel.show {
+        right: 0;
+    }
+
+    /* 通知面板头部 */
+    .notification-header {
+        padding: clamp(10px, 1.04vw, 20px) clamp(16px, 1.25vw, 24px);
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f9fafb;
+    }
+
+    .notification-header h2 {
+        margin: 0;
+        font-size: clamp(14px, 1.04vw, 20px);
+        font-weight: 600;
+        color: #1a237e;
+    }
+
+    .notification-close {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b7280;
+        transition: all 0.2s ease;
+    }
+
+    .notification-close:hover {
+        background: #e5e7eb;
+        color: #1a237e;
+    }
+
+    .notification-close svg {
+        width: clamp(16px, 1.04vw, 20px);
+        height: clamp(16px, 1.04vw, 20px);
+    }
+
+    /* 通知内容区域 */
+    .notification-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: clamp(10px, 0.83vw, 16px);
+    }
+
+    .notification-item {
+        padding: clamp(10px, 0.83vw, 16px);
+        margin-bottom: clamp(8px, 0.625vw, 12px);
+        background: #f9fafb;
+        border-radius: 12px;
+        border-left: 4px solid #1a237e;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .notification-item:hover {
+        background: #f3f4f6;
+        transform: translateX(-2px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .notification-item.unread {
+        background: #eff6ff;
+        border-left-color: #3b82f6;
+    }
+
+    .notification-title {
+        font-size: clamp(10px, 0.73vw, 14px);
+        font-weight: 600;
+        color: #111827;
+        margin-bottom: 6px;
+    }
+
+    .notification-message {
+        font-size: clamp(9px, 0.68vw, 13px);
+        color: #6b7280;
+        line-height: 1.5;
+        margin-bottom: 8px;
+    }
+
+    .notification-time {
+        font-size: clamp(8px, 0.625vw, 12px);
+        color: #9ca3af;
+    }
+
+    .notification-empty {
+        text-align: center;
+        padding: 60px 20px;
+        color: #9ca3af;
+    }
+
+    .notification-empty svg {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    .notification-empty p {
+        margin: 0;
+        font-size: 14px;
+    }
 </style>
 
 <link rel="icon" type="image/png" href="images/count_logo.png">
@@ -861,6 +1103,12 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
     <div class="informationmenu-header">
         <div class="header-logo-section">
             <img src="images/count_whitelogo.png" alt="EAZYCOUNT Logo" class="header-logo">
+            <!-- 通知铃铛 -->
+            <div class="notification-bell" title="Notifications" onclick="toggleNotificationPanel(event)">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M12 2C10.34 2 9 3.34 9 5V5.29C6.72 6.15 5.12 8.39 5.01 11L5 11V16L3 18V19H21V18L19 16V11C18.88 8.39 17.28 6.15 15 5.29V5C15 3.34 13.66 2 12 2ZM12 22C10.9 22 10 21.1 10 20H14C14 21.1 13.1 22 12 22Z"/>
+                </svg>
+            </div>
         </div>
 
         <!-- 用户信息容器（头像和用户信息左右排版） -->
@@ -868,7 +1116,40 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
             <!-- 添加头像选择器（改为使用 PNG 照片） -->
             <div class="avatar-selector-container">
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
-                    <img id="currentAvatarImg" src="images/avatar1.png" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    <!-- 移除默认 src，避免每次切换页面先闪一下默认头像；实际头像由 JS 根据 localStorage 设置 -->
+                    <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;" loading="eager">
+                    <script>
+                        // 立即设置头像，避免闪烁（在DOMContentLoaded之前执行）
+                        (function() {
+                            const avatarImages = {
+                                male1: 'images/avatar1.png',
+                                male2: 'images/avatar2.png',
+                                male3: 'images/avatar3.png',
+                                male4: 'images/avatar4.png',
+                                male5: 'images/avatar5.png',
+                                male6: 'images/avatar6.png',
+                                male7: 'images/avatar7.png',
+                                male8: 'images/avatar8.png',
+                                male9: 'images/avatar9.png',
+                                female1: 'images/female1.png',
+                                female2: 'images/female2.png',
+                                female3: 'images/female3.png',
+                                female4: 'images/female4.png',
+                                female5: 'images/female5.png',
+                                female6: 'images/female6.png',
+                                female7: 'images/female7.png',
+                                female8: 'images/female8.png',
+                                female9: 'images/female9.png'
+                            };
+                            const savedAvatar = localStorage.getItem('selectedAvatar');
+                            const avatarId = (savedAvatar && avatarImages[savedAvatar]) ? savedAvatar : 'male1';
+                            const img = document.getElementById('currentAvatarImg');
+                            if (img) {
+                                // 直接设置 src，图片尺寸已固定，不会导致布局变化
+                                img.src = avatarImages[avatarId];
+                            }
+                        })();
+                    </script>
                 </div>
                 
             <div class="avatar-options" id="avatarOptions">
@@ -1156,6 +1437,25 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         <button class="btn logout-btn" onclick="handleLogout()">
             Logout
         </button>
+    </div>
+</div>
+
+<!-- 通知面板遮罩层 -->
+<div class="notification-overlay" id="notificationOverlay" onclick="closeNotificationPanel()"></div>
+
+<!-- 通知面板 -->
+<div class="notification-panel" id="notificationPanel">
+    <div class="notification-header">
+        <h2>Announcements</h2>
+        <button class="notification-close" onclick="closeNotificationPanel()" title="关闭">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+    <div class="notification-content" id="notificationContent">
+        <!-- 公告将在这里动态加载 -->
     </div>
 </div>
 
@@ -1666,7 +1966,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         const avatarContainer = document.querySelector('.avatar-selector-container');
         const avatarOptions = document.getElementById('avatarOptions');
         
-        if (!avatarContainer.contains(e.target)) {
+        if (!avatarContainer.contains(e.target) && !avatarOptions.contains(e.target)) {
             avatarOptions.classList.remove('show');
         }
     });
@@ -1795,6 +2095,98 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
             wrapper.addEventListener('mousemove', function() {
                 positionSubmenu(wrapper);
             });
+        }
+    });
+
+    // Notification panel functionality
+    function toggleNotificationPanel(event) {
+        const panel = document.getElementById('notificationPanel');
+        const overlay = document.getElementById('notificationOverlay');
+        
+        if (panel.classList.contains('show')) {
+            closeNotificationPanel();
+        } else {
+            panel.classList.add('show');
+            overlay.classList.add('show');
+            // 加载公告
+            loadAnnouncements();
+        }
+        
+        // 阻止事件冒泡
+        if (event) {
+            event.stopPropagation();
+        }
+    }
+
+    function closeNotificationPanel() {
+        const panel = document.getElementById('notificationPanel');
+        const overlay = document.getElementById('notificationOverlay');
+        
+        panel.classList.remove('show');
+        overlay.classList.remove('show');
+    }
+
+    // Load announcements
+    async function loadAnnouncements() {
+        try {
+            const response = await fetch('announcement_get_dashboard_api.php');
+            const result = await response.json();
+            
+            const contentContainer = document.getElementById('notificationContent');
+            
+            if (result.success && result.data && result.data.length > 0) {
+                contentContainer.innerHTML = result.data.map(announcement => `
+                    <div class="notification-item unread">
+                        <div class="notification-title">${escapeHtml(announcement.title)}</div>
+                        <div class="notification-message">${escapeHtml(announcement.content)}</div>
+                        <div class="notification-time">${escapeHtml(announcement.created_at)}</div>
+                    </div>
+                `).join('');
+                
+                // Mark as read when clicking notification item
+                const notificationItems = contentContainer.querySelectorAll('.notification-item');
+                notificationItems.forEach(item => {
+                    item.addEventListener('click', function() {
+                        this.classList.remove('unread');
+                    });
+                });
+            } else {
+                contentContainer.innerHTML = `
+                    <div class="notification-empty">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+                        </svg>
+                        <p>No announcements</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Failed to load announcements:', error);
+            const contentContainer = document.getElementById('notificationContent');
+            contentContainer.innerHTML = `
+                <div class="notification-empty">
+                    <p>Failed to load announcements</p>
+                </div>
+            `;
+        }
+    }
+
+    // HTML escape function
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // 点击其他地方关闭通知面板
+    document.addEventListener('click', function(e) {
+        const bell = document.querySelector('.notification-bell');
+        const panel = document.getElementById('notificationPanel');
+        const overlay = document.getElementById('notificationOverlay');
+        
+        // 如果点击的不是通知铃铛和通知面板内部，则关闭面板
+        if (!bell.contains(e.target) && !panel.contains(e.target) && panel.classList.contains('show')) {
+            closeNotificationPanel();
         }
     });
 </script>

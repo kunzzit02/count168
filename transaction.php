@@ -32,6 +32,33 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     body.transaction-page * {
         font-weight: 700;
     }
+    /* 重置 sidebar 字体粗细，保持与其他页面一致 */
+    /* 先重置所有 sidebar 元素为 normal，然后恢复关键元素的原始 font-weight */
+    body.transaction-page .informationmenu,
+    body.transaction-page .informationmenu * {
+        font-weight: normal;
+    }
+    /* 恢复 sidebar 中关键元素的原始 font-weight（与 sidebar.php 保持一致） */
+    body.transaction-page .informationmenu .user-name,
+    body.transaction-page .informationmenu .informationmenu-section-title,
+    body.transaction-page .informationmenu .language-text,
+    body.transaction-page .informationmenu .language-option span {
+        font-weight: 600;
+    }
+    body.transaction-page .informationmenu .user-role,
+    body.transaction-page .informationmenu .informationmenu-item {
+        font-weight: 500;
+    }
+    body.transaction-page .informationmenu .user-avatar,
+    body.transaction-page .informationmenu .informationmenu-logo,
+    body.transaction-page .informationmenu .submenu-item,
+    body.transaction-page .informationmenu .submenu-item::after {
+        font-weight: bold;
+    }
+    body.transaction-page .informationmenu .options-title,
+    body.transaction-page .informationmenu .gender-btn {
+        font-weight: 600;
+    }
     /* 表格自然展开，页面整体滚动 */
     .transaction-table-wrapper { 
         position: relative !important; 
@@ -666,7 +693,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     <thead>
                         <tr class="transaction-table-header">
                             <th class="transaction-history-col-date">Date</th>
-                            <th class="transaction-history-col-product">Product</th>
+                            <th class="transaction-history-col-product">Id Product</th>
                             <th class="transaction-history-col-currency">Currency</th>
                             <th class="transaction-history-col-rate">Rate</th>
                             <th class="transaction-history-col-percent">%</th>
@@ -749,6 +776,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 'cash': 'transaction-role-cash',
                 'profit': 'transaction-role-profit',
                 'expenses': 'transaction-role-expenses',
+                'company': 'transaction-role-company',
                 'staff': 'transaction-role-staff',
                 'upline': 'transaction-role-upline',
                 'agent': 'transaction-role-agent',
@@ -769,11 +797,12 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 'cash': 3,
                 'profit': 4,
                 'expenses': 5,
-                'staff': 6,
-                'upline': 7,
-                'agent': 8,
-                'member': 9,
-                'none': 10
+                'company': 6,
+                'staff': 7,
+                'upline': 8,
+                'agent': 9,
+                'member': 10,
+                'none': 11
             };
             return roleOrder[roleLower] || 999; // 未知 role 排在最后
         }

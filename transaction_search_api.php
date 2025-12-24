@@ -85,11 +85,26 @@ if ($isMemberUser) {
     if (isset($_GET['company_id']) && !empty($_GET['company_id'])) {
         // 验证用户是否有权限访问该 company
         $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
+        $userType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
         if ($userRole === 'owner') {
             // Owner 可以访问自己拥有的 company
             $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
             $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
             $stmt->execute([$_GET['company_id'], $owner_id]);
+            if ($stmt->fetchColumn()) {
+                $company_id = (int)$_GET['company_id'];
+            } else {
+                throw new Exception('无权访问该 company');
+            }
+        } elseif ($userType === 'member') {
+            // member 用户可以访问通过 account_company 关联的公司
+            $memberAccountId = (int)$_SESSION['user_id'];
+            $stmt = $pdo->prepare("
+                SELECT 1 
+                FROM account_company ac
+                WHERE ac.account_id = ? AND ac.company_id = ?
+            ");
+            $stmt->execute([$memberAccountId, (int)$_GET['company_id']]);
             if ($stmt->fetchColumn()) {
                 $company_id = (int)$_GET['company_id'];
             } else {
@@ -139,13 +154,15 @@ if (!empty($target_account_ids)) {
         $params[] = $category;
     }
     
-    if ($show_inactive) {
-        // 如果勾选了 "Show inactive"，只显示 inactive 账号
-        $where_conditions[] = "a.status = 'inactive'";
-    } else {
+    // 注意：member 用户查询时，show_inactive=1 表示显示所有状态（包括 inactive）
+    // 但这里的逻辑是：如果 show_inactive=1，只显示 inactive；否则只显示 active
+    // 这可能导致 member 用户看不到 active 账户
+    // 修复：如果 show_inactive=1，不添加状态过滤（显示所有状态）
+    if (!$show_inactive) {
         // 默认只显示 active 账号
         $where_conditions[] = "a.status = 'active'";
     }
+    // 如果 show_inactive=1，不添加状态过滤，显示所有状态的账户
     
     // 添加条件：如果选择了 "Show capture only"，只显示在日期范围内有 data_capture 记录的账户
     if ($show_capture_only) {

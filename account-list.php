@@ -106,6 +106,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 exit;
             }
             
+            // 检查是否有账户在 datacapture 中被用来设置 formula
+            $accountsUsedInDatacapture = [];
+            try {
+                // 检查 data_capture_templates 表是否存在
+                $check_dct_table = $pdo->query("SHOW TABLES LIKE 'data_capture_templates'");
+                if ($check_dct_table->rowCount() > 0) {
+                    // 检查这些账户是否在 data_capture_templates 中被使用
+                    $checkDctParams = array_merge([$company_id], $ids);
+                    $checkDctStmt = $pdo->prepare("
+                        SELECT DISTINCT dct.account_id, a.account_id as account_display
+                        FROM data_capture_templates dct
+                        INNER JOIN account a ON dct.account_id = a.id
+                        WHERE dct.company_id = ?
+                        AND dct.account_id IN ($placeholders)
+                    ");
+                    $checkDctStmt->execute($checkDctParams);
+                    $usedAccounts = $checkDctStmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    if (!empty($usedAccounts)) {
+                        foreach ($usedAccounts as $usedAccount) {
+                            $accountsUsedInDatacapture[] = $usedAccount['account_display'] ?: 'ID: ' . $usedAccount['account_id'];
+                        }
+                    }
+                }
+            } catch (PDOException $e) {
+                error_log("Error checking data_capture_templates: " . $e->getMessage());
+                // 如果检查出错，为了安全起见，阻止删除
+                header('Location: account-list.php?error=delete_failed');
+                exit;
+            }
+            
+            if (!empty($accountsUsedInDatacapture)) {
+                $usedAccountIds = implode(', ', $accountsUsedInDatacapture);
+                error_log("Attempted to delete account used in datacapture formula: " . $usedAccountIds);
+                header('Location: account-list.php?error=cannot_delete_used_in_datacapture&accounts=' . urlencode($usedAccountIds));
+                exit;
+            }
+            
             // 只删除inactive账户，并确保属于当前公司
             // 先删除 account_company 关联（只删除当前公司的关联）
             $delete_ac_params = array_merge([$company_id], $ids);
@@ -2406,6 +2444,14 @@ $showAll = isset($_GET['showAll']) ? true : false;
             
             if (error === 'cannot_delete_active') {
                 showNotification('Cannot delete active accounts. Only inactive accounts can be deleted.', 'danger');
+                // Clean up URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (error === 'cannot_delete_used_in_datacapture') {
+                const accounts = urlParams.get('accounts') || '';
+                const message = accounts 
+                    ? `Cannot delete accounts: ${accounts}. These accounts are being used in datacapture formula settings.`
+                    : 'Cannot delete accounts. These accounts are being used in datacapture formula settings.';
+                showNotification(message, 'danger');
                 // Clean up URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (error === 'delete_failed') {

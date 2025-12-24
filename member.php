@@ -78,6 +78,30 @@ try {
             
             $debugInfo['companies_found'] = count($memberCompanies);
             
+            // 如果 currentCompanyId 为 0 或不在关联公司列表中，使用第一个关联的公司
+            if ($currentCompanyId <= 0 || empty($memberCompanies)) {
+                if (!empty($memberCompanies)) {
+                    $currentCompanyId = (int)$memberCompanies[0]['id'];
+                    $_SESSION['company_id'] = $currentCompanyId;
+                    $debugInfo['auto_set_company_id'] = $currentCompanyId;
+                }
+            } else {
+                // 验证 currentCompanyId 是否在关联公司列表中
+                $isValidCompany = false;
+                foreach ($memberCompanies as $comp) {
+                    if ((int)$comp['id'] === $currentCompanyId) {
+                        $isValidCompany = true;
+                        break;
+                    }
+                }
+                if (!$isValidCompany && !empty($memberCompanies)) {
+                    // 如果当前 company_id 不在关联列表中，使用第一个
+                    $currentCompanyId = (int)$memberCompanies[0]['id'];
+                    $_SESSION['company_id'] = $currentCompanyId;
+                    $debugInfo['auto_set_company_id'] = $currentCompanyId;
+                }
+            }
+            
             // 如果查询结果为空，记录详细信息
             if (empty($memberCompanies) && !empty($storedCompanyIds)) {
                 error_log("Member {$currentUserId} has records in account_company, but JOIN query returned empty. Stored company_id: " . implode(', ', $storedCompanyIds));
@@ -195,6 +219,10 @@ $today = date('d/m/Y');
             gap: 10px;
         }
 
+        .transaction-page .transaction-form-group:has(.transaction-date-inputs) {
+            max-width: clamp(300px, 25vw, 400px);
+        }
+
         .transaction-page .transaction-two-col {
             display: flex;
             gap: 12px;
@@ -245,12 +273,20 @@ $today = date('d/m/Y');
 
         .transaction-page .transaction-date-inputs {
             display: flex;
-            flex: 1;
+            align-items: center;
+            gap: 5px;
+            width: 100%;
         }
 
         .transaction-page .transaction-date-input {
             flex: 1;
             min-width: 0;
+        }
+
+        .transaction-page .transaction-date-inputs span {
+            color: #666;
+            font-size: clamp(9px, 0.63vw, 12px);
+            flex-shrink: 0;
         }
 
         .transaction-page .transaction-account-inputs {
@@ -815,7 +851,7 @@ $today = date('d/m/Y');
             padding: 2px 14px;
             border: 1px solid #e2e8f0;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
             color: #0f172a;
         }
 
@@ -896,7 +932,7 @@ $today = date('d/m/Y');
                     <label class="transaction-label">Capture Date</label>
                     <div class="transaction-date-inputs">
                         <input type="text" id="date_from" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
-                        <span style="margin:0 5px;">to</span>
+                        <span>to</span>
                         <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
                     </div>
                 </div>
@@ -1132,10 +1168,17 @@ $today = date('d/m/Y');
                     return reject(new Error('Missing date'));
                 }
 
+                if (!memberConfig.companyId || memberConfig.companyId <= 0) {
+                    showNotification('Please select a company', 'error');
+                    if (filterWrapper) filterWrapper.style.display = 'none';
+                    return reject(new Error('Missing company'));
+                }
+
                 const params = new URLSearchParams({
                     date_from: dateFrom,
                     date_to: dateTo,
                     target_account_id: memberConfig.accountId,
+                    company_id: memberConfig.companyId,
                     show_inactive: '1',
                     hide_zero_balance: '0'
                 });
@@ -1297,6 +1340,11 @@ $today = date('d/m/Y');
                 return;
             }
 
+            if (!memberConfig.companyId || memberConfig.companyId <= 0) {
+                showNotification('Please select a company', 'error');
+                return;
+            }
+
             const availableCurrencies = getAvailableCurrencies();
             let targetCurrencies;
 
@@ -1334,6 +1382,7 @@ $today = date('d/m/Y');
             const requests = targetCurrencies.map(code => {
                 const params = new URLSearchParams({
                     account_id: memberConfig.accountId,
+                    company_id: memberConfig.companyId,
                     date_from: dateFrom,
                     date_to: dateTo
                 });

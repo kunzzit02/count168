@@ -749,9 +749,15 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             OR (product_type = 'sub' AND LOWER(parent_id_product) IN ($placeholders))
           )
         ORDER BY process_id DESC,
+                 CASE 
+                     WHEN product_type = 'main' THEN COALESCE(id_product, '')
+                     WHEN product_type = 'sub' THEN COALESCE(parent_id_product, '')
+                     ELSE COALESCE(id_product, '')
+                 END ASC,
                  CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
                  row_index ASC,
                  product_type ASC,
+                 formula_variant ASC,
                  id ASC
     ");
 

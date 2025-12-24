@@ -45,12 +45,27 @@ try {
     if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
         $requested_company_id = (int)$_GET['company_id'];
         $userRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
+        $userType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
         
         if ($userRole === 'owner') {
             // owner 可以访问自己名下的其他公司
             $owner_id = $_SESSION['owner_id'] ?? $_SESSION['user_id'];
             $stmt = $pdo->prepare("SELECT id FROM company WHERE id = ? AND owner_id = ?");
             $stmt->execute([$requested_company_id, $owner_id]);
+            if ($stmt->fetchColumn()) {
+                $company_id = $requested_company_id;
+            } else {
+                throw new Exception('无权访问该公司');
+            }
+        } elseif ($userType === 'member') {
+            // member 用户可以访问通过 account_company 关联的公司
+            $memberAccountId = (int)$_SESSION['user_id'];
+            $stmt = $pdo->prepare("
+                SELECT 1 
+                FROM account_company ac
+                WHERE ac.account_id = ? AND ac.company_id = ?
+            ");
+            $stmt->execute([$memberAccountId, $requested_company_id]);
             if ($stmt->fetchColumn()) {
                 $company_id = $requested_company_id;
             } else {
@@ -96,6 +111,7 @@ try {
         $currency_stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
         $currency_stmt->execute([$currency, $company_id]);
         $currency_id = $currency_stmt->fetchColumn();
+        error_log("Transaction History API: currency_id lookup: currency={$currency}, company_id={$company_id}, found={$currency_id}");
     }
     
     // 查询账户信息 - 使用 account_company 表过滤
@@ -359,14 +375,35 @@ try {
             $captureTimestamp = strtotime($capture['capture_date']);
         }
         
-        // Product: 使用 id_product（id_product_sub 或 id_product_main）
+        // Product: 使用 id_product（id_product_sub 或 id_product_main），如果有 description 则附加在后面（括号内）
         $product = '';
+        $productDescription = null; // 用于存储 description_main 或 description_sub
+        
         if ($capture['product_type'] === 'sub' && !empty($capture['id_product_sub'])) {
             $product = $capture['id_product_sub'];
+            // 获取对应的 description_sub
+            if (!empty($capture['description_sub'])) {
+                $productDescription = $capture['description_sub'];
+            }
         } elseif (!empty($capture['id_product_main'])) {
             $product = $capture['id_product_main'];
+            // 获取对应的 description_main
+            if (!empty($capture['description_main'])) {
+                $productDescription = $capture['description_main'];
+            }
         } else {
             $product = $capture['id_product_sub'] ?: $capture['id_product_main'] ?: 'Data Capture';
+            // 如果 id_product_sub 存在，尝试获取 description_sub；否则尝试 description_main
+            if (!empty($capture['id_product_sub']) && !empty($capture['description_sub'])) {
+                $productDescription = $capture['description_sub'];
+            } elseif (!empty($capture['description_main'])) {
+                $productDescription = $capture['description_main'];
+            }
+        }
+        
+        // 如果有 description，将其附加到 product 后面（用括号括起来）
+        if (!empty($productDescription)) {
+            $product = $product . ' (' . trim($productDescription) . ')';
         }
         
         // Percent: 不再使用 source_percent，留空
@@ -391,16 +428,8 @@ try {
             $rate = number_format((float)$capture['rate'], 4);
         }
         
-        // Remark: 优先使用 description_main 或 description_sub，如果没有则使用 capture_remark
-        $remark = null;
-        if ($capture['product_type'] === 'sub' && !empty($capture['description_sub'])) {
-            $remark = $capture['description_sub'];
-        } elseif (!empty($capture['description_main'])) {
-            $remark = $capture['description_main'];
-        } else {
-            // 如果 description_main 和 description_sub 都没有，使用 capture_remark 作为后备
-            $remark = $capture['capture_remark'] ?? null;
-        }
+        // Remark: 不再使用 description_main 或 description_sub（因为它们已经显示在 product 列），只使用 capture_remark
+        $remark = $capture['capture_remark'] ?? null;
         
         $events[] = [
             'row_type' => 'data_capture',

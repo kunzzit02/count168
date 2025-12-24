@@ -45,7 +45,10 @@ function filterAccountsByPermissions($pdo, $baseQuery, $params = []) {
 
     // owner 不受权限限制，自动显示全部
     $currentUserRole = $_SESSION['role'] ?? '';
-    if ($currentUserRole === 'owner') {
+    $currentUserType = isset($_SESSION['user_type']) ? strtolower($_SESSION['user_type']) : '';
+    
+    // member 用户不受权限限制，可以看到自己的账户（通过 account_company 表已经过滤）
+    if ($currentUserRole === 'owner' || $currentUserType === 'member') {
         return [$baseQuery, $params];
     }
 
