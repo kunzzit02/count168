@@ -5000,63 +5000,60 @@ function getCurrentProcessId() {
             
             // Calculate row_index based on Data Capture Table row order, not Summary Table position
             // IMPORTANT: row_index should reflect the position in Data Capture Table (A, B, C...)
-            // This ensures that Summary Table order matches Data Capture Table order
-            // CRITICAL: When there are multiple rows with same id_product, we need to match by position
-            // Since Summary Table is created in the same order as Data Capture Table,
-            // the position in Summary Table directly corresponds to Data Capture Table row index
+            // CRITICAL: Always use the existing data-row-index attribute, which was set based on Data Capture Table position
+            // Do NOT use Summary Table position, as it may have changed due to sorting
             let rowIndex = null;
             try {
-                // First, try to use the position in Summary Table (which matches Data Capture Table order)
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                    const summaryIndex = allSummaryRows.indexOf(row);
-                    if (summaryIndex !== -1) {
-                        // Summary Table position directly corresponds to Data Capture Table row index
-                        // because populateOriginalTableWithColumnAData creates rows in Data Capture Table order
-                        rowIndex = summaryIndex;
-                        console.log('Computed row_index from Summary Table position (matches Data Capture Table):', rowIndex, 'id_product:', formData.processValue || 'unknown');
+                // First, try to use existing data-row-index attribute (most reliable)
+                const existingRowIndex = row.getAttribute('data-row-index');
+                if (existingRowIndex !== null && existingRowIndex !== '' && !Number.isNaN(Number(existingRowIndex))) {
+                    const existingIndexNum = Number(existingRowIndex);
+                    if (existingIndexNum >= 0 && existingIndexNum < 999999) {
+                        // Use existing row_index (set based on Data Capture Table position)
+                        rowIndex = existingIndexNum;
+                        console.log('Using existing data-row-index:', rowIndex, 'for id_product:', formData.processValue || 'unknown');
                     }
                 }
                 
-                // Verify: Check if the Data Capture Table row at this index matches
-                if (rowIndex !== null) {
-                    const capturedTableBody = document.getElementById('capturedTableBody');
-                    if (capturedTableBody) {
-                        const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
-                        if (rowIndex < capturedRows.length) {
-                            const capturedRow = capturedRows[rowIndex];
-                            const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
-                            if (capturedIdProductCell) {
-                                const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                                const idProduct = productType === 'sub' 
-                                    ? (idProductSub || normalizeIdProductText(formData.processValue))
-                                    : (idProductMain || normalizeIdProductText(formData.processValue));
-                                const normalizedIdProduct = normalizeIdProductText(idProduct);
-                                
-                                if (capturedIdProduct === normalizedIdProduct) {
-                                    // Verified: Summary Table position matches Data Capture Table row
-                                    console.log('Verified row_index matches Data Capture Table:', rowIndex, 'id_product:', idProduct);
-                                } else {
-                                    console.warn('Warning: Summary Table position', rowIndex, 'does not match Data Capture Table id_product. Expected:', normalizedIdProduct, 'Found:', capturedIdProduct);
-                                    // Still use this row_index as it represents the correct position
+                // If no existing row_index, try to find it from Data Capture Table
+                if (rowIndex === null) {
+                    const idProduct = productType === 'sub' 
+                        ? (idProductSub || normalizeIdProductText(formData.processValue))
+                        : (idProductMain || normalizeIdProductText(formData.processValue));
+                    const normalizedIdProduct = normalizeIdProductText(idProduct);
+                    
+                    if (normalizedIdProduct) {
+                        const capturedTableBody = document.getElementById('capturedTableBody');
+                        if (capturedTableBody) {
+                            const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
+                            // Find the first matching row in Data Capture Table
+                            for (let i = 0; i < capturedRows.length; i++) {
+                                const capturedRow = capturedRows[i];
+                                const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+                                if (capturedIdProductCell) {
+                                    const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                                    if (capturedIdProduct === normalizedIdProduct) {
+                                        rowIndex = i;
+                                        console.log('Computed row_index from Data Capture Table position:', rowIndex, 'for id_product:', normalizedIdProduct);
+                                        // Set the data attribute for future use
+                                        row.setAttribute('data-row-index', String(rowIndex));
+                                        break;
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                
-                // Update the data attribute for future use
-                if (rowIndex !== null) {
-                    row.setAttribute('data-row-index', String(rowIndex));
                 }
             } catch (e) {
                 console.warn('Failed to compute row_index for template saving', e);
                 // Fallback: try to use existing data-row-index if available
                 const dataRowIndex = row.getAttribute('data-row-index');
                 if (dataRowIndex !== null && dataRowIndex !== '' && !Number.isNaN(Number(dataRowIndex))) {
-                    rowIndex = Number(dataRowIndex);
-                    console.log('Using fallback data-row-index:', rowIndex);
+                    const dataIndexNum = Number(dataRowIndex);
+                    if (dataIndexNum >= 0 && dataIndexNum < 999999) {
+                        rowIndex = dataIndexNum;
+                        console.log('Using fallback data-row-index:', rowIndex);
+                    }
                 }
             }
             
@@ -5677,6 +5674,10 @@ function getCurrentProcessId() {
                 const baseRowSourceCols = baseRow ? (baseRow.getAttribute('data-source-columns') || '') : '';
                 // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
                 const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || baseRowSourceCols || '');
+                // Get row_index from the new row (should be set by addSubIdProductRow)
+                const newRowIndex = newRow ? newRow.getAttribute('data-row-index') : null;
+                const rowIndexValue = (newRowIndex && newRowIndex !== '' && newRowIndex !== '999999') ? Number(newRowIndex) : null;
+                
                 updateSubIdProductRow(processValue, {
                     idProduct: processValue,
                     description: descriptionValue,
@@ -5696,7 +5697,8 @@ function getCurrentProcessId() {
                     inputMethod: inputMethodValue,
                     enableInputMethod: enableValue,
                     enableSourcePercent: sourcePercentEnableValue,
-                    productType: 'sub'
+                    productType: 'sub',
+                    rowIndex: rowIndexValue // Pass row_index to preserve order
                 }, newRow);
 
                 // 记录刚创建的 sub 行，供后面的模板保存使用
@@ -5775,6 +5777,11 @@ function getCurrentProcessId() {
                     const newRow = addSubIdProductRow(processValue, baseRow);
                     // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
                     const finalSourceColumnsForSub2 = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || '');
+                    
+                    // Get row_index from the new row (should be set by addSubIdProductRow)
+                    const newRowIndex2 = newRow ? newRow.getAttribute('data-row-index') : null;
+                    const rowIndexValue2 = (newRowIndex2 && newRowIndex2 !== '' && newRowIndex2 !== '999999') ? Number(newRowIndex2) : null;
+                    
                     updateSubIdProductRow(processValue, {
                         idProduct: processValue,
                         description: descriptionValue,
@@ -5794,7 +5801,8 @@ function getCurrentProcessId() {
                         inputMethod: inputMethodValue,
                         enableInputMethod: enableValue,
                         enableSourcePercent: sourcePercentEnableValue,
-                        productType: 'sub'
+                        productType: 'sub',
+                        rowIndex: rowIndexValue2 // Pass row_index to preserve order
                     }, newRow);
 
                     // 记录刚创建的 sub 行，供后面的模板保存使用
@@ -9990,8 +9998,48 @@ function getCurrentProcessId() {
             }
 
             // Persist row_index (if provided) on the DOM row for later reordering
+            // IMPORTANT: If rowIndex is not provided, preserve existing row_index to maintain order
             if (data.rowIndex !== undefined && data.rowIndex !== null && !Number.isNaN(Number(data.rowIndex))) {
                 row.setAttribute('data-row-index', String(Number(data.rowIndex)));
+            } else {
+                // Preserve existing row_index if not provided in data
+                const existingRowIndex = row.getAttribute('data-row-index');
+                if (!existingRowIndex || existingRowIndex === '' || existingRowIndex === '999999') {
+                    // Only set if row doesn't have a valid row_index
+                    // Try to get from parent row if this is a sub row
+                    if (data.productType === 'sub' || row.getAttribute('data-product-type') === 'sub') {
+                        const parentIdProduct = row.getAttribute('data-parent-id-product') || processValue;
+                        if (parentIdProduct) {
+                            // Find parent main row by id_product
+                            const summaryTableBody = document.getElementById('summaryTableBody');
+                            if (summaryTableBody) {
+                                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                                for (const otherRow of allRows) {
+                                    const otherProductType = otherRow.getAttribute('data-product-type') || 'main';
+                                    if (otherProductType === 'main') {
+                                        const otherIdProductCell = otherRow.querySelector('td:first-child');
+                                        if (otherIdProductCell) {
+                                            const otherProductValues = getProductValuesFromCell(otherIdProductCell);
+                                            const otherIdProduct = normalizeIdProductText(otherProductValues.main || '');
+                                            const normalizedParentId = normalizeIdProductText(parentIdProduct);
+                                            if (otherIdProduct === normalizedParentId) {
+                                                const parentRowIndex = otherRow.getAttribute('data-row-index');
+                                                if (parentRowIndex && parentRowIndex !== '' && parentRowIndex !== '999999') {
+                                                    row.setAttribute('data-row-index', parentRowIndex);
+                                                    console.log('Set row_index from parent row:', parentRowIndex, 'for sub row of', parentIdProduct);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Preserve existing row_index
+                    console.log('Preserved existing row_index:', existingRowIndex, 'for sub row');
+                }
             }
             if (data.originalDescription !== undefined) {
                 row.setAttribute('data-original-description', data.originalDescription);
