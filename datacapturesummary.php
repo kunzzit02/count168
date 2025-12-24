@@ -9314,39 +9314,48 @@ function getCurrentProcessId() {
                     const enableInputMethod = inputMethod ? true : false;
                     const enableSourcePercent = newValue && newValue.trim() !== '';
                     
-                    if (formulaText) {
-                        // Extract source expression from formula (remove ALL trailing source percent parts)
-                        // Formula format: sourceExpression*SourcePercent, e.g., "107.82+84.31*(0.01)"
-                        // But might have multiple: "107.82+84.31*(1.2)*(0.012)" - need to remove all trailing *(...) patterns
-                        let sourceExpression = formulaText;
-                        
-                        // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
-                        // Keep removing until no more trailing patterns found
-                        let previousExpression = '';
-                        while (sourceExpression !== previousExpression) {
-                            previousExpression = sourceExpression;
+                    // IMPORTANT: Priority use data-formula-operators (original value with column references like $3)
+                    // This preserves column references instead of using parsed numeric values from displayed formula
+                    let sourceExpression = row.getAttribute('data-formula-operators') || '';
+                    
+                    // If data-formula-operators is empty or not available, try to extract from displayed formula
+                    if (!sourceExpression || sourceExpression.trim() === '') {
+                        if (formulaText) {
+                            // Extract source expression from formula (remove ALL trailing source percent parts)
+                            // Formula format: sourceExpression*SourcePercent, e.g., "107.82+84.31*(0.01)"
+                            // But might have multiple: "107.82+84.31*(1.2)*(0.012)" - need to remove all trailing *(...) patterns
+                            sourceExpression = formulaText;
                             
-                            // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
-                            const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                            const trailingMatch = sourceExpression.match(trailingSourcePercentPattern);
-                            if (trailingMatch) {
-                                // Found trailing source percent, remove it
-                                sourceExpression = trailingMatch[1].trim();
-                                continue;
+                            // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
+                            // Keep removing until no more trailing patterns found
+                            let previousExpression = '';
+                            while (sourceExpression !== previousExpression) {
+                                previousExpression = sourceExpression;
+                                
+                                // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
+                                const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
+                                const trailingMatch = sourceExpression.match(trailingSourcePercentPattern);
+                                if (trailingMatch) {
+                                    // Found trailing source percent, remove it
+                                    sourceExpression = trailingMatch[1].trim();
+                                    continue;
+                                }
+                                
+                                // Try pattern without parentheses: ...*number at the end
+                                const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
+                                const simpleMatch = sourceExpression.match(simplePattern);
+                                if (simpleMatch) {
+                                    sourceExpression = simpleMatch[1].trim();
+                                    continue;
+                                }
+                                
+                                // No more patterns found, break
+                                break;
                             }
-                            
-                            // Try pattern without parentheses: ...*number at the end
-                            const simplePattern = /^(.+)\*([0-9.]+(?:\/[0-9.]+)?)\s*$/;
-                            const simpleMatch = sourceExpression.match(simplePattern);
-                            if (simpleMatch) {
-                                sourceExpression = simpleMatch[1].trim();
-                                continue;
-                            }
-                            
-                            // No more patterns found, break
-                            break;
                         }
-                        
+                    }
+                    
+                    if (sourceExpression && sourceExpression.trim() !== '') {
                         // Recreate formula display with new source percent
                         const newFormulaDisplay = createFormulaDisplayFromExpression(sourceExpression, newValue, enableSourcePercent);
                         
@@ -9356,8 +9365,27 @@ function getCurrentProcessId() {
                             formulaTextSpan.textContent = newFormulaDisplay;
                         }
                         
-                        // Update data attribute for formula operators
-                        row.setAttribute('data-formula-operators', sourceExpression);
+                        // IMPORTANT: Preserve the original sourceExpression (with column references like $3)
+                        // Don't overwrite data-formula-operators if it already contains column references
+                        // Only update if we extracted from displayed formula (which might be numeric)
+                        const existingFormulaOperators = row.getAttribute('data-formula-operators') || '';
+                        if (!existingFormulaOperators || existingFormulaOperators.trim() === '') {
+                            // Only set if it was empty before
+                            row.setAttribute('data-formula-operators', sourceExpression);
+                        } else {
+                            // Check if existing contains column references (like $3) and new doesn't
+                            const hasColumnRefs = /\$(\d+)/.test(existingFormulaOperators);
+                            const newHasColumnRefs = /\$(\d+)/.test(sourceExpression);
+                            
+                            if (hasColumnRefs && !newHasColumnRefs) {
+                                // Existing has column refs but new doesn't - preserve existing
+                                sourceExpression = existingFormulaOperators;
+                                console.log('Preserving column references in data-formula-operators:', sourceExpression);
+                            } else {
+                                // Update to new value
+                                row.setAttribute('data-formula-operators', sourceExpression);
+                            }
+                        }
                         
                         // Recalculate processed amount using the source expression
                         const processedAmount = calculateFormulaResultFromExpression(sourceExpression, newValue, inputMethod, enableInputMethod, enableSourcePercent);
