@@ -10320,6 +10320,8 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             });
             
             // Second pass: Set row_index for all Summary Table rows
+            // IMPORTANT: Only set row_index if it doesn't exist yet, to preserve initial order
+            // This ensures the order (ABC, BAC, ABB, BAB) remains stable
             allSummaryRows.forEach((summaryRow) => {
                 const summaryIdProductCell = summaryRow.querySelector('td:first-child');
                 if (!summaryIdProductCell) return;
@@ -10327,9 +10329,19 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 const productValues = getProductValuesFromCell(summaryIdProductCell);
                 const summaryIdProduct = normalizeIdProductText(productValues.main || '');
                 
+                // Check if row already has a valid row_index - if so, preserve it
+                const existingRowIndex = summaryRow.getAttribute('data-row-index');
+                if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
+                    const existingIndexNum = Number(existingRowIndex);
+                    if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
+                        // Row already has a valid row_index, preserve it to maintain initial order
+                        console.log('Preserved existing row_index:', existingRowIndex, 'for id_product:', summaryIdProduct);
+                        return; // Keep existing row_index - don't recalculate
+                    }
+                }
+                
                 if (!summaryIdProduct) {
-                    // For rows without id_product, try to preserve existing row_index
-                    const existingRowIndex = summaryRow.getAttribute('data-row-index');
+                    // For rows without id_product, use fallback
                     if (!existingRowIndex || existingRowIndex === '') {
                         summaryRow.setAttribute('data-row-index', '999999');
                     }
@@ -10339,23 +10351,12 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 // Get row_index from cache (all rows with same id_product get same row_index)
                 const matchedIndex = idProductToRowIndex.get(summaryIdProduct);
                 
-                // Set row_index based on Data Capture Table position
+                // Set row_index based on Data Capture Table position (only if not already set)
                 if (matchedIndex !== undefined && matchedIndex >= 0) {
                     summaryRow.setAttribute('data-row-index', String(matchedIndex));
                     console.log('Set row_index:', matchedIndex, 'for id_product:', summaryIdProduct, 'based on Data Capture Table position');
                 } else {
-                    // If no match found in Data Capture Table, this might be a new row
-                    // Try to preserve existing row_index if it exists and is valid
-                    const existingRowIndex = summaryRow.getAttribute('data-row-index');
-                    if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
-                        // Preserve existing row_index if it exists and is not the fallback value
-                        const existingIndexNum = Number(existingRowIndex);
-                        if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
-                            console.log('Preserved existing row_index:', existingRowIndex, 'for id_product:', summaryIdProduct);
-                            return; // Keep existing row_index
-                        }
-                    }
-                    // Use a large number as fallback to place at end
+                    // If no match found in Data Capture Table, use fallback
                     summaryRow.setAttribute('data-row-index', '999999');
                     console.warn('No Data Capture Table match found for id_product:', summaryIdProduct, 'using fallback row_index 999999');
                 }
