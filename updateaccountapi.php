@@ -273,6 +273,90 @@ try {
         }
     }
     
+    // 如果有提交 linked_account_ids，则更新 account_link 关联
+    // 注意：如果表单中没有 linked_account_ids，$_POST['linked_account_ids'] 不存在
+    // 只有当明确提交了 linked_account_ids（即使是空数组 "[]"）时才处理
+    if (isset($_POST['linked_account_ids'])) {
+        // 检查 account_link 表是否存在
+        $has_account_link_table = false;
+        try {
+            $check_table_stmt = $pdo->query("SHOW TABLES LIKE 'account_link'");
+            $has_account_link_table = $check_table_stmt->rowCount() > 0;
+        } catch (PDOException $e) {
+            $has_account_link_table = false;
+        }
+        
+        if ($has_account_link_table) {
+            // 获取当前账户在相同公司下已关联的所有账户（通过 account_link 表）
+            // 注意：由于是双向关联，我们需要获取所有直接关联的账户
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT CASE 
+                    WHEN account_id_1 = ? THEN account_id_2 
+                    ELSE account_id_1 
+                END AS linked_account_id
+                FROM account_link 
+                WHERE (account_id_1 = ? OR account_id_2 = ?) AND company_id = ?
+            ");
+            $stmt->execute([$id, $id, $id, $company_id]);
+            $current_linked_account_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $current_linked_account_ids = array_map('intval', $current_linked_account_ids);
+            
+            // 计算需要添加和移除的关联
+            // $submitted_linked_account_ids 可能为 null（如果 JSON 解析失败）或数组
+            $new_ids = ($submitted_linked_account_ids !== null && is_array($submitted_linked_account_ids)) 
+                ? array_map('intval', $submitted_linked_account_ids) 
+                : [];
+            $to_add = array_diff($new_ids, $current_linked_account_ids);
+            $to_remove = array_diff($current_linked_account_ids, $new_ids);
+            
+            // 验证所有要关联的账户是否属于同一公司
+            if (!empty($to_add)) {
+                $placeholders = str_repeat('?,', count($to_add) - 1) . '?';
+                $stmt = $pdo->prepare("
+                    SELECT DISTINCT a.id 
+                    FROM account a
+                    INNER JOIN account_company ac ON a.id = ac.account_id
+                    WHERE a.id IN ($placeholders) AND ac.company_id = ?
+                ");
+                $stmt->execute(array_merge($to_add, [$company_id]));
+                $valid_account_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                
+                if (count($valid_account_ids) != count($to_add)) {
+                    throw new Exception('部分关联账户不属于当前公司');
+                }
+            }
+            
+            // 移除关联
+            foreach ($to_remove as $linked_id) {
+                $account_id_1 = min($id, $linked_id);
+                $account_id_2 = max($id, $linked_id);
+                $stmt = $pdo->prepare("
+                    DELETE FROM account_link 
+                    WHERE account_id_1 = ? AND account_id_2 = ? AND company_id = ?
+                ");
+                $stmt->execute([$account_id_1, $account_id_2, $company_id]);
+            }
+            
+            // 添加关联
+            foreach ($to_add as $linked_id) {
+                $account_id_1 = min($id, $linked_id);
+                $account_id_2 = max($id, $linked_id);
+                try {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO account_link (account_id_1, account_id_2, company_id) 
+                        VALUES (?, ?, ?)
+                    ");
+                    $stmt->execute([$account_id_1, $account_id_2, $company_id]);
+                } catch (PDOException $e) {
+                    // 忽略重复键错误
+                    if ($e->getCode() != 23000) {
+                        throw $e;
+                    }
+                }
+            }
+        }
+    }
+    
     // Build update query (account_id is not updated since it's readonly)
     // Currency is now managed through account_currency table, not account table
     $updateFields = [

@@ -2116,9 +2116,12 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 formData.set('company_ids', JSON.stringify(selectedCompanyIdsForEdit));
             }
             
-            // 将编辑模式下选中的关联账户ID一并提交
+            // 将编辑模式下选中的关联账户ID一并提交（即使是空数组也要提交，表示删除所有关联）
             if (Array.isArray(selectedLinkedAccountIdsForEdit)) {
                 formData.set('linked_account_ids', JSON.stringify(selectedLinkedAccountIdsForEdit));
+                console.log('Submitting linked_account_ids:', selectedLinkedAccountIdsForEdit);
+            } else {
+                console.warn('selectedLinkedAccountIdsForEdit is not an array:', selectedLinkedAccountIdsForEdit);
             }
             
             // 调试：输出表单数据
