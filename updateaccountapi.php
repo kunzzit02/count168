@@ -88,6 +88,18 @@ try {
         }
     }
     
+    // 解析编辑时提交的 linked_account_ids（用于一次性更新 account_link 关联）
+    $submitted_linked_account_ids = null;
+    if (isset($_POST['linked_account_ids']) && $_POST['linked_account_ids'] !== '') {
+        $decoded = json_decode($_POST['linked_account_ids'], true);
+        if (is_array($decoded)) {
+            // 只保留有效的正整数 ID，且不能等于当前账户ID
+            $submitted_linked_account_ids = array_values(array_unique(array_filter(array_map('intval', $decoded), function ($linked_id) use ($id) {
+                return $linked_id > 0 && $linked_id != $id;
+            })));
+        }
+    }
+    
     // Validate required fields (account_id is not validated since it's readonly)
     if (empty($name) || empty($role)) {
         throw new Exception('请填写所有必填字段');

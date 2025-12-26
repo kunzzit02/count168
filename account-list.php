@@ -421,6 +421,18 @@ $showAll = isset($_GET['showAll']) ? true : false;
                                     <!-- Company buttons will be loaded here -->
                                 </div>
                             </div>
+                            
+                            <div class="account-other-currency" style="margin-top: 20px;">
+                                <label>Linked Accounts:</label>
+                                <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                                    关联的账户可以在 member.php 页面互相切换查看数据（仅限同一公司）
+                                </div>
+                                
+                                <!-- Linked Accounts Selection Section -->
+                                <div class="account-currency-list" id="editLinkedAccountList">
+                                    <!-- Linked account buttons will be loaded here -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -1084,6 +1096,9 @@ $showAll = isset($_GET['showAll']) ? true : false;
 
         // 存储编辑账户时选中的公司ID（在点击 Update 时一次性保存）
         let selectedCompanyIdsForEdit = [];
+        
+        // 存储编辑账户时选中的关联账户ID（在点击 Update 时一次性保存）
+        let selectedLinkedAccountIdsForEdit = [];
 
         // 加载公司可用货币并以按钮方式展示
         async function loadAccountCurrencies(accountId, type) {
@@ -1543,6 +1558,119 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 selectedCompanyIdsForEdit = selectedCompanyIdsForEdit.filter(id => id !== companyId);
             }
         }
+        
+        // 加载关联账户列表（仅支持编辑模式）
+        async function loadAccountLinks(accountId, type) {
+            // 只支持编辑模式，添加模式不需要账户关联功能
+            if (type !== 'edit' || !accountId) {
+                return;
+            }
+            
+            const listElement = document.getElementById('editLinkedAccountList');
+            if (!listElement) return;
+            listElement.innerHTML = '';
+
+            currentEditAccountId = accountId;
+            // 编辑模式下，每次加载前重置选中关联账户列表
+            selectedLinkedAccountIdsForEdit = [];
+
+            try {
+                // 获取当前公司ID
+                const currentCompanyId = <?php echo json_encode($company_id); ?>;
+                if (!currentCompanyId) {
+                    listElement.innerHTML = '<div class="currency-toggle-note">请先选择公司</div>';
+                    return;
+                }
+
+                // 获取当前公司下所有账户（排除当前账户）
+                const url = `accountlistapi.php?company_id=${currentCompanyId}&showAll=1`;
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
+                    listElement.innerHTML = '<div class="currency-toggle-note">当前公司下没有其他账户</div>';
+                    return;
+                }
+
+                // 过滤掉当前账户
+                const availableAccounts = result.data.filter(acc => acc.id != accountId);
+                
+                if (availableAccounts.length === 0) {
+                    listElement.innerHTML = '<div class="currency-toggle-note">当前公司下没有其他账户可关联</div>';
+                    return;
+                }
+
+                // 获取当前账户已关联的账户列表
+                let linkedAccountIds = [];
+                if (accountId && type === 'edit') {
+                    try {
+                        const linkResponse = await fetch(`account_link_api.php?action=get_linked_accounts&account_id=${accountId}&company_id=${currentCompanyId}`);
+                        const linkResult = await linkResponse.json();
+                        if (linkResult.success && Array.isArray(linkResult.data)) {
+                            linkedAccountIds = linkResult.data.map(acc => acc.id);
+                            selectedLinkedAccountIdsForEdit = [...linkedAccountIds];
+                        }
+                    } catch (error) {
+                        console.error('Error loading linked accounts:', error);
+                    }
+                }
+
+                availableAccounts.forEach(account => {
+                    const accountIdDisplay = String(account.account_id || '').toUpperCase();
+                    const accountName = String(account.name || '').toUpperCase();
+                    const displayText = `${accountIdDisplay} (${accountName})`;
+                    
+                    const item = document.createElement('div');
+                    item.className = 'account-currency-item currency-toggle-item';
+                    item.setAttribute('data-linked-account-id', account.id);
+                    item.textContent = displayText;
+
+                    // 如果已关联，标记为选中
+                    if (linkedAccountIds.includes(account.id)) {
+                        item.classList.add('selected');
+                    }
+
+                    // 编辑模式可以选择
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const shouldSelect = !item.classList.contains('selected');
+                        toggleAccountLink(
+                            accountId,
+                            account.id,
+                            accountIdDisplay,
+                            type,
+                            shouldSelect,
+                            item
+                        );
+                    });
+
+                    listElement.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading account links:', error);
+                listElement.innerHTML = '<div class="currency-toggle-note">加载关联账户失败</div>';
+            }
+        }
+        
+        // 切换账户关联（仅支持编辑模式）
+        async function toggleAccountLink(accountId, linkedAccountId, linkedAccountIdDisplay, type, isChecked, itemElement) {
+            // 编辑模式：只更新前端状态，实际保存由 Update 按钮统一提交
+            if (!accountId || type !== 'edit') {
+                showNotification('请先保存账户，然后再设置账户关联', 'info');
+                return;
+            }
+            
+            if (isChecked) {
+                itemElement.classList.add('selected');
+                if (!selectedLinkedAccountIdsForEdit.includes(linkedAccountId)) {
+                    selectedLinkedAccountIdsForEdit.push(linkedAccountId);
+                }
+            } else {
+                itemElement.classList.remove('selected');
+                selectedLinkedAccountIdsForEdit = selectedLinkedAccountIdsForEdit.filter(id => id !== linkedAccountId);
+            }
+        }
 
         async function editAccount(id) {
             try {
@@ -1614,6 +1742,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 await loadAccountCurrencies(id, 'edit');
                 // 加载所有公司为开关式
                 await loadAccountCompanies(id, 'edit');
+                // 加载关联账户列表
+                await loadAccountLinks(id, 'edit');
                 
                 // Show modal
                 document.getElementById('editModal').style.display = 'block';
@@ -1629,6 +1759,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
             document.getElementById('editAccountForm').reset();
             // 重置已删除的货币列表
             deletedCurrencyIds = [];
+            // 重置关联账户列表
+            selectedLinkedAccountIdsForEdit = [];
         }
 
         // 切换 Payment Alert 状态
@@ -1982,6 +2114,11 @@ $showAll = isset($_GET['showAll']) ? true : false;
             // 将编辑模式下选中的公司ID一并提交，由后端一次性处理（与 userlist 行为一致）
             if (Array.isArray(selectedCompanyIdsForEdit) && selectedCompanyIdsForEdit.length > 0) {
                 formData.set('company_ids', JSON.stringify(selectedCompanyIdsForEdit));
+            }
+            
+            // 将编辑模式下选中的关联账户ID一并提交
+            if (Array.isArray(selectedLinkedAccountIdsForEdit)) {
+                formData.set('linked_account_ids', JSON.stringify(selectedLinkedAccountIdsForEdit));
             }
             
             // 调试：输出表单数据

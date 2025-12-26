@@ -986,6 +986,115 @@ $today = date('d/m/Y');
                 </div>
                 <?php endif; ?>
                 <?php endif; ?>
+                <?php
+                // 获取当前账户的关联账户列表（用于账户切换）
+                $linkedAccounts = [];
+                $has_account_link_table = false;
+                try {
+                    $check_table_stmt = $pdo->query("SHOW TABLES LIKE 'account_link'");
+                    $has_account_link_table = $check_table_stmt->rowCount() > 0;
+                } catch (PDOException $e) {
+                    $has_account_link_table = false;
+                }
+                
+                if ($has_account_link_table && $currentCompanyId > 0) {
+                    // 使用广度优先搜索找出所有关联的账户
+                    $linked_account_ids = [];
+                    $visited = [];
+                    $queue = [$accountDbId];
+                    
+                    while (!empty($queue)) {
+                        $current_id = array_shift($queue);
+                        
+                        if (isset($visited[$current_id])) {
+                            continue;
+                        }
+                        
+                        $visited[$current_id] = true;
+                        $linked_account_ids[] = $current_id;
+                        
+                        // 查找与当前账户直接关联的所有账户
+                        $stmt = $pdo->prepare("
+                            SELECT account_id_2 AS linked_id 
+                            FROM account_link 
+                            WHERE account_id_1 = ? AND company_id = ?
+                            UNION
+                            SELECT account_id_1 AS linked_id 
+                            FROM account_link 
+                            WHERE account_id_2 = ? AND company_id = ?
+                        ");
+                        $stmt->execute([$current_id, $currentCompanyId, $current_id, $currentCompanyId]);
+                        $linked_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                        
+                        // 将未访问的关联账户加入队列
+                        foreach ($linked_ids as $linked_id) {
+                            if (!isset($visited[$linked_id])) {
+                                $queue[] = $linked_id;
+                            }
+                        }
+                    }
+                    
+                    // 获取所有关联账户的详细信息（包括当前账户）
+                    if (!empty($linked_account_ids)) {
+                        $placeholders = str_repeat('?,', count($linked_account_ids) - 1) . '?';
+                        $stmt = $pdo->prepare("
+                            SELECT id, account_id, name 
+                            FROM account 
+                            WHERE id IN ($placeholders)
+                            ORDER BY account_id ASC
+                        ");
+                        $stmt->execute($linked_account_ids);
+                        $linkedAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        
+                        // 将当前账户移到第一位
+                        $current_index = array_search($accountDbId, array_column($linkedAccounts, 'id'));
+                        if ($current_index !== false && $current_index > 0) {
+                            $current_account = $linkedAccounts[$current_index];
+                            unset($linkedAccounts[$current_index]);
+                            array_unshift($linkedAccounts, $current_account);
+                            $linkedAccounts = array_values($linkedAccounts);
+                        }
+                    } else {
+                        // 如果没有任何关联，只显示当前账户
+                        $stmt = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id = ?");
+                        $stmt->execute([$accountDbId]);
+                        $current_account = $stmt->fetch(PDO::FETCH_ASSOC);
+                        if ($current_account) {
+                            $linkedAccounts = [$current_account];
+                        }
+                    }
+                } else {
+                    // 如果 account_link 表不存在或没有公司信息，只显示当前账户
+                    $stmt = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id = ?");
+                    $stmt->execute([$accountDbId]);
+                    $current_account = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($current_account) {
+                        $linkedAccounts = [$current_account];
+                    }
+                }
+                ?>
+                <?php if (count($linkedAccounts) > 1): ?>
+                <div class="member-company-filter" id="member_account_filter" style="margin-top: 12px;">
+                    <span class="transaction-company-label">Account:</span>
+                    <div id="member_account_buttons" class="transaction-company-buttons member-currency-buttons">
+                        <?php foreach ($linkedAccounts as $linkedAccount): 
+                            $linkedId = (int)$linkedAccount['id'];
+                            $linkedCode = strtoupper($linkedAccount['account_id'] ?? '');
+                            $linkedName = $linkedAccount['name'] ?? '';
+                            $isActive = ($linkedId === $accountDbId);
+                        ?>
+                            <button
+                                type="button"
+                                class="transaction-company-btn<?php echo $isActive ? ' active' : ''; ?>"
+                                data-account-id="<?php echo $linkedId; ?>"
+                                data-account-label="<?php echo htmlspecialchars($linkedCode, ENT_QUOTES); ?>"
+                            >
+                                <?php echo htmlspecialchars($linkedCode, ENT_QUOTES); ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
                 <div class="transaction-company-filter member-currency-filter" id="member_currency_filter">
                     <span class="transaction-company-label">Currency:</span>
                     <div id="member_currency_buttons" class="transaction-company-buttons member-currency-buttons"></div>
@@ -1007,6 +1116,8 @@ $today = date('d/m/Y');
             accountName: '<?php echo htmlspecialchars($accountName, ENT_QUOTES); ?>',
             companyId: <?php echo (int)$currentCompanyId; ?>
         };
+        
+        // 用于跟踪账户切换（在切换后需要重新加载页面）
         let memberCurrencySummary = [];
         const memberCurrencySortOrder = new Map();
         const memberSelectedCurrencies = new Set();
@@ -1016,6 +1127,7 @@ $today = date('d/m/Y');
             initDatePickers();
             setupFormListeners();
             setupCompanyButtons();
+            setupAccountButtons();
             performMemberSearch();
         });
 
@@ -1098,6 +1210,47 @@ $today = date('d/m/Y');
                     .catch(err => {
                         console.error('Failed to switch company:', err);
                         showNotification(err.message || 'Failed to switch company', 'error');
+                    });
+            });
+        }
+
+        function setupAccountButtons() {
+            const container = document.getElementById('member_account_buttons');
+            if (!container) return;
+
+            container.addEventListener('click', (event) => {
+                const btn = event.target.closest('.transaction-company-btn');
+                if (!btn) return;
+
+                const accountId = parseInt(btn.dataset.accountId || '0', 10);
+                const label = btn.dataset.accountLabel || '';
+                if (!accountId || accountId === memberConfig.accountId) {
+                    return;
+                }
+
+                const url = `update_account_session_api.php?account_id=${accountId}&_t=${Date.now()}`;
+                fetch(url, { cache: 'no-cache' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (!data.success) {
+                            throw new Error(data.error || 'Failed to switch account');
+                        }
+                        memberConfig.accountId = accountId;
+                        memberConfig.accountCode = data.account_code || label;
+                        memberConfig.accountName = data.account_name || '';
+
+                        // 更新按钮选中状态
+                        container.querySelectorAll('.transaction-company-btn').forEach(b => {
+                            b.classList.toggle('active', b === btn);
+                        });
+
+                        showNotification(`Switched to account ${label || accountId}`, 'success');
+                        // 重新加载页面以更新所有数据
+                        window.location.reload();
+                    })
+                    .catch(err => {
+                        console.error('Failed to switch account:', err);
+                        showNotification(err.message || 'Failed to switch account', 'error');
                     });
             });
         }
