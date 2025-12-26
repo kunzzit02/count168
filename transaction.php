@@ -3335,18 +3335,40 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         
         // ==================== 复制表格时保留样式 ====================
         function initTableCopyWithStyles() {
-            // 辅助函数：移除数字中的逗号
+            // 辅助函数：移除数字中的逗号（最简单直接的方法）
             function removeCommasFromNumbers(text) {
                 if (!text || text.trim() === '') return text;
                 
-                // 匹配数字格式（可能包含逗号、小数点、负号）
-                // 例如：6,325.07, -2,260.32, 0.11, -1, 6325.07
-                const numberPattern = /(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)/g;
+                // 如果文本不包含逗号，直接返回
+                if (!text.includes(',')) return text;
                 
-                return text.replace(numberPattern, function(match) {
-                    // 移除逗号
-                    return match.replace(/,/g, '');
+                // 匹配所有可能的数字格式（包括带逗号的）
+                // 使用更精确的模式，按优先级匹配：
+                // 1. 带逗号的完整数字：-?数字(逗号+3位数字)* + 可选小数部分
+                // 2. 普通数字：-?数字 + 可选小数部分
+                // 这个正则会匹配：6,325.07, -2,260.32, 1,234,567.89, 6,325, -1,234, 0.11, -0.11
+                return text.replace(/(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+\.\d+|-?\d+)/g, function(match) {
+                    // 如果匹配的内容包含逗号，移除所有逗号
+                    if (match.includes(',')) {
+                        const cleaned = match.replace(/,/g, '');
+                        // 验证清理后的结果是否是有效数字
+                        if (!isNaN(parseFloat(cleaned))) {
+                            return cleaned;
+                        }
+                    }
+                    // 如果不包含逗号，保持原样
+                    return match;
                 });
+            }
+            
+            // 检查单元格是否包含数字（用于判断是否需要处理）
+            function isNumericCell(text) {
+                if (!text || text.trim() === '') return false;
+                const trimmed = text.trim();
+                // 排除纯文本（如 "Account", "Total" 等）
+                if (/^[A-Za-z\s]+$/.test(trimmed)) return false;
+                // 检查是否包含数字
+                return /\d/.test(trimmed);
             }
             
             document.addEventListener('copy', function(e) {
@@ -3462,8 +3484,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         cellStyle += `white-space: nowrap; `;
                         
                         const cellTag = isHeader ? 'th' : 'td';
-                        // 获取原始文本并移除数字中的逗号
+                        // 获取原始文本
                         const originalText = (cell.textContent || cell.innerText || '').trim();
+                        // 对所有文本都尝试移除数字中的逗号（函数内部会判断是否需要处理）
                         const cellText = removeCommasFromNumbers(originalText);
                         
                         html += `<${cellTag} style="${cellStyle}">${cellText}</${cellTag}>`;
@@ -3473,13 +3496,13 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 
                 html += '</table>';
                 
-                // 纯文本版本（作为后备，使用制表符分隔）
+                // 纯文本版本（Excel 主要使用这个格式，使用制表符分隔）
                 const textRows = [];
                 sortedRows.forEach(([rowIndex, cells]) => {
                     cells.sort((a, b) => a.cellIndex - b.cellIndex);
                     const rowText = cells.map(({ cell }) => {
                         const originalText = (cell.textContent || cell.innerText || '').trim();
-                        // 移除数字中的逗号
+                        // 对所有文本都尝试移除数字中的逗号（函数内部会判断是否需要处理）
                         return removeCommasFromNumbers(originalText);
                     }).join('\t');
                     textRows.push(rowText);
@@ -3489,9 +3512,22 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 // 设置剪贴板数据
                 const clipboardData = e.clipboardData || window.clipboardData;
                 if (clipboardData) {
-                    clipboardData.setData('text/html', html);
+                    // 优先设置纯文本格式（Excel 主要使用这个）
                     clipboardData.setData('text/plain', text);
+                    // 然后设置 HTML 格式（Google Sheets 使用这个）
+                    clipboardData.setData('text/html', html);
+                    
+                    // 调试信息：显示处理前后的对比
                     console.log('✅ 表格已复制（带样式，数字已移除逗号）:', selectedCells.length, '个单元格');
+                    console.log('📋 纯文本预览（前200字符）:', text.substring(0, 200));
+                    
+                    // 检查是否还有逗号
+                    const hasCommas = text.match(/,\d/);
+                    if (hasCommas) {
+                        console.warn('⚠️ 警告：纯文本中仍包含逗号:', hasCommas);
+                    } else {
+                        console.log('✅ 确认：所有数字中的逗号已移除');
+                    }
                 }
             });
         }
