@@ -3493,8 +3493,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 }
             });
             
-            // 构建 HTML
-            let html = '<table style="border-collapse: collapse; border: 1px solid #d0d7de;">';
+            // 构建 HTML - 使用 Excel 兼容的格式
+            let html = '<table style="border-collapse: collapse; border: 1px solid #d0d7de; font-family: Arial, sans-serif;">';
             
             sortedRowIndices.forEach(rowIndex => {
                 const cols = rowsMap.get(rowIndex);
@@ -3508,9 +3508,36 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     if (cell) {
                         const styles = getCellStyles(cell);
                         const tag = cell.tagName.toLowerCase();
-                        const text = cell.textContent.trim();
                         
-                        html += `<${tag} style="${styles}">${escapeHtml(text)}</${tag}>`;
+                        // 获取单元格文本 - 优先使用 innerText（保留格式化），否则使用 textContent
+                        let text = '';
+                        if (cell.innerText !== undefined) {
+                            text = cell.innerText;
+                        } else {
+                            text = cell.textContent || '';
+                        }
+                        
+                        // 如果文本为空，使用空格确保单元格存在
+                        if (!text || text.trim() === '') {
+                            text = ' ';
+                        }
+                        
+                        // 对于数字列，确保格式正确
+                        const cellText = text.trim();
+                        // 检查是否是数字（可能包含逗号、负号、小数点等）
+                        const isNumeric = cellText && /^-?[\d,]+\.?\d*$/.test(cellText.replace(/,/g, ''));
+                        
+                        if (isNumeric) {
+                            // 是数字，保留原始格式（包括逗号）
+                            text = cellText;
+                            // 添加数字格式提示（Excel 可能识别）
+                            html += `<${tag} style="${styles}" data-type="number">${escapeHtml(text)}</${tag}>`;
+                        } else {
+                            html += `<${tag} style="${styles}">${escapeHtml(text)}</${tag}>`;
+                        }
+                    } else {
+                        // 如果单元格不存在，添加空单元格以保持表格结构
+                        html += '<td style="border: 1px solid #d0d7de; padding: 4px 8px; color: rgb(0, 0, 0); font-family: Arial, sans-serif;"> </td>';
                     }
                 }
                 
@@ -3529,40 +3556,65 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             // 背景颜色 - 转换为 RGB 格式（Excel 兼容）
             const bgColor = computed.backgroundColor;
             if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
-                // 将 rgba/rgb 转换为 Excel 兼容的格式
                 const rgbColor = convertToRgb(bgColor);
                 if (rgbColor) {
                     styles.push(`background-color: ${rgbColor}`);
                 }
             }
             
-            // 文字颜色 - 转换为 RGB 格式
+            // 文字颜色 - 转换为 RGB 格式，确保有足够的对比度
             const color = computed.color;
             if (color) {
                 const rgbColor = convertToRgb(color);
                 if (rgbColor) {
                     styles.push(`color: ${rgbColor}`);
+                } else {
+                    // 如果颜色转换失败，使用黑色确保可见
+                    styles.push('color: rgb(0, 0, 0)');
                 }
+            } else {
+                // 如果没有颜色，使用黑色确保可见
+                styles.push('color: rgb(0, 0, 0)');
             }
             
-            // 字体
+            // 字体 - 改进字体处理，确保 Excel 兼容
             const fontFamily = computed.fontFamily;
             if (fontFamily) {
-                // 提取第一个字体（去除引号）
-                const firstFont = fontFamily.split(',')[0].trim().replace(/['"]/g, '');
-                styles.push(`font-family: ${firstFont}`);
+                // 提取第一个字体，处理带空格的字体名称
+                let firstFont = fontFamily.split(',')[0].trim();
+                // 去除引号
+                firstFont = firstFont.replace(/^['"]|['"]$/g, '');
+                // 如果字体名称包含空格，添加引号
+                if (firstFont.includes(' ')) {
+                    firstFont = `"${firstFont}"`;
+                }
+                // 添加通用字体作为后备
+                styles.push(`font-family: ${firstFont}, Arial, sans-serif`);
+            } else {
+                // 如果没有字体，使用默认字体
+                styles.push('font-family: Arial, sans-serif');
             }
             
             // 字体大小
             const fontSize = computed.fontSize;
             if (fontSize) {
                 styles.push(`font-size: ${fontSize}`);
+            } else {
+                styles.push('font-size: 11pt'); // Excel 默认字体大小
             }
             
             // 字体粗细
             const fontWeight = computed.fontWeight;
-            if (fontWeight && fontWeight !== 'normal') {
-                styles.push(`font-weight: ${fontWeight}`);
+            if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') {
+                // 将数字转换为标准值
+                const weight = parseInt(fontWeight);
+                if (weight >= 700) {
+                    styles.push('font-weight: bold');
+                } else if (weight >= 600) {
+                    styles.push('font-weight: 600');
+                } else {
+                    styles.push(`font-weight: ${fontWeight}`);
+                }
             }
             
             // 文字对齐
@@ -3570,6 +3622,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             if (textAlign && textAlign !== 'start') {
                 styles.push(`text-align: ${textAlign}`);
             }
+            
+            // 防止文本换行（避免 Excel 显示问题）
+            styles.push('white-space: nowrap');
             
             // 边框 - 使用简化的边框样式（Excel 兼容）
             const borderTop = computed.borderTop;
@@ -3631,24 +3686,59 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         
         // ==================== 构建纯文本表格 ====================
         function buildTextTable(selectedCells) {
-            const rows = new Map();
-            const rowIndices = new Set();
+            // 按行和列组织单元格（与 HTML 表格保持一致）
+            const rowsMap = new Map();
             
             selectedCells.forEach(cell => {
                 const row = cell.closest('tr');
                 if (!row) return;
                 
-                const rowIndex = Array.from(row.parentElement.children).indexOf(row);
-                rowIndices.add(rowIndex);
+                // 获取行在表格中的位置
+                const allRows = Array.from(row.closest('table').querySelectorAll('tr'));
+                const rowIndex = allRows.indexOf(row);
                 
-                if (!rows.has(rowIndex)) {
-                    rows.set(rowIndex, []);
+                if (rowIndex === -1) return;
+                
+                // 获取单元格在行中的位置
+                const rowCells = Array.from(row.querySelectorAll('th, td'));
+                const cellIndex = rowCells.indexOf(cell);
+                
+                if (cellIndex === -1) return;
+                
+                if (!rowsMap.has(rowIndex)) {
+                    rowsMap.set(rowIndex, new Map());
                 }
-                rows.get(rowIndex).push(cell.textContent.trim());
+                
+                // 使用 innerText 保留格式化的数字
+                const cellText = cell.innerText !== undefined 
+                    ? cell.innerText 
+                    : (cell.textContent || '');
+                
+                rowsMap.get(rowIndex).set(cellIndex, cellText.trim() || ' ');
             });
             
-            const sortedRowIndices = Array.from(rowIndices).sort((a, b) => a - b);
-            const textRows = sortedRowIndices.map(rowIndex => rows.get(rowIndex).join('\t'));
+            // 找出最大列数
+            let maxCols = 0;
+            rowsMap.forEach(cols => {
+                const maxColIndex = Math.max(...Array.from(cols.keys()), -1);
+                if (maxColIndex + 1 > maxCols) {
+                    maxCols = maxColIndex + 1;
+                }
+            });
+            
+            // 按行索引排序
+            const sortedRowIndices = Array.from(rowsMap.keys()).sort((a, b) => a - b);
+            
+            // 构建文本行
+            const textRows = sortedRowIndices.map(rowIndex => {
+                const cols = rowsMap.get(rowIndex);
+                const rowData = [];
+                for (let colIndex = 0; colIndex < maxCols; colIndex++) {
+                    const cellText = cols.get(colIndex);
+                    rowData.push(cellText !== undefined ? cellText : ' ');
+                }
+                return rowData.join('\t');
+            });
             
             return textRows.join('\n');
         }
