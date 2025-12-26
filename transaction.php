@@ -842,6 +842,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             // 初始化确认提交功能
             handleConfirmSubmit();
             
+            // 初始化表格复制样式功能
+            initTableCopyWithStyles();
+            
             // 绑定类型切换
             const typeSel = document.getElementById('transaction_type');
             if (typeSel) {
@@ -3328,6 +3331,149 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     }
                 }, 300);
             }, 2000);
+        }
+        
+        // ==================== 复制表格时保留样式 ====================
+        function initTableCopyWithStyles() {
+            document.addEventListener('copy', function(e) {
+                const selection = window.getSelection();
+                if (!selection || selection.rangeCount === 0) return;
+                
+                const range = selection.getRangeAt(0);
+                let selectedElement = range.commonAncestorContainer;
+                
+                // 如果是文本节点，获取父元素
+                if (selectedElement.nodeType === Node.TEXT_NODE) {
+                    selectedElement = selectedElement.parentElement;
+                }
+                
+                // 检查选中的内容是否来自交易表格
+                const transactionTable = selectedElement.closest ? selectedElement.closest('.transaction-table') : null;
+                const transactionSummaryTable = selectedElement.closest ? selectedElement.closest('.transaction-summary-table') : null;
+                
+                if (!transactionTable && !transactionSummaryTable) {
+                    // 不是表格内容，使用默认复制行为
+                    return;
+                }
+                
+                const table = transactionTable || transactionSummaryTable;
+                
+                // 获取选中的单元格
+                const selectedCells = [];
+                const allCells = table.querySelectorAll('td, th');
+                
+                allCells.forEach(cell => {
+                    if (selection.containsNode(cell, true)) {
+                        selectedCells.push(cell);
+                    }
+                });
+                
+                if (selectedCells.length === 0) return;
+                
+                // 阻止默认复制行为
+                e.preventDefault();
+                
+                // 构建 HTML 表格，保留样式
+                let html = '<table style="border-collapse: collapse; font-family: \'Amaranth\', sans-serif; width: 100%;">';
+                
+                // 按行组织单元格
+                const rowsMap = new Map();
+                selectedCells.forEach(cell => {
+                    const tr = cell.closest('tr');
+                    if (!tr) return;
+                    
+                    const tbody = tr.closest('tbody') || tr.closest('thead') || tr.closest('tfoot');
+                    if (!tbody) return;
+                    
+                    const rowIndex = Array.from(tbody.children).indexOf(tr);
+                    if (!rowsMap.has(rowIndex)) {
+                        rowsMap.set(rowIndex, []);
+                    }
+                    
+                    const cellIndex = Array.from(tr.children).indexOf(cell);
+                    rowsMap.get(rowIndex).push({ cell, cellIndex, tr });
+                });
+                
+                // 按行索引排序
+                const sortedRows = Array.from(rowsMap.entries()).sort((a, b) => a[0] - b[0]);
+                
+                sortedRows.forEach(([rowIndex, cells]) => {
+                    // 按单元格索引排序
+                    cells.sort((a, b) => a.cellIndex - b.cellIndex);
+                    
+                    // 检查是否是 alert 行
+                    const isAlertRow = cells[0].tr.classList.contains('transaction-alert-row');
+                    const isHeaderRow = cells[0].tr.closest('thead') !== null;
+                    const isFooterRow = cells[0].tr.closest('tfoot') !== null;
+                    
+                    // 获取行的背景色（用于交替行）
+                    const rowBgColor = window.getComputedStyle(cells[0].tr).backgroundColor;
+                    
+                    html += '<tr>';
+                    cells.forEach(({ cell }) => {
+                        // 获取单元格的计算样式
+                        const computedStyle = window.getComputedStyle(cell);
+                        
+                        // 获取背景色（优先使用单元格的，否则使用行的）
+                        let bgColor = computedStyle.backgroundColor;
+                        if (bgColor === 'rgba(0, 0, 0, 0)' || bgColor === 'transparent') {
+                            bgColor = rowBgColor;
+                        }
+                        
+                        // 如果是 alert 行，使用红色背景
+                        if (isAlertRow) {
+                            bgColor = '#ffebee';
+                        }
+                        
+                        // 获取其他样式属性
+                        const fontWeight = computedStyle.fontWeight;
+                        const fontSize = computedStyle.fontSize;
+                        const color = computedStyle.color;
+                        const textAlign = computedStyle.textAlign;
+                        const padding = computedStyle.padding;
+                        const border = computedStyle.border || computedStyle.borderWidth || '1px';
+                        const borderColor = computedStyle.borderColor || '#ddd';
+                        
+                        // 检查是否是表头
+                        const isHeader = cell.tagName === 'TH' || isHeaderRow;
+                        
+                        // 构建样式字符串
+                        let cellStyle = `background-color: ${bgColor}; `;
+                        cellStyle += `font-weight: ${fontWeight}; `;
+                        cellStyle += `font-size: ${fontSize}; `;
+                        cellStyle += `color: ${color}; `;
+                        cellStyle += `text-align: ${textAlign}; `;
+                        cellStyle += `padding: ${padding}; `;
+                        cellStyle += `border: ${border} solid ${borderColor}; `;
+                        cellStyle += `white-space: nowrap; `;
+                        
+                        const cellTag = isHeader ? 'th' : 'td';
+                        const cellText = (cell.textContent || cell.innerText || '').trim();
+                        
+                        html += `<${cellTag} style="${cellStyle}">${cellText}</${cellTag}>`;
+                    });
+                    html += '</tr>';
+                });
+                
+                html += '</table>';
+                
+                // 纯文本版本（作为后备，使用制表符分隔）
+                const textRows = [];
+                sortedRows.forEach(([rowIndex, cells]) => {
+                    cells.sort((a, b) => a.cellIndex - b.cellIndex);
+                    const rowText = cells.map(({ cell }) => (cell.textContent || cell.innerText || '').trim()).join('\t');
+                    textRows.push(rowText);
+                });
+                const text = textRows.join('\n');
+                
+                // 设置剪贴板数据
+                const clipboardData = e.clipboardData || window.clipboardData;
+                if (clipboardData) {
+                    clipboardData.setData('text/html', html);
+                    clipboardData.setData('text/plain', text);
+                    console.log('✅ 表格已复制（带样式）:', selectedCells.length, '个单元格');
+                }
+            });
         }
     </script>
     
