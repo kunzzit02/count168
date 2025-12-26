@@ -9202,13 +9202,44 @@ function getCurrentProcessId() {
             const formulaContent = formulaCell.querySelector('.formula-cell-content');
             if (!formulaContent) return;
             
-            // Store original complete formula value (for comparison)
-            const originalCompleteFormula = currentFormulaDisplay;
+            // Priority: 使用 data-formula-operators（原始值，包含 $数字）
+            // 这样编辑时显示的是原始值（如 "$4+$6"），而不是转换后的值（如 "7+5"）
+            let formulaValueToEdit = '';
+            const storedFormulaOperators = row.getAttribute('data-formula-operators') || '';
             
-            // Create input field - show complete formula (including Source % part)
+            // Check if Source % is empty (no source percent)
+            const sourcePercentCell = cells[5]; // Source % column (index 5)
+            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
+            const hasSourcePercent = sourcePercentText && sourcePercentText !== '';
+            
+            // First, check if formula is actually empty in the displayed cell
+            let isFormulaEmpty = false;
+            if (cells[4]) {
+                const formulaTextElement = cells[4].querySelector('.formula-text');
+                const displayedFormulaText = formulaTextElement ? formulaTextElement.textContent.trim() : '';
+                isFormulaEmpty = !displayedFormulaText || displayedFormulaText === '';
+            }
+            
+            if (isFormulaEmpty) {
+                // Formula is empty, set to empty string
+                formulaValueToEdit = '';
+            } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '') {
+                // 优先使用 data-formula-operators（原始值，包含 $数字）
+                formulaValueToEdit = storedFormulaOperators;
+                console.log('enableFormulaInlineEdit - Using data-formula-operators (original value with $):', formulaValueToEdit);
+            } else {
+                // Fallback to displayed formula text
+                formulaValueToEdit = currentFormulaDisplay;
+                console.log('enableFormulaInlineEdit - Using displayed formula text as fallback:', formulaValueToEdit);
+            }
+            
+            // Store original formula value for comparison (use data-formula-operators if available)
+            const originalFormulaValue = storedFormulaOperators || currentFormulaDisplay;
+            
+            // Create input field - show formula with $ references (like edit formula modal)
             const input = document.createElement('input');
             input.type = 'text';
-            input.value = currentFormulaDisplay; // Show complete formula, not just base formula
+            input.value = formulaValueToEdit; // Show formula with $ references, not converted values
             input.className = 'inline-edit-input';
             input.style.width = '100%';
             input.style.maxWidth = '100%';
@@ -9246,7 +9277,7 @@ function getCurrentProcessId() {
             
             // Save function
             const saveEdit = () => {
-                const newCompleteFormula = input.value.trim();
+                const newFormulaValue = input.value.trim();
                 // Remove input
                 input.remove();
                 
@@ -9256,9 +9287,10 @@ function getCurrentProcessId() {
                     span.style.display = '';
                 });
                 
-                if (newCompleteFormula !== originalCompleteFormula) {
+                // Compare with original formula value (data-formula-operators)
+                if (newFormulaValue !== originalFormulaValue) {
                     // Parse the complete formula to extract base formula and source percent
-                    const parsed = parseCompleteFormula(newCompleteFormula);
+                    const parsed = parseCompleteFormula(newFormulaValue);
                     const newBaseFormula = parsed.baseFormula;
                     const newSourcePercent = parsed.sourcePercent;
                     
@@ -9289,7 +9321,7 @@ function getCurrentProcessId() {
                     const currentEnableSourcePercent = currentSourcePercentDecimal && currentSourcePercentDecimal.trim() !== '' && currentSourcePercentDecimal !== '0';
                     
                     // Use the parsed base formula, or the complete formula if no source percent was extracted
-                    const finalBaseFormula = newBaseFormula || newCompleteFormula;
+                    const finalBaseFormula = newBaseFormula || newFormulaValue;
                     
                     // Recreate full formula display using base formula + source percent
                     const newFormulaDisplay = createFormulaDisplayFromExpression(finalBaseFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
