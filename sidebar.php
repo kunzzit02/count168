@@ -94,6 +94,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         gap: 0;
         cursor: pointer;
         padding: clamp(2px, 0.4vw, 8px);
+        padding: clamp(2px,)
         border-radius: 25px;
         /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
         transition: background-color 0.3s ease;
