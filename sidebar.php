@@ -75,8 +75,6 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
-        gap: clamp(6px, 0.63vw, 12px);
-        /* 优化渲染性能，防止页面切换时的布局重排 */
         min-height: 50px;
         contain: layout style;
         will-change: auto;
