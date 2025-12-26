@@ -424,9 +424,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
                             
                             <div class="account-other-currency" style="margin-top: 20px;">
                                 <label>Linked Accounts:</label>
-                                <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
-                                    关联的账户可以在 member.php 页面互相切换查看数据（仅限同一公司）
-                                </div>
                                 
                                 <!-- Linked Accounts Selection Section -->
                                 <div class="account-currency-list" id="editLinkedAccountList">
