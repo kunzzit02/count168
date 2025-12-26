@@ -86,12 +86,12 @@ if (isset($_COOKIE['remember_token'])) {
         <div class="maintenance-marquee-wrapper">
                 <div class="maintenance-marquee-track">
                     <div class="maintenance-marquee-item">
-                        <span class="maintenance-marquee-dot"></span>
+                        <!-- <span class="maintenance-marquee-dot"></span> -->
                         <span class="maintenance-marquee-label"></span>
                         <span></span>
                     </div>
                     <div class="maintenance-marquee-item">
-                        <span class="maintenance-marquee-dot"></span>
+                        <!-- <span class="maintenance-marquee-dot"></span> -->
                         <span class="maintenance-marquee-label"></span>
                         <span></span>
                     </div>
