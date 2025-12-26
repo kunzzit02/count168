@@ -3335,6 +3335,20 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         
         // ==================== 复制表格时保留样式 ====================
         function initTableCopyWithStyles() {
+            // 辅助函数：移除数字中的逗号
+            function removeCommasFromNumbers(text) {
+                if (!text || text.trim() === '') return text;
+                
+                // 匹配数字格式（可能包含逗号、小数点、负号）
+                // 例如：6,325.07, -2,260.32, 0.11, -1, 6325.07
+                const numberPattern = /(-?\d{1,3}(?:,\d{3})*(?:\.\d+)?)/g;
+                
+                return text.replace(numberPattern, function(match) {
+                    // 移除逗号
+                    return match.replace(/,/g, '');
+                });
+            }
+            
             document.addEventListener('copy', function(e) {
                 const selection = window.getSelection();
                 if (!selection || selection.rangeCount === 0) return;
@@ -3448,7 +3462,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         cellStyle += `white-space: nowrap; `;
                         
                         const cellTag = isHeader ? 'th' : 'td';
-                        const cellText = (cell.textContent || cell.innerText || '').trim();
+                        // 获取原始文本并移除数字中的逗号
+                        const originalText = (cell.textContent || cell.innerText || '').trim();
+                        const cellText = removeCommasFromNumbers(originalText);
                         
                         html += `<${cellTag} style="${cellStyle}">${cellText}</${cellTag}>`;
                     });
@@ -3461,7 +3477,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 const textRows = [];
                 sortedRows.forEach(([rowIndex, cells]) => {
                     cells.sort((a, b) => a.cellIndex - b.cellIndex);
-                    const rowText = cells.map(({ cell }) => (cell.textContent || cell.innerText || '').trim()).join('\t');
+                    const rowText = cells.map(({ cell }) => {
+                        const originalText = (cell.textContent || cell.innerText || '').trim();
+                        // 移除数字中的逗号
+                        return removeCommasFromNumbers(originalText);
+                    }).join('\t');
                     textRows.push(rowText);
                 });
                 const text = textRows.join('\n');
@@ -3471,7 +3491,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 if (clipboardData) {
                     clipboardData.setData('text/html', html);
                     clipboardData.setData('text/plain', text);
-                    console.log('✅ 表格已复制（带样式）:', selectedCells.length, '个单元格');
+                    console.log('✅ 表格已复制（带样式，数字已移除逗号）:', selectedCells.length, '个单元格');
                 }
             });
         }
