@@ -87,13 +87,13 @@ if (isset($_COOKIE['remember_token'])) {
                 <div class="maintenance-marquee-track">
                     <div class="maintenance-marquee-item">
                         <span class="maintenance-marquee-dot"></span>
-                        <span class="maintenance-marquee-label">系统维护中:</span>
-                        <span>Data Capture 页面正在维护，预计完成时间约 1个星期，如有影响请稍后再试，感谢您的理解与支持。</span>
+                        <span class="maintenance-marquee-label"></span>
+                        <span></span>
                     </div>
                     <div class="maintenance-marquee-item">
                         <span class="maintenance-marquee-dot"></span>
-                        <span class="maintenance-marquee-label">系统维护中:</span>
-                        <span>Data Capture 页面正在维护，预计完成时间约 1个星期，如有影响请稍后再试，感谢您的理解与支持。</span>
+                        <span class="maintenance-marquee-label"></span>
+                        <span></span>
                     </div>
                 </div>
         </div>
@@ -135,12 +135,12 @@ if (isset($_COOKIE['remember_token'])) {
                         <span>Login</span>
                     </button>
 
-                    <div class="language-switch-container">
+                    <!-- <div class="language-switch-container">
                         <a href="/cn/index.php" class="lang-switch" id="lang-switch" title="Switch Language">
                             <span class="lang-option">中文</span>
                             <span class="lang-option active">English</span>
                         </a>
-                    </div>
+                    </div> -->
                 </form>
             </div>
         </div>
