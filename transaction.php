@@ -3340,16 +3340,24 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 if (!selection || selection.rangeCount === 0) return;
                 
                 const range = selection.getRangeAt(0);
+                if (!range) return;
+                
                 let selectedElement = range.commonAncestorContainer;
+                if (!selectedElement) return;
                 
                 // 如果是文本节点，获取父元素
                 if (selectedElement.nodeType === Node.TEXT_NODE) {
                     selectedElement = selectedElement.parentElement;
                 }
                 
+                // 确保 selectedElement 是有效的 DOM 元素
+                if (!selectedElement || typeof selectedElement.closest !== 'function') {
+                    return;
+                }
+                
                 // 检查选中的内容是否来自交易表格
-                const transactionTable = selectedElement.closest ? selectedElement.closest('.transaction-table') : null;
-                const transactionSummaryTable = selectedElement.closest ? selectedElement.closest('.transaction-summary-table') : null;
+                const transactionTable = selectedElement.closest('.transaction-table');
+                const transactionSummaryTable = selectedElement.closest('.transaction-summary-table');
                 
                 if (!transactionTable && !transactionSummaryTable) {
                     // 不是表格内容，使用默认复制行为
@@ -3357,13 +3365,14 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 }
                 
                 const table = transactionTable || transactionSummaryTable;
+                if (!table) return;
                 
                 // 获取选中的单元格
                 const selectedCells = [];
                 const allCells = table.querySelectorAll('td, th');
                 
                 allCells.forEach(cell => {
-                    if (selection.containsNode(cell, true)) {
+                    if (cell && selection.containsNode(cell, true)) {
                         selectedCells.push(cell);
                     }
                 });
@@ -3461,13 +3470,20 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 const sortedRows = Array.from(rowsMap.entries()).sort((a, b) => a[0] - b[0]);
                 
                 sortedRows.forEach(([rowIndex, cells]) => {
+                    // 确保 cells 数组不为空
+                    if (!cells || cells.length === 0) return;
+                    
                     // 按单元格索引排序
                     cells.sort((a, b) => a.cellIndex - b.cellIndex);
                     
+                    // 确保第一个单元格和行存在
+                    const firstCell = cells[0];
+                    if (!firstCell || !firstCell.tr) return;
+                    
                     // 检查是否是 alert 行
-                    const isAlertRow = cells[0].tr.classList.contains('transaction-alert-row');
-                    const isHeaderRow = cells[0].tr.closest('thead') !== null;
-                    const isFooterRow = cells[0].tr.closest('tfoot') !== null;
+                    const isAlertRow = firstCell.tr.classList && firstCell.tr.classList.contains('transaction-alert-row');
+                    const isHeaderRow = firstCell.tr.closest('thead') !== null;
+                    const isFooterRow = firstCell.tr.closest('tfoot') !== null;
                     
                     // 获取行的背景色（用于交替行）
                     let rowBgColor = '';
@@ -3481,8 +3497,12 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         rowBgColor = '#f6f8fa';
                     } else {
                         // 数据行：根据奇偶行获取背景色
-                        const rowComputedStyle = window.getComputedStyle(cells[0].tr);
-                        rowBgColor = rowComputedStyle.backgroundColor;
+                        try {
+                            const rowComputedStyle = window.getComputedStyle(firstCell.tr);
+                            rowBgColor = rowComputedStyle.backgroundColor;
+                        } catch (e) {
+                            console.warn('无法获取行样式:', e);
+                        }
                         
                         // 如果获取不到，根据行索引判断
                         if (!rowBgColor || rowBgColor === 'rgba(0, 0, 0, 0)' || rowBgColor === 'transparent') {
@@ -3493,8 +3513,18 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     
                     html += '<tr>';
                     cells.forEach(({ cell }) => {
+                        // 确保单元格存在
+                        if (!cell) return;
+                        
                         // 获取单元格的计算样式
-                        const computedStyle = window.getComputedStyle(cell);
+                        let computedStyle;
+                        try {
+                            computedStyle = window.getComputedStyle(cell);
+                        } catch (e) {
+                            console.warn('无法获取单元格样式:', e);
+                            return;
+                        }
+                        if (!computedStyle) return;
                         
                         // 获取背景色
                         let bgColor = '';
