@@ -421,15 +421,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
                                     <!-- Company buttons will be loaded here -->
                                 </div>
                             </div>
-                            
-                            <div class="account-other-currency" style="margin-top: 20px;">
-                                <label>Linked Accounts:</label>
-                                
-                                <!-- Linked Accounts Selection Section -->
-                                <div class="account-currency-list" id="editLinkedAccountList">
-                                    <!-- Linked account buttons will be loaded here -->
-                                </div>
-                            </div>
                         </div>
                     </div>
                     
@@ -565,6 +556,33 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         <button type="button" class="account-btn account-btn-cancel" onclick="closeAddModal()">Cancel</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Account Modal -->
+    <div id="linkAccountModal" class="account-modal" style="display: none;">
+        <div class="account-modal-content">
+            <div class="account-modal-header">
+                <h2>Link Account</h2>
+                <span class="account-close" onclick="closeLinkAccountModal()">&times;</span>
+            </div>
+            <div class="account-modal-body">
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 14px; color: #666; margin-bottom: 12px;">
+                        关联的账户可以在 member.php 页面互相切换查看数据（仅限同一公司）
+                    </div>
+                    <div class="account-other-currency">
+                        <label>Linked Accounts:</label>
+                        <div class="account-currency-list" id="linkAccountList">
+                            <!-- Linked account buttons will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="account-form-actions">
+                    <button type="button" class="account-btn account-btn-save" onclick="saveAccountLinks()">Save</button>
+                    <button type="button" class="account-btn account-btn-cancel" onclick="closeLinkAccountModal()">Cancel</button>
+                </div>
             </div>
         </div>
     </div>
@@ -781,6 +799,11 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     <div class="account-card-item">
                         <button class="account-edit-btn" onclick="editAccount(${account.id})" aria-label="Edit" title="Edit">
                             <img src="images/edit.svg" alt="Edit" />
+                        </button>
+                        <button class="account-edit-btn" onclick="linkAccount(${account.id})" aria-label="Link Account" title="Link Account" style="margin-left: 5px;">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
                         </button>
                         <input type="checkbox" class="account-row-checkbox" data-id="${account.id}" ${account.status === 'active' ? 'disabled title="Cannot delete active accounts"' : 'title="Select for deletion"'} onchange="updateDeleteButton()" style="margin-left: 10px;">
                     </div>
@@ -1093,9 +1116,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
 
         // 存储编辑账户时选中的公司ID（在点击 Update 时一次性保存）
         let selectedCompanyIdsForEdit = [];
-        
-        // 存储编辑账户时选中的关联账户ID（在点击 Update 时一次性保存）
-        let selectedLinkedAccountIdsForEdit = [];
 
         // 加载公司可用货币并以按钮方式展示
         async function loadAccountCurrencies(accountId, type) {
@@ -1556,20 +1576,128 @@ $showAll = isset($_GET['showAll']) ? true : false;
             }
         }
         
-        // 加载关联账户列表（仅支持编辑模式）
-        async function loadAccountLinks(accountId, type) {
-            // 只支持编辑模式，添加模式不需要账户关联功能
-            if (type !== 'edit' || !accountId) {
+        // 当前正在管理关联的账户ID
+        let currentLinkAccountId = null;
+        
+        // 存储链接账户模态框中选择的账户ID
+        let selectedLinkedAccountIdsForLink = [];
+        
+        // 打开链接账户模态框
+        async function linkAccount(accountId) {
+            currentLinkAccountId = accountId;
+            selectedLinkedAccountIdsForLink = [];
+            
+            // 加载关联账户列表
+            await loadAccountLinks(accountId);
+            
+            // 显示模态框
+            document.getElementById('linkAccountModal').style.display = 'block';
+        }
+        
+        // 关闭链接账户模态框
+        function closeLinkAccountModal() {
+            document.getElementById('linkAccountModal').style.display = 'none';
+            currentLinkAccountId = null;
+            selectedLinkedAccountIdsForLink = [];
+        }
+        
+        // 保存账户关联
+        async function saveAccountLinks() {
+            if (!currentLinkAccountId) {
+                showNotification('No account selected', 'error');
                 return;
             }
             
-            const listElement = document.getElementById('editLinkedAccountList');
+            try {
+                const currentCompanyId = <?php echo json_encode($company_id); ?>;
+                if (!currentCompanyId) {
+                    showNotification('Please select a company first', 'error');
+                    return;
+                }
+                
+                // 获取当前账户的现有关联
+                let currentLinkedIds = [];
+                try {
+                    const response = await fetch(`account_link_api.php?action=get_linked_accounts&account_id=${currentLinkAccountId}&company_id=${currentCompanyId}`);
+                    const result = await response.json();
+                    if (result.success && Array.isArray(result.data)) {
+                        currentLinkedIds = result.data.map(acc => acc.id);
+                    }
+                } catch (error) {
+                    console.error('Error fetching current links:', error);
+                }
+                
+                // 计算需要添加和移除的关联
+                const newIds = Array.isArray(selectedLinkedAccountIdsForLink) ? selectedLinkedAccountIdsForLink : [];
+                const toAdd = newIds.filter(id => !currentLinkedIds.includes(id));
+                const toRemove = currentLinkedIds.filter(id => !newIds.includes(id));
+                
+                // 移除关联
+                for (const linkedId of toRemove) {
+                    try {
+                        const response = await fetch('account_link_api.php?action=unlink_accounts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                account_id_1: currentLinkAccountId,
+                                account_id_2: linkedId,
+                                company_id: currentCompanyId
+                            })
+                        });
+                        const result = await response.json();
+                        if (!result.success) {
+                            throw new Error(result.error || 'Failed to unlink account');
+                        }
+                    } catch (error) {
+                        console.error('Error unlinking account:', error);
+                        showNotification(`Failed to unlink account: ${error.message}`, 'error');
+                        return;
+                    }
+                }
+                
+                // 添加关联
+                for (const linkedId of toAdd) {
+                    try {
+                        const response = await fetch('account_link_api.php?action=link_accounts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                account_id_1: currentLinkAccountId,
+                                account_id_2: linkedId,
+                                company_id: currentCompanyId
+                            })
+                        });
+                        const result = await response.json();
+                        if (!result.success) {
+                            throw new Error(result.error || 'Failed to link account');
+                        }
+                    } catch (error) {
+                        console.error('Error linking account:', error);
+                        showNotification(`Failed to link account: ${error.message}`, 'error');
+                        return;
+                    }
+                }
+                
+                showNotification('Account links saved successfully', 'success');
+                closeLinkAccountModal();
+                // 刷新账户列表（如果需要）
+                fetchAccounts();
+            } catch (error) {
+                console.error('Error saving account links:', error);
+                showNotification(`Failed to save account links: ${error.message}`, 'error');
+            }
+        }
+        
+        // 加载关联账户列表（用于链接账户模态框）
+        async function loadAccountLinks(accountId) {
+            const listElement = document.getElementById('linkAccountList');
             if (!listElement) return;
             listElement.innerHTML = '';
 
-            currentEditAccountId = accountId;
-            // 编辑模式下，每次加载前重置选中关联账户列表
-            selectedLinkedAccountIdsForEdit = [];
+            if (!accountId) {
+                listElement.innerHTML = '<div class="currency-toggle-note">Invalid account ID</div>';
+                return;
+            }
 
             try {
                 // 获取当前公司ID
@@ -1599,17 +1727,15 @@ $showAll = isset($_GET['showAll']) ? true : false;
 
                 // 获取当前账户已关联的账户列表
                 let linkedAccountIds = [];
-                if (accountId && type === 'edit') {
-                    try {
-                        const linkResponse = await fetch(`account_link_api.php?action=get_linked_accounts&account_id=${accountId}&company_id=${currentCompanyId}`);
-                        const linkResult = await linkResponse.json();
-                        if (linkResult.success && Array.isArray(linkResult.data)) {
-                            linkedAccountIds = linkResult.data.map(acc => acc.id);
-                            selectedLinkedAccountIdsForEdit = [...linkedAccountIds];
-                        }
-                    } catch (error) {
-                        console.error('Error loading linked accounts:', error);
+                try {
+                    const linkResponse = await fetch(`account_link_api.php?action=get_linked_accounts&account_id=${accountId}&company_id=${currentCompanyId}`);
+                    const linkResult = await linkResponse.json();
+                    if (linkResult.success && Array.isArray(linkResult.data)) {
+                        linkedAccountIds = linkResult.data.map(acc => acc.id);
+                        selectedLinkedAccountIdsForLink = [...linkedAccountIds];
                     }
+                } catch (error) {
+                    console.error('Error loading linked accounts:', error);
                 }
 
                 availableAccounts.forEach(account => {
@@ -1627,19 +1753,20 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         item.classList.add('selected');
                     }
 
-                    // 编辑模式可以选择
+                    // 点击切换选中状态
                     item.addEventListener('click', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         const shouldSelect = !item.classList.contains('selected');
-                        toggleAccountLink(
-                            accountId,
-                            account.id,
-                            accountIdDisplay,
-                            type,
-                            shouldSelect,
-                            item
-                        );
+                        if (shouldSelect) {
+                            item.classList.add('selected');
+                            if (!selectedLinkedAccountIdsForLink.includes(account.id)) {
+                                selectedLinkedAccountIdsForLink.push(account.id);
+                            }
+                        } else {
+                            item.classList.remove('selected');
+                            selectedLinkedAccountIdsForLink = selectedLinkedAccountIdsForLink.filter(id => id !== account.id);
+                        }
                     });
 
                     listElement.appendChild(item);
@@ -1650,25 +1777,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
             }
         }
         
-        // 切换账户关联（仅支持编辑模式）
-        async function toggleAccountLink(accountId, linkedAccountId, linkedAccountIdDisplay, type, isChecked, itemElement) {
-            // 编辑模式：只更新前端状态，实际保存由 Update 按钮统一提交
-            if (!accountId || type !== 'edit') {
-                showNotification('请先保存账户，然后再设置账户关联', 'info');
-                return;
-            }
-            
-            if (isChecked) {
-                itemElement.classList.add('selected');
-                if (!selectedLinkedAccountIdsForEdit.includes(linkedAccountId)) {
-                    selectedLinkedAccountIdsForEdit.push(linkedAccountId);
-                }
-            } else {
-                itemElement.classList.remove('selected');
-                selectedLinkedAccountIdsForEdit = selectedLinkedAccountIdsForEdit.filter(id => id !== linkedAccountId);
-            }
-        }
-
         async function editAccount(id) {
             try {
                 // 从数据库获取完整的账户记录
@@ -1739,8 +1847,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 await loadAccountCurrencies(id, 'edit');
                 // 加载所有公司为开关式
                 await loadAccountCompanies(id, 'edit');
-                // 加载关联账户列表
-                await loadAccountLinks(id, 'edit');
                 
                 // Show modal
                 document.getElementById('editModal').style.display = 'block';
@@ -1756,8 +1862,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
             document.getElementById('editAccountForm').reset();
             // 重置已删除的货币列表
             deletedCurrencyIds = [];
-            // 重置关联账户列表
-            selectedLinkedAccountIdsForEdit = [];
         }
 
         // 切换 Payment Alert 状态
@@ -2111,14 +2215,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
             // 将编辑模式下选中的公司ID一并提交，由后端一次性处理（与 userlist 行为一致）
             if (Array.isArray(selectedCompanyIdsForEdit) && selectedCompanyIdsForEdit.length > 0) {
                 formData.set('company_ids', JSON.stringify(selectedCompanyIdsForEdit));
-            }
-            
-            // 将编辑模式下选中的关联账户ID一并提交（即使是空数组也要提交，表示删除所有关联）
-            if (Array.isArray(selectedLinkedAccountIdsForEdit)) {
-                formData.set('linked_account_ids', JSON.stringify(selectedLinkedAccountIdsForEdit));
-                console.log('Submitting linked_account_ids:', selectedLinkedAccountIdsForEdit);
-            } else {
-                console.warn('selectedLinkedAccountIdsForEdit is not an array:', selectedLinkedAccountIdsForEdit);
             }
             
             // 调试：输出表单数据
