@@ -842,6 +842,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             // 初始化确认提交功能
             handleConfirmSubmit();
             
+            // 初始化 Excel 复制样式功能
+            initExcelCopyWithStyles();
+            
             // 绑定类型切换
             const typeSel = document.getElementById('transaction_type');
             if (typeSel) {
@@ -3291,6 +3294,183 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             exchangeRateInput.addEventListener('change', calculateMiddleManAmount);
             middleManRateInput.addEventListener('input', calculateMiddleManAmount);
             middleManRateInput.addEventListener('change', calculateMiddleManAmount);
+        }
+        
+        // ==================== 复制表格到 Excel 时保留样式 ====================
+        function initExcelCopyWithStyles() {
+            // 监听复制事件
+            document.addEventListener('copy', function(e) {
+                const selection = window.getSelection();
+                if (!selection || selection.rangeCount === 0) return;
+                
+                const range = selection.getRangeAt(0);
+                const table = range.commonAncestorContainer.closest?.('table');
+                
+                // 只处理 transaction-table 和 transaction-summary-table
+                if (!table || (!table.classList.contains('transaction-table') && !table.classList.contains('transaction-summary-table'))) {
+                    return;
+                }
+                
+                // 阻止默认复制行为
+                e.preventDefault();
+                
+                // 获取选中的单元格
+                const selectedRows = [];
+                
+                // 检查是否选中了表格的一部分
+                const startContainer = range.startContainer;
+                const endContainer = range.endContainer;
+                
+                // 找到选中的行和单元格
+                let startRow = startContainer.nodeType === Node.TEXT_NODE 
+                    ? startContainer.parentElement.closest('tr')
+                    : startContainer.closest('tr');
+                let endRow = endContainer.nodeType === Node.TEXT_NODE
+                    ? endContainer.parentElement.closest('tr')
+                    : endContainer.closest('tr');
+                
+                if (!startRow && !endRow) {
+                    // 如果没有找到行，尝试从选中的单元格构建
+                    const cells = table.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        if (range.intersectsNode(cell)) {
+                            const row = cell.closest('tr');
+                            if (row && !selectedRows.includes(row)) {
+                                selectedRows.push(row);
+                            }
+                        }
+                    });
+                } else {
+                    // 确定行的顺序
+                    const allRows = Array.from(table.querySelectorAll('tr'));
+                    const startIndex = startRow ? allRows.indexOf(startRow) : 0;
+                    const endIndex = endRow ? allRows.indexOf(endRow) : allRows.length - 1;
+                    const minIndex = Math.min(startIndex, endIndex);
+                    const maxIndex = Math.max(startIndex, endIndex);
+                    
+                    // 获取选中范围内的所有行
+                    for (let i = minIndex; i <= maxIndex; i++) {
+                        const row = allRows[i];
+                        if (row) {
+                            selectedRows.push(row);
+                        }
+                    }
+                }
+                
+                if (selectedRows.length === 0) return;
+                
+                // 构建 HTML 表格（Excel 期望的格式）
+                let html = '<html><body><table style="border-collapse: collapse; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; font-size: small;">';
+                
+                selectedRows.forEach(row => {
+                    html += '<tr>';
+                    const cells = row.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        const isHeader = cell.tagName === 'TH';
+                        const isFooter = row.closest('tfoot') !== null;
+                        const isAlertRow = row.classList.contains('transaction-alert-row');
+                        
+                        // 获取单元格样式
+                        const computedStyle = window.getComputedStyle(cell);
+                        let bgColor = computedStyle.backgroundColor;
+                        let textColor = computedStyle.color;
+                        const fontWeight = computedStyle.fontWeight;
+                        const textAlign = computedStyle.textAlign;
+                        const border = computedStyle.border || '1px solid #d0d7de';
+                        const padding = computedStyle.padding || '4px 8px';
+                        
+                        // 检查是否有 role 相关的 class（优先级高于普通背景色）
+                        const accountCell = cell.classList.contains('transaction-account-cell');
+                        if (accountCell) {
+                            // 检查 role class
+                            const roleClasses = [
+                                'transaction-role-capital', 'transaction-role-bank', 'transaction-role-cash',
+                                'transaction-role-profit', 'transaction-role-expenses', 'transaction-role-company',
+                                'transaction-role-staff', 'transaction-role-upline', 'transaction-role-agent',
+                                'transaction-role-member', 'transaction-role-none'
+                            ];
+                            for (const roleClass of roleClasses) {
+                                if (cell.classList.contains(roleClass)) {
+                                    // 使用计算后的样式（已经应用了 role 颜色）
+                                    bgColor = computedStyle.backgroundColor;
+                                    textColor = computedStyle.color;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // 特殊处理：表头样式（最高优先级）
+                        if (isHeader) {
+                            bgColor = '#002C49';
+                            textColor = '#ffffff';
+                        }
+                        
+                        // 特殊处理：表脚样式
+                        if (isFooter) {
+                            bgColor = '#f6f8fa';
+                            // 保持原有的文字颜色
+                        }
+                        
+                        // 特殊处理：Alert 行样式（最高优先级，覆盖其他样式）
+                        if (isAlertRow) {
+                            bgColor = '#dc2626';
+                            textColor = '#ffffff';
+                        }
+                        
+                        // 处理 RGB/RGBA 颜色格式，转换为 Excel 可识别的格式
+                        // 将 rgb/rgba 转换为十六进制
+                        function rgbToHex(rgb) {
+                            if (!rgb || rgb === 'transparent' || rgb === 'rgba(0, 0, 0, 0)') {
+                                return '#ffffff';
+                            }
+                            const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/);
+                            if (match) {
+                                const r = parseInt(match[1]);
+                                const g = parseInt(match[2]);
+                                const b = parseInt(match[3]);
+                                return '#' + [r, g, b].map(x => {
+                                    const hex = x.toString(16);
+                                    return hex.length === 1 ? '0' + hex : hex;
+                                }).join('');
+                            }
+                            return rgb;
+                        }
+                        
+                        const bgColorHex = rgbToHex(bgColor);
+                        const textColorHex = rgbToHex(textColor);
+                        
+                        // 构建样式字符串
+                        const cellStyle = `background-color: ${bgColorHex}; color: ${textColorHex}; font-weight: ${fontWeight}; text-align: ${textAlign}; border: ${border}; padding: ${padding};`;
+                        
+                        // 获取单元格文本内容
+                        const cellText = (cell.textContent || cell.innerText || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        
+                        const tag = isHeader ? 'th' : 'td';
+                        html += `<${tag} style="${cellStyle}">${cellText}</${tag}>`;
+                    });
+                    html += '</tr>';
+                });
+                
+                html += '</table></body></html>';
+                
+                // 构建纯文本版本（作为后备）
+                let text = '';
+                selectedRows.forEach((row, rowIndex) => {
+                    const cells = row.querySelectorAll('td, th');
+                    const rowText = Array.from(cells).map(cell => cell.textContent || '').join('\t');
+                    text += rowText;
+                    if (rowIndex < selectedRows.length - 1) {
+                        text += '\n';
+                    }
+                });
+                
+                // 设置剪贴板数据
+                const clipboardData = e.clipboardData || window.clipboardData;
+                if (clipboardData) {
+                    clipboardData.setData('text/html', html);
+                    clipboardData.setData('text/plain', text);
+                }
+            });
         }
         
         // ==================== 通知系统 ====================
