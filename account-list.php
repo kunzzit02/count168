@@ -580,11 +580,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
             </div>
             <div class="account-modal-body">
                 <div style="margin-bottom: 16px;">
-                    <div style="font-size: 14px; color: #666; margin-bottom: 12px;">
-                        关联的账户可以在 member.php 页面互相切换查看数据（仅限同一公司）
-                    </div>
                     <div style="margin-bottom: 12px;">
-                        <label style="font-size: clamp(12px, 0.94vw, 18px); font-weight: bold; color: #1a237e; margin-bottom: clamp(4px, 0.52vw, 10px); display: block;">Linked Accounts:</label>
                         <div id="linkAccountList" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(400px, 40vw, 600px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffff; padding: clamp(8px, 0.78vw, 15px);">
                             <!-- Linked account items will be loaded here -->
                         </div>
