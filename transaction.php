@@ -842,6 +842,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             // 初始化确认提交功能
             handleConfirmSubmit();
             
+            // 初始化表格复制格式功能
+            initTableCopyWithFormat();
+            
             // 绑定类型切换
             const typeSel = document.getElementById('transaction_type');
             if (typeSel) {
@@ -3328,6 +3331,333 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     }
                 }, 300);
             }, 2000);
+        }
+        
+        // ==================== 复制表格时保留格式 ====================
+        function initTableCopyWithFormat() {
+            document.addEventListener('copy', function(e) {
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                
+                const range = selection.getRangeAt(0);
+                const container = range.commonAncestorContainer;
+                
+                // 检查是否选中了 transaction-table 的内容
+                const table = container.nodeType === 1 
+                    ? container.closest('.transaction-table')
+                    : container.parentElement?.closest('.transaction-table');
+                
+                if (!table) return;
+                
+                // 阻止默认复制行为
+                e.preventDefault();
+                
+                // 获取选中的单元格
+                const selectedCells = getSelectedCells(range, table);
+                if (selectedCells.length === 0) return;
+                
+                // 构建包含样式的 HTML 表格
+                const htmlTable = buildStyledHTMLTable(selectedCells, table);
+                
+                // 构建纯文本版本（作为后备）
+                const textTable = buildTextTable(selectedCells);
+                
+                // 设置剪贴板数据
+                const clipboardData = e.clipboardData || window.clipboardData;
+                clipboardData.setData('text/html', htmlTable);
+                clipboardData.setData('text/plain', textTable);
+                
+                console.log('✅ 表格已复制（包含格式）');
+            });
+        }
+        
+        // ==================== 获取选中的单元格 ====================
+        function getSelectedCells(range, table) {
+            const cells = [];
+            
+            // 获取所有行
+            const allRows = Array.from(table.querySelectorAll('tr'));
+            if (allRows.length === 0) return cells;
+            
+            // 找到包含选中内容的行
+            const selectedRows = allRows.filter(row => {
+                const rowRange = document.createRange();
+                try {
+                    rowRange.selectNodeContents(row);
+                    return range.intersectsNode(row);
+                } catch (e) {
+                    return false;
+                }
+            });
+            
+            if (selectedRows.length === 0) return cells;
+            
+            // 对于每个选中的行，找到选中的单元格
+            selectedRows.forEach(row => {
+                const rowCells = Array.from(row.querySelectorAll('th, td'));
+                rowCells.forEach(cell => {
+                    try {
+                        const cellRange = document.createRange();
+                        cellRange.selectNodeContents(cell);
+                        
+                        // 检查单元格是否与选中范围相交
+                        if (range.intersectsNode(cell)) {
+                            // 检查单元格是否真的被选中（不是只选中了部分文本）
+                            const cellText = cell.textContent.trim();
+                            const selectedText = range.toString().trim();
+                            
+                            // 如果单元格包含选中文本的开始或结束，或者完全在范围内
+                            if (cell.contains(range.startContainer) || 
+                                cell.contains(range.endContainer) ||
+                                range.contains(cell) ||
+                                (selectedText && cellText.includes(selectedText))) {
+                                if (!cells.includes(cell)) {
+                                    cells.push(cell);
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        // 如果出错，尝试简单匹配
+                        if (range.intersectsNode(cell) && !cells.includes(cell)) {
+                            cells.push(cell);
+                        }
+                    }
+                });
+            });
+            
+            // 如果还是没有找到，尝试从选中的文本内容中提取
+            if (cells.length === 0) {
+                const clonedContent = range.cloneContents();
+                const tempDiv = document.createElement('div');
+                tempDiv.appendChild(clonedContent);
+                const tempCells = tempDiv.querySelectorAll('th, td');
+                
+                if (tempCells.length > 0) {
+                    // 尝试通过文本内容匹配
+                    const allTableCells = table.querySelectorAll('th, td');
+                    tempCells.forEach(tempCell => {
+                        const tempText = tempCell.textContent.trim();
+                        if (!tempText) return;
+                        
+                        allTableCells.forEach(origCell => {
+                            if (origCell.textContent.trim() === tempText && !cells.includes(origCell)) {
+                                cells.push(origCell);
+                            }
+                        });
+                    });
+                }
+            }
+            
+            return cells;
+        }
+        
+        // ==================== 构建带样式的 HTML 表格 ====================
+        function buildStyledHTMLTable(selectedCells, originalTable) {
+            if (selectedCells.length === 0) return '';
+            
+            // 按行和列组织单元格
+            const rowsMap = new Map();
+            
+            selectedCells.forEach(cell => {
+                const row = cell.closest('tr');
+                if (!row) return;
+                
+                // 获取行在表格中的位置
+                const allRows = Array.from(originalTable.querySelectorAll('tr'));
+                const rowIndex = allRows.indexOf(row);
+                
+                if (rowIndex === -1) return;
+                
+                // 获取单元格在行中的位置
+                const rowCells = Array.from(row.querySelectorAll('th, td'));
+                const cellIndex = rowCells.indexOf(cell);
+                
+                if (cellIndex === -1) return;
+                
+                if (!rowsMap.has(rowIndex)) {
+                    rowsMap.set(rowIndex, new Map());
+                }
+                
+                rowsMap.get(rowIndex).set(cellIndex, cell);
+            });
+            
+            // 按行索引排序
+            const sortedRowIndices = Array.from(rowsMap.keys()).sort((a, b) => a - b);
+            
+            // 找出最大列数（确保表格结构完整）
+            let maxCols = 0;
+            rowsMap.forEach(cols => {
+                const maxColIndex = Math.max(...Array.from(cols.keys()));
+                if (maxColIndex + 1 > maxCols) {
+                    maxCols = maxColIndex + 1;
+                }
+            });
+            
+            // 构建 HTML
+            let html = '<table style="border-collapse: collapse; border: 1px solid #d0d7de;">';
+            
+            sortedRowIndices.forEach(rowIndex => {
+                const cols = rowsMap.get(rowIndex);
+                if (!cols || cols.size === 0) return;
+                
+                html += '<tr>';
+                
+                // 按列索引顺序输出单元格
+                for (let colIndex = 0; colIndex < maxCols; colIndex++) {
+                    const cell = cols.get(colIndex);
+                    if (cell) {
+                        const styles = getCellStyles(cell);
+                        const tag = cell.tagName.toLowerCase();
+                        const text = cell.textContent.trim();
+                        
+                        html += `<${tag} style="${styles}">${escapeHtml(text)}</${tag}>`;
+                    }
+                }
+                
+                html += '</tr>';
+            });
+            
+            html += '</table>';
+            return html;
+        }
+        
+        // ==================== 获取单元格样式 ====================
+        function getCellStyles(cell) {
+            const computed = window.getComputedStyle(cell);
+            const styles = [];
+            
+            // 背景颜色 - 转换为 RGB 格式（Excel 兼容）
+            const bgColor = computed.backgroundColor;
+            if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+                // 将 rgba/rgb 转换为 Excel 兼容的格式
+                const rgbColor = convertToRgb(bgColor);
+                if (rgbColor) {
+                    styles.push(`background-color: ${rgbColor}`);
+                }
+            }
+            
+            // 文字颜色 - 转换为 RGB 格式
+            const color = computed.color;
+            if (color) {
+                const rgbColor = convertToRgb(color);
+                if (rgbColor) {
+                    styles.push(`color: ${rgbColor}`);
+                }
+            }
+            
+            // 字体
+            const fontFamily = computed.fontFamily;
+            if (fontFamily) {
+                // 提取第一个字体（去除引号）
+                const firstFont = fontFamily.split(',')[0].trim().replace(/['"]/g, '');
+                styles.push(`font-family: ${firstFont}`);
+            }
+            
+            // 字体大小
+            const fontSize = computed.fontSize;
+            if (fontSize) {
+                styles.push(`font-size: ${fontSize}`);
+            }
+            
+            // 字体粗细
+            const fontWeight = computed.fontWeight;
+            if (fontWeight && fontWeight !== 'normal') {
+                styles.push(`font-weight: ${fontWeight}`);
+            }
+            
+            // 文字对齐
+            const textAlign = computed.textAlign;
+            if (textAlign && textAlign !== 'start') {
+                styles.push(`text-align: ${textAlign}`);
+            }
+            
+            // 边框 - 使用简化的边框样式（Excel 兼容）
+            const borderTop = computed.borderTop;
+            const borderLeft = computed.borderLeft;
+            if (borderTop && borderTop !== '0px none rgb(0, 0, 0)') {
+                styles.push(`border-top: ${borderTop}`);
+            }
+            if (borderLeft && borderLeft !== '0px none rgb(0, 0, 0)') {
+                styles.push(`border-left: ${borderLeft}`);
+            }
+            // 添加默认边框以确保表格结构
+            if (!borderTop || borderTop === '0px none rgb(0, 0, 0)') {
+                styles.push('border-top: 1px solid #d0d7de');
+            }
+            if (!borderLeft || borderLeft === '0px none rgb(0, 0, 0)') {
+                styles.push('border-left: 1px solid #d0d7de');
+            }
+            styles.push('border-right: 1px solid #d0d7de');
+            styles.push('border-bottom: 1px solid #d0d7de');
+            
+            // 内边距
+            const padding = computed.padding;
+            if (padding && padding !== '0px') {
+                styles.push(`padding: ${padding}`);
+            } else {
+                styles.push('padding: 4px 8px');
+            }
+            
+            return styles.join('; ');
+        }
+        
+        // ==================== 颜色格式转换 ====================
+        function convertToRgb(color) {
+            if (!color) return null;
+            
+            // 如果是 rgb/rgba 格式，直接返回
+            if (color.startsWith('rgb')) {
+                return color;
+            }
+            
+            // 如果是十六进制格式，转换为 rgb
+            if (color.startsWith('#')) {
+                const hex = color.substring(1);
+                const r = parseInt(hex.substring(0, 2), 16);
+                const g = parseInt(hex.substring(2, 4), 16);
+                const b = parseInt(hex.substring(4, 6), 16);
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+            
+            // 如果是命名颜色，尝试转换
+            const tempDiv = document.createElement('div');
+            tempDiv.style.color = color;
+            document.body.appendChild(tempDiv);
+            const computed = window.getComputedStyle(tempDiv).color;
+            document.body.removeChild(tempDiv);
+            
+            return computed;
+        }
+        
+        // ==================== 构建纯文本表格 ====================
+        function buildTextTable(selectedCells) {
+            const rows = new Map();
+            const rowIndices = new Set();
+            
+            selectedCells.forEach(cell => {
+                const row = cell.closest('tr');
+                if (!row) return;
+                
+                const rowIndex = Array.from(row.parentElement.children).indexOf(row);
+                rowIndices.add(rowIndex);
+                
+                if (!rows.has(rowIndex)) {
+                    rows.set(rowIndex, []);
+                }
+                rows.get(rowIndex).push(cell.textContent.trim());
+            });
+            
+            const sortedRowIndices = Array.from(rowIndices).sort((a, b) => a - b);
+            const textRows = sortedRowIndices.map(rowIndex => rows.get(rowIndex).join('\t'));
+            
+            return textRows.join('\n');
+        }
+        
+        // ==================== HTML 转义 ====================
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
     
