@@ -3522,16 +3522,30 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                             text = ' ';
                         }
                         
-                        // 对于数字列，确保格式正确
+                        // 对于数字列，移除逗号让 Excel 识别为数字
                         const cellText = text.trim();
                         // 检查是否是数字（可能包含逗号、负号、小数点等）
-                        const isNumeric = cellText && /^-?[\d,]+\.?\d*$/.test(cellText.replace(/,/g, ''));
+                        const cleanedText = cellText.replace(/,/g, '');
+                        const isNumeric = cellText && /^-?\d+\.?\d*$/.test(cleanedText);
                         
-                        if (isNumeric) {
-                            // 是数字，保留原始格式（包括逗号）
+                        // 检查是否是数字列（B/F, Win/Loss, Cr/Dr, Balance）
+                        const isNumberColumn = isNumericColumn(cell, colIndex, originalTable);
+                        
+                        if (isNumeric && isNumberColumn) {
+                            // 是数字列，移除逗号，让 Excel 识别为数字
+                            // 保留负号和小数点
+                            const numericValue = cleanedText;
+                            text = numericValue;
+                            
+                            // 使用 Excel 兼容的数字格式
+                            // mso-number-format 是 Microsoft Office 特定格式，帮助 Excel 识别数字类型
+                            // #,##0.00 表示千分位逗号和两位小数
+                            const excelStyles = styles + '; mso-number-format:"#,##0.00"';
+                            html += `<${tag} style="${excelStyles}">${escapeHtml(numericValue)}</${tag}>`;
+                        } else if (isNumeric) {
+                            // 是数字但不是数字列，保留原始格式（包括逗号）
                             text = cellText;
-                            // 添加数字格式提示（Excel 可能识别）
-                            html += `<${tag} style="${styles}" data-type="number">${escapeHtml(text)}</${tag}>`;
+                            html += `<${tag} style="${styles}">${escapeHtml(text)}</${tag}>`;
                         } else {
                             html += `<${tag} style="${styles}">${escapeHtml(text)}</${tag}>`;
                         }
@@ -3546,6 +3560,62 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             
             html += '</table>';
             return html;
+        }
+        
+        // ==================== 判断是否是数字列 ====================
+        function isNumericColumn(cell, colIndex, table) {
+            // 获取单元格所在的行
+            const row = cell.closest('tr');
+            if (!row) return false;
+            
+            // 获取该行中的所有单元格（包括隐藏的）
+            const rowCells = Array.from(row.querySelectorAll('th, td'));
+            const actualColIndex = rowCells.indexOf(cell);
+            
+            // 如果找不到，使用传入的 colIndex
+            const cellIndex = actualColIndex !== -1 ? actualColIndex : colIndex;
+            
+            // 获取表头，检查列标题
+            const headerRow = table.querySelector('thead tr');
+            if (headerRow) {
+                const headerCells = Array.from(headerRow.querySelectorAll('th'));
+                
+                // 计算可见列的映射
+                const visibleHeaderMap = new Map();
+                let visibleIndex = 0;
+                headerCells.forEach((headerCell, idx) => {
+                    const headerDisplay = window.getComputedStyle(headerCell).display;
+                    if (headerDisplay !== 'none') {
+                        visibleHeaderMap.set(visibleIndex, headerCell);
+                        visibleIndex++;
+                    }
+                });
+                
+                // 检查当前单元格对应的表头
+                const correspondingHeader = visibleHeaderMap.get(cellIndex);
+                if (correspondingHeader) {
+                    const headerText = correspondingHeader.textContent.trim().toUpperCase();
+                    // 数字列：B/F, Win/Loss, Cr/Dr, Balance
+                    const numericHeaders = ['B/F', 'WIN/LOSS', 'CR/DR', 'BALANCE'];
+                    if (numericHeaders.includes(headerText)) {
+                        return true;
+                    }
+                }
+            }
+            
+            // 如果无法从表头判断，检查单元格的文本对齐方式和内容
+            // 数字列通常是右对齐的，且内容是数字
+            const computed = window.getComputedStyle(cell);
+            const textAlign = computed.textAlign;
+            if (textAlign === 'right') {
+                // 进一步检查内容是否是数字
+                const cellText = cell.textContent.trim();
+                if (cellText && /^-?[\d,]+\.?\d*$/.test(cellText.replace(/,/g, ''))) {
+                    return true;
+                }
+            }
+            
+            return false;
         }
         
         // ==================== 获取单元格样式 ====================
@@ -3710,11 +3780,23 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 }
                 
                 // 使用 innerText 保留格式化的数字
-                const cellText = cell.innerText !== undefined 
+                let cellText = cell.innerText !== undefined 
                     ? cell.innerText 
                     : (cell.textContent || '');
                 
-                rowsMap.get(rowIndex).set(cellIndex, cellText.trim() || ' ');
+                cellText = cellText.trim() || ' ';
+                
+                // 如果是数字列，移除逗号让 Excel 识别为数字
+                const table = row.closest('table');
+                if (table && isNumericColumn(cell, cellIndex, table)) {
+                    // 检查是否是数字
+                    if (cellText && /^-?[\d,]+\.?\d*$/.test(cellText.replace(/,/g, ''))) {
+                        // 移除逗号
+                        cellText = cellText.replace(/,/g, '');
+                    }
+                }
+                
+                rowsMap.get(rowIndex).set(cellIndex, cellText);
             });
             
             // 找出最大列数
