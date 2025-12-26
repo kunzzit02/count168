@@ -9392,10 +9392,22 @@ function getCurrentProcessId() {
                     row.setAttribute('data-formula-operators', finalBaseFormula);
                     
                     // Recalculate processed amount
+                    // IMPORTANT: Use displayFormula (with actual values, without Source %) for calculation
+                    // displayFormula already has $数字 converted to actual values, and doesn't include Source % part
+                    // This ensures the calculation uses actual values from the table
                     const inputMethod = row.getAttribute('data-input-method') || '';
                     const enableInputMethod = inputMethod ? true : false;
                     
-                    const processedAmount = calculateFormulaResultFromExpression(finalBaseFormula, currentSourcePercentDecimal, inputMethod, enableInputMethod, currentEnableSourcePercent);
+                    // Use displayFormula (already converted from $数字 to actual values, no Source % included) for calculation
+                    // calculateFormulaResultFromExpression will handle Source % multiplication separately
+                    const processedAmount = calculateFormulaResultFromExpression(displayFormula, currentSourcePercentDecimal, inputMethod, enableInputMethod, currentEnableSourcePercent);
+                    
+                    console.log('Inline edit - Calculated processed amount:', {
+                        displayFormula: displayFormula,
+                        sourcePercent: currentSourcePercentDecimal,
+                        enableSourcePercent: currentEnableSourcePercent,
+                        processedAmount: processedAmount
+                    });
                     
                     // Update processed amount cell
                     if (cells[7]) {
