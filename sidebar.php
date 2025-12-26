@@ -1230,7 +1230,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
             </div>
         </div>
         <!-- 语言切换按钮 -->
-        <div class="language-switcher">
+        <!-- <div class="language-switcher">
             <div class="language-dropdown">
                 <button class="language-btn" onclick="toggleLanguageDropdown()">
                     <img src="images/uk.png" alt="English" class="flag-icon" id="current-flag">
@@ -1242,13 +1242,13 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
                         <img src="images/uk.png" alt="English" class="flag-icon">
                         <span>English</span>
                     </div>
-                    <!-- <div class="language-option" onclick="selectLanguage('zh')">
+                    <div class="language-option" onclick="selectLanguage('zh')">
                         <img src="images/china.png" alt="中文" class="flag-icon">
                         <span>中文</span>
-                    </div> -->
+                    </div>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 
     <div class="informationmenu-content">
