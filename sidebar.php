@@ -341,7 +341,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
     
     .user-role {
-        font-size: clamp(9px, 0.68vw, 13px);
+        font-size: clamp(9px, 0.57vw, 11px);
         font-weight: 500;
         color: rgba(255, 255, 255, 0.8);
         line-height: 1.2;
