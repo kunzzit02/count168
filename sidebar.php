@@ -770,13 +770,13 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 12px;
+        gap: clamp(4px, 0.625vw, 12px);
         margin-bottom: clamp(4px, 0.52vw, 10px);
         width: 100%;
     }
 
     .header-logo {
-        height: clamp(36px, 2.3vw, 44px);
+        height: clamp(32px, 2.3vw, 44px);
         object-fit: contain;
         width: auto;
     }
