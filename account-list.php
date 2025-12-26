@@ -572,15 +572,11 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     <div style="font-size: 14px; color: #666; margin-bottom: 12px;">
                         关联的账户可以在 member.php 页面互相切换查看数据（仅限同一公司）
                     </div>
-                    <div style="margin-bottom: 12px;">
-                        <label style="font-size: clamp(12px, 0.94vw, 18px); font-weight: bold; color: #1a237e; margin-bottom: clamp(4px, 0.52vw, 10px); display: block;">Linked Accounts:</label>
-                        <div id="linkAccountList" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(400px, 40vw, 600px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffff; padding: clamp(8px, 0.78vw, 15px);">
-                            <!-- Linked account checkboxes will be loaded here -->
+                    <div class="account-other-currency">
+                        <label>Linked Accounts:</label>
+                        <div class="account-currency-list" id="linkAccountList">
+                            <!-- Linked account buttons will be loaded here -->
                         </div>
-                    </div>
-                    <div style="display: flex; gap: 10px; justify-content: center; margin-top: clamp(8px, 0.73vw, 14px);">
-                        <button type="button" onclick="selectAllLinkedAccounts()" style="background: linear-gradient(180deg, #44e44d 0%, #227426 100%); color: white; font-family: 'Amaranth'; width: clamp(80px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 0px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3); cursor: pointer;">Select All</button>
-                        <button type="button" onclick="clearAllLinkedAccounts()" style="background: linear-gradient(180deg, #F30E12 0%, #A91215 100%); color: white; font-family: 'Amaranth'; width: clamp(90px, 6.25vw, 120px); padding: clamp(6px, 0.42vw, 8px) 20px; font-size: clamp(10px, 0.83vw, 16px); border: none; border-radius: 6px; box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3); cursor: pointer;">Clear All</button>
                     </div>
                 </div>
                 <div class="account-form-actions">
@@ -800,16 +796,16 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     </div>
                     <div class="account-card-item">${escapeHtml((account.last_login || '').toUpperCase())}</div>
                     <div class="account-card-item">${escapeHtml((account.remark || '').toUpperCase())}</div>
-                    <div class="account-card-item" style="display: flex; align-items: center; gap: 8px;">
+                    <div class="account-card-item">
                         <button class="account-edit-btn" onclick="editAccount(${account.id})" aria-label="Edit" title="Edit">
                             <img src="images/edit.svg" alt="Edit" />
                         </button>
-                        <button class="account-edit-btn" onclick="linkAccount(${account.id})" aria-label="Link Account" title="Link Account">
+                        <button class="account-edit-btn" onclick="linkAccount(${account.id})" aria-label="Link Account" title="Link Account" style="margin-left: 5px;">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
                         </button>
-                        <input type="checkbox" class="account-row-checkbox" data-id="${account.id}" ${account.status === 'active' ? 'disabled title="Cannot delete active accounts"' : 'title="Select for deletion"'} onchange="updateDeleteButton()">
+                        <input type="checkbox" class="account-row-checkbox" data-id="${account.id}" ${account.status === 'active' ? 'disabled title="Cannot delete active accounts"' : 'title="Select for deletion"'} onchange="updateDeleteButton()" style="margin-left: 10px;">
                     </div>
                 `;
                 container.appendChild(card);
@@ -1742,76 +1738,39 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     console.error('Error loading linked accounts:', error);
                 }
 
-                // 按 account_id 排序
-                availableAccounts.sort((a, b) => {
-                    const aId = String(a.account_id || '').toUpperCase();
-                    const bId = String(b.account_id || '').toUpperCase();
-                    return aId.localeCompare(bId);
-                });
-
-                // 使用 3 列 grid 布局，类似 permission 页面
-                let colCount = 0;
-                let currentRow = null;
-
                 availableAccounts.forEach(account => {
-                    // 每 3 个账户创建一行
-                    if (colCount % 3 === 0) {
-                        if (currentRow) {
-                            listElement.appendChild(currentRow);
-                        }
-                        currentRow = document.createElement('div');
-                        currentRow.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);';
-                    }
-
                     const accountIdDisplay = String(account.account_id || '').toUpperCase();
-                    const isLinked = linkedAccountIds.includes(account.id);
+                    const accountName = String(account.name || '').toUpperCase();
+                    const displayText = `${accountIdDisplay} (${accountName})`;
                     
                     const item = document.createElement('div');
-                    item.className = 'account-item-compact';
-                    item.setAttribute('data-account-id', account.id);
-                    item.style.cssText = 'display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); margin-bottom: 0px; border-radius: 4px; transition: background-color 0.2s; background-color: white; border: 1px solid #eee;';
-                    
-                    if (isLinked) {
-                        item.style.backgroundColor = '#e8f5e9';
-                        item.style.borderColor = '#4caf50';
+                    item.className = 'account-currency-item currency-toggle-item';
+                    item.setAttribute('data-linked-account-id', account.id);
+                    item.textContent = displayText;
+
+                    // 如果已关联，标记为选中
+                    if (linkedAccountIds.includes(account.id)) {
+                        item.classList.add('selected');
                     }
 
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.id = `link_account_${account.id}`;
-                    checkbox.value = account.id;
-                    checkbox.checked = isLinked;
-                    checkbox.style.cssText = 'margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;';
-                    checkbox.addEventListener('change', function() {
-                        if (this.checked) {
+                    // 点击切换选中状态
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const shouldSelect = !item.classList.contains('selected');
+                        if (shouldSelect) {
+                            item.classList.add('selected');
                             if (!selectedLinkedAccountIdsForLink.includes(account.id)) {
                                 selectedLinkedAccountIdsForLink.push(account.id);
                             }
-                            item.style.backgroundColor = '#e8f5e9';
-                            item.style.borderColor = '#4caf50';
                         } else {
+                            item.classList.remove('selected');
                             selectedLinkedAccountIdsForLink = selectedLinkedAccountIdsForLink.filter(id => id !== account.id);
-                            item.style.backgroundColor = 'white';
-                            item.style.borderColor = '#eee';
                         }
                     });
 
-                    const label = document.createElement('label');
-                    label.htmlFor = `link_account_${account.id}`;
-                    label.style.cssText = 'font-size: small !important; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;';
-                    label.textContent = accountIdDisplay;
-
-                    item.appendChild(checkbox);
-                    item.appendChild(label);
-                    currentRow.appendChild(item);
-
-                    colCount++;
+                    listElement.appendChild(item);
                 });
-
-                // 添加最后一行
-                if (currentRow) {
-                    listElement.appendChild(currentRow);
-                }
             } catch (error) {
                 console.error('Error loading account links:', error);
                 listElement.innerHTML = '<div class="currency-toggle-note">加载关联账户失败</div>';
