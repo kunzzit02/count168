@@ -148,8 +148,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
     /* 当前头像显示 */
     .current-avatar {
-        width: clamp(40px, 3.65vw, 70px);
-        height: clamp(40px, 3.65vw, 70px);
+        width: clamp(40px, 3.125vw, 60px);
+        height: clamp(40px, 3.125vw, 60px);
         border-radius: 50%;
         cursor: pointer;
         /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
