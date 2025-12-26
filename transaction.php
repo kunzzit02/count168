@@ -3397,19 +3397,47 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 function processNumberText(text) {
                     if (!text || text.trim() === '') return text;
                     const trimmed = text.trim();
-                    // 检查是否是数字格式（包含逗号和点，可能是负数）
-                    // 匹配格式：-123,456.78 或 123,456.78 或 -123.45 或 123.45
-                    const numberPattern = /^-?\d{1,3}(,\d{3})*(\.\d+)?$/;
-                    if (numberPattern.test(trimmed)) {
-                        // 移除逗号，保留数字格式（包括负号和小数点）
-                        return trimmed.replace(/,/g, '');
+                    
+                    // 更宽松的数字匹配：匹配任何包含数字、可选逗号、可选小数点的格式
+                    // 例如：6,325.07, 6325.07, 0.11, -2,260.32, -2260.32
+                    const hasComma = trimmed.includes(',');
+                    const hasDot = trimmed.includes('.');
+                    const hasDigits = /\d/.test(trimmed);
+                    
+                    // 如果包含数字，尝试处理
+                    if (hasDigits) {
+                        // 移除所有逗号
+                        let cleaned = trimmed.replace(/,/g, '');
+                        // 验证是否是有效数字
+                        const numValue = parseFloat(cleaned);
+                        if (!isNaN(numValue)) {
+                            // 返回数字字符串（保留小数点和负号）
+                            return numValue.toString();
+                        }
                     }
+                    
                     return text;
+                }
+                
+                // 检查是否是数字单元格（用于 Excel 格式）
+                function isNumberCell(text) {
+                    if (!text || text.trim() === '') return false;
+                    const trimmed = text.trim();
+                    
+                    // 检查是否包含数字
+                    if (!/\d/.test(trimmed)) return false;
+                    
+                    // 移除逗号后验证是否是有效数字
+                    const cleaned = trimmed.replace(/,/g, '');
+                    const numValue = parseFloat(cleaned);
+                    
+                    return !isNaN(numValue) && isFinite(numValue);
                 }
                 
                 // 构建 HTML 表格，保留样式
                 // 使用标准的 HTML 格式，确保 Google Sheets 和 Excel 都能识别
-                let html = '<table border="1" cellpadding="2" cellspacing="0" style="border-collapse: collapse; font-family: \'Amaranth\', sans-serif; width: 100%;">';
+                // Google Sheets 需要简单的 HTML 结构，颜色通过 bgcolor 属性设置
+                let html = '<table border="1" cellpadding="2" cellspacing="0" style="border-collapse: collapse;">';
                 
                 // 按行组织单元格
                 const rowsMap = new Map();
@@ -3512,28 +3540,43 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         // 转换为十六进制
                         const colorHex = rgbToHex(color);
                         
-                        // 构建样式字符串（使用十六进制颜色，确保兼容性）
-                        let cellStyle = '';
-                        if (bgColorHex) {
-                            cellStyle += `background-color: ${bgColorHex}; `;
-                        }
-                        cellStyle += `font-weight: ${fontWeight}; `;
-                        cellStyle += `font-size: ${fontSize}; `;
-                        if (colorHex) {
-                            cellStyle += `color: ${colorHex}; `;
-                        }
-                        cellStyle += `text-align: ${textAlign}; `;
-                        cellStyle += `padding: ${padding}; `;
-                        cellStyle += `border: ${border} solid ${borderColor}; `;
-                        cellStyle += `white-space: nowrap; `;
-                        
                         const cellTag = isHeader ? 'th' : 'td';
                         let cellText = (cell.textContent || cell.innerText || '').trim();
                         
-                        // 对于数字列，处理格式（但保留原始文本用于显示）
-                        const cellData = cellText;
+                        // 处理数字格式 - HTML 中保留原始格式（带逗号），纯文本中移除逗号
+                        let cellData = cellText;
                         
-                        html += `<${cellTag} style="${cellStyle}">${cellData}</${cellTag}>`;
+                        // 构建单元格属性
+                        let cellAttrs = [];
+                        
+                        // 背景颜色 - Google Sheets 需要 bgcolor 属性
+                        if (bgColorHex) {
+                            cellAttrs.push(`bgcolor="${bgColorHex}"`);
+                        }
+                        
+                        // 构建 style 属性（包含所有样式信息）
+                        let styleParts = [];
+                        if (bgColorHex) {
+                            styleParts.push(`background-color: ${bgColorHex}`);
+                        }
+                        if (colorHex) {
+                            styleParts.push(`color: ${colorHex}`);
+                        }
+                        styleParts.push(`font-weight: ${fontWeight}`);
+                        styleParts.push(`font-size: ${fontSize}`);
+                        styleParts.push(`text-align: ${textAlign}`);
+                        styleParts.push(`padding: ${padding}`);
+                        styleParts.push(`border: ${border} solid ${borderColor}`);
+                        
+                        if (styleParts.length > 0) {
+                            cellAttrs.push(`style="${styleParts.join('; ')}"`);
+                        }
+                        
+                        // 构建单元格 HTML
+                        // 同时使用 bgcolor（Google Sheets）和 style（Excel）
+                        const attrsStr = cellAttrs.length > 0 ? ' ' + cellAttrs.join(' ') : '';
+                        
+                        html += `<${cellTag}${attrsStr}>${cellData}</${cellTag}>`;
                     });
                     html += '</tr>';
                 });
@@ -3547,8 +3590,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     cells.sort((a, b) => a.cellIndex - b.cellIndex);
                     const rowText = cells.map(({ cell }) => {
                         const text = (cell.textContent || cell.innerText || '').trim();
-                        // 处理数字格式（移除逗号）
-                        return processNumberText(text);
+                        // 处理数字格式（移除逗号，确保 Excel 能识别）
+                        if (isNumberCell(text)) {
+                            return processNumberText(text);
+                        }
+                        return text;
                     }).join('\t');
                     textRows.push(rowText);
                 });
@@ -3557,9 +3603,23 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 // 设置剪贴板数据
                 const clipboardData = e.clipboardData || window.clipboardData;
                 if (clipboardData) {
+                    // 设置 HTML 格式（Google Sheets 和 Excel 都支持）
                     clipboardData.setData('text/html', html);
+                    
+                    // 设置纯文本格式（Excel 使用这个，数字已移除逗号）
                     clipboardData.setData('text/plain', text);
+                    
                     console.log('✅ 表格已复制（带样式）:', selectedCells.length, '个单元格');
+                    console.log('📋 HTML 长度:', html.length, '字符');
+                    console.log('📋 文本长度:', text.length, '字符');
+                    console.log('📋 HTML 预览（前300字符）:', html.substring(0, 300));
+                    console.log('📋 文本预览（前200字符）:', text.substring(0, 200));
+                    
+                    // 检查数字处理
+                    const sampleNumbers = text.split('\t').filter(t => isNumberCell(t));
+                    if (sampleNumbers.length > 0) {
+                        console.log('🔢 处理的数字示例:', sampleNumbers.slice(0, 5));
+                    }
                 }
             });
         }
