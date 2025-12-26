@@ -171,8 +171,6 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         -webkit-backface-visibility: hidden;
         /* 确保尺寸固定，避免 flex 布局重新计算时的抖动 */
         flex-shrink: 0;
-        min-width: clamp(40px, 3.65vw, 70px);
-        min-height: clamp(40px, 3.65vw, 70px);
     }
 
     .current-avatar:hover {
