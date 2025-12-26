@@ -1245,8 +1245,8 @@ $today = date('d/m/Y');
                         });
 
                         showNotification(`Switched to account ${label || accountId}`, 'success');
-                        // 重新加载页面以更新所有数据
-                        window.location.reload();
+                        // 重新获取数据，不重新加载页面（与 company 切换行为一致）
+                        performMemberSearch();
                     })
                     .catch(err => {
                         console.error('Failed to switch account:', err);
