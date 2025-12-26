@@ -9323,8 +9323,65 @@ function getCurrentProcessId() {
                     // Use the parsed base formula, or the complete formula if no source percent was extracted
                     const finalBaseFormula = newBaseFormula || newFormulaValue;
                     
-                    // Recreate full formula display using base formula + source percent
-                    const newFormulaDisplay = createFormulaDisplayFromExpression(finalBaseFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
+                    // Convert $数字 references to actual values for display
+                    // Get process value from row
+                    const processValue = getProcessValueFromRow(row);
+                    let displayFormula = finalBaseFormula;
+                    
+                    // If formula contains $数字 references, convert them to actual values
+                    if (processValue && finalBaseFormula && /\$(\d+)(?!\d)/.test(finalBaseFormula)) {
+                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        if (rowLabel) {
+                            // Match all $数字 patterns
+                            const dollarPattern = /\$(\d+)(?!\d)/g;
+                            const dollarMatches = [];
+                            let match;
+                            
+                            // Reset regex lastIndex
+                            dollarPattern.lastIndex = 0;
+                            
+                            // Collect all matches
+                            while ((match = dollarPattern.exec(finalBaseFormula)) !== null) {
+                                const fullMatch = match[0]; // e.g., "$4"
+                                const columnNumber = parseInt(match[1]); // e.g., 4
+                                const matchIndex = match.index;
+                                
+                                if (!isNaN(columnNumber) && columnNumber > 0) {
+                                    dollarMatches.push({
+                                        fullMatch: fullMatch,
+                                        columnNumber: columnNumber,
+                                        index: matchIndex
+                                    });
+                                }
+                            }
+                            
+                            // Replace from end to start to preserve indices
+                            dollarMatches.sort((a, b) => b.index - a.index);
+                            
+                            for (let i = 0; i < dollarMatches.length; i++) {
+                                const dollarMatch = dollarMatches[i];
+                                // Convert $数字 to cell reference (e.g., $4 -> A4)
+                                const columnReference = rowLabel + dollarMatch.columnNumber;
+                                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                
+                                if (columnValue !== null) {
+                                    // Replace $数字 with actual value (ensure it's a string)
+                                    const valueStr = String(columnValue);
+                                    displayFormula = displayFormula.substring(0, dollarMatch.index) + 
+                                                   valueStr + 
+                                                   displayFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                                } else {
+                                    // If value not found, replace with 0
+                                    displayFormula = displayFormula.substring(0, dollarMatch.index) + 
+                                                   '0' + 
+                                                   displayFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Recreate full formula display using converted formula + source percent
+                    const newFormulaDisplay = createFormulaDisplayFromExpression(displayFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
                     
                     // Update formula display
                     formulaTextSpans.forEach(span => {
