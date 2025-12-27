@@ -1122,6 +1122,9 @@ $today = date('d/m/Y');
         const memberCurrencySortOrder = new Map();
         const memberSelectedCurrencies = new Set();
         let memberIsAllSelected = true;
+        // 按 process 分组的 currency 数据
+        let memberProcessCurrencyMap = [];
+        const memberSelectedProcessCurrencies = new Map(); // Map<processId, Set<currencyCode>>
 
         document.addEventListener('DOMContentLoaded', () => {
             initDatePickers();
@@ -1137,6 +1140,7 @@ $today = date('d/m/Y');
                 .catch(() => {
                     memberIsAllSelected = true;
                     memberSelectedCurrencies.clear();
+                    memberSelectedProcessCurrencies.clear();
                     fetchMemberHistory();
                 });
         }
@@ -1327,44 +1331,56 @@ $today = date('d/m/Y');
                     return reject(new Error('Missing company'));
                 }
 
+                // 调用新的 API 获取按 process 分组的 currency 列表
                 const params = new URLSearchParams({
-                    date_from: dateFrom,
-                    date_to: dateTo,
-                    target_account_id: memberConfig.accountId,
+                    account_id: memberConfig.accountId,
                     company_id: memberConfig.companyId,
-                    show_inactive: '1',
-                    hide_zero_balance: '0'
+                    date_from: dateFrom,
+                    date_to: dateTo
                 });
 
-                const url = `transaction_search_api.php?${params.toString()}&_t=${Date.now()}`;
+                const url = `member_get_currencies_by_process_api.php?${params.toString()}&_t=${Date.now()}`;
                 fetch(url, { cache: 'no-cache' })
                     .then(res => res.json())
                     .then(data => {
                         if (!data.success) {
                             throw new Error(data.error || 'Query failed');
                         }
-                        const combined = [
-                            ...(data.data?.left_table ?? []),
-                            ...(data.data?.right_table ?? [])
-                        ];
-                        memberCurrencySummary = combined.filter(row => Number(row.account_db_id) === Number(memberConfig.accountId));
+                        
+                        memberProcessCurrencyMap = data.data || [];
+                        
+                        // 为了兼容性，仍然保留 memberCurrencySummary（用于某些地方的数据获取）
+                        memberCurrencySummary = [];
                         memberCurrencySortOrder.clear();
-                        memberCurrencySummary.forEach(row => {
-                            const code = (row.currency || '').trim();
-                            if (!code) return;
-                            const sortValue = typeof row.currency_id === 'number'
-                                ? row.currency_id
-                                : parseInt(row.currency_id || '0', 10) || Number.MAX_SAFE_INTEGER;
-                            if (!memberCurrencySortOrder.has(code) || memberCurrencySortOrder.get(code) > sortValue) {
-                                memberCurrencySortOrder.set(code, sortValue);
-                            }
+                        
+                        // 从 process currency map 中提取所有 currency 信息
+                        memberProcessCurrencyMap.forEach(processData => {
+                            processData.currencies.forEach(currency => {
+                                const code = (currency.currency_code || '').trim().toUpperCase();
+                                if (!code) return;
+                                
+                                // 添加到 summary 中（模拟之前的格式）
+                                memberCurrencySummary.push({
+                                    currency: code,
+                                    currency_id: currency.currency_id,
+                                    account_db_id: memberConfig.accountId
+                                });
+                                
+                                // 设置排序顺序
+                                const sortValue = currency.currency_id || Number.MAX_SAFE_INTEGER;
+                                if (!memberCurrencySortOrder.has(code) || memberCurrencySortOrder.get(code) > sortValue) {
+                                    memberCurrencySortOrder.set(code, sortValue);
+                                }
+                            });
                         });
+                        
                         updateCurrencySelection();
                         renderCurrencyFilters();
                         resolve();
                     })
                     .catch(err => {
                         console.error('Summary fetch failed:', err);
+                        memberProcessCurrencyMap = [];
                         memberCurrencySummary = [];
                         memberCurrencySortOrder.clear();
                         const buttons = document.getElementById('member_currency_buttons');
@@ -1430,19 +1446,99 @@ $today = date('d/m/Y');
             }
 
             buttonsContainer.innerHTML = '';
-            const currencies = getAvailableCurrencies();
-            if (currencies.length === 0) {
-                filterWrapper.style.display = 'none';
+            
+            // 如果没有 process currency 数据，使用旧的显示方式（兼容性）
+            if (!memberProcessCurrencyMap || memberProcessCurrencyMap.length === 0) {
+                const currencies = getAvailableCurrencies();
+                if (currencies.length === 0) {
+                    filterWrapper.style.display = 'none';
+                    return;
+                }
+                filterWrapper.style.display = 'flex';
+                const shouldShowAll = currencies.length > 1;
+                if (shouldShowAll) {
+                    buttonsContainer.appendChild(createCurrencyButton('ALL', 'All', true));
+                }
+                currencies.forEach(code => {
+                    buttonsContainer.appendChild(createCurrencyButton(code, code));
+                });
                 return;
             }
-
+            
+            // 按 process 分组显示 currency
             filterWrapper.style.display = 'flex';
-            const shouldShowAll = currencies.length > 1;
+            filterWrapper.style.flexDirection = 'column';
+            filterWrapper.style.gap = '12px';
+            
+            // 清除旧的按钮容器内容并设置样式
+            buttonsContainer.innerHTML = '';
+            buttonsContainer.style.display = 'flex';
+            buttonsContainer.style.flexDirection = 'column';
+            buttonsContainer.style.gap = '12px';
+            buttonsContainer.style.width = '100%';
+            
+            // 计算总 currency 数量
+            let totalCurrencies = 0;
+            memberProcessCurrencyMap.forEach(processData => {
+                totalCurrencies += processData.currencies.length;
+            });
+            
+            // 如果有多个 process 或多个 currency，显示 "All" 按钮
+            const shouldShowAll = memberProcessCurrencyMap.length > 1 || totalCurrencies > 1;
             if (shouldShowAll) {
-                buttonsContainer.appendChild(createCurrencyButton('ALL', 'All', true));
+                const allWrapper = document.createElement('div');
+                allWrapper.style.display = 'flex';
+                allWrapper.style.alignItems = 'center';
+                allWrapper.style.gap = '8px';
+                allWrapper.style.marginBottom = '8px';
+                
+                const allLabel = document.createElement('span');
+                allLabel.className = 'transaction-company-label';
+                allLabel.textContent = 'All:';
+                allLabel.style.fontWeight = 'bold';
+                
+                const allBtn = createCurrencyButton('ALL', 'All', true);
+                allWrapper.appendChild(allLabel);
+                allWrapper.appendChild(allBtn);
+                buttonsContainer.appendChild(allWrapper);
             }
-            currencies.forEach(code => {
-                buttonsContainer.appendChild(createCurrencyButton(code, code));
+            
+            // 为每个 process 创建一个分组
+            memberProcessCurrencyMap.forEach(processData => {
+                const processWrapper = document.createElement('div');
+                processWrapper.style.display = 'flex';
+                processWrapper.style.flexDirection = 'column';
+                processWrapper.style.gap = '8px';
+                processWrapper.style.marginTop = '8px';
+                
+                // Process 标题
+                const processLabel = document.createElement('div');
+                processLabel.style.display = 'flex';
+                processLabel.style.alignItems = 'center';
+                processLabel.style.gap = '8px';
+                processLabel.style.fontWeight = 'bold';
+                processLabel.style.color = '#374151';
+                processLabel.style.fontSize = 'clamp(11px, 0.83vw, 14px)';
+                processLabel.textContent = `Process: ${processData.process_description || processData.process_name || 'N/A'}`;
+                processWrapper.appendChild(processLabel);
+                
+                // Currency 按钮容器
+                const currencyBtnContainer = document.createElement('div');
+                currencyBtnContainer.className = 'member-currency-buttons';
+                currencyBtnContainer.style.display = 'flex';
+                currencyBtnContainer.style.flexWrap = 'wrap';
+                currencyBtnContainer.style.gap = '8px';
+                currencyBtnContainer.style.marginLeft = '20px';
+                
+                processData.currencies.forEach(currency => {
+                    const code = currency.currency_code.toUpperCase();
+                    currencyBtnContainer.appendChild(
+                        createProcessCurrencyButton(processData.process_id, code, code)
+                    );
+                });
+                
+                processWrapper.appendChild(currencyBtnContainer);
+                buttonsContainer.appendChild(processWrapper);
             });
         }
 
@@ -1460,6 +1556,7 @@ $today = date('d/m/Y');
                     if (!memberIsAllSelected) {
                         memberIsAllSelected = true;
                         memberSelectedCurrencies.clear();
+                        memberSelectedProcessCurrencies.clear();
                         renderCurrencyFilters();
                         fetchMemberHistory();
                     }
@@ -1483,6 +1580,69 @@ $today = date('d/m/Y');
             });
             return btn;
         }
+        
+        function createProcessCurrencyButton(processId, currencyCode, label) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'transaction-company-btn';
+            btn.dataset.processId = processId;
+            btn.dataset.currencyCode = currencyCode;
+            
+            // 检查是否选中
+            const processCurrencies = memberSelectedProcessCurrencies.get(processId) || new Set();
+            const isActive = memberIsAllSelected || processCurrencies.has(currencyCode);
+            if (isActive) {
+                btn.classList.add('active');
+            }
+            
+            btn.textContent = label;
+            btn.addEventListener('click', () => {
+                if (memberIsAllSelected) {
+                    // 如果当前是 "All" 状态，取消 "All" 并选中当前这个
+                    memberIsAllSelected = false;
+                    memberSelectedCurrencies.clear();
+                    memberSelectedProcessCurrencies.clear();
+                    
+                    const newSet = new Set([currencyCode]);
+                    memberSelectedProcessCurrencies.set(processId, newSet);
+                } else {
+                    // 切换当前 process + currency 组合的选中状态
+                    if (!memberSelectedProcessCurrencies.has(processId)) {
+                        memberSelectedProcessCurrencies.set(processId, new Set());
+                    }
+                    const processCurrencies = memberSelectedProcessCurrencies.get(processId);
+                    
+                    if (processCurrencies.has(currencyCode)) {
+                        processCurrencies.delete(currencyCode);
+                        if (processCurrencies.size === 0) {
+                            memberSelectedProcessCurrencies.delete(processId);
+                        }
+                    } else {
+                        processCurrencies.add(currencyCode);
+                    }
+                    
+                    // 检查是否所有 currency 都被选中
+                    let allSelected = true;
+                    memberProcessCurrencyMap.forEach(processData => {
+                        const selectedForProcess = memberSelectedProcessCurrencies.get(processData.process_id) || new Set();
+                        processData.currencies.forEach(currency => {
+                            if (!selectedForProcess.has(currency.currency_code.toUpperCase())) {
+                                allSelected = false;
+                            }
+                        });
+                    });
+                    
+                    if (allSelected && memberProcessCurrencyMap.length > 0) {
+                        memberIsAllSelected = true;
+                        memberSelectedProcessCurrencies.clear();
+                    }
+                }
+                
+                renderCurrencyFilters();
+                fetchMemberHistory();
+            });
+            return btn;
+        }
 
         function fetchMemberHistory(forcedFilter) {
             const dateFrom = document.getElementById('date_from').value;
@@ -1498,6 +1658,127 @@ $today = date('d/m/Y');
                 return;
             }
 
+            // 如果使用按 process 分组的方式
+            if (memberProcessCurrencyMap && memberProcessCurrencyMap.length > 0) {
+                // 构建请求列表：每个 process + currency 组合
+                const requests = [];
+                const requestKeys = []; // 用于跟踪每个请求对应的 process_id 和 currency
+                
+                if (memberIsAllSelected) {
+                    // 选中所有 process + currency 组合
+                    memberProcessCurrencyMap.forEach(processData => {
+                        processData.currencies.forEach(currency => {
+                            const code = currency.currency_code.toUpperCase();
+                            const params = new URLSearchParams({
+                                account_id: memberConfig.accountId,
+                                company_id: memberConfig.companyId,
+                                date_from: dateFrom,
+                                date_to: dateTo,
+                                currency: code,
+                                process_id: processData.process_id
+                            });
+                            const url = `transaction_history_api.php?${params.toString()}&_t=${Date.now()}`;
+                            requests.push(
+                                fetch(url, { cache: 'no-cache' })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (!data.success) {
+                                            throw new Error(data.error || 'Query failed');
+                                        }
+                                        return data.data?.history || [];
+                                    })
+                            );
+                            requestKeys.push({
+                                process_id: processData.process_id,
+                                process_name: processData.process_name,
+                                currency: code
+                            });
+                        });
+                    });
+                } else {
+                    // 只请求选中的 process + currency 组合
+                    memberSelectedProcessCurrencies.forEach((currencies, processId) => {
+                        const processData = memberProcessCurrencyMap.find(p => p.process_id === processId);
+                        if (!processData) return;
+                        
+                        currencies.forEach(currencyCode => {
+                            const params = new URLSearchParams({
+                                account_id: memberConfig.accountId,
+                                company_id: memberConfig.companyId,
+                                date_from: dateFrom,
+                                date_to: dateTo,
+                                currency: currencyCode,
+                                process_id: processId
+                            });
+                            const url = `transaction_history_api.php?${params.toString()}&_t=${Date.now()}`;
+                            requests.push(
+                                fetch(url, { cache: 'no-cache' })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (!data.success) {
+                                            throw new Error(data.error || 'Query failed');
+                                        }
+                                        return data.data?.history || [];
+                                    })
+                            );
+                            requestKeys.push({
+                                process_id: processId,
+                                process_name: processData.process_name,
+                                currency: currencyCode
+                            });
+                        });
+                    });
+                }
+                
+                if (requests.length === 0) {
+                    // 没有任何选中的组合，显示空表
+                    renderCurrencyTables({}, []);
+                    showNotification('No transaction records found in the selected date range, empty table displayed', 'info');
+                    return;
+                }
+                
+                Promise.all(requests)
+                    .then(results => {
+                        // 按 process + currency 分组组织数据
+                        const grouped = {};
+                        const order = [];
+                        
+                        results.forEach((history, index) => {
+                            const key = requestKeys[index];
+                            const groupKey = `${key.process_name}_${key.currency}`;
+                            if (!grouped[groupKey]) {
+                                grouped[groupKey] = [];
+                                order.push(groupKey);
+                            }
+                            // 合并相同 process + currency 的历史记录
+                            grouped[groupKey] = grouped[groupKey].concat(history);
+                        });
+                        
+                        // 去重并排序（按日期）
+                        Object.keys(grouped).forEach(key => {
+                            const history = grouped[key];
+                            // 简单的去重（基于 id 或日期+金额）
+                            const seen = new Set();
+                            grouped[key] = history.filter(item => {
+                                const itemKey = `${item.date}_${item.product}_${item.balance}`;
+                                if (seen.has(itemKey)) return false;
+                                seen.add(itemKey);
+                                return true;
+                            });
+                        });
+                        
+                        renderHistoryTable({ grouped, order });
+                    })
+                    .catch(err => {
+                        console.error('History fetch failed:', err);
+                        renderCurrencyTables({}, []);
+                        showNotification(err.message, 'error');
+                    });
+                
+                return;
+            }
+            
+            // 兼容旧的方式（如果没有 process currency map）
             const availableCurrencies = getAvailableCurrencies();
             let targetCurrencies;
 
@@ -1603,7 +1884,15 @@ $today = date('d/m/Y');
 
             const title = document.createElement('h3');
             title.className = 'member-currency-table-title';
-            title.textContent = `Currency: ${currencyKey}`;
+            // 如果 currencyKey 包含下划线，说明是 process_name_currency 格式
+            if (currencyKey.includes('_')) {
+                const parts = currencyKey.split('_');
+                const processName = parts.slice(0, -1).join('_');
+                const currency = parts[parts.length - 1];
+                title.textContent = `Process: ${processName} - Currency: ${currency}`;
+            } else {
+                title.textContent = `Currency: ${currencyKey}`;
+            }
             wrapper.appendChild(title);
 
             const table = document.createElement('table');
@@ -1657,7 +1946,7 @@ $today = date('d/m/Y');
                 </tbody>
                 <tfoot>
                     <tr class="transaction-table-row transaction-summary-total">
-                        <td class="transaction-summary-total-label">Total (${currencyKey})</td>
+                        <td class="transaction-summary-total-label">Total ${currencyKey.includes('_') ? `(${currencyKey.split('_').slice(-1)[0]})` : `(${currencyKey})`}</td>
                         <td class="transaction-history-col-product">-</td>
                         <td class="transaction-history-col-currency">-</td>
                         <td class="transaction-history-col-rate">-</td>
