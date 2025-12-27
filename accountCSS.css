@@ -336,6 +336,7 @@ body {
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
     align-items: center;
     transition: all 0.2s ease;
+    min-height: fit-content;
 }
 
 .account-card:hover {
@@ -353,6 +354,8 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-height: 0;
+    line-height: 1;
 }
 
 .account-edit-btn {
@@ -362,6 +365,10 @@ body {
     margin: 0px;
     border: transparent;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
 }
 
 .account-edit-btn:hover {
@@ -375,6 +382,13 @@ body {
     display: block;
     object-fit: contain;
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
+}
+
+.account-edit-btn svg {
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(10px, 0.83vw, 16px);
+    display: block;
+    flex-shrink: 0;
 }
 
 .account-row-checkbox {
