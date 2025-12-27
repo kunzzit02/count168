@@ -228,7 +228,7 @@ if (!empty($target_account_ids)) {
         exit;
     }
     
-    // 获取所有 account + currency 组合（从 process 表获取，通过 data_capture 关联，支持多个 currency）
+    // 获取所有 account + currency 组合（从 account_currency 表获取，支持多个 currency）
     $account_currency_combos = [];
     
     // 如果指定了 currency 筛选，先获取 currency_id 列表
@@ -254,40 +254,71 @@ if (!empty($target_account_ids)) {
         $currency_id_map[$currencyId] = $code;
     }
     
+    // 检查是否存在 account_currency 表
+    $has_account_currency_table = false;
+    try {
+        $check_stmt = $pdo->query("SHOW TABLES LIKE 'account_currency'");
+        $has_account_currency_table = $check_stmt->rowCount() > 0;
+    } catch (PDOException $e) {
+        // 表不存在，使用旧的方式
+        $has_account_currency_table = false;
+    }
+    
     foreach ($accounts as $account) {
         $account_id = $account['id'];
         $account_currencies = [];
         $account_currency_ids = [];
         
-        // 优先从 data_capture 关联的 process 表获取该 account 的所有 currency（限定当前 company）
-        // 通过 data_capture_details -> data_captures -> process -> currency 关联
-        try {
-            $process_currency_stmt = $pdo->prepare("
-                SELECT DISTINCT p.currency_id, UPPER(c.code) AS currency_code
-                FROM data_capture_details dcd
-                INNER JOIN data_captures dc ON dcd.capture_id = dc.id
-                INNER JOIN process p ON dc.process_id = p.id
-                INNER JOIN currency c ON p.currency_id = c.id
-                WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-                  AND dc.capture_date <= ?
-                  AND p.currency_id IS NOT NULL
+        // 优先从 account_currency 表获取该 account 的所有 currency（限定当前 company）
+        if ($has_account_currency_table) {
+            $ac_stmt = $pdo->prepare("
+                SELECT ac.currency_id, UPPER(c.code) AS currency_code
+                FROM account_currency ac
+                INNER JOIN currency c ON ac.currency_id = c.id
+                WHERE ac.account_id = ?
                   AND c.company_id = ?
-                  AND p.company_id = ?
-                ORDER BY dc.capture_date ASC
+                ORDER BY ac.created_at ASC
             ");
-            $process_currency_stmt->execute([$account_id, $date_to_db, $company_id, $company_id]);
-            $process_rows = $process_currency_stmt->fetchAll(PDO::FETCH_ASSOC);
-            foreach ($process_rows as $process_row) {
+            $ac_stmt->execute([$account_id, $company_id]);
+            $ac_rows = $ac_stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($ac_rows as $ac_row) {
                 addAccountCurrencyCombo(
                     $account_currencies,
                     $account_currency_ids,
-                    $process_row['currency_id'] ?? null,
-                    $process_row['currency_code'] ?? null
+                    $ac_row['currency_id'] ?? null,
+                    $ac_row['currency_code'] ?? null
                 );
             }
-        } catch (PDOException $e) {
-            // 如果查询失败，记录错误但继续
-            error_log('Error getting currency from process: ' . $e->getMessage());
+        }
+        
+        // 如果没有 account_currency 记录，尝试查询 account 表是否有 currency_id 字段（向后兼容）
+        if (empty($account_currencies)) {
+            // 动态查询 account 表是否有 currency_id 字段
+            try {
+                $check_currency_id_stmt = $pdo->query("SHOW COLUMNS FROM account LIKE 'currency_id'");
+                $has_currency_id_field = $check_currency_id_stmt->rowCount() > 0;
+                
+                if ($has_currency_id_field) {
+                    $ac_currency_stmt = $pdo->prepare("SELECT currency_id FROM account WHERE id = ?");
+                    $ac_currency_stmt->execute([$account_id]);
+                    $account_currency_id = $ac_currency_stmt->fetchColumn();
+                    
+                    if ($account_currency_id) {
+                        $currency_id = (int)$account_currency_id;
+                        $currency_code = $currency_id_map[$currency_id] ?? null;
+                        if ($currency_code) {
+                            addAccountCurrencyCombo(
+                                $account_currencies,
+                                $account_currency_ids,
+                                $currency_id,
+                                $currency_code
+                            );
+                        }
+                    }
+                }
+            } catch (PDOException $e) {
+                // 如果查询失败，忽略向后兼容逻辑
+            }
         }
         
         // 如果没有找到任何 currency，尝试从 transactions 表中获取该账户使用过的 currency
@@ -333,7 +364,7 @@ if (!empty($target_account_ids)) {
             }
         }
         
-        // 最后补充 data_capture_details 中出现过的 currency（向后兼容，确保 Win/Loss 可用的 currency 都能展示）
+        // 最后补充 data_capture 中出现过的 currency（确保 Win/Loss 可用的 currency 都能展示）
         try {
             $dc_currency_stmt = $pdo->prepare("
                 SELECT DISTINCT dcd.currency_id, UPPER(c.code) AS currency_code
