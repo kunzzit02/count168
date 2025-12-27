@@ -578,13 +578,15 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 <h2>Link Account</h2>
                 <span class="account-close" onclick="closeLinkAccountModal()">&times;</span>
             </div>
-            <div class="account-modal-body" style="display: flex; flex-direction: column;">
-                <div style="flex: 1; min-height: 0; overflow-y: auto; margin-bottom: 12px;">
-                    <div id="linkAccountList" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(300px, 35vh, 500px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffff; padding: clamp(8px, 0.78vw, 15px);">
-                        <!-- Linked account items will be loaded here -->
+            <div class="account-modal-body">
+                <div style="margin-bottom: 16px;">
+                    <div style="margin-bottom: 12px;">
+                        <div id="linkAccountList" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(400px, 40vw, 600px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffff; padding: clamp(8px, 0.78vw, 15px);">
+                            <!-- Linked account items will be loaded here -->
+                        </div>
                     </div>
                 </div>
-                <div class="account-form-actions" style="flex-shrink: 0; margin-top: 0;">
+                <div class="account-form-actions">
                     <button type="button" class="account-btn account-btn-save" onclick="saveAccountLinks()">Save</button>
                     <button type="button" class="account-btn account-btn-cancel" onclick="closeLinkAccountModal()">Cancel</button>
                 </div>
