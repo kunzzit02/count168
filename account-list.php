@@ -270,7 +270,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 
                 <!-- Company Buttons (显示多个 company 时) -->
                 <?php if (count($user_companies) > 1): ?>
-                <div id="account-list-company-filter" class="account-company-filter" style="display: flex;">
+                <div id="account-list-company-filter" class="account-company-filter" style="display: flex; padding: 0 20px 10px 20px;">
                     <span class="account-company-label">Company:</span>
                     <div id="account-list-company-buttons" class="account-company-buttons">
                         <?php foreach($user_companies as $comp): ?>
