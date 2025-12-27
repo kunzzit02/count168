@@ -91,7 +91,6 @@ try {
     $date_from = $_GET['date_from'] ?? null;
     $date_to = $_GET['date_to'] ?? null;
     $currency = $_GET['currency'] ?? null; // 可选：按 data_capture 的 currency 筛选
-    $process_id = isset($_GET['process_id']) ? (int)$_GET['process_id'] : null; // 可选：按 process_id 筛选
     
     // 验证必填参数
     if ($account_id <= 0) {
@@ -238,12 +237,6 @@ try {
     if ($currency_id) {
         $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
-    }
-    
-    // 如果指定了 process_id，按 process 过滤
-    if ($process_id !== null && $process_id > 0) {
-        $sqlCapture .= " AND dc.process_id = ?";
-        $captureParams[] = $process_id;
     }
     
     $sqlCapture .= " ORDER BY dc.capture_date ASC, dc.created_at ASC, dcd.id ASC";
