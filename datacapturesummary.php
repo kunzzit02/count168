@@ -9564,11 +9564,21 @@ function getCurrentProcessId() {
                         }
                     }
                     
-                    if (sourceExpression && sourceExpression.trim() !== '') {
+                    // Always recalculate processed amount, even if sourceExpression is empty
+                    // Try to get base formula from formulaText if sourceExpression is not available
+                    let baseFormulaForCalc = sourceExpression;
+                    if (!baseFormulaForCalc || baseFormulaForCalc.trim() === '') {
+                        // Extract base formula from formulaText by removing trailing source percent patterns
+                        if (formulaText) {
+                            baseFormulaForCalc = removeTrailingSourcePercentExpression(formulaText);
+                        }
+                    }
+                    
+                    if (baseFormulaForCalc && baseFormulaForCalc.trim() !== '') {
                         // Check if sourceExpression contains column references (like $3)
                         // If so, parse them to actual values for display
-                        let displayExpression = sourceExpression;
-                        const hasColumnRefs = /\$(\d+)/.test(sourceExpression);
+                        let displayExpression = sourceExpression || baseFormulaForCalc;
+                        const hasColumnRefs = /\$(\d+)/.test(displayExpression);
                         
                         if (hasColumnRefs) {
                             // Parse column references to actual values for display
@@ -9582,7 +9592,7 @@ function getCurrentProcessId() {
                                     let match;
                                     dollarPattern.lastIndex = 0;
                                     
-                                    while ((match = dollarPattern.exec(sourceExpression)) !== null) {
+                                    while ((match = dollarPattern.exec(displayExpression)) !== null) {
                                         const fullMatch = match[0];
                                         const columnNumber = parseInt(match[1]);
                                         const matchIndex = match.index;
@@ -9621,9 +9631,12 @@ function getCurrentProcessId() {
                                         displayExpression = parsedFormula;
                                     }
                                     
-                                    console.log('enableSourcePercentInlineEdit: Parsed column references for display:', sourceExpression, '->', displayExpression);
+                                    console.log('enableSourcePercentInlineEdit: Parsed column references for display:', sourceExpression || baseFormulaForCalc, '->', displayExpression);
                                 }
                             }
+                        } else {
+                            // No column references, use baseFormulaForCalc directly for display
+                            displayExpression = baseFormulaForCalc;
                         }
                         
                         // Recreate formula display with new source percent (using parsed expression)
@@ -9638,27 +9651,30 @@ function getCurrentProcessId() {
                         // IMPORTANT: Preserve the original sourceExpression (with column references like $3)
                         // Don't overwrite data-formula-operators if it already contains column references
                         // Only update if we extracted from displayed formula (which might be numeric)
-                        const existingFormulaOperators = row.getAttribute('data-formula-operators') || '';
-                        if (!existingFormulaOperators || existingFormulaOperators.trim() === '') {
-                            // Only set if it was empty before
-                            row.setAttribute('data-formula-operators', sourceExpression);
-                        } else {
-                            // Check if existing contains column references (like $3) and new doesn't
-                            const hasColumnRefs = /\$(\d+)/.test(existingFormulaOperators);
-                            const newHasColumnRefs = /\$(\d+)/.test(sourceExpression);
-                            
-                            if (hasColumnRefs && !newHasColumnRefs) {
-                                // Existing has column refs but new doesn't - preserve existing
-                                sourceExpression = existingFormulaOperators;
-                                console.log('Preserving column references in data-formula-operators:', sourceExpression);
-                            } else {
-                                // Update to new value
+                        if (sourceExpression && sourceExpression.trim() !== '') {
+                            const existingFormulaOperators = row.getAttribute('data-formula-operators') || '';
+                            if (!existingFormulaOperators || existingFormulaOperators.trim() === '') {
+                                // Only set if it was empty before
                                 row.setAttribute('data-formula-operators', sourceExpression);
+                            } else {
+                                // Check if existing contains column references (like $3) and new doesn't
+                                const hasColumnRefs = /\$(\d+)/.test(existingFormulaOperators);
+                                const newHasColumnRefs = /\$(\d+)/.test(sourceExpression);
+                                
+                                if (hasColumnRefs && !newHasColumnRefs) {
+                                    // Existing has column refs but new doesn't - preserve existing
+                                    sourceExpression = existingFormulaOperators;
+                                    console.log('Preserving column references in data-formula-operators:', sourceExpression);
+                                } else {
+                                    // Update to new value
+                                    row.setAttribute('data-formula-operators', sourceExpression);
+                                }
                             }
                         }
                         
-                        // Recalculate processed amount using the source expression
-                        const processedAmount = calculateFormulaResultFromExpression(sourceExpression, newValue, inputMethod, enableInputMethod, enableSourcePercent);
+                        // Recalculate processed amount using the base formula (with column references if available, otherwise use parsed expression)
+                        const formulaForCalculation = sourceExpression && sourceExpression.trim() !== '' ? sourceExpression : baseFormulaForCalc;
+                        const processedAmount = calculateFormulaResultFromExpression(formulaForCalculation, newValue, inputMethod, enableInputMethod, enableSourcePercent);
                         
                         // Update processed amount cell
                         if (cells[7]) {
@@ -9670,6 +9686,10 @@ function getCurrentProcessId() {
                         }
                         
                         updateProcessedAmountTotal();
+                    } else {
+                        // If no formula available, still try to recalculate using recalculateRowFormula
+                        // This handles edge cases where formula might be in a different format
+                        recalculateRowFormula(row, newValue);
                     }
                     
                     // Reattach double-click event listener after updating
