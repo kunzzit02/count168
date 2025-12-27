@@ -782,9 +782,17 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 const alertClass = hasPaymentAlert ? 'account-status-active' : 'account-status-inactive';
                 const alertText = hasPaymentAlert ? 'ON' : 'OFF';
                 
+                // 根据role决定account_id的显示格式
+                const accountRole = (account.role || '').toLowerCase();
+                const shouldShowName = ['upline', 'agent', 'member', 'company'].includes(accountRole);
+                const accountIdText = escapeHtml((account.account_id || '').toUpperCase());
+                const accountIdDisplay = shouldShowName && account.name
+                    ? `${accountIdText} (${escapeHtml((account.name || '').toUpperCase())})`
+                    : accountIdText;
+                
                 card.innerHTML = `
                     <div class="account-card-item">${startIndex + idx + 1}</div>
-                    <div class="account-card-item">${escapeHtml((account.account_id || '').toUpperCase())}</div>
+                    <div class="account-card-item">${accountIdDisplay}</div>
                     <div class="account-card-item">${escapeHtml((account.name || '').toUpperCase())}</div>
                     <div class="account-card-item">
                         <span class="account-role-badge account-role-${account.role ? account.role.toLowerCase().replace(/\s+/g, '-') : 'none'}">
@@ -1766,7 +1774,13 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         currentRow.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);';
                     }
 
-                    const accountIdDisplay = String(account.account_id || '').toUpperCase();
+                    // 根据role决定account_id的显示格式
+                    const accountRole = (account.role || '').toLowerCase();
+                    const shouldShowName = ['upline', 'agent', 'member', 'company'].includes(accountRole);
+                    const accountIdText = String(account.account_id || '').toUpperCase();
+                    const accountIdDisplay = shouldShowName && account.name
+                        ? `${accountIdText} (${String(account.name || '').toUpperCase()})`
+                        : accountIdText;
                     const isLinked = linkedAccountIds.includes(account.id);
                     
                     const item = document.createElement('div');
