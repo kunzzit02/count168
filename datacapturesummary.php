@@ -9657,8 +9657,73 @@ function getCurrentProcessId() {
                             }
                         }
                         
-                        // Recalculate processed amount using the source expression
-                        const processedAmount = calculateFormulaResultFromExpression(sourceExpression, newValue, inputMethod, enableInputMethod, enableSourcePercent);
+                        // Before calculating, convert column references in sourceExpression to actual values
+                        // This ensures calculation works correctly even when sourceExpression contains $数字 references
+                        let calculationExpression = sourceExpression;
+                        const hasColumnRefsForCalc = /\$(\d+)/.test(sourceExpression);
+                        
+                        if (hasColumnRefsForCalc) {
+                            // Parse column references to actual values for calculation
+                            const processValue = getProcessValueFromRow(row);
+                            if (processValue) {
+                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                if (rowLabel) {
+                                    // Replace $number references with actual column values
+                                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                                    const allMatches = [];
+                                    let match;
+                                    dollarPattern.lastIndex = 0;
+                                    
+                                    while ((match = dollarPattern.exec(sourceExpression)) !== null) {
+                                        const fullMatch = match[0];
+                                        const columnNumber = parseInt(match[1]);
+                                        const matchIndex = match.index;
+                                        
+                                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                                            allMatches.push({
+                                                fullMatch: fullMatch,
+                                                columnNumber: columnNumber,
+                                                index: matchIndex
+                                            });
+                                        }
+                                    }
+                                    
+                                    // Replace from back to front to preserve indices
+                                    allMatches.sort((a, b) => b.index - a.index);
+                                    
+                                    for (let i = 0; i < allMatches.length; i++) {
+                                        const match = allMatches[i];
+                                        const columnReference = rowLabel + match.columnNumber;
+                                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                        
+                                        if (columnValue !== null) {
+                                            calculationExpression = calculationExpression.substring(0, match.index) +
+                                                                columnValue +
+                                                                calculationExpression.substring(match.index + match.fullMatch.length);
+                                        } else {
+                                            calculationExpression = calculationExpression.substring(0, match.index) +
+                                                                '0' +
+                                                                calculationExpression.substring(match.index + match.fullMatch.length);
+                                        }
+                                    }
+                                    
+                                    // Also parse other reference formats (A4, [id_product:column])
+                                    const parsedFormula = parseReferenceFormula(calculationExpression);
+                                    if (parsedFormula) {
+                                        calculationExpression = parsedFormula;
+                                    }
+                                }
+                            }
+                        } else {
+                            // Even if no $数字 references, still try to parse other formats (A4, [id_product:column])
+                            const parsedFormula = parseReferenceFormula(calculationExpression);
+                            if (parsedFormula) {
+                                calculationExpression = parsedFormula;
+                            }
+                        }
+                        
+                        // Recalculate processed amount using the parsed expression (with actual values)
+                        const processedAmount = calculateFormulaResultFromExpression(calculationExpression, newValue, inputMethod, enableInputMethod, enableSourcePercent);
                         
                         // Update processed amount cell
                         if (cells[7]) {
