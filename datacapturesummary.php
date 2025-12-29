@@ -10350,36 +10350,50 @@ function getCurrentProcessId() {
                             }
                         }
                     } else {
-                        // Inserting after main row: check if there's a sub row immediately after
+                        // Inserting after main row: find the minimum sub_order of all sub rows after this position
                         const allRowsArray = Array.from(allRows);
                         const insertAfterIndex = allRowsArray.indexOf(insertAfterRow);
-                        let nextRow = null;
-                        if (insertAfterIndex >= 0 && insertAfterIndex < allRowsArray.length - 1) {
-                            nextRow = allRowsArray[insertAfterIndex + 1];
+                        let minSubOrder = null;
+                        let foundSubRow = false;
+                        
+                        // Check all rows after the insertion position to find the minimum sub_order
+                        for (let i = insertAfterIndex + 1; i < allRowsArray.length; i++) {
+                            const checkRow = allRowsArray[i];
+                            const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
+                            
+                            if (checkProductType === 'sub') {
+                                // Check if this sub row belongs to the same parent
+                                const checkIdProductCell = checkRow.querySelector('td:first-child');
+                                if (checkIdProductCell) {
+                                    const checkProductValues = getProductValuesFromCell(checkIdProductCell);
+                                    const checkMainProduct = checkProductValues.main || checkRow.getAttribute('data-main-product') || '';
+                                    const normalizedCheckMain = normalizeIdProductText(checkMainProduct);
+                                    
+                                    if (normalizedCheckMain === normalizedTargetParent) {
+                                        foundSubRow = true;
+                                        const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                                        if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                                            const checkSubOrder = parseFloat(checkSubOrderAttr);
+                                            if (!isNaN(checkSubOrder)) {
+                                                if (minSubOrder === null || checkSubOrder < minSubOrder) {
+                                                    minSubOrder = checkSubOrder;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (checkProductType === 'main') {
+                                // Hit another main row, stop checking
+                                break;
+                            }
                         }
                         
-                        if (nextRow) {
-                            const nextProductType = nextRow.getAttribute('data-product-type') || 'main';
-                            if (nextProductType === 'sub') {
-                                // Inserting between main row and first sub row: use 0.5
-                                const nextSubOrderAttr = nextRow.getAttribute('data-sub-order');
-                                const nextSubOrder = nextSubOrderAttr !== null && nextSubOrderAttr !== '' 
-                                    ? parseFloat(nextSubOrderAttr) 
-                                    : null;
-                                
-                                if (nextSubOrder !== null && !isNaN(nextSubOrder)) {
-                                    // Use half of the next sub_order (e.g., if next is 1, use 0.5)
-                                    subOrder = nextSubOrder / 2;
-                                } else {
-                                    // Next sub row has no sub_order, use 0.5
-                                    subOrder = 0.5;
-                                }
-                            } else {
-                                // Next row is also main row: use 1 (first sub row)
-                                subOrder = 1;
-                            }
+                        if (foundSubRow && minSubOrder !== null && minSubOrder > 0) {
+                            // Found sub rows after insertion position: use half of the minimum sub_order
+                            // This allows inserting multiple rows: 0.5, 0.25, 0.125, etc.
+                            subOrder = minSubOrder / 2;
                         } else {
-                            // No next row: use 1 (first sub row)
+                            // No sub rows found after insertion position: use 1 (first sub row)
                             subOrder = 1;
                         }
                     }
