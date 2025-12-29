@@ -5113,6 +5113,12 @@ function getCurrentProcessId() {
             const templateIdAttr = row.getAttribute('data-template-id');
             const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
             
+            // Get sub_order from row attribute if available
+            const subOrderAttr = row.getAttribute('data-sub-order');
+            const subOrder = (subOrderAttr !== null && subOrderAttr !== '' && !isNaN(parseFloat(subOrderAttr))) 
+                ? parseFloat(subOrderAttr) 
+                : null;
+            
             return {
                 product_type: productType,
                 id_product: idProduct,
@@ -5140,6 +5146,7 @@ function getCurrentProcessId() {
                 template_key: templateKey,
                 process_id: getCurrentProcessId(),
                 row_index: rowIndex,
+                sub_order: subOrder, // Pass sub_order to backend for ordering sub rows
                 formula_variant: formulaVariant, // Pass formula_variant to backend
                 template_id: templateId // Pass template_id to backend for editing existing templates
             };
@@ -10208,7 +10215,64 @@ function getCurrentProcessId() {
                     console.warn('Inserted sub row but could not get row_index from insertAfterRow, using fallback:', fallbackIndex);
                 }
                 
-                // Set creation order based on insertion position
+                // Calculate sub_order based on insertion position
+                // sub_order determines the order of sub rows within the same parent
+                let subOrder = null;
+                if (insertAfterRow) {
+                    const insertAfterProductType = insertAfterRow.getAttribute('data-product-type') || 'main';
+                    const insertAfterSubOrderAttr = insertAfterRow.getAttribute('data-sub-order');
+                    
+                    if (insertAfterProductType === 'sub' && insertAfterSubOrderAttr !== null && insertAfterSubOrderAttr !== '') {
+                        // Inserting after another sub row: use its sub_order + 0.1
+                        const insertAfterSubOrder = parseFloat(insertAfterSubOrderAttr);
+                        if (!isNaN(insertAfterSubOrder)) {
+                            subOrder = insertAfterSubOrder + 0.1;
+                        } else {
+                            // If parsing failed, use 1.0 as default
+                            subOrder = 1.0;
+                        }
+                    } else {
+                        // Inserting after main row or sub row without sub_order: start with 1.0
+                        // Check if there are existing sub rows after this position
+                        const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
+                        let maxSubOrder = 0;
+                        let foundCurrentRow = false;
+                        for (let i = 0; i < allRowsAfterInsert.length; i++) {
+                            if (allRowsAfterInsert[i] === row) {
+                                foundCurrentRow = true;
+                                continue;
+                            }
+                            if (foundCurrentRow) {
+                                const checkRow = allRowsAfterInsert[i];
+                                const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
+                                if (checkProductType === 'sub') {
+                                    const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                                    if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                                        const checkSubOrder = parseFloat(checkSubOrderAttr);
+                                        if (!isNaN(checkSubOrder) && checkSubOrder > maxSubOrder) {
+                                            maxSubOrder = checkSubOrder;
+                                        }
+                                    }
+                                } else if (checkProductType === 'main') {
+                                    // Hit another main row, stop checking
+                                    break;
+                                }
+                            }
+                        }
+                        // Use maxSubOrder + 0.1 if found, otherwise use 1.0
+                        subOrder = maxSubOrder > 0 ? maxSubOrder + 0.1 : 1.0;
+                    }
+                } else {
+                    // Fallback: use 1.0
+                    subOrder = 1.0;
+                }
+                
+                if (subOrder !== null) {
+                    row.setAttribute('data-sub-order', String(subOrder));
+                    console.log('Set sub_order for new sub row:', subOrder);
+                }
+                
+                // Set creation order based on insertion position (keep for backward compatibility)
                 // Get creation order from the row we inserted after, and use a value slightly larger
                 // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
                 let creationOrder = Date.now();
@@ -10250,6 +10314,31 @@ function getCurrentProcessId() {
                         console.log('Appended sub row as first row, using row_index: 0');
                     }
                 }
+                
+                // Calculate sub_order for appended row
+                // Find the last sub row with sub_order and add 0.1, or use 1.0 if none found
+                let subOrder = 1.0;
+                const allRowsBeforeAppend = summaryTableBody.querySelectorAll('tr');
+                let maxSubOrder = 0;
+                for (let i = allRowsBeforeAppend.length - 1; i >= 0; i--) {
+                    const checkRow = allRowsBeforeAppend[i];
+                    const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
+                    if (checkProductType === 'sub') {
+                        const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                        if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                            const checkSubOrder = parseFloat(checkSubOrderAttr);
+                            if (!isNaN(checkSubOrder) && checkSubOrder > maxSubOrder) {
+                                maxSubOrder = checkSubOrder;
+                            }
+                        }
+                    } else if (checkProductType === 'main') {
+                        // Stop at main row
+                        break;
+                    }
+                }
+                subOrder = maxSubOrder > 0 ? maxSubOrder + 0.1 : 1.0;
+                row.setAttribute('data-sub-order', String(subOrder));
+                console.log('Set sub_order for appended sub row:', subOrder);
                 
                 // Set creation order for appended row (use current timestamp)
                 const creationOrder = Date.now();
@@ -10440,6 +10529,13 @@ function getCurrentProcessId() {
             }
             if (data.enableSourcePercent !== undefined) {
                 row.setAttribute('data-enable-source-percent', data.enableSourcePercent.toString());
+            }
+            // Set sub_order if provided in data (from template or calculated)
+            if (data.subOrder !== undefined && data.subOrder !== null && data.subOrder !== '') {
+                row.setAttribute('data-sub-order', String(data.subOrder));
+            } else if (!row.getAttribute('data-sub-order')) {
+                // If sub_order is not provided and row doesn't have it, preserve existing or calculate
+                // Don't override if it already exists (from addSubIdProductRow)
             }
             if (data.formulaOperators !== undefined) {
                 row.setAttribute('data-formula-operators', data.formulaOperators);
@@ -13250,6 +13346,9 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             productType: 'sub',
             rowIndex: (template.row_index !== undefined && template.row_index !== null)
                 ? Number(template.row_index)
+                : null,
+            subOrder: (template.sub_order !== undefined && template.sub_order !== null && template.sub_order !== '')
+                ? parseFloat(template.sub_order)
                 : null
         };
 
@@ -13260,6 +13359,12 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (template.row_index !== undefined && template.row_index !== null) {
             targetRow.setAttribute('data-row-index', String(template.row_index));
             console.log('Set data-row-index on sub row:', template.row_index);
+        }
+        
+        // Set sub_order attribute to preserve sub row ordering
+        if (template.sub_order !== undefined && template.sub_order !== null && template.sub_order !== '') {
+            targetRow.setAttribute('data-sub-order', String(template.sub_order));
+            console.log('Set data-sub-order on sub row:', template.sub_order);
         }
         
         // Also set template_id and formula_variant for precise matching
