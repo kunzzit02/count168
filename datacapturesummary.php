@@ -9197,12 +9197,21 @@ function getCurrentProcessId() {
             const formulaCell = cells[4];
             if (!formulaCell) return;
             
+            // Check if already in edit mode - prevent multiple edit sessions
+            const formulaContent = formulaCell.querySelector('.formula-cell-content');
+            if (!formulaContent) return;
+            
+            // Check if there's already an input field in edit mode
+            const existingInput = formulaContent.querySelector('input.inline-edit-input');
+            if (existingInput) {
+                console.log('Formula cell already in edit mode, ignoring double-click');
+                return; // Already in edit mode, don't start another edit session
+            }
+            
             // Get current formula text (may contain Source % like "1083.45+84.32*(0.25)")
             // Try to get from the formula-text span first, then fallback to element.textContent
             const formulaTextElement = formulaCell.querySelector('.formula-text');
             const currentFormulaDisplay = formulaTextElement ? formulaTextElement.textContent.trim() : element.textContent.trim();
-            const formulaContent = formulaCell.querySelector('.formula-cell-content');
-            if (!formulaContent) return;
             
             // Priority: 使用 data-formula-operators（原始值，包含 $数字）
             // 这样编辑时显示的是原始值（如 "$4+$6"），而不是转换后的值（如 "7+5"）
@@ -9279,8 +9288,24 @@ function getCurrentProcessId() {
             input.focus();
             input.select();
             
+            // Flag to prevent multiple calls to saveEdit/cancelEdit
+            let isProcessing = false;
+            
             // Save function
             const saveEdit = () => {
+                // Prevent multiple calls
+                if (isProcessing) {
+                    console.log('saveEdit already processing, skipping');
+                    return;
+                }
+                
+                // Check if input still exists
+                if (!input || !input.parentNode) {
+                    console.log('Input no longer exists, skipping saveEdit');
+                    return;
+                }
+                
+                isProcessing = true;
                 const newFormulaValue = input.value.trim();
                 
                 // Compare with original formula value (data-formula-operators)
@@ -9434,7 +9459,9 @@ function getCurrentProcessId() {
                     showNotification('Success', 'Formula updated successfully!', 'success');
                 } else {
                     // No changes made, just restore original content
-                    input.remove();
+                    if (input && input.parentNode) {
+                        input.remove();
+                    }
                     formulaContent.innerHTML = originalContentHTML;
                     
                     // Reattach double-click event listener
@@ -9447,11 +9474,26 @@ function getCurrentProcessId() {
                 formulaContent.style.display = '';
                 formulaContent.style.margin = '';
                 formulaContent.style.padding = '';
+                
+                // Reset processing flag after a short delay
+                setTimeout(() => {
+                    isProcessing = false;
+                }, 100);
             };
             
             // Cancel function
             const cancelEdit = () => {
-                input.remove();
+                // Prevent multiple calls
+                if (isProcessing) {
+                    console.log('cancelEdit already processing, skipping');
+                    return;
+                }
+                
+                isProcessing = true;
+                
+                if (input && input.parentNode) {
+                    input.remove();
+                }
                 
                 // Restore original content
                 formulaContent.innerHTML = originalContentHTML;
@@ -9465,20 +9507,36 @@ function getCurrentProcessId() {
                 formulaContent.style.display = '';
                 formulaContent.style.margin = '';
                 formulaContent.style.padding = '';
+                
+                // Reset processing flag
+                setTimeout(() => {
+                    isProcessing = false;
+                }, 100);
             };
             
             // Save on Enter or blur
             input.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    e.stopPropagation();
                     saveEdit();
                 } else if (e.key === 'Escape') {
                     e.preventDefault();
+                    e.stopPropagation();
                     cancelEdit();
                 }
             });
             
-            input.addEventListener('blur', saveEdit);
+            // Use setTimeout to delay blur handling, allowing click events to process first
+            input.addEventListener('blur', function(e) {
+                // Use setTimeout to allow other events (like clicks) to process first
+                setTimeout(() => {
+                    // Check if input still exists and is still in the DOM
+                    if (input && input.parentNode && document.contains(input)) {
+                        saveEdit();
+                    }
+                }, 200);
+            });
         }
         
         // Enable inline editing for Source % column (double-click)
