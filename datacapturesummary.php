@@ -12710,12 +12710,18 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 console.warn('Failed to create sub row for template', template);
                 return;
             }
-            // Set creation order based on template index to maintain stable order when loading from database
-            // Since templates are now sorted by row_index and updated_at, use templateIndex to preserve order
-            // Use a base timestamp plus templateIndex * 1000 to ensure correct relative order
+            // Set creation order based on row_index and template index to maintain stable order when loading from database
+            // IMPORTANT: Use row_index-based calculation instead of Date.now() to ensure consistent order after page refresh
             // This ensures sub rows with same row_index maintain their relative order from database
-            const baseTime = Date.now() - validSubTemplates.length * 1000;
-            const creationOrder = baseTime + templateIndex * 1000;
+            let creationOrder = 0;
+            if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
+                // Use row_index * 1000000 + templateIndex * 1000 to ensure correct relative order
+                // This ensures rows with same row_index are ordered by their template index (which reflects database id order)
+                creationOrder = templateRowIndex * 1000000 + templateIndex * 1000;
+            } else {
+                // Fallback: use a large base value + templateIndex for rows without row_index
+                creationOrder = 999999000 + templateIndex * 1000;
+            }
             newRow.setAttribute('data-creation-order', String(creationOrder));
             targetRow = newRow;
             console.log('Created new sub row for template with row_index:', templateRowIndex, 'creation-order:', creationOrder, 'templateIndex:', templateIndex);
@@ -12723,8 +12729,18 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             // If updating existing row, preserve its existing creation-order if it has one
             // Only set if missing to maintain the original order
             if (!targetRow.getAttribute('data-creation-order')) {
-                const baseTime = Date.now() - validSubTemplates.length * 1000;
-                const creationOrder = baseTime + templateIndex * 1000;
+                // Use row_index-based calculation instead of Date.now() to ensure consistent order after page refresh
+                const templateRowIndex = (template.row_index !== undefined && template.row_index !== null)
+                    ? Number(template.row_index)
+                    : null;
+                let creationOrder = 0;
+                if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
+                    // Use row_index * 1000000 + templateIndex * 1000 to ensure correct relative order
+                    creationOrder = templateRowIndex * 1000000 + templateIndex * 1000;
+                } else {
+                    // Fallback: use a large base value + templateIndex for rows without row_index
+                    creationOrder = 999999000 + templateIndex * 1000;
+                }
                 targetRow.setAttribute('data-creation-order', String(creationOrder));
                 console.log('Set missing creation-order on existing sub row:', creationOrder);
             } else {
