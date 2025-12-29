@@ -5659,12 +5659,18 @@ function getCurrentProcessId() {
                     // 在编辑模式下，保留原有的 formula_variant 和 template_id，确保更新现有模板而不是创建新模板
                     const existingFormulaVariant = editingRow.getAttribute('data-formula-variant');
                     const existingTemplateId = editingRow.getAttribute('data-template-id');
+                    // Get sub_order from editingRow to preserve it
+                    const existingSubOrderAttr = editingRow.getAttribute('data-sub-order');
+                    const existingSubOrder = (existingSubOrderAttr !== null && existingSubOrderAttr !== '' && !isNaN(parseFloat(existingSubOrderAttr))) 
+                        ? parseFloat(existingSubOrderAttr) 
+                        : null;
                     updateSubIdProductRow(processValue, {
                         ...basePayload,
                         productType: 'sub',
                         templateKey: editingRow.getAttribute('data-template-key') || null,
                         formulaVariant: existingFormulaVariant || null,
-                        templateId: existingTemplateId || null
+                        templateId: existingTemplateId || null,
+                        subOrder: existingSubOrder // Preserve sub_order when editing
                     }, editingRow);
                 } else {
                     // 在编辑模式下，保留原有的 formula_variant 和 template_id，确保更新现有模板而不是创建新模板
@@ -5689,6 +5695,12 @@ function getCurrentProcessId() {
                 const newRowIndex = newRow ? newRow.getAttribute('data-row-index') : null;
                 const rowIndexValue = (newRowIndex && newRowIndex !== '' && newRowIndex !== '999999') ? Number(newRowIndex) : null;
                 
+                // Get sub_order from newRow if it was set by addSubIdProductRow
+                const newRowSubOrderAttr = newRow ? newRow.getAttribute('data-sub-order') : null;
+                const newRowSubOrder = (newRowSubOrderAttr !== null && newRowSubOrderAttr !== '' && !isNaN(parseFloat(newRowSubOrderAttr))) 
+                    ? parseFloat(newRowSubOrderAttr) 
+                    : null;
+                
                 updateSubIdProductRow(processValue, {
                     idProduct: processValue,
                     description: descriptionValue,
@@ -5709,7 +5721,8 @@ function getCurrentProcessId() {
                     enableInputMethod: enableValue,
                     enableSourcePercent: sourcePercentEnableValue,
                     productType: 'sub',
-                    rowIndex: rowIndexValue // Pass row_index to preserve order
+                    rowIndex: rowIndexValue, // Pass row_index to preserve order
+                    subOrder: newRowSubOrder // Pass sub_order to preserve ordering
                 }, newRow);
 
                 // 记录刚创建的 sub 行，供后面的模板保存使用
@@ -5793,6 +5806,12 @@ function getCurrentProcessId() {
                     const newRowIndex2 = newRow ? newRow.getAttribute('data-row-index') : null;
                     const rowIndexValue2 = (newRowIndex2 && newRowIndex2 !== '' && newRowIndex2 !== '999999') ? Number(newRowIndex2) : null;
                     
+                    // Get sub_order from newRow if it was set by addSubIdProductRow
+                    const newRowSubOrderAttr2 = newRow ? newRow.getAttribute('data-sub-order') : null;
+                    const newRowSubOrder2 = (newRowSubOrderAttr2 !== null && newRowSubOrderAttr2 !== '' && !isNaN(parseFloat(newRowSubOrderAttr2))) 
+                        ? parseFloat(newRowSubOrderAttr2) 
+                        : null;
+                    
                     updateSubIdProductRow(processValue, {
                         idProduct: processValue,
                         description: descriptionValue,
@@ -5813,7 +5832,8 @@ function getCurrentProcessId() {
                         enableInputMethod: enableValue,
                         enableSourcePercent: sourcePercentEnableValue,
                         productType: 'sub',
-                        rowIndex: rowIndexValue2 // Pass row_index to preserve order
+                        rowIndex: rowIndexValue2, // Pass row_index to preserve order
+                        subOrder: newRowSubOrder2 // Pass sub_order to preserve ordering
                     }, newRow);
 
                     // 记录刚创建的 sub 行，供后面的模板保存使用
