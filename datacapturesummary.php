@@ -9213,37 +9213,28 @@ function getCurrentProcessId() {
             const hasSourcePercent = sourcePercentText && sourcePercentText !== '';
             
             // First, check if formula is actually empty in the displayed cell
-            // Treat "Formula" as placeholder text (empty)
             let isFormulaEmpty = false;
             if (cells[4]) {
                 const formulaTextElement = cells[4].querySelector('.formula-text');
                 const displayedFormulaText = formulaTextElement ? formulaTextElement.textContent.trim() : '';
-                // Treat "Formula" as empty (it's a placeholder)
-                isFormulaEmpty = !displayedFormulaText || displayedFormulaText === '' || displayedFormulaText === 'Formula';
+                isFormulaEmpty = !displayedFormulaText || displayedFormulaText === '';
             }
             
             if (isFormulaEmpty) {
                 // Formula is empty, set to empty string
                 formulaValueToEdit = '';
-            } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '' && storedFormulaOperators !== 'Formula') {
+            } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '') {
                 // 优先使用 data-formula-operators（原始值，包含 $数字）
                 formulaValueToEdit = storedFormulaOperators;
                 console.log('enableFormulaInlineEdit - Using data-formula-operators (original value with $):', formulaValueToEdit);
             } else {
-                // Fallback to displayed formula text (but not if it's "Formula" placeholder)
-                if (currentFormulaDisplay && currentFormulaDisplay !== 'Formula') {
-                    formulaValueToEdit = currentFormulaDisplay;
-                    console.log('enableFormulaInlineEdit - Using displayed formula text as fallback:', formulaValueToEdit);
-                } else {
-                    formulaValueToEdit = '';
-                    console.log('enableFormulaInlineEdit - Formula is empty or placeholder, using empty string');
-                }
+                // Fallback to displayed formula text
+                formulaValueToEdit = currentFormulaDisplay;
+                console.log('enableFormulaInlineEdit - Using displayed formula text as fallback:', formulaValueToEdit);
             }
             
-            // Store original formula value for comparison (use data-formula-operators if available, but not "Formula" placeholder)
-            const originalFormulaValue = (storedFormulaOperators && storedFormulaOperators !== 'Formula') 
-                ? storedFormulaOperators 
-                : ((currentFormulaDisplay && currentFormulaDisplay !== 'Formula') ? currentFormulaDisplay : '');
+            // Store original formula value for comparison (use data-formula-operators if available)
+            const originalFormulaValue = storedFormulaOperators || currentFormulaDisplay;
             
             // Create input field - show formula with $ references (like edit formula modal)
             const input = document.createElement('input');
@@ -9259,47 +9250,42 @@ function getCurrentProcessId() {
             input.style.fontSize = 'inherit';
             input.style.boxSizing = 'border-box';
             
-            // Store original content for restoration
-            // Check if formula is actually empty (including "Formula" placeholder)
-            let originalContent = formulaContent.innerHTML;
-            const formulaTextElement = formulaContent.querySelector('.formula-text');
-            const isOriginalEmpty = !formulaTextElement || 
-                                    !formulaTextElement.textContent.trim() || 
-                                    formulaTextElement.textContent.trim() === 'Formula' ||
-                                    formulaTextElement.textContent.trim() === '';
-            
-            // If original is empty, we'll rebuild empty structure on restore
-            // Store a flag to indicate if original was empty
-            const wasOriginalEmpty = isOriginalEmpty;
-            
-            // Hide ALL formula text elements and buttons (there might be multiple)
+            // Hide ALL formula text elements (there might be multiple)
             const formulaTextSpans = formulaCell.querySelectorAll('.formula-text');
             formulaTextSpans.forEach(span => {
                 span.style.display = 'none';
             });
             
-            // Hide all edit buttons
-            const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
-            editButtons.forEach(btn => {
-                btn.style.display = 'none';
-            });
-            
+            // Also hide any direct text content in formulaContent that might be visible
             // Set cell styles to prevent overflow
             formulaCell.style.overflow = 'hidden';
             formulaCell.style.position = 'relative';
             formulaCell.style.maxWidth = '100%';
             
-            // Clear the entire formulaContent and only show input (like main row)
-            formulaContent.innerHTML = '';
-            formulaContent.appendChild(input);
-            input.focus();
-            input.select();
+            // Replace span with input
+            const formulaTextSpan = formulaCell.querySelector('.formula-text');
+            if (formulaTextSpan) {
+                formulaContent.insertBefore(input, formulaTextSpan);
+                input.focus();
+                input.select();
+            } else {
+                // If no formula-text span found, just append the input
+                formulaContent.appendChild(input);
+                input.focus();
+                input.select();
+            }
             
             // Save function
             const saveEdit = () => {
                 const newFormulaValue = input.value.trim();
                 // Remove input
                 input.remove();
+                
+                // Show all formula text elements again
+                const formulaTextSpans = formulaCell.querySelectorAll('.formula-text');
+                formulaTextSpans.forEach(span => {
+                    span.style.display = '';
+                });
                 
                 // Compare with original formula value (data-formula-operators)
                 if (newFormulaValue !== originalFormulaValue) {
@@ -9397,21 +9383,19 @@ function getCurrentProcessId() {
                     // Recreate full formula display using converted formula + source percent
                     const newFormulaDisplay = createFormulaDisplayFromExpression(displayFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
                     
+                    // Update formula display
+                    formulaTextSpans.forEach(span => {
+                        span.textContent = newFormulaDisplay;
+                    });
+                    
                     // Update data attribute with base formula (without Source %)
                     row.setAttribute('data-formula-operators', finalBaseFormula);
-                    
-                    // Rebuild the entire formula cell content (like main row)
-                    const inputMethod = row.getAttribute('data-input-method') || '';
-                    const inputMethodTooltip = inputMethod || '';
-                    formulaContent.innerHTML = `
-                        <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${newFormulaDisplay}</span>
-                        <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
-                    `;
                     
                     // Recalculate processed amount
                     // IMPORTANT: Use displayFormula (with actual values, without Source %) for calculation
                     // displayFormula already has $数字 converted to actual values, and doesn't include Source % part
                     // This ensures the calculation uses actual values from the table
+                    const inputMethod = row.getAttribute('data-input-method') || '';
                     const enableInputMethod = inputMethod ? true : false;
                     
                     // Use displayFormula (already converted from $数字 to actual values, no Source % included) for calculation
@@ -9446,21 +9430,6 @@ function getCurrentProcessId() {
                     });
                     
                     showNotification('Success', 'Formula updated successfully!', 'success');
-                } else {
-                    // Formula not changed, restore original content
-                    // If original was empty, rebuild empty cell structure
-                    if (wasOriginalEmpty) {
-                        const inputMethod = row.getAttribute('data-input-method') || '';
-                        const inputMethodTooltip = inputMethod || '';
-                        formulaContent.innerHTML = `
-                            <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}></span>
-                            <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
-                        `;
-                    } else {
-                        formulaContent.innerHTML = originalContent;
-                    }
-                    // Reattach double-click event listener after restoring
-                    attachInlineEditListeners(row);
                 }
             };
             
@@ -9468,21 +9437,11 @@ function getCurrentProcessId() {
             const cancelEdit = () => {
                 input.remove();
                 
-                // Restore original content
-                // If original was empty, rebuild empty cell structure
-                if (wasOriginalEmpty) {
-                    const inputMethod = row.getAttribute('data-input-method') || '';
-                    const inputMethodTooltip = inputMethod || '';
-                    formulaContent.innerHTML = `
-                        <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}></span>
-                        <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
-                    `;
-                } else {
-                    formulaContent.innerHTML = originalContent;
-                }
-                
-                // Reattach double-click event listener after restoring
-                attachInlineEditListeners(row);
+                // Show all formula text elements again
+                const formulaTextSpans = formulaCell.querySelectorAll('.formula-text');
+                formulaTextSpans.forEach(span => {
+                    span.style.display = '';
+                });
             };
             
             // Save on Enter or blur
