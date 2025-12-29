@@ -12330,67 +12330,40 @@ function reorderSummaryRowsByRowIndex() {
         const withIndex = rowData.filter(r => r.rowIndex !== null);
         const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-        // Group rows by id_product (normalizedMain)
-        // IMPORTANT: Sub rows should be grouped with their parent main row's id_product
-        const groupedByProduct = {};
-        withIndex.forEach(data => {
-            // For sub rows, use the parent's id_product (normalizedMain)
-            // For main rows, use their own id_product
-            const key = data.normalizedMain || '__empty__';
-            if (!groupedByProduct[key]) {
-                groupedByProduct[key] = [];
+        // IMPORTANT: Sort all rows (main and sub) globally by row_index, not by id_product groups
+        // This ensures sub rows appear in the correct position based on where they were added (row_index)
+        // User wants: if sub row was added at row_index=1, it should appear before row_index=2 rows
+        withIndex.sort((a, b) => {
+            // First, sort by row_index (where user added the data in Data Capture Table)
+            if (a.rowIndex !== b.rowIndex) {
+                return a.rowIndex - b.rowIndex;
             }
-            groupedByProduct[key].push(data);
-        });
-
-        // For each id_product group, find the minimum row_index (first appearance in Data Capture Table)
-        // Then sort groups by this minimum row_index
-        const productGroups = Object.keys(groupedByProduct).map(key => {
-            const groupRows = groupedByProduct[key];
-            const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
-            // Sort rows within each group by row_index (Data Capture Table order)
-            // IMPORTANT: All rows (main and sub) are sorted purely by row_index, maintaining the order they were added
-            // No priority between main and sub - just follow row_index order
-            groupRows.sort((a, b) => {
-                // First, sort by row_index (where user added the data in Data Capture Table)
-                if (a.rowIndex !== b.rowIndex) {
-                    return a.rowIndex - b.rowIndex;
-                }
-                // If same row_index, use creation order to maintain stable order
-                // This ensures rows added at the same position maintain their relative order
-                return a.creationOrder - b.creationOrder;
-            });
-            return {
-                key,
-                minRowIndex,
-                rows: groupRows
-            };
-        });
-
-        // Sort product groups by minimum row_index (Data Capture Table order)
-        productGroups.sort((a, b) => {
-            if (a.minRowIndex !== b.minRowIndex) {
-                return a.minRowIndex - b.minRowIndex;
+            // If same row_index, maintain relative order:
+            // 1. Main rows come before sub rows (if they have the same row_index)
+            // 2. Then by creation order to maintain stable order
+            if (a.productType !== b.productType) {
+                // Main rows (productType='main') come before sub rows (productType='sub')
+                if (a.productType === 'main') return -1;
+                if (b.productType === 'main') return 1;
             }
-            // If same minRowIndex, maintain order by first row's originalIndex
-            return a.rows[0].originalIndex - b.rows[0].originalIndex;
+            // If same product type, use creation order
+            return a.creationOrder - b.creationOrder;
         });
 
-        // Flatten groups back into ordered rows array
-        // All rows (main and sub) are now sorted by row_index within each id_product group
-        const orderedRowsWithIndex = productGroups.flatMap(group => group.rows.map(data => data.row));
+        // All rows with row_index are now sorted globally by row_index
+        const orderedRowsWithIndex = withIndex.map(data => data.row);
 
         // Sort rows without row_index by originalIndex (maintain their current order)
         withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
         const orderedRowsWithoutIndex = withoutIndex.map(data => data.row);
 
-        // Combine: rows with index first (grouped by id_product, sorted by Data Capture Table order), then rows without index
+        // Combine: rows with index first (sorted globally by row_index), then rows without index
         const orderedRows = [...orderedRowsWithIndex, ...orderedRowsWithoutIndex];
 
         // Re-append rows in new order
         orderedRows.forEach(row => summaryTableBody.appendChild(row));
         
-        console.log('Reordered rows by id_product groups (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length, 'product groups:', productGroups.length);
+        console.log('Reordered rows globally by row_index (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
