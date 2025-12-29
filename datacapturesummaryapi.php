@@ -740,7 +740,8 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             data_capture_id,
             row_index,
             formula_variant,
-            updated_at
+            updated_at,
+            created_at
         FROM data_capture_templates
         WHERE company_id = ?
           AND (process_id = ? OR process_id IS NULL)
@@ -758,9 +759,10 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                  row_index ASC,
                  product_type ASC,
                  formula_variant ASC,
-                 -- For sub rows with same parent_id_product and row_index, sort by id ASC
-                 -- This maintains the order they were created/inserted
-                 -- id ASC ensures sub rows appear in insertion order (newer rows have larger id)
+                 -- For sub rows with same parent_id_product and row_index, sort by created_at ASC then id ASC
+                 -- created_at reflects insertion order better than id (id may have gaps)
+                 -- Fallback to id ASC if created_at is the same (shouldn't happen, but just in case)
+                 created_at ASC,
                  id ASC
     ");
 
@@ -957,6 +959,7 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'account_id' => $row['account_id'],
             'account_display' => $row['account_display'] ?? null,
             'currency_id' => $row['currency_id'] ?? null,
+            'sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null ? (int)$row['sub_order'] : null, // For sub rows, maintain insertion order
             'currency_display' => $row['currency_display'] ?? null,
             'source_columns' => $row['source_columns'] ?? '',
             'formula_operators' => $row['formula_operators'] ?? '',

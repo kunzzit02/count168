@@ -5007,6 +5007,8 @@ function getCurrentProcessId() {
             // CRITICAL: Always use the existing data-row-index attribute, which was set based on Data Capture Table position
             // Do NOT use Summary Table position, as it may have changed due to sorting
             let rowIndex = null;
+            let subOrder = null; // For sub rows, track insertion order within same row_index
+            
             try {
                 // First, try to use existing data-row-index attribute (most reliable)
                 const existingRowIndex = row.getAttribute('data-row-index');
@@ -5016,6 +5018,45 @@ function getCurrentProcessId() {
                         // Use existing row_index (set based on Data Capture Table position)
                         rowIndex = existingIndexNum;
                         console.log('Using existing data-row-index:', rowIndex, 'for id_product:', formData.processValue || 'unknown');
+                        
+                        // For sub rows, calculate sub_order based on position in DOM
+                        // This ensures new sub rows maintain their insertion order
+                        if (productType === 'sub') {
+                            const summaryTableBody = document.getElementById('summaryTableBody');
+                            if (summaryTableBody) {
+                                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                                const currentRowIndex = allRows.indexOf(row);
+                                
+                                // Count how many sub rows with same row_index and parent_id_product appear before this row
+                                let orderCount = 0;
+                                const parentIdProduct = idProductMain || normalizeIdProductText(formData.processValue);
+                                const normalizedParentId = normalizeIdProductText(parentIdProduct);
+                                
+                                for (let i = 0; i < currentRowIndex; i++) {
+                                    const otherRow = allRows[i];
+                                    const otherRowIndexAttr = otherRow.getAttribute('data-row-index');
+                                    const otherProductType = otherRow.getAttribute('data-product-type') || 'main';
+                                    
+                                    if (otherProductType === 'sub' && otherRowIndexAttr !== null && otherRowIndexAttr !== '' && !Number.isNaN(Number(otherRowIndexAttr))) {
+                                        const otherRowIndex = Number(otherRowIndexAttr);
+                                        if (otherRowIndex === rowIndex) {
+                                            // Check if it belongs to the same parent
+                                            const otherIdProductCell = otherRow.querySelector('td:first-child');
+                                            if (otherIdProductCell) {
+                                                const otherProductValues = getProductValuesFromCell(otherIdProductCell);
+                                                const otherParentId = otherRow.getAttribute('data-parent-id-product');
+                                                const normalizedOtherParent = normalizeIdProductText(otherParentId || otherProductValues.main || '');
+                                                if (normalizedOtherParent === normalizedParentId) {
+                                                    orderCount++;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                subOrder = orderCount;
+                                console.log('Calculated sub_order:', subOrder, 'for sub row with row_index:', rowIndex);
+                            }
+                        }
                     }
                 }
                 
@@ -5140,6 +5181,7 @@ function getCurrentProcessId() {
                 template_key: templateKey,
                 process_id: getCurrentProcessId(),
                 row_index: rowIndex,
+                sub_order: subOrder, // Pass sub_order to maintain insertion order within same row_index
                 formula_variant: formulaVariant, // Pass formula_variant to backend
                 template_id: templateId // Pass template_id to backend for editing existing templates
             };
@@ -12504,8 +12546,16 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (aRowIndex !== bRowIndex) {
             return aRowIndex - bRowIndex;
         }
-        // If same row_index, sort by id (database primary key) to maintain relative order
-        // id is auto-increment, so it reflects the creation order
+        // If same row_index, sort by created_at first (reflects insertion order), then by id as fallback
+        // created_at is more reliable than id for maintaining insertion order
+        if (a.created_at && b.created_at) {
+            const aCreated = new Date(a.created_at).getTime();
+            const bCreated = new Date(b.created_at).getTime();
+            if (aCreated !== bCreated) {
+                return aCreated - bCreated;
+            }
+        }
+        // Fallback to id if created_at is not available or same
         const aId = a.id || 0;
         const bId = b.id || 0;
         return aId - bId;
