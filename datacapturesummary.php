@@ -12532,18 +12532,26 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
     // 在同一个 Id Product 分组内部，根据 row_index 寻找"最近的 main 行"作为插入基准，
     // 这样既保证分组不乱，又能尽量还原之前的 vertical 位置。
-    let lastRowInGroup = mainRow;
+    // IMPORTANT: Track the last inserted row for each row_index to maintain insertion order
+    const lastRowByRowIndex = new Map();
 
     validSubTemplates.forEach((template, templateIndex) => {
-        let insertAfterRow = lastRowInGroup;
+        let insertAfterRow = mainRow;
+        const templateRowIndex = (template.row_index !== undefined && template.row_index !== null)
+            ? Number(template.row_index)
+            : null;
 
-        if (template.row_index !== undefined && template.row_index !== null) {
-            const desiredIndex = Number(template.row_index);
-            if (!Number.isNaN(desiredIndex)) {
+        if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
+            // Check if we've already inserted a row with this row_index
+            // If yes, insert after the last one to maintain insertion order
+            if (lastRowByRowIndex.has(templateRowIndex)) {
+                insertAfterRow = lastRowByRowIndex.get(templateRowIndex);
+            } else {
+                // First row with this row_index: find the appropriate main row to insert after
                 // 在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
                 let best = null;
                 for (const info of groupRows) {
-                    if (info.index <= desiredIndex) {
+                    if (info.index <= templateRowIndex) {
                         if (!best || info.index > best.index) {
                             best = info;
                         }
@@ -12551,6 +12559,28 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 }
                 if (best) {
                     insertAfterRow = best.row;
+                }
+                
+                // Also check if there are existing sub rows with the same row_index in the DOM
+                // If yes, insert after the last existing sub row with this row_index
+                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                for (let i = allRows.length - 1; i >= 0; i--) {
+                    const row = allRows[i];
+                    const rowIndexAttr = row.getAttribute('data-row-index');
+                    if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
+                        const rowIndex = Number(rowIndexAttr);
+                        if (rowIndex === templateRowIndex) {
+                            // Check if this row belongs to the same parent id_product
+                            const idProductCell = row.querySelector('td:first-child');
+                            const productValues = getProductValuesFromCell(idProductCell);
+                            const mainText = normalizeIdProductText(productValues.main || '');
+                            if (mainText === normalizedTargetId || !productValues.main) {
+                                // Found existing sub row with same row_index
+                                insertAfterRow = row;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -12636,13 +12666,19 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 return;
             }
             // Set creation order based on template index to maintain stable order when loading from database
-            // Since templates are now sorted by row_index and updated_at, use templateIndex to preserve order
+            // Since templates are now sorted by row_index and id, use templateIndex to preserve order
             // Use a base timestamp plus templateIndex * 1000 to ensure correct relative order
             // This ensures sub rows with same row_index maintain their relative order from database
             const baseTime = Date.now() - validSubTemplates.length * 1000;
             const creationOrder = baseTime + templateIndex * 1000;
             newRow.setAttribute('data-creation-order', String(creationOrder));
             targetRow = newRow;
+            
+            // Update lastRowByRowIndex to track insertion order for this row_index
+            if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
+                lastRowByRowIndex.set(templateRowIndex, newRow);
+            }
+            
             console.log('Created new sub row for template with row_index:', templateRowIndex, 'creation-order:', creationOrder, 'templateIndex:', templateIndex);
         } else {
             // If updating existing row, preserve its existing creation-order if it has one
@@ -12655,6 +12691,25 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             } else {
                 console.log('Preserving existing creation-order on sub row:', targetRow.getAttribute('data-creation-order'));
             }
+            
+            // Update lastRowByRowIndex for existing rows too, to maintain order
+            // Check if this row should be considered as the last row for this row_index
+            if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
+                const currentLast = lastRowByRowIndex.get(templateRowIndex);
+                // If no current last row for this row_index, or this row is after the current last, update it
+                if (!currentLast) {
+                    lastRowByRowIndex.set(templateRowIndex, targetRow);
+                } else {
+                    // Check if targetRow appears after currentLast in DOM
+                    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const currentLastIndex = allRows.indexOf(currentLast);
+                    const targetRowIndex = allRows.indexOf(targetRow);
+                    if (targetRowIndex > currentLastIndex) {
+                        lastRowByRowIndex.set(templateRowIndex, targetRow);
+                    }
+                }
+            }
+            
             console.log('Updating existing sub row instead of creating new one');
         }
 
