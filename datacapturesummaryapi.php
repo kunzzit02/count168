@@ -869,37 +869,6 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
         }
     }
 
-    // IMPORTANT: Sort sub templates by row_index to maintain correct order
-    // Sub rows should be ordered by row_index (position in Data Capture Table), not by creation time (id)
-    // When row_index is the same, sort by account_id to maintain a stable order (not by id/creation time)
-    foreach ($templates as $parentId => $templateData) {
-        if (isset($templateData['subs']) && is_array($templateData['subs']) && count($templateData['subs']) > 0) {
-            usort($templateData['subs'], function($a, $b) {
-                // First sort by row_index (where user added the data in Data Capture Table)
-                $aRowIndex = isset($a['row_index']) && $a['row_index'] !== null ? (int)$a['row_index'] : 999999;
-                $bRowIndex = isset($b['row_index']) && $b['row_index'] !== null ? (int)$b['row_index'] : 999999;
-                
-                if ($aRowIndex !== $bRowIndex) {
-                    return $aRowIndex - $bRowIndex;
-                }
-                
-                // If same row_index, sort by account_id to maintain stable order (not by id/creation time)
-                // This ensures sub rows with the same row_index are ordered consistently
-                $aAccountId = isset($a['account_id']) ? (int)$a['account_id'] : 0;
-                $bAccountId = isset($b['account_id']) ? (int)$b['account_id'] : 0;
-                if ($aAccountId !== $bAccountId) {
-                    return $aAccountId - $bAccountId;
-                }
-                
-                // If account_id is also the same, use id as final tie-breaker (but this should be rare)
-                $aId = isset($a['id']) ? (int)$a['id'] : 0;
-                $bId = isset($b['id']) ? (int)$b['id'] : 0;
-                return $aId - $bId;
-            });
-            $templates[$parentId]['subs'] = $templateData['subs'];
-        }
-    }
-
     return $templates;
 }
 
