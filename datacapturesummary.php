@@ -9256,11 +9256,30 @@ function getCurrentProcessId() {
                 span.style.display = 'none';
             });
             
-            // Hide edit button (✏️) to make the whole cell editable
+            // Remove edit buttons (✏️) from DOM to make the whole cell editable
+            // Store references so we can restore them later
             const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
+            const savedEditButtons = [];
             editButtons.forEach(btn => {
-                btn.style.display = 'none';
+                // Save button's parent and nextSibling for restoration
+                savedEditButtons.push({
+                    button: btn,
+                    parent: btn.parentNode,
+                    nextSibling: btn.nextSibling
+                });
+                // Remove button from DOM completely
+                btn.remove();
             });
+            
+            // Store saved buttons in formulaCell for later restoration
+            if (savedEditButtons.length > 0) {
+                formulaCell.setAttribute('data-saved-edit-buttons', JSON.stringify(savedEditButtons.map((sb, idx) => ({
+                    index: idx,
+                    onclick: sb.button.getAttribute('onclick'),
+                    title: sb.button.getAttribute('title'),
+                    className: sb.button.className
+                }))));
+            }
             
             // Also hide any direct text content in formulaContent that might be visible
             // Set cell styles to prevent overflow
@@ -9272,6 +9291,7 @@ function getCurrentProcessId() {
             formulaContent.style.width = '100%';
             formulaContent.style.display = 'flex';
             formulaContent.style.alignItems = 'center';
+            formulaContent.style.justifyContent = 'flex-start';
             
             // Replace span with input - input should fill the entire cell
             const formulaTextSpan = formulaCell.querySelector('.formula-text');
@@ -9298,16 +9318,32 @@ function getCurrentProcessId() {
                     span.style.display = '';
                 });
                 
-                // Show edit button again
-                const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
-                editButtons.forEach(btn => {
-                    btn.style.display = '';
-                });
+                // Restore edit buttons
+                const savedButtonsData = formulaCell.getAttribute('data-saved-edit-buttons');
+                if (savedButtonsData) {
+                    try {
+                        const buttonsData = JSON.parse(savedButtonsData);
+                        buttonsData.forEach(btnData => {
+                            const editButton = document.createElement('button');
+                            editButton.className = btnData.className || 'edit-formula-btn';
+                            editButton.setAttribute('onclick', btnData.onclick || 'editRowFormula(this)');
+                            editButton.setAttribute('title', btnData.title || 'Edit Row Data');
+                            editButton.innerHTML = '✏️';
+                            // Append button back to formulaContent
+                            formulaContent.appendChild(editButton);
+                        });
+                        // Clear the saved data
+                        formulaCell.removeAttribute('data-saved-edit-buttons');
+                    } catch (e) {
+                        console.error('Error restoring edit buttons:', e);
+                    }
+                }
                 
                 // Reset formulaContent styles
                 formulaContent.style.width = '';
                 formulaContent.style.display = '';
                 formulaContent.style.alignItems = '';
+                formulaContent.style.justifyContent = '';
                 
                 // Compare with original formula value (data-formula-operators)
                 if (newFormulaValue !== originalFormulaValue) {
@@ -9465,16 +9501,32 @@ function getCurrentProcessId() {
                     span.style.display = '';
                 });
                 
-                // Show edit button again
-                const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
-                editButtons.forEach(btn => {
-                    btn.style.display = '';
-                });
+                // Restore edit buttons
+                const savedButtonsData = formulaCell.getAttribute('data-saved-edit-buttons');
+                if (savedButtonsData) {
+                    try {
+                        const buttonsData = JSON.parse(savedButtonsData);
+                        buttonsData.forEach(btnData => {
+                            const editButton = document.createElement('button');
+                            editButton.className = btnData.className || 'edit-formula-btn';
+                            editButton.setAttribute('onclick', btnData.onclick || 'editRowFormula(this)');
+                            editButton.setAttribute('title', btnData.title || 'Edit Row Data');
+                            editButton.innerHTML = '✏️';
+                            // Append button back to formulaContent
+                            formulaContent.appendChild(editButton);
+                        });
+                        // Clear the saved data
+                        formulaCell.removeAttribute('data-saved-edit-buttons');
+                    } catch (e) {
+                        console.error('Error restoring edit buttons:', e);
+                    }
+                }
                 
                 // Reset formulaContent styles
                 formulaContent.style.width = '';
                 formulaContent.style.display = '';
                 formulaContent.style.alignItems = '';
+                formulaContent.style.justifyContent = '';
             };
             
             // Save on Enter or blur
