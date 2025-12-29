@@ -5113,47 +5113,6 @@ function getCurrentProcessId() {
             const templateIdAttr = row.getAttribute('data-template-id');
             const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
             
-            // Calculate sub_order for sub rows: find the position of this sub row among all sub rows with the same parent and row_index
-            // IMPORTANT: Use DOM position (not creation time) to determine sub_order
-            let subOrder = null;
-            if (productType === 'sub' && rowIndex !== null) {
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                    const normalizedParentId = normalizeIdProductText(parentIdProduct || '');
-                    const sameParentRows = [];
-                    
-                    // Find all sub rows with the same parent and row_index, and record their DOM positions
-                    allRows.forEach((r) => {
-                        const rProductType = r.getAttribute('data-product-type') || 'main';
-                        if (rProductType === 'sub') {
-                            const rIdProductCell = r.querySelector('td:first-child');
-                            const rProductValues = getProductValuesFromCell(rIdProductCell);
-                            const rParentId = normalizeIdProductText(rProductValues.main || '');
-                            const rRowIndexAttr = r.getAttribute('data-row-index');
-                            const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
-                            
-                            if (rParentId === normalizedParentId && rRowIndex === rowIndex) {
-                                sameParentRows.push(r);
-                            }
-                        }
-                    });
-                    
-                    // Sort by DOM position to get the correct order (based on where they appear in Summary Table)
-                    sameParentRows.sort((a, b) => {
-                        const aIndex = Array.from(allRows).indexOf(a);
-                        const bIndex = Array.from(allRows).indexOf(b);
-                        return aIndex - bIndex;
-                    });
-                    
-                    // Find the index of current row in the sorted list
-                    const currentRowIndex = sameParentRows.indexOf(row);
-                    if (currentRowIndex >= 0) {
-                        subOrder = currentRowIndex + 1; // sub_order starts from 1
-                    }
-                }
-            }
-            
             return {
                 product_type: productType,
                 id_product: idProduct,
@@ -5181,7 +5140,6 @@ function getCurrentProcessId() {
                 template_key: templateKey,
                 process_id: getCurrentProcessId(),
                 row_index: rowIndex,
-                sub_order: subOrder, // Pass sub_order to backend for sub rows
                 formula_variant: formulaVariant, // Pass formula_variant to backend
                 template_id: templateId // Pass template_id to backend for editing existing templates
             };
@@ -10250,41 +10208,6 @@ function getCurrentProcessId() {
                     console.warn('Inserted sub row but could not get row_index from insertAfterRow, using fallback:', fallbackIndex);
                 }
                 
-                // Calculate sub_order: position of this sub row among all sub rows with the same parent and row_index
-                // IMPORTANT: sub_order reflects the position in Summary Table, not creation time
-                const normalizedParentValue = normalizeIdProductText(parentProcessValue);
-                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                const sameParentRows = [];
-                
-                // Find all sub rows with the same parent and row_index
-                allRows.forEach((r) => {
-                    const rProductType = r.getAttribute('data-product-type') || 'main';
-                    if (rProductType === 'sub') {
-                        const rIdProductCell = r.querySelector('td:first-child');
-                        const rProductValues = getProductValuesFromCell(rIdProductCell);
-                        const rParentId = normalizeIdProductText(rProductValues.main || '');
-                        const rRowIndexAttr = r.getAttribute('data-row-index');
-                        const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
-                        
-                        if (rParentId === normalizedParentValue && rRowIndex === newRowIndex) {
-                            sameParentRows.push(r);
-                        }
-                    }
-                });
-                
-                // Sort by DOM position to get the correct order (based on where they appear in Summary Table)
-                sameParentRows.sort((a, b) => {
-                    const aIndex = Array.from(allRows).indexOf(a);
-                    const bIndex = Array.from(allRows).indexOf(b);
-                    return aIndex - bIndex;
-                });
-                
-                // Find the index of current row in the sorted list (sub_order starts from 1)
-                const currentRowIndex = sameParentRows.indexOf(row);
-                const subOrder = currentRowIndex >= 0 ? currentRowIndex + 1 : sameParentRows.length;
-                row.setAttribute('data-sub-order', String(subOrder));
-                console.log('Set sub_order:', subOrder, 'for sub row of parent:', normalizedParentValue, 'row_index:', newRowIndex);
-                
                 // Set creation order based on insertion position
                 // Get creation order from the row we inserted after, and use a value slightly larger
                 // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
@@ -12387,10 +12310,6 @@ function reorderSummaryRowsByRowIndex() {
             const accountCell = row.querySelector('td:nth-child(2)'); // Account column
             const accountId = accountCell ? accountCell.getAttribute('data-account-id') : null;
             
-            // Get sub_order for sub rows (for sorting within same row_index)
-            const subOrderAttr = row.getAttribute('data-sub-order');
-            const subOrder = subOrderAttr && !Number.isNaN(Number(subOrderAttr)) ? Number(subOrderAttr) : null;
-            
             // Get creation order for stable sorting
             const creationOrderAttr = row.getAttribute('data-creation-order');
             const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000; // Use large multiplier to ensure originalIndex doesn't interfere
@@ -12403,7 +12322,6 @@ function reorderSummaryRowsByRowIndex() {
                 hasMain: !!mainTextRaw,
                 productType,
                 accountId,
-                subOrder,
                 creationOrder
             };
         });
@@ -12431,21 +12349,14 @@ function reorderSummaryRowsByRowIndex() {
             const groupRows = groupedByProduct[key];
             const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
             // Sort rows within each group by row_index (Data Capture Table order)
-            // IMPORTANT: All rows (main and sub) are sorted by row_index, then by sub_order for sub rows
-            // sub_order reflects the position in Summary Table, not creation time
+            // IMPORTANT: All rows (main and sub) are sorted purely by row_index, maintaining the order they were added
+            // No priority between main and sub - just follow row_index order
             groupRows.sort((a, b) => {
                 // First, sort by row_index (where user added the data in Data Capture Table)
                 if (a.rowIndex !== b.rowIndex) {
                     return a.rowIndex - b.rowIndex;
                 }
-                // If same row_index, sort by sub_order (for sub rows within same parent)
-                // sub_order reflects the order based on DOM position, not creation time
-                const aSubOrder = a.subOrder !== null && a.subOrder !== undefined ? a.subOrder : 999999;
-                const bSubOrder = b.subOrder !== null && b.subOrder !== undefined ? b.subOrder : 999999;
-                if (aSubOrder !== bSubOrder) {
-                    return aSubOrder - bSubOrder;
-                }
-                // If same row_index and sub_order, use creation order to maintain stable order
+                // If same row_index, use creation order to maintain stable order
                 // This ensures rows added at the same position maintain their relative order
                 return a.creationOrder - b.creationOrder;
             });
@@ -12582,8 +12493,9 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         return;
     }
 
-    // IMPORTANT: Sort sub templates by row_index first, then by sub_order to maintain correct order
-    // sub_order reflects the position in Summary Table (not Data Capture Table)
+    // IMPORTANT: Sort sub templates by row_index first, then by id to maintain correct order
+    // Use id (database primary key) instead of updated_at because updated_at changes when saving,
+    // which would cause newly saved rows to move to the end
     // This ensures sub rows are applied in the correct order when loading from database
     validSubTemplates.sort((a, b) => {
         // First sort by row_index (where user added the data in Data Capture Table)
@@ -12592,14 +12504,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (aRowIndex !== bRowIndex) {
             return aRowIndex - bRowIndex;
         }
-        // If same row_index, sort by sub_order (order within the same parent and row_index)
-        // sub_order reflects the position in Summary Table, not creation time
-        const aSubOrder = (a.sub_order !== undefined && a.sub_order !== null) ? Number(a.sub_order) : 999999;
-        const bSubOrder = (b.sub_order !== undefined && b.sub_order !== null) ? Number(b.sub_order) : 999999;
-        if (aSubOrder !== bSubOrder) {
-            return aSubOrder - bSubOrder;
-        }
-        // If same row_index and sub_order, sort by id (database primary key) to maintain relative order
+        // If same row_index, sort by id (database primary key) to maintain relative order
         // id is auto-increment, so it reflects the creation order
         const aId = a.id || 0;
         const bId = b.id || 0;
@@ -13352,12 +13257,6 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (template.row_index !== undefined && template.row_index !== null) {
             targetRow.setAttribute('data-row-index', String(template.row_index));
             console.log('Set data-row-index on sub row:', template.row_index);
-        }
-        
-        // Set sub_order on sub row if available (for sorting)
-        if (template.sub_order !== undefined && template.sub_order !== null) {
-            targetRow.setAttribute('data-sub-order', String(template.sub_order));
-            console.log('Set data-sub-order on sub row:', template.sub_order);
         }
         
         // Also set template_id and formula_variant for precise matching
