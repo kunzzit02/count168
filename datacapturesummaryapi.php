@@ -883,7 +883,25 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                     return $aRowIndex - $bRowIndex;
                 }
                 
-                // If same row_index, sort by id (database primary key) to maintain relative order
+                // If same row_index, sort by updated_at (most recent first) then by id
+                // This ensures newly added rows appear after existing rows when they have the same row_index
+                // updated_at reflects when the template was last saved, which should be close to insertion time
+                $aUpdatedAt = isset($a['updated_at']) ? $a['updated_at'] : '';
+                $bUpdatedAt = isset($b['updated_at']) ? $b['updated_at'] : '';
+                
+                if ($aUpdatedAt !== $bUpdatedAt) {
+                    // Compare updated_at timestamps (newer first, then older)
+                    // But we want insertion order, so if both have updated_at, use it
+                    // Otherwise fall back to id
+                    if ($aUpdatedAt && $bUpdatedAt) {
+                        $cmp = strcmp($aUpdatedAt, $bUpdatedAt);
+                        if ($cmp !== 0) {
+                            return $cmp; // Sort by updated_at (ascending = older first, which should match insertion order)
+                        }
+                    }
+                }
+                
+                // Fallback: sort by id (database primary key) to maintain relative order
                 // This ensures rows added at the same position maintain their insertion order
                 $aId = isset($a['id']) ? (int)$a['id'] : 0;
                 $bId = isset($b['id']) ? (int)$b['id'] : 0;

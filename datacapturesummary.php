@@ -10179,8 +10179,8 @@ function getCurrentProcessId() {
                 const insertAfterRow = rows[insertAfterIndex];
                 
                 // Get row_index from the row we're inserting after
-                // IMPORTANT: New sub rows should use the same row_index as the row they're inserted after
-                // This ensures they maintain the correct position relative to Data Capture Table
+                // IMPORTANT: For sub rows, we use the same row_index as the parent/main row
+                // The order will be maintained by creation_order when row_index is the same
                 let newRowIndex = null;
                 if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
                     // Use provided rowIndex if available
@@ -12494,9 +12494,10 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     }
 
     // IMPORTANT: Sort sub templates by row_index first, then by id to maintain correct order
-    // Use id (database primary key) instead of updated_at because updated_at changes when saving,
-    // which would cause newly saved rows to move to the end
-    // This ensures sub rows are applied in the correct order when loading from database
+    // However, when loading from database, we need to preserve the order they were added
+    // Since all sub rows of the same parent have the same row_index, we need to use id (creation order)
+    // But id reflects database creation time, not insertion order in the UI
+    // So we'll sort by row_index first, then by id (which should reflect the order they were saved)
     validSubTemplates.sort((a, b) => {
         // First sort by row_index (where user added the data in Data Capture Table)
         const aRowIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
@@ -12505,7 +12506,9 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             return aRowIndex - bRowIndex;
         }
         // If same row_index, sort by id (database primary key) to maintain relative order
-        // id is auto-increment, so it reflects the creation order
+        // IMPORTANT: id reflects when the template was saved to database, not when it was added in UI
+        // For sub rows added in sequence, they should be saved in sequence, so id should work
+        // But if rows are loaded from database, we need to ensure they maintain their saved order
         const aId = a.id || 0;
         const bId = b.id || 0;
         return aId - bId;
