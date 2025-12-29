@@ -5157,6 +5157,7 @@ function getCurrentProcessId() {
                     const sameParentRows = [];
                     
                     // Find all sub rows with the same parent and row_index, and record their DOM positions
+                    // IMPORTANT: Include the current row in the search
                     allRows.forEach((r) => {
                         const rProductType = r.getAttribute('data-product-type') || 'main';
                         if (rProductType === 'sub') {
@@ -5172,7 +5173,15 @@ function getCurrentProcessId() {
                         }
                     });
                     
-                    console.log('Found', sameParentRows.length, 'sub rows with same parent and row_index');
+                    // IMPORTANT: Ensure current row is included in sameParentRows
+                    // If it's not found, add it (this can happen if row was just created)
+                    const currentRowInList = sameParentRows.includes(row);
+                    if (!currentRowInList) {
+                        console.warn('Current row not found in sameParentRows, adding it');
+                        sameParentRows.push(row);
+                    }
+                    
+                    console.log('Found', sameParentRows.length, 'sub rows with same parent and row_index (including current row)');
                     
                     // Sort by DOM position to get the correct order (based on where they appear in Summary Table)
                     sameParentRows.sort((a, b) => {
@@ -5184,13 +5193,19 @@ function getCurrentProcessId() {
                     // Find the index of current row in the sorted list
                     const currentRowIndex = sameParentRows.indexOf(row);
                     if (currentRowIndex >= 0) {
-                        subOrder = currentRowIndex + 1; // sub_order starts from 1
-                        console.log('Calculated sub_order:', subOrder, 'for sub row of parent:', normalizedParentId, 'row_index:', rowIndex, 'total same parent rows:', sameParentRows.length);
+                        subOrder = currentRowIndex + 1; // sub_order starts from 1 (not 0)
+                        console.log('Calculated sub_order:', subOrder, 'for sub row of parent:', normalizedParentId, 'row_index:', rowIndex, 'total same parent rows:', sameParentRows.length, 'currentRowIndex:', currentRowIndex);
                     } else {
-                        console.warn('Current row not found in sameParentRows, using fallback sub_order calculation');
-                        // Fallback: use position in all sub rows with same parent
-                        subOrder = sameParentRows.length + 1;
-                        console.log('Using fallback sub_order:', subOrder);
+                        // This should never happen now, but keep as safety fallback
+                        console.error('ERROR: Current row still not found in sameParentRows after adding!');
+                        subOrder = sameParentRows.length; // Use length as fallback (should be >= 1)
+                        console.log('Using error fallback sub_order:', subOrder);
+                    }
+                    
+                    // CRITICAL: Ensure sub_order is never 0 or null for sub rows
+                    if (subOrder === null || subOrder === 0) {
+                        console.error('ERROR: sub_order is 0 or null for sub row! Setting to 1');
+                        subOrder = 1;
                     }
                 } else {
                     console.warn('summaryTableBody not found, cannot calculate sub_order');
@@ -10305,6 +10320,7 @@ function getCurrentProcessId() {
                 const sameParentRows = [];
                 
                 // Find all sub rows with the same parent and row_index
+                // IMPORTANT: Include the current row (it's already inserted into DOM)
                 allRows.forEach((r) => {
                     const rProductType = r.getAttribute('data-product-type') || 'main';
                     if (rProductType === 'sub') {
@@ -10320,6 +10336,12 @@ function getCurrentProcessId() {
                     }
                 });
                 
+                // IMPORTANT: Ensure current row is included
+                if (!sameParentRows.includes(row)) {
+                    console.warn('Current row not found in sameParentRows when adding, adding it');
+                    sameParentRows.push(row);
+                }
+                
                 // Sort by DOM position to get the correct order (based on where they appear in Summary Table)
                 sameParentRows.sort((a, b) => {
                     const aIndex = Array.from(allRows).indexOf(a);
@@ -10327,11 +10349,18 @@ function getCurrentProcessId() {
                     return aIndex - bIndex;
                 });
                 
-                // Find the index of current row in the sorted list (sub_order starts from 1)
+                // Find the index of current row in the sorted list (sub_order starts from 1, not 0)
                 const currentRowIndex = sameParentRows.indexOf(row);
-                const subOrder = currentRowIndex >= 0 ? currentRowIndex + 1 : sameParentRows.length;
+                let subOrder = currentRowIndex >= 0 ? currentRowIndex + 1 : sameParentRows.length;
+                
+                // CRITICAL: Ensure sub_order is never 0
+                if (subOrder === 0) {
+                    console.error('ERROR: sub_order calculated as 0! Setting to 1');
+                    subOrder = 1;
+                }
+                
                 row.setAttribute('data-sub-order', String(subOrder));
-                console.log('Set sub_order:', subOrder, 'for sub row of parent:', normalizedParentValue, 'row_index:', newRowIndex);
+                console.log('Set sub_order:', subOrder, 'for sub row of parent:', normalizedParentValue, 'row_index:', newRowIndex, 'currentRowIndex:', currentRowIndex, 'total rows:', sameParentRows.length);
                 
                 // Set creation order based on insertion position
                 // Get creation order from the row we inserted after, and use a value slightly larger
@@ -10400,6 +10429,12 @@ function getCurrentProcessId() {
                     }
                 });
                 
+                // IMPORTANT: Ensure current row is included
+                if (!sameParentRows.includes(row)) {
+                    console.warn('Current row not found in sameParentRows when appending, adding it');
+                    sameParentRows.push(row);
+                }
+                
                 // Sort by DOM position
                 sameParentRows.sort((a, b) => {
                     const aIndex = Array.from(allRowsAfterAppend).indexOf(a);
@@ -10407,11 +10442,18 @@ function getCurrentProcessId() {
                     return aIndex - bIndex;
                 });
                 
-                // Find the index of current row
+                // Find the index of current row (sub_order starts from 1, not 0)
                 const currentRowIndex = sameParentRows.indexOf(row);
-                const subOrder = currentRowIndex >= 0 ? currentRowIndex + 1 : sameParentRows.length;
+                let subOrder = currentRowIndex >= 0 ? currentRowIndex + 1 : sameParentRows.length;
+                
+                // CRITICAL: Ensure sub_order is never 0
+                if (subOrder === 0) {
+                    console.error('ERROR: sub_order calculated as 0 for appended row! Setting to 1');
+                    subOrder = 1;
+                }
+                
                 row.setAttribute('data-sub-order', String(subOrder));
-                console.log('Set sub_order for appended row:', subOrder, 'for sub row of parent:', normalizedParentValue, 'row_index:', finalRowIndexNum);
+                console.log('Set sub_order for appended row:', subOrder, 'for sub row of parent:', normalizedParentValue, 'row_index:', finalRowIndexNum, 'currentRowIndex:', currentRowIndex, 'total rows:', sameParentRows.length);
                 
                 // Set creation order for appended row (use current timestamp)
                 const creationOrder = Date.now();
