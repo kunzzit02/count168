@@ -284,39 +284,77 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 : null;
             
             if ($insertAfterSubOrder !== null) {
-                // Find the next sub_order after insert_after_sub_order
-                $nextSubOrderStmt = $pdo->prepare("
-                    SELECT MIN(sub_order) as next_sub_order FROM data_capture_templates 
-                    WHERE company_id = :company_id
-                      AND process_id " . ($hasProcessId ? "= :process_id" : "IS NULL") . "
-                      AND product_type = 'sub'
-                      AND COALESCE(parent_id_product, '') = COALESCE(:parent_id_product, '')
-                      AND sub_order > :insert_after_sub_order
-                      AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
-                ");
-                
-                $nextSubOrderParams = [
-                    ':company_id' => $companyId,
-                    ':parent_id_product' => $parentIdProduct,
-                    ':insert_after_sub_order' => $insertAfterSubOrder
-                ];
-                
-                if ($hasProcessId) {
-                    $nextSubOrderParams[':process_id'] = $processId;
-                }
-                if ($dataCaptureId) {
-                    $nextSubOrderParams[':data_capture_id'] = $dataCaptureId;
-                }
-                
-                $nextSubOrderStmt->execute($nextSubOrderParams);
-                $nextSubOrderResult = $nextSubOrderStmt->fetch();
-                
-                if ($nextSubOrderResult && $nextSubOrderResult['next_sub_order'] !== null) {
-                    // Insert between insert_after_sub_order and next_sub_order
-                    $subOrder = ($insertAfterSubOrder + (float)$nextSubOrderResult['next_sub_order']) / 2.0;
+                // insert_after_sub_order = 0 means inserting after main row (before first sub row)
+                // insert_after_sub_order > 0 means inserting after a specific sub row
+                if ($insertAfterSubOrder == 0) {
+                    // Inserting after main row: find the first sub_order (minimum > 0)
+                    $firstSubOrderStmt = $pdo->prepare("
+                        SELECT MIN(sub_order) as first_sub_order FROM data_capture_templates 
+                        WHERE company_id = :company_id
+                          AND process_id " . ($hasProcessId ? "= :process_id" : "IS NULL") . "
+                          AND product_type = 'sub'
+                          AND COALESCE(parent_id_product, '') = COALESCE(:parent_id_product, '')
+                          AND sub_order > 0
+                          AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
+                    ");
+                    
+                    $firstSubOrderParams = [
+                        ':company_id' => $companyId,
+                        ':parent_id_product' => $parentIdProduct
+                    ];
+                    
+                    if ($hasProcessId) {
+                        $firstSubOrderParams[':process_id'] = $processId;
+                    }
+                    if ($dataCaptureId) {
+                        $firstSubOrderParams[':data_capture_id'] = $dataCaptureId;
+                    }
+                    
+                    $firstSubOrderStmt->execute($firstSubOrderParams);
+                    $firstSubOrderResult = $firstSubOrderStmt->fetch();
+                    
+                    if ($firstSubOrderResult && $firstSubOrderResult['first_sub_order'] !== null) {
+                        // Insert between 0 (main row position) and first_sub_order
+                        $subOrder = (float)$firstSubOrderResult['first_sub_order'] / 2.0;
+                    } else {
+                        // No existing sub rows, use 1.0 as first sub_order
+                        $subOrder = 1.0;
+                    }
                 } else {
-                    // No next sub_order, add 1.0 to insert_after_sub_order
-                    $subOrder = $insertAfterSubOrder + 1.0;
+                    // Inserting after a specific sub row: find the next sub_order after insert_after_sub_order
+                    $nextSubOrderStmt = $pdo->prepare("
+                        SELECT MIN(sub_order) as next_sub_order FROM data_capture_templates 
+                        WHERE company_id = :company_id
+                          AND process_id " . ($hasProcessId ? "= :process_id" : "IS NULL") . "
+                          AND product_type = 'sub'
+                          AND COALESCE(parent_id_product, '') = COALESCE(:parent_id_product, '')
+                          AND sub_order > :insert_after_sub_order
+                          AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
+                    ");
+                    
+                    $nextSubOrderParams = [
+                        ':company_id' => $companyId,
+                        ':parent_id_product' => $parentIdProduct,
+                        ':insert_after_sub_order' => $insertAfterSubOrder
+                    ];
+                    
+                    if ($hasProcessId) {
+                        $nextSubOrderParams[':process_id'] = $processId;
+                    }
+                    if ($dataCaptureId) {
+                        $nextSubOrderParams[':data_capture_id'] = $dataCaptureId;
+                    }
+                    
+                    $nextSubOrderStmt->execute($nextSubOrderParams);
+                    $nextSubOrderResult = $nextSubOrderStmt->fetch();
+                    
+                    if ($nextSubOrderResult && $nextSubOrderResult['next_sub_order'] !== null) {
+                        // Insert between insert_after_sub_order and next_sub_order
+                        $subOrder = ($insertAfterSubOrder + (float)$nextSubOrderResult['next_sub_order']) / 2.0;
+                    } else {
+                        // No next sub_order, add 1.0 to insert_after_sub_order
+                        $subOrder = $insertAfterSubOrder + 1.0;
+                    }
                 }
             } else {
                 // No insert position specified, append to the end
