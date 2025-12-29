@@ -10213,12 +10213,87 @@ function getCurrentProcessId() {
                 // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
                 let creationOrder = Date.now();
                 if (insertAfterRow) {
+                    // First, ensure insertAfterRow has a creation_order if it doesn't have one
+                    let insertAfterCreationOrder = null;
                     const insertAfterCreationOrderAttr = insertAfterRow.getAttribute('data-creation-order');
                     if (insertAfterCreationOrderAttr) {
-                        const insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
-                        // Use a value slightly larger than the row we inserted after
-                        // This ensures new row appears right after it when rows have same row_index
-                        creationOrder = insertAfterCreationOrder + 1;
+                        insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
+                    } else {
+                        // If insertAfterRow doesn't have creation_order, assign one based on its position
+                        // This ensures consistent ordering
+                        const insertAfterRowIndexAttr = insertAfterRow.getAttribute('data-row-index');
+                        if (insertAfterRowIndexAttr !== null && insertAfterRowIndexAttr !== '' && !Number.isNaN(Number(insertAfterRowIndexAttr))) {
+                            const targetRowIndex = Number(insertAfterRowIndexAttr);
+                            // Find all rows with the same row_index that come before insertAfterRow
+                            const allRows = summaryTableBody.querySelectorAll('tr');
+                            const rowsWithSameIndex = Array.from(allRows).filter(r => {
+                                const rIndexAttr = r.getAttribute('data-row-index');
+                                return rIndexAttr !== null && rIndexAttr !== '' && !Number.isNaN(Number(rIndexAttr)) && Number(rIndexAttr) === targetRowIndex;
+                            });
+                            
+                            const insertAfterRowPos = rowsWithSameIndex.indexOf(insertAfterRow);
+                            if (insertAfterRowPos > 0) {
+                                // Use the previous row's creation_order + 1
+                                const prevRow = rowsWithSameIndex[insertAfterRowPos - 1];
+                                const prevRowCreationOrderAttr = prevRow.getAttribute('data-creation-order');
+                                if (prevRowCreationOrderAttr) {
+                                    insertAfterCreationOrder = Number(prevRowCreationOrderAttr) + 1;
+                                } else {
+                                    insertAfterCreationOrder = insertAfterRowPos * 1000;
+                                }
+                            } else {
+                                // First row with this row_index, use a base value
+                                insertAfterCreationOrder = targetRowIndex * 1000000;
+                            }
+                            // Set the creation_order on insertAfterRow for future reference
+                            insertAfterRow.setAttribute('data-creation-order', String(insertAfterCreationOrder));
+                        } else {
+                            // Fallback: use position-based value
+                            const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
+                            const insertAfterRowIndex = Array.from(allRowsAfterInsert).indexOf(insertAfterRow);
+                            insertAfterCreationOrder = (insertAfterRowIndex + 1) * 1000;
+                            insertAfterRow.setAttribute('data-creation-order', String(insertAfterCreationOrder));
+                        }
+                    }
+                    
+                    // Now set the new row's creation_order to be right after insertAfterRow
+                    if (insertAfterCreationOrder !== null) {
+                        // Check if there's already a row right after insertAfterRow with the same row_index
+                        const insertAfterRowIndexAttr = insertAfterRow.getAttribute('data-row-index');
+                        if (insertAfterRowIndexAttr !== null && insertAfterRowIndexAttr !== '' && !Number.isNaN(Number(insertAfterRowIndexAttr))) {
+                            const targetRowIndex = Number(insertAfterRowIndexAttr);
+                            const allRows = summaryTableBody.querySelectorAll('tr');
+                            const rowsWithSameIndex = Array.from(allRows).filter(r => {
+                                const rIndexAttr = r.getAttribute('data-row-index');
+                                return rIndexAttr !== null && rIndexAttr !== '' && !Number.isNaN(Number(rIndexAttr)) && Number(rIndexAttr) === targetRowIndex;
+                            });
+                            
+                            const insertAfterRowPos = rowsWithSameIndex.indexOf(insertAfterRow);
+                            if (insertAfterRowPos >= 0 && insertAfterRowPos < rowsWithSameIndex.length - 1) {
+                                // Check the next row after insertAfterRow
+                                const nextRow = rowsWithSameIndex[insertAfterRowPos + 1];
+                                if (nextRow && nextRow !== row) {
+                                    const nextRowCreationOrderAttr = nextRow.getAttribute('data-creation-order');
+                                    if (nextRowCreationOrderAttr) {
+                                        const nextRowCreationOrder = Number(nextRowCreationOrderAttr);
+                                        // Use a value between insertAfterRow and nextRow
+                                        creationOrder = insertAfterCreationOrder + Math.floor((nextRowCreationOrder - insertAfterCreationOrder) / 2);
+                                        // Ensure it's at least 1 more than insertAfterRow
+                                        if (creationOrder <= insertAfterCreationOrder) {
+                                            creationOrder = insertAfterCreationOrder + 1;
+                                        }
+                                    } else {
+                                        creationOrder = insertAfterCreationOrder + 1;
+                                    }
+                                } else {
+                                    creationOrder = insertAfterCreationOrder + 1;
+                                }
+                            } else {
+                                creationOrder = insertAfterCreationOrder + 1;
+                            }
+                        } else {
+                            creationOrder = insertAfterCreationOrder + 1;
+                        }
                     }
                 }
                 row.setAttribute('data-creation-order', String(creationOrder));
