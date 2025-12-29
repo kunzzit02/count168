@@ -12469,21 +12469,34 @@ function reorderSummaryRowsByRowIndex() {
             const groupRows = groupedByProduct[key];
             const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
             // Sort rows within each group by row_index (Data Capture Table order)
-            // IMPORTANT: All rows (main and sub) are sorted by row_index, then by sub_order for sub rows
+            // IMPORTANT: All rows (main and sub) are sorted by row_index, then main rows first, then sub rows by sub_order
             // sub_order reflects the position in Summary Table, not creation time
             groupRows.sort((a, b) => {
                 // First, sort by row_index (where user added the data in Data Capture Table)
                 if (a.rowIndex !== b.rowIndex) {
                     return a.rowIndex - b.rowIndex;
                 }
-                // If same row_index, sort by sub_order (for sub rows within same parent)
-                // sub_order reflects the order based on DOM position, not creation time
-                const aSubOrder = a.subOrder !== null && a.subOrder !== undefined ? a.subOrder : 999999;
-                const bSubOrder = b.subOrder !== null && b.subOrder !== undefined ? b.subOrder : 999999;
-                if (aSubOrder !== bSubOrder) {
-                    return aSubOrder - bSubOrder;
+                // If same row_index, main rows should come before sub rows
+                // Main rows have productType === 'main', sub rows have productType === 'sub'
+                if (a.productType !== b.productType) {
+                    // Main row (productType === 'main') should come before sub row (productType === 'sub')
+                    if (a.productType === 'main') {
+                        return -1; // a comes before b
+                    } else {
+                        return 1; // b comes before a
+                    }
                 }
-                // If same row_index and sub_order, use creation order to maintain stable order
+                // If both are main rows or both are sub rows with same row_index
+                if (a.productType === 'sub' && b.productType === 'sub') {
+                    // For sub rows, sort by sub_order (for sub rows within same parent)
+                    // sub_order reflects the order based on DOM position, not creation time
+                    const aSubOrder = a.subOrder !== null && a.subOrder !== undefined ? a.subOrder : 999999;
+                    const bSubOrder = b.subOrder !== null && b.subOrder !== undefined ? b.subOrder : 999999;
+                    if (aSubOrder !== bSubOrder) {
+                        return aSubOrder - bSubOrder;
+                    }
+                }
+                // If same row_index and same productType (both main or both sub with same sub_order), use creation order to maintain stable order
                 // This ensures rows added at the same position maintain their relative order
                 return a.creationOrder - b.creationOrder;
             });
