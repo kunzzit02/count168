@@ -5068,41 +5068,9 @@ function getCurrentProcessId() {
                 : (idProductMain || normalizeIdProductText(formData.processValue));
             
             // Get parent_id_product
-            // IMPORTANT: For sub rows, parent_id_product should be the main product (idProductMain)
-            // If idProductMain is not available, try to get from row attribute or find the parent row
-            let parentIdProduct = null;
-            if (productType === 'sub') {
-                if (idProductMain) {
-                    parentIdProduct = idProductMain;
-                } else {
-                    // Try to get from row attribute
-                    parentIdProduct = row.getAttribute('data-parent-id-product');
-                    if (!parentIdProduct) {
-                        // Last resort: try to find parent row by looking for main row with same row_index
-                        const summaryTableBody = document.getElementById('summaryTableBody');
-                        if (summaryTableBody && rowIndex !== null) {
-                            const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                            for (const r of allRows) {
-                                const rProductType = r.getAttribute('data-product-type') || 'main';
-                                if (rProductType === 'main') {
-                                    const rRowIndexAttr = r.getAttribute('data-row-index');
-                                    const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
-                                    if (rRowIndex === rowIndex) {
-                                        const rIdProductCell = r.querySelector('td:first-child');
-                                        const rProductValues = getProductValuesFromCell(rIdProductCell);
-                                        parentIdProduct = normalizeIdProductText(rProductValues.main || '');
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        // Final fallback
-                        if (!parentIdProduct) {
-                            parentIdProduct = formData.processValue;
-                        }
-                    }
-                }
-            }
+            const parentIdProduct = productType === 'sub' 
+                ? (idProductMain || row.getAttribute('data-parent-id-product') || formData.processValue)
+                : null;
             
             // Get source columns and other data from row attributes
             // IMPORTANT: If formula is empty (formula_display is empty), also clear source_columns
@@ -5151,22 +5119,9 @@ function getCurrentProcessId() {
             if (productType === 'sub' && rowIndex !== null) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
-                    // IMPORTANT: Ensure rows are sorted before calculating sub_order
-                    // This ensures DOM position reflects the correct order
-                    if (typeof reorderSummaryRowsByRowIndex === 'function') {
-                        reorderSummaryRowsByRowIndex();
-                    }
-                    
                     const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
                     const normalizedParentId = normalizeIdProductText(parentIdProduct || '');
                     const sameParentRows = [];
-                    
-                    console.log('Calculating sub_order for sub row:', {
-                        parentIdProduct,
-                        normalizedParentId,
-                        rowIndex,
-                        currentRow: row
-                    });
                     
                     // Find all sub rows with the same parent and row_index, and record their DOM positions
                     allRows.forEach((r, domIndex) => {
@@ -5180,12 +5135,7 @@ function getCurrentProcessId() {
                             
                             if (rParentId === normalizedParentId && rRowIndex === rowIndex) {
                                 // Use DOM position (domIndex) instead of creation_order
-                                sameParentRows.push({ row: r, domIndex, idProduct: rProductValues.sub || '' });
-                                console.log('Found matching sub row:', {
-                                    domIndex,
-                                    idProduct: rProductValues.sub || '',
-                                    isCurrentRow: r === row
-                                });
+                                sameParentRows.push({ row: r, domIndex });
                             }
                         }
                     });
@@ -5193,19 +5143,10 @@ function getCurrentProcessId() {
                     // Sort by DOM position to get the correct order (based on where they appear in the table)
                     sameParentRows.sort((a, b) => a.domIndex - b.domIndex);
                     
-                    console.log('Sorted sameParentRows:', sameParentRows.map(r => ({
-                        domIndex: r.domIndex,
-                        idProduct: r.idProduct,
-                        isCurrentRow: r.row === row
-                    })));
-                    
                     // Find the index of current row in the sorted list
                     const currentRowIndex = sameParentRows.findIndex(item => item.row === row);
                     if (currentRowIndex >= 0) {
                         subOrder = currentRowIndex + 1; // sub_order starts from 1
-                        console.log('Calculated sub_order:', subOrder, 'for row at DOM index:', sameParentRows[currentRowIndex].domIndex);
-                    } else {
-                        console.warn('Current row not found in sameParentRows, cannot calculate sub_order');
                     }
                 }
             }
