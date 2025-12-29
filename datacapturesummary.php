@@ -9982,47 +9982,6 @@ function getCurrentProcessId() {
             updateProcessedAmountTotal();
         }
 
-        // Helper function to calculate sub row position
-        function calculateSubRowPosition(parentRowIndex, insertAfterRow, summaryTableBody) {
-            const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-            const insertAfterIndex = insertAfterRow ? allRows.indexOf(insertAfterRow) : -1;
-            let maxSubPosition = 0;
-            
-            // Find all sub rows with the same parent row_index
-            for (let i = 0; i < allRows.length; i++) {
-                const row = allRows[i];
-                const rowIndexAttr = row.getAttribute('data-row-index');
-                if (rowIndexAttr && !Number.isNaN(Number(rowIndexAttr))) {
-                    const rowIndex = Number(rowIndexAttr);
-                    // Check if this is a sub row of the same parent
-                    const rowParentIndex = Math.floor(rowIndex / 1000);
-                    if (rowParentIndex === parentRowIndex && rowIndex >= 1000) {
-                        const subPos = rowIndex % 1000;
-                        if (subPos > maxSubPosition) {
-                            maxSubPosition = subPos;
-                        }
-                    }
-                }
-            }
-            
-            // If inserting after a specific row, find its sub position and add 1
-            if (insertAfterRow && insertAfterIndex >= 0) {
-                const insertAfterRowIndexAttr = insertAfterRow.getAttribute('data-row-index');
-                if (insertAfterRowIndexAttr && !Number.isNaN(Number(insertAfterRowIndexAttr))) {
-                    const insertAfterRowIndex = Number(insertAfterRowIndexAttr);
-                    const insertAfterParentIndex = Math.floor(insertAfterRowIndex / 1000);
-                    if (insertAfterParentIndex === parentRowIndex && insertAfterRowIndex >= 1000) {
-                        const insertAfterSubPos = insertAfterRowIndex % 1000;
-                        // Find next available position after this one
-                        return insertAfterSubPos + 1;
-                    }
-                }
-            }
-            
-            // Otherwise, use the next available position
-            return maxSubPosition + 1;
-        }
-
         // Add a new empty row for sub id product and return the created row
         // Optional insertAfterRow: when provided, insert directly after this row
         // Optional rowIndex: when provided, use this as the row_index instead of calculating
@@ -10220,40 +10179,17 @@ function getCurrentProcessId() {
                 const insertAfterRow = rows[insertAfterIndex];
                 
                 // Get row_index from the row we're inserting after
-                // IMPORTANT: For sub rows, we need to calculate a unique row_index that maintains insertion order
-                // We use parent_row_index * 1000 + sub_position to ensure sub rows are sorted correctly
+                // IMPORTANT: New sub rows should use the same row_index as the row they're inserted after
+                // This ensures they maintain the correct position relative to Data Capture Table
                 let newRowIndex = null;
                 if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
-                    // Use provided rowIndex if available (but check if it needs adjustment for sub rows)
-                    const providedIndex = Number(rowIndex);
-                    // If rowIndex is already in the sub row format (>= 1000), use it as-is
-                    // Otherwise, calculate sub position
-                    if (providedIndex >= 1000) {
-                        newRowIndex = providedIndex;
-                    } else {
-                        // Calculate sub position based on existing sub rows with same parent
-                        const parentRowIndex = providedIndex;
-                        const subPosition = calculateSubRowPosition(parentRowIndex, insertAfterRow, summaryTableBody);
-                        newRowIndex = parentRowIndex * 1000 + subPosition;
-                    }
+                    // Use provided rowIndex if available
+                    newRowIndex = Number(rowIndex);
                 } else if (insertAfterRow) {
                     // Get row_index from the row we're inserting after
                     const insertAfterRowIndexAttr = insertAfterRow.getAttribute('data-row-index');
                     if (insertAfterRowIndexAttr !== null && insertAfterRowIndexAttr !== '' && !Number.isNaN(Number(insertAfterRowIndexAttr))) {
-                        const baseRowIndex = Number(insertAfterRowIndexAttr);
-                        // Check if insertAfterRow is a sub row
-                        const insertAfterProductType = insertAfterRow.getAttribute('data-product-type');
-                        if (insertAfterProductType === 'sub') {
-                            // If inserting after another sub row, calculate next sub position
-                            // Extract parent row_index from sub row_index (divide by 1000)
-                            const parentRowIndex = Math.floor(baseRowIndex / 1000);
-                            const subPosition = calculateSubRowPosition(parentRowIndex, insertAfterRow, summaryTableBody);
-                            newRowIndex = parentRowIndex * 1000 + subPosition;
-                        } else {
-                            // If inserting after a main row, this is the first sub row
-                            const subPosition = calculateSubRowPosition(baseRowIndex, null, summaryTableBody);
-                            newRowIndex = baseRowIndex * 1000 + subPosition;
-                        }
+                        newRowIndex = Number(insertAfterRowIndexAttr);
                     }
                 }
                 
@@ -12417,20 +12353,9 @@ function reorderSummaryRowsByRowIndex() {
             // No priority between main and sub - just follow row_index order
             groupRows.sort((a, b) => {
                 // First, sort by row_index (where user added the data in Data Capture Table)
-                // For sub rows, row_index is in format: parent_row_index * 1000 + sub_position
-                // Extract parent row_index for comparison
-                const aParentIndex = a.rowIndex >= 1000 ? Math.floor(a.rowIndex / 1000) : a.rowIndex;
-                const bParentIndex = b.rowIndex >= 1000 ? Math.floor(b.rowIndex / 1000) : b.rowIndex;
-                
-                if (aParentIndex !== bParentIndex) {
-                    return aParentIndex - bParentIndex;
-                }
-                
-                // If same parent row_index, compare full row_index (which includes sub_position)
                 if (a.rowIndex !== b.rowIndex) {
                     return a.rowIndex - b.rowIndex;
                 }
-                
                 // If same row_index, use creation order to maintain stable order
                 // This ensures rows added at the same position maintain their relative order
                 return a.creationOrder - b.creationOrder;
@@ -12569,30 +12494,18 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
     }
 
     // IMPORTANT: Sort sub templates by row_index first, then by id to maintain correct order
-    // However, when loading from database, we need to preserve the order they were added
-    // Since all sub rows of the same parent have the same row_index, we need to use id (creation order)
-    // But id reflects database creation time, not insertion order in the UI
-    // So we'll sort by row_index first, then by id (which should reflect the order they were saved)
+    // Use id (database primary key) instead of updated_at because updated_at changes when saving,
+    // which would cause newly saved rows to move to the end
+    // This ensures sub rows are applied in the correct order when loading from database
     validSubTemplates.sort((a, b) => {
         // First sort by row_index (where user added the data in Data Capture Table)
-        // For sub rows, row_index is in format: parent_row_index * 1000 + sub_position
         const aRowIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
         const bRowIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
-        
-        // Extract parent row_index for comparison
-        const aParentIndex = aRowIndex >= 1000 ? Math.floor(aRowIndex / 1000) : aRowIndex;
-        const bParentIndex = bRowIndex >= 1000 ? Math.floor(bRowIndex / 1000) : bRowIndex;
-        
-        if (aParentIndex !== bParentIndex) {
-            return aParentIndex - bParentIndex;
-        }
-        
-        // If same parent row_index, compare full row_index (which includes sub_position)
         if (aRowIndex !== bRowIndex) {
             return aRowIndex - bRowIndex;
         }
-        
         // If same row_index, sort by id (database primary key) to maintain relative order
+        // id is auto-increment, so it reflects the creation order
         const aId = a.id || 0;
         const bId = b.id || 0;
         return aId - bId;
