@@ -9256,12 +9256,6 @@ function getCurrentProcessId() {
                 span.style.display = 'none';
             });
             
-            // Hide the edit button to make the entire cell editable
-            const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
-            editButtons.forEach(btn => {
-                btn.style.display = 'none';
-            });
-            
             // Also hide any direct text content in formulaContent that might be visible
             // Set cell styles to prevent overflow
             formulaCell.style.overflow = 'hidden';
@@ -9291,12 +9285,6 @@ function getCurrentProcessId() {
                 const formulaTextSpans = formulaCell.querySelectorAll('.formula-text');
                 formulaTextSpans.forEach(span => {
                     span.style.display = '';
-                });
-                
-                // Show the edit button again
-                const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
-                editButtons.forEach(btn => {
-                    btn.style.display = '';
                 });
                 
                 // Compare with original formula value (data-formula-operators)
@@ -9453,12 +9441,6 @@ function getCurrentProcessId() {
                 const formulaTextSpans = formulaCell.querySelectorAll('.formula-text');
                 formulaTextSpans.forEach(span => {
                     span.style.display = '';
-                });
-                
-                // Show the edit button again
-                const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
-                editButtons.forEach(btn => {
-                    btn.style.display = '';
                 });
             };
             
