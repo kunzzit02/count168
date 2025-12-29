@@ -172,19 +172,6 @@ function ensureTemplateSchema(PDO $pdo) {
         } catch (Exception $columnException) {
             error_log('Template schema row_index alteration warning: ' . $columnException->getMessage());
         }
-        
-        // Ensure sub_order column exists to preserve sub row ordering within same parent and row_index
-        // sub_order records the position of sub row in Summary Table (not Data Capture Table)
-        try {
-            $subOrderColumnStmt = $pdo->query("SHOW COLUMNS FROM data_capture_templates LIKE 'sub_order'");
-            $hasSubOrder = $subOrderColumnStmt && $subOrderColumnStmt->fetch(PDO::FETCH_ASSOC);
-            if (!$hasSubOrder) {
-                $pdo->exec("ALTER TABLE data_capture_templates ADD COLUMN sub_order INT NULL AFTER row_index");
-                error_log('Template schema: Added sub_order column to data_capture_templates');
-            }
-        } catch (Exception $columnException) {
-            error_log('Template schema sub_order alteration warning: ' . $columnException->getMessage());
-        }
     } catch (Exception $e) {
         error_log('Template schema ensure error: ' . $e->getMessage());
     }
@@ -549,7 +536,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 process_id = :process_id,
                 data_capture_id = :data_capture_id,
                 row_index = :row_index,
-                sub_order = :sub_order,
                 formula_variant = :formula_variant,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
@@ -580,7 +566,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             ':process_id' => $processId,
             ':data_capture_id' => $dataCaptureId,
             ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
-            ':sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (int)$row['sub_order'] : null,
             ':formula_variant' => $formulaVariant,
         ]);
         return [
@@ -616,7 +601,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             process_id,
             data_capture_id,
             row_index,
-            sub_order,
             formula_variant
         ) VALUES (
             :company_id,
@@ -643,7 +627,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             :process_id,
             :data_capture_id,
             :row_index,
-            :sub_order,
             :formula_variant
         )
         ON DUPLICATE KEY UPDATE
@@ -669,7 +652,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             process_id = VALUES(process_id),
             data_capture_id = VALUES(data_capture_id),
             row_index = VALUES(row_index),
-            sub_order = VALUES(sub_order),
             formula_variant = VALUES(formula_variant),
             updated_at = CURRENT_TIMESTAMP
     ");
@@ -699,7 +681,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         ':process_id' => $processId,
         ':data_capture_id' => isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null,
         ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
-        ':sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (int)$row['sub_order'] : null,
         ':formula_variant' => $formulaVariant,
     ]);
     
@@ -758,7 +739,6 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             process_id,
             data_capture_id,
             row_index,
-            sub_order,
             formula_variant,
             updated_at
         FROM data_capture_templates
@@ -776,8 +756,6 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                  END ASC,
                  CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
                  row_index ASC,
-                 CASE WHEN sub_order IS NULL THEN 1 ELSE 0 END,
-                 sub_order ASC,
                  product_type ASC,
                  formula_variant ASC,
                  id ASC
@@ -891,40 +869,6 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
         }
     }
 
-    // IMPORTANT: Sort sub rows by row_index and sub_order to maintain correct order
-    // sub_order records the position of sub row in Summary Table (not Data Capture Table)
-    // This ensures sub rows are displayed in the order they appear in Summary Table,
-    // not by creation time (id)
-    foreach ($templates as $parentId => &$templateData) {
-        if (!empty($templateData['subs'])) {
-            usort($templateData['subs'], function($a, $b) {
-                // First sort by row_index (where user added the data in Data Capture Table)
-                $aRowIndex = isset($a['row_index']) && $a['row_index'] !== null ? (int)$a['row_index'] : 999999;
-                $bRowIndex = isset($b['row_index']) && $b['row_index'] !== null ? (int)$b['row_index'] : 999999;
-                
-                if ($aRowIndex !== $bRowIndex) {
-                    return $aRowIndex - $bRowIndex;
-                }
-                
-                // If same row_index, sort by sub_order (order within the same parent and row_index)
-                // sub_order reflects the position in Summary Table, not creation time
-                $aSubOrder = isset($a['sub_order']) && $a['sub_order'] !== null ? (int)$a['sub_order'] : 999999;
-                $bSubOrder = isset($b['sub_order']) && $b['sub_order'] !== null ? (int)$b['sub_order'] : 999999;
-                
-                if ($aSubOrder !== $bSubOrder) {
-                    return $aSubOrder - $bSubOrder;
-                }
-                
-                // If same row_index and sub_order, sort by id (database primary key) to maintain relative order
-                // This ensures rows added at the same position maintain their insertion order
-                $aId = isset($a['id']) ? (int)$a['id'] : 0;
-                $bId = isset($b['id']) ? (int)$b['id'] : 0;
-                return $aId - $bId;
-            });
-        }
-    }
-    unset($templateData); // Unset reference to avoid accidental modification
-
     return $templates;
 }
 
@@ -1027,18 +971,10 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'data_capture_id' => isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null,
             // Preserve row position in summary table if provided
             'row_index' => isset($row['row_index']) && $row['row_index'] !== null ? (int)$row['row_index'] : null,
-            // Preserve sub_order for sub rows to maintain correct order
-            // IMPORTANT: sub_order should be >= 1 for sub rows, null for main rows
-            'sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' && $row['sub_order'] !== '0' ? (int)$row['sub_order'] : null,
             // Pass template_id and formula_variant for editing existing templates
             'template_id' => isset($row['template_id']) && !empty($row['template_id']) ? (int)$row['template_id'] : null,
             'formula_variant' => isset($row['formula_variant']) && $row['formula_variant'] !== null && $row['formula_variant'] !== '' ? (int)$row['formula_variant'] : null,
         ];
-        
-        // Debug: Log sub_order for sub rows
-        if (($templatePayload['product_type'] ?? 'main') === 'sub') {
-            error_log('Saving sub row template - sub_order: ' . ($templatePayload['sub_order'] ?? 'NULL') . ', row_index: ' . ($templatePayload['row_index'] ?? 'NULL') . ', parent_id_product: ' . ($templatePayload['parent_id_product'] ?? 'NULL'));
-        }
         
         $templateResult = saveTemplateRow($pdo, $templatePayload, $company_id);
         
