@@ -5118,13 +5118,6 @@ function getCurrentProcessId() {
             const subOrder = (subOrderAttr !== null && subOrderAttr !== '' && !isNaN(parseFloat(subOrderAttr))) 
                 ? parseFloat(subOrderAttr) 
                 : null;
-            console.log('extractRowDataForTemplate - Reading sub_order from row:', {
-                subOrderAttr: subOrderAttr,
-                subOrder: subOrder,
-                rowId: row.getAttribute('data-template-id') || 'new',
-                productType: productType,
-                accountId: formData.accountValue
-            });
             
             return {
                 product_type: productType,
@@ -10227,8 +10220,7 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Insert after the row FIRST, then calculate sub_order
-                // This ensures we can correctly check the next row's state
+                // Insert after the row
                 insertAfterRow.insertAdjacentElement('afterend', row);
                 
                 // Set row_index on the new row
@@ -10244,15 +10236,11 @@ function getCurrentProcessId() {
                 }
                 
                 // Calculate sub_order based on insertion position
-                // sub_order determines the order of sub rows within the same parent
-                // Use decimals (0.1, 0.2, etc.) when inserting between main row and first sub row
-                // Use integers (1, 2, 3...) when appending after last sub row
+                // sub_order determines the order of sub rows within the same parent (use integers: 1, 2, 3...)
                 let subOrder = null;
                 
-                // IMPORTANT: Re-query rows AFTER insertion to get the latest DOM state
-                // This ensures we can check the next row's sub_order correctly
+                // Find all sub rows for the same parent to calculate the correct sub_order
                 const allRows = summaryTableBody.querySelectorAll('tr');
-                console.log('Calculating sub_order after insertion, total rows:', allRows.length);
                 let maxSubOrder = 0;
                 let subRowCount = 0;
                 
@@ -10395,31 +10383,15 @@ function getCurrentProcessId() {
                         }
                     } else {
                         // Inserting after main row: check if there's a sub row immediately after
-                        // IMPORTANT: Use the re-queried allRows (after insertion) to get correct next row
                         const allRowsArray = Array.from(allRows);
-                        const insertAfterIndexInAllRows = allRowsArray.indexOf(insertAfterRow);
-                        const newRowIndexInAllRows = allRowsArray.indexOf(row);
-                        console.log('Main row insertion - insertAfterIndexInAllRows:', insertAfterIndexInAllRows, 'newRowIndexInAllRows:', newRowIndexInAllRows);
-                        
+                        const insertAfterIndex = allRowsArray.indexOf(insertAfterRow);
                         let nextRow = null;
-                        // Find the next row after the newly inserted row (not after insertAfterRow)
-                        // Because we want to check what comes after our new row
-                        if (newRowIndexInAllRows >= 0 && newRowIndexInAllRows < allRowsArray.length - 1) {
-                            nextRow = allRowsArray[newRowIndexInAllRows + 1];
-                            console.log('Found next row after new row at index:', newRowIndexInAllRows + 1);
-                        } else if (insertAfterIndexInAllRows >= 0 && insertAfterIndexInAllRows < allRowsArray.length - 1) {
-                            // Fallback: check row after insertAfterRow
-                            nextRow = allRowsArray[insertAfterIndexInAllRows + 1];
-                            console.log('Using fallback: next row after insertAfterRow at index:', insertAfterIndexInAllRows + 1);
+                        if (insertAfterIndex >= 0 && insertAfterIndex < allRowsArray.length - 1) {
+                            nextRow = allRowsArray[insertAfterIndex + 1];
                         }
                         
                         if (nextRow) {
                             const nextProductType = nextRow.getAttribute('data-product-type') || 'main';
-                            console.log('Main row insertion - nextRow found:', {
-                                nextProductType: nextProductType,
-                                nextRowElement: nextRow,
-                                nextRowIdProduct: nextRow.querySelector('td:first-child')?.textContent?.trim()
-                            });
                             if (nextProductType === 'sub') {
                                 // Check if this sub row belongs to the same parent
                                 const nextIdProductCell = nextRow.querySelector('td:first-child');
@@ -10429,12 +10401,6 @@ function getCurrentProcessId() {
                                     const nextMainProduct = nextProductValues.main || nextRow.getAttribute('data-main-product') || '';
                                     const normalizedNextMain = normalizeIdProductText(nextMainProduct);
                                     sameParent = normalizedNextMain === normalizedTargetParent;
-                                    console.log('Main row insertion - Checking same parent:', {
-                                        nextMainProduct: nextMainProduct,
-                                        normalizedNextMain: normalizedNextMain,
-                                        normalizedTargetParent: normalizedTargetParent,
-                                        sameParent: sameParent
-                                    });
                                 }
                                 
                                 if (sameParent) {
@@ -10443,82 +10409,50 @@ function getCurrentProcessId() {
                                     const nextSubOrder = nextSubOrderAttr !== null && nextSubOrderAttr !== '' 
                                         ? parseFloat(nextSubOrderAttr) 
                                         : null;
-                                    console.log('Main row insertion - nextRow sub_order check:', {
-                                        nextSubOrderAttr: nextSubOrderAttr,
-                                        nextSubOrder: nextSubOrder,
-                                        nextRowAllAttributes: Array.from(nextRow.attributes).map(attr => `${attr.name}="${attr.value}"`).join(', ')
-                                    });
                                     
-                                    // Check if next row has sub_order >= 1 OR if it's a processed sub row (has account data)
-                                    // If next row is a processed sub row without sub_order attribute, it likely has sub_order = 1 in database
-                                    // Account column is at index 1 (0=Id Product, 1=Account, 2=Add, 3=Currency, ...)
-                                    const nextRowAccountCell = nextRow.querySelector('td:nth-child(2)');
-                                    const nextRowHasAccount = nextRowAccountCell ? nextRowAccountCell.textContent.trim() : '';
-                                    const nextRowAddCell = nextRow.querySelector('td:nth-child(3)');
-                                    const nextRowHasAddButton = nextRowAddCell ? nextRowAddCell.querySelector('button') : null;
-                                    // A processed sub row has account text (not empty, not '+', and no add button)
-                                    const nextRowIsProcessed = nextRowHasAccount && 
-                                                               nextRowHasAccount !== '+' && 
-                                                               !nextRowHasAddButton &&
-                                                               nextRowHasAccount.length > 0;
-                                    
-                                    console.log('Inserting after main row:', {
-                                        nextRowSubOrder: nextSubOrder,
-                                        nextRowSubOrderAttr: nextSubOrderAttr,
-                                        nextRowHasAccount: nextRowHasAccount,
-                                        nextRowIsProcessed: nextRowIsProcessed,
-                                        nextRowHasAddButton: !!nextRowHasAddButton,
-                                        targetParentValue: targetParentValue
-                                    });
-                                    
-                                    if ((nextSubOrder !== null && !isNaN(nextSubOrder) && nextSubOrder >= 1) || 
-                                        (nextSubOrder === null && nextRowIsProcessed)) {
-                                        // Next sub row has sub_order >= 1 (or is processed sub row, likely has sub_order = 1), use 0.1, 0.2, etc.
-                                        // Find all existing decimal sub_orders (0 < sub_order < 1) for this parent
-                                        let maxDecimalSubOrder = 0;
-                                        // Re-query rows after insertion to get latest state
-                                        const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
-                                        for (let i = 0; i < allRowsAfterInsert.length; i++) {
-                                            const checkRow = allRowsAfterInsert[i];
-                                            if (checkRow === row || checkRow === nextRow) continue;
-                                            
-                                            const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
-                                            if (checkProductType === 'sub') {
-                                                const checkIdProductCell = checkRow.querySelector('td:first-child');
-                                                if (checkIdProductCell) {
-                                                    const checkProductValues = getProductValuesFromCell(checkIdProductCell);
-                                                    const checkMainProduct = checkProductValues.main || checkRow.getAttribute('data-main-product') || '';
-                                                    const normalizedCheckMain = normalizeIdProductText(checkMainProduct);
-                                                    
-                                                    if (normalizedCheckMain === normalizedTargetParent) {
-                                                        const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
-                                                        if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
-                                                            const checkSubOrder = parseFloat(checkSubOrderAttr);
-                                                            if (!isNaN(checkSubOrder) && checkSubOrder > 0 && checkSubOrder < 1) {
-                                                                if (checkSubOrder > maxDecimalSubOrder) {
-                                                                    maxDecimalSubOrder = checkSubOrder;
+                                    if (nextSubOrder !== null && !isNaN(nextSubOrder)) {
+                                        if (nextSubOrder >= 1) {
+                                            // Next sub row has sub_order >= 1, use 0.1, 0.2, etc.
+                                            // Find all existing decimal sub_orders (0 < sub_order < 1) for this parent
+                                            let maxDecimalSubOrder = 0;
+                                            for (let i = 0; i < allRows.length; i++) {
+                                                const checkRow = allRows[i];
+                                                if (checkRow === row || checkRow === nextRow) continue;
+                                                
+                                                const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
+                                                if (checkProductType === 'sub') {
+                                                    const checkIdProductCell = checkRow.querySelector('td:first-child');
+                                                    if (checkIdProductCell) {
+                                                        const checkProductValues = getProductValuesFromCell(checkIdProductCell);
+                                                        const checkMainProduct = checkProductValues.main || checkRow.getAttribute('data-main-product') || '';
+                                                        const normalizedCheckMain = normalizeIdProductText(checkMainProduct);
+                                                        
+                                                        if (normalizedCheckMain === normalizedTargetParent) {
+                                                            const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                                                            if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                                                                const checkSubOrder = parseFloat(checkSubOrderAttr);
+                                                                if (!isNaN(checkSubOrder) && checkSubOrder > 0 && checkSubOrder < 1) {
+                                                                    if (checkSubOrder > maxDecimalSubOrder) {
+                                                                        maxDecimalSubOrder = checkSubOrder;
+                                                                    }
                                                                 }
                                                             }
                                                         }
                                                     }
                                                 }
                                             }
+                                            // Use maxDecimalSubOrder + 0.1, or 0.1 if no decimal sub_orders exist
+                                            subOrder = maxDecimalSubOrder > 0 ? maxDecimalSubOrder + 0.1 : 0.1;
+                                        } else {
+                                            // Next sub row has sub_order < 1, use average
+                                            subOrder = (0 + nextSubOrder) / 2;
                                         }
-                                        // Use maxDecimalSubOrder + 0.1, or 0.1 if no decimal sub_orders exist
-                                        subOrder = maxDecimalSubOrder > 0 ? maxDecimalSubOrder + 0.1 : 0.1;
-                                        console.log('Using decimal sub_order:', subOrder, 'maxDecimalSubOrder:', maxDecimalSubOrder);
-                                    } else if (nextSubOrder !== null && !isNaN(nextSubOrder) && nextSubOrder < 1) {
-                                        // Next sub row has sub_order < 1, use average
-                                        subOrder = (0 + nextSubOrder) / 2;
-                                        console.log('Using average sub_order:', subOrder);
                                     } else {
-                                        // Next sub row has no sub_order and is not processed, check if there are other sub rows with sub_order >= 1
+                                        // Next sub row has no sub_order but is same parent, check if there are other sub rows with sub_order >= 1
                                         // If yes, use 0.1; if no, use 1
                                         let hasSubOrderGreaterEqualOne = false;
-                                        // Re-query rows after insertion to get latest state
-                                        const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
-                                        for (let i = 0; i < allRowsAfterInsert.length; i++) {
-                                            const checkRow = allRowsAfterInsert[i];
+                                        for (let i = 0; i < allRows.length; i++) {
+                                            const checkRow = allRows[i];
                                             if (checkRow === row || checkRow === nextRow) continue;
                                             
                                             const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
@@ -10531,27 +10465,18 @@ function getCurrentProcessId() {
                                                     
                                                     if (normalizedCheckMain === normalizedTargetParent) {
                                                         const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
-                                                        // Also check if row is processed (has account data) - likely has sub_order >= 1
-                                                        const checkRowHasAccount = checkRow.querySelector('td:nth-child(2)')?.textContent.trim() || '';
-                                                        const checkRowIsProcessed = checkRowHasAccount && checkRowHasAccount !== '+' && !checkRowHasAccount.includes('button');
-                                                        
                                                         if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
                                                             const checkSubOrder = parseFloat(checkSubOrderAttr);
                                                             if (!isNaN(checkSubOrder) && checkSubOrder >= 1) {
                                                                 hasSubOrderGreaterEqualOne = true;
                                                                 break;
                                                             }
-                                                        } else if (checkRowIsProcessed) {
-                                                            // Processed sub row without sub_order attribute likely has sub_order >= 1
-                                                            hasSubOrderGreaterEqualOne = true;
-                                                            break;
                                                         }
                                                     }
                                                 }
                                             }
                                         }
                                         subOrder = hasSubOrderGreaterEqualOne ? 0.1 : 1;
-                                        console.log('Using sub_order based on hasSubOrderGreaterEqualOne:', subOrder, 'hasSubOrderGreaterEqualOne:', hasSubOrderGreaterEqualOne);
                                     }
                                 } else {
                                     // Next sub row belongs to different parent, use 1
@@ -10633,10 +10558,7 @@ function getCurrentProcessId() {
                 
                 if (subOrder !== null) {
                     row.setAttribute('data-sub-order', String(subOrder));
-                    console.log('✅ Set sub_order for new sub row:', subOrder, 'parent:', targetParentValue, 'maxSubOrder:', maxSubOrder, 'subRowCount:', subRowCount);
-                    console.log('Row element:', row, 'data-sub-order attribute:', row.getAttribute('data-sub-order'));
-                } else {
-                    console.error('❌ subOrder is null! This should not happen.');
+                    console.log('Set sub_order for new sub row:', subOrder, 'parent:', targetParentValue, 'maxSubOrder:', maxSubOrder, 'subRowCount:', subRowCount);
                 }
                 
                 // Set creation order based on insertion position (keep for backward compatibility)
