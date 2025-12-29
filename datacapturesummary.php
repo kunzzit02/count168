@@ -9250,42 +9250,37 @@ function getCurrentProcessId() {
             input.style.fontSize = 'inherit';
             input.style.boxSizing = 'border-box';
             
-            // Hide ALL formula text elements (there might be multiple)
+            // Store original content for restoration
+            const originalContent = formulaContent.innerHTML;
+            
+            // Hide ALL formula text elements and buttons (there might be multiple)
             const formulaTextSpans = formulaCell.querySelectorAll('.formula-text');
             formulaTextSpans.forEach(span => {
                 span.style.display = 'none';
             });
             
-            // Also hide any direct text content in formulaContent that might be visible
+            // Hide all edit buttons
+            const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
+            editButtons.forEach(btn => {
+                btn.style.display = 'none';
+            });
+            
             // Set cell styles to prevent overflow
             formulaCell.style.overflow = 'hidden';
             formulaCell.style.position = 'relative';
             formulaCell.style.maxWidth = '100%';
             
-            // Replace span with input
-            const formulaTextSpan = formulaCell.querySelector('.formula-text');
-            if (formulaTextSpan) {
-                formulaContent.insertBefore(input, formulaTextSpan);
-                input.focus();
-                input.select();
-            } else {
-                // If no formula-text span found, just append the input
-                formulaContent.appendChild(input);
-                input.focus();
-                input.select();
-            }
+            // Clear the entire formulaContent and only show input (like main row)
+            formulaContent.innerHTML = '';
+            formulaContent.appendChild(input);
+            input.focus();
+            input.select();
             
             // Save function
             const saveEdit = () => {
                 const newFormulaValue = input.value.trim();
                 // Remove input
                 input.remove();
-                
-                // Show all formula text elements again
-                const formulaTextSpans = formulaCell.querySelectorAll('.formula-text');
-                formulaTextSpans.forEach(span => {
-                    span.style.display = '';
-                });
                 
                 // Compare with original formula value (data-formula-operators)
                 if (newFormulaValue !== originalFormulaValue) {
@@ -9383,19 +9378,21 @@ function getCurrentProcessId() {
                     // Recreate full formula display using converted formula + source percent
                     const newFormulaDisplay = createFormulaDisplayFromExpression(displayFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
                     
-                    // Update formula display
-                    formulaTextSpans.forEach(span => {
-                        span.textContent = newFormulaDisplay;
-                    });
-                    
                     // Update data attribute with base formula (without Source %)
                     row.setAttribute('data-formula-operators', finalBaseFormula);
+                    
+                    // Rebuild the entire formula cell content (like main row)
+                    const inputMethod = row.getAttribute('data-input-method') || '';
+                    const inputMethodTooltip = inputMethod || '';
+                    formulaContent.innerHTML = `
+                        <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${newFormulaDisplay}</span>
+                        <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                    `;
                     
                     // Recalculate processed amount
                     // IMPORTANT: Use displayFormula (with actual values, without Source %) for calculation
                     // displayFormula already has $数字 converted to actual values, and doesn't include Source % part
                     // This ensures the calculation uses actual values from the table
-                    const inputMethod = row.getAttribute('data-input-method') || '';
                     const enableInputMethod = inputMethod ? true : false;
                     
                     // Use displayFormula (already converted from $数字 to actual values, no Source % included) for calculation
@@ -9430,6 +9427,11 @@ function getCurrentProcessId() {
                     });
                     
                     showNotification('Success', 'Formula updated successfully!', 'success');
+                } else {
+                    // Formula not changed, restore original content
+                    formulaContent.innerHTML = originalContent;
+                    // Reattach double-click event listener after restoring
+                    attachInlineEditListeners(row);
                 }
             };
             
@@ -9437,11 +9439,11 @@ function getCurrentProcessId() {
             const cancelEdit = () => {
                 input.remove();
                 
-                // Show all formula text elements again
-                const formulaTextSpans = formulaCell.querySelectorAll('.formula-text');
-                formulaTextSpans.forEach(span => {
-                    span.style.display = '';
-                });
+                // Restore original content
+                formulaContent.innerHTML = originalContent;
+                
+                // Reattach double-click event listener after restoring
+                attachInlineEditListeners(row);
             };
             
             // Save on Enter or blur
