@@ -5113,43 +5113,7 @@ function getCurrentProcessId() {
             const templateIdAttr = row.getAttribute('data-template-id');
             const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
             
-            // Calculate sub_order for sub rows: find the position of this sub row among all sub rows with the same parent and row_index
-            // IMPORTANT: Use DOM position (not creation time) to determine sub_order
-            let subOrder = null;
-            if (productType === 'sub' && rowIndex !== null) {
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                    const normalizedParentId = normalizeIdProductText(parentIdProduct || '');
-                    const sameParentRows = [];
-                    
-                    // Find all sub rows with the same parent and row_index, and record their DOM positions
-                    allRows.forEach((r, domIndex) => {
-                        const rProductType = r.getAttribute('data-product-type') || 'main';
-                        if (rProductType === 'sub') {
-                            const rIdProductCell = r.querySelector('td:first-child');
-                            const rProductValues = getProductValuesFromCell(rIdProductCell);
-                            const rParentId = normalizeIdProductText(rProductValues.main || '');
-                            const rRowIndexAttr = r.getAttribute('data-row-index');
-                            const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
-                            
-                            if (rParentId === normalizedParentId && rRowIndex === rowIndex) {
-                                // Use DOM position (domIndex) instead of creation_order
-                                sameParentRows.push({ row: r, domIndex });
-                            }
-                        }
-                    });
-                    
-                    // Sort by DOM position to get the correct order (based on where they appear in the table)
-                    sameParentRows.sort((a, b) => a.domIndex - b.domIndex);
-                    
-                    // Find the index of current row in the sorted list
-                    const currentRowIndex = sameParentRows.findIndex(item => item.row === row);
-                    if (currentRowIndex >= 0) {
-                        subOrder = currentRowIndex + 1; // sub_order starts from 1
-                    }
-                }
-            }
+            // No longer need sub_order - each row has its own unique row_index
             
             return {
                 product_type: productType,
@@ -5178,7 +5142,6 @@ function getCurrentProcessId() {
                 template_key: templateKey,
                 process_id: getCurrentProcessId(),
                 row_index: rowIndex,
-                sub_order: subOrder, // Pass sub_order to backend for sub rows
                 formula_variant: formulaVariant, // Pass formula_variant to backend
                 template_id: templateId // Pass template_id to backend for editing existing templates
             };
@@ -10217,34 +10180,44 @@ function getCurrentProcessId() {
                 // Get the parent row element (or the row we're inserting after)
                 const insertAfterRow = rows[insertAfterIndex];
                 
-                // Get row_index from the row we're inserting after
-                // IMPORTANT: New sub rows should use the same row_index as the row they're inserted after
-                // This ensures they maintain the correct position relative to Data Capture Table
+                // IMPORTANT: Sub rows should have their own row_index based on their position in the table
+                // Calculate row_index based on the position after insertion
+                // Insert after the row first
+                insertAfterRow.insertAdjacentElement('afterend', row);
+                
+                // Calculate new row_index: it should be the position of the row we inserted after + 1
+                // But we need to consider that row_index represents the position in the table
                 let newRowIndex = null;
-                if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
-                    // Use provided rowIndex if available
-                    newRowIndex = Number(rowIndex);
-                } else if (insertAfterRow) {
-                    // Get row_index from the row we're inserting after
+                if (insertAfterRow) {
                     const insertAfterRowIndexAttr = insertAfterRow.getAttribute('data-row-index');
                     if (insertAfterRowIndexAttr !== null && insertAfterRowIndexAttr !== '' && !Number.isNaN(Number(insertAfterRowIndexAttr))) {
-                        newRowIndex = Number(insertAfterRowIndexAttr);
+                        // New sub row's row_index = parent row's row_index + 1
+                        // This ensures each row has its own unique row_index based on position
+                        newRowIndex = Number(insertAfterRowIndexAttr) + 1;
+                    } else {
+                        // Fallback: use DOM position
+                        const allRowsAfterInsert = Array.from(summaryTableBody.querySelectorAll('tr'));
+                        newRowIndex = allRowsAfterInsert.indexOf(row);
                     }
+                } else if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
+                    // Use provided rowIndex + 1 if available
+                    newRowIndex = Number(rowIndex) + 1;
+                } else {
+                    // Last resort: use current position in Summary Table
+                    const allRowsAfterInsert = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    newRowIndex = allRowsAfterInsert.indexOf(row);
                 }
-                
-                // Insert after the row
-                insertAfterRow.insertAdjacentElement('afterend', row);
                 
                 // Set row_index on the new row
                 if (newRowIndex !== null) {
                     row.setAttribute('data-row-index', String(newRowIndex));
-                    console.log('Inserted sub row after row at index:', insertAfterIndex, 'using row_index:', newRowIndex, 'from insertAfterRow');
+                    console.log('Inserted sub row after row at index:', insertAfterIndex, 'using new row_index:', newRowIndex);
                 } else {
-                    // Fallback: use current position in Summary Table (should rarely happen)
-                    const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
-                    const fallbackIndex = Array.from(allRowsAfterInsert).indexOf(row);
+                    // Final fallback
+                    const allRowsAfterInsert = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const fallbackIndex = allRowsAfterInsert.indexOf(row);
                     row.setAttribute('data-row-index', String(fallbackIndex));
-                    console.warn('Inserted sub row but could not get row_index from insertAfterRow, using fallback:', fallbackIndex);
+                    console.warn('Inserted sub row but could not calculate row_index, using fallback:', fallbackIndex);
                 }
                 
                 // Set creation order based on insertion position
@@ -10264,30 +10237,27 @@ function getCurrentProcessId() {
             } else {
                 // Fallback: append to the end
                 summaryTableBody.appendChild(row);
-                // Set row_index: use provided rowIndex if available, otherwise try to get from last row
-                if (rowIndex !== null && rowIndex !== undefined && !Number.isNaN(Number(rowIndex))) {
-                    row.setAttribute('data-row-index', String(Number(rowIndex)));
-                    console.log('Appended sub row to end, using provided row_index:', rowIndex);
-                } else {
-                    // Try to get row_index from the last row before appending
-                    const allRowsBeforeAppend = summaryTableBody.querySelectorAll('tr');
-                    if (allRowsBeforeAppend.length > 0) {
-                        const lastRow = allRowsBeforeAppend[allRowsBeforeAppend.length - 1];
-                        const lastRowIndexAttr = lastRow.getAttribute('data-row-index');
-                        if (lastRowIndexAttr !== null && lastRowIndexAttr !== '' && !Number.isNaN(Number(lastRowIndexAttr))) {
-                            const lastRowIndex = Number(lastRowIndexAttr);
-                            row.setAttribute('data-row-index', String(lastRowIndex));
-                            console.log('Appended sub row to end, using row_index from last row:', lastRowIndex);
-                        } else {
-                            // Last resort: use position index
-                            const fallbackIndex = allRowsBeforeAppend.length; // 0-based index, new row will be at this position
-                            row.setAttribute('data-row-index', String(fallbackIndex));
-                            console.warn('Appended sub row but could not get row_index from last row, using fallback:', fallbackIndex);
-                        }
-                    } else {
-                        row.setAttribute('data-row-index', '0');
-                        console.log('Appended sub row as first row, using row_index: 0');
+                // Calculate row_index: last row's row_index + 1
+                const allRowsBeforeAppend = Array.from(summaryTableBody.querySelectorAll('tr'));
+                let newRowIndex = null;
+                if (allRowsBeforeAppend.length > 1) {
+                    // Get the row before the newly appended row (second to last)
+                    const lastRow = allRowsBeforeAppend[allRowsBeforeAppend.length - 2];
+                    const lastRowIndexAttr = lastRow.getAttribute('data-row-index');
+                    if (lastRowIndexAttr !== null && lastRowIndexAttr !== '' && !Number.isNaN(Number(lastRowIndexAttr))) {
+                        const lastRowIndex = Number(lastRowIndexAttr);
+                        newRowIndex = lastRowIndex + 1;
                     }
+                }
+                
+                if (newRowIndex !== null) {
+                    row.setAttribute('data-row-index', String(newRowIndex));
+                    console.log('Appended sub row to end, using row_index:', newRowIndex);
+                } else {
+                    // Last resort: use position index
+                    const fallbackIndex = allRowsBeforeAppend.length - 1; // 0-based index
+                    row.setAttribute('data-row-index', String(fallbackIndex));
+                    console.warn('Appended sub row but could not calculate row_index, using fallback:', fallbackIndex);
                 }
                 
                 // Set creation order for appended row (use current timestamp)
@@ -12532,23 +12502,17 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         return;
     }
 
-    // IMPORTANT: Sort sub templates by row_index first, then by sub_order to maintain correct order
-    // sub_order reflects the order within the same parent and row_index
+    // IMPORTANT: Sort sub templates by row_index only
+    // Each row has its own unique row_index based on its position in the table
     // This ensures sub rows are applied in the correct order when loading from database
     validSubTemplates.sort((a, b) => {
-        // First sort by row_index (where user added the data in Data Capture Table)
+        // Sort by row_index (each row has its own unique row_index)
         const aRowIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
         const bRowIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
         if (aRowIndex !== bRowIndex) {
             return aRowIndex - bRowIndex;
         }
-        // If same row_index, sort by sub_order (order within the same parent)
-        const aSubOrder = (a.sub_order !== undefined && a.sub_order !== null) ? Number(a.sub_order) : 999999;
-        const bSubOrder = (b.sub_order !== undefined && b.sub_order !== null) ? Number(b.sub_order) : 999999;
-        if (aSubOrder !== bSubOrder) {
-            return aSubOrder - bSubOrder;
-        }
-        // If same row_index and sub_order, sort by id (database primary key) to maintain relative order
+        // If same row_index (shouldn't happen, but fallback), sort by id
         const aId = a.id || 0;
         const bId = b.id || 0;
         return aId - bId;

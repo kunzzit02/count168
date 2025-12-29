@@ -270,66 +270,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     $hasProcessId = $processId !== null && $processId > 0;
     $dataCaptureId = isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null;
     
-    // Calculate sub_order for sub rows: use the value provided by frontend (based on DOM position)
-    // This ensures sub rows are ordered correctly based on where they appear in the table, not creation time
-    $subOrder = null;
-    if ($productType === 'sub' && isset($row['row_index']) && $row['row_index'] !== null) {
-        $rowIndex = (int)$row['row_index'];
-        // If sub_order is provided by frontend, use it (it's calculated based on DOM position)
-        if (isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '') {
-            $subOrder = (int)$row['sub_order'];
-        } else {
-            // If sub_order not provided, check if this is an update (has template_id)
-            // If updating, preserve existing sub_order; if creating new, calculate next available
-            $templateId = isset($row['template_id']) && !empty($row['template_id']) ? (int)$row['template_id'] : null;
-            if ($templateId) {
-                // Updating existing record: preserve existing sub_order
-                $existingStmt = $pdo->prepare("
-                    SELECT sub_order FROM data_capture_templates 
-                    WHERE id = :template_id AND company_id = :company_id
-                ");
-                $existingStmt->execute([
-                    ':template_id' => $templateId,
-                    ':company_id' => $companyId
-                ]);
-                $existingResult = $existingStmt->fetch();
-                if ($existingResult && $existingResult['sub_order'] !== null) {
-                    $subOrder = (int)$existingResult['sub_order'];
-                }
-            }
-            
-            // If still no sub_order (new record or existing record doesn't have one), calculate next available
-            if ($subOrder === null) {
-                $maxSubOrderStmt = $pdo->prepare("
-                    SELECT MAX(sub_order) as max_sub_order FROM data_capture_templates 
-                    WHERE company_id = :company_id
-                      AND process_id " . ($hasProcessId ? "= :process_id" : "IS NULL") . "
-                      AND product_type = 'sub'
-                      AND COALESCE(parent_id_product, '') = COALESCE(:parent_id_product, '')
-                      AND row_index = :row_index
-                      AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
-                ");
-                
-                $maxSubOrderParams = [
-                    ':company_id' => $companyId,
-                    ':parent_id_product' => $parentIdProduct,
-                    ':row_index' => $rowIndex
-                ];
-                
-                if ($hasProcessId) {
-                    $maxSubOrderParams[':process_id'] = $processId;
-                }
-                if ($dataCaptureId) {
-                    $maxSubOrderParams[':data_capture_id'] = $dataCaptureId;
-                }
-                
-                $maxSubOrderStmt->execute($maxSubOrderParams);
-                $maxSubOrderResult = $maxSubOrderStmt->fetch();
-                $maxSubOrder = $maxSubOrderResult && $maxSubOrderResult['max_sub_order'] !== null ? (int)$maxSubOrderResult['max_sub_order'] : 0;
-                $subOrder = $maxSubOrder + 1;
-            }
-        }
-    }
+    // No longer need sub_order - each row has its own unique row_index
     
     // Get formula_display to determine formula_variant
     $formulaDisplay = $row['formula_display'] ?? '';
@@ -609,7 +550,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 process_id = :process_id,
                 data_capture_id = :data_capture_id,
                 row_index = :row_index,
-                sub_order = :sub_order,
                 formula_variant = :formula_variant,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
@@ -640,7 +580,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             ':process_id' => $processId,
             ':data_capture_id' => $dataCaptureId,
             ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
-            ':sub_order' => $subOrder,
             ':formula_variant' => $formulaVariant,
         ]);
         return [
@@ -676,7 +615,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             process_id,
                 data_capture_id,
                 row_index,
-                sub_order,
                 formula_variant
             ) VALUES (
             :company_id,
@@ -703,7 +641,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             :process_id,
             :data_capture_id,
             :row_index,
-            :sub_order,
             :formula_variant
         )
         ON DUPLICATE KEY UPDATE
@@ -729,7 +666,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             process_id = VALUES(process_id),
                 data_capture_id = VALUES(data_capture_id),
                 row_index = VALUES(row_index),
-                sub_order = VALUES(sub_order),
                 formula_variant = VALUES(formula_variant),
             updated_at = CURRENT_TIMESTAMP
     ");
@@ -759,7 +695,6 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             ':process_id' => $processId,
             ':data_capture_id' => isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null,
             ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
-            ':sub_order' => $subOrder,
             ':formula_variant' => $formulaVariant,
     ]);
     
@@ -818,7 +753,6 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             process_id,
             data_capture_id,
             row_index,
-            sub_order,
             formula_variant,
             updated_at
         FROM data_capture_templates
@@ -836,8 +770,6 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                  END ASC,
                  CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
                  row_index ASC,
-                 CASE WHEN sub_order IS NULL THEN 1 ELSE 0 END,
-                 sub_order ASC,
                  product_type ASC,
                  formula_variant ASC,
                  id ASC
@@ -957,7 +889,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     foreach ($templates as $parentId => &$templateData) {
         if (!empty($templateData['subs'])) {
             usort($templateData['subs'], function($a, $b) {
-                // First sort by row_index (where user added the data in Data Capture Table)
+                // Sort by row_index (each row has its own unique row_index based on position)
                 $aRowIndex = isset($a['row_index']) && $a['row_index'] !== null ? (int)$a['row_index'] : 999999;
                 $bRowIndex = isset($b['row_index']) && $b['row_index'] !== null ? (int)$b['row_index'] : 999999;
                 
@@ -965,15 +897,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                     return $aRowIndex - $bRowIndex;
                 }
                 
-                // If same row_index, sort by sub_order (order within the same parent)
-                $aSubOrder = isset($a['sub_order']) && $a['sub_order'] !== null ? (int)$a['sub_order'] : 999999;
-                $bSubOrder = isset($b['sub_order']) && $b['sub_order'] !== null ? (int)$b['sub_order'] : 999999;
-                
-                if ($aSubOrder !== $bSubOrder) {
-                    return $aSubOrder - $bSubOrder;
-                }
-                
-                // If same row_index and sub_order, sort by id (database primary key) to maintain relative order
+                // If same row_index (shouldn't happen, but fallback), sort by id
                 $aId = isset($a['id']) ? (int)$a['id'] : 0;
                 $bId = isset($b['id']) ? (int)$b['id'] : 0;
                 return $aId - $bId;
