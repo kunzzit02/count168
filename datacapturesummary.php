@@ -9213,28 +9213,37 @@ function getCurrentProcessId() {
             const hasSourcePercent = sourcePercentText && sourcePercentText !== '';
             
             // First, check if formula is actually empty in the displayed cell
+            // Treat "Formula" as placeholder text (empty)
             let isFormulaEmpty = false;
             if (cells[4]) {
                 const formulaTextElement = cells[4].querySelector('.formula-text');
                 const displayedFormulaText = formulaTextElement ? formulaTextElement.textContent.trim() : '';
-                isFormulaEmpty = !displayedFormulaText || displayedFormulaText === '';
+                // Treat "Formula" as empty (it's a placeholder)
+                isFormulaEmpty = !displayedFormulaText || displayedFormulaText === '' || displayedFormulaText === 'Formula';
             }
             
             if (isFormulaEmpty) {
                 // Formula is empty, set to empty string
                 formulaValueToEdit = '';
-            } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '') {
+            } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '' && storedFormulaOperators !== 'Formula') {
                 // 优先使用 data-formula-operators（原始值，包含 $数字）
                 formulaValueToEdit = storedFormulaOperators;
                 console.log('enableFormulaInlineEdit - Using data-formula-operators (original value with $):', formulaValueToEdit);
             } else {
-                // Fallback to displayed formula text
-                formulaValueToEdit = currentFormulaDisplay;
-                console.log('enableFormulaInlineEdit - Using displayed formula text as fallback:', formulaValueToEdit);
+                // Fallback to displayed formula text (but not if it's "Formula" placeholder)
+                if (currentFormulaDisplay && currentFormulaDisplay !== 'Formula') {
+                    formulaValueToEdit = currentFormulaDisplay;
+                    console.log('enableFormulaInlineEdit - Using displayed formula text as fallback:', formulaValueToEdit);
+                } else {
+                    formulaValueToEdit = '';
+                    console.log('enableFormulaInlineEdit - Formula is empty or placeholder, using empty string');
+                }
             }
             
-            // Store original formula value for comparison (use data-formula-operators if available)
-            const originalFormulaValue = storedFormulaOperators || currentFormulaDisplay;
+            // Store original formula value for comparison (use data-formula-operators if available, but not "Formula" placeholder)
+            const originalFormulaValue = (storedFormulaOperators && storedFormulaOperators !== 'Formula') 
+                ? storedFormulaOperators 
+                : ((currentFormulaDisplay && currentFormulaDisplay !== 'Formula') ? currentFormulaDisplay : '');
             
             // Create input field - show formula with $ references (like edit formula modal)
             const input = document.createElement('input');
@@ -9251,7 +9260,17 @@ function getCurrentProcessId() {
             input.style.boxSizing = 'border-box';
             
             // Store original content for restoration
-            const originalContent = formulaContent.innerHTML;
+            // Check if formula is actually empty (including "Formula" placeholder)
+            let originalContent = formulaContent.innerHTML;
+            const formulaTextElement = formulaContent.querySelector('.formula-text');
+            const isOriginalEmpty = !formulaTextElement || 
+                                    !formulaTextElement.textContent.trim() || 
+                                    formulaTextElement.textContent.trim() === 'Formula' ||
+                                    formulaTextElement.textContent.trim() === '';
+            
+            // If original is empty, we'll rebuild empty structure on restore
+            // Store a flag to indicate if original was empty
+            const wasOriginalEmpty = isOriginalEmpty;
             
             // Hide ALL formula text elements and buttons (there might be multiple)
             const formulaTextSpans = formulaCell.querySelectorAll('.formula-text');
@@ -9429,7 +9448,17 @@ function getCurrentProcessId() {
                     showNotification('Success', 'Formula updated successfully!', 'success');
                 } else {
                     // Formula not changed, restore original content
-                    formulaContent.innerHTML = originalContent;
+                    // If original was empty, rebuild empty cell structure
+                    if (wasOriginalEmpty) {
+                        const inputMethod = row.getAttribute('data-input-method') || '';
+                        const inputMethodTooltip = inputMethod || '';
+                        formulaContent.innerHTML = `
+                            <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}></span>
+                            <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                        `;
+                    } else {
+                        formulaContent.innerHTML = originalContent;
+                    }
                     // Reattach double-click event listener after restoring
                     attachInlineEditListeners(row);
                 }
@@ -9440,7 +9469,17 @@ function getCurrentProcessId() {
                 input.remove();
                 
                 // Restore original content
-                formulaContent.innerHTML = originalContent;
+                // If original was empty, rebuild empty cell structure
+                if (wasOriginalEmpty) {
+                    const inputMethod = row.getAttribute('data-input-method') || '';
+                    const inputMethodTooltip = inputMethod || '';
+                    formulaContent.innerHTML = `
+                        <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}></span>
+                        <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                    `;
+                } else {
+                    formulaContent.innerHTML = originalContent;
+                }
                 
                 // Reattach double-click event listener after restoring
                 attachInlineEditListeners(row);
