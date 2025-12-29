@@ -10208,6 +10208,10 @@ function getCurrentProcessId() {
                     console.warn('Inserted sub row but could not get row_index from insertAfterRow, using fallback:', fallbackIndex);
                 }
                 
+                // IMPORTANT: Set data-parent-id-product to ensure correct grouping during reorder
+                row.setAttribute('data-parent-id-product', parentProcessValue);
+                row.setAttribute('data-product-type', 'sub');
+                
                 // Set creation order based on insertion position
                 // Get creation order from the row we inserted after, and use a value slightly larger
                 // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
@@ -10297,6 +10301,7 @@ function getCurrentProcessId() {
                     }
                 }
                 row.setAttribute('data-creation-order', String(creationOrder));
+                console.log('Set creation-order on new sub row:', creationOrder, 'inserted after row with creation-order:', insertAfterRow ? insertAfterRow.getAttribute('data-creation-order') : 'none');
             } else {
                 // Fallback: append to the end
                 summaryTableBody.appendChild(row);
@@ -12386,8 +12391,43 @@ function reorderSummaryRowsByRowIndex() {
             const accountId = accountCell ? accountCell.getAttribute('data-account-id') : null;
             
             // Get creation order for stable sorting
+            // IMPORTANT: If a row doesn't have creation_order, we need to assign one based on its position
+            // relative to other rows with the same row_index to maintain insertion order
+            let creationOrder = null;
             const creationOrderAttr = row.getAttribute('data-creation-order');
-            const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000; // Use large multiplier to ensure originalIndex doesn't interfere
+            if (creationOrderAttr) {
+                creationOrder = Number(creationOrderAttr);
+            } else {
+                // If row doesn't have creation_order, try to infer it from surrounding rows
+                const rowIndexAttr = row.getAttribute('data-row-index');
+                if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
+                    const targetRowIndex = Number(rowIndexAttr);
+                    // Find all rows with the same row_index
+                    const rowsWithSameIndex = rows.filter(r => {
+                        const rIndexAttr = r.getAttribute('data-row-index');
+                        return rIndexAttr !== null && rIndexAttr !== '' && !Number.isNaN(Number(rIndexAttr)) && Number(rIndexAttr) === targetRowIndex;
+                    });
+                    
+                    // Find this row's position among rows with same row_index
+                    const rowPos = rowsWithSameIndex.indexOf(row);
+                    if (rowPos > 0) {
+                        // Use previous row's creation_order + 1
+                        const prevRow = rowsWithSameIndex[rowPos - 1];
+                        const prevRowCreationOrderAttr = prevRow.getAttribute('data-creation-order');
+                        if (prevRowCreationOrderAttr) {
+                            creationOrder = Number(prevRowCreationOrderAttr) + 1;
+                        } else {
+                            creationOrder = targetRowIndex * 1000000 + rowPos * 1000;
+                        }
+                    } else {
+                        // First row with this row_index, use base value
+                        creationOrder = targetRowIndex * 1000000;
+                    }
+                } else {
+                    // Fallback: use originalIndex (but this should rarely happen)
+                    creationOrder = originalIndex * 1000000;
+                }
+            }
 
             return {
                 row,
@@ -12433,7 +12473,23 @@ function reorderSummaryRowsByRowIndex() {
                 }
                 // If same row_index, use creation order to maintain stable order
                 // This ensures rows added at the same position maintain their relative order
-                return a.creationOrder - b.creationOrder;
+                // IMPORTANT: creationOrder should reflect the insertion order, not the time of creation
+                const orderDiff = a.creationOrder - b.creationOrder;
+                if (orderDiff !== 0) {
+                    // Debug log for troubleshooting
+                    if (Math.abs(orderDiff) < 100) {
+                        console.log('Sorting rows with same row_index by creationOrder:', {
+                            rowA: a.row.querySelector('td:nth-child(2)')?.textContent.trim(),
+                            rowB: b.row.querySelector('td:nth-child(2)')?.textContent.trim(),
+                            creationOrderA: a.creationOrder,
+                            creationOrderB: b.creationOrder,
+                            orderDiff: orderDiff
+                        });
+                    }
+                    return orderDiff;
+                }
+                // If creationOrder is the same (shouldn't happen, but fallback), use originalIndex
+                return a.originalIndex - b.originalIndex;
             });
             return {
                 key,
