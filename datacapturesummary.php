@@ -5687,9 +5687,8 @@ function getCurrentProcessId() {
                         templateId: existingTemplateId || null
                     }, editingRow);
                 }
-            } else if (isSubIdProduct || (currentButton && !isEditMode)) {
-                // 点击的是某个 sub row 的 + 或 main row 的 +：在该 Id Product 下"当前行之后"新增一条 sub 行
-                // 如果是 main row 的 +，isSubIdProduct 会是 false，但 currentButton 存在且不是编辑模式，说明是新增 sub row
+            } else if (isSubIdProduct) {
+                // 点击的是某个 sub row 的 +：在该 Id Product 下"当前行之后"新增一条 sub 行
                 const baseRow = currentButton ? currentButton.closest('tr') : null;
                 const newRow = addSubIdProductRow(processValue, baseRow);
                 const baseRowSourceCols = baseRow ? (baseRow.getAttribute('data-source-columns') || '') : '';
