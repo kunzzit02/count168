@@ -12352,6 +12352,10 @@ function reorderSummaryRowsByRowIndex() {
             // Get creation order for stable sorting
             const creationOrderAttr = row.getAttribute('data-creation-order');
             const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : originalIndex * 1000000; // Use large multiplier to ensure originalIndex doesn't interfere
+            
+            // Get sub_order for sub rows (for sorting within same row_index)
+            const subOrderAttr = row.getAttribute('data-sub-order');
+            const subOrder = subOrderAttr && !Number.isNaN(Number(subOrderAttr)) ? Number(subOrderAttr) : null;
 
             return {
                 row,
@@ -12361,7 +12365,8 @@ function reorderSummaryRowsByRowIndex() {
                 hasMain: !!mainTextRaw,
                 productType,
                 accountId,
-                creationOrder
+                creationOrder,
+                subOrder
             };
         });
 
@@ -12395,8 +12400,14 @@ function reorderSummaryRowsByRowIndex() {
                 if (a.rowIndex !== b.rowIndex) {
                     return a.rowIndex - b.rowIndex;
                 }
-                // If same row_index, use creation order to maintain stable order
-                // This ensures rows added at the same position maintain their relative order
+                // If same row_index, sort by sub_order (for sub rows within same parent)
+                // sub_order reflects the order based on DOM position, not creation time
+                const aSubOrder = a.subOrder !== null && a.subOrder !== undefined ? a.subOrder : 999999;
+                const bSubOrder = b.subOrder !== null && b.subOrder !== undefined ? b.subOrder : 999999;
+                if (aSubOrder !== bSubOrder) {
+                    return aSubOrder - bSubOrder;
+                }
+                // If same row_index and sub_order, use creation order to maintain stable order
                 return a.creationOrder - b.creationOrder;
             });
             return {
@@ -12694,9 +12705,28 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             const baseTime = Date.now() - validSubTemplates.length * 1000;
             const creationOrder = baseTime + templateIndex * 1000;
             targetRow.setAttribute('data-creation-order', String(creationOrder));
+            
+            // IMPORTANT: Re-position existing row to maintain correct order based on sub_order
+            // If the existing row is not in the correct position, move it
+            const currentParent = targetRow.parentElement;
+            if (currentParent && insertAfterRow && targetRow !== insertAfterRow.nextSibling) {
+                // Check if we need to move this row
+                const shouldMove = insertAfterRow.nextSibling !== targetRow;
+                if (shouldMove) {
+                    // Remove from current position
+                    targetRow.remove();
+                    // Insert after insertAfterRow
+                    insertAfterRow.insertAdjacentElement('afterend', targetRow);
+                    console.log('Moved existing sub row to correct position based on sub_order');
+                }
+            }
+            
             console.log('Updated creation-order on existing sub row to reflect sorted order:', creationOrder, 'templateIndex:', templateIndex);
             console.log('Updating existing sub row instead of creating new one');
         }
+        
+        // Update lastRowInGroup to the current targetRow for next iteration
+        lastRowInGroup = targetRow;
 
         const addCell = targetRow.querySelector('td:nth-child(3)');
         const targetButton = addCell ? addCell.querySelector('.add-account-btn') : null;
@@ -13300,6 +13330,12 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (template.row_index !== undefined && template.row_index !== null) {
             targetRow.setAttribute('data-row-index', String(template.row_index));
             console.log('Set data-row-index on sub row:', template.row_index);
+        }
+        
+        // Set sub_order on sub row if available (for sorting)
+        if (template.sub_order !== undefined && template.sub_order !== null) {
+            targetRow.setAttribute('data-sub-order', String(template.sub_order));
+            console.log('Set data-sub-order on sub row:', template.sub_order);
         }
         
         // Also set template_id and formula_variant for precise matching
