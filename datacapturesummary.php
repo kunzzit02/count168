@@ -10911,8 +10911,13 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         // Match templates using original case-sensitive idProduct
         // But use normalized version to find the row in the table
+        // IMPORTANT: Use original full idProduct value (from normalizedIdMap) when applying templates
+        // to preserve complete text (e.g., "AG(AGIN) - OP7AUD=SLOT" instead of just "AG")
         uniqueIds.forEach(normalizedIdProduct => {
             if (templates[normalizedIdProduct]) {
+                // Get the original full idProduct value from the map
+                const originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
+                
                 // Check if there are multiple main templates for the same id_product (different accounts)
                 const template = templates[normalizedIdProduct];
                 if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
@@ -10924,16 +10929,18 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     });
                     
                     // Apply each main template to its corresponding row based on account_id and row_index
+                    // Use originalIdProduct (full value) instead of normalizedIdProduct
                     sortedTemplates.forEach(mainTemplate => {
-                        const mainRow = applyMainTemplateToRow(normalizedIdProduct, mainTemplate);
+                        const mainRow = applyMainTemplateToRow(originalIdProduct, mainTemplate);
                         // Apply sub templates to each main row
                         if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                            applySubTemplatesToSummaryRow(normalizedIdProduct, mainRow, template.subs);
+                            applySubTemplatesToSummaryRow(originalIdProduct, mainRow, template.subs);
                         }
                     });
                 } else {
                     // Fallback to original behavior for backward compatibility
-                    applyTemplateToSummaryRow(normalizedIdProduct, template);
+                    // Use originalIdProduct (full value) instead of normalizedIdProduct
+                    applyTemplateToSummaryRow(originalIdProduct, template);
                 }
             }
         });
