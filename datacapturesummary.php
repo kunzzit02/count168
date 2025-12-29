@@ -5113,6 +5113,44 @@ function getCurrentProcessId() {
             const templateIdAttr = row.getAttribute('data-template-id');
             const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
             
+            // Calculate sub_order for sub rows: find the position of this sub row among all sub rows with the same parent and row_index
+            let subOrder = null;
+            if (productType === 'sub' && rowIndex !== null) {
+                const summaryTableBody = document.getElementById('summaryTableBody');
+                if (summaryTableBody) {
+                    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const normalizedParentId = normalizeIdProductText(parentIdProduct || '');
+                    const sameParentRows = [];
+                    
+                    // Find all sub rows with the same parent and row_index
+                    allRows.forEach((r) => {
+                        const rProductType = r.getAttribute('data-product-type') || 'main';
+                        if (rProductType === 'sub') {
+                            const rIdProductCell = r.querySelector('td:first-child');
+                            const rProductValues = getProductValuesFromCell(rIdProductCell);
+                            const rParentId = normalizeIdProductText(rProductValues.main || '');
+                            const rRowIndexAttr = r.getAttribute('data-row-index');
+                            const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
+                            
+                            if (rParentId === normalizedParentId && rRowIndex === rowIndex) {
+                                const creationOrderAttr = r.getAttribute('data-creation-order');
+                                const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : 0;
+                                sameParentRows.push({ row: r, creationOrder });
+                            }
+                        }
+                    });
+                    
+                    // Sort by creation_order to get the correct order
+                    sameParentRows.sort((a, b) => a.creationOrder - b.creationOrder);
+                    
+                    // Find the index of current row in the sorted list
+                    const currentRowIndex = sameParentRows.findIndex(item => item.row === row);
+                    if (currentRowIndex >= 0) {
+                        subOrder = currentRowIndex + 1; // sub_order starts from 1
+                    }
+                }
+            }
+            
             return {
                 product_type: productType,
                 id_product: idProduct,
@@ -5140,6 +5178,7 @@ function getCurrentProcessId() {
                 template_key: templateKey,
                 process_id: getCurrentProcessId(),
                 row_index: rowIndex,
+                sub_order: subOrder, // Pass sub_order to backend for sub rows
                 formula_variant: formulaVariant, // Pass formula_variant to backend
                 template_id: templateId // Pass template_id to backend for editing existing templates
             };
@@ -12493,9 +12532,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         return;
     }
 
-    // IMPORTANT: Sort sub templates by row_index first, then by id to maintain correct order
-    // Use id (database primary key) instead of updated_at because updated_at changes when saving,
-    // which would cause newly saved rows to move to the end
+    // IMPORTANT: Sort sub templates by row_index first, then by sub_order to maintain correct order
+    // sub_order reflects the order within the same parent and row_index
     // This ensures sub rows are applied in the correct order when loading from database
     validSubTemplates.sort((a, b) => {
         // First sort by row_index (where user added the data in Data Capture Table)
@@ -12504,8 +12542,13 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (aRowIndex !== bRowIndex) {
             return aRowIndex - bRowIndex;
         }
-        // If same row_index, sort by id (database primary key) to maintain relative order
-        // id is auto-increment, so it reflects the creation order
+        // If same row_index, sort by sub_order (order within the same parent)
+        const aSubOrder = (a.sub_order !== undefined && a.sub_order !== null) ? Number(a.sub_order) : 999999;
+        const bSubOrder = (b.sub_order !== undefined && b.sub_order !== null) ? Number(b.sub_order) : 999999;
+        if (aSubOrder !== bSubOrder) {
+            return aSubOrder - bSubOrder;
+        }
+        // If same row_index and sub_order, sort by id (database primary key) to maintain relative order
         const aId = a.id || 0;
         const bId = b.id || 0;
         return aId - bId;
