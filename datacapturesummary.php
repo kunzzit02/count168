@@ -12493,10 +12493,30 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         return;
     }
 
-    // IMPORTANT: Sort sub templates by row_index first, then by id to maintain correct order
-    // Use id (database primary key) instead of updated_at because updated_at changes when saving,
-    // which would cause newly saved rows to move to the end
-    // This ensures sub rows are applied in the correct order when loading from database
+    // IMPORTANT: Sort sub templates considering existing DOM rows to maintain insertion order
+    // First, collect all existing sub rows in the DOM with their positions
+    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+    const existingSubRowsByTemplateId = new Map();
+    const existingSubRowsByAccountId = new Map();
+    
+    allRows.forEach((row, domIndex) => {
+        const productType = row.getAttribute('data-product-type') || 'main';
+        if (productType === 'sub') {
+            const templateId = row.getAttribute('data-template-id');
+            const accountId = row.querySelector('td:nth-child(2)')?.getAttribute('data-account-id');
+            if (templateId) {
+                existingSubRowsByTemplateId.set(parseInt(templateId), { row, domIndex });
+            }
+            if (accountId) {
+                if (!existingSubRowsByAccountId.has(accountId)) {
+                    existingSubRowsByAccountId.set(accountId, []);
+                }
+                existingSubRowsByAccountId.get(accountId).push({ row, domIndex });
+            }
+        }
+    });
+    
+    // Sort sub templates considering existing DOM rows
     validSubTemplates.sort((a, b) => {
         // First sort by row_index (where user added the data in Data Capture Table)
         const aRowIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
@@ -12504,8 +12524,26 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (aRowIndex !== bRowIndex) {
             return aRowIndex - bRowIndex;
         }
-        // If same row_index, sort by id (database primary key) to maintain relative order
-        // id is auto-increment, so it reflects the creation order
+        
+        // If same row_index, check if either row already exists in DOM
+        const aExists = existingSubRowsByTemplateId.has(a.id);
+        const bExists = existingSubRowsByTemplateId.has(b.id);
+        
+        if (aExists && bExists) {
+            // Both exist: maintain DOM order
+            const aPos = existingSubRowsByTemplateId.get(a.id).domIndex;
+            const bPos = existingSubRowsByTemplateId.get(b.id).domIndex;
+            return aPos - bPos;
+        } else if (aExists) {
+            // a exists, b doesn't: a comes first (maintain existing position)
+            return -1;
+        } else if (bExists) {
+            // b exists, a doesn't: b comes first (maintain existing position)
+            return 1;
+        }
+        
+        // Neither exists in DOM: sort by id (creation order)
+        // This handles new rows being added
         const aId = a.id || 0;
         const bId = b.id || 0;
         return aId - bId;
@@ -12542,30 +12580,29 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             : null;
 
         if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
-            // Check if we've already inserted a row with this row_index
+            // Check if we've already inserted a row with this row_index in this loop
             // If yes, insert after the last one to maintain insertion order
             if (lastRowByRowIndex.has(templateRowIndex)) {
                 insertAfterRow = lastRowByRowIndex.get(templateRowIndex);
+                console.log('Using lastRowByRowIndex for row_index:', templateRowIndex);
             } else {
-                // First row with this row_index: find the appropriate main row to insert after
-                // 在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
-                let best = null;
-                for (const info of groupRows) {
-                    if (info.index <= templateRowIndex) {
-                        if (!best || info.index > best.index) {
-                            best = info;
-                        }
+                // First row with this row_index in this loop: find the best insertion point
+                
+                // Strategy 1: Check if this template's row already exists in DOM (by template_id or account_id)
+                // If exists, we should insert after it or nearby rows with same row_index
+                let existingRowForTemplate = null;
+                if (template.id) {
+                    const existingInfo = existingSubRowsByTemplateId.get(template.id);
+                    if (existingInfo) {
+                        existingRowForTemplate = existingInfo.row;
+                        console.log('Found existing row in DOM for template_id:', template.id, 'at DOM index:', existingInfo.domIndex);
                     }
                 }
-                if (best) {
-                    insertAfterRow = best.row;
-                }
                 
-                // Also check if there are existing sub rows with the same row_index in the DOM
-                // If yes, insert after the last existing sub row with this row_index
-                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                for (let i = allRows.length - 1; i >= 0; i--) {
-                    const row = allRows[i];
+                // Strategy 2: Find all existing sub rows with same row_index in DOM, in DOM order
+                const existingRowsWithSameIndex = [];
+                const currentAllRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                currentAllRows.forEach((row, domIdx) => {
                     const rowIndexAttr = row.getAttribute('data-row-index');
                     if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
                         const rowIndex = Number(rowIndexAttr);
@@ -12575,11 +12612,61 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                             const productValues = getProductValuesFromCell(idProductCell);
                             const mainText = normalizeIdProductText(productValues.main || '');
                             if (mainText === normalizedTargetId || !productValues.main) {
-                                // Found existing sub row with same row_index
-                                insertAfterRow = row;
+                                const templateIdAttr = row.getAttribute('data-template-id');
+                                existingRowsWithSameIndex.push({ row, domIdx, templateId: templateIdAttr ? parseInt(templateIdAttr) : null });
+                            }
+                        }
+                    }
+                });
+                
+                // Sort existing rows by DOM position
+                existingRowsWithSameIndex.sort((a, b) => a.domIdx - b.domIdx);
+                
+                if (existingRowForTemplate && existingRowsWithSameIndex.length > 0) {
+                    // This row already exists in DOM - find where to insert based on template order
+                    // Find the position of this row in the sorted template list
+                    const thisTemplateIndex = validSubTemplates.findIndex(t => t.id === template.id);
+                    
+                    // Find all templates before this one that also exist in DOM
+                    let insertAfter = null;
+                    for (let i = thisTemplateIndex - 1; i >= 0; i--) {
+                        const prevTemplate = validSubTemplates[i];
+                        if (prevTemplate.row_index === templateRowIndex && prevTemplate.id) {
+                            const prevExistingInfo = existingSubRowsByTemplateId.get(prevTemplate.id);
+                            if (prevExistingInfo) {
+                                insertAfter = prevExistingInfo.row;
                                 break;
                             }
                         }
+                    }
+                    
+                    if (insertAfter) {
+                        insertAfterRow = insertAfter;
+                        console.log('Inserting after previous template row in sorted order');
+                    } else {
+                        // No previous template row found, insert after last existing row with same row_index
+                        insertAfterRow = existingRowsWithSameIndex[existingRowsWithSameIndex.length - 1].row;
+                        console.log('Inserting after last existing row with same row_index');
+                    }
+                } else if (existingRowsWithSameIndex.length > 0) {
+                    // No existing row for this template, but there are other rows with same row_index
+                    // Insert after the last one
+                    insertAfterRow = existingRowsWithSameIndex[existingRowsWithSameIndex.length - 1].row;
+                    console.log('Inserting after last existing row with same row_index (no matching template)');
+                } else {
+                    // No existing rows with this row_index: find the appropriate main row to insert after
+                    // 在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
+                    let best = null;
+                    for (const info of groupRows) {
+                        if (info.index <= templateRowIndex) {
+                            if (!best || info.index > best.index) {
+                                best = info;
+                            }
+                        }
+                    }
+                    if (best) {
+                        insertAfterRow = best.row;
+                        console.log('Inserting after main row at index:', best.index);
                     }
                 }
             }
