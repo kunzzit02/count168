@@ -10216,60 +10216,118 @@ function getCurrentProcessId() {
                 }
                 
                 // Calculate sub_order based on insertion position
-                // sub_order determines the order of sub rows within the same parent
+                // sub_order determines the order of sub rows within the same parent (use integers: 1, 2, 3...)
                 let subOrder = null;
+                
+                // Find all sub rows for the same parent to calculate the correct sub_order
+                const allRows = summaryTableBody.querySelectorAll('tr');
+                let maxSubOrder = 0;
+                let subRowCount = 0;
+                
+                // Get parent value from the row we're inserting after or from parentProcessValue
+                let targetParentValue = parentProcessValue;
                 if (insertAfterRow) {
-                    const insertAfterProductType = insertAfterRow.getAttribute('data-product-type') || 'main';
-                    const insertAfterSubOrderAttr = insertAfterRow.getAttribute('data-sub-order');
-                    
-                    if (insertAfterProductType === 'sub' && insertAfterSubOrderAttr !== null && insertAfterSubOrderAttr !== '') {
-                        // Inserting after another sub row: use its sub_order + 0.1
-                        const insertAfterSubOrder = parseFloat(insertAfterSubOrderAttr);
-                        if (!isNaN(insertAfterSubOrder)) {
-                            subOrder = insertAfterSubOrder + 0.1;
-                        } else {
-                            // If parsing failed, use 1.0 as default
-                            subOrder = 1.0;
+                    const insertAfterIdProductCell = insertAfterRow.querySelector('td:first-child');
+                    if (insertAfterIdProductCell) {
+                        const insertAfterProductValues = getProductValuesFromCell(insertAfterIdProductCell);
+                        // If inserting after a main row, use its main value as parent
+                        if (insertAfterProductValues.main && insertAfterProductValues.main.trim()) {
+                            targetParentValue = insertAfterProductValues.main.trim();
                         }
-                    } else {
-                        // Inserting after main row or sub row without sub_order: start with 1.0
-                        // Check if there are existing sub rows after this position
-                        const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
-                        let maxSubOrder = 0;
-                        let foundCurrentRow = false;
-                        for (let i = 0; i < allRowsAfterInsert.length; i++) {
-                            if (allRowsAfterInsert[i] === row) {
-                                foundCurrentRow = true;
-                                continue;
-                            }
-                            if (foundCurrentRow) {
-                                const checkRow = allRowsAfterInsert[i];
-                                const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
-                                if (checkProductType === 'sub') {
-                                    const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
-                                    if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
-                                        const checkSubOrder = parseFloat(checkSubOrderAttr);
-                                        if (!isNaN(checkSubOrder) && checkSubOrder > maxSubOrder) {
-                                            maxSubOrder = checkSubOrder;
+                        // If inserting after a sub row, use its main value (parent) or the button's parentProcessValue
+                        else if (insertAfterProductValues.sub && insertAfterProductValues.sub.trim()) {
+                            // Sub row's parent is stored in data-main-product or we use parentProcessValue
+                            const insertAfterMainProduct = insertAfterRow.getAttribute('data-main-product') || parentProcessValue;
+                            targetParentValue = insertAfterMainProduct || parentProcessValue;
+                        }
+                    }
+                }
+                
+                const normalizedTargetParent = normalizeIdProductText(targetParentValue);
+                
+                // Count existing sub rows for this parent and find max sub_order
+                for (let i = 0; i < allRows.length; i++) {
+                    const checkRow = allRows[i];
+                    // Skip the row we're about to insert
+                    if (checkRow === row) {
+                        continue;
+                    }
+                    
+                    const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
+                    if (checkProductType === 'sub') {
+                        // Check if this sub row belongs to the same parent
+                        const checkIdProductCell = checkRow.querySelector('td:first-child');
+                        if (checkIdProductCell) {
+                            const checkProductValues = getProductValuesFromCell(checkIdProductCell);
+                            const checkMainProduct = checkProductValues.main || checkRow.getAttribute('data-main-product') || '';
+                            const normalizedCheckMain = normalizeIdProductText(checkMainProduct);
+                            
+                            // Check if this sub row belongs to the same parent
+                            if (normalizedCheckMain === normalizedTargetParent || 
+                                (checkMainProduct === '' && normalizedTargetParent === normalizeIdProductText(parentProcessValue))) {
+                                subRowCount++;
+                                const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                                if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                                    const checkSubOrder = parseFloat(checkSubOrderAttr);
+                                    // Only consider integer values (or round to integer)
+                                    if (!isNaN(checkSubOrder)) {
+                                        const intSubOrder = Math.floor(checkSubOrder);
+                                        if (intSubOrder > maxSubOrder) {
+                                            maxSubOrder = intSubOrder;
                                         }
                                     }
-                                } else if (checkProductType === 'main') {
-                                    // Hit another main row, stop checking
-                                    break;
                                 }
                             }
                         }
-                        // Use maxSubOrder + 0.1 if found, otherwise use 1.0
-                        subOrder = maxSubOrder > 0 ? maxSubOrder + 0.1 : 1.0;
+                    } else if (checkProductType === 'main') {
+                        // Check if we've passed the parent main row - if so, we can stop if we're inserting after it
+                        const checkIdProductCell = checkRow.querySelector('td:first-child');
+                        if (checkIdProductCell) {
+                            const checkProductValues = getProductValuesFromCell(checkIdProductCell);
+                            const checkMainText = normalizeIdProductText(checkProductValues.main || '');
+                            if (checkMainText === normalizedTargetParent && insertAfterRow && insertAfterRow === checkRow) {
+                                // We're inserting right after the main row, count is correct
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Calculate sub_order: if inserting after a specific sub row, use its position + 1
+                // Otherwise, use maxSubOrder + 1
+                if (insertAfterRow) {
+                    const insertAfterProductType = insertAfterRow.getAttribute('data-product-type') || 'main';
+                    if (insertAfterProductType === 'sub') {
+                        const insertAfterSubOrderAttr = insertAfterRow.getAttribute('data-sub-order');
+                        if (insertAfterSubOrderAttr !== null && insertAfterSubOrderAttr !== '') {
+                            const insertAfterSubOrder = parseFloat(insertAfterSubOrderAttr);
+                            if (!isNaN(insertAfterSubOrder)) {
+                                // Use integer part + 1
+                                subOrder = Math.floor(insertAfterSubOrder) + 1;
+                            } else {
+                                subOrder = maxSubOrder + 1;
+                            }
+                        } else {
+                            // Sub row without sub_order, use maxSubOrder + 1
+                            subOrder = maxSubOrder + 1;
+                        }
+                    } else {
+                        // Inserting after main row: use 1 if no sub rows exist, otherwise maxSubOrder + 1
+                        subOrder = maxSubOrder > 0 ? maxSubOrder + 1 : 1;
                     }
                 } else {
-                    // Fallback: use 1.0
-                    subOrder = 1.0;
+                    // Appending: use maxSubOrder + 1
+                    subOrder = maxSubOrder > 0 ? maxSubOrder + 1 : 1;
+                }
+                
+                // Ensure subOrder is at least 1
+                if (subOrder < 1) {
+                    subOrder = 1;
                 }
                 
                 if (subOrder !== null) {
                     row.setAttribute('data-sub-order', String(subOrder));
-                    console.log('Set sub_order for new sub row:', subOrder);
+                    console.log('Set sub_order for new sub row:', subOrder, 'parent:', targetParentValue, 'maxSubOrder:', maxSubOrder, 'subRowCount:', subRowCount);
                 }
                 
                 // Set creation order based on insertion position (keep for backward compatibility)
@@ -10316,29 +10374,46 @@ function getCurrentProcessId() {
                 }
                 
                 // Calculate sub_order for appended row
-                // Find the last sub row with sub_order and add 0.1, or use 1.0 if none found
-                let subOrder = 1.0;
+                // Find all sub rows for the same parent and use max integer sub_order + 1
+                let subOrder = 1;
                 const allRowsBeforeAppend = summaryTableBody.querySelectorAll('tr');
                 let maxSubOrder = 0;
-                for (let i = allRowsBeforeAppend.length - 1; i >= 0; i--) {
+                
+                // Get parent value
+                const normalizedTargetParent = normalizeIdProductText(parentProcessValue);
+                
+                for (let i = 0; i < allRowsBeforeAppend.length; i++) {
                     const checkRow = allRowsBeforeAppend[i];
                     const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
                     if (checkProductType === 'sub') {
-                        const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
-                        if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
-                            const checkSubOrder = parseFloat(checkSubOrderAttr);
-                            if (!isNaN(checkSubOrder) && checkSubOrder > maxSubOrder) {
-                                maxSubOrder = checkSubOrder;
+                        // Check if this sub row belongs to the same parent
+                        const checkIdProductCell = checkRow.querySelector('td:first-child');
+                        if (checkIdProductCell) {
+                            const checkProductValues = getProductValuesFromCell(checkIdProductCell);
+                            const checkMainProduct = checkProductValues.main || checkRow.getAttribute('data-main-product') || '';
+                            const normalizedCheckMain = normalizeIdProductText(checkMainProduct);
+                            
+                            if (normalizedCheckMain === normalizedTargetParent) {
+                                const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                                if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                                    const checkSubOrder = parseFloat(checkSubOrderAttr);
+                                    if (!isNaN(checkSubOrder)) {
+                                        const intSubOrder = Math.floor(checkSubOrder);
+                                        if (intSubOrder > maxSubOrder) {
+                                            maxSubOrder = intSubOrder;
+                                        }
+                                    }
+                                }
                             }
                         }
                     } else if (checkProductType === 'main') {
-                        // Stop at main row
-                        break;
+                        // Continue checking sub rows after main row
+                        continue;
                     }
                 }
-                subOrder = maxSubOrder > 0 ? maxSubOrder + 0.1 : 1.0;
+                subOrder = maxSubOrder > 0 ? maxSubOrder + 1 : 1;
                 row.setAttribute('data-sub-order', String(subOrder));
-                console.log('Set sub_order for appended sub row:', subOrder);
+                console.log('Set sub_order for appended sub row:', subOrder, 'parent:', parentProcessValue, 'maxSubOrder:', maxSubOrder);
                 
                 // Set creation order for appended row (use current timestamp)
                 const creationOrder = Date.now();
