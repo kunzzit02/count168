@@ -9198,7 +9198,9 @@ function getCurrentProcessId() {
             if (!formulaCell) return;
             
             // Get current formula text (may contain Source % like "1083.45+84.32*(0.25)")
-            const currentFormulaDisplay = element.textContent.trim();
+            // Try to get from the formula-text span first, then fallback to element.textContent
+            const formulaTextElement = formulaCell.querySelector('.formula-text');
+            const currentFormulaDisplay = formulaTextElement ? formulaTextElement.textContent.trim() : element.textContent.trim();
             const formulaContent = formulaCell.querySelector('.formula-cell-content');
             if (!formulaContent) return;
             
@@ -9214,11 +9216,8 @@ function getCurrentProcessId() {
             
             // First, check if formula is actually empty in the displayed cell
             let isFormulaEmpty = false;
-            if (cells[4]) {
-                const formulaTextElement = cells[4].querySelector('.formula-text');
-                const displayedFormulaText = formulaTextElement ? formulaTextElement.textContent.trim() : '';
-                isFormulaEmpty = !displayedFormulaText || displayedFormulaText === '';
-            }
+            const displayedFormulaText = currentFormulaDisplay;
+            isFormulaEmpty = !displayedFormulaText || displayedFormulaText === '';
             
             if (isFormulaEmpty) {
                 // Formula is empty, set to empty string
@@ -9227,14 +9226,22 @@ function getCurrentProcessId() {
                 // 优先使用 data-formula-operators（原始值，包含 $数字）
                 formulaValueToEdit = storedFormulaOperators;
                 console.log('enableFormulaInlineEdit - Using data-formula-operators (original value with $):', formulaValueToEdit);
+            } else if (displayedFormulaText && displayedFormulaText.trim() !== '') {
+                // Fallback to displayed formula text (may be converted values like "4+5+6+7")
+                // For sub rows, if data-formula-operators is not set, use displayed text
+                // This ensures sub rows can still be edited even if data-formula-operators is missing
+                formulaValueToEdit = displayedFormulaText;
+                console.log('enableFormulaInlineEdit - Using displayed formula text as fallback (data-formula-operators not set):', formulaValueToEdit);
             } else {
-                // Fallback to displayed formula text
-                formulaValueToEdit = currentFormulaDisplay;
-                console.log('enableFormulaInlineEdit - Using displayed formula text as fallback:', formulaValueToEdit);
+                // Last resort: empty string
+                formulaValueToEdit = '';
+                console.log('enableFormulaInlineEdit - Formula appears to be empty');
             }
             
-            // Store original formula value for comparison (use data-formula-operators if available)
-            const originalFormulaValue = storedFormulaOperators || currentFormulaDisplay;
+            // Store original formula value for comparison (use data-formula-operators if available, otherwise use displayed text)
+            const originalFormulaValue = storedFormulaOperators && storedFormulaOperators.trim() !== '' 
+                ? storedFormulaOperators 
+                : (displayedFormulaText || '');
             
             // Store original content HTML to restore later
             const originalContentHTML = formulaContent.innerHTML;
@@ -10351,6 +10358,20 @@ function getCurrentProcessId() {
             }
             if (data.formulaOperators !== undefined) {
                 row.setAttribute('data-formula-operators', data.formulaOperators);
+            } else {
+                // If formulaOperators is not provided but formula text exists, try to preserve it
+                // This ensures sub rows can be edited even if formulaOperators was not set during creation
+                const formulaCell = cells[4];
+                if (formulaCell) {
+                    const formulaTextElement = formulaCell.querySelector('.formula-text');
+                    const formulaText = formulaTextElement ? formulaTextElement.textContent.trim() : '';
+                    // Only set if formula text exists and data-formula-operators is not already set
+                    if (formulaText && formulaText !== '' && !row.getAttribute('data-formula-operators')) {
+                        // Use the displayed formula text as fallback (may be converted values, but better than empty)
+                        row.setAttribute('data-formula-operators', formulaText);
+                        console.log('updateSubIdProductRow - Set data-formula-operators from displayed text:', formulaText);
+                    }
+                }
             }
             // sourceColumns no longer used, but keep for compatibility
             // IMPORTANT: If formula is empty, also clear sourceColumns to prevent regeneration
