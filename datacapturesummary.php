@@ -5688,7 +5688,7 @@ function getCurrentProcessId() {
                     }, editingRow);
                 }
             } else if (isSubIdProduct) {
-                // 点击的是某个 sub row 的 +：在该 Id Product 下"当前行之后"新增一条 sub 行
+                // 点击的是某个 sub row 的 +：在该 Id Product 下“当前行之后”新增一条 sub 行
                 const baseRow = currentButton ? currentButton.closest('tr') : null;
                 const newRow = addSubIdProductRow(processValue, baseRow);
                 const baseRowSourceCols = baseRow ? (baseRow.getAttribute('data-source-columns') || '') : '';
@@ -5697,10 +5697,6 @@ function getCurrentProcessId() {
                 // Get row_index from the new row (should be set by addSubIdProductRow)
                 const newRowIndex = newRow ? newRow.getAttribute('data-row-index') : null;
                 const rowIndexValue = (newRowIndex && newRowIndex !== '' && newRowIndex !== '999999') ? Number(newRowIndex) : null;
-                
-                // Get insert_after_sub_order from the new row (set by addSubIdProductRow)
-                const insertAfterSubOrderAttr = newRow ? newRow.getAttribute('data-insert-after-sub-order') : null;
-                const insertAfterSubOrderValue = (insertAfterSubOrderAttr && insertAfterSubOrderAttr !== '' && !Number.isNaN(Number(insertAfterSubOrderAttr))) ? Number(insertAfterSubOrderAttr) : null;
                 
                 updateSubIdProductRow(processValue, {
                     idProduct: processValue,
@@ -5722,8 +5718,7 @@ function getCurrentProcessId() {
                     enableInputMethod: enableValue,
                     enableSourcePercent: sourcePercentEnableValue,
                     productType: 'sub',
-                    rowIndex: rowIndexValue, // Pass row_index to preserve order
-                    insertAfterSubOrder: insertAfterSubOrderValue // Pass insert_after_sub_order to backend
+                    rowIndex: rowIndexValue // Pass row_index to preserve order
                 }, newRow);
 
                 // 记录刚创建的 sub 行，供后面的模板保存使用
@@ -5807,10 +5802,6 @@ function getCurrentProcessId() {
                     const newRowIndex2 = newRow ? newRow.getAttribute('data-row-index') : null;
                     const rowIndexValue2 = (newRowIndex2 && newRowIndex2 !== '' && newRowIndex2 !== '999999') ? Number(newRowIndex2) : null;
                     
-                    // Get insert_after_sub_order from the new row (set by addSubIdProductRow)
-                    const insertAfterSubOrderAttr2 = newRow ? newRow.getAttribute('data-insert-after-sub-order') : null;
-                    const insertAfterSubOrderValue2 = (insertAfterSubOrderAttr2 && insertAfterSubOrderAttr2 !== '' && !Number.isNaN(Number(insertAfterSubOrderAttr2))) ? Number(insertAfterSubOrderAttr2) : null;
-                    
                     updateSubIdProductRow(processValue, {
                         idProduct: processValue,
                         description: descriptionValue,
@@ -5831,8 +5822,7 @@ function getCurrentProcessId() {
                         enableInputMethod: enableValue,
                         enableSourcePercent: sourcePercentEnableValue,
                         productType: 'sub',
-                        rowIndex: rowIndexValue2, // Pass row_index to preserve order
-                        insertAfterSubOrder: insertAfterSubOrderValue2 // Pass insert_after_sub_order to backend
+                        rowIndex: rowIndexValue2 // Pass row_index to preserve order
                     }, newRow);
 
                     // 记录刚创建的 sub 行，供后面的模板保存使用
@@ -10282,56 +10272,22 @@ function getCurrentProcessId() {
                             subOrder = insertAfterSubOrder + 1.0;
                         }
                     } else {
-                        // No sub_order on insertAfterRow (it's a main row)
-                        // Find the first sub row after this main row to calculate the middle value
+                        // No sub_order on insertAfterRow, find max sub_order and add 1.0
                         const summaryTableBody = document.getElementById('summaryTableBody');
                         const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                        let firstSubOrderAfterMain = null;
-                        
-                        // Find the insertAfterRow's index
-                        let insertAfterIndex = -1;
+                        let maxSubOrder = 0;
                         for (let i = 0; i < allRows.length; i++) {
-                            if (allRows[i] === insertAfterRow) {
-                                insertAfterIndex = i;
-                                break;
-                            }
-                        }
-                        
-                        // Look for the first sub row after the main row
-                        if (insertAfterIndex >= 0) {
-                            for (let i = insertAfterIndex + 1; i < allRows.length; i++) {
-                                const otherRow = allRows[i];
-                                if (otherRow === row) continue; // Skip self
-                                
-                                // Check if this is a sub row of the same parent
-                                const otherProductType = otherRow.getAttribute('data-product-type') || 'main';
-                                if (otherProductType === 'sub') {
-                                    const otherSubOrderAttr = otherRow.getAttribute('data-sub-order');
-                                    if (otherSubOrderAttr && otherSubOrderAttr !== '' && !Number.isNaN(Number(otherSubOrderAttr))) {
-                                        firstSubOrderAfterMain = Number(otherSubOrderAttr);
-                                        break; // Found the first sub row after main
-                                    }
-                                }
-                                
-                                // If we hit another main row, stop searching
-                                const otherIdProductCell = otherRow.querySelector('td:first-child');
-                                if (otherIdProductCell) {
-                                    const otherProductValues = getProductValuesFromCell(otherIdProductCell);
-                                    if (otherProductValues.main && otherProductValues.main.trim()) {
-                                        break; // Hit another main row, stop
-                                    }
+                            const otherRow = allRows[i];
+                            if (otherRow === row) continue; // Skip self
+                            const otherSubOrderAttr = otherRow.getAttribute('data-sub-order');
+                            if (otherSubOrderAttr && otherSubOrderAttr !== '' && !Number.isNaN(Number(otherSubOrderAttr))) {
+                                const otherSubOrder = Number(otherSubOrderAttr);
+                                if (otherSubOrder > maxSubOrder) {
+                                    maxSubOrder = otherSubOrder;
                                 }
                             }
                         }
-                        
-                        if (firstSubOrderAfterMain !== null) {
-                            // Calculate middle value between 0 (main row position) and firstSubOrderAfterMain
-                            subOrder = firstSubOrderAfterMain / 2.0;
-                            insertAfterSubOrder = 0; // Mark that we're inserting after main row (position 0)
-                        } else {
-                            // No sub row found after main row, use 1.0 as first sub_order
-                            subOrder = 1.0;
-                        }
+                        subOrder = maxSubOrder + 1.0;
                     }
                 } else {
                     // No insertAfterRow, find max sub_order and add 1.0
@@ -10701,11 +10657,6 @@ function getCurrentProcessId() {
                 row.setAttribute('data-formula-variant', data.formulaVariant);
             } else {
                 row.removeAttribute('data-formula-variant');
-            }
-            
-            // Persist insert_after_sub_order (if provided) for template saving
-            if (data.insertAfterSubOrder !== undefined && data.insertAfterSubOrder !== null && !Number.isNaN(Number(data.insertAfterSubOrder))) {
-                row.setAttribute('data-insert-after-sub-order', String(Number(data.insertAfterSubOrder)));
             }
 
             row.setAttribute('data-product-type', data.productType || 'sub');
