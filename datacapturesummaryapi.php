@@ -270,43 +270,64 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     $hasProcessId = $processId !== null && $processId > 0;
     $dataCaptureId = isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null;
     
-    // Calculate sub_order for sub rows: find the maximum sub_order for the same parent and row_index, then add 1
-    // This ensures sub rows are ordered correctly within the same parent
+    // Calculate sub_order for sub rows: use the value provided by frontend (based on DOM position)
+    // This ensures sub rows are ordered correctly based on where they appear in the table, not creation time
     $subOrder = null;
     if ($productType === 'sub' && isset($row['row_index']) && $row['row_index'] !== null) {
         $rowIndex = (int)$row['row_index'];
-        // If sub_order is provided, use it (for updating existing records)
+        // If sub_order is provided by frontend, use it (it's calculated based on DOM position)
         if (isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '') {
             $subOrder = (int)$row['sub_order'];
         } else {
-            // Calculate next sub_order for this parent and row_index
-            $maxSubOrderStmt = $pdo->prepare("
-                SELECT MAX(sub_order) as max_sub_order FROM data_capture_templates 
-                WHERE company_id = :company_id
-                  AND process_id " . ($hasProcessId ? "= :process_id" : "IS NULL") . "
-                  AND product_type = 'sub'
-                  AND COALESCE(parent_id_product, '') = COALESCE(:parent_id_product, '')
-                  AND row_index = :row_index
-                  AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
-            ");
-            
-            $maxSubOrderParams = [
-                ':company_id' => $companyId,
-                ':parent_id_product' => $parentIdProduct,
-                ':row_index' => $rowIndex
-            ];
-            
-            if ($hasProcessId) {
-                $maxSubOrderParams[':process_id'] = $processId;
-            }
-            if ($dataCaptureId) {
-                $maxSubOrderParams[':data_capture_id'] = $dataCaptureId;
+            // If sub_order not provided, check if this is an update (has template_id)
+            // If updating, preserve existing sub_order; if creating new, calculate next available
+            $templateId = isset($row['template_id']) && !empty($row['template_id']) ? (int)$row['template_id'] : null;
+            if ($templateId) {
+                // Updating existing record: preserve existing sub_order
+                $existingStmt = $pdo->prepare("
+                    SELECT sub_order FROM data_capture_templates 
+                    WHERE id = :template_id AND company_id = :company_id
+                ");
+                $existingStmt->execute([
+                    ':template_id' => $templateId,
+                    ':company_id' => $companyId
+                ]);
+                $existingResult = $existingStmt->fetch();
+                if ($existingResult && $existingResult['sub_order'] !== null) {
+                    $subOrder = (int)$existingResult['sub_order'];
+                }
             }
             
-            $maxSubOrderStmt->execute($maxSubOrderParams);
-            $maxSubOrderResult = $maxSubOrderStmt->fetch();
-            $maxSubOrder = $maxSubOrderResult && $maxSubOrderResult['max_sub_order'] !== null ? (int)$maxSubOrderResult['max_sub_order'] : 0;
-            $subOrder = $maxSubOrder + 1;
+            // If still no sub_order (new record or existing record doesn't have one), calculate next available
+            if ($subOrder === null) {
+                $maxSubOrderStmt = $pdo->prepare("
+                    SELECT MAX(sub_order) as max_sub_order FROM data_capture_templates 
+                    WHERE company_id = :company_id
+                      AND process_id " . ($hasProcessId ? "= :process_id" : "IS NULL") . "
+                      AND product_type = 'sub'
+                      AND COALESCE(parent_id_product, '') = COALESCE(:parent_id_product, '')
+                      AND row_index = :row_index
+                      AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
+                ");
+                
+                $maxSubOrderParams = [
+                    ':company_id' => $companyId,
+                    ':parent_id_product' => $parentIdProduct,
+                    ':row_index' => $rowIndex
+                ];
+                
+                if ($hasProcessId) {
+                    $maxSubOrderParams[':process_id'] = $processId;
+                }
+                if ($dataCaptureId) {
+                    $maxSubOrderParams[':data_capture_id'] = $dataCaptureId;
+                }
+                
+                $maxSubOrderStmt->execute($maxSubOrderParams);
+                $maxSubOrderResult = $maxSubOrderStmt->fetch();
+                $maxSubOrder = $maxSubOrderResult && $maxSubOrderResult['max_sub_order'] !== null ? (int)$maxSubOrderResult['max_sub_order'] : 0;
+                $subOrder = $maxSubOrder + 1;
+            }
         }
     }
     

@@ -5114,6 +5114,7 @@ function getCurrentProcessId() {
             const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
             
             // Calculate sub_order for sub rows: find the position of this sub row among all sub rows with the same parent and row_index
+            // IMPORTANT: Use DOM position (not creation time) to determine sub_order
             let subOrder = null;
             if (productType === 'sub' && rowIndex !== null) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
@@ -5122,8 +5123,8 @@ function getCurrentProcessId() {
                     const normalizedParentId = normalizeIdProductText(parentIdProduct || '');
                     const sameParentRows = [];
                     
-                    // Find all sub rows with the same parent and row_index
-                    allRows.forEach((r) => {
+                    // Find all sub rows with the same parent and row_index, and record their DOM positions
+                    allRows.forEach((r, domIndex) => {
                         const rProductType = r.getAttribute('data-product-type') || 'main';
                         if (rProductType === 'sub') {
                             const rIdProductCell = r.querySelector('td:first-child');
@@ -5133,15 +5134,14 @@ function getCurrentProcessId() {
                             const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
                             
                             if (rParentId === normalizedParentId && rRowIndex === rowIndex) {
-                                const creationOrderAttr = r.getAttribute('data-creation-order');
-                                const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : 0;
-                                sameParentRows.push({ row: r, creationOrder });
+                                // Use DOM position (domIndex) instead of creation_order
+                                sameParentRows.push({ row: r, domIndex });
                             }
                         }
                     });
                     
-                    // Sort by creation_order to get the correct order
-                    sameParentRows.sort((a, b) => a.creationOrder - b.creationOrder);
+                    // Sort by DOM position to get the correct order (based on where they appear in the table)
+                    sameParentRows.sort((a, b) => a.domIndex - b.domIndex);
                     
                     // Find the index of current row in the sorted list
                     const currentRowIndex = sameParentRows.findIndex(item => item.row === row);
