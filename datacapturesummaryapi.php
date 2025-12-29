@@ -869,6 +869,30 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
         }
     }
 
+    // IMPORTANT: Sort sub rows by row_index to maintain correct order
+    // This ensures sub rows are displayed in the order they were added (based on row_index),
+    // not by creation time (id)
+    foreach ($templates as $parentId => &$templateData) {
+        if (!empty($templateData['subs'])) {
+            usort($templateData['subs'], function($a, $b) {
+                // First sort by row_index (where user added the data in Data Capture Table)
+                $aRowIndex = isset($a['row_index']) && $a['row_index'] !== null ? (int)$a['row_index'] : 999999;
+                $bRowIndex = isset($b['row_index']) && $b['row_index'] !== null ? (int)$b['row_index'] : 999999;
+                
+                if ($aRowIndex !== $bRowIndex) {
+                    return $aRowIndex - $bRowIndex;
+                }
+                
+                // If same row_index, sort by id (database primary key) to maintain relative order
+                // This ensures rows added at the same position maintain their insertion order
+                $aId = isset($a['id']) ? (int)$a['id'] : 0;
+                $bId = isset($b['id']) ? (int)$b['id'] : 0;
+                return $aId - $bId;
+            });
+        }
+    }
+    unset($templateData); // Unset reference to avoid accidental modification
+
     return $templates;
 }
 

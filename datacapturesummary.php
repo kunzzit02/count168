@@ -12645,16 +12645,13 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             targetRow = newRow;
             console.log('Created new sub row for template with row_index:', templateRowIndex, 'creation-order:', creationOrder, 'templateIndex:', templateIndex);
         } else {
-            // If updating existing row, preserve its existing creation-order if it has one
-            // Only set if missing to maintain the original order
-            if (!targetRow.getAttribute('data-creation-order')) {
-                const baseTime = Date.now() - validSubTemplates.length * 1000;
-                const creationOrder = baseTime + templateIndex * 1000;
-                targetRow.setAttribute('data-creation-order', String(creationOrder));
-                console.log('Set missing creation-order on existing sub row:', creationOrder);
-            } else {
-                console.log('Preserving existing creation-order on sub row:', targetRow.getAttribute('data-creation-order'));
-            }
+            // IMPORTANT: Update creation-order to reflect the sorted order from database
+            // This ensures sub rows are displayed in the correct order based on row_index, not creation time
+            // Use templateIndex to maintain the order from the sorted validSubTemplates array
+            const baseTime = Date.now() - validSubTemplates.length * 1000;
+            const creationOrder = baseTime + templateIndex * 1000;
+            targetRow.setAttribute('data-creation-order', String(creationOrder));
+            console.log('Updated creation-order on existing sub row to reflect sorted order:', creationOrder, 'templateIndex:', templateIndex);
             console.log('Updating existing sub row instead of creating new one');
         }
 
