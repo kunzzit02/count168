@@ -9279,8 +9279,17 @@ function getCurrentProcessId() {
             input.focus();
             input.select();
             
+            // Flag to prevent multiple calls to saveEdit/cancelEdit
+            let isProcessing = false;
+            
             // Save function
             const saveEdit = () => {
+                // Prevent multiple calls
+                if (isProcessing) {
+                    console.log('saveEdit already processing, skipping');
+                    return;
+                }
+                isProcessing = true;
                 const newFormulaValue = input.value.trim();
                 
                 // Compare with original formula value (data-formula-operators)
@@ -9434,8 +9443,86 @@ function getCurrentProcessId() {
                     showNotification('Success', 'Formula updated successfully!', 'success');
                 } else {
                     // No changes made, just restore original content
-                    input.remove();
-                    formulaContent.innerHTML = originalContentHTML;
+                    if (input && input.parentNode) {
+                        input.remove();
+                    }
+                    
+                    // Restore original content - ensure it's not empty
+                    if (originalContentHTML && originalContentHTML.trim() !== '') {
+                        formulaContent.innerHTML = originalContentHTML;
+                    } else {
+                        // If originalContentHTML is empty, try to restore from stored values
+                        const storedFormulaOperators = row.getAttribute('data-formula-operators') || '';
+                        const displayedFormulaText = storedFormulaOperators || '';
+                        const inputMethod = row.getAttribute('data-input-method') || '';
+                        const inputMethodTooltip = inputMethod || '';
+                        
+                        if (displayedFormulaText) {
+                            // Convert $数字 to display format if needed
+                            const processValue = getProcessValueFromRow(row);
+                            let displayFormula = displayedFormulaText;
+                            
+                            if (processValue && displayedFormulaText && /\$(\d+)(?!\d)/.test(displayedFormulaText)) {
+                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                if (rowLabel) {
+                                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                                    const dollarMatches = [];
+                                    let match;
+                                    dollarPattern.lastIndex = 0;
+                                    
+                                    while ((match = dollarPattern.exec(displayedFormulaText)) !== null) {
+                                        const fullMatch = match[0];
+                                        const columnNumber = parseInt(match[1]);
+                                        const matchIndex = match.index;
+                                        
+                                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                                            dollarMatches.push({
+                                                fullMatch: fullMatch,
+                                                columnNumber: columnNumber,
+                                                index: matchIndex
+                                            });
+                                        }
+                                    }
+                                    
+                                    dollarMatches.sort((a, b) => b.index - a.index);
+                                    
+                                    for (let i = 0; i < dollarMatches.length; i++) {
+                                        const dollarMatch = dollarMatches[i];
+                                        const columnReference = rowLabel + dollarMatch.columnNumber;
+                                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                        
+                                        if (columnValue !== null) {
+                                            const valueStr = String(columnValue);
+                                            displayFormula = displayFormula.substring(0, dollarMatch.index) + 
+                                                           valueStr + 
+                                                           displayFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                                        } else {
+                                            displayFormula = displayFormula.substring(0, dollarMatch.index) + 
+                                                           '0' + 
+                                                           displayFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            const sourcePercentCell = cells[5];
+                            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
+                            const currentSourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(sourcePercentText || '1');
+                            const currentEnableSourcePercent = currentSourcePercentDecimal && currentSourcePercentDecimal.trim() !== '' && currentSourcePercentDecimal !== '0';
+                            const newFormulaDisplay = createFormulaDisplayFromExpression(displayFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
+                            
+                            formulaContent.innerHTML = `
+                                <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${newFormulaDisplay}</span>
+                                <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                            `;
+                        } else {
+                            // Empty formula
+                            formulaContent.innerHTML = `
+                                <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}></span>
+                                <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                            `;
+                        }
+                    }
                     
                     // Reattach double-click event listener
                     attachInlineEditListeners(row);
@@ -9447,14 +9534,104 @@ function getCurrentProcessId() {
                 formulaContent.style.display = '';
                 formulaContent.style.margin = '';
                 formulaContent.style.padding = '';
+                
+                // Reset processing flag after a short delay to allow DOM updates
+                setTimeout(() => {
+                    isProcessing = false;
+                }, 100);
             };
             
             // Cancel function
             const cancelEdit = () => {
-                input.remove();
+                // Prevent multiple calls
+                if (isProcessing) {
+                    console.log('cancelEdit already processing, skipping');
+                    return;
+                }
+                isProcessing = true;
                 
-                // Restore original content
-                formulaContent.innerHTML = originalContentHTML;
+                // Check if input still exists before removing
+                if (input && input.parentNode) {
+                    input.remove();
+                }
+                
+                // Restore original content - ensure formula text is preserved
+                if (originalContentHTML && originalContentHTML.trim() !== '') {
+                    formulaContent.innerHTML = originalContentHTML;
+                } else {
+                    // If originalContentHTML is empty, try to restore from data-formula-operators
+                    const storedFormulaOperators = row.getAttribute('data-formula-operators') || '';
+                    const displayedFormulaText = storedFormulaOperators || '';
+                    const inputMethod = row.getAttribute('data-input-method') || '';
+                    const inputMethodTooltip = inputMethod || '';
+                    
+                    if (displayedFormulaText) {
+                        // Try to convert $数字 to display format if needed
+                        const processValue = getProcessValueFromRow(row);
+                        let displayFormula = displayedFormulaText;
+                        
+                        // If formula contains $数字 references, convert them to actual values
+                        if (processValue && displayedFormulaText && /\$(\d+)(?!\d)/.test(displayedFormulaText)) {
+                            const rowLabel = getRowLabelFromProcessValue(processValue);
+                            if (rowLabel) {
+                                const dollarPattern = /\$(\d+)(?!\d)/g;
+                                const dollarMatches = [];
+                                let match;
+                                dollarPattern.lastIndex = 0;
+                                
+                                while ((match = dollarPattern.exec(displayedFormulaText)) !== null) {
+                                    const fullMatch = match[0];
+                                    const columnNumber = parseInt(match[1]);
+                                    const matchIndex = match.index;
+                                    
+                                    if (!isNaN(columnNumber) && columnNumber > 0) {
+                                        dollarMatches.push({
+                                            fullMatch: fullMatch,
+                                            columnNumber: columnNumber,
+                                            index: matchIndex
+                                        });
+                                    }
+                                }
+                                
+                                dollarMatches.sort((a, b) => b.index - a.index);
+                                
+                                for (let i = 0; i < dollarMatches.length; i++) {
+                                    const dollarMatch = dollarMatches[i];
+                                    const columnReference = rowLabel + dollarMatch.columnNumber;
+                                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                    
+                                    if (columnValue !== null) {
+                                        const valueStr = String(columnValue);
+                                        displayFormula = displayFormula.substring(0, dollarMatch.index) + 
+                                                       valueStr + 
+                                                       displayFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                                    } else {
+                                        displayFormula = displayFormula.substring(0, dollarMatch.index) + 
+                                                       '0' + 
+                                                       displayFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        const sourcePercentCell = cells[5];
+                        const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '';
+                        const currentSourcePercentDecimal = row.getAttribute('data-source-percent') || convertDisplayPercentToDecimal(sourcePercentText || '1');
+                        const currentEnableSourcePercent = currentSourcePercentDecimal && currentSourcePercentDecimal.trim() !== '' && currentSourcePercentDecimal !== '0';
+                        const newFormulaDisplay = createFormulaDisplayFromExpression(displayFormula, currentSourcePercentDecimal, currentEnableSourcePercent);
+                        
+                        formulaContent.innerHTML = `
+                            <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${newFormulaDisplay}</span>
+                            <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                        `;
+                    } else {
+                        // Empty formula
+                        formulaContent.innerHTML = `
+                            <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}></span>
+                            <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                        `;
+                    }
+                }
                 
                 // Reattach double-click event listener
                 attachInlineEditListeners(row);
@@ -9465,20 +9642,36 @@ function getCurrentProcessId() {
                 formulaContent.style.display = '';
                 formulaContent.style.margin = '';
                 formulaContent.style.padding = '';
+                
+                // Reset processing flag
+                setTimeout(() => {
+                    isProcessing = false;
+                }, 100);
             };
             
             // Save on Enter or blur
             input.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    e.stopPropagation();
                     saveEdit();
                 } else if (e.key === 'Escape') {
                     e.preventDefault();
+                    e.stopPropagation();
                     cancelEdit();
                 }
             });
             
-            input.addEventListener('blur', saveEdit);
+            // Use setTimeout to delay blur handling, allowing click events to process first
+            input.addEventListener('blur', function(e) {
+                // Use setTimeout to allow other events (like clicks) to process first
+                setTimeout(() => {
+                    // Check if input still exists and is still in the DOM
+                    if (input && input.parentNode && document.contains(input)) {
+                        saveEdit();
+                    }
+                }, 200);
+            });
         }
         
         // Enable inline editing for Source % column (double-click)
