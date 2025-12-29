@@ -536,6 +536,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 process_id = :process_id,
                 data_capture_id = :data_capture_id,
                 row_index = :row_index,
+                sub_order = :sub_order,
                 formula_variant = :formula_variant,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = :id
@@ -566,6 +567,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             ':process_id' => $processId,
             ':data_capture_id' => $dataCaptureId,
             ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
+            ':sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (float)$row['sub_order'] : null,
             ':formula_variant' => $formulaVariant,
         ]);
         return [
@@ -601,6 +603,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             process_id,
             data_capture_id,
             row_index,
+            sub_order,
             formula_variant
         ) VALUES (
             :company_id,
@@ -627,6 +630,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             :process_id,
             :data_capture_id,
             :row_index,
+            :sub_order,
             :formula_variant
         )
         ON DUPLICATE KEY UPDATE
@@ -652,6 +656,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             process_id = VALUES(process_id),
             data_capture_id = VALUES(data_capture_id),
             row_index = VALUES(row_index),
+            sub_order = VALUES(sub_order),
             formula_variant = VALUES(formula_variant),
             updated_at = CURRENT_TIMESTAMP
     ");
@@ -681,6 +686,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
         ':process_id' => $processId,
         ':data_capture_id' => isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null,
         ':row_index' => isset($row['row_index']) ? (int)$row['row_index'] : null,
+        ':sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (float)$row['sub_order'] : null,
         ':formula_variant' => $formulaVariant,
     ]);
     
@@ -739,6 +745,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             process_id,
             data_capture_id,
             row_index,
+            sub_order,
             formula_variant,
             updated_at
         FROM data_capture_templates
@@ -757,6 +764,8 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                  CASE WHEN row_index IS NULL THEN 1 ELSE 0 END,
                  row_index ASC,
                  product_type ASC,
+                 CASE WHEN sub_order IS NULL THEN 1 ELSE 0 END,
+                 sub_order ASC,
                  formula_variant ASC,
                  id ASC
     ");
@@ -971,6 +980,7 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'data_capture_id' => isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null,
             // Preserve row position in summary table if provided
             'row_index' => isset($row['row_index']) && $row['row_index'] !== null ? (int)$row['row_index'] : null,
+            'sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (float)$row['sub_order'] : null,
             // Pass template_id and formula_variant for editing existing templates
             'template_id' => isset($row['template_id']) && !empty($row['template_id']) ? (int)$row['template_id'] : null,
             'formula_variant' => isset($row['formula_variant']) && $row['formula_variant'] !== null && $row['formula_variant'] !== '' ? (int)$row['formula_variant'] : null,
