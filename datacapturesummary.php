@@ -10193,35 +10193,79 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Insert after the row
-                insertAfterRow.insertAdjacentElement('afterend', row);
-                
-                // Set row_index on the new row
+                // Set row_index on the new row BEFORE inserting (so we can calculate creation order correctly)
                 if (newRowIndex !== null) {
                     row.setAttribute('data-row-index', String(newRowIndex));
-                    console.log('Inserted sub row after row at index:', insertAfterIndex, 'using row_index:', newRowIndex, 'from insertAfterRow');
                 } else {
                     // Fallback: use current position in Summary Table (should rarely happen)
-                    const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
-                    const fallbackIndex = Array.from(allRowsAfterInsert).indexOf(row);
+                    const fallbackIndex = insertAfterIndex + 1;
                     row.setAttribute('data-row-index', String(fallbackIndex));
                     console.warn('Inserted sub row but could not get row_index from insertAfterRow, using fallback:', fallbackIndex);
                 }
                 
-                // Set creation order based on insertion position
-                // Get creation order from the row we inserted after, and use a value slightly larger
-                // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
+                // Calculate creation order to ensure new row appears right after insertAfterRow
+                // Find all rows with the same row_index and same parent, then calculate the correct position
                 let creationOrder = Date.now();
-                if (insertAfterRow) {
+                if (insertAfterRow && newRowIndex !== null) {
                     const insertAfterCreationOrderAttr = insertAfterRow.getAttribute('data-creation-order');
                     if (insertAfterCreationOrderAttr) {
                         const insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
-                        // Use a value slightly larger than the row we inserted after
-                        // This ensures new row appears right after it when rows have same row_index
-                        creationOrder = insertAfterCreationOrder + 1;
+                        
+                        // Get parent id_product for filtering (sub rows should only compare with rows of same parent)
+                        const insertAfterParentIdProduct = insertAfterRow.getAttribute('data-parent-id-product') || 
+                                                          (insertAfterRow.querySelector('td:first-child') ? 
+                                                           normalizeIdProductText(getProductValuesFromCell(insertAfterRow.querySelector('td:first-child')).main || '') : '');
+                        
+                        // Find the next row after insertAfterRow that has the same row_index and same parent
+                        // This helps us determine where to place the new row
+                        let nextRowWithSameIndex = null;
+                        for (let i = insertAfterIndex + 1; i < rows.length; i++) {
+                            const checkRow = rows[i];
+                            const checkRowIndexAttr = checkRow.getAttribute('data-row-index');
+                            if (checkRowIndexAttr !== null && checkRowIndexAttr !== '' && !Number.isNaN(Number(checkRowIndexAttr))) {
+                                const checkRowIndex = Number(checkRowIndexAttr);
+                                
+                                // Check if this row belongs to the same parent (for sub rows)
+                                const checkParentIdProduct = checkRow.getAttribute('data-parent-id-product') || 
+                                                             (checkRow.querySelector('td:first-child') ? 
+                                                              normalizeIdProductText(getProductValuesFromCell(checkRow.querySelector('td:first-child')).main || '') : '');
+                                
+                                if (checkRowIndex === newRowIndex && checkParentIdProduct === insertAfterParentIdProduct) {
+                                    // Found next row with same row_index and same parent
+                                    const checkCreationOrderAttr = checkRow.getAttribute('data-creation-order');
+                                    if (checkCreationOrderAttr) {
+                                        const checkCreationOrder = Number(checkCreationOrderAttr);
+                                        // Place new row between insertAfterRow and nextRowWithSameIndex
+                                        // Use a value between the two, ensuring it's not equal to either
+                                        creationOrder = (insertAfterCreationOrder + checkCreationOrder) / 2;
+                                        // If the values are too close, add a small increment
+                                        if (Math.abs(creationOrder - insertAfterCreationOrder) < 0.0001) {
+                                            creationOrder = insertAfterCreationOrder + 0.0001;
+                                        }
+                                        break;
+                                    }
+                                } else if (checkRowIndex > newRowIndex) {
+                                    // We've moved past rows with same row_index
+                                    break;
+                                } else if (checkRowIndex === newRowIndex && checkParentIdProduct !== insertAfterParentIdProduct) {
+                                    // Same row_index but different parent, continue searching
+                                    continue;
+                                }
+                            }
+                        }
+                        
+                        // If no next row found with same row_index and same parent, use a value slightly larger
+                        if (creationOrder === Date.now() || Math.abs(creationOrder - insertAfterCreationOrder) < 0.0001) {
+                            creationOrder = insertAfterCreationOrder + 1;
+                        }
                     }
                 }
+                
+                // Insert after the row
+                insertAfterRow.insertAdjacentElement('afterend', row);
                 row.setAttribute('data-creation-order', String(creationOrder));
+                
+                console.log('Inserted sub row after row at index:', insertAfterIndex, 'using row_index:', newRowIndex, 'creation_order:', creationOrder);
             } else {
                 // Fallback: append to the end
                 summaryTableBody.appendChild(row);
@@ -12358,6 +12402,8 @@ function reorderSummaryRowsByRowIndex() {
                 }
                 // If same row_index, use creation order to maintain stable order
                 // This ensures rows added at the same position maintain their relative order
+                // IMPORTANT: creationOrder is set when row is added, so rows added later will have larger creationOrder
+                // This means rows are sorted by when they were added, not by when they were created in database
                 return a.creationOrder - b.creationOrder;
             });
             return {
