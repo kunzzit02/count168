@@ -10530,8 +10530,9 @@ function getCurrentProcessId() {
                     subOrder = maxSubOrder > 0 ? maxSubOrder + 1 : 1;
                 }
                 
-                // Ensure subOrder is at least 1
-                if (subOrder < 1) {
+                // Ensure subOrder is valid (greater than 0)
+                // Allow values less than 1 (0.1, 0.2, etc.) for inserting between main row and first sub row
+                if (subOrder <= 0 || isNaN(subOrder)) {
                     subOrder = 1;
                 }
                 
