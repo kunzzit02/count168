@@ -1027,10 +1027,17 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             'data_capture_id' => isset($row['data_capture_id']) && !empty($row['data_capture_id']) ? (int)$row['data_capture_id'] : null,
             // Preserve row position in summary table if provided
             'row_index' => isset($row['row_index']) && $row['row_index'] !== null ? (int)$row['row_index'] : null,
+            // Preserve sub_order for sub rows to maintain correct order
+            'sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (int)$row['sub_order'] : null,
             // Pass template_id and formula_variant for editing existing templates
             'template_id' => isset($row['template_id']) && !empty($row['template_id']) ? (int)$row['template_id'] : null,
             'formula_variant' => isset($row['formula_variant']) && $row['formula_variant'] !== null && $row['formula_variant'] !== '' ? (int)$row['formula_variant'] : null,
         ];
+        
+        // Debug: Log sub_order for sub rows
+        if (($templatePayload['product_type'] ?? 'main') === 'sub') {
+            error_log('Saving sub row template - sub_order: ' . ($templatePayload['sub_order'] ?? 'NULL') . ', row_index: ' . ($templatePayload['row_index'] ?? 'NULL') . ', parent_id_product: ' . ($templatePayload['parent_id_product'] ?? 'NULL'));
+        }
         
         $templateResult = saveTemplateRow($pdo, $templatePayload, $company_id);
         

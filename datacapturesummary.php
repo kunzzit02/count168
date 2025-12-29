@@ -5115,12 +5115,45 @@ function getCurrentProcessId() {
             
             // Calculate sub_order for sub rows: find the position of this sub row among all sub rows with the same parent and row_index
             // IMPORTANT: Use DOM position (not creation time) to determine sub_order
+            // First, try to use existing data-sub-order attribute if available
             let subOrder = null;
-            if (productType === 'sub' && rowIndex !== null) {
+            if (productType === 'sub') {
+                const existingSubOrderAttr = row.getAttribute('data-sub-order');
+                if (existingSubOrderAttr && !Number.isNaN(Number(existingSubOrderAttr))) {
+                    subOrder = Number(existingSubOrderAttr);
+                    console.log('Using existing data-sub-order:', subOrder);
+                }
+            }
+            
+            // If no existing sub_order and rowIndex is available, calculate it
+            if (subOrder === null && productType === 'sub' && rowIndex !== null) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                    const normalizedParentId = normalizeIdProductText(parentIdProduct || '');
+                    
+                    // Get parent id_product from multiple sources and normalize
+                    let actualParentId = parentIdProduct;
+                    if (!actualParentId || actualParentId.trim() === '') {
+                        // Try to get from row attribute
+                        actualParentId = row.getAttribute('data-parent-id-product');
+                    }
+                    if (!actualParentId || actualParentId.trim() === '') {
+                        // Try to get from idProductMain
+                        actualParentId = idProductMain;
+                    }
+                    if (!actualParentId || actualParentId.trim() === '') {
+                        // Last resort: try to get from cell (for sub rows, main text is the parent)
+                        const idProductCell = row.querySelector('td:first-child');
+                        if (idProductCell) {
+                            const productValues = getProductValuesFromCell(idProductCell);
+                            actualParentId = productValues.main || '';
+                        }
+                    }
+                    
+                    // Normalize parent id (remove leading numbers like "1 AA" -> "AA")
+                    const normalizedParentId = normalizeIdProductText(actualParentId || '');
+                    console.log('Calculating sub_order - parentIdProduct:', parentIdProduct, 'actualParentId:', actualParentId, 'normalizedParentId:', normalizedParentId, 'rowIndex:', rowIndex);
+                    
                     const sameParentRows = [];
                     
                     // Find all sub rows with the same parent and row_index, and record their DOM positions
@@ -5139,6 +5172,8 @@ function getCurrentProcessId() {
                         }
                     });
                     
+                    console.log('Found', sameParentRows.length, 'sub rows with same parent and row_index');
+                    
                     // Sort by DOM position to get the correct order (based on where they appear in Summary Table)
                     sameParentRows.sort((a, b) => {
                         const aIndex = Array.from(allRows).indexOf(a);
@@ -5150,8 +5185,15 @@ function getCurrentProcessId() {
                     const currentRowIndex = sameParentRows.indexOf(row);
                     if (currentRowIndex >= 0) {
                         subOrder = currentRowIndex + 1; // sub_order starts from 1
-                        console.log('Calculated sub_order:', subOrder, 'for sub row of parent:', normalizedParentId, 'row_index:', rowIndex);
+                        console.log('Calculated sub_order:', subOrder, 'for sub row of parent:', normalizedParentId, 'row_index:', rowIndex, 'total same parent rows:', sameParentRows.length);
+                    } else {
+                        console.warn('Current row not found in sameParentRows, using fallback sub_order calculation');
+                        // Fallback: use position in all sub rows with same parent
+                        subOrder = sameParentRows.length + 1;
+                        console.log('Using fallback sub_order:', subOrder);
                     }
+                } else {
+                    console.warn('summaryTableBody not found, cannot calculate sub_order');
                 }
             }
             
@@ -5203,6 +5245,11 @@ function getCurrentProcessId() {
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
                 const url = 'datacapturesummaryapi.php?action=save_template';
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
+                
+                // Debug: Log sub_order before sending
+                if (rowData.product_type === 'sub') {
+                    console.log('Saving sub row template - sub_order:', rowData.sub_order, 'row_index:', rowData.row_index, 'parent_id_product:', rowData.parent_id_product);
+                }
                 
                 const response = await fetch(finalUrl, {
                     method: 'POST',
