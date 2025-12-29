@@ -5007,8 +5007,6 @@ function getCurrentProcessId() {
             // CRITICAL: Always use the existing data-row-index attribute, which was set based on Data Capture Table position
             // Do NOT use Summary Table position, as it may have changed due to sorting
             let rowIndex = null;
-            let subOrder = null; // For sub rows, track insertion order within same row_index
-            
             try {
                 // First, try to use existing data-row-index attribute (most reliable)
                 const existingRowIndex = row.getAttribute('data-row-index');
@@ -5018,45 +5016,6 @@ function getCurrentProcessId() {
                         // Use existing row_index (set based on Data Capture Table position)
                         rowIndex = existingIndexNum;
                         console.log('Using existing data-row-index:', rowIndex, 'for id_product:', formData.processValue || 'unknown');
-                        
-                        // For sub rows, calculate sub_order based on position in DOM
-                        // This ensures new sub rows maintain their insertion order
-                        if (productType === 'sub') {
-                            const summaryTableBody = document.getElementById('summaryTableBody');
-                            if (summaryTableBody) {
-                                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                                const currentRowIndex = allRows.indexOf(row);
-                                
-                                // Count how many sub rows with same row_index and parent_id_product appear before this row
-                                let orderCount = 0;
-                                const parentIdProduct = idProductMain || normalizeIdProductText(formData.processValue);
-                                const normalizedParentId = normalizeIdProductText(parentIdProduct);
-                                
-                                for (let i = 0; i < currentRowIndex; i++) {
-                                    const otherRow = allRows[i];
-                                    const otherRowIndexAttr = otherRow.getAttribute('data-row-index');
-                                    const otherProductType = otherRow.getAttribute('data-product-type') || 'main';
-                                    
-                                    if (otherProductType === 'sub' && otherRowIndexAttr !== null && otherRowIndexAttr !== '' && !Number.isNaN(Number(otherRowIndexAttr))) {
-                                        const otherRowIndex = Number(otherRowIndexAttr);
-                                        if (otherRowIndex === rowIndex) {
-                                            // Check if it belongs to the same parent
-                                            const otherIdProductCell = otherRow.querySelector('td:first-child');
-                                            if (otherIdProductCell) {
-                                                const otherProductValues = getProductValuesFromCell(otherIdProductCell);
-                                                const otherParentId = otherRow.getAttribute('data-parent-id-product');
-                                                const normalizedOtherParent = normalizeIdProductText(otherParentId || otherProductValues.main || '');
-                                                if (normalizedOtherParent === normalizedParentId) {
-                                                    orderCount++;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                subOrder = orderCount;
-                                console.log('Calculated sub_order:', subOrder, 'for sub row with row_index:', rowIndex);
-                            }
-                        }
                     }
                 }
                 
@@ -5181,7 +5140,6 @@ function getCurrentProcessId() {
                 template_key: templateKey,
                 process_id: getCurrentProcessId(),
                 row_index: rowIndex,
-                sub_order: subOrder, // Pass sub_order to maintain insertion order within same row_index
                 formula_variant: formulaVariant, // Pass formula_variant to backend
                 template_id: templateId // Pass template_id to backend for editing existing templates
             };
@@ -12546,16 +12504,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (aRowIndex !== bRowIndex) {
             return aRowIndex - bRowIndex;
         }
-        // If same row_index, sort by created_at first (reflects insertion order), then by id as fallback
-        // created_at is more reliable than id for maintaining insertion order
-        if (a.created_at && b.created_at) {
-            const aCreated = new Date(a.created_at).getTime();
-            const bCreated = new Date(b.created_at).getTime();
-            if (aCreated !== bCreated) {
-                return aCreated - bCreated;
-            }
-        }
-        // Fallback to id if created_at is not available or same
+        // If same row_index, sort by id (database primary key) to maintain relative order
+        // id is auto-increment, so it reflects the creation order
         const aId = a.id || 0;
         const bId = b.id || 0;
         return aId - bId;
@@ -12582,26 +12532,18 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
     // 在同一个 Id Product 分组内部，根据 row_index 寻找"最近的 main 行"作为插入基准，
     // 这样既保证分组不乱，又能尽量还原之前的 vertical 位置。
-    // IMPORTANT: Track the last inserted row for each row_index to maintain insertion order
-    const lastRowByRowIndex = new Map();
+    let lastRowInGroup = mainRow;
 
     validSubTemplates.forEach((template, templateIndex) => {
-        let insertAfterRow = mainRow;
-        const templateRowIndex = (template.row_index !== undefined && template.row_index !== null)
-            ? Number(template.row_index)
-            : null;
+        let insertAfterRow = lastRowInGroup;
 
-        if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
-            // Check if we've already inserted a row with this row_index
-            // If yes, insert after the last one to maintain insertion order
-            if (lastRowByRowIndex.has(templateRowIndex)) {
-                insertAfterRow = lastRowByRowIndex.get(templateRowIndex);
-            } else {
-                // First row with this row_index: find the appropriate main row to insert after
+        if (template.row_index !== undefined && template.row_index !== null) {
+            const desiredIndex = Number(template.row_index);
+            if (!Number.isNaN(desiredIndex)) {
                 // 在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
                 let best = null;
                 for (const info of groupRows) {
-                    if (info.index <= templateRowIndex) {
+                    if (info.index <= desiredIndex) {
                         if (!best || info.index > best.index) {
                             best = info;
                         }
@@ -12609,28 +12551,6 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 }
                 if (best) {
                     insertAfterRow = best.row;
-                }
-                
-                // Also check if there are existing sub rows with the same row_index in the DOM
-                // If yes, insert after the last existing sub row with this row_index
-                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                for (let i = allRows.length - 1; i >= 0; i--) {
-                    const row = allRows[i];
-                    const rowIndexAttr = row.getAttribute('data-row-index');
-                    if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
-                        const rowIndex = Number(rowIndexAttr);
-                        if (rowIndex === templateRowIndex) {
-                            // Check if this row belongs to the same parent id_product
-                            const idProductCell = row.querySelector('td:first-child');
-                            const productValues = getProductValuesFromCell(idProductCell);
-                            const mainText = normalizeIdProductText(productValues.main || '');
-                            if (mainText === normalizedTargetId || !productValues.main) {
-                                // Found existing sub row with same row_index
-                                insertAfterRow = row;
-                                break;
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -12716,19 +12636,13 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 return;
             }
             // Set creation order based on template index to maintain stable order when loading from database
-            // Since templates are now sorted by row_index and id, use templateIndex to preserve order
+            // Since templates are now sorted by row_index and updated_at, use templateIndex to preserve order
             // Use a base timestamp plus templateIndex * 1000 to ensure correct relative order
             // This ensures sub rows with same row_index maintain their relative order from database
             const baseTime = Date.now() - validSubTemplates.length * 1000;
             const creationOrder = baseTime + templateIndex * 1000;
             newRow.setAttribute('data-creation-order', String(creationOrder));
             targetRow = newRow;
-            
-            // Update lastRowByRowIndex to track insertion order for this row_index
-            if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
-                lastRowByRowIndex.set(templateRowIndex, newRow);
-            }
-            
             console.log('Created new sub row for template with row_index:', templateRowIndex, 'creation-order:', creationOrder, 'templateIndex:', templateIndex);
         } else {
             // If updating existing row, preserve its existing creation-order if it has one
@@ -12741,25 +12655,6 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             } else {
                 console.log('Preserving existing creation-order on sub row:', targetRow.getAttribute('data-creation-order'));
             }
-            
-            // Update lastRowByRowIndex for existing rows too, to maintain order
-            // Check if this row should be considered as the last row for this row_index
-            if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
-                const currentLast = lastRowByRowIndex.get(templateRowIndex);
-                // If no current last row for this row_index, or this row is after the current last, update it
-                if (!currentLast) {
-                    lastRowByRowIndex.set(templateRowIndex, targetRow);
-                } else {
-                    // Check if targetRow appears after currentLast in DOM
-                    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                    const currentLastIndex = allRows.indexOf(currentLast);
-                    const targetRowIndex = allRows.indexOf(targetRow);
-                    if (targetRowIndex > currentLastIndex) {
-                        lastRowByRowIndex.set(templateRowIndex, targetRow);
-                    }
-                }
-            }
-            
             console.log('Updating existing sub row instead of creating new one');
         }
 
