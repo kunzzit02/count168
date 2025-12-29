@@ -12532,6 +12532,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
     // 在同一个 Id Product 分组内部，根据 row_index 寻找"最近的 main 行"作为插入基准，
     // 这样既保证分组不乱，又能尽量还原之前的 vertical 位置。
+    // IMPORTANT: lastRowInGroup 会随着子行的插入而更新，确保子行按照 row_index 顺序插入
     let lastRowInGroup = mainRow;
 
     validSubTemplates.forEach((template, templateIndex) => {
@@ -12540,17 +12541,82 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (template.row_index !== undefined && template.row_index !== null) {
             const desiredIndex = Number(template.row_index);
             if (!Number.isNaN(desiredIndex)) {
-                // 在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
-                let best = null;
-                for (const info of groupRows) {
-                    if (info.index <= desiredIndex) {
-                        if (!best || info.index > best.index) {
-                            best = info;
+                // 由于子模板已经按照 row_index 排序，我们应该按照顺序插入子行
+                // 如果 lastRowInGroup 已经是子行，且它的 row_index <= desiredIndex，使用它作为插入基准
+                // 这样可以确保子行按照 row_index 顺序插入
+                const lastRowIndexAttr = lastRowInGroup.getAttribute('data-row-index');
+                if (lastRowIndexAttr !== null && lastRowIndexAttr !== '' && !Number.isNaN(Number(lastRowIndexAttr))) {
+                    const lastRowIndex = Number(lastRowIndexAttr);
+                    const lastRowProductType = lastRowInGroup.getAttribute('data-product-type') || 'main';
+                    // 如果 lastRowInGroup 是子行且 row_index <= desiredIndex，使用它
+                    if (lastRowProductType === 'sub' && lastRowIndex <= desiredIndex) {
+                        insertAfterRow = lastRowInGroup;
+                    } else {
+                        // 否则，查找所有已存在的子行，找到 row_index <= desiredIndex 且最接近的那一行
+                        const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                        let bestSubRow = null;
+                        let bestSubRowIndex = -1;
+                        let bestSubRowCreationOrder = -1;
+                        
+                        for (const row of allRows) {
+                            const productType = row.getAttribute('data-product-type') || 'main';
+                            if (productType !== 'sub') continue; // 只检查子行
+                            
+                            const rowIndexAttr = row.getAttribute('data-row-index');
+                            if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
+                                const rowIndex = Number(rowIndexAttr);
+                                // 检查这个行是否属于同一个 id_product 组
+                                const idProductCell = row.querySelector('td:first-child');
+                                const productValues = getProductValuesFromCell(idProductCell);
+                                const mainText = normalizeIdProductText(productValues.main || '');
+                                if (mainText && mainText === normalizedTargetId) {
+                                    // 查找 row_index <= desiredIndex 且最接近的子行
+                                    // 如果有多个子行有相同的 row_index，选择 creationOrder 最大的（最后插入的）
+                                    const creationOrderAttr = row.getAttribute('data-creation-order');
+                                    const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : 0;
+                                    
+                                    if (rowIndex <= desiredIndex) {
+                                        if (rowIndex > bestSubRowIndex || 
+                                            (rowIndex === bestSubRowIndex && creationOrder > bestSubRowCreationOrder)) {
+                                            bestSubRow = row;
+                                            bestSubRowIndex = rowIndex;
+                                            bestSubRowCreationOrder = creationOrder;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (bestSubRow) {
+                            insertAfterRow = bestSubRow;
+                        } else {
+                            // 如果没找到合适的子行，在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
+                            let best = null;
+                            for (const info of groupRows) {
+                                if (info.index <= desiredIndex) {
+                                    if (!best || info.index > best.index) {
+                                        best = info;
+                                    }
+                                }
+                            }
+                            if (best) {
+                                insertAfterRow = best.row;
+                            }
                         }
                     }
-                }
-                if (best) {
-                    insertAfterRow = best.row;
+                } else {
+                    // lastRowInGroup 没有 row_index，在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
+                    let best = null;
+                    for (const info of groupRows) {
+                        if (info.index <= desiredIndex) {
+                            if (!best || info.index > best.index) {
+                                best = info;
+                            }
+                        }
+                    }
+                    if (best) {
+                        insertAfterRow = best.row;
+                    }
                 }
             }
         }
