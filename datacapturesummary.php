@@ -12330,40 +12330,67 @@ function reorderSummaryRowsByRowIndex() {
         const withIndex = rowData.filter(r => r.rowIndex !== null);
         const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-        // IMPORTANT: Sort all rows (main and sub) globally by row_index, not by id_product groups
-        // This ensures sub rows appear in the correct position based on where they were added (row_index)
-        // User wants: if sub row was added at row_index=1, it should appear before row_index=2 rows
-        withIndex.sort((a, b) => {
-            // First, sort by row_index (where user added the data in Data Capture Table)
-            if (a.rowIndex !== b.rowIndex) {
-                return a.rowIndex - b.rowIndex;
+        // Group rows by id_product (normalizedMain)
+        // IMPORTANT: Sub rows should be grouped with their parent main row's id_product
+        const groupedByProduct = {};
+        withIndex.forEach(data => {
+            // For sub rows, use the parent's id_product (normalizedMain)
+            // For main rows, use their own id_product
+            const key = data.normalizedMain || '__empty__';
+            if (!groupedByProduct[key]) {
+                groupedByProduct[key] = [];
             }
-            // If same row_index, maintain relative order:
-            // 1. Main rows come before sub rows (if they have the same row_index)
-            // 2. Then by creation order to maintain stable order
-            if (a.productType !== b.productType) {
-                // Main rows (productType='main') come before sub rows (productType='sub')
-                if (a.productType === 'main') return -1;
-                if (b.productType === 'main') return 1;
-            }
-            // If same product type, use creation order
-            return a.creationOrder - b.creationOrder;
+            groupedByProduct[key].push(data);
         });
 
-        // All rows with row_index are now sorted globally by row_index
-        const orderedRowsWithIndex = withIndex.map(data => data.row);
+        // For each id_product group, find the minimum row_index (first appearance in Data Capture Table)
+        // Then sort groups by this minimum row_index
+        const productGroups = Object.keys(groupedByProduct).map(key => {
+            const groupRows = groupedByProduct[key];
+            const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
+            // Sort rows within each group by row_index (Data Capture Table order)
+            // IMPORTANT: All rows (main and sub) are sorted purely by row_index, maintaining the order they were added
+            // No priority between main and sub - just follow row_index order
+            groupRows.sort((a, b) => {
+                // First, sort by row_index (where user added the data in Data Capture Table)
+                if (a.rowIndex !== b.rowIndex) {
+                    return a.rowIndex - b.rowIndex;
+                }
+                // If same row_index, use creation order to maintain stable order
+                // This ensures rows added at the same position maintain their relative order
+                return a.creationOrder - b.creationOrder;
+            });
+            return {
+                key,
+                minRowIndex,
+                rows: groupRows
+            };
+        });
+
+        // Sort product groups by minimum row_index (Data Capture Table order)
+        productGroups.sort((a, b) => {
+            if (a.minRowIndex !== b.minRowIndex) {
+                return a.minRowIndex - b.minRowIndex;
+            }
+            // If same minRowIndex, maintain order by first row's originalIndex
+            return a.rows[0].originalIndex - b.rows[0].originalIndex;
+        });
+
+        // Flatten groups back into ordered rows array
+        // All rows (main and sub) are now sorted by row_index within each id_product group
+        const orderedRowsWithIndex = productGroups.flatMap(group => group.rows.map(data => data.row));
 
         // Sort rows without row_index by originalIndex (maintain their current order)
         withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
         const orderedRowsWithoutIndex = withoutIndex.map(data => data.row);
 
-        // Combine: rows with index first (sorted globally by row_index), then rows without index
+        // Combine: rows with index first (grouped by id_product, sorted by Data Capture Table order), then rows without index
         const orderedRows = [...orderedRowsWithIndex, ...orderedRowsWithoutIndex];
 
         // Re-append rows in new order
         orderedRows.forEach(row => summaryTableBody.appendChild(row));
         
-        console.log('Reordered rows globally by row_index (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
+        console.log('Reordered rows by id_product groups (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length, 'product groups:', productGroups.length);
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
@@ -12505,7 +12532,6 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
 
     // 在同一个 Id Product 分组内部，根据 row_index 寻找"最近的 main 行"作为插入基准，
     // 这样既保证分组不乱，又能尽量还原之前的 vertical 位置。
-    // IMPORTANT: lastRowInGroup 会随着子行的插入而更新，确保子行按照 row_index 顺序插入
     let lastRowInGroup = mainRow;
 
     validSubTemplates.forEach((template, templateIndex) => {
@@ -12514,82 +12540,17 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         if (template.row_index !== undefined && template.row_index !== null) {
             const desiredIndex = Number(template.row_index);
             if (!Number.isNaN(desiredIndex)) {
-                // 由于子模板已经按照 row_index 排序，我们应该按照顺序插入子行
-                // 如果 lastRowInGroup 已经是子行，且它的 row_index <= desiredIndex，使用它作为插入基准
-                // 这样可以确保子行按照 row_index 顺序插入
-                const lastRowIndexAttr = lastRowInGroup.getAttribute('data-row-index');
-                if (lastRowIndexAttr !== null && lastRowIndexAttr !== '' && !Number.isNaN(Number(lastRowIndexAttr))) {
-                    const lastRowIndex = Number(lastRowIndexAttr);
-                    const lastRowProductType = lastRowInGroup.getAttribute('data-product-type') || 'main';
-                    // 如果 lastRowInGroup 是子行且 row_index <= desiredIndex，使用它
-                    if (lastRowProductType === 'sub' && lastRowIndex <= desiredIndex) {
-                        insertAfterRow = lastRowInGroup;
-                    } else {
-                        // 否则，查找所有已存在的子行，找到 row_index <= desiredIndex 且最接近的那一行
-                        const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                        let bestSubRow = null;
-                        let bestSubRowIndex = -1;
-                        let bestSubRowCreationOrder = -1;
-                        
-                        for (const row of allRows) {
-                            const productType = row.getAttribute('data-product-type') || 'main';
-                            if (productType !== 'sub') continue; // 只检查子行
-                            
-                            const rowIndexAttr = row.getAttribute('data-row-index');
-                            if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
-                                const rowIndex = Number(rowIndexAttr);
-                                // 检查这个行是否属于同一个 id_product 组
-                                const idProductCell = row.querySelector('td:first-child');
-                                const productValues = getProductValuesFromCell(idProductCell);
-                                const mainText = normalizeIdProductText(productValues.main || '');
-                                if (mainText && mainText === normalizedTargetId) {
-                                    // 查找 row_index <= desiredIndex 且最接近的子行
-                                    // 如果有多个子行有相同的 row_index，选择 creationOrder 最大的（最后插入的）
-                                    const creationOrderAttr = row.getAttribute('data-creation-order');
-                                    const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : 0;
-                                    
-                                    if (rowIndex <= desiredIndex) {
-                                        if (rowIndex > bestSubRowIndex || 
-                                            (rowIndex === bestSubRowIndex && creationOrder > bestSubRowCreationOrder)) {
-                                            bestSubRow = row;
-                                            bestSubRowIndex = rowIndex;
-                                            bestSubRowCreationOrder = creationOrder;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        
-                        if (bestSubRow) {
-                            insertAfterRow = bestSubRow;
-                        } else {
-                            // 如果没找到合适的子行，在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
-                            let best = null;
-                            for (const info of groupRows) {
-                                if (info.index <= desiredIndex) {
-                                    if (!best || info.index > best.index) {
-                                        best = info;
-                                    }
-                                }
-                            }
-                            if (best) {
-                                insertAfterRow = best.row;
-                            }
+                // 在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
+                let best = null;
+                for (const info of groupRows) {
+                    if (info.index <= desiredIndex) {
+                        if (!best || info.index > best.index) {
+                            best = info;
                         }
                     }
-                } else {
-                    // lastRowInGroup 没有 row_index，在本组 main 行中，找到 index <= desiredIndex 且最接近的那一行
-                    let best = null;
-                    for (const info of groupRows) {
-                        if (info.index <= desiredIndex) {
-                            if (!best || info.index > best.index) {
-                                best = info;
-                            }
-                        }
-                    }
-                    if (best) {
-                        insertAfterRow = best.row;
-                    }
+                }
+                if (best) {
+                    insertAfterRow = best.row;
                 }
             }
         }
