@@ -10415,6 +10415,11 @@ function getCurrentProcessId() {
                         
                         if (nextRow) {
                             const nextProductType = nextRow.getAttribute('data-product-type') || 'main';
+                            console.log('Main row insertion - nextRow found:', {
+                                nextProductType: nextProductType,
+                                nextRowElement: nextRow,
+                                nextRowIdProduct: nextRow.querySelector('td:first-child')?.textContent?.trim()
+                            });
                             if (nextProductType === 'sub') {
                                 // Check if this sub row belongs to the same parent
                                 const nextIdProductCell = nextRow.querySelector('td:first-child');
@@ -10424,6 +10429,12 @@ function getCurrentProcessId() {
                                     const nextMainProduct = nextProductValues.main || nextRow.getAttribute('data-main-product') || '';
                                     const normalizedNextMain = normalizeIdProductText(nextMainProduct);
                                     sameParent = normalizedNextMain === normalizedTargetParent;
+                                    console.log('Main row insertion - Checking same parent:', {
+                                        nextMainProduct: nextMainProduct,
+                                        normalizedNextMain: normalizedNextMain,
+                                        normalizedTargetParent: normalizedTargetParent,
+                                        sameParent: sameParent
+                                    });
                                 }
                                 
                                 if (sameParent) {
@@ -10432,6 +10443,11 @@ function getCurrentProcessId() {
                                     const nextSubOrder = nextSubOrderAttr !== null && nextSubOrderAttr !== '' 
                                         ? parseFloat(nextSubOrderAttr) 
                                         : null;
+                                    console.log('Main row insertion - nextRow sub_order check:', {
+                                        nextSubOrderAttr: nextSubOrderAttr,
+                                        nextSubOrder: nextSubOrder,
+                                        nextRowAllAttributes: Array.from(nextRow.attributes).map(attr => `${attr.name}="${attr.value}"`).join(', ')
+                                    });
                                     
                                     // Check if next row has sub_order >= 1 OR if it's a processed sub row (has account data)
                                     // If next row is a processed sub row without sub_order attribute, it likely has sub_order = 1 in database
