@@ -10393,8 +10393,8 @@ function getCurrentProcessId() {
                                     if (nextSubOrder !== null && !isNaN(nextSubOrder)) {
                                         if (nextSubOrder >= 1) {
                                             // Next sub row has sub_order >= 1, use 0.1, 0.2, etc.
-                                            // Find the minimum decimal sub_order already used (if any)
-                                            let minDecimalSubOrder = 0.1;
+                                            // Find all existing decimal sub_orders (0 < sub_order < 1) for this parent
+                                            let maxDecimalSubOrder = 0;
                                             for (let i = 0; i < allRows.length; i++) {
                                                 const checkRow = allRows[i];
                                                 if (checkRow === row || checkRow === nextRow) continue;
@@ -10412,8 +10412,8 @@ function getCurrentProcessId() {
                                                             if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
                                                                 const checkSubOrder = parseFloat(checkSubOrderAttr);
                                                                 if (!isNaN(checkSubOrder) && checkSubOrder > 0 && checkSubOrder < 1) {
-                                                                    if (checkSubOrder >= minDecimalSubOrder) {
-                                                                        minDecimalSubOrder = checkSubOrder + 0.1;
+                                                                    if (checkSubOrder > maxDecimalSubOrder) {
+                                                                        maxDecimalSubOrder = checkSubOrder;
                                                                     }
                                                                 }
                                                             }
@@ -10421,26 +10421,108 @@ function getCurrentProcessId() {
                                                     }
                                                 }
                                             }
-                                            subOrder = minDecimalSubOrder;
+                                            // Use maxDecimalSubOrder + 0.1, or 0.1 if no decimal sub_orders exist
+                                            subOrder = maxDecimalSubOrder > 0 ? maxDecimalSubOrder + 0.1 : 0.1;
                                         } else {
                                             // Next sub row has sub_order < 1, use average
                                             subOrder = (0 + nextSubOrder) / 2;
                                         }
                                     } else {
-                                        // Next sub row has no sub_order, use 0.1
-                                        subOrder = 0.1;
+                                        // Next sub row has no sub_order but is same parent, check if there are other sub rows with sub_order >= 1
+                                        // If yes, use 0.1; if no, use 1
+                                        let hasSubOrderGreaterEqualOne = false;
+                                        for (let i = 0; i < allRows.length; i++) {
+                                            const checkRow = allRows[i];
+                                            if (checkRow === row || checkRow === nextRow) continue;
+                                            
+                                            const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
+                                            if (checkProductType === 'sub') {
+                                                const checkIdProductCell = checkRow.querySelector('td:first-child');
+                                                if (checkIdProductCell) {
+                                                    const checkProductValues = getProductValuesFromCell(checkIdProductCell);
+                                                    const checkMainProduct = checkProductValues.main || checkRow.getAttribute('data-main-product') || '';
+                                                    const normalizedCheckMain = normalizeIdProductText(checkMainProduct);
+                                                    
+                                                    if (normalizedCheckMain === normalizedTargetParent) {
+                                                        const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                                                        if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                                                            const checkSubOrder = parseFloat(checkSubOrderAttr);
+                                                            if (!isNaN(checkSubOrder) && checkSubOrder >= 1) {
+                                                                hasSubOrderGreaterEqualOne = true;
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        subOrder = hasSubOrderGreaterEqualOne ? 0.1 : 1;
                                     }
                                 } else {
                                     // Next sub row belongs to different parent, use 1
                                     subOrder = 1;
                                 }
                             } else {
-                                // Next row is main row: use 1 (first sub row)
-                                subOrder = 1;
+                                // Next row is main row: check if there are any sub rows with sub_order >= 1 for this parent
+                                // If yes, use 0.1; if no, use 1
+                                let hasSubOrderGreaterEqualOne = false;
+                                for (let i = 0; i < allRows.length; i++) {
+                                    const checkRow = allRows[i];
+                                    if (checkRow === row) continue;
+                                    
+                                    const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
+                                    if (checkProductType === 'sub') {
+                                        const checkIdProductCell = checkRow.querySelector('td:first-child');
+                                        if (checkIdProductCell) {
+                                            const checkProductValues = getProductValuesFromCell(checkIdProductCell);
+                                            const checkMainProduct = checkProductValues.main || checkRow.getAttribute('data-main-product') || '';
+                                            const normalizedCheckMain = normalizeIdProductText(checkMainProduct);
+                                            
+                                            if (normalizedCheckMain === normalizedTargetParent) {
+                                                const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                                                if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                                                    const checkSubOrder = parseFloat(checkSubOrderAttr);
+                                                    if (!isNaN(checkSubOrder) && checkSubOrder >= 1) {
+                                                        hasSubOrderGreaterEqualOne = true;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                subOrder = hasSubOrderGreaterEqualOne ? 0.1 : 1;
                             }
                         } else {
-                            // No next row: append at end, use 1 (first sub row)
-                            subOrder = 1;
+                            // No next row: check if there are any sub rows with sub_order >= 1 for this parent
+                            // If yes, use 0.1; if no, use 1
+                            let hasSubOrderGreaterEqualOne = false;
+                            for (let i = 0; i < allRows.length; i++) {
+                                const checkRow = allRows[i];
+                                if (checkRow === row) continue;
+                                
+                                const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
+                                if (checkProductType === 'sub') {
+                                    const checkIdProductCell = checkRow.querySelector('td:first-child');
+                                    if (checkIdProductCell) {
+                                        const checkProductValues = getProductValuesFromCell(checkIdProductCell);
+                                        const checkMainProduct = checkProductValues.main || checkRow.getAttribute('data-main-product') || '';
+                                        const normalizedCheckMain = normalizeIdProductText(checkMainProduct);
+                                        
+                                        if (normalizedCheckMain === normalizedTargetParent) {
+                                            const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                                            if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                                                const checkSubOrder = parseFloat(checkSubOrderAttr);
+                                                if (!isNaN(checkSubOrder) && checkSubOrder >= 1) {
+                                                    hasSubOrderGreaterEqualOne = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            subOrder = hasSubOrderGreaterEqualOne ? 0.1 : 1;
                         }
                     }
                 } else {
