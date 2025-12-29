@@ -5118,6 +5118,13 @@ function getCurrentProcessId() {
             const subOrder = (subOrderAttr !== null && subOrderAttr !== '' && !isNaN(parseFloat(subOrderAttr))) 
                 ? parseFloat(subOrderAttr) 
                 : null;
+            console.log('extractRowDataForTemplate - Reading sub_order from row:', {
+                subOrderAttr: subOrderAttr,
+                subOrder: subOrder,
+                rowId: row.getAttribute('data-template-id') || 'new',
+                productType: productType,
+                accountId: formData.accountValue
+            });
             
             return {
                 product_type: productType,
@@ -10220,7 +10227,8 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Insert after the row
+                // Insert after the row FIRST, then calculate sub_order
+                // This ensures we can correctly check the next row's state
                 insertAfterRow.insertAdjacentElement('afterend', row);
                 
                 // Set row_index on the new row
@@ -10236,11 +10244,15 @@ function getCurrentProcessId() {
                 }
                 
                 // Calculate sub_order based on insertion position
-                // sub_order determines the order of sub rows within the same parent (use integers: 1, 2, 3...)
+                // sub_order determines the order of sub rows within the same parent
+                // Use decimals (0.1, 0.2, etc.) when inserting between main row and first sub row
+                // Use integers (1, 2, 3...) when appending after last sub row
                 let subOrder = null;
                 
-                // Find all sub rows for the same parent to calculate the correct sub_order
+                // IMPORTANT: Re-query rows AFTER insertion to get the latest DOM state
+                // This ensures we can check the next row's sub_order correctly
                 const allRows = summaryTableBody.querySelectorAll('tr');
+                console.log('Calculating sub_order after insertion, total rows:', allRows.length);
                 let maxSubOrder = 0;
                 let subRowCount = 0;
                 
@@ -10383,11 +10395,22 @@ function getCurrentProcessId() {
                         }
                     } else {
                         // Inserting after main row: check if there's a sub row immediately after
+                        // IMPORTANT: Use the re-queried allRows (after insertion) to get correct next row
                         const allRowsArray = Array.from(allRows);
-                        const insertAfterIndex = allRowsArray.indexOf(insertAfterRow);
+                        const insertAfterIndexInAllRows = allRowsArray.indexOf(insertAfterRow);
+                        const newRowIndexInAllRows = allRowsArray.indexOf(row);
+                        console.log('Main row insertion - insertAfterIndexInAllRows:', insertAfterIndexInAllRows, 'newRowIndexInAllRows:', newRowIndexInAllRows);
+                        
                         let nextRow = null;
-                        if (insertAfterIndex >= 0 && insertAfterIndex < allRowsArray.length - 1) {
-                            nextRow = allRowsArray[insertAfterIndex + 1];
+                        // Find the next row after the newly inserted row (not after insertAfterRow)
+                        // Because we want to check what comes after our new row
+                        if (newRowIndexInAllRows >= 0 && newRowIndexInAllRows < allRowsArray.length - 1) {
+                            nextRow = allRowsArray[newRowIndexInAllRows + 1];
+                            console.log('Found next row after new row at index:', newRowIndexInAllRows + 1);
+                        } else if (insertAfterIndexInAllRows >= 0 && insertAfterIndexInAllRows < allRowsArray.length - 1) {
+                            // Fallback: check row after insertAfterRow
+                            nextRow = allRowsArray[insertAfterIndexInAllRows + 1];
+                            console.log('Using fallback: next row after insertAfterRow at index:', insertAfterIndexInAllRows + 1);
                         }
                         
                         if (nextRow) {
@@ -10410,12 +10433,27 @@ function getCurrentProcessId() {
                                         ? parseFloat(nextSubOrderAttr) 
                                         : null;
                                     
-                                    console.log('Inserting after main row, nextRow sub_order:', nextSubOrder, 'nextSubOrderAttr:', nextSubOrderAttr);
-                                    
                                     // Check if next row has sub_order >= 1 OR if it's a processed sub row (has account data)
                                     // If next row is a processed sub row without sub_order attribute, it likely has sub_order = 1 in database
-                                    const nextRowHasAccount = nextRow.querySelector('td:nth-child(2)')?.textContent.trim() || '';
-                                    const nextRowIsProcessed = nextRowHasAccount && nextRowHasAccount !== '+' && !nextRowHasAccount.includes('button');
+                                    // Account column is at index 1 (0=Id Product, 1=Account, 2=Add, 3=Currency, ...)
+                                    const nextRowAccountCell = nextRow.querySelector('td:nth-child(2)');
+                                    const nextRowHasAccount = nextRowAccountCell ? nextRowAccountCell.textContent.trim() : '';
+                                    const nextRowAddCell = nextRow.querySelector('td:nth-child(3)');
+                                    const nextRowHasAddButton = nextRowAddCell ? nextRowAddCell.querySelector('button') : null;
+                                    // A processed sub row has account text (not empty, not '+', and no add button)
+                                    const nextRowIsProcessed = nextRowHasAccount && 
+                                                               nextRowHasAccount !== '+' && 
+                                                               !nextRowHasAddButton &&
+                                                               nextRowHasAccount.length > 0;
+                                    
+                                    console.log('Inserting after main row:', {
+                                        nextRowSubOrder: nextSubOrder,
+                                        nextRowSubOrderAttr: nextSubOrderAttr,
+                                        nextRowHasAccount: nextRowHasAccount,
+                                        nextRowIsProcessed: nextRowIsProcessed,
+                                        nextRowHasAddButton: !!nextRowHasAddButton,
+                                        targetParentValue: targetParentValue
+                                    });
                                     
                                     if ((nextSubOrder !== null && !isNaN(nextSubOrder) && nextSubOrder >= 1) || 
                                         (nextSubOrder === null && nextRowIsProcessed)) {
@@ -10579,7 +10617,10 @@ function getCurrentProcessId() {
                 
                 if (subOrder !== null) {
                     row.setAttribute('data-sub-order', String(subOrder));
-                    console.log('Set sub_order for new sub row:', subOrder, 'parent:', targetParentValue, 'maxSubOrder:', maxSubOrder, 'subRowCount:', subRowCount);
+                    console.log('✅ Set sub_order for new sub row:', subOrder, 'parent:', targetParentValue, 'maxSubOrder:', maxSubOrder, 'subRowCount:', subRowCount);
+                    console.log('Row element:', row, 'data-sub-order attribute:', row.getAttribute('data-sub-order'));
+                } else {
+                    console.error('❌ subOrder is null! This should not happen.');
                 }
                 
                 // Set creation order based on insertion position (keep for backward compatibility)
