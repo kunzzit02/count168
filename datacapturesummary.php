@@ -10213,87 +10213,12 @@ function getCurrentProcessId() {
                 // This ensures the new row appears right after the insertAfterRow when sorted by creation_order
                 let creationOrder = Date.now();
                 if (insertAfterRow) {
-                    // First, ensure insertAfterRow has a creation_order if it doesn't have one
-                    let insertAfterCreationOrder = null;
                     const insertAfterCreationOrderAttr = insertAfterRow.getAttribute('data-creation-order');
                     if (insertAfterCreationOrderAttr) {
-                        insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
-                    } else {
-                        // If insertAfterRow doesn't have creation_order, assign one based on its position
-                        // This ensures consistent ordering
-                        const insertAfterRowIndexAttr = insertAfterRow.getAttribute('data-row-index');
-                        if (insertAfterRowIndexAttr !== null && insertAfterRowIndexAttr !== '' && !Number.isNaN(Number(insertAfterRowIndexAttr))) {
-                            const targetRowIndex = Number(insertAfterRowIndexAttr);
-                            // Find all rows with the same row_index that come before insertAfterRow
-                            const allRows = summaryTableBody.querySelectorAll('tr');
-                            const rowsWithSameIndex = Array.from(allRows).filter(r => {
-                                const rIndexAttr = r.getAttribute('data-row-index');
-                                return rIndexAttr !== null && rIndexAttr !== '' && !Number.isNaN(Number(rIndexAttr)) && Number(rIndexAttr) === targetRowIndex;
-                            });
-                            
-                            const insertAfterRowPos = rowsWithSameIndex.indexOf(insertAfterRow);
-                            if (insertAfterRowPos > 0) {
-                                // Use the previous row's creation_order + 1
-                                const prevRow = rowsWithSameIndex[insertAfterRowPos - 1];
-                                const prevRowCreationOrderAttr = prevRow.getAttribute('data-creation-order');
-                                if (prevRowCreationOrderAttr) {
-                                    insertAfterCreationOrder = Number(prevRowCreationOrderAttr) + 1;
-                                } else {
-                                    insertAfterCreationOrder = insertAfterRowPos * 1000;
-                                }
-                            } else {
-                                // First row with this row_index, use a base value
-                                insertAfterCreationOrder = targetRowIndex * 1000000;
-                            }
-                            // Set the creation_order on insertAfterRow for future reference
-                            insertAfterRow.setAttribute('data-creation-order', String(insertAfterCreationOrder));
-                        } else {
-                            // Fallback: use position-based value
-                            const allRowsAfterInsert = summaryTableBody.querySelectorAll('tr');
-                            const insertAfterRowIndex = Array.from(allRowsAfterInsert).indexOf(insertAfterRow);
-                            insertAfterCreationOrder = (insertAfterRowIndex + 1) * 1000;
-                            insertAfterRow.setAttribute('data-creation-order', String(insertAfterCreationOrder));
-                        }
-                    }
-                    
-                    // Now set the new row's creation_order to be right after insertAfterRow
-                    if (insertAfterCreationOrder !== null) {
-                        // Check if there's already a row right after insertAfterRow with the same row_index
-                        const insertAfterRowIndexAttr = insertAfterRow.getAttribute('data-row-index');
-                        if (insertAfterRowIndexAttr !== null && insertAfterRowIndexAttr !== '' && !Number.isNaN(Number(insertAfterRowIndexAttr))) {
-                            const targetRowIndex = Number(insertAfterRowIndexAttr);
-                            const allRows = summaryTableBody.querySelectorAll('tr');
-                            const rowsWithSameIndex = Array.from(allRows).filter(r => {
-                                const rIndexAttr = r.getAttribute('data-row-index');
-                                return rIndexAttr !== null && rIndexAttr !== '' && !Number.isNaN(Number(rIndexAttr)) && Number(rIndexAttr) === targetRowIndex;
-                            });
-                            
-                            const insertAfterRowPos = rowsWithSameIndex.indexOf(insertAfterRow);
-                            if (insertAfterRowPos >= 0 && insertAfterRowPos < rowsWithSameIndex.length - 1) {
-                                // Check the next row after insertAfterRow
-                                const nextRow = rowsWithSameIndex[insertAfterRowPos + 1];
-                                if (nextRow && nextRow !== row) {
-                                    const nextRowCreationOrderAttr = nextRow.getAttribute('data-creation-order');
-                                    if (nextRowCreationOrderAttr) {
-                                        const nextRowCreationOrder = Number(nextRowCreationOrderAttr);
-                                        // Use a value between insertAfterRow and nextRow
-                                        creationOrder = insertAfterCreationOrder + Math.floor((nextRowCreationOrder - insertAfterCreationOrder) / 2);
-                                        // Ensure it's at least 1 more than insertAfterRow
-                                        if (creationOrder <= insertAfterCreationOrder) {
-                                            creationOrder = insertAfterCreationOrder + 1;
-                                        }
-                                    } else {
-                                        creationOrder = insertAfterCreationOrder + 1;
-                                    }
-                                } else {
-                                    creationOrder = insertAfterCreationOrder + 1;
-                                }
-                            } else {
-                                creationOrder = insertAfterCreationOrder + 1;
-                            }
-                        } else {
-                            creationOrder = insertAfterCreationOrder + 1;
-                        }
+                        const insertAfterCreationOrder = Number(insertAfterCreationOrderAttr);
+                        // Use a value slightly larger than the row we inserted after
+                        // This ensures new row appears right after it when rows have same row_index
+                        creationOrder = insertAfterCreationOrder + 1;
                     }
                 }
                 row.setAttribute('data-creation-order', String(creationOrder));
@@ -12710,18 +12635,12 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 console.warn('Failed to create sub row for template', template);
                 return;
             }
-            // Set creation order based on row_index and template index to maintain stable order when loading from database
-            // IMPORTANT: Use row_index-based calculation instead of Date.now() to ensure consistent order after page refresh
+            // Set creation order based on template index to maintain stable order when loading from database
+            // Since templates are now sorted by row_index and updated_at, use templateIndex to preserve order
+            // Use a base timestamp plus templateIndex * 1000 to ensure correct relative order
             // This ensures sub rows with same row_index maintain their relative order from database
-            let creationOrder = 0;
-            if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
-                // Use row_index * 1000000 + templateIndex * 1000 to ensure correct relative order
-                // This ensures rows with same row_index are ordered by their template index (which reflects database id order)
-                creationOrder = templateRowIndex * 1000000 + templateIndex * 1000;
-            } else {
-                // Fallback: use a large base value + templateIndex for rows without row_index
-                creationOrder = 999999000 + templateIndex * 1000;
-            }
+            const baseTime = Date.now() - validSubTemplates.length * 1000;
+            const creationOrder = baseTime + templateIndex * 1000;
             newRow.setAttribute('data-creation-order', String(creationOrder));
             targetRow = newRow;
             console.log('Created new sub row for template with row_index:', templateRowIndex, 'creation-order:', creationOrder, 'templateIndex:', templateIndex);
@@ -12729,18 +12648,8 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             // If updating existing row, preserve its existing creation-order if it has one
             // Only set if missing to maintain the original order
             if (!targetRow.getAttribute('data-creation-order')) {
-                // Use row_index-based calculation instead of Date.now() to ensure consistent order after page refresh
-                const templateRowIndex = (template.row_index !== undefined && template.row_index !== null)
-                    ? Number(template.row_index)
-                    : null;
-                let creationOrder = 0;
-                if (templateRowIndex !== null && !Number.isNaN(templateRowIndex)) {
-                    // Use row_index * 1000000 + templateIndex * 1000 to ensure correct relative order
-                    creationOrder = templateRowIndex * 1000000 + templateIndex * 1000;
-                } else {
-                    // Fallback: use a large base value + templateIndex for rows without row_index
-                    creationOrder = 999999000 + templateIndex * 1000;
-                }
+                const baseTime = Date.now() - validSubTemplates.length * 1000;
+                const creationOrder = baseTime + templateIndex * 1000;
                 targetRow.setAttribute('data-creation-order', String(creationOrder));
                 console.log('Set missing creation-order on existing sub row:', creationOrder);
             } else {
