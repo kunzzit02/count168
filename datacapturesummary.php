@@ -10420,10 +10420,13 @@ function getCurrentProcessId() {
                                 // Check if this sub row belongs to the same parent
                                 const nextIdProductCell = nextRow.querySelector('td:first-child');
                                 let sameParent = false;
+                                let normalizedNextMain = '';
+                                let nextMainProduct = '';
+                                
                                 if (nextIdProductCell) {
                                     const nextProductValues = getProductValuesFromCell(nextIdProductCell);
-                                    const nextMainProduct = nextProductValues.main || nextRow.getAttribute('data-main-product') || '';
-                                    const normalizedNextMain = normalizeIdProductText(nextMainProduct);
+                                    nextMainProduct = nextProductValues.main || nextRow.getAttribute('data-main-product') || '';
+                                    normalizedNextMain = normalizeIdProductText(nextMainProduct);
                                     sameParent = normalizedNextMain === normalizedTargetParent;
                                     console.log('Main row insertion - Checking same parent:', {
                                         nextMainProduct: nextMainProduct,
@@ -10431,9 +10434,20 @@ function getCurrentProcessId() {
                                         normalizedTargetParent: normalizedTargetParent,
                                         sameParent: sameParent
                                     });
+                                } else {
+                                    console.log('Main row insertion - No nextIdProductCell found');
                                 }
                                 
+                                console.log('Main row insertion - sameParent check result:', {
+                                    sameParent: sameParent,
+                                    normalizedNextMain: normalizedNextMain,
+                                    normalizedTargetParent: normalizedTargetParent,
+                                    nextMainProduct: nextMainProduct,
+                                    targetParentValue: targetParentValue
+                                });
+                                
                                 if (sameParent) {
+                                    console.log('Main row insertion - sameParent is TRUE, entering decimal sub_order calculation');
                                     // Inserting between main row and first sub row: use decimal (0.1, 0.2, etc.)
                                     const nextSubOrderAttr = nextRow.getAttribute('data-sub-order');
                                     const nextSubOrder = nextSubOrderAttr !== null && nextSubOrderAttr !== '' 
@@ -10555,6 +10569,10 @@ function getCurrentProcessId() {
                                     }
                                 } else {
                                     // Next sub row belongs to different parent, use 1
+                                    console.log('Main row insertion - nextRow belongs to different parent, using sub_order: 1', {
+                                        normalizedNextMain: normalizedNextMain,
+                                        normalizedTargetParent: normalizedTargetParent
+                                    });
                                     subOrder = 1;
                                 }
                             } else {
