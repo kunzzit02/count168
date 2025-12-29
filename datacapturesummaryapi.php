@@ -872,6 +872,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     // IMPORTANT: Sort sub rows by row_index to maintain correct order
     // This ensures sub rows are displayed in the order they were added (based on row_index),
     // not by creation time (id)
+    // For sub rows, row_index is in format: parent_row_index * 1000 + sub_position
     foreach ($templates as $parentId => &$templateData) {
         if (!empty($templateData['subs'])) {
             usort($templateData['subs'], function($a, $b) {
@@ -879,29 +880,20 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                 $aRowIndex = isset($a['row_index']) && $a['row_index'] !== null ? (int)$a['row_index'] : 999999;
                 $bRowIndex = isset($b['row_index']) && $b['row_index'] !== null ? (int)$b['row_index'] : 999999;
                 
+                // Extract parent row_index for comparison (for sub rows: row_index >= 1000)
+                $aParentIndex = $aRowIndex >= 1000 ? (int)floor($aRowIndex / 1000) : $aRowIndex;
+                $bParentIndex = $bRowIndex >= 1000 ? (int)floor($bRowIndex / 1000) : $bRowIndex;
+                
+                if ($aParentIndex !== $bParentIndex) {
+                    return $aParentIndex - $bParentIndex;
+                }
+                
+                // If same parent row_index, compare full row_index (which includes sub_position)
                 if ($aRowIndex !== $bRowIndex) {
                     return $aRowIndex - $bRowIndex;
                 }
                 
-                // If same row_index, sort by updated_at (most recent first) then by id
-                // This ensures newly added rows appear after existing rows when they have the same row_index
-                // updated_at reflects when the template was last saved, which should be close to insertion time
-                $aUpdatedAt = isset($a['updated_at']) ? $a['updated_at'] : '';
-                $bUpdatedAt = isset($b['updated_at']) ? $b['updated_at'] : '';
-                
-                if ($aUpdatedAt !== $bUpdatedAt) {
-                    // Compare updated_at timestamps (newer first, then older)
-                    // But we want insertion order, so if both have updated_at, use it
-                    // Otherwise fall back to id
-                    if ($aUpdatedAt && $bUpdatedAt) {
-                        $cmp = strcmp($aUpdatedAt, $bUpdatedAt);
-                        if ($cmp !== 0) {
-                            return $cmp; // Sort by updated_at (ascending = older first, which should match insertion order)
-                        }
-                    }
-                }
-                
-                // Fallback: sort by id (database primary key) to maintain relative order
+                // If same row_index, sort by id (database primary key) to maintain relative order
                 // This ensures rows added at the same position maintain their insertion order
                 $aId = isset($a['id']) ? (int)$a['id'] : 0;
                 $bId = isset($b['id']) ? (int)$b['id'] : 0;
