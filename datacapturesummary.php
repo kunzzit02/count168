@@ -5277,6 +5277,99 @@ function getCurrentProcessId() {
                 
                 const result = await response.json();
                 
+                // CRITICAL: If this is a sub row, also save sub_order for all other sub rows with same parent and row_index
+                // This ensures all sub rows have correct sub_order in database
+                if (rowData.product_type === 'sub' && rowData.row_index !== null && rowElement) {
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    if (summaryTableBody) {
+                        const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                        const normalizedParentId = normalizeIdProductText(rowData.parent_id_product || '');
+                        const sameParentRows = [];
+                        
+                        // Find all sub rows with the same parent and row_index (including current row for recalculation)
+                        const allSameParentRows = [];
+                        allRows.forEach((r) => {
+                            const rProductType = r.getAttribute('data-product-type') || 'main';
+                            if (rProductType === 'sub') {
+                                const rIdProductCell = r.querySelector('td:first-child');
+                                const rProductValues = getProductValuesFromCell(rIdProductCell);
+                                const rParentId = normalizeIdProductText(rProductValues.main || '');
+                                const rRowIndexAttr = r.getAttribute('data-row-index');
+                                const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
+                                
+                                if (rParentId === normalizedParentId && rRowIndex === rowData.row_index) {
+                                    allSameParentRows.push(r);
+                                }
+                            }
+                        });
+                        
+                        // Sort by DOM position
+                        allSameParentRows.sort((a, b) => {
+                            const aIndex = Array.from(allRows).indexOf(a);
+                            const bIndex = Array.from(allRows).indexOf(b);
+                            return aIndex - bIndex;
+                        });
+                        
+                        // Recalculate sub_order for all sub rows
+                        allSameParentRows.forEach((r, index) => {
+                            const calculatedSubOrder = index + 1;
+                            r.setAttribute('data-sub-order', String(calculatedSubOrder));
+                        });
+                        
+                        // Save sub_order for all other sub rows (excluding current row which was already saved)
+                        const otherSubRows = allSameParentRows.filter(r => r !== rowElement);
+                        if (otherSubRows.length > 0) {
+                            console.log('Saving sub_order for', otherSubRows.length, 'other sub rows with same parent and row_index');
+                            for (const otherRow of otherSubRows) {
+                                try {
+                                    const rSubOrderAttr = otherRow.getAttribute('data-sub-order');
+                                    const rSubOrder = rSubOrderAttr && !Number.isNaN(Number(rSubOrderAttr)) ? Number(rSubOrderAttr) : null;
+                                    const rTemplateId = otherRow.getAttribute('data-template-id');
+                                    
+                                    if (rSubOrder !== null && rSubOrder > 0) {
+                                        // Get row data for this sub row
+                                        const subRowData = prepareRowDataForTemplateSave(otherRow);
+                                        if (subRowData) {
+                                            // Update sub_order
+                                            subRowData.sub_order = rSubOrder;
+                                            
+                                            // If template_id exists, use it; otherwise save as new template
+                                            if (rTemplateId) {
+                                                subRowData.template_id = parseInt(rTemplateId, 10);
+                                            }
+                                            
+                                            // Save sub_order
+                                            const updateResponse = await fetch(finalUrl, {
+                                                method: 'POST',
+                                                headers: {
+                                                    'Content-Type': 'application/json'
+                                                },
+                                                body: JSON.stringify({
+                                                    ...subRowData,
+                                                    company_id: currentCompanyId
+                                                })
+                                            });
+                                            
+                                            const updateResult = await updateResponse.json();
+                                            if (updateResult.success) {
+                                                console.log('Updated sub_order for sub row - sub_order:', rSubOrder, 'template_id:', updateResult.template_id || rTemplateId);
+                                                // Update template_id if it was created
+                                                if (updateResult.template_id && !rTemplateId) {
+                                                    otherRow.setAttribute('data-template-id', String(updateResult.template_id));
+                                                }
+                                            } else {
+                                                console.warn('Failed to update sub_order for sub row - sub_order:', rSubOrder, 'error:', updateResult.error);
+                                            }
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error('Error saving sub_order for sub row:', error);
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 if (result.success) {
                     console.log('Template auto-saved successfully:', rowData.id_product);
                     // Update the row's data-template-key, data-template-id, and data-formula-variant attributes
