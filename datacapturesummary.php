@@ -5114,19 +5114,9 @@ function getCurrentProcessId() {
             const templateId = templateIdAttr && templateIdAttr !== '' ? parseInt(templateIdAttr, 10) : null;
             
             // Calculate sub_order for sub rows: find the position of this sub row among all sub rows with the same parent and row_index
-            // IMPORTANT: Use DOM position (not creation time) to determine sub_order
-            // First, try to use existing data-sub-order attribute if available
+            // IMPORTANT: Recalculate ALL sub rows' sub_order to ensure consistency
             let subOrder = null;
-            if (productType === 'sub') {
-                const existingSubOrderAttr = row.getAttribute('data-sub-order');
-                if (existingSubOrderAttr && !Number.isNaN(Number(existingSubOrderAttr))) {
-                    subOrder = Number(existingSubOrderAttr);
-                    console.log('Using existing data-sub-order:', subOrder);
-                }
-            }
-            
-            // If no existing sub_order and rowIndex is available, calculate it
-            if (subOrder === null && productType === 'sub' && rowIndex !== null) {
+            if (productType === 'sub' && rowIndex !== null) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
@@ -5188,6 +5178,14 @@ function getCurrentProcessId() {
                         const aIndex = Array.from(allRows).indexOf(a);
                         const bIndex = Array.from(allRows).indexOf(b);
                         return aIndex - bIndex;
+                    });
+                    
+                    // CRITICAL: Recalculate sub_order for ALL sub rows to ensure consistency
+                    // This ensures each sub row gets a unique sub_order (1, 2, 3...)
+                    sameParentRows.forEach((r, index) => {
+                        const calculatedSubOrder = index + 1; // sub_order starts from 1
+                        r.setAttribute('data-sub-order', String(calculatedSubOrder));
+                        console.log('Recalculated sub_order:', calculatedSubOrder, 'for sub row at DOM index:', Array.from(allRows).indexOf(r));
                     });
                     
                     // Find the index of current row in the sorted list
