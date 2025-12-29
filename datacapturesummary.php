@@ -10214,27 +10214,34 @@ function getCurrentProcessId() {
                 }
                 
                 // Calculate sub_order value based on position
-                // Find the sub_order of the row we're inserting after and the next sub row
+                // IMPORTANT: When inserting after a main row, check if there are existing sub rows
+                // If there are existing sub rows, insert BEFORE the first one (use value < first sub_order)
+                // If no existing sub rows, use 1 (first sub row)
                 let subOrder = null;
                 const insertAfterSubOrderAttr = insertAfterRow ? insertAfterRow.getAttribute('data-sub-order') : null;
                 const insertAfterSubOrder = insertAfterSubOrderAttr && insertAfterSubOrderAttr !== '' && !Number.isNaN(Number(insertAfterSubOrderAttr)) ? Number(insertAfterSubOrderAttr) : null;
                 
-                // Find the next sub row after insertAfterRow to get its sub_order
-                let nextSubOrder = null;
+                // Check if insertAfterRow is a main row (no sub_order)
+                const insertAfterRowProductType = insertAfterRow ? (insertAfterRow.getAttribute('data-product-type') || 'main') : 'main';
+                const isInsertingAfterMainRow = insertAfterSubOrder === null && insertAfterRowProductType === 'main';
+                
+                // Find the first sub row after insertAfterRow to get its sub_order
+                let firstSubOrder = null;
                 const allRowsArray = Array.from(summaryTableBody.querySelectorAll('tr'));
                 const insertAfterRowIndex = allRowsArray.indexOf(insertAfterRow);
+                const currentRowParentId = normalizeIdProductText(parentProcessValue);
+                
                 for (let i = insertAfterRowIndex + 1; i < allRowsArray.length; i++) {
                     const nextRow = allRowsArray[i];
                     const nextRowProductType = nextRow.getAttribute('data-product-type') || 'main';
                     const nextRowParentId = nextRow.getAttribute('data-parent-id-product');
-                    const currentRowParentId = normalizeIdProductText(parentProcessValue);
                     
                     // Check if this is a sub row of the same parent
                     if (nextRowProductType === 'sub' && nextRowParentId && normalizeIdProductText(nextRowParentId) === currentRowParentId) {
                         const nextSubOrderAttr = nextRow.getAttribute('data-sub-order');
                         if (nextSubOrderAttr && nextSubOrderAttr !== '' && !Number.isNaN(Number(nextSubOrderAttr))) {
-                            nextSubOrder = Number(nextSubOrderAttr);
-                            break;
+                            firstSubOrder = Number(nextSubOrderAttr);
+                            break; // Found first sub row, stop searching
                         }
                     } else if (nextRowProductType === 'main') {
                         // If we hit another main row, stop searching
@@ -10242,17 +10249,55 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Calculate sub_order: if inserting after a main row (no sub_order), use 1
-                // If inserting between two sub rows, calculate the middle value
-                if (insertAfterSubOrder === null) {
-                    // Inserting after a main row (first sub row for this parent)
-                    subOrder = 1;
-                } else if (nextSubOrder !== null) {
-                    // Inserting between two sub rows, calculate middle value
-                    subOrder = (insertAfterSubOrder + nextSubOrder) / 2;
+                // Find the next sub row after insertAfterRow (if insertAfterRow is also a sub row)
+                let nextSubOrder = null;
+                if (!isInsertingAfterMainRow && insertAfterSubOrder !== null) {
+                    // insertAfterRow is a sub row, find the next sub row after it
+                    for (let i = insertAfterRowIndex + 1; i < allRowsArray.length; i++) {
+                        const nextRow = allRowsArray[i];
+                        const nextRowProductType = nextRow.getAttribute('data-product-type') || 'main';
+                        const nextRowParentId = nextRow.getAttribute('data-parent-id-product');
+                        
+                        if (nextRowProductType === 'sub' && nextRowParentId && normalizeIdProductText(nextRowParentId) === currentRowParentId) {
+                            const nextSubOrderAttr = nextRow.getAttribute('data-sub-order');
+                            if (nextSubOrderAttr && nextSubOrderAttr !== '' && !Number.isNaN(Number(nextSubOrderAttr))) {
+                                nextSubOrder = Number(nextSubOrderAttr);
+                                break;
+                            }
+                        } else if (nextRowProductType === 'main') {
+                            break;
+                        }
+                    }
+                }
+                
+                // Calculate sub_order based on insertion position
+                if (isInsertingAfterMainRow) {
+                    // Inserting after a main row
+                    if (firstSubOrder !== null) {
+                        // There are existing sub rows, insert BEFORE the first one
+                        // If first sub_order is 1, new one should be 0.5 (insert before it)
+                        // If first sub_order is less than 1, new one should be half of it
+                        if (firstSubOrder >= 1) {
+                            subOrder = 0.5; // Insert before sub_order = 1
+                        } else {
+                            subOrder = firstSubOrder / 2; // Insert before first sub row
+                        }
+                    } else {
+                        // No existing sub rows, this is the first one
+                        subOrder = 1;
+                    }
+                } else if (insertAfterSubOrder !== null) {
+                    // Inserting after a sub row
+                    if (nextSubOrder !== null) {
+                        // Inserting between two sub rows, calculate middle value
+                        subOrder = (insertAfterSubOrder + nextSubOrder) / 2;
+                    } else {
+                        // Inserting after the last sub row, use next integer
+                        subOrder = Math.floor(insertAfterSubOrder) + 1;
+                    }
                 } else {
-                    // Inserting after the last sub row, use next integer
-                    subOrder = Math.floor(insertAfterSubOrder) + 1;
+                    // Fallback: should not happen, but use 1
+                    subOrder = 1;
                 }
                 
                 // Insert after the row
