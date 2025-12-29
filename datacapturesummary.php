@@ -9447,6 +9447,12 @@ function getCurrentProcessId() {
                     
                     updateProcessedAmountTotal();
                     
+                    // Clear data-dblclick-attached attribute from new elements before reattaching listeners
+                    const newFormulaTextSpan = formulaCell.querySelector('.formula-text');
+                    if (newFormulaTextSpan) {
+                        newFormulaTextSpan.removeAttribute('data-dblclick-attached');
+                    }
+                    
                     // Reattach double-click event listener after updating
                     attachInlineEditListeners(row);
                     
@@ -9463,6 +9469,12 @@ function getCurrentProcessId() {
                         input.remove();
                     }
                     formulaContent.innerHTML = originalContentHTML;
+                    
+                    // Clear data-dblclick-attached attribute from restored elements before reattaching listeners
+                    const restoredFormulaTextSpan = formulaCell.querySelector('.formula-text');
+                    if (restoredFormulaTextSpan) {
+                        restoredFormulaTextSpan.removeAttribute('data-dblclick-attached');
+                    }
                     
                     // Reattach double-click event listener
                     attachInlineEditListeners(row);
@@ -9497,6 +9509,12 @@ function getCurrentProcessId() {
                 
                 // Restore original content
                 formulaContent.innerHTML = originalContentHTML;
+                
+                // Clear data-dblclick-attached attribute from restored elements before reattaching listeners
+                const restoredFormulaTextSpan = formulaCell.querySelector('.formula-text');
+                if (restoredFormulaTextSpan) {
+                    restoredFormulaTextSpan.removeAttribute('data-dblclick-attached');
+                }
                 
                 // Reattach double-click event listener
                 attachInlineEditListeners(row);
@@ -9863,7 +9881,12 @@ function getCurrentProcessId() {
             // Attach to Formula column (index 4)
             if (cells[4]) {
                 const formulaTextSpan = cells[4].querySelector('.formula-text');
-                if (formulaTextSpan && !formulaTextSpan.hasAttribute('data-dblclick-attached')) {
+                if (formulaTextSpan) {
+                    // Always remove the attribute first to ensure clean state
+                    // This is important when content is restored via innerHTML
+                    formulaTextSpan.removeAttribute('data-dblclick-attached');
+                    
+                    // Attach event listener
                     formulaTextSpan.setAttribute('data-dblclick-attached', 'true');
                     formulaTextSpan.addEventListener('dblclick', function(e) {
                         e.stopPropagation();
@@ -9874,7 +9897,11 @@ function getCurrentProcessId() {
             }
             
             // Attach to Source % column (index 5)
-            if (cells[5] && !cells[5].hasAttribute('data-dblclick-attached')) {
+            if (cells[5]) {
+                // Always remove the attribute first to ensure clean state
+                cells[5].removeAttribute('data-dblclick-attached');
+                
+                // Attach event listener
                 cells[5].setAttribute('data-dblclick-attached', 'true');
                 cells[5].classList.add('editable-cell');
                 cells[5].addEventListener('dblclick', function(e) {
