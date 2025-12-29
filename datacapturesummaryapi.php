@@ -758,6 +758,9 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                  row_index ASC,
                  product_type ASC,
                  formula_variant ASC,
+                 -- For sub rows with same parent_id_product and row_index, sort by id ASC
+                 -- This maintains the order they were created/inserted
+                 -- id ASC ensures sub rows appear in insertion order (newer rows have larger id)
                  id ASC
     ");
 
