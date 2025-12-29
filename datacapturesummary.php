@@ -9256,13 +9256,24 @@ function getCurrentProcessId() {
                 span.style.display = 'none';
             });
             
+            // Hide edit button (✏️) to make the whole cell editable
+            const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
+            editButtons.forEach(btn => {
+                btn.style.display = 'none';
+            });
+            
             // Also hide any direct text content in formulaContent that might be visible
             // Set cell styles to prevent overflow
             formulaCell.style.overflow = 'hidden';
             formulaCell.style.position = 'relative';
             formulaCell.style.maxWidth = '100%';
             
-            // Replace span with input
+            // Make formulaContent fill the entire cell
+            formulaContent.style.width = '100%';
+            formulaContent.style.display = 'flex';
+            formulaContent.style.alignItems = 'center';
+            
+            // Replace span with input - input should fill the entire cell
             const formulaTextSpan = formulaCell.querySelector('.formula-text');
             if (formulaTextSpan) {
                 formulaContent.insertBefore(input, formulaTextSpan);
@@ -9286,6 +9297,17 @@ function getCurrentProcessId() {
                 formulaTextSpans.forEach(span => {
                     span.style.display = '';
                 });
+                
+                // Show edit button again
+                const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
+                editButtons.forEach(btn => {
+                    btn.style.display = '';
+                });
+                
+                // Reset formulaContent styles
+                formulaContent.style.width = '';
+                formulaContent.style.display = '';
+                formulaContent.style.alignItems = '';
                 
                 // Compare with original formula value (data-formula-operators)
                 if (newFormulaValue !== originalFormulaValue) {
@@ -9442,6 +9464,17 @@ function getCurrentProcessId() {
                 formulaTextSpans.forEach(span => {
                     span.style.display = '';
                 });
+                
+                // Show edit button again
+                const editButtons = formulaCell.querySelectorAll('.edit-formula-btn');
+                editButtons.forEach(btn => {
+                    btn.style.display = '';
+                });
+                
+                // Reset formulaContent styles
+                formulaContent.style.width = '';
+                formulaContent.style.display = '';
+                formulaContent.style.alignItems = '';
             };
             
             // Save on Enter or blur
