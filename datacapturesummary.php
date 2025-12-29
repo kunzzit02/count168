@@ -10293,30 +10293,158 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Calculate sub_order: if inserting after a specific sub row, use its position + 1
-                // Otherwise, use maxSubOrder + 1
+                // Calculate sub_order based on insertion position
+                // Use decimals (0.1, 0.2, etc.) when inserting between main row and first sub row
+                // Use average when inserting between two sub rows
+                // Use integer increment when inserting after last sub row
                 if (insertAfterRow) {
                     const insertAfterProductType = insertAfterRow.getAttribute('data-product-type') || 'main';
+                    
                     if (insertAfterProductType === 'sub') {
+                        // Inserting after a sub row: check the next row
                         const insertAfterSubOrderAttr = insertAfterRow.getAttribute('data-sub-order');
-                        if (insertAfterSubOrderAttr !== null && insertAfterSubOrderAttr !== '') {
-                            const insertAfterSubOrder = parseFloat(insertAfterSubOrderAttr);
-                            if (!isNaN(insertAfterSubOrder)) {
-                                // Use integer part + 1
+                        const insertAfterSubOrder = insertAfterSubOrderAttr !== null && insertAfterSubOrderAttr !== '' 
+                            ? parseFloat(insertAfterSubOrderAttr) 
+                            : null;
+                        
+                        // Find the next row after insertAfterRow
+                        const allRowsArray = Array.from(allRows);
+                        const insertAfterIndex = allRowsArray.indexOf(insertAfterRow);
+                        let nextRow = null;
+                        if (insertAfterIndex >= 0 && insertAfterIndex < allRowsArray.length - 1) {
+                            nextRow = allRowsArray[insertAfterIndex + 1];
+                        }
+                        
+                        if (nextRow) {
+                            const nextProductType = nextRow.getAttribute('data-product-type') || 'main';
+                            if (nextProductType === 'sub') {
+                                // Inserting between two sub rows: use average
+                                const nextSubOrderAttr = nextRow.getAttribute('data-sub-order');
+                                const nextSubOrder = nextSubOrderAttr !== null && nextSubOrderAttr !== '' 
+                                    ? parseFloat(nextSubOrderAttr) 
+                                    : null;
+                                
+                                // Check if both sub rows belong to the same parent
+                                const nextIdProductCell = nextRow.querySelector('td:first-child');
+                                let sameParent = false;
+                                if (nextIdProductCell) {
+                                    const nextProductValues = getProductValuesFromCell(nextIdProductCell);
+                                    const nextMainProduct = nextProductValues.main || nextRow.getAttribute('data-main-product') || '';
+                                    const normalizedNextMain = normalizeIdProductText(nextMainProduct);
+                                    sameParent = normalizedNextMain === normalizedTargetParent;
+                                }
+                                
+                                if (sameParent && insertAfterSubOrder !== null && !isNaN(insertAfterSubOrder) && 
+                                    nextSubOrder !== null && !isNaN(nextSubOrder)) {
+                                    // Use average of the two sub_orders
+                                    subOrder = (insertAfterSubOrder + nextSubOrder) / 2;
+                                } else if (insertAfterSubOrder !== null && !isNaN(insertAfterSubOrder)) {
+                                    // Next row is different parent or has no sub_order, use integer increment
+                                    subOrder = Math.floor(insertAfterSubOrder) + 1;
+                                } else {
+                                    // Both have no sub_order, use integer
+                                    subOrder = maxSubOrder + 1;
+                                }
+                            } else {
+                                // Next row is main row or other type: use integer after insertAfterSubOrder
+                                if (insertAfterSubOrder !== null && !isNaN(insertAfterSubOrder)) {
+                                    subOrder = Math.floor(insertAfterSubOrder) + 1;
+                                } else {
+                                    subOrder = maxSubOrder + 1;
+                                }
+                            }
+                        } else {
+                            // No next row: append at end, use integer increment
+                            if (insertAfterSubOrder !== null && !isNaN(insertAfterSubOrder)) {
                                 subOrder = Math.floor(insertAfterSubOrder) + 1;
                             } else {
                                 subOrder = maxSubOrder + 1;
                             }
-                        } else {
-                            // Sub row without sub_order, use maxSubOrder + 1
-                            subOrder = maxSubOrder + 1;
                         }
                     } else {
-                        // Inserting after main row: use 1 if no sub rows exist, otherwise maxSubOrder + 1
-                        subOrder = maxSubOrder > 0 ? maxSubOrder + 1 : 1;
+                        // Inserting after main row: check if there's a sub row immediately after
+                        const allRowsArray = Array.from(allRows);
+                        const insertAfterIndex = allRowsArray.indexOf(insertAfterRow);
+                        let nextRow = null;
+                        if (insertAfterIndex >= 0 && insertAfterIndex < allRowsArray.length - 1) {
+                            nextRow = allRowsArray[insertAfterIndex + 1];
+                        }
+                        
+                        if (nextRow) {
+                            const nextProductType = nextRow.getAttribute('data-product-type') || 'main';
+                            if (nextProductType === 'sub') {
+                                // Check if this sub row belongs to the same parent
+                                const nextIdProductCell = nextRow.querySelector('td:first-child');
+                                let sameParent = false;
+                                if (nextIdProductCell) {
+                                    const nextProductValues = getProductValuesFromCell(nextIdProductCell);
+                                    const nextMainProduct = nextProductValues.main || nextRow.getAttribute('data-main-product') || '';
+                                    const normalizedNextMain = normalizeIdProductText(nextMainProduct);
+                                    sameParent = normalizedNextMain === normalizedTargetParent;
+                                }
+                                
+                                if (sameParent) {
+                                    // Inserting between main row and first sub row: use decimal (0.1, 0.2, etc.)
+                                    const nextSubOrderAttr = nextRow.getAttribute('data-sub-order');
+                                    const nextSubOrder = nextSubOrderAttr !== null && nextSubOrderAttr !== '' 
+                                        ? parseFloat(nextSubOrderAttr) 
+                                        : null;
+                                    
+                                    if (nextSubOrder !== null && !isNaN(nextSubOrder)) {
+                                        if (nextSubOrder >= 1) {
+                                            // Next sub row has sub_order >= 1, use 0.1, 0.2, etc.
+                                            // Find the minimum decimal sub_order already used (if any)
+                                            let minDecimalSubOrder = 0.1;
+                                            for (let i = 0; i < allRows.length; i++) {
+                                                const checkRow = allRows[i];
+                                                if (checkRow === row || checkRow === nextRow) continue;
+                                                
+                                                const checkProductType = checkRow.getAttribute('data-product-type') || 'main';
+                                                if (checkProductType === 'sub') {
+                                                    const checkIdProductCell = checkRow.querySelector('td:first-child');
+                                                    if (checkIdProductCell) {
+                                                        const checkProductValues = getProductValuesFromCell(checkIdProductCell);
+                                                        const checkMainProduct = checkProductValues.main || checkRow.getAttribute('data-main-product') || '';
+                                                        const normalizedCheckMain = normalizeIdProductText(checkMainProduct);
+                                                        
+                                                        if (normalizedCheckMain === normalizedTargetParent) {
+                                                            const checkSubOrderAttr = checkRow.getAttribute('data-sub-order');
+                                                            if (checkSubOrderAttr !== null && checkSubOrderAttr !== '') {
+                                                                const checkSubOrder = parseFloat(checkSubOrderAttr);
+                                                                if (!isNaN(checkSubOrder) && checkSubOrder > 0 && checkSubOrder < 1) {
+                                                                    if (checkSubOrder >= minDecimalSubOrder) {
+                                                                        minDecimalSubOrder = checkSubOrder + 0.1;
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            subOrder = minDecimalSubOrder;
+                                        } else {
+                                            // Next sub row has sub_order < 1, use average
+                                            subOrder = (0 + nextSubOrder) / 2;
+                                        }
+                                    } else {
+                                        // Next sub row has no sub_order, use 0.1
+                                        subOrder = 0.1;
+                                    }
+                                } else {
+                                    // Next sub row belongs to different parent, use 1
+                                    subOrder = 1;
+                                }
+                            } else {
+                                // Next row is main row: use 1 (first sub row)
+                                subOrder = 1;
+                            }
+                        } else {
+                            // No next row: append at end, use 1 (first sub row)
+                            subOrder = 1;
+                        }
                     }
                 } else {
-                    // Appending: use maxSubOrder + 1
+                    // Appending: use maxSubOrder + 1 (integer)
                     subOrder = maxSubOrder > 0 ? maxSubOrder + 1 : 1;
                 }
                 
