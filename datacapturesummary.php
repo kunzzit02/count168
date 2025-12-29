@@ -5120,7 +5120,30 @@ function getCurrentProcessId() {
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                    const normalizedParentId = normalizeIdProductText(parentIdProduct || '');
+                    
+                    // Get parent id_product - try multiple sources and normalize
+                    let actualParentId = parentIdProduct;
+                    if (!actualParentId || actualParentId.trim() === '') {
+                        // Try to get from row attribute
+                        actualParentId = row.getAttribute('data-parent-id-product');
+                    }
+                    if (!actualParentId || actualParentId.trim() === '') {
+                        // Try to get from idProductMain
+                        actualParentId = idProductMain;
+                    }
+                    if (!actualParentId || actualParentId.trim() === '') {
+                        // Last resort: try to get from cell
+                        const idProductCell = row.querySelector('td:first-child');
+                        if (idProductCell) {
+                            const productValues = getProductValuesFromCell(idProductCell);
+                            actualParentId = productValues.main || '';
+                        }
+                    }
+                    
+                    // Normalize parent id (remove leading numbers like "1 AA" -> "AA")
+                    const normalizedParentId = normalizeIdProductText(actualParentId || '');
+                    console.log('Calculating sub_order - parentIdProduct:', parentIdProduct, 'actualParentId:', actualParentId, 'normalizedParentId:', normalizedParentId, 'rowIndex:', rowIndex);
+                    
                     const sameParentRows = [];
                     
                     // Find all sub rows with the same parent and row_index, and record their DOM positions
@@ -5139,6 +5162,8 @@ function getCurrentProcessId() {
                         }
                     });
                     
+                    console.log('Found', sameParentRows.length, 'sub rows with same parent and row_index');
+                    
                     // Sort by DOM position to get the correct order (based on where they appear in Summary Table)
                     sameParentRows.sort((a, b) => {
                         const aIndex = Array.from(allRows).indexOf(a);
@@ -5150,8 +5175,15 @@ function getCurrentProcessId() {
                     const currentRowIndex = sameParentRows.indexOf(row);
                     if (currentRowIndex >= 0) {
                         subOrder = currentRowIndex + 1; // sub_order starts from 1
-                        console.log('Calculated sub_order:', subOrder, 'for sub row of parent:', normalizedParentId, 'row_index:', rowIndex);
+                        console.log('Calculated sub_order:', subOrder, 'for sub row of parent:', normalizedParentId, 'row_index:', rowIndex, 'total same parent rows:', sameParentRows.length);
+                    } else {
+                        console.warn('Current row not found in sameParentRows, using fallback sub_order calculation');
+                        // Fallback: use position in all sub rows with same parent
+                        subOrder = sameParentRows.length + 1;
+                        console.log('Using fallback sub_order:', subOrder);
                     }
+                } else {
+                    console.warn('summaryTableBody not found, cannot calculate sub_order');
                 }
             }
             
@@ -5188,10 +5220,67 @@ function getCurrentProcessId() {
             };
         }
         
+        // Recalculate sub_order for all sub rows with the same parent and row_index
+        // This ensures sub_order is always up-to-date before saving
+        function recalculateSubOrderForAllSubRows(parentIdProduct, rowIndex) {
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if (!summaryTableBody) {
+                return;
+            }
+            
+            const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+            const normalizedParentId = normalizeIdProductText(parentIdProduct || '');
+            const sameParentRows = [];
+            
+            // Find all sub rows with the same parent and row_index
+            allRows.forEach((r) => {
+                const rProductType = r.getAttribute('data-product-type') || 'main';
+                if (rProductType === 'sub') {
+                    const rIdProductCell = r.querySelector('td:first-child');
+                    const rProductValues = getProductValuesFromCell(rIdProductCell);
+                    const rParentId = normalizeIdProductText(rProductValues.main || '');
+                    const rRowIndexAttr = r.getAttribute('data-row-index');
+                    const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
+                    
+                    if (rParentId === normalizedParentId && rRowIndex === rowIndex) {
+                        sameParentRows.push(r);
+                    }
+                }
+            });
+            
+            // Sort by DOM position
+            sameParentRows.sort((a, b) => {
+                const aIndex = Array.from(allRows).indexOf(a);
+                const bIndex = Array.from(allRows).indexOf(b);
+                return aIndex - bIndex;
+            });
+            
+            // Update sub_order for all rows
+            sameParentRows.forEach((r, index) => {
+                const subOrder = index + 1;
+                r.setAttribute('data-sub-order', String(subOrder));
+                console.log('Recalculated sub_order:', subOrder, 'for sub row, parent:', normalizedParentId, 'row_index:', rowIndex);
+            });
+        }
+        
         // Save template asynchronously
         // rowElement: optional DOM row element to update with template_key after save
         async function saveTemplateAsync(rowData, rowElement = null) {
             try {
+                // If this is a sub row, recalculate sub_order for all sub rows with same parent and row_index before saving
+                if (rowData.product_type === 'sub' && rowData.row_index !== null && rowData.parent_id_product) {
+                    recalculateSubOrderForAllSubRows(rowData.parent_id_product, rowData.row_index);
+                    
+                    // Re-read sub_order from the row element if available
+                    if (rowElement) {
+                        const subOrderAttr = rowElement.getAttribute('data-sub-order');
+                        if (subOrderAttr && !Number.isNaN(Number(subOrderAttr))) {
+                            rowData.sub_order = Number(subOrderAttr);
+                            console.log('Updated sub_order from row element:', rowData.sub_order);
+                        }
+                    }
+                }
+                
                 const processId = getCurrentProcessId();
                 if (processId !== null) {
                     rowData.process_id = processId;
@@ -10253,38 +10342,42 @@ function getCurrentProcessId() {
                 
                 // Calculate sub_order: position of this sub row among all sub rows with the same parent and row_index
                 // IMPORTANT: sub_order reflects the position in Summary Table, not creation time
-                const normalizedParentValue = normalizeIdProductText(parentProcessValue);
-                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                const sameParentRows = [];
-                
-                // Find all sub rows with the same parent and row_index
-                allRows.forEach((r) => {
-                    const rProductType = r.getAttribute('data-product-type') || 'main';
-                    if (rProductType === 'sub') {
-                        const rIdProductCell = r.querySelector('td:first-child');
-                        const rProductValues = getProductValuesFromCell(rIdProductCell);
-                        const rParentId = normalizeIdProductText(rProductValues.main || '');
-                        const rRowIndexAttr = r.getAttribute('data-row-index');
-                        const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
-                        
-                        if (rParentId === normalizedParentValue && rRowIndex === newRowIndex) {
-                            sameParentRows.push(r);
+                // Recalculate for all sub rows with same parent to ensure consistency
+                if (newRowIndex !== null) {
+                    const normalizedParentValue = normalizeIdProductText(parentProcessValue);
+                    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const sameParentRows = [];
+                    
+                    // Find all sub rows with the same parent and row_index
+                    allRows.forEach((r) => {
+                        const rProductType = r.getAttribute('data-product-type') || 'main';
+                        if (rProductType === 'sub') {
+                            const rIdProductCell = r.querySelector('td:first-child');
+                            const rProductValues = getProductValuesFromCell(rIdProductCell);
+                            const rParentId = normalizeIdProductText(rProductValues.main || '');
+                            const rRowIndexAttr = r.getAttribute('data-row-index');
+                            const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
+                            
+                            if (rParentId === normalizedParentValue && rRowIndex === newRowIndex) {
+                                sameParentRows.push(r);
+                            }
                         }
-                    }
-                });
-                
-                // Sort by DOM position to get the correct order (based on where they appear in Summary Table)
-                sameParentRows.sort((a, b) => {
-                    const aIndex = Array.from(allRows).indexOf(a);
-                    const bIndex = Array.from(allRows).indexOf(b);
-                    return aIndex - bIndex;
-                });
-                
-                // Find the index of current row in the sorted list (sub_order starts from 1)
-                const currentRowIndex = sameParentRows.indexOf(row);
-                const subOrder = currentRowIndex >= 0 ? currentRowIndex + 1 : sameParentRows.length;
-                row.setAttribute('data-sub-order', String(subOrder));
-                console.log('Set sub_order:', subOrder, 'for sub row of parent:', normalizedParentValue, 'row_index:', newRowIndex);
+                    });
+                    
+                    // Sort by DOM position to get the correct order (based on where they appear in Summary Table)
+                    sameParentRows.sort((a, b) => {
+                        const aIndex = Array.from(allRows).indexOf(a);
+                        const bIndex = Array.from(allRows).indexOf(b);
+                        return aIndex - bIndex;
+                    });
+                    
+                    // Update sub_order for all rows (including the new one)
+                    sameParentRows.forEach((r, index) => {
+                        const subOrder = index + 1;
+                        r.setAttribute('data-sub-order', String(subOrder));
+                        console.log('Set sub_order:', subOrder, 'for sub row of parent:', normalizedParentValue, 'row_index:', newRowIndex);
+                    });
+                }
                 
                 // Set creation order based on insertion position
                 // Get creation order from the row we inserted after, and use a value slightly larger
@@ -10330,41 +10423,45 @@ function getCurrentProcessId() {
                 }
                 
                 // Calculate sub_order for appended row
-                const normalizedParentValue = normalizeIdProductText(parentProcessValue);
-                const allRowsAfterAppend = Array.from(summaryTableBody.querySelectorAll('tr'));
-                const sameParentRows = [];
-                
-                // Find all sub rows with the same parent and row_index
+                // Recalculate for all sub rows with same parent to ensure consistency
                 const finalRowIndex = row.getAttribute('data-row-index');
                 const finalRowIndexNum = finalRowIndex && !Number.isNaN(Number(finalRowIndex)) ? Number(finalRowIndex) : null;
                 
-                allRowsAfterAppend.forEach((r) => {
-                    const rProductType = r.getAttribute('data-product-type') || 'main';
-                    if (rProductType === 'sub') {
-                        const rIdProductCell = r.querySelector('td:first-child');
-                        const rProductValues = getProductValuesFromCell(rIdProductCell);
-                        const rParentId = normalizeIdProductText(rProductValues.main || '');
-                        const rRowIndexAttr = r.getAttribute('data-row-index');
-                        const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
-                        
-                        if (rParentId === normalizedParentValue && rRowIndex === finalRowIndexNum) {
-                            sameParentRows.push(r);
+                if (finalRowIndexNum !== null) {
+                    const normalizedParentValue = normalizeIdProductText(parentProcessValue);
+                    const allRowsAfterAppend = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const sameParentRows = [];
+                    
+                    // Find all sub rows with the same parent and row_index
+                    allRowsAfterAppend.forEach((r) => {
+                        const rProductType = r.getAttribute('data-product-type') || 'main';
+                        if (rProductType === 'sub') {
+                            const rIdProductCell = r.querySelector('td:first-child');
+                            const rProductValues = getProductValuesFromCell(rIdProductCell);
+                            const rParentId = normalizeIdProductText(rProductValues.main || '');
+                            const rRowIndexAttr = r.getAttribute('data-row-index');
+                            const rRowIndex = rRowIndexAttr && !Number.isNaN(Number(rRowIndexAttr)) ? Number(rRowIndexAttr) : null;
+                            
+                            if (rParentId === normalizedParentValue && rRowIndex === finalRowIndexNum) {
+                                sameParentRows.push(r);
+                            }
                         }
-                    }
-                });
-                
-                // Sort by DOM position
-                sameParentRows.sort((a, b) => {
-                    const aIndex = Array.from(allRowsAfterAppend).indexOf(a);
-                    const bIndex = Array.from(allRowsAfterAppend).indexOf(b);
-                    return aIndex - bIndex;
-                });
-                
-                // Find the index of current row
-                const currentRowIndex = sameParentRows.indexOf(row);
-                const subOrder = currentRowIndex >= 0 ? currentRowIndex + 1 : sameParentRows.length;
-                row.setAttribute('data-sub-order', String(subOrder));
-                console.log('Set sub_order for appended row:', subOrder, 'for sub row of parent:', normalizedParentValue, 'row_index:', finalRowIndexNum);
+                    });
+                    
+                    // Sort by DOM position
+                    sameParentRows.sort((a, b) => {
+                        const aIndex = Array.from(allRowsAfterAppend).indexOf(a);
+                        const bIndex = Array.from(allRowsAfterAppend).indexOf(b);
+                        return aIndex - bIndex;
+                    });
+                    
+                    // Update sub_order for all rows (including the new one)
+                    sameParentRows.forEach((r, index) => {
+                        const subOrder = index + 1;
+                        r.setAttribute('data-sub-order', String(subOrder));
+                        console.log('Set sub_order for appended row:', subOrder, 'for sub row of parent:', normalizedParentValue, 'row_index:', finalRowIndexNum);
+                    });
+                }
                 
                 // Set creation order for appended row (use current timestamp)
                 const creationOrder = Date.now();
