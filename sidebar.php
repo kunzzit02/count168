@@ -1108,13 +1108,9 @@ if ($companyId) {
 
     /* 公司到期倒计时样式 */
     .company-expiration-countdown {
-        padding: clamp(4px, 0.42vw, 8px) clamp(8px, 0.73vw, 14px);
+        padding: 0;
         margin-bottom: clamp(6px, 0.63vw, 12px);
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
         text-align: center;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
     }
 
     .expiration-countdown-text {
