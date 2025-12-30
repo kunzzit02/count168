@@ -145,7 +145,6 @@ if ($companyId) {
         display: flex;
         align-items: center;
         flex-direction: row;
-        justify-content: center;
         gap: 0;
         cursor: pointer;
         padding: clamp(2px, 0.4vw, 8px);
@@ -155,7 +154,7 @@ if ($companyId) {
         transition: background-color 0.3s ease;
         text-align: left;
         color: white;
-        flex: 1;
+        flex-shrink: 0;
         /* 优化渲染性能 */
         min-width: 0;
         contain: layout style;
@@ -383,6 +382,8 @@ if ($companyId) {
         align-items: flex-start;
         gap: 2px;
         margin-left: clamp(4px, 0.42vw, 8px);
+        min-width: clamp(60px, 5vw, 100px);
+        flex: 1;
     }
 
     .user-name {
