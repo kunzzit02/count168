@@ -204,8 +204,8 @@ if ($companyId) {
 
     /* 当前头像显示 */
     .current-avatar {
-        width: clamp(40px, 3.125vw, 60px);
-        height: clamp(40px, 3.125vw, 60px);
+        width: clamp(30px, 2.6vw, 50px);
+        height: clamp(30px, 2.6vw, 50px);
         border-radius: 50%;
         cursor: pointer;
         /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
@@ -382,7 +382,7 @@ if ($companyId) {
         justify-content: center;
         align-items: flex-start;
         gap: 2px;
-        margin-left: clamp(4px, 0.42vw, 8px);
+        margin-left: 0px;
         min-width: clamp(60px, 5vw, 100px);
         flex: 1;
     }
