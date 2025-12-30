@@ -33,16 +33,17 @@ try {
                 throw new Exception('账户不属于该公司');
             }
             
-            // 查找所有关联的账户（不考虑方向，用于显示哪些账户已勾选）
-            $linked_accounts = getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id);
+            // 查找所有关联的账户（考虑连接类型和方向）
+            $linked_accounts_data = getAllLinkedAccountsForDisplayWithType($pdo, $account_id, $company_id);
             
             // 获取连接类型信息（用于设置弹窗中的单选按钮）
             $link_type_info = getLinkTypeInfo($pdo, $account_id, $company_id);
             
             echo json_encode([
                 'success' => true,
-                'data' => $linked_accounts,
-                'link_type_info' => $link_type_info
+                'data' => $linked_accounts_data['accounts'],
+                'link_type_info' => $link_type_info,
+                'link_types_map' => $linked_accounts_data['link_types_map'] // 每个账户的连接类型映射
             ]);
             break;
             
@@ -337,9 +338,11 @@ function getLinkTypeInfo($pdo, $account_id, $company_id) {
  * 考虑连接类型和方向：
  * - 双向连接：两个账户都能看到对方
  * - 单向连接：只有发起者能看到被连接者，被连接者看不到发起者
+ * 返回账户列表和每个账户的连接类型映射
  */
-function getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id) {
-    $linked_ids = [];
+function getAllLinkedAccountsForDisplayWithType($pdo, $account_id, $company_id) {
+    $linked_data = [];
+    $link_types_map = []; // 存储每个账户的连接类型：{account_id: 'bidirectional' | 'unidirectional'}
     
     // 检查 account_link 表是否有 link_type 字段（兼容旧数据）
     $check_column_stmt = $pdo->query("SHOW COLUMNS FROM account_link LIKE 'link_type'");
@@ -362,7 +365,14 @@ function getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id) {
         ");
         $stmt->execute([$account_id, $company_id, $account_id, $account_id, $company_id, $account_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $linked_ids = array_column($linked_data, 'linked_id');
+        
+        // 构建连接类型映射
+        foreach ($linked_data as $row) {
+            $linked_id = $row['linked_id'];
+            if ($linked_id != $account_id) {
+                $link_types_map[$linked_id] = $row['link_type'];
+            }
+        }
     } else {
         // 兼容旧数据（没有 link_type 字段，默认为双向）
         $stmt = $pdo->prepare("
@@ -376,12 +386,17 @@ function getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id) {
         ");
         $stmt->execute([$account_id, $company_id, $account_id, $company_id]);
         $linked_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // 所有连接默认为双向
+        foreach ($linked_ids as $linked_id) {
+            if ($linked_id != $account_id) {
+                $link_types_map[$linked_id] = 'bidirectional';
+            }
+        }
     }
     
     // 获取所有关联账户的详细信息（排除当前账户）
-    $linked_ids = array_filter($linked_ids, function($id) use ($account_id) {
-        return $id != $account_id;
-    });
+    $linked_ids = array_keys($link_types_map);
     
     $result = [];
     if (!empty($linked_ids)) {
@@ -396,7 +411,21 @@ function getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id) {
         $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
     
-    return $result;
+    return [
+        'accounts' => $result,
+        'link_types_map' => $link_types_map
+    ];
+}
+
+/**
+ * 获取与指定账户关联的所有账户（用于 account-list.php 的 link account 弹窗）
+ * 考虑连接类型和方向：
+ * - 双向连接：两个账户都能看到对方
+ * - 单向连接：只有发起者能看到被连接者，被连接者看不到发起者
+ */
+function getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id) {
+    $result = getAllLinkedAccountsForDisplayWithType($pdo, $account_id, $company_id);
+    return $result['accounts'];
 }
 
 /**

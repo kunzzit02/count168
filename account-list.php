@@ -1679,19 +1679,22 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 const linkTypeRadio = document.querySelector('input[name="linkType"]:checked');
                 const linkType = linkTypeRadio ? linkTypeRadio.value : 'bidirectional';
                 
-                // 获取当前账户的现有关联
+                // 获取当前账户的现有关联（只获取当前连接类型的关联）
                 let currentLinkedIds = [];
                 try {
                     const response = await fetch(`account_link_api.php?action=get_linked_accounts&account_id=${currentLinkAccountId}&company_id=${currentCompanyId}`);
                     const result = await response.json();
-                    if (result.success && Array.isArray(result.data)) {
-                        currentLinkedIds = result.data.map(acc => acc.id);
+                    if (result.success && Array.isArray(result.data) && result.link_types_map) {
+                        // 只获取当前连接类型的关联账户
+                        currentLinkedIds = result.data
+                            .filter(acc => result.link_types_map[acc.id] === linkType)
+                            .map(acc => acc.id);
                     }
                 } catch (error) {
                     console.error('Error fetching current links:', error);
                 }
                 
-                // 计算需要添加和移除的关联
+                // 计算需要添加和移除的关联（只针对当前连接类型）
                 const newIds = Array.isArray(selectedLinkedAccountIdsForLink) ? selectedLinkedAccountIdsForLink : [];
                 const toAdd = newIds.filter(id => !currentLinkedIds.includes(id));
                 const toRemove = currentLinkedIds.filter(id => !newIds.includes(id));
@@ -1820,6 +1823,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 // 获取当前账户已关联的账户列表和连接类型信息
                 let linkedAccountIds = [];
                 let linkTypeInfo = null;
+                let linkTypesMap = {}; // 存储每个账户的连接类型映射
                 try {
                     const linkResponse = await fetch(`account_link_api.php?action=get_linked_accounts&account_id=${accountId}&company_id=${currentCompanyId}`);
                     const linkResult = await linkResponse.json();
@@ -1831,22 +1835,22 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     if (linkResult.success && linkResult.link_type_info) {
                         linkTypeInfo = linkResult.link_type_info;
                     }
+                    // 获取每个账户的连接类型映射
+                    if (linkResult.success && linkResult.link_types_map) {
+                        linkTypesMap = linkResult.link_types_map;
+                    }
                 } catch (error) {
                     console.error('Error loading linked accounts:', error);
                 }
                 
-                // 根据连接类型信息设置单选按钮
-                if (linkTypeInfo && linkTypeInfo.link_type === 'unidirectional') {
-                    document.getElementById('linkTypeUnidirectional').checked = true;
-                    document.getElementById('linkTypeBidirectional').checked = false;
-                    currentLinkType = 'unidirectional';
-                    updateLinkTypeDescription();
-                } else {
-                    document.getElementById('linkTypeBidirectional').checked = true;
-                    document.getElementById('linkTypeUnidirectional').checked = false;
-                    currentLinkType = 'bidirectional';
-                    updateLinkTypeDescription();
-                }
+                // 根据连接类型信息设置单选按钮（默认显示双向）
+                document.getElementById('linkTypeBidirectional').checked = true;
+                document.getElementById('linkTypeUnidirectional').checked = false;
+                currentLinkType = 'bidirectional';
+                updateLinkTypeDescription();
+                
+                // 存储连接类型映射，用于动态更新勾选状态
+                window.linkTypesMap = linkTypesMap;
 
                 // 按 account_id 排序
                 availableAccounts.sort((a, b) => {
@@ -1876,7 +1880,12 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     const accountIdDisplay = shouldShowName && account.name
                         ? `${accountIdText} (${String(account.name || '').toUpperCase()})`
                         : accountIdText;
-                    const isLinked = linkedAccountIds.includes(account.id);
+                    // 根据当前选择的连接类型判断是否应该勾选
+                    // 如果账户有连接，检查连接类型是否匹配当前选择的类型
+                    const accountLinkType = window.linkTypesMap && window.linkTypesMap[account.id] ? window.linkTypesMap[account.id] : null;
+                    const isLinked = linkedAccountIds.includes(account.id) && 
+                                     accountLinkType && 
+                                     accountLinkType === currentLinkType;
                     
                     const item = document.createElement('div');
                     item.className = 'account-item-compact';
@@ -2789,8 +2798,53 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 radio.addEventListener('change', function() {
                     currentLinkType = this.value;
                     updateLinkTypeDescription();
+                    // 当连接类型改变时，更新所有账户的勾选状态
+                    updateAccountCheckboxesByLinkType();
                 });
             });
+            
+            // 根据当前选择的连接类型更新账户勾选状态
+            function updateAccountCheckboxesByLinkType() {
+                if (!window.linkTypesMap) return;
+                
+                const checkboxes = document.querySelectorAll('#linkAccountList input[type="checkbox"]');
+                checkboxes.forEach(checkbox => {
+                    const accountId = parseInt(checkbox.value);
+                    const accountLinkType = window.linkTypesMap[accountId];
+                    const item = checkbox.closest('.account-item-compact');
+                    
+                    if (accountLinkType) {
+                        // 如果账户有连接，根据连接类型匹配当前选择的类型
+                        const shouldBeChecked = accountLinkType === currentLinkType;
+                        checkbox.checked = shouldBeChecked;
+                        
+                        // 更新选中状态数组
+                        if (shouldBeChecked) {
+                            if (!selectedLinkedAccountIdsForLink.includes(accountId)) {
+                                selectedLinkedAccountIdsForLink.push(accountId);
+                            }
+                            if (item) {
+                                item.style.backgroundColor = '#e8f5e9';
+                                item.style.borderColor = '#4caf50';
+                            }
+                        } else {
+                            selectedLinkedAccountIdsForLink = selectedLinkedAccountIdsForLink.filter(id => id !== accountId);
+                            if (item) {
+                                item.style.backgroundColor = 'white';
+                                item.style.borderColor = '#eee';
+                            }
+                        }
+                    } else {
+                        // 如果账户没有连接，取消勾选
+                        checkbox.checked = false;
+                        selectedLinkedAccountIdsForLink = selectedLinkedAccountIdsForLink.filter(id => id !== accountId);
+                        if (item) {
+                            item.style.backgroundColor = 'white';
+                            item.style.borderColor = '#eee';
+                        }
+                    }
+                });
+            }
             
             // Alert amount: 用户输入正数，输入框自动显示为负数
             function setupAlertAmountAutoNegative(inputElement) {
