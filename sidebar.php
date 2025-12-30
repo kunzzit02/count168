@@ -1123,7 +1123,7 @@ if ($companyId) {
     }
 
     .expiration-countdown-text.expired {
-        color: #fee2e2;
+        color:rgb(255, 0, 0);
         animation: pulse-red 2s ease-in-out infinite;
     }
 
@@ -1133,7 +1133,7 @@ if ($companyId) {
     }
 
     .expiration-countdown-text.normal {
-        color: #d1fae5;
+        color: #cde7ff;
     }
 
     @keyframes pulse-red {
