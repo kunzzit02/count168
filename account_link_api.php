@@ -15,6 +15,7 @@ try {
     switch ($action) {
         case 'get_linked_accounts':
             // 获取与指定账户关联的所有账户（同一公司内）
+            // 用于 account-list.php 的 link account 弹窗，显示所有已关联的账户（不考虑方向）
             $account_id = isset($_GET['account_id']) ? (int)$_GET['account_id'] : 0;
             $company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : 0;
             
@@ -32,8 +33,8 @@ try {
                 throw new Exception('账户不属于该公司');
             }
             
-            // 查找所有关联的账户（根据连接类型决定可见性）
-            $linked_accounts = getLinkedAccounts($pdo, $account_id, $company_id);
+            // 查找所有关联的账户（不考虑方向，用于显示哪些账户已勾选）
+            $linked_accounts = getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id);
             
             echo json_encode([
                 'success' => true,
@@ -69,8 +70,7 @@ try {
             }
             
             // 确保 account_id_1 < account_id_2（用于唯一约束）
-            $original_account_1 = $account_id_1;
-            $original_account_2 = $account_id_2;
+            // source_account_id 存储的是实际的发起账户ID，不需要因为排序而调整
             if ($account_id_1 > $account_id_2) {
                 $temp = $account_id_1;
                 $account_id_1 = $account_id_2;
@@ -266,6 +266,66 @@ try {
         'success' => false,
         'error' => $e->getMessage()
     ]);
+}
+
+/**
+ * 获取与指定账户关联的所有账户（用于 account-list.php 的 link account 弹窗）
+ * 显示所有已关联的账户，不考虑连接方向（用于显示哪些账户已勾选）
+ */
+function getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id) {
+    $linked_ids = [];
+    
+    // 检查 account_link 表是否有 link_type 字段（兼容旧数据）
+    $check_column_stmt = $pdo->query("SHOW COLUMNS FROM account_link LIKE 'link_type'");
+    $has_link_type = $check_column_stmt->rowCount() > 0;
+    
+    if ($has_link_type) {
+        // 查询所有与当前账户关联的账户（不管方向）
+        $stmt = $pdo->prepare("
+            SELECT account_id_2 AS linked_id
+            FROM account_link 
+            WHERE account_id_1 = ? AND company_id = ?
+            UNION
+            SELECT account_id_1 AS linked_id
+            FROM account_link 
+            WHERE account_id_2 = ? AND company_id = ?
+        ");
+        $stmt->execute([$account_id, $company_id, $account_id, $company_id]);
+        $linked_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    } else {
+        // 兼容旧数据（没有 link_type 字段）
+        $stmt = $pdo->prepare("
+            SELECT account_id_2 AS linked_id
+            FROM account_link 
+            WHERE account_id_1 = ? AND company_id = ?
+            UNION
+            SELECT account_id_1 AS linked_id
+            FROM account_link 
+            WHERE account_id_2 = ? AND company_id = ?
+        ");
+        $stmt->execute([$account_id, $company_id, $account_id, $company_id]);
+        $linked_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+    
+    // 获取所有关联账户的详细信息（排除当前账户）
+    $linked_ids = array_filter($linked_ids, function($id) use ($account_id) {
+        return $id != $account_id;
+    });
+    
+    $result = [];
+    if (!empty($linked_ids)) {
+        $placeholders = str_repeat('?,', count($linked_ids) - 1) . '?';
+        $stmt = $pdo->prepare("
+            SELECT id, account_id, name 
+            FROM account 
+            WHERE id IN ($placeholders)
+            ORDER BY account_id ASC
+        ");
+        $stmt->execute(array_values($linked_ids));
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    return $result;
 }
 
 /**
