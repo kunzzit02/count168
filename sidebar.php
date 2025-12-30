@@ -125,9 +125,9 @@ if ($companyId) {
     .user-info-container {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         width: 100%;
-        padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
+        padding: clamp(8px, 0.73vw, 14px) clamp(12px, 1.04vw, 20px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
         min-height: 50px;
         contain: layout style;
@@ -137,6 +137,16 @@ if ($companyId) {
         /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
+        /* 添加微妙的背景和圆角 */
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        margin-left: clamp(8px, 0.63vw, 12px);
+        margin-right: clamp(8px, 0.63vw, 12px);
+        transition: background 0.3s ease;
+    }
+
+    .user-info-container:hover {
+        background: rgba(255, 255, 255, 0.08);
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -147,14 +157,14 @@ if ($companyId) {
         flex-direction: row;
         gap: 0;
         cursor: pointer;
-        padding: clamp(2px, 0.4vw, 8px);
-        padding-left: 0px;
-        border-radius: 25px;
+        padding: 0;
+        border-radius: 12px;
         /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
         transition: background-color 0.3s ease;
         text-align: left;
         color: white;
         flex-shrink: 0;
+        flex: 1;
         /* 优化渲染性能 */
         min-width: 0;
         contain: layout style;
@@ -163,7 +173,7 @@ if ($companyId) {
     }
 
     .user-avatar-dropdown:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: transparent;
     }
 
     .user-avatar {
@@ -199,6 +209,8 @@ if ($companyId) {
         /* 创建新的堆叠上下文，确保子元素（头像选择菜单）的z-index能够覆盖其他元素 */
         z-index: 10000;
         isolation: isolate;
+        /* 添加右边距，与文字信息保持适当间距 */
+        margin-right: clamp(8px, 0.73vw, 14px);
     }
 
     /* 当前头像显示 */
@@ -209,7 +221,7 @@ if ($companyId) {
         cursor: pointer;
         /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
         transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
-        border: 3px solid rgba(255, 255, 255, 0.3);
+        border: 3px solid rgba(255, 255, 255, 0.4);
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
@@ -226,11 +238,14 @@ if ($companyId) {
         -webkit-backface-visibility: hidden;
         /* 确保尺寸固定，避免 flex 布局重新计算时的抖动 */
         flex-shrink: 0;
+        /* 添加更明显的阴影效果 */
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     }
 
     .current-avatar:hover {
-        border-color: rgba(255, 255, 255, 0.8);
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        border-color: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+        transform: scale(1.05);
     }
 
     /* 头像选择菜单 */
@@ -380,24 +395,44 @@ if ($companyId) {
         flex-direction: column;
         justify-content: center;
         align-items: flex-start;
-        gap: 2px;
-        margin-left: clamp(4px, 0.42vw, 8px);
+        gap: clamp(3px, 0.31vw, 6px);
+        margin-left: clamp(10px, 0.94vw, 18px);
+        flex: 1;
+        min-width: 0;
     }
 
     .user-name {
         margin: 0;
         font-size: clamp(10px, 0.83vw, 16px);
-        font-weight: 600;
+        font-weight: 700;
         color: white;
-        line-height: 1.2;
+        line-height: 1.3;
+        letter-spacing: 0.3px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
     }
 
     
     .user-role {
         font-size: clamp(9px, 0.57vw, 11px);
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.8);
-        line-height: 1.2;
+        color: rgba(255, 255, 255, 0.85);
+        line-height: 1.4;
+        letter-spacing: 0.2px;
+        text-transform: uppercase;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
+        /* 添加微妙的背景标签效果 */
+        display: inline-block;
+        padding: clamp(2px, 0.21vw, 4px) clamp(6px, 0.63vw, 12px);
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        backdrop-filter: blur(5px);
     }
 
     /* 左边的选项bar */
