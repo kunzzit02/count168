@@ -754,7 +754,7 @@ if ($companyId) {
         margin-top: auto;
         flex-shrink: 0;
         backdrop-filter: blur(10px);
-        gap: clamp(8px, 0.83vw, 16px);
+        gap: clamp(6px, 0.52vw, 10px);
     }
 
     /* 滚动条样式 */
