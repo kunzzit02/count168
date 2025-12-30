@@ -1154,6 +1154,19 @@ if ($companyId) {
         padding: 0;
         margin-bottom: 0px;
         text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(4px, 0.42vw, 8px);
+    }
+
+    .expiration-label {
+        font-size: clamp(8px, 0.625vw, 12px);
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.9);
+        margin: 0;
+        line-height: 1.3;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     }
 
     .expiration-countdown-text {
@@ -1532,6 +1545,7 @@ if ($companyId) {
     <div class="informationmenu-footer">
         <?php if ($company_expiration_date): ?>
         <div class="company-expiration-countdown" id="companyExpirationCountdown">
+            <span class="expiration-label">Exp:</span>
             <div class="expiration-countdown-text <?php echo $expiration_status; ?>" id="expirationCountdownText">
                 <?php echo htmlspecialchars($expiration_countdown_text); ?>
             </div>
