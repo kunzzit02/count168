@@ -334,7 +334,9 @@ function getLinkTypeInfo($pdo, $account_id, $company_id) {
 
 /**
  * 获取与指定账户关联的所有账户（用于 account-list.php 的 link account 弹窗）
- * 显示所有已关联的账户，不考虑连接方向（用于显示哪些账户已勾选）
+ * 考虑连接类型和方向：
+ * - 双向连接：两个账户都能看到对方
+ * - 单向连接：只有发起者能看到被连接者，被连接者看不到发起者
  */
 function getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id) {
     $linked_ids = [];
@@ -344,20 +346,25 @@ function getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id) {
     $has_link_type = $check_column_stmt->rowCount() > 0;
     
     if ($has_link_type) {
-        // 查询所有与当前账户关联的账户（不管方向）
+        // 查询所有与当前账户关联的账户（考虑连接类型和方向）
+        // 双向连接：两个方向都可以
+        // 单向连接：只有 source_account_id = account_id 的连接才可见（当前账户是发起者）
         $stmt = $pdo->prepare("
-            SELECT account_id_2 AS linked_id
+            SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_1 = ? AND company_id = ?
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
             UNION
-            SELECT account_id_1 AS linked_id
+            SELECT account_id_1 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_2 = ? AND company_id = ?
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
         ");
-        $stmt->execute([$account_id, $company_id, $account_id, $company_id]);
-        $linked_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $stmt->execute([$account_id, $company_id, $account_id, $account_id, $company_id, $account_id]);
+        $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $linked_ids = array_column($linked_data, 'linked_id');
     } else {
-        // 兼容旧数据（没有 link_type 字段）
+        // 兼容旧数据（没有 link_type 字段，默认为双向）
         $stmt = $pdo->prepare("
             SELECT account_id_2 AS linked_id
             FROM account_link 
