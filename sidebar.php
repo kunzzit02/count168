@@ -137,7 +137,15 @@ if ($companyId) {
         /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
+    }
+
+    /* 头像和名字的组合包装器 */
+    .user-profile-wrapper {
+        display: flex;
+        align-items: center;
         gap: clamp(10px, 1.25vw, 14px);
+        flex-shrink: 0;
+        max-width: 100%;
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -1213,122 +1221,125 @@ if ($companyId) {
 
         <!-- 用户信息容器（头像和用户信息左右排版） -->
         <div class="user-info-container">
-            <!-- 添加头像选择器（改为使用 PNG 照片） -->
-            <div class="avatar-selector-container">
-                <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
-                    <!-- 移除默认 src，避免每次切换页面先闪一下默认头像；实际头像由 JS 根据 localStorage 设置 -->
-                    <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;" loading="eager">
-                    <script>
-                        // 立即设置头像，避免闪烁（在DOMContentLoaded之前执行）
-                        (function() {
-                            const avatarImages = {
-                                male1: 'images/avatar1.png',
-                                male2: 'images/avatar2.png',
-                                male3: 'images/avatar3.png',
-                                male4: 'images/avatar4.png',
-                                male5: 'images/avatar5.png',
-                                male6: 'images/avatar6.png',
-                                male7: 'images/avatar7.png',
-                                male8: 'images/avatar8.png',
-                                male9: 'images/avatar9.png',
-                                female1: 'images/female1.png',
-                                female2: 'images/female2.png',
-                                female3: 'images/female3.png',
-                                female4: 'images/female4.png',
-                                female5: 'images/female5.png',
-                                female6: 'images/female6.png',
-                                female7: 'images/female7.png',
-                                female8: 'images/female8.png',
-                                female9: 'images/female9.png'
-                            };
-                            const savedAvatar = localStorage.getItem('selectedAvatar');
-                            const avatarId = (savedAvatar && avatarImages[savedAvatar]) ? savedAvatar : 'male1';
-                            const img = document.getElementById('currentAvatarImg');
-                            if (img) {
-                                // 直接设置 src，图片尺寸已固定，不会导致布局变化
-                                img.src = avatarImages[avatarId];
-                            }
-                        })();
-                    </script>
+            <!-- 头像和名字的组合包装器 -->
+            <div class="user-profile-wrapper">
+                <!-- 添加头像选择器（改为使用 PNG 照片） -->
+                <div class="avatar-selector-container">
+                    <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
+                        <!-- 移除默认 src，避免每次切换页面先闪一下默认头像；实际头像由 JS 根据 localStorage 设置 -->
+                        <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;" loading="eager">
+                        <script>
+                            // 立即设置头像，避免闪烁（在DOMContentLoaded之前执行）
+                            (function() {
+                                const avatarImages = {
+                                    male1: 'images/avatar1.png',
+                                    male2: 'images/avatar2.png',
+                                    male3: 'images/avatar3.png',
+                                    male4: 'images/avatar4.png',
+                                    male5: 'images/avatar5.png',
+                                    male6: 'images/avatar6.png',
+                                    male7: 'images/avatar7.png',
+                                    male8: 'images/avatar8.png',
+                                    male9: 'images/avatar9.png',
+                                    female1: 'images/female1.png',
+                                    female2: 'images/female2.png',
+                                    female3: 'images/female3.png',
+                                    female4: 'images/female4.png',
+                                    female5: 'images/female5.png',
+                                    female6: 'images/female6.png',
+                                    female7: 'images/female7.png',
+                                    female8: 'images/female8.png',
+                                    female9: 'images/female9.png'
+                                };
+                                const savedAvatar = localStorage.getItem('selectedAvatar');
+                                const avatarId = (savedAvatar && avatarImages[savedAvatar]) ? savedAvatar : 'male1';
+                                const img = document.getElementById('currentAvatarImg');
+                                if (img) {
+                                    // 直接设置 src，图片尺寸已固定，不会导致布局变化
+                                    img.src = avatarImages[avatarId];
+                                }
+                            })();
+                        </script>
+                    </div>
+                    
+                <div class="avatar-options" id="avatarOptions">
+                    <div class="options-title">Choose Avatar</div>
+                    
+                    <!-- 性别选择 -->
+                    <div class="gender-selection" id="genderSelection">
+                        <button type="button" class="gender-btn active" onclick="selectGender('male')">Male</button>
+                        <button type="button" class="gender-btn" onclick="selectGender('female')">Female</button>
+                    </div>
+
+                    <!-- 男性头像列表 -->
+                    <div class="avatar-list show" id="maleAvatarList">
+                        <div class="avatar-option" data-avatar-id="male1" onclick="selectAvatar('male1')">
+                            <img src="images/avatar1.png" alt="Male Avatar 1" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="male2" onclick="selectAvatar('male2')">
+                            <img src="images/avatar2.png" alt="Male Avatar 2" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="male3" onclick="selectAvatar('male3')">
+                            <img src="images/avatar3.png" alt="Male Avatar 3" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="male4" onclick="selectAvatar('male4')">
+                            <img src="images/avatar4.png" alt="Male Avatar 4" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="male5" onclick="selectAvatar('male5')">
+                            <img src="images/avatar5.png" alt="Male Avatar 5" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="male6" onclick="selectAvatar('male6')">
+                            <img src="images/avatar6.png" alt="Male Avatar 6" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="male7" onclick="selectAvatar('male7')">
+                            <img src="images/avatar7.png" alt="Male Avatar 7" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="male8" onclick="selectAvatar('male8')">
+                            <img src="images/avatar8.png" alt="Male Avatar 8" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="male9" onclick="selectAvatar('male9')">
+                            <img src="images/avatar9.png" alt="Male Avatar 9" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                    </div>
+
+                    <!-- 女性头像列表 -->
+                    <div class="avatar-list" id="femaleAvatarList">
+                        <div class="avatar-option" data-avatar-id="female1" onclick="selectAvatar('female1')">
+                            <img src="images/female1.png" alt="Female Avatar 1" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="female2" onclick="selectAvatar('female2')">
+                            <img src="images/female2.png" alt="Female Avatar 2" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="female3" onclick="selectAvatar('female3')">
+                            <img src="images/female3.png" alt="Female Avatar 3" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="female4" onclick="selectAvatar('female4')">
+                            <img src="images/female4.png" alt="Female Avatar 4" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="female5" onclick="selectAvatar('female5')">
+                            <img src="images/female5.png" alt="Female Avatar 5" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="female6" onclick="selectAvatar('female6')">
+                            <img src="images/female6.png" alt="Female Avatar 6" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="female7" onclick="selectAvatar('female7')">
+                            <img src="images/female7.png" alt="Female Avatar 7" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="female8" onclick="selectAvatar('female8')">
+                            <img src="images/female8.png" alt="Female Avatar 8" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <div class="avatar-option" data-avatar-id="female9" onclick="selectAvatar('female9')">
+                            <img src="images/female9.png" alt="Female Avatar 9" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        </div>
+                    </div>
                 </div>
-                
-            <div class="avatar-options" id="avatarOptions">
-                <div class="options-title">Choose Avatar</div>
-                
-                <!-- 性别选择 -->
-                <div class="gender-selection" id="genderSelection">
-                    <button type="button" class="gender-btn active" onclick="selectGender('male')">Male</button>
-                    <button type="button" class="gender-btn" onclick="selectGender('female')">Female</button>
                 </div>
 
-                <!-- 男性头像列表 -->
-                <div class="avatar-list show" id="maleAvatarList">
-                    <div class="avatar-option" data-avatar-id="male1" onclick="selectAvatar('male1')">
-                        <img src="images/avatar1.png" alt="Male Avatar 1" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                <div class="user-avatar-dropdown">
+                    <div class="user-info">
+                        <div class="user-name"><?php echo htmlspecialchars($name); ?></div>
+                        <div class="user-role"><?php echo ucfirst($role); ?></div>
                     </div>
-                    <div class="avatar-option" data-avatar-id="male2" onclick="selectAvatar('male2')">
-                        <img src="images/avatar2.png" alt="Male Avatar 2" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="male3" onclick="selectAvatar('male3')">
-                        <img src="images/avatar3.png" alt="Male Avatar 3" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="male4" onclick="selectAvatar('male4')">
-                        <img src="images/avatar4.png" alt="Male Avatar 4" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="male5" onclick="selectAvatar('male5')">
-                        <img src="images/avatar5.png" alt="Male Avatar 5" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="male6" onclick="selectAvatar('male6')">
-                        <img src="images/avatar6.png" alt="Male Avatar 6" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="male7" onclick="selectAvatar('male7')">
-                        <img src="images/avatar7.png" alt="Male Avatar 7" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="male8" onclick="selectAvatar('male8')">
-                        <img src="images/avatar8.png" alt="Male Avatar 8" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="male9" onclick="selectAvatar('male9')">
-                        <img src="images/avatar9.png" alt="Male Avatar 9" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                </div>
-
-                <!-- 女性头像列表 -->
-                <div class="avatar-list" id="femaleAvatarList">
-                    <div class="avatar-option" data-avatar-id="female1" onclick="selectAvatar('female1')">
-                        <img src="images/female1.png" alt="Female Avatar 1" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="female2" onclick="selectAvatar('female2')">
-                        <img src="images/female2.png" alt="Female Avatar 2" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="female3" onclick="selectAvatar('female3')">
-                        <img src="images/female3.png" alt="Female Avatar 3" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="female4" onclick="selectAvatar('female4')">
-                        <img src="images/female4.png" alt="Female Avatar 4" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="female5" onclick="selectAvatar('female5')">
-                        <img src="images/female5.png" alt="Female Avatar 5" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="female6" onclick="selectAvatar('female6')">
-                        <img src="images/female6.png" alt="Female Avatar 6" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="female7" onclick="selectAvatar('female7')">
-                        <img src="images/female7.png" alt="Female Avatar 7" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="female8" onclick="selectAvatar('female8')">
-                        <img src="images/female8.png" alt="Female Avatar 8" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                    <div class="avatar-option" data-avatar-id="female9" onclick="selectAvatar('female9')">
-                        <img src="images/female9.png" alt="Female Avatar 9" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
-                    </div>
-                </div>
-            </div>
-            </div>
-
-            <div class="user-avatar-dropdown">
-                <div class="user-info">
-                    <div class="user-name"><?php echo htmlspecialchars($name); ?></div>
-                    <div class="user-role"><?php echo ucfirst($role); ?></div>
                 </div>
             </div>
         </div>
