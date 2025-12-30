@@ -127,6 +127,7 @@ if ($companyId) {
         align-items: center;
         justify-content: flex-start;
         width: 100%;
+        padding-left: clamp(12px, 1.56vw, 30px) !important;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
         min-height: 50px;
