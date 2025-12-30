@@ -33,9 +33,9 @@ if (!$isMember) {
 
 // 检查当前登录用户是否为 owner/admin 且与 c168 相关（支持多重 company）
 $hasC168Access = false;
+$companyId = $_SESSION['company_id'] ?? null;  // company 的数字主键（移到外面，确保作用域正确）
 if ($user_id) {
     $roleLower    = strtolower($role ?? '');
-    $companyId    = $_SESSION['company_id'] ?? null;          // company 的数字主键
     $companyCode  = strtoupper($_SESSION['company_code'] ?? ''); // 登录时选的公司代码
 
     if (in_array($roleLower, ['owner', 'admin'], true)) {
@@ -57,6 +57,19 @@ if ($user_id) {
 }
 
 $avatarLetter = $name ? strtoupper($name[0]) : 'U';
+
+// 获取当前公司的到期日期
+$company_expiration_date = null;
+if ($companyId) {
+    try {
+        $stmt = $pdo->prepare("SELECT expiration_date FROM company WHERE id = ?");
+        $stmt->execute([$companyId]);
+        $company_expiration_date = $stmt->fetchColumn();
+    } catch(PDOException $e) {
+        error_log("获取公司到期日期失败: " . $e->getMessage());
+        $company_expiration_date = null;
+    }
+}
 ?>
 
 <!-- Sidebar CSS -->
@@ -732,6 +745,8 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
     .informationmenu-footer {
         display: flex;
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
         padding: 25px;
         border-top: none;
@@ -739,6 +754,7 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         margin-top: auto;
         flex-shrink: 0;
         backdrop-filter: blur(10px);
+        gap: clamp(8px, 0.83vw, 16px);
     }
 
     /* 滚动条样式 */
@@ -1089,6 +1105,65 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
         margin: 0;
         font-size: 14px;
     }
+
+    /* 公司到期倒计时样式 */
+    .company-expiration-countdown {
+        padding: clamp(8px, 0.83vw, 16px) clamp(12px, 1.04vw, 20px);
+        margin-bottom: clamp(8px, 0.83vw, 16px);
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+    }
+
+    .expiration-label {
+        font-size: clamp(8px, 0.63vw, 12px);
+        color: rgba(255, 255, 255, 0.8);
+        margin-bottom: clamp(4px, 0.42vw, 8px);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .expiration-countdown-text {
+        font-size: clamp(12px, 1.04vw, 20px);
+        font-weight: 700;
+        color: white;
+        margin: 0;
+        line-height: 1.4;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .expiration-countdown-text.expired {
+        color: #fee2e2;
+        animation: pulse-red 2s ease-in-out infinite;
+    }
+
+    .expiration-countdown-text.warning {
+        color: #fef3c7;
+        animation: pulse-yellow 2s ease-in-out infinite;
+    }
+
+    .expiration-countdown-text.normal {
+        color: #d1fae5;
+    }
+
+    @keyframes pulse-red {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+    }
+
+    @keyframes pulse-yellow {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+
+    .expiration-date-display {
+        font-size: clamp(7px, 0.57vw, 11px);
+        color: rgba(255, 255, 255, 0.6);
+        margin-top: clamp(2px, 0.21vw, 4px);
+    }
 </style>
 
 <link rel="icon" type="image/png" href="images/count_logo.png">
@@ -1431,6 +1506,17 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
     </div>
 
     <div class="informationmenu-footer">
+        <?php if ($company_expiration_date): ?>
+        <div class="company-expiration-countdown" id="companyExpirationCountdown">
+            <div class="expiration-label">Company Expiration</div>
+            <div class="expiration-countdown-text" id="expirationCountdownText">
+                Loading...
+            </div>
+            <div class="expiration-date-display" id="expirationDateDisplay">
+                <?php echo htmlspecialchars($company_expiration_date); ?>
+            </div>
+        </div>
+        <?php endif; ?>
         <button class="btn logout-btn" onclick="handleLogout()">
             Logout
         </button>
@@ -2186,4 +2272,78 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
             closeNotificationPanel();
         }
     });
+
+    // 公司到期倒计时功能
+    <?php if ($company_expiration_date): ?>
+    function calculateCountdown(expirationDate) {
+        if (!expirationDate) return null;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const exp = new Date(expirationDate);
+        exp.setHours(0, 0, 0, 0);
+        
+        const diffTime = exp - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays < 0) {
+            return { text: '已过期', days: diffDays, status: 'expired' };
+        } else if (diffDays === 0) {
+            return { text: '今天到期', days: 0, status: 'warning' };
+        } else if (diffDays <= 7) {
+            return { text: `剩余 ${diffDays} 天`, days: diffDays, status: 'warning' };
+        } else if (diffDays <= 30) {
+            return { text: `剩余 ${diffDays} 天`, days: diffDays, status: 'normal' };
+        } else {
+            const months = Math.floor(diffDays / 30);
+            const days = diffDays % 30;
+            if (days === 0) {
+                return { text: `剩余 ${months} 个月`, days: diffDays, status: 'normal' };
+            } else {
+                return { text: `剩余 ${months} 个月 ${days} 天`, days: diffDays, status: 'normal' };
+            }
+        }
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function updateExpirationCountdown() {
+        const expirationDate = '<?php echo $company_expiration_date ? $company_expiration_date : ''; ?>';
+        const countdownText = document.getElementById('expirationCountdownText');
+        const dateDisplay = document.getElementById('expirationDateDisplay');
+        
+        if (!expirationDate || expirationDate.trim() === '' || !countdownText) {
+            if (countdownText) {
+                countdownText.textContent = '无到期日期';
+                countdownText.className = 'expiration-countdown-text normal';
+            }
+            return;
+        }
+        
+        const countdown = calculateCountdown(expirationDate);
+        
+        if (countdown) {
+            countdownText.textContent = countdown.text;
+            countdownText.className = 'expiration-countdown-text ' + countdown.status;
+            
+            if (dateDisplay) {
+                dateDisplay.textContent = formatDate(expirationDate);
+            }
+        } else {
+            countdownText.textContent = '无到期日期';
+            countdownText.className = 'expiration-countdown-text normal';
+        }
+    }
+
+    // 页面加载时更新倒计时
+    document.addEventListener('DOMContentLoaded', function() {
+        updateExpirationCountdown();
+        // 每分钟更新一次倒计时
+        setInterval(updateExpirationCountdown, 60000);
+    });
+    <?php endif; ?>
 </script>
