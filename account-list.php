@@ -584,11 +584,11 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     <div style="display: flex; gap: 16px;">
                         <label style="display: flex; align-items: center; cursor: pointer;">
                             <input type="radio" name="linkType" value="bidirectional" id="linkTypeBidirectional" checked style="margin-right: 8px; cursor: pointer;">
-                            <span>双向 (Bidirectional)</span>
+                            <span style="font-weight: bold;">Bidirectional</span>
                         </label>
                         <label style="display: flex; align-items: center; cursor: pointer;">
                             <input type="radio" name="linkType" value="unidirectional" id="linkTypeUnidirectional" style="margin-right: 8px; cursor: pointer;">
-                            <span>单向 (Unidirectional)</span>
+                            <span style="font-weight: bold;">Unidirectional</span>
                         </label>
                     </div>
                 </div>
@@ -1639,22 +1639,9 @@ $showAll = isset($_GET['showAll']) ? true : false;
             currentLinkType = 'bidirectional';
         }
         
-        // 更新连接类型描述
+        // 更新连接类型描述（描述元素已移除，此函数保留以防将来需要）
         function updateLinkTypeDescription() {
-            const descEl = document.getElementById('linkTypeDescription');
-            if (!descEl) return;
-            
-            if (currentLinkType === 'bidirectional') {
-                descEl.textContent = '双向：所有关联账户互相可见';
-                descEl.style.backgroundColor = '#f0f9ff';
-                descEl.style.borderLeftColor = '#0ea5e9';
-                descEl.style.color = '#0369a1';
-            } else {
-                descEl.textContent = '单向：只有当前账户可以看到被连接的账户，被连接的账户看不到当前账户';
-                descEl.style.backgroundColor = '#fef3c7';
-                descEl.style.borderLeftColor = '#f59e0b';
-                descEl.style.color = '#92400e';
-            }
+            // Description element has been removed, function kept for compatibility
         }
         
         // 保存账户关联
