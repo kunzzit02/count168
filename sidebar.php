@@ -1161,7 +1161,7 @@ if ($companyId) {
     }
 
     .expiration-label {
-        font-size: clamp(9px, 0.63vw, 13px);
+        font-size: clamp(10px, 0.73vw, 14px);
         font-weight: 700;
         color: rgba(255, 255, 255, 0.9);
         margin: 0;
