@@ -125,7 +125,7 @@ if ($companyId) {
     .user-info-container {
         display: flex;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: center;
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
@@ -147,18 +147,23 @@ if ($companyId) {
         flex-direction: row;
         gap: 0;
         cursor: pointer;
-        padding: 0;
+        padding: clamp(2px, 0.4vw, 8px);
+        padding-left: 0px;
+        border-radius: 25px;
         /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
         transition: background-color 0.3s ease;
         text-align: left;
         color: white;
         flex-shrink: 0;
-        flex: 1;
         /* 优化渲染性能 */
         min-width: 0;
         contain: layout style;
         /* 确保不会被头像选择菜单覆盖，但也不覆盖菜单 */
         z-index: 1;
+    }
+
+    .user-avatar-dropdown:hover {
+        background: rgba(255, 255, 255, 0.1);
     }
 
     .user-avatar {
@@ -194,8 +199,6 @@ if ($companyId) {
         /* 创建新的堆叠上下文，确保子元素（头像选择菜单）的z-index能够覆盖其他元素 */
         z-index: 10000;
         isolation: isolate;
-        /* 添加右边距，与文字信息保持适当间距 */
-        margin-right: clamp(12px, 1.04vw, 20px);
     }
 
     /* 当前头像显示 */
@@ -205,8 +208,8 @@ if ($companyId) {
         border-radius: 50%;
         cursor: pointer;
         /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
-        transition: border-color 0.3s ease, box-shadow 0.3s ease;
-        border: 2px solid rgba(255, 255, 255, 0.25);
+        transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+        border: 3px solid rgba(255, 255, 255, 0.3);
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
@@ -223,13 +226,11 @@ if ($companyId) {
         -webkit-backface-visibility: hidden;
         /* 确保尺寸固定，避免 flex 布局重新计算时的抖动 */
         flex-shrink: 0;
-        /* 简洁的阴影效果 */
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
     }
 
     .current-avatar:hover {
-        border-color: rgba(255, 255, 255, 0.5);
-        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.2);
+        border-color: rgba(255, 255, 255, 0.8);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
 
     /* 头像选择菜单 */
@@ -379,9 +380,8 @@ if ($companyId) {
         flex-direction: column;
         justify-content: center;
         align-items: flex-start;
-        gap: clamp(4px, 0.42vw, 8px);
-        flex: 1;
-        min-width: 0;
+        gap: 2px;
+        margin-left: clamp(4px, 0.42vw, 8px);
     }
 
     .user-name {
@@ -389,23 +389,15 @@ if ($companyId) {
         font-size: clamp(10px, 0.83vw, 16px);
         font-weight: 600;
         color: white;
-        line-height: 1.4;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        width: 100%;
+        line-height: 1.2;
     }
 
     
     .user-role {
         font-size: clamp(9px, 0.57vw, 11px);
-        font-weight: 400;
-        color: rgba(255, 255, 255, 0.7);
-        line-height: 1.3;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        width: 100%;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.2;
     }
 
     /* 左边的选项bar */
