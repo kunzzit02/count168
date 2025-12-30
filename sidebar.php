@@ -60,14 +60,55 @@ $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
 // 获取当前公司的到期日期
 $company_expiration_date = null;
+$expiration_countdown_text = '';
+$expiration_status = 'normal';
 if ($companyId) {
     try {
         $stmt = $pdo->prepare("SELECT expiration_date FROM company WHERE id = ?");
         $stmt->execute([$companyId]);
         $company_expiration_date = $stmt->fetchColumn();
+        
+        // 在 PHP 端计算倒计时
+        if ($company_expiration_date) {
+            $today = new DateTime();
+            $today->setTime(0, 0, 0);
+            $expiration = new DateTime($company_expiration_date);
+            $expiration->setTime(0, 0, 0);
+            
+            $diff = $today->diff($expiration);
+            $diffDays = (int)$diff->format('%r%a'); // 带符号的天数差
+            
+            if ($diffDays < 0) {
+                $expiration_countdown_text = 'Expired';
+                $expiration_status = 'expired';
+            } else if ($diffDays === 0) {
+                $expiration_countdown_text = 'Expires today';
+                $expiration_status = 'warning';
+            } else if ($diffDays <= 7) {
+                $expiration_countdown_text = $diffDays . ' day' . ($diffDays > 1 ? 's' : '') . ' left';
+                $expiration_status = 'warning';
+            } else if ($diffDays <= 30) {
+                $expiration_countdown_text = $diffDays . ' days left';
+                $expiration_status = 'normal';
+            } else {
+                $months = floor($diffDays / 30);
+                $days = $diffDays % 30;
+                if ($days === 0) {
+                    $expiration_countdown_text = $months . ' month' . ($months > 1 ? 's' : '') . ' left';
+                } else {
+                    $expiration_countdown_text = $months . 'm ' . $days . 'd left';
+                }
+                $expiration_status = 'normal';
+            }
+        } else {
+            $expiration_countdown_text = 'No expiration date';
+            $expiration_status = 'normal';
+        }
     } catch(PDOException $e) {
         error_log("获取公司到期日期失败: " . $e->getMessage());
         $company_expiration_date = null;
+        $expiration_countdown_text = 'No expiration date';
+        $expiration_status = 'normal';
     }
 }
 ?>
@@ -1489,8 +1530,8 @@ if ($companyId) {
     <div class="informationmenu-footer">
         <?php if ($company_expiration_date): ?>
         <div class="company-expiration-countdown" id="companyExpirationCountdown">
-            <div class="expiration-countdown-text" id="expirationCountdownText">
-                Loading...
+            <div class="expiration-countdown-text <?php echo $expiration_status; ?>" id="expirationCountdownText">
+                <?php echo htmlspecialchars($expiration_countdown_text); ?>
             </div>
         </div>
         <?php endif; ?>
@@ -2311,11 +2352,8 @@ if ($companyId) {
         }
     }
 
-    // 页面加载时更新倒计时
-    document.addEventListener('DOMContentLoaded', function() {
-        updateExpirationCountdown();
-        // 每分钟更新一次倒计时
-        setInterval(updateExpirationCountdown, 60000);
-    });
+    // 页面加载时立即更新倒计时（不等待 DOMContentLoaded，因为初始值已在 PHP 中设置）
+    // 每分钟更新一次倒计时
+    setInterval(updateExpirationCountdown, 60000);
     <?php endif; ?>
 </script>
