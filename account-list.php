@@ -581,7 +581,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
             <div class="account-modal-body">
                 <!-- Link Type Selection -->
                 <div style="margin-bottom: 16px;">
-                    <div style="display: flex; gap: 16px;">
+                    <div style="display: flex; gap: 16px; justify-content: center;">
                         <label style="display: flex; align-items: center; cursor: pointer;">
                             <input type="radio" name="linkType" value="bidirectional" id="linkTypeBidirectional" checked style="margin-right: 8px; cursor: pointer;">
                             <span style="font-weight: bold;">Bidirectional</span>
