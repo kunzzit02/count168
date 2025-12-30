@@ -14,7 +14,6 @@ body.transaction-page {
     color: #334155;
     overflow-x: hidden;
     overflow-y: auto;
-    font-size: clamp(0.875rem, 2.5vw, 1rem);
 }
 
 .transaction-page .transaction-container {

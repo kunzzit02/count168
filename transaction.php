@@ -53,13 +53,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     body.transaction-page .informationmenu .gender-btn {
         font-weight: 600;
     }
-    /* 重置 logout 按钮和 expiration date 的 font-weight */
-    body.transaction-page .informationmenu .logout-btn {
-        font-weight: normal;
-    }
-    body.transaction-page .informationmenu .expiration-countdown-text {
-        font-weight: 500;
-    }
     /* 表格自然展开，页面整体滚动 */
     .transaction-table-wrapper { 
         position: relative !important; 
