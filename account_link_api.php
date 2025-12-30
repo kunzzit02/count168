@@ -32,7 +32,7 @@ try {
                 throw new Exception('账户不属于该公司');
             }
             
-            // 查找所有关联的账户（使用递归查询找出连通分量中的所有账户）
+            // 查找所有关联的账户（根据连接类型决定可见性）
             $linked_accounts = getLinkedAccounts($pdo, $account_id, $company_id);
             
             echo json_encode([
@@ -47,6 +47,8 @@ try {
             $account_id_1 = isset($input['account_id_1']) ? (int)$input['account_id_1'] : 0;
             $account_id_2 = isset($input['account_id_2']) ? (int)$input['account_id_2'] : 0;
             $company_id = isset($input['company_id']) ? (int)$input['company_id'] : 0;
+            $link_type = isset($input['link_type']) ? $input['link_type'] : 'bidirectional';
+            $source_account_id = isset($input['source_account_id']) ? (int)$input['source_account_id'] : null;
             
             if (!$account_id_1 || !$account_id_2 || !$company_id) {
                 throw new Exception('缺少必要参数');
@@ -56,7 +58,19 @@ try {
                 throw new Exception('不能关联同一个账户');
             }
             
+            // 验证连接类型
+            if (!in_array($link_type, ['bidirectional', 'unidirectional'])) {
+                $link_type = 'bidirectional';
+            }
+            
+            // 对于单向连接，必须指定发起账户
+            if ($link_type === 'unidirectional' && !$source_account_id) {
+                throw new Exception('单向连接必须指定发起账户');
+            }
+            
             // 确保 account_id_1 < account_id_2（用于唯一约束）
+            $original_account_1 = $account_id_1;
+            $original_account_2 = $account_id_2;
             if ($account_id_1 > $account_id_2) {
                 $temp = $account_id_1;
                 $account_id_1 = $account_id_2;
@@ -84,16 +98,34 @@ try {
                 WHERE account_id_1 = ? AND account_id_2 = ? AND company_id = ?
             ");
             $stmt->execute([$account_id_1, $account_id_2, $company_id]);
-            if ($stmt->fetchColumn()) {
-                throw new Exception('账户已经关联');
-            }
+            $existing = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // 插入关联
-            $stmt = $pdo->prepare("
-                INSERT INTO account_link (account_id_1, account_id_2, company_id) 
-                VALUES (?, ?, ?)
-            ");
-            $stmt->execute([$account_id_1, $account_id_2, $company_id]);
+            if ($existing) {
+                // 更新现有关联的类型
+                $updateStmt = $pdo->prepare("
+                    UPDATE account_link 
+                    SET link_type = ?, source_account_id = ?
+                    WHERE id = ?
+                ");
+                $updateStmt->execute([
+                    $link_type,
+                    $link_type === 'unidirectional' ? $source_account_id : null,
+                    $existing['id']
+                ]);
+            } else {
+                // 插入新关联
+                $stmt = $pdo->prepare("
+                    INSERT INTO account_link (account_id_1, account_id_2, company_id, link_type, source_account_id) 
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $account_id_1,
+                    $account_id_2,
+                    $company_id,
+                    $link_type,
+                    $link_type === 'unidirectional' ? $source_account_id : null
+                ]);
+            }
             
             echo json_encode([
                 'success' => true,
@@ -141,8 +173,8 @@ try {
                 throw new Exception('缺少必要参数');
             }
             
-            // 查找所有关联的账户（包括当前账户本身）
-            $linked_accounts = getLinkedAccounts($pdo, $account_id, $company_id);
+            // 查找所有关联的账户（根据连接类型决定可见性，用于 member.php）
+            $linked_accounts = getLinkedAccountsForMember($pdo, $account_id, $company_id);
             
             // 添加当前账户（如果没有在结果中）
             $account_ids = array_column($linked_accounts, 'id');
@@ -174,6 +206,51 @@ try {
             ]);
             break;
             
+        case 'update_link_type':
+            // 更新连接类型
+            $input = json_decode(file_get_contents('php://input'), true);
+            $account_id_1 = isset($input['account_id_1']) ? (int)$input['account_id_1'] : 0;
+            $account_id_2 = isset($input['account_id_2']) ? (int)$input['account_id_2'] : 0;
+            $company_id = isset($input['company_id']) ? (int)$input['company_id'] : 0;
+            $link_type = isset($input['link_type']) ? $input['link_type'] : 'bidirectional';
+            $source_account_id = isset($input['source_account_id']) ? (int)$input['source_account_id'] : null;
+            
+            if (!$account_id_1 || !$account_id_2 || !$company_id) {
+                throw new Exception('缺少必要参数');
+            }
+            
+            // 验证连接类型
+            if (!in_array($link_type, ['bidirectional', 'unidirectional'])) {
+                $link_type = 'bidirectional';
+            }
+            
+            // 确保 account_id_1 < account_id_2
+            if ($account_id_1 > $account_id_2) {
+                $temp = $account_id_1;
+                $account_id_1 = $account_id_2;
+                $account_id_2 = $temp;
+            }
+            
+            // 更新连接类型
+            $stmt = $pdo->prepare("
+                UPDATE account_link 
+                SET link_type = ?, source_account_id = ?
+                WHERE account_id_1 = ? AND account_id_2 = ? AND company_id = ?
+            ");
+            $stmt->execute([
+                $link_type,
+                $link_type === 'unidirectional' ? $source_account_id : null,
+                $account_id_1,
+                $account_id_2,
+                $company_id
+            ]);
+            
+            echo json_encode([
+                'success' => true,
+                'message' => '连接类型更新成功'
+            ]);
+            break;
+            
         default:
             throw new Exception('无效的操作');
     }
@@ -192,7 +269,9 @@ try {
 }
 
 /**
- * 获取与指定账户关联的所有账户（使用深度优先搜索找出连通分量）
+ * 获取与指定账户关联的所有账户（用于 account-list.php，显示所有关联账户）
+ * 双向连接：所有关联账户互相可见
+ * 单向连接：显示所有关联账户（不考虑方向）
  */
 function getLinkedAccounts($pdo, $account_id, $company_id) {
     $visited = [];
@@ -208,23 +287,100 @@ function getLinkedAccounts($pdo, $account_id, $company_id) {
         
         $visited[$current_id] = true;
         
-        // 查找与当前账户直接关联的所有账户
+        // 查找与当前账户直接关联的所有账户（考虑连接类型）
+        // 双向连接：两个方向都可以
+        // 单向连接：只有 source_account_id = current_id 的连接才可见
         $stmt = $pdo->prepare("
-            SELECT account_id_2 AS linked_id 
+            SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_1 = ? AND company_id = ?
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
             UNION
-            SELECT account_id_1 AS linked_id 
+            SELECT account_id_1 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_2 = ? AND company_id = ?
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
         ");
-        $stmt->execute([$current_id, $company_id, $current_id, $company_id]);
-        $linked_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $stmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
+        $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // 将未访问的关联账户加入队列
-        foreach ($linked_ids as $linked_id) {
+        // 将未访问的关联账户加入队列（只处理双向连接，单向连接不继续传播）
+        foreach ($linked_data as $row) {
+            $linked_id = $row['linked_id'];
             if (!isset($visited[$linked_id])) {
-                $queue[] = $linked_id;
+                // 只有双向连接才继续传播
+                if ($row['link_type'] === 'bidirectional') {
+                    $queue[] = $linked_id;
+                }
+            }
+        }
+    }
+    
+    // 获取所有关联账户的详细信息（排除当前账户）
+    $linked_ids = array_keys($visited);
+    $linked_ids = array_filter($linked_ids, function($id) use ($account_id) {
+        return $id != $account_id;
+    });
+    
+    if (!empty($linked_ids)) {
+        $placeholders = str_repeat('?,', count($linked_ids) - 1) . '?';
+        $stmt = $pdo->prepare("
+            SELECT id, account_id, name 
+            FROM account 
+            WHERE id IN ($placeholders)
+            ORDER BY account_id ASC
+        ");
+        $stmt->execute(array_values($linked_ids));
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    
+    return $result;
+}
+
+/**
+ * 获取与指定账户关联的所有账户（用于 member.php，根据连接类型决定可见性）
+ * 双向连接：所有关联账户互相可见
+ * 单向连接：只有发起连接的账户可以看到被连接的账户
+ */
+function getLinkedAccountsForMember($pdo, $account_id, $company_id) {
+    $visited = [];
+    $result = [];
+    $queue = [$account_id];
+    
+    while (!empty($queue)) {
+        $current_id = array_shift($queue);
+        
+        if (isset($visited[$current_id])) {
+            continue;
+        }
+        
+        $visited[$current_id] = true;
+        
+        // 查找与当前账户直接关联的所有账户（考虑连接类型）
+        // 双向连接：两个方向都可以
+        // 单向连接：只有 source_account_id = current_id 的连接才可见（当前账户是发起者）
+        $stmt = $pdo->prepare("
+            SELECT account_id_2 AS linked_id, link_type, source_account_id
+            FROM account_link 
+            WHERE account_id_1 = ? AND company_id = ?
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
+            UNION
+            SELECT account_id_1 AS linked_id, link_type, source_account_id
+            FROM account_link 
+            WHERE account_id_2 = ? AND company_id = ?
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
+        ");
+        $stmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
+        $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // 将未访问的关联账户加入队列（只处理双向连接，单向连接不继续传播）
+        foreach ($linked_data as $row) {
+            $linked_id = $row['linked_id'];
+            if (!isset($visited[$linked_id])) {
+                // 只有双向连接才继续传播
+                if ($row['link_type'] === 'bidirectional') {
+                    $queue[] = $linked_id;
+                }
             }
         }
     }

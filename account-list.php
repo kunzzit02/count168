@@ -579,6 +579,23 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 <span class="account-close" onclick="closeLinkAccountModal()">&times;</span>
             </div>
             <div class="account-modal-body">
+                <!-- Link Type Selection -->
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #374151;">Link Type:</label>
+                    <div style="display: flex; gap: 16px;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="linkType" value="bidirectional" id="linkTypeBidirectional" checked style="margin-right: 8px; cursor: pointer;">
+                            <span>双向 (Bidirectional)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="linkType" value="unidirectional" id="linkTypeUnidirectional" style="margin-right: 8px; cursor: pointer;">
+                            <span>单向 (Unidirectional)</span>
+                        </label>
+                    </div>
+                    <div id="linkTypeDescription" style="margin-top: 8px; padding: 8px; background-color: #f0f9ff; border-left: 3px solid #0ea5e9; border-radius: 4px; font-size: 12px; color: #0369a1;">
+                        双向：所有关联账户互相可见
+                    </div>
+                </div>
                 <div style="margin-bottom: 16px;">
                     <div style="margin-bottom: 12px;">
                         <div id="linkAccountList" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(400px, 40vw, 600px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffff; padding: clamp(8px, 0.78vw, 15px);">
@@ -1597,10 +1614,19 @@ $showAll = isset($_GET['showAll']) ? true : false;
         // 存储链接账户模态框中选择的账户ID
         let selectedLinkedAccountIdsForLink = [];
         
+        // 存储当前连接类型（双向/单向）
+        let currentLinkType = 'bidirectional';
+        
         // 打开链接账户模态框
         async function linkAccount(accountId) {
             currentLinkAccountId = accountId;
             selectedLinkedAccountIdsForLink = [];
+            currentLinkType = 'bidirectional'; // 默认双向
+            
+            // 重置单选按钮
+            document.getElementById('linkTypeBidirectional').checked = true;
+            document.getElementById('linkTypeUnidirectional').checked = false;
+            updateLinkTypeDescription();
             
             // 加载关联账户列表
             await loadAccountLinks(accountId);
@@ -1614,6 +1640,25 @@ $showAll = isset($_GET['showAll']) ? true : false;
             document.getElementById('linkAccountModal').style.display = 'none';
             currentLinkAccountId = null;
             selectedLinkedAccountIdsForLink = [];
+            currentLinkType = 'bidirectional';
+        }
+        
+        // 更新连接类型描述
+        function updateLinkTypeDescription() {
+            const descEl = document.getElementById('linkTypeDescription');
+            if (!descEl) return;
+            
+            if (currentLinkType === 'bidirectional') {
+                descEl.textContent = '双向：所有关联账户互相可见';
+                descEl.style.backgroundColor = '#f0f9ff';
+                descEl.style.borderLeftColor = '#0ea5e9';
+                descEl.style.color = '#0369a1';
+            } else {
+                descEl.textContent = '单向：只有当前账户可以看到被连接的账户，被连接的账户看不到当前账户';
+                descEl.style.backgroundColor = '#fef3c7';
+                descEl.style.borderLeftColor = '#f59e0b';
+                descEl.style.color = '#92400e';
+            }
         }
         
         // 保存账户关联
@@ -1629,6 +1674,10 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     showNotification('Please select a company first', 'error');
                     return;
                 }
+                
+                // 获取当前选择的连接类型
+                const linkTypeRadio = document.querySelector('input[name="linkType"]:checked');
+                const linkType = linkTypeRadio ? linkTypeRadio.value : 'bidirectional';
                 
                 // 获取当前账户的现有关联
                 let currentLinkedIds = [];
@@ -1670,7 +1719,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     }
                 }
                 
-                // 添加关联
+                // 添加关联（传递连接类型）
                 for (const linkedId of toAdd) {
                     try {
                         const response = await fetch('account_link_api.php?action=link_accounts', {
@@ -1679,7 +1728,9 @@ $showAll = isset($_GET['showAll']) ? true : false;
                             body: JSON.stringify({
                                 account_id_1: currentLinkAccountId,
                                 account_id_2: linkedId,
-                                company_id: currentCompanyId
+                                company_id: currentCompanyId,
+                                link_type: linkType,
+                                source_account_id: linkType === 'unidirectional' ? currentLinkAccountId : null
                             })
                         });
                         const result = await response.json();
@@ -1690,6 +1741,32 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         console.error('Error linking account:', error);
                         showNotification(`Failed to link account: ${error.message}`, 'error');
                         return;
+                    }
+                }
+                
+                // 如果连接类型改变，需要更新现有关联的类型
+                if (toAdd.length === 0 && toRemove.length === 0 && newIds.length > 0) {
+                    // 更新现有关联的类型
+                    for (const linkedId of newIds) {
+                        try {
+                            const response = await fetch('account_link_api.php?action=update_link_type', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    account_id_1: currentLinkAccountId,
+                                    account_id_2: linkedId,
+                                    company_id: currentCompanyId,
+                                    link_type: linkType,
+                                    source_account_id: linkType === 'unidirectional' ? currentLinkAccountId : null
+                                })
+                            });
+                            const result = await response.json();
+                            if (!result.success) {
+                                console.warn(`Failed to update link type: ${result.error}`);
+                            }
+                        } catch (error) {
+                            console.warn('Error updating link type:', error);
+                        }
                     }
                 }
                 
@@ -2686,6 +2763,14 @@ $showAll = isset($_GET['showAll']) ? true : false;
             document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
                 radio.addEventListener('change', function() {
                     toggleAlertFields('add');
+                });
+            });
+            
+            // Add event listeners for link type radio buttons
+            document.querySelectorAll('input[name="linkType"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    currentLinkType = this.value;
+                    updateLinkTypeDescription();
                 });
             });
             
