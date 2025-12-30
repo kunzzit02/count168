@@ -209,7 +209,7 @@ if ($companyId) {
         cursor: pointer;
         /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
         transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
-        border: 3px solid rgba(255, 255, 255, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.3);
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
