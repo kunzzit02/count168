@@ -610,7 +610,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 // 准备插入新 template 的数据
                                 $insertStmt = $pdo->prepare("
                                     INSERT INTO data_capture_templates (
-                                        company_id, process_id, data_capture_id, row_index,
+                                        company_id, process_id, data_capture_id, row_index, sub_order,
                                         id_product, product_type, formula_variant, parent_id_product,
                                         template_key, description, account_id, account_display,
                                         currency_id, currency_display, source_columns, formula_operators,
@@ -619,7 +619,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         batch_selection, columns_display, formula_display,
                                         last_source_value, last_processed_amount, updated_at, created_at
                                     ) VALUES (
-                                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
+                                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
                                     )
                                 ");
                                 
@@ -628,6 +628,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $newProcessId, // 使用新 process 的 id（整数），而不是 process_id（字符串）
                                     $template['data_capture_id'],
                                     $template['row_index'],
+                                    isset($template['sub_order']) && $template['sub_order'] !== null && $template['sub_order'] !== '' ? $template['sub_order'] : null,
                                     $template['id_product'],
                                     $template['product_type'],
                                     $template['formula_variant'],
