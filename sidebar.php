@@ -125,7 +125,7 @@ if ($companyId) {
     .user-info-container {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
@@ -382,6 +382,8 @@ if ($companyId) {
         align-items: flex-start;
         gap: 2px;
         margin-left: clamp(4px, 0.42vw, 8px);
+        min-width: clamp(60px, 5vw, 100px);
+        flex: 1;
     }
 
     .user-name {
