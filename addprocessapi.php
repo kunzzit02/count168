@@ -614,11 +614,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         id_product, product_type, formula_variant, parent_id_product,
                                         template_key, description, account_id, account_display,
                                         currency_id, currency_display, source_columns, formula_operators,
-                                        input_method,
+                                        source_percent, enable_source_percent,
+                                        input_method, enable_input_method,
                                         batch_selection, columns_display, formula_display,
                                         last_source_value, last_processed_amount, updated_at, created_at
                                     ) VALUES (
-                                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
+                                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
                                     )
                                 ");
                                 
@@ -639,7 +640,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     $template['currency_display'],
                                     $template['source_columns'],
                                     $template['formula_operators'],
+                                    isset($template['source_percent']) && $template['source_percent'] !== '' ? $template['source_percent'] : '1',
+                                    isset($template['enable_source_percent']) ? (int)$template['enable_source_percent'] : 1,
                                     $template['input_method'],
+                                    isset($template['enable_input_method']) ? (int)$template['enable_input_method'] : 0,
                                     $template['batch_selection'],
                                     $template['columns_display'],
                                     $template['formula_display'],
