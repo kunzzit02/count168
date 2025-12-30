@@ -1817,8 +1817,9 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     return;
                 }
 
-                // 获取当前账户已关联的账户列表
+                // 获取当前账户已关联的账户列表和连接类型信息
                 let linkedAccountIds = [];
+                let linkTypeInfo = null;
                 try {
                     const linkResponse = await fetch(`account_link_api.php?action=get_linked_accounts&account_id=${accountId}&company_id=${currentCompanyId}`);
                     const linkResult = await linkResponse.json();
@@ -1826,8 +1827,25 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         linkedAccountIds = linkResult.data.map(acc => acc.id);
                         selectedLinkedAccountIdsForLink = [...linkedAccountIds];
                     }
+                    // 获取连接类型信息
+                    if (linkResult.success && linkResult.link_type_info) {
+                        linkTypeInfo = linkResult.link_type_info;
+                    }
                 } catch (error) {
                     console.error('Error loading linked accounts:', error);
+                }
+                
+                // 根据连接类型信息设置单选按钮
+                if (linkTypeInfo && linkTypeInfo.link_type === 'unidirectional') {
+                    document.getElementById('linkTypeUnidirectional').checked = true;
+                    document.getElementById('linkTypeBidirectional').checked = false;
+                    currentLinkType = 'unidirectional';
+                    updateLinkTypeDescription();
+                } else {
+                    document.getElementById('linkTypeBidirectional').checked = true;
+                    document.getElementById('linkTypeUnidirectional').checked = false;
+                    currentLinkType = 'bidirectional';
+                    updateLinkTypeDescription();
                 }
 
                 // 按 account_id 排序

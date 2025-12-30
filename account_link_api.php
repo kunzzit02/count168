@@ -36,9 +36,13 @@ try {
             // 查找所有关联的账户（不考虑方向，用于显示哪些账户已勾选）
             $linked_accounts = getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id);
             
+            // 获取连接类型信息（用于设置弹窗中的单选按钮）
+            $link_type_info = getLinkTypeInfo($pdo, $account_id, $company_id);
+            
             echo json_encode([
                 'success' => true,
-                'data' => $linked_accounts
+                'data' => $linked_accounts,
+                'link_type_info' => $link_type_info
             ]);
             break;
             
@@ -266,6 +270,66 @@ try {
         'success' => false,
         'error' => $e->getMessage()
     ]);
+}
+
+/**
+ * 获取账户的连接类型信息（用于设置弹窗中的单选按钮）
+ * 返回：如果所有关联都是单向的且当前账户是发起者，返回 'unidirectional'，否则返回 'bidirectional'
+ */
+function getLinkTypeInfo($pdo, $account_id, $company_id) {
+    // 检查 account_link 表是否有 link_type 字段（兼容旧数据）
+    $check_column_stmt = $pdo->query("SHOW COLUMNS FROM account_link LIKE 'link_type'");
+    $has_link_type = $check_column_stmt->rowCount() > 0;
+    
+    if (!$has_link_type) {
+        // 如果没有 link_type 字段，默认为双向
+        return ['link_type' => 'bidirectional', 'has_unidirectional' => false];
+    }
+    
+    // 查询所有与当前账户关联的连接类型
+    $stmt = $pdo->prepare("
+        SELECT link_type, source_account_id
+        FROM account_link 
+        WHERE (account_id_1 = ? OR account_id_2 = ?) AND company_id = ?
+    ");
+    $stmt->execute([$account_id, $account_id, $company_id]);
+    $links = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (empty($links)) {
+        // 没有关联，默认为双向
+        return ['link_type' => 'bidirectional', 'has_unidirectional' => false];
+    }
+    
+    // 检查连接类型
+    $has_bidirectional = false;
+    $has_unidirectional_as_source = false; // 当前账户是发起者的单向连接
+    $has_unidirectional_as_target = false; // 当前账户是被连接者的单向连接
+    
+    foreach ($links as $link) {
+        if ($link['link_type'] === 'bidirectional') {
+            $has_bidirectional = true;
+        } else if ($link['link_type'] === 'unidirectional') {
+            // 检查当前账户是否是发起者
+            if (isset($link['source_account_id']) && $link['source_account_id'] == $account_id) {
+                $has_unidirectional_as_source = true;
+            } else {
+                $has_unidirectional_as_target = true;
+            }
+        }
+    }
+    
+    // 如果至少有一个双向连接，返回双向
+    if ($has_bidirectional) {
+        return ['link_type' => 'bidirectional', 'has_unidirectional' => $has_unidirectional_as_source || $has_unidirectional_as_target];
+    }
+    
+    // 如果只有单向连接，且当前账户是发起者（至少有一个单向连接是当前账户发起的），返回单向
+    if ($has_unidirectional_as_source) {
+        return ['link_type' => 'unidirectional', 'has_unidirectional' => true];
+    }
+    
+    // 如果只有单向连接，但当前账户不是发起者（只是被连接者），返回双向（因为用户无法看到这些连接）
+    return ['link_type' => 'bidirectional', 'has_unidirectional' => false];
 }
 
 /**
