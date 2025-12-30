@@ -1155,13 +1155,13 @@ if ($companyId) {
         margin-bottom: 0px;
         text-align: center;
         display: flex;
-        align-items: center;
+        align-items: baseline;
         justify-content: center;
         gap: clamp(4px, 0.42vw, 8px);
     }
 
     .expiration-label {
-        font-size: clamp(8px, 0.625vw, 12px);
+        font-size: clamp(9px, 0.63vw, 13px);
         font-weight: 700;
         color: rgba(255, 255, 255, 0.9);
         margin: 0;
