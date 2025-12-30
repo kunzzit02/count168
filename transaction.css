@@ -590,6 +590,12 @@ body.transaction-page {
     border-left-color: #f59e0b;
 }
 
+.transaction-page .transaction-notification-info {
+    background-color: #eff6ff;
+    color: #1e40af;
+    border-left-color: #3b82f6;
+}
+
 /* Separator line - matching other pages */
 .transaction-page .transaction-separator-line {
     width: 100vw;
