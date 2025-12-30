@@ -124,13 +124,12 @@ if ($companyId) {
     /* 用户信息容器（包裹头像和用户信息） */
     .user-info-container {
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
         width: 100%;
-        padding: clamp(12px, 1.25vw, 20px) clamp(8px, 0.83vw, 16px);
-        margin-bottom: clamp(8px, 0.83vw, 16px);
-        gap: clamp(8px, 0.83vw, 12px);
+        padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
+        margin-bottom: clamp(2px, 0.31vw, 6px);
+        min-height: 50px;
         contain: layout style;
         will-change: auto;
         /* 确保头像选择菜单不被裁剪 */
@@ -145,17 +144,17 @@ if ($companyId) {
         position: relative;
         display: flex;
         align-items: center;
-        flex-direction: column;
-        gap: clamp(4px, 0.42vw, 6px);
+        flex-direction: row;
+        gap: 0;
         cursor: pointer;
-        padding: clamp(8px, 0.83vw, 12px);
-        border-radius: 12px;
+        padding: clamp(2px, 0.4vw, 8px);
+        padding-left: 0px;
+        border-radius: 25px;
         /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
-        transition: background-color 0.3s ease, transform 0.2s ease;
-        text-align: center;
+        transition: background-color 0.3s ease;
+        text-align: left;
         color: white;
         flex-shrink: 0;
-        width: 100%;
         /* 优化渲染性能 */
         min-width: 0;
         contain: layout style;
@@ -164,8 +163,7 @@ if ($companyId) {
     }
 
     .user-avatar-dropdown:hover {
-        background: rgba(255, 255, 255, 0.08);
-        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.1);
     }
 
     .user-avatar {
@@ -189,8 +187,7 @@ if ($companyId) {
         display: flex;
         flex-direction: column;     
         align-items: center;
-        justify-content: center;
-        margin: 0 auto;
+        margin-left: 0;
         flex-shrink: 0;
         width: fit-content;
         /* 优化渲染性能，防止页面切换时的布局重排 */
@@ -206,13 +203,13 @@ if ($companyId) {
 
     /* 当前头像显示 */
     .current-avatar {
-        width: clamp(50px, 4.17vw, 80px);
-        height: clamp(50px, 4.17vw, 80px);
+        width: clamp(40px, 3.125vw, 60px);
+        height: clamp(40px, 3.125vw, 60px);
         border-radius: 50%;
         cursor: pointer;
         /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
         transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
-        border: 3px solid rgba(255, 255, 255, 0.4);
+        border: 3px solid rgba(255, 255, 255, 0.3);
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         display: flex;
         align-items: center;
@@ -224,18 +221,16 @@ if ($companyId) {
         box-sizing: border-box;
         /* 优化渲染性能，防止闪烁 - 强制 GPU 加速并隔离布局 */
         transform: translateZ(0);
-        will-change: border-color, box-shadow, transform;
+        will-change: border-color, box-shadow;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
         /* 确保尺寸固定，避免 flex 布局重新计算时的抖动 */
         flex-shrink: 0;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3), 0 0 0 2px rgba(255, 255, 255, 0.1);
     }
 
     .current-avatar:hover {
-        border-color: rgba(255, 255, 255, 0.9);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4), 0 0 0 3px rgba(255, 255, 255, 0.2);
-        transform: scale(1.05);
+        border-color: rgba(255, 255, 255, 0.8);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
 
     /* 头像选择菜单 */
@@ -384,34 +379,25 @@ if ($companyId) {
         display: flex;
         flex-direction: column;
         justify-content: center;
-        align-items: center;
-        gap: clamp(2px, 0.21vw, 4px);
-        width: 100%;
+        align-items: flex-start;
+        gap: 2px;
+        margin-left: clamp(4px, 0.42vw, 8px);
     }
 
     .user-name {
         margin: 0;
-        font-size: clamp(12px, 0.94vw, 18px);
+        font-size: clamp(10px, 0.83vw, 16px);
         font-weight: 600;
         color: white;
-        line-height: 1.3;
-        text-align: center;
-        letter-spacing: 0.3px;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        line-height: 1.2;
     }
 
     
     .user-role {
-        font-size: clamp(9px, 0.68vw, 13px);
+        font-size: clamp(9px, 0.57vw, 11px);
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.75);
-        line-height: 1.3;
-        text-align: center;
-        padding: clamp(2px, 0.21vw, 4px) clamp(8px, 0.83vw, 12px);
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        backdrop-filter: blur(10px);
-        display: inline-block;
+        color: rgba(255, 255, 255, 0.8);
+        line-height: 1.2;
     }
 
     /* 左边的选项bar */
@@ -1219,7 +1205,7 @@ if ($companyId) {
             </div>
         </div>
 
-        <!-- 用户信息容器（头像和用户信息垂直居中排版） -->
+        <!-- 用户信息容器（头像和用户信息左右排版） -->
         <div class="user-info-container">
             <!-- 添加头像选择器（改为使用 PNG 照片） -->
             <div class="avatar-selector-container">
@@ -1333,7 +1319,6 @@ if ($companyId) {
             </div>
             </div>
 
-            <!-- 用户信息（名字和角色） -->
             <div class="user-avatar-dropdown">
                 <div class="user-info">
                     <div class="user-name"><?php echo htmlspecialchars($name); ?></div>
