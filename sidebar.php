@@ -1171,7 +1171,7 @@ if ($companyId) {
 
     .expiration-countdown-text {
         font-size: clamp(8px, 0.625vw, 12px);
-        font-weight: 500;
+        font-weight: 600;
         color: white;
         margin: 0;
         line-height: 1.3;
