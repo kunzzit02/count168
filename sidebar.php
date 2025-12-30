@@ -125,7 +125,7 @@ if ($companyId) {
     .user-info-container {
         display: flex;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: center;
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
@@ -390,12 +390,6 @@ if ($companyId) {
         font-weight: 600;
         color: white;
         line-height: 1.2;
-        /* 短名字自动增加字母间距 */
-        letter-spacing: 0;
-    }
-
-    .user-name.short-name {
-        letter-spacing: 0.3em;
     }
 
     
@@ -2122,30 +2116,8 @@ if ($companyId) {
         });
     }
 
-    // 自动调整短名字的字母间距
-    function adjustShortNameSpacing() {
-        const userNameElement = document.querySelector('.user-name');
-        if (userNameElement) {
-            const nameText = userNameElement.textContent.trim();
-            // 如果名字长度在2-3个字符之间，添加短名字样式
-            if (nameText.length >= 2 && nameText.length <= 3) {
-                userNameElement.classList.add('short-name');
-            } else {
-                userNameElement.classList.remove('short-name');
-            }
-        }
-    }
-
-    // 页面加载时设置高亮和调整名字间距
-    document.addEventListener('DOMContentLoaded', function() {
-        setCurrentPageHighlight();
-        adjustShortNameSpacing();
-    });
-    
-    // 立即执行一次（如果DOM已经加载完成）
-    if (document.readyState !== 'loading') {
-        adjustShortNameSpacing();
-    }
+    // 页面加载时设置高亮
+    document.addEventListener('DOMContentLoaded', setCurrentPageHighlight);
 
     // 动态定位 submenu
     function positionSubmenu(wrapper) {
