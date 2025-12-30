@@ -581,7 +581,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
             <div class="account-modal-body">
                 <!-- Link Type Selection -->
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #374151;">Link Type:</label>
                     <div style="display: flex; gap: 16px;">
                         <label style="display: flex; align-items: center; cursor: pointer;">
                             <input type="radio" name="linkType" value="bidirectional" id="linkTypeBidirectional" checked style="margin-right: 8px; cursor: pointer;">
@@ -591,9 +590,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
                             <input type="radio" name="linkType" value="unidirectional" id="linkTypeUnidirectional" style="margin-right: 8px; cursor: pointer;">
                             <span>单向 (Unidirectional)</span>
                         </label>
-                    </div>
-                    <div id="linkTypeDescription" style="margin-top: 8px; padding: 8px; background-color: #f0f9ff; border-left: 3px solid #0ea5e9; border-radius: 4px; font-size: 12px; color: #0369a1;">
-                        双向：所有关联账户互相可见
                     </div>
                 </div>
                 <div style="margin-bottom: 16px;">
