@@ -125,7 +125,7 @@ if ($companyId) {
     .user-info-container {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
@@ -137,6 +137,7 @@ if ($companyId) {
         /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
+        gap: clamp(8px, 1.04vw, 12px);
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -147,15 +148,14 @@ if ($companyId) {
         flex-direction: row;
         gap: 0;
         cursor: pointer;
-        padding: clamp(2px, 0.4vw, 8px);
+        padding: clamp(4px, 0.52vw, 8px);
         padding-left: 0px;
         border-radius: 25px;
         /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
         transition: background-color 0.3s ease;
         text-align: left;
         color: white;
-        flex-shrink: 0;
-        /* 优化渲染性能 */
+        flex: 1;
         min-width: 0;
         contain: layout style;
         /* 确保不会被头像选择菜单覆盖，但也不覆盖菜单 */
@@ -187,6 +187,7 @@ if ($companyId) {
         display: flex;
         flex-direction: column;     
         align-items: center;
+        justify-content: center;
         margin-left: 0;
         flex-shrink: 0;
         width: fit-content;
@@ -380,8 +381,11 @@ if ($companyId) {
         flex-direction: column;
         justify-content: center;
         align-items: flex-start;
-        gap: 2px;
-        margin-left: clamp(4px, 0.42vw, 8px);
+        gap: clamp(2px, 0.26vw, 4px);
+        margin-left: 0;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
     }
 
     .user-name {
@@ -389,15 +393,23 @@ if ($companyId) {
         font-size: clamp(10px, 0.83vw, 16px);
         font-weight: 600;
         color: white;
-        line-height: 1.2;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
     }
 
     
     .user-role {
         font-size: clamp(9px, 0.57vw, 11px);
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.8);
-        line-height: 1.2;
+        color: rgba(255, 255, 255, 0.85);
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
     }
 
     /* 左边的选项bar */
