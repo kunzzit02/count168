@@ -1118,8 +1118,8 @@ if ($companyId) {
     }
 
     .expiration-countdown-text {
-        font-size: clamp(9px, 0.73vw, 14px);
-        font-weight: 600;
+        font-size: clamp(7px, 0.57vw, 11px);
+        font-weight: 500;
         color: white;
         margin: 0;
         line-height: 1.3;
@@ -2268,20 +2268,20 @@ if ($companyId) {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         if (diffDays < 0) {
-            return { text: '已过期', days: diffDays, status: 'expired' };
+            return { text: 'Expired', days: diffDays, status: 'expired' };
         } else if (diffDays === 0) {
-            return { text: '今天到期', days: 0, status: 'warning' };
+            return { text: 'Expires today', days: 0, status: 'warning' };
         } else if (diffDays <= 7) {
-            return { text: `剩余 ${diffDays} 天`, days: diffDays, status: 'warning' };
+            return { text: `${diffDays} day${diffDays > 1 ? 's' : ''} left`, days: diffDays, status: 'warning' };
         } else if (diffDays <= 30) {
-            return { text: `剩余 ${diffDays} 天`, days: diffDays, status: 'normal' };
+            return { text: `${diffDays} days left`, days: diffDays, status: 'normal' };
         } else {
             const months = Math.floor(diffDays / 30);
             const days = diffDays % 30;
             if (days === 0) {
-                return { text: `剩余 ${months} 个月`, days: diffDays, status: 'normal' };
+                return { text: `${months} month${months > 1 ? 's' : ''} left`, days: diffDays, status: 'normal' };
             } else {
-                return { text: `剩余 ${months} 个月 ${days} 天`, days: diffDays, status: 'normal' };
+                return { text: `${months}m ${days}d left`, days: diffDays, status: 'normal' };
             }
         }
     }
@@ -2298,7 +2298,7 @@ if ($companyId) {
         
         if (!expirationDate || expirationDate.trim() === '' || !countdownText) {
             if (countdownText) {
-                countdownText.textContent = '无到期日期';
+                countdownText.textContent = 'No expiration date';
                 countdownText.className = 'expiration-countdown-text normal';
             }
             return;
@@ -2310,7 +2310,7 @@ if ($companyId) {
             countdownText.textContent = countdown.text;
             countdownText.className = 'expiration-countdown-text ' + countdown.status;
         } else {
-            countdownText.textContent = '无到期日期';
+            countdownText.textContent = 'No expiration date';
             countdownText.className = 'expiration-countdown-text normal';
         }
     }
