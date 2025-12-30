@@ -32,12 +32,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     body.transaction-page * {
         font-weight: 700;
     }
-    /* 重置 sidebar 字体粗细，保持与其他页面一致 */
-    /* 先重置所有 sidebar 元素为 normal，然后恢复关键元素的原始 font-weight */
-    body.transaction-page .informationmenu,
-    body.transaction-page .informationmenu * {
-        font-weight: normal;
-    }
     /* 恢复 sidebar 中关键元素的原始 font-weight（与 sidebar.php 保持一致） */
     body.transaction-page .informationmenu .user-name,
     body.transaction-page .informationmenu .informationmenu-section-title,
