@@ -1108,31 +1108,22 @@ if ($companyId) {
 
     /* 公司到期倒计时样式 */
     .company-expiration-countdown {
-        padding: clamp(8px, 0.83vw, 16px) clamp(12px, 1.04vw, 20px);
-        margin-bottom: clamp(8px, 0.83vw, 16px);
+        padding: clamp(4px, 0.42vw, 8px) clamp(8px, 0.73vw, 14px);
+        margin-bottom: clamp(6px, 0.63vw, 12px);
         background: rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
+        border-radius: 8px;
         text-align: center;
         border: 1px solid rgba(255, 255, 255, 0.2);
         backdrop-filter: blur(10px);
     }
 
-    .expiration-label {
-        font-size: clamp(8px, 0.63vw, 12px);
-        color: rgba(255, 255, 255, 0.8);
-        margin-bottom: clamp(4px, 0.42vw, 8px);
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-
     .expiration-countdown-text {
-        font-size: clamp(12px, 1.04vw, 20px);
-        font-weight: 700;
+        font-size: clamp(9px, 0.73vw, 14px);
+        font-weight: 600;
         color: white;
         margin: 0;
-        line-height: 1.4;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        line-height: 1.3;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     }
 
     .expiration-countdown-text.expired {
@@ -1157,12 +1148,6 @@ if ($companyId) {
     @keyframes pulse-yellow {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.8; }
-    }
-
-    .expiration-date-display {
-        font-size: clamp(7px, 0.57vw, 11px);
-        color: rgba(255, 255, 255, 0.6);
-        margin-top: clamp(2px, 0.21vw, 4px);
     }
 </style>
 
@@ -1508,12 +1493,8 @@ if ($companyId) {
     <div class="informationmenu-footer">
         <?php if ($company_expiration_date): ?>
         <div class="company-expiration-countdown" id="companyExpirationCountdown">
-            <div class="expiration-label">Company Expiration</div>
             <div class="expiration-countdown-text" id="expirationCountdownText">
                 Loading...
-            </div>
-            <div class="expiration-date-display" id="expirationDateDisplay">
-                <?php echo htmlspecialchars($company_expiration_date); ?>
             </div>
         </div>
         <?php endif; ?>
@@ -2314,7 +2295,6 @@ if ($companyId) {
     function updateExpirationCountdown() {
         const expirationDate = '<?php echo $company_expiration_date ? $company_expiration_date : ''; ?>';
         const countdownText = document.getElementById('expirationCountdownText');
-        const dateDisplay = document.getElementById('expirationDateDisplay');
         
         if (!expirationDate || expirationDate.trim() === '' || !countdownText) {
             if (countdownText) {
@@ -2329,10 +2309,6 @@ if ($companyId) {
         if (countdown) {
             countdownText.textContent = countdown.text;
             countdownText.className = 'expiration-countdown-text ' + countdown.status;
-            
-            if (dateDisplay) {
-                dateDisplay.textContent = formatDate(expirationDate);
-            }
         } else {
             countdownText.textContent = '无到期日期';
             countdownText.className = 'expiration-countdown-text normal';
