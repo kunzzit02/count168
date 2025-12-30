@@ -125,7 +125,7 @@ if ($companyId) {
     .user-info-container {
         display: flex;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: center;
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
@@ -137,7 +137,7 @@ if ($companyId) {
         /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
-        gap: clamp(8px, 1.04vw, 12px);
+        gap: clamp(10px, 1.25vw, 14px);
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -155,8 +155,8 @@ if ($companyId) {
         transition: background-color 0.3s ease;
         text-align: left;
         color: white;
-        flex: 1;
-        min-width: 0;
+        flex-shrink: 0;
+        min-width: fit-content;
         contain: layout style;
         /* 确保不会被头像选择菜单覆盖，但也不覆盖菜单 */
         z-index: 1;
@@ -383,9 +383,9 @@ if ($companyId) {
         align-items: flex-start;
         gap: clamp(2px, 0.26vw, 4px);
         margin-left: 0;
-        flex: 1;
-        min-width: 0;
-        overflow: hidden;
+        flex-shrink: 0;
+        min-width: fit-content;
+        overflow: visible;
     }
 
     .user-name {
@@ -395,9 +395,6 @@ if ($companyId) {
         color: white;
         line-height: 1.3;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        width: 100%;
     }
 
     
@@ -407,9 +404,6 @@ if ($companyId) {
         color: rgba(255, 255, 255, 0.85);
         line-height: 1.3;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        width: 100%;
     }
 
     /* 左边的选项bar */
