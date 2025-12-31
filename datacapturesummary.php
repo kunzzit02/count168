@@ -2372,12 +2372,9 @@ function getCurrentProcessId() {
                 });
             }
 
-            // Sort by id_product first, then by row_index to maintain table order
+            // Sort by row_index to maintain original table order (not by id_product)
+            // This ensures the dropdown order matches the original Data Capture Table order
             idProductRows.sort((a, b) => {
-                const idCompare = a.idProduct.localeCompare(b.idProduct);
-                if (idCompare !== 0) {
-                    return idCompare;
-                }
                 return a.rowIndex - b.rowIndex;
             });
 
