@@ -4892,31 +4892,44 @@ function getCurrentProcessId() {
                         // 更新显示框
                         const processValue = document.getElementById('process')?.value;
                         updateFormulaDisplay(data.formula || '', processValue);
-                        // Restore clicked columns if provided
-                        if (data.clickedColumns) {
-                            // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
-                            // If so, restore to data-clicked-cell-refs instead of data-clicked-columns
-                            const isNewFormat = isNewIdProductColumnFormat(data.clickedColumns);
+                        
+                        // CRITICAL FIX: Restore cell references from sourceColumns if available
+                        // sourceColumns format: "id_product:row_label:column_index" (e.g., "OVERALL:A:7 YONG:B:3")
+                        // This is the format saved to database, and we need to restore it to data-clicked-cell-refs
+                        let cellRefsToRestore = '';
+                        if (data.sourceColumns && data.sourceColumns.trim() !== '') {
+                            // sourceColumns is already in the correct format (id_product:row_label:column_index)
+                            cellRefsToRestore = data.sourceColumns.trim();
+                            console.log('populateFormWithData - Restoring cell refs from sourceColumns:', cellRefsToRestore);
+                        } else if (data.clickedColumns && data.clickedColumns.trim() !== '') {
+                            // Fallback to clickedColumns (for backward compatibility)
+                            cellRefsToRestore = data.clickedColumns.trim();
+                            console.log('populateFormWithData - Restoring cell refs from clickedColumns:', cellRefsToRestore);
+                        }
+                        
+                        if (cellRefsToRestore) {
+                            // Check if it's in new format (id_product:row_label:column_index or id_product:column_index)
+                            const isNewFormat = isNewIdProductColumnFormat(cellRefsToRestore);
                             
                             if (isNewFormat) {
                                 // New format: restore to data-clicked-cell-refs (preserves id_product:column format)
-                                formulaInput.setAttribute('data-clicked-cell-refs', data.clickedColumns);
-                                console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs:', data.clickedColumns);
+                                formulaInput.setAttribute('data-clicked-cell-refs', cellRefsToRestore);
+                                console.log('populateFormWithData - Restored id_product:column format to data-clicked-cell-refs:', cellRefsToRestore);
                             } else {
                                 // Old format: restore to data-clicked-columns (backward compatibility)
-                                formulaInput.setAttribute('data-clicked-columns', data.clickedColumns);
-                                console.log('Edit mode: Restored old format to data-clicked-columns:', data.clickedColumns);
+                                formulaInput.setAttribute('data-clicked-columns', cellRefsToRestore);
+                                console.log('populateFormWithData - Restored old format to data-clicked-columns:', cellRefsToRestore);
                             }
                             
                             // In edit mode, save original columns to preserve them when user adds new columns
                             const isEditMode = !!window.currentEditRow;
                             if (isEditMode) {
                                 if (isNewFormat) {
-                                    formulaInput.setAttribute('data-original-clicked-cell-refs', data.clickedColumns);
+                                    formulaInput.setAttribute('data-original-clicked-cell-refs', cellRefsToRestore);
                                 } else {
-                                    formulaInput.setAttribute('data-original-clicked-columns', data.clickedColumns);
+                                    formulaInput.setAttribute('data-original-clicked-columns', cellRefsToRestore);
                                 }
-                                console.log('Edit mode: Saved original columns:', data.clickedColumns);
+                                console.log('populateFormWithData - Saved original columns:', cellRefsToRestore);
                             }
                         }
                     } else {
@@ -9250,7 +9263,8 @@ function getCurrentProcessId() {
                 inputMethod: inputMethodValue,
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
-                clickedColumns: clickedColumns // Pass clicked columns for restoration
+                clickedColumns: clickedColumns, // Pass clicked columns for restoration (backward compatibility)
+                sourceColumns: sourceColumnsValue // Pass sourceColumns for restoration (CRITICAL: contains id_product:row_label:column_index format)
             });
         }
         
