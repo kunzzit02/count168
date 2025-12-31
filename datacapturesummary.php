@@ -1682,19 +1682,24 @@ function getCurrentProcessId() {
                     descriptionSelect1.addEventListener('change', function() {
                         // Extract idProduct and rowIndex from value (format: "idProduct|rowIndex")
                         const value = this.value;
+                        console.log('descriptionSelect1 changed to:', value);
                         if (value && value.includes('|')) {
                             const [idProduct, rowIndexStr] = value.split('|');
                             const rowIndex = parseInt(rowIndexStr, 10);
-                            if (!isNaN(rowIndex)) {
+                            console.log('Parsed idProduct:', idProduct, 'rowIndex:', rowIndex, 'rowIndexStr:', rowIndexStr, 'isNaN:', isNaN(rowIndex));
+                            if (!isNaN(rowIndex) && rowIndex >= 0) {
+                                console.log('Calling updateIdProductRowData with idProduct:', idProduct, 'rowIndex:', rowIndex);
                                 updateIdProductRowData(idProduct, rowIndex);
                                 // Also update formula data grid with the same rowIndex
                                 updateFormulaDataGrid(idProduct, rowIndex);
                             } else {
+                                console.warn('Invalid rowIndex:', rowIndex, 'falling back to no rowIndex');
                                 updateIdProductRowData(idProduct);
                                 updateFormulaDataGrid(idProduct, null);
                             }
                         } else {
                             // Fallback for old format (just idProduct)
+                            console.log('Old format detected, no rowIndex');
                             updateIdProductRowData(value);
                             updateFormulaDataGrid(value, null);
                         }
@@ -2503,6 +2508,7 @@ function getCurrentProcessId() {
                 const firstOptionValue = `${idProductList[0].value}|${idProductList[0].rowIndex}`;
                 descriptionSelect1.value = firstOptionValue;
                 // Trigger update for second select box (extract idProduct from value)
+                console.log('loadIdProductList: Auto-selecting first option:', firstOptionValue, 'rowIndex:', idProductList[0].rowIndex);
                 updateIdProductRowData(idProductList[0].value, idProductList[0].rowIndex);
             }
         }
@@ -2551,7 +2557,7 @@ function getCurrentProcessId() {
                 }
             }
             
-            console.log('updateIdProductRowData called with idProduct:', idProduct, 'rowIndex:', rowIndex, 'targetRowIndex:', targetRowIndex);
+            console.log('updateIdProductRowData called with idProduct:', idProduct, 'rowIndex:', rowIndex, 'targetRowIndex:', targetRowIndex, 'total rows:', rows.length);
             
             // If rowIndex is provided, only process that specific row
             // Otherwise, process all rows with matching id_product
@@ -2561,30 +2567,45 @@ function getCurrentProcessId() {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 const normalizedRowIdProduct = rowIdProduct ? normalizeIdProductText(rowIdProduct.trim()) : '';
                 
+                console.log('updateIdProductRowData: Checking row at index', targetRowIndex, 'rowIdProduct:', rowIdProduct, 'normalizedRowIdProduct:', normalizedRowIdProduct, 'normalizedIdProduct:', normalizedIdProduct);
+                
                 if (normalizedRowIdProduct === normalizedIdProduct) {
-                    console.log('updateIdProductRowData: Processing specific row at index', targetRowIndex);
+                    console.log('updateIdProductRowData: Processing specific row at index', targetRowIndex, 'for idProduct:', idProduct);
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
+                    console.log('updateIdProductRowData: Found', cells.length, 'cells in row');
                     
+                    let cellCount = 0;
                     cells.forEach((cell, cellIndex) => {
                         const columnIndex = cell.getAttribute('data-column-index');
                         if (columnIndex && parseInt(columnIndex) > 1) {
                             // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                            if (cellValue !== '') {
+                            // IMPORTANT: Get raw text content first, then trim for display
+                            const rawCellText = cell.textContent || '';
+                            const cellValue = rawCellText.trim();
+                            console.log('updateIdProductRowData: Cell at columnIndex', columnIndex, 'rawText:', JSON.stringify(rawCellText), 'trimmedValue:', JSON.stringify(cellValue));
+                            
+                            // CRITICAL: Show ALL cell values, including text values like "M06-KZ", "MAJOR", "WIN/PLC"
+                            // Only skip cells that are completely empty (no text content at all)
+                            // This ensures we show both numeric and text data
+                            if (rawCellText !== '') {
                                 // Create a separate option for each column data
                                 const option = document.createElement('option');
                                 option.value = `${targetRowIndex}:${columnIndex}`; // Store row index and column index as value
-                                option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
+                                option.textContent = `[${columnIndex}] ${cellValue || '(empty)'}`; // Format: "[2] M06-KZ" or "[2] 2478"
                                 descriptionSelect2.appendChild(option);
+                                cellCount++;
                                 
                                 // Store first option value for auto-selection
                                 if (firstOptionValue === null) {
                                     firstOptionValue = option.value;
                                 }
+                            } else {
+                                console.log('updateIdProductRowData: Skipping empty cell at columnIndex', columnIndex);
                             }
                         }
                     });
+                    console.log('updateIdProductRowData: Added', cellCount, 'options to descriptionSelect2');
                 } else {
                     console.warn('updateIdProductRowData: Row at index', targetRowIndex, 'does not match idProduct. Expected:', normalizedIdProduct, 'Found:', normalizedRowIdProduct);
                 }
@@ -2601,23 +2622,28 @@ function getCurrentProcessId() {
                         
                         cells.forEach((cell, cellIndex) => {
                             const columnIndex = cell.getAttribute('data-column-index');
-                            if (columnIndex && parseInt(columnIndex) > 1) {
-                                // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                                const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                                if (cellValue !== '') {
-                                    // Create a separate option for each column data
-                                    const option = document.createElement('option');
-                                    option.value = `${currentRowIndex}:${columnIndex}`; // Store row index and column index as value
-                                    option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
-                                    descriptionSelect2.appendChild(option);
-                                    
-                                    // Store first option value for auto-selection
-                                    if (firstOptionValue === null) {
-                                        firstOptionValue = option.value;
-                                    }
+                        if (columnIndex && parseInt(columnIndex) > 1) {
+                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                            // IMPORTANT: Get raw text content first, then trim for display
+                            const rawCellText = cell.textContent || '';
+                            const cellValue = rawCellText.trim();
+                            
+                            // CRITICAL: Show ALL cell values, including text values like "M06-KZ", "MAJOR", "WIN/PLC"
+                            // Only skip cells that are completely empty (no text content at all)
+                            if (rawCellText !== '') {
+                                // Create a separate option for each column data
+                                const option = document.createElement('option');
+                                option.value = `${currentRowIndex}:${columnIndex}`; // Store row index and column index as value
+                                option.textContent = `[${columnIndex}] ${cellValue || '(empty)'}`; // Format: "[2] M06-KZ" or "[2] 2478"
+                                descriptionSelect2.appendChild(option);
+                                
+                                // Store first option value for auto-selection
+                                if (firstOptionValue === null) {
+                                    firstOptionValue = option.value;
                                 }
                             }
-                        });
+                        }
+                    });
                     }
                 });
             }
