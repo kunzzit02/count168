@@ -1624,12 +1624,30 @@ function getCurrentProcessId() {
             loadIdProductList();
             
             // If editing and we have row index, set descriptionSelect1 to the correct value
+            // CRITICAL: Also check if the row has a saved data-selected-row-index attribute
+            // This ensures that when user previously selected a specific row (e.g., Row D), 
+            // that selection is preserved even after page refresh
+            let targetRowIndex = null;
             if (prePopulatedData && prePopulatedData.dataCaptureRowIndex !== null && prePopulatedData.dataCaptureRowIndex !== undefined) {
+                targetRowIndex = prePopulatedData.dataCaptureRowIndex;
+            } else if (row) {
+                // Check if row has saved selected row index (from previous user selection)
+                const savedSelectedRowIndex = row.getAttribute('data-selected-row-index');
+                if (savedSelectedRowIndex && savedSelectedRowIndex !== '' && savedSelectedRowIndex !== '999999') {
+                    const savedIndex = Number(savedSelectedRowIndex);
+                    if (!isNaN(savedIndex) && savedIndex >= 0) {
+                        targetRowIndex = savedIndex;
+                        console.log('Using saved data-selected-row-index from row:', targetRowIndex);
+                    }
+                }
+            }
+            
+            if (targetRowIndex !== null) {
                 setTimeout(() => {
                     const descriptionSelect1 = document.getElementById('descriptionSelect1');
                     if (descriptionSelect1 && productValue) {
                         // Find the option that matches this id_product and row index
-                        const targetValue = `${productValue}|${prePopulatedData.dataCaptureRowIndex}`;
+                        const targetValue = `${productValue}|${targetRowIndex}`;
                         const option = Array.from(descriptionSelect1.options).find(opt => opt.value === targetValue);
                         if (option) {
                             descriptionSelect1.value = targetValue;
@@ -1637,26 +1655,26 @@ function getCurrentProcessId() {
                             // Store the selected row index and rowLabel for later use
                             const processInput = document.getElementById('process');
                             if (processInput) {
-                                processInput.setAttribute('data-selected-row-index', String(prePopulatedData.dataCaptureRowIndex));
+                                processInput.setAttribute('data-selected-row-index', String(targetRowIndex));
                                 processInput.setAttribute('data-selected-id-product', productValue);
                                 
                                 // Get row label from the selected row
                                 const capturedTableBody = document.getElementById('capturedTableBody');
                                 if (capturedTableBody) {
                                     const rows = capturedTableBody.querySelectorAll('tr');
-                                    if (rows[prePopulatedData.dataCaptureRowIndex]) {
-                                        const rowHeaderCell = rows[prePopulatedData.dataCaptureRowIndex].querySelector('.row-header');
+                                    if (rows[targetRowIndex]) {
+                                        const rowHeaderCell = rows[targetRowIndex].querySelector('.row-header');
                                         if (rowHeaderCell) {
                                             const rowLabel = rowHeaderCell.textContent.trim();
                                             processInput.setAttribute('data-selected-row-label', rowLabel);
-                                            console.log('Stored selected row info (edit mode) - idProduct:', productValue, 'rowIndex:', prePopulatedData.dataCaptureRowIndex, 'rowLabel:', rowLabel);
+                                            console.log('Stored selected row info (edit mode) - idProduct:', productValue, 'rowIndex:', targetRowIndex, 'rowLabel:', rowLabel);
                                         }
                                     }
                                 }
                             }
                             
                             // Trigger update for second select box
-                            updateIdProductRowData(productValue, prePopulatedData.dataCaptureRowIndex);
+                            updateIdProductRowData(productValue, targetRowIndex);
                         } else {
                             // Fallback: try to find any option with matching id_product
                             const fallbackOption = Array.from(descriptionSelect1.options).find(opt => {
@@ -5766,6 +5784,22 @@ function getCurrentProcessId() {
                 isSubIdProduct: isSubIdProduct
             });
             
+            // CRITICAL: Save the selected row index from descriptionSelect1 to the row
+            // This ensures that when user selects a specific row (e.g., Row D), that selection
+            // is preserved even after page refresh
+            const processInput = document.getElementById('process');
+            let selectedRowIndexForSave = null;
+            if (processInput) {
+                const savedSelectedRowIndex = processInput.getAttribute('data-selected-row-index');
+                if (savedSelectedRowIndex && savedSelectedRowIndex !== '' && savedSelectedRowIndex !== '999999') {
+                    const savedIndex = Number(savedSelectedRowIndex);
+                    if (!isNaN(savedIndex) && savedIndex >= 0) {
+                        selectedRowIndexForSave = savedIndex;
+                        console.log('saveFormula - Saving selected row index:', selectedRowIndexForSave);
+                    }
+                }
+            }
+            
             // Evaluate the formula expression directly
             const formulaResult = evaluateFormulaExpression(formulaValue);
             
@@ -5954,13 +5988,20 @@ function getCurrentProcessId() {
                     // 在编辑模式下，保留原有的 formula_variant 和 template_id，确保更新现有模板而不是创建新模板
                     const existingFormulaVariant = editingRow.getAttribute('data-formula-variant');
                     const existingTemplateId = editingRow.getAttribute('data-template-id');
-                    updateSummaryTableRow(processValue, {
-                        ...basePayload,
-                        productType: 'main',
-                        templateKey: editingRow.getAttribute('data-template-key') || null,
-                        formulaVariant: existingFormulaVariant || null,
-                        templateId: existingTemplateId || null
-                    }, editingRow);
+                // CRITICAL: Save selected row index to the row so it persists after page refresh
+                if (selectedRowIndexForSave !== null) {
+                    editingRow.setAttribute('data-selected-row-index', String(selectedRowIndexForSave));
+                    console.log('saveFormula - Saved selected row index to row:', selectedRowIndexForSave);
+                }
+                
+                updateSummaryTableRow(processValue, {
+                    ...basePayload,
+                    productType: 'main',
+                    templateKey: editingRow.getAttribute('data-template-key') || null,
+                    formulaVariant: existingFormulaVariant || null,
+                    templateId: existingTemplateId || null,
+                    selectedRowIndex: selectedRowIndexForSave // Pass selected row index to save it
+                }, editingRow);
                 }
             } else if (isSubIdProduct) {
                 // 点击的是某个 sub row 的 +：在该 Id Product 下“当前行之后”新增一条 sub 行
@@ -11170,6 +11211,14 @@ function getCurrentProcessId() {
                 } else if (data.lastSourceValue !== undefined) {
                     row.setAttribute('data-last-source-value', data.lastSourceValue);
                 }
+                // CRITICAL: Save selected row index to the row so it persists after page refresh
+                // This is the row index that the user selected in descriptionSelect1 (e.g., Row D)
+                // This is different from data-row-index which is the position in Data Capture Table
+                if (data.selectedRowIndex !== undefined && data.selectedRowIndex !== null) {
+                    row.setAttribute('data-selected-row-index', String(data.selectedRowIndex));
+                    console.log('updateSummaryTableRow - Saved selected row index to row:', data.selectedRowIndex);
+                }
+                
                 // Store sourcePercent in data attribute (without % symbol for easier retrieval)
                 if (data.sourcePercent !== undefined) {
                     const sourcePercentValue = data.sourcePercent.toString();
