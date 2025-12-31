@@ -227,19 +227,17 @@ try {
         ];
     }
     
-    // 计算 Profit = Capital - Expenses
-    $profit_calculated = $result['capital']['total_balance'] - $result['expenses']['total_balance'];
-    
+    // Profit 直接使用所有 role 为 'PROFIT' 的账户总和
     echo json_encode([
         'success' => true,
         'data' => [
             'capital' => $result['capital']['total_balance'],
             'expenses' => $result['expenses']['total_balance'],
-            'profit' => $profit_calculated,
+            'profit' => $result['profit']['total_balance'],
             'daily_data' => [
                 'capital' => $result['capital']['daily_data'],
                 'expenses' => $result['expenses']['daily_data'],
-                'profit' => [] // Profit 的每日数据需要从 capital 和 expenses 计算
+                'profit' => $result['profit']['daily_data']
             ],
             'date_range' => [
                 'from' => $date_from,
