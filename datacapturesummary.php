@@ -4912,11 +4912,9 @@ function getCurrentProcessId() {
                     if (formulaInput) {
                         console.log('populateFormWithData - Setting formula value:', data.formula);
                         formulaInput.value = data.formula || '';
-                        // 更新显示框
-                        const processValue = document.getElementById('process')?.value;
-                        updateFormulaDisplay(data.formula || '', processValue);
                         
-                        // CRITICAL FIX: Restore cell references from sourceColumns if available
+                        // CRITICAL FIX: Restore cell references from sourceColumns BEFORE calling updateFormulaDisplay
+                        // This ensures updateFormulaDisplay can correctly parse $数字 references using the restored cell references
                         // sourceColumns format: "id_product:row_label:displayColumnIndex" (e.g., "OVERALL:A:7 YONG:B:3")
                         // data-clicked-cell-refs format: "id_product:row_label:dataColumnIndex" (e.g., "OVERALL:A:6 YONG:B:2")
                         // IMPORTANT: displayColumnIndex = dataColumnIndex + 1, so we need to convert when restoring
@@ -4991,6 +4989,12 @@ function getCurrentProcessId() {
                                 console.log('populateFormWithData - Saved original columns:', cellRefsToRestore);
                             }
                         }
+                        
+                        // CRITICAL: Call updateFormulaDisplay AFTER restoring data-clicked-cell-refs
+                        // This ensures updateFormulaDisplay can correctly parse $数字 references using the restored cell references
+                        const processValue = document.getElementById('process')?.value;
+                        console.log('populateFormWithData - Calling updateFormulaDisplay after restoring cell refs, data-clicked-cell-refs:', formulaInput.getAttribute('data-clicked-cell-refs'));
+                        updateFormulaDisplay(data.formula || '', processValue);
                     } else {
                         console.warn('populateFormWithData - Formula input not found');
                     }
@@ -6418,6 +6422,11 @@ function getCurrentProcessId() {
                 const processInput = document.getElementById('process');
                 const processValue = processInput ? processInput.value.trim() : null;
                 
+                // CRITICAL: Get cell references from data-clicked-cell-refs BEFORE parsing
+                const formulaInput = document.getElementById('formula');
+                const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+                console.log('parseReferenceFormula - formula:', formula, 'processValue:', processValue, 'data-clicked-cell-refs:', clickedCellRefs);
+                
                 let parsedFormula = formula;
                 
                 // First, parse $数字 format (e.g., "$2", "$3", "$10")
@@ -6474,12 +6483,15 @@ function getCurrentProcessId() {
                             }
                         });
                         
+                        console.log('parseReferenceFormula - dollarMatches:', dollarMatches, 'columnToCellRefMap:', Array.from(columnToCellRefMap.entries()));
+                        
                         for (let i = 0; i < dollarMatches.length; i++) {
                             const dollarMatch = dollarMatches[i];
                             let columnValue = null;
                             
                             // Try to find cell reference for this column number
                             const cellRef = columnToCellRefMap.get(dollarMatch.columnNumber);
+                            console.log('parseReferenceFormula - Looking for $' + dollarMatch.columnNumber + ', found cellRef:', cellRef);
                             if (cellRef) {
                                 // Parse cell reference to get id_product and row_label
                                 const parts = cellRef.split(':');
@@ -6490,9 +6502,15 @@ function getCurrentProcessId() {
                                     
                                     // Use the id_product from cell reference, not from processValue
                                     // IMPORTANT: columnIndexFromRef is dataColumnIndex (from cell reference storage)
+                                    console.log('parseReferenceFormula - Parsed cellRef:', {
+                                        idProductFromRef: idProductFromRef,
+                                        rowLabelFromRef: rowLabelFromRef,
+                                        columnIndexFromRef: columnIndexFromRef
+                                    });
                                     if (rowLabelFromRef) {
                                         // getCellValueByIdProductAndColumn expects dataColumnIndex (1-based data column index)
                                         columnValue = getCellValueByIdProductAndColumn(idProductFromRef, columnIndexFromRef, rowLabelFromRef);
+                                        console.log('parseReferenceFormula - Using getCellValueByIdProductAndColumn with idProduct:', idProductFromRef, 'dataColumnIndex:', columnIndexFromRef, 'rowLabel:', rowLabelFromRef, 'result:', columnValue);
                                     } else {
                                         const rowLabelForRef = getRowLabelFromProcessValue(idProductFromRef);
                                         if (rowLabelForRef) {
@@ -6500,6 +6518,7 @@ function getCurrentProcessId() {
                                             const displayColumnIndexForRef = columnIndexFromRef + 1;
                                             const columnReference = rowLabelForRef + displayColumnIndexForRef;
                                             columnValue = getColumnValueFromCellReference(columnReference, idProductFromRef);
+                                            console.log('parseReferenceFormula - Using getColumnValueFromCellReference with columnReference:', columnReference, 'idProduct:', idProductFromRef, 'result:', columnValue);
                                         }
                                     }
                                 }
@@ -6507,8 +6526,10 @@ function getCurrentProcessId() {
                             
                             // Fallback: if no cell reference found, use processValue (for backward compatibility)
                             if (columnValue === null) {
+                                console.log('parseReferenceFormula - No cellRef found for $' + dollarMatch.columnNumber + ', using fallback with processValue:', processValue, 'rowLabel:', rowLabel);
                                 const columnReference = rowLabel + dollarMatch.columnNumber;
                                 columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                console.log('parseReferenceFormula - Fallback result:', columnValue);
                             }
                             
                             if (columnValue !== null) {
