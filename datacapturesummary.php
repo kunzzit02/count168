@@ -4920,11 +4920,9 @@ function getCurrentProcessId() {
                     const formulaInput = document.getElementById('formula');
                     if (formulaInput) {
                         console.log('populateFormWithData - Setting formula value:', data.formula);
-                        formulaInput.value = data.formula || '';
-                        // 更新显示框
-                        const processValue = document.getElementById('process')?.value;
-                        updateFormulaDisplay(data.formula || '', processValue);
-                        // Restore clicked columns if provided
+                        
+                        // IMPORTANT: Restore clicked columns BEFORE setting formula value and calling updateFormulaDisplay
+                        // This ensures updateFormulaDisplay can use the correct id_product references
                         if (data.clickedColumns) {
                             // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
                             // If so, restore to data-clicked-cell-refs instead of data-clicked-columns
@@ -4951,6 +4949,13 @@ function getCurrentProcessId() {
                                 console.log('Edit mode: Saved original columns:', data.clickedColumns);
                             }
                         }
+                        
+                        // Set formula value AFTER restoring clicked columns
+                        formulaInput.value = data.formula || '';
+                        
+                        // 更新显示框 - 现在 updateFormulaDisplay 可以使用恢复的 data-clicked-cell-refs
+                        const processValue = document.getElementById('process')?.value;
+                        updateFormulaDisplay(data.formula || '', processValue);
                     } else {
                         console.warn('populateFormWithData - Formula input not found');
                     }
