@@ -4746,6 +4746,12 @@ function getCurrentProcessId() {
             formulaInput.setAttribute('data-from-cell-click', 'true');
             formulaInput.value = newValue;
             
+            // CRITICAL: Immediately update formula display after inserting value
+            // This ensures updateFormulaDisplay uses the correct data-clicked-cell-refs that was just set
+            const processValue = document.getElementById('process')?.value;
+            console.log('insertCellValueToFormula - Calling updateFormulaDisplay with newValue:', newValue, 'processValue:', processValue, 'data-clicked-cell-refs:', formulaInput.getAttribute('data-clicked-cell-refs'));
+            updateFormulaDisplay(newValue, processValue);
+            
             // Set cursor position after inserted value
             const newCursorPos = cursorPos + valueToInsert.length;
             setTimeout(() => {
