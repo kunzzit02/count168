@@ -3535,25 +3535,37 @@ function getCurrentProcessId() {
                     
                     // Try to find cell reference for this column number
                     const cellRef = columnToCellRefMap.get(match.columnNumber);
+                    console.log('updateFormulaDisplay - Looking for $' + match.columnNumber + ', found cellRef:', cellRef, 'columnToCellRefMap:', Array.from(columnToCellRefMap.entries()));
                     if (cellRef) {
                         // Parse cell reference to get id_product and row_label
                         const parts = cellRef.split(':');
                         if (parts.length >= 2) {
                             const idProductFromRef = parts[0]; // First part is id_product
                             const rowLabelFromRef = parts.length >= 3 ? parts[1] : null; // Second part is row_label (if exists)
-                            const columnIndexFromRef = parseInt(parts[parts.length - 1]); // Last part is column index
+                            const dataColumnIndexFromRef = parseInt(parts[parts.length - 1]); // Last part is dataColumnIndex
+                            
+                            console.log('updateFormulaDisplay - Parsed cellRef:', {
+                                idProductFromRef: idProductFromRef,
+                                rowLabelFromRef: rowLabelFromRef,
+                                dataColumnIndexFromRef: dataColumnIndexFromRef,
+                                displayColumnIndex: match.columnNumber
+                            });
                             
                             // Use the id_product from cell reference, not from processValue
                             if (rowLabelFromRef) {
-                                // Format: "id_product:row_label:column_index"
-                                const columnReference = rowLabelFromRef + columnIndexFromRef;
-                                columnValue = getCellValueByIdProductAndColumn(idProductFromRef, columnIndexFromRef, rowLabelFromRef);
+                                // Format: "id_product:row_label:dataColumnIndex"
+                                // Use dataColumnIndex to get the value
+                                columnValue = getCellValueByIdProductAndColumn(idProductFromRef, dataColumnIndexFromRef, rowLabelFromRef);
+                                console.log('updateFormulaDisplay - Using getCellValueByIdProductAndColumn with idProduct:', idProductFromRef, 'dataColumnIndex:', dataColumnIndexFromRef, 'rowLabel:', rowLabelFromRef, 'result:', columnValue);
                             } else {
-                                // Format: "id_product:column_index" (backward compatibility)
+                                // Format: "id_product:dataColumnIndex" (backward compatibility)
                                 const rowLabelForRef = getRowLabelFromProcessValue(idProductFromRef);
                                 if (rowLabelForRef) {
-                                    const columnReference = rowLabelForRef + columnIndexFromRef;
+                                    // Convert dataColumnIndex to displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                                    const displayColumnIndexForRef = dataColumnIndexFromRef + 1;
+                                    const columnReference = rowLabelForRef + displayColumnIndexForRef;
                                     columnValue = getColumnValueFromCellReference(columnReference, idProductFromRef);
+                                    console.log('updateFormulaDisplay - Using getColumnValueFromCellReference with columnReference:', columnReference, 'idProduct:', idProductFromRef, 'result:', columnValue);
                                 }
                             }
                         }
@@ -3561,6 +3573,7 @@ function getCurrentProcessId() {
                     
                     // Fallback: if no cell reference found, use processValue (for backward compatibility)
                     if (columnValue === null) {
+                        console.log('updateFormulaDisplay - No cellRef found, using fallback with processValue:', processValue, 'rowLabel:', rowLabel, 'columnNumber:', match.columnNumber);
                         const columnReference = rowLabel + match.columnNumber;
                         columnValue = getColumnValueFromCellReference(columnReference, processValue);
                     }
@@ -4610,9 +4623,13 @@ function getCurrentProcessId() {
                         idProduct = cells[1].textContent.trim();
                         // Store it for future use
                         row.setAttribute('data-id-product', idProduct);
+                        cell.setAttribute('data-id-product', idProduct); // Also store on cell
                     }
                 }
             }
+            
+            // CRITICAL: Log id product for debugging
+            console.log('insertCellValueToFormula - idProduct:', idProduct, 'columnIndex:', columnIndex, 'cell:', cell);
             
             // Calculate column index if not available
             if (columnIndex === null && row) {
@@ -6433,12 +6450,16 @@ function getCurrentProcessId() {
                                     const columnIndexFromRef = parseInt(parts[parts.length - 1]);
                                     
                                     // Use the id_product from cell reference, not from processValue
+                                    // IMPORTANT: columnIndexFromRef is dataColumnIndex (from cell reference storage)
                                     if (rowLabelFromRef) {
+                                        // getCellValueByIdProductAndColumn expects dataColumnIndex (1-based data column index)
                                         columnValue = getCellValueByIdProductAndColumn(idProductFromRef, columnIndexFromRef, rowLabelFromRef);
                                     } else {
                                         const rowLabelForRef = getRowLabelFromProcessValue(idProductFromRef);
                                         if (rowLabelForRef) {
-                                            const columnReference = rowLabelForRef + columnIndexFromRef;
+                                            // Convert dataColumnIndex to displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                                            const displayColumnIndexForRef = columnIndexFromRef + 1;
+                                            const columnReference = rowLabelForRef + displayColumnIndexForRef;
                                             columnValue = getColumnValueFromCellReference(columnReference, idProductFromRef);
                                         }
                                     }
