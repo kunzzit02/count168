@@ -706,7 +706,12 @@ function getCurrentProcessId() {
                         td.style.minWidth = '30px';
                     } else {
                         // Data cell - make it clickable
-                        td.textContent = cellData.value;
+                        // Remove "$" symbol from cell value for display
+                        let displayValue = cellData.value;
+                        if (typeof displayValue === 'string') {
+                            displayValue = displayValue.replace(/\$/g, '');
+                        }
+                        td.textContent = displayValue;
                         td.style.textAlign = 'center';
                         td.style.minWidth = '40px';
                         td.style.cursor = 'pointer';
@@ -2530,25 +2535,27 @@ function getCurrentProcessId() {
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
-                    cells.forEach((cell, cellIndex) => {
-                        const columnIndex = cell.getAttribute('data-column-index');
-                        if (columnIndex && parseInt(columnIndex) > 1) {
-                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                            if (cellValue !== '') {
-                                // Create a separate option for each column data
-                                const option = document.createElement('option');
-                                option.value = `${currentRowIndex}:${columnIndex}`; // Store row index and column index as value
-                                option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
-                                descriptionSelect2.appendChild(option);
-                                
-                                // Store first option value for auto-selection
-                                if (firstOptionValue === null) {
-                                    firstOptionValue = option.value;
+                        cells.forEach((cell, cellIndex) => {
+                            const columnIndex = cell.getAttribute('data-column-index');
+                            if (columnIndex && parseInt(columnIndex) > 1) {
+                                // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                                let cellValue = cell.textContent ? cell.textContent.trim() : '';
+                                // Remove "$" symbol from cell value for display
+                                if (cellValue !== '') {
+                                    cellValue = cellValue.replace(/\$/g, '');
+                                    // Create a separate option for each column data
+                                    const option = document.createElement('option');
+                                    option.value = `${currentRowIndex}:${columnIndex}`; // Store row index and column index as value
+                                    option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
+                                    descriptionSelect2.appendChild(option);
+                                    
+                                    // Store first option value for auto-selection
+                                    if (firstOptionValue === null) {
+                                        firstOptionValue = option.value;
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
                 }
             });
 
@@ -2602,8 +2609,10 @@ function getCurrentProcessId() {
                         const columnIndex = cell.getAttribute('data-column-index');
                         if (columnIndex && parseInt(columnIndex) > 1) {
                             // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            let cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            // Remove "$" symbol from cell value for display
                             if (cellValue !== '') {
+                                cellValue = cellValue.replace(/\$/g, '');
                                 // Create a grid item for each column data
                                 const gridItem = document.createElement('div');
                                 gridItem.className = 'formula-data-grid-item';
