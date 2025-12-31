@@ -10958,9 +10958,9 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         const templates = result.templates || {};
 
-        // IMPORTANT: Recalculate row_index for all Summary Table rows based on Data Capture Table order
-        // This is critical when rows are added/removed in Data Capture Table
-        // Summary Table row should have row_index matching its position in Data Capture Table
+        // IMPORTANT: Set row_index for each Summary Table row based on Data Capture Table order
+        // CRITICAL: Each row (including duplicate id_products) should have a unique row_index
+        // based on its position in the Data Capture Table to preserve the exact order
         const summaryTableBody = document.getElementById('summaryTableBody');
         const capturedTableBody = document.getElementById('capturedTableBody');
         
@@ -10968,29 +10968,39 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
             const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
             
-            // Recalculate row_index for each Summary Table row based on Data Capture Table position
-            // IMPORTANT: All rows with the same id_product should use the same row_index (their position in Data Capture Table)
-            // This ensures they are grouped together and sorted correctly
-            const idProductToRowIndex = new Map(); // Cache id_product -> row_index mapping
-            
-            // First pass: Build mapping from Data Capture Table
+            // Build a mapping from Data Capture Table: row index -> id_product
+            // This preserves the exact order, including duplicates
+            const capturedRowData = [];
             capturedRows.forEach((capturedRow, capturedIndex) => {
                 const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                 if (capturedIdProductCell) {
                     const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                    if (capturedIdProduct && !idProductToRowIndex.has(capturedIdProduct)) {
-                        // Store the first occurrence (position in Data Capture Table)
-                        idProductToRowIndex.set(capturedIdProduct, capturedIndex);
+                    if (capturedIdProduct) {
+                        capturedRowData.push({
+                            index: capturedIndex,
+                            idProduct: capturedIdProduct
+                        });
                     }
                 }
             });
             
-            // Second pass: Set row_index for all Summary Table rows
-            // IMPORTANT: Only set row_index if it doesn't exist yet, to preserve initial order
-            // This ensures the order (ABC, BAC, ABB, BAB) remains stable
-            allSummaryRows.forEach((summaryRow) => {
+            // Track which captured row index has been assigned to which summary row
+            // This ensures each summary row gets a unique row_index based on its creation order
+            const summaryRowIndexMap = new Map(); // Maps summary row -> captured row index
+            let capturedRowPointer = 0; // Pointer to track position in capturedRowData
+            
+            // Assign row_index to each summary row based on its id_product match in Data Capture Table
+            // IMPORTANT: Each summary row gets a unique row_index, even if id_product is duplicate
+            allSummaryRows.forEach((summaryRow, summaryIndex) => {
                 const summaryIdProductCell = summaryRow.querySelector('td:first-child');
-                if (!summaryIdProductCell) return;
+                if (!summaryIdProductCell) {
+                    // For rows without id_product cell, use fallback
+                    const existingRowIndex = summaryRow.getAttribute('data-row-index');
+                    if (!existingRowIndex || existingRowIndex === '') {
+                        summaryRow.setAttribute('data-row-index', '999999');
+                    }
+                    return;
+                }
                 
                 const productValues = getProductValuesFromCell(summaryIdProductCell);
                 const summaryIdProduct = normalizeIdProductText(productValues.main || '');
@@ -11014,16 +11024,36 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     return;
                 }
                 
-                // Get row_index from cache (all rows with same id_product get same row_index)
-                const matchedIndex = idProductToRowIndex.get(summaryIdProduct);
+                // Find the matching captured row index for this id_product
+                // Start from the current pointer position to maintain order
+                let matchedIndex = null;
+                for (let i = capturedRowPointer; i < capturedRowData.length; i++) {
+                    if (capturedRowData[i].idProduct === summaryIdProduct) {
+                        matchedIndex = capturedRowData[i].index;
+                        capturedRowPointer = i + 1; // Move pointer forward
+                        break;
+                    }
+                }
                 
-                // Set row_index based on Data Capture Table position (only if not already set)
-                if (matchedIndex !== undefined && matchedIndex >= 0) {
+                // If not found from current pointer, search from beginning (for backward compatibility)
+                if (matchedIndex === null) {
+                    for (let i = 0; i < capturedRowPointer; i++) {
+                        if (capturedRowData[i].idProduct === summaryIdProduct) {
+                            matchedIndex = capturedRowData[i].index;
+                            break;
+                        }
+                    }
+                }
+                
+                // Set row_index based on Data Capture Table position
+                if (matchedIndex !== null && matchedIndex >= 0) {
                     summaryRow.setAttribute('data-row-index', String(matchedIndex));
-                    console.log('Set row_index:', matchedIndex, 'for id_product:', summaryIdProduct, 'based on Data Capture Table position');
+                    summaryRow.setAttribute('data-capture-order', String(summaryIndex)); // Store creation order for stable sorting
+                    console.log('Set row_index:', matchedIndex, 'for id_product:', summaryIdProduct, 'at summary index:', summaryIndex);
                 } else {
                     // If no match found in Data Capture Table, use fallback
                     summaryRow.setAttribute('data-row-index', '999999');
+                    summaryRow.setAttribute('data-capture-order', String(summaryIndex));
                     console.warn('No Data Capture Table match found for id_product:', summaryIdProduct, 'using fallback row_index 999999');
                 }
             });
@@ -11034,6 +11064,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 const existingRowIndex = summaryRow.getAttribute('data-row-index');
                 if (!existingRowIndex || existingRowIndex === '') {
                     summaryRow.setAttribute('data-row-index', String(index));
+                    summaryRow.setAttribute('data-capture-order', String(index));
                 }
             });
         }
@@ -12464,109 +12495,69 @@ function reorderSummaryRowsByRowIndex() {
         const withIndex = rowData.filter(r => r.rowIndex !== null);
         const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-        // Group rows by id_product (normalizedMain)
-        // IMPORTANT: Sub rows should be grouped with their parent main row's id_product
-        const groupedByProduct = {};
-        withIndex.forEach(data => {
-            // For sub rows, use the parent's id_product (normalizedMain)
-            // For main rows, use their own id_product
-            const key = data.normalizedMain || '__empty__';
-            if (!groupedByProduct[key]) {
-                groupedByProduct[key] = [];
+        // CRITICAL: Sort rows directly by row_index to preserve exact order from Data Capture Table
+        // Do NOT group by id_product - each row should maintain its original position
+        // This ensures duplicate id_products appear in their original order
+        withIndex.sort((a, b) => {
+            // Primary sort: by row_index (position in Data Capture Table)
+            if (a.rowIndex !== b.rowIndex) {
+                return a.rowIndex - b.rowIndex;
             }
-            groupedByProduct[key].push(data);
-        });
-
-        // For each id_product group, find the minimum row_index (first appearance in Data Capture Table)
-        // Then sort groups by this minimum row_index
-        const productGroups = Object.keys(groupedByProduct).map(key => {
-            const groupRows = groupedByProduct[key];
-            const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
-            // Sort rows within each group
-            // IMPORTANT: Main rows and sub rows are sorted differently:
-            // - Main rows: sorted by row_index only
-            // - Sub rows: sorted by sub_order first (position relative to parent), then by row_index
-            groupRows.sort((a, b) => {
-                // Separate main and sub rows
-                const aIsSub = a.productType === 'sub';
-                const bIsSub = b.productType === 'sub';
-                
-                // If both are main rows, sort by row_index
-                if (!aIsSub && !bIsSub) {
-                    if (a.rowIndex !== b.rowIndex) {
-                        return a.rowIndex - b.rowIndex;
-                    }
-                    return a.creationOrder - b.creationOrder;
+            
+            // Secondary sort: for rows with same row_index, maintain creation order
+            // This handles cases where multiple summary rows map to the same Data Capture Table row
+            const aCaptureOrder = a.row.getAttribute('data-capture-order');
+            const bCaptureOrder = b.row.getAttribute('data-capture-order');
+            if (aCaptureOrder && bCaptureOrder) {
+                const aOrder = Number(aCaptureOrder);
+                const bOrder = Number(bCaptureOrder);
+                if (!isNaN(aOrder) && !isNaN(bOrder) && aOrder !== bOrder) {
+                    return aOrder - bOrder;
                 }
-                
-                // If both are sub rows, sort by sub_order first, then by row_index
-                if (aIsSub && bIsSub) {
-                    // First sort by sub_order (position relative to parent main row)
-                    if (a.subOrder !== null && b.subOrder !== null) {
-                        if (a.subOrder !== b.subOrder) {
-                            return a.subOrder - b.subOrder;
-                        }
-                    } else if (a.subOrder !== null) {
-                        // a has sub_order, b doesn't - a comes first
-                        return -1;
-                    } else if (b.subOrder !== null) {
-                        // b has sub_order, a doesn't - b comes first
-                        return 1;
+            }
+            
+            // Tertiary sort: by creationOrder (for stable sorting)
+            if (a.creationOrder !== b.creationOrder) {
+                return a.creationOrder - b.creationOrder;
+            }
+            
+            // For sub rows with same row_index, sort by sub_order
+            const aIsSub = a.productType === 'sub';
+            const bIsSub = b.productType === 'sub';
+            if (aIsSub && bIsSub) {
+                if (a.subOrder !== null && b.subOrder !== null) {
+                    if (a.subOrder !== b.subOrder) {
+                        return a.subOrder - b.subOrder;
                     }
-                    // If both have no sub_order or same sub_order, sort by row_index
-                    if (a.rowIndex !== b.rowIndex) {
-                        return a.rowIndex - b.rowIndex;
-                    }
-                    return a.creationOrder - b.creationOrder;
-                }
-                
-                // If one is main and one is sub, main comes first (main rows should appear before their sub rows)
-                if (!aIsSub && bIsSub) {
-                    // a is main, b is sub - a comes first
+                } else if (a.subOrder !== null) {
                     return -1;
-                }
-                if (aIsSub && !bIsSub) {
-                    // a is sub, b is main - b comes first
+                } else if (b.subOrder !== null) {
                     return 1;
                 }
-                
-                // Fallback: sort by row_index
-                if (a.rowIndex !== b.rowIndex) {
-                    return a.rowIndex - b.rowIndex;
-                }
-                return a.creationOrder - b.creationOrder;
-            });
-            return {
-                key,
-                minRowIndex,
-                rows: groupRows
-            };
-        });
-
-        // Sort product groups by minimum row_index (Data Capture Table order)
-        productGroups.sort((a, b) => {
-            if (a.minRowIndex !== b.minRowIndex) {
-                return a.minRowIndex - b.minRowIndex;
             }
-            // If same minRowIndex, maintain order by first row's originalIndex
-            return a.rows[0].originalIndex - b.rows[0].originalIndex;
+            
+            // Final fallback: maintain original index
+            return a.originalIndex - b.originalIndex;
         });
+        
+        // For rows without row_index, sort by creation order
+        withoutIndex.sort((a, b) => {
+            if (a.creationOrder !== b.creationOrder) {
+                return a.creationOrder - b.creationOrder;
+            }
+            return a.originalIndex - b.originalIndex;
+        });
+        
+        // Combine sorted rows: rows with index first, then rows without index
+        const sortedRows = [...withIndex, ...withoutIndex];
 
-        // Flatten groups back into ordered rows array
-        // All rows (main and sub) are now sorted by row_index within each id_product group
-        const orderedRowsWithIndex = productGroups.flatMap(group => group.rows.map(data => data.row));
+        // Extract row elements from sorted data
+        const orderedRows = sortedRows.map(data => data.row);
 
-        // Sort rows without row_index by originalIndex (maintain their current order)
-        withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
-        const orderedRowsWithoutIndex = withoutIndex.map(data => data.row);
-
-        // Combine: rows with index first (grouped by id_product, sorted by Data Capture Table order), then rows without index
-        const orderedRows = [...orderedRowsWithIndex, ...orderedRowsWithoutIndex];
-
-        // Re-append rows in new order
+        // Re-append rows in new order (preserving exact Data Capture Table order)
         orderedRows.forEach(row => summaryTableBody.appendChild(row));
         
-        console.log('Reordered rows by id_product groups (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length, 'product groups:', productGroups.length);
+        console.log('Reordered rows by row_index (preserving exact Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
@@ -14476,6 +14467,34 @@ function formatPercentValue(value) {
                         currencyId = getCurrencyIdByCode(currencyText);
                     }
                     
+                    // IMPORTANT: Get displayOrder from row_index to preserve exact order from Data Capture Table
+                    // This ensures duplicate id_products maintain their original position
+                    const rowIndexAttr = row.getAttribute('data-row-index');
+                    let displayOrder = null;
+                    if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
+                        const rowIndexNum = Number(rowIndexAttr);
+                        if (!isNaN(rowIndexNum) && rowIndexNum >= 0 && rowIndexNum < 999999) {
+                            // Use row_index as displayOrder, but also consider capture-order for rows with same row_index
+                            const captureOrderAttr = row.getAttribute('data-capture-order');
+                            if (captureOrderAttr) {
+                                const captureOrder = Number(captureOrderAttr);
+                                if (!isNaN(captureOrder)) {
+                                    // Combine row_index and capture_order to create unique displayOrder
+                                    // Multiply row_index by 10000 and add capture_order to ensure unique ordering
+                                    displayOrder = rowIndexNum * 10000 + captureOrder;
+                                } else {
+                                    displayOrder = rowIndexNum * 10000;
+                                }
+                            } else {
+                                displayOrder = rowIndexNum * 10000;
+                            }
+                        }
+                    }
+                    // If no row_index, use a large number to place at end
+                    if (displayOrder === null) {
+                        displayOrder = 999999999;
+                    }
+                    
                     // IMPORTANT: Apply rate multiplication to processedAmount if rate checkbox is checked
                     // 重要：如果 rate checkbox 被勾选，将 processedAmount 乘以 rate
                     let finalProcessedAmount = parseFloat(processedAmountValue) || 0;
@@ -14555,7 +14574,8 @@ function formatPercentValue(value) {
                         batchSelection: batchSelectionValue ? 1 : 0,
                         formulaVariant: formulaVariant, // Include formulaVariant to help backend distinguish rows with same account
                         rateChecked: rateChecked, // Rate checkbox state
-                        rateValue: rateValue // Rate input value (only if checkbox is checked)
+                        rateValue: rateValue, // Rate input value (only if checkbox is checked)
+                        displayOrder: displayOrder // IMPORTANT: Preserve exact order from Data Capture Table
                     });
                 });
                 
