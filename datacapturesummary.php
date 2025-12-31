@@ -4917,14 +4917,47 @@ function getCurrentProcessId() {
                         updateFormulaDisplay(data.formula || '', processValue);
                         
                         // CRITICAL FIX: Restore cell references from sourceColumns if available
-                        // sourceColumns format: "id_product:row_label:column_index" (e.g., "OVERALL:A:7 YONG:B:3")
-                        // This is the format saved to database, and we need to restore it to data-clicked-cell-refs
+                        // sourceColumns format: "id_product:row_label:displayColumnIndex" (e.g., "OVERALL:A:7 YONG:B:3")
+                        // data-clicked-cell-refs format: "id_product:row_label:dataColumnIndex" (e.g., "OVERALL:A:6 YONG:B:2")
+                        // IMPORTANT: displayColumnIndex = dataColumnIndex + 1, so we need to convert when restoring
                         let cellRefsToRestore = '';
                         console.log('populateFormWithData - Checking data.sourceColumns:', data.sourceColumns, 'data.clickedColumns:', data.clickedColumns);
                         if (data.sourceColumns && data.sourceColumns.trim() !== '') {
-                            // sourceColumns is already in the correct format (id_product:row_label:column_index)
-                            cellRefsToRestore = data.sourceColumns.trim();
-                            console.log('populateFormWithData - Restoring cell refs from sourceColumns:', cellRefsToRestore);
+                            // sourceColumns uses displayColumnIndex, but data-clicked-cell-refs uses dataColumnIndex
+                            // Convert displayColumnIndex to dataColumnIndex (dataColumnIndex = displayColumnIndex - 1)
+                            const sourceColumnsParts = data.sourceColumns.trim().split(' ').filter(c => c.trim() !== '');
+                            const convertedCellRefs = [];
+                            
+                            sourceColumnsParts.forEach(part => {
+                                const parts = part.split(':');
+                                if (parts.length >= 2) {
+                                    const idProduct = parts[0];
+                                    const rowLabel = parts.length >= 3 ? parts[1] : null;
+                                    const displayColumnIndex = parseInt(parts[parts.length - 1]);
+                                    
+                                    if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
+                                        // Convert displayColumnIndex to dataColumnIndex
+                                        const dataColumnIndex = displayColumnIndex - 1;
+                                        
+                                        if (rowLabel) {
+                                            // Format: "id_product:row_label:dataColumnIndex"
+                                            convertedCellRefs.push(`${idProduct}:${rowLabel}:${dataColumnIndex}`);
+                                        } else {
+                                            // Format: "id_product:dataColumnIndex" (backward compatibility)
+                                            convertedCellRefs.push(`${idProduct}:${dataColumnIndex}`);
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            if (convertedCellRefs.length > 0) {
+                                cellRefsToRestore = convertedCellRefs.join(' ');
+                                console.log('populateFormWithData - Converted sourceColumns from displayColumnIndex to dataColumnIndex:', data.sourceColumns, '->', cellRefsToRestore);
+                            } else {
+                                // Fallback: use sourceColumns as-is (might be old format)
+                                cellRefsToRestore = data.sourceColumns.trim();
+                                console.log('populateFormWithData - Using sourceColumns as-is (fallback):', cellRefsToRestore);
+                            }
                         } else if (data.clickedColumns && data.clickedColumns.trim() !== '') {
                             // Fallback to clickedColumns (for backward compatibility)
                             cellRefsToRestore = data.clickedColumns.trim();
