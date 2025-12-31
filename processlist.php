@@ -7,16 +7,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
     try {
         $ids = $_POST['ids'];
         if (!empty($ids)) {
+            // 检查是否有 formula 链接到这些 process
             $placeholders = str_repeat('?,', count($ids) - 1) . '?';
-            // 只删除status为inactive的进程
-            $stmt = $pdo->prepare("DELETE FROM process WHERE id IN ($placeholders) AND status = 'inactive'");
+            
+            // 获取要删除的 process 的 process_id 和 id
+            $stmt = $pdo->prepare("SELECT id, process_id FROM process WHERE id IN ($placeholders) AND status = 'inactive'");
             $stmt->execute($ids);
+            $processesToDelete = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($processesToDelete)) {
+                // 没有可删除的 process（可能都是 active 状态）
+                header('Location: processlist.php?error=no_inactive_processes');
+                exit;
+            }
+            
+            // 检查每个 process 是否被 formula 使用
+            $processIds = array_column($processesToDelete, 'id');
+            $processCodes = array_column($processesToDelete, 'process_id');
+            
+            // 检查 data_capture_templates 表中是否有记录使用这些 process
+            // process_id 可能是 process 的 process_id（代码）或 process 的 id（数字）
+            // 需要检查两种情况：
+            // 1. data_capture_templates.process_id = process.process_id（代码匹配）
+            // 2. data_capture_templates.process_id 是数字且等于 process.id（ID匹配）
+            
+            $formulaCount = 0;
+            if (!empty($processCodes) || !empty($processIds)) {
+                $conditions = [];
+                $formulaCheckParams = [];
+                
+                // 检查代码匹配
+                if (!empty($processCodes)) {
+                    $codePlaceholders = str_repeat('?,', count($processCodes) - 1) . '?';
+                    $conditions[] = "process_id IN ($codePlaceholders)";
+                    $formulaCheckParams = array_merge($formulaCheckParams, $processCodes);
+                }
+                
+                // 检查 ID 匹配（数字格式）
+                if (!empty($processIds)) {
+                    $idPlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
+                    $conditions[] = "(process_id REGEXP '^[0-9]+$' AND CAST(process_id AS UNSIGNED) IN ($idPlaceholders))";
+                    $formulaCheckParams = array_merge($formulaCheckParams, $processIds);
+                }
+                
+                if (!empty($conditions)) {
+                    $formulaCheckSql = "SELECT COUNT(*) as count FROM data_capture_templates WHERE " . implode(' OR ', $conditions);
+                    $stmt = $pdo->prepare($formulaCheckSql);
+                    $stmt->execute($formulaCheckParams);
+                    $formulaCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                }
+            }
+            
+            if ($formulaCount > 0) {
+                // 有 formula 链接到这些 process，无法删除
+                header('Location: processlist.php?error=process_linked_to_formula');
+                exit;
+            }
+            
+            // 可以删除，执行删除操作
+            $deletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
+            $stmt = $pdo->prepare("DELETE FROM process WHERE id IN ($deletePlaceholders) AND status = 'inactive'");
+            $stmt->execute($processIds);
+            
+            header('Location: processlist.php?success=deleted');
+            exit;
         }
     } catch (PDOException $e) {
         error_log("Delete process error: " . $e->getMessage());
+        header('Location: processlist.php?error=delete_failed');
+        exit;
     }
-    header('Location: processlist.php');
-    exit;
 }
 
 // 获取初始参数（用于设置页面状态）
@@ -1763,22 +1823,24 @@ if ($current_user_id && count($user_companies) > 0) {
                     formData.append('ids[]', id);
                 });
                 
-                const response = await fetch(buildApiUrl('processlist.php'), {
-                    method: 'POST',
-                    body: formData,
-                    redirect: 'follow' // 跟随重定向
+                // 提交表单（使用表单提交以便跟随重定向）
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = buildApiUrl('processlist.php').toString();
+                pendingDeleteIds.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'ids[]';
+                    input.value = id;
+                    form.appendChild(input);
                 });
-                
-                // PHP 删除后会重定向，所以响应应该是重定向后的页面
-                // 直接刷新列表即可
-                showNotification('Delete successful!', 'success');
-                closeConfirmDeleteModal();
-                fetchProcesses(); // 刷新列表
+                document.body.appendChild(form);
+                form.submit();
                 
             } catch (error) {
                 console.error('Delete error:', error);
-                showNotification('Delete failed: ' + error.message, 'danger');
-            } finally {
+                showNotification('删除失败: ' + error.message, 'danger');
+                closeConfirmDeleteModal();
                 pendingDeleteIds = [];
             }
         }
@@ -2310,6 +2372,26 @@ if ($current_user_id && count($user_companies) > 0) {
                         showNotification('Failed to load process data', 'danger');
                     }
                 });
+            }
+            
+            // 检查 URL 参数并显示相应的消息
+            const urlParams = new URLSearchParams(window.location.search);
+            const errorParam = urlParams.get('error');
+            const successParam = urlParams.get('success');
+            
+            if (errorParam === 'process_linked_to_formula') {
+                showNotification('无法删除：该流程已链接到公式，请先删除相关的公式记录', 'danger');
+                // 清除 URL 参数
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (errorParam === 'no_inactive_processes') {
+                showNotification('无法删除：只能删除 inactive 状态的流程', 'danger');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (errorParam === 'delete_failed') {
+                showNotification('删除失败，请重试', 'danger');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (successParam === 'deleted') {
+                showNotification('删除成功！', 'success');
+                window.history.replaceState({}, document.title, window.location.pathname);
             }
             
             console.log('DOM loaded, calling fetchProcesses...');
