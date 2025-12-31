@@ -134,7 +134,7 @@ if (isset($_GET['logout'])) {
             background-blend-mode: screen, screen, multiply, screen, normal;
             color: #334155;
             overflow-x: hidden;
-            overflow-y: auto;
+            overflow-y: hidden;
         }
 
         .dashboard-container {
@@ -788,39 +788,63 @@ if (isset($_GET['logout'])) {
             await loadData();
         }
 
+        // 防抖函数，避免频繁调用
+        let loadDataTimeout = null;
         async function loadData() {
-            try {
-                const queryParams = new URLSearchParams({
-                    date_from: dateRange.startDate,
-                    date_to: dateRange.endDate,
-                    company_id: window.companyId
-                });
-                
-                const response = await fetch(`${API_BASE_URL}?${queryParams}`);
-                const result = await response.json();
-                
-                if (result.success) {
-                    updateDashboard(result.data);
-                } else {
-                    console.error('加载数据失败:', result.message);
-                }
-            } catch (error) {
-                console.error('API调用失败:', error);
+            // 清除之前的定时器
+            if (loadDataTimeout) {
+                clearTimeout(loadDataTimeout);
             }
+            
+            // 使用防抖，延迟 100ms 执行
+            return new Promise((resolve) => {
+                loadDataTimeout = setTimeout(async () => {
+                    try {
+                        if (!dateRange.startDate || !dateRange.endDate) {
+                            resolve();
+                            return;
+                        }
+                        
+                        const queryParams = new URLSearchParams({
+                            date_from: dateRange.startDate,
+                            date_to: dateRange.endDate,
+                            company_id: window.companyId
+                        });
+                        
+                        const response = await fetch(`${API_BASE_URL}?${queryParams}`);
+                        const result = await response.json();
+                        
+                        if (result.success) {
+                            updateDashboard(result.data);
+                        } else {
+                            console.error('加载数据失败:', result.message);
+                        }
+                    } catch (error) {
+                        console.error('API调用失败:', error);
+                    } finally {
+                        resolve();
+                    }
+                }, 100);
+            });
         }
 
         function updateDashboard(data) {
-            // 更新KPI卡片
-            document.getElementById('capital-value').textContent = formatCurrency(data.capital);
-            document.getElementById('expenses-value').textContent = formatCurrency(data.expenses);
-            document.getElementById('profit-value').textContent = formatCurrency(data.profit);
-            
-            // 更新日期信息
-            document.getElementById('date-info').textContent = 
-                `日期范围: ${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)}`;
-            
-            // 更新图表
-            updateChart(data);
+            // 使用 requestAnimationFrame 批量更新 DOM，减少重绘
+            requestAnimationFrame(() => {
+                // 更新KPI卡片
+                document.getElementById('capital-value').textContent = formatCurrency(data.capital);
+                document.getElementById('expenses-value').textContent = formatCurrency(data.expenses);
+                document.getElementById('profit-value').textContent = formatCurrency(data.profit);
+                
+                // 更新日期信息
+                document.getElementById('date-info').textContent = 
+                    `日期范围: ${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)}`;
+                
+                // 更新图表（使用 requestAnimationFrame 延迟，避免与 DOM 更新冲突）
+                requestAnimationFrame(() => {
+                    updateChart(data);
+                });
+            });
         }
 
         function formatCurrency(value) {
@@ -862,65 +886,72 @@ if (isset($_GET['logout'])) {
                 profitData.push((data.daily_data.capital[date] || 0) - (data.daily_data.expenses[date] || 0));
             });
             
-            if (trendChart) {
-                trendChart.destroy();
-            }
+            const chartData = {
+                labels: dates.map(d => new Date(d).toLocaleDateString('zh-CN')),
+                datasets: [
+                    {
+                        label: '资本',
+                        data: capitalData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: '支出',
+                        data: expensesData,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: '利润',
+                        data: profitData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            };
             
-            trendChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: dates.map(d => new Date(d).toLocaleDateString('zh-CN')),
-                    datasets: [
-                        {
-                            label: '资本',
-                            data: capitalData,
-                            borderColor: '#3b82f6',
-                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            fill: true,
-                            tension: 0.4
+            // 如果图表已存在，使用 update 而不是 destroy + create（避免闪屏）
+            if (trendChart) {
+                trendChart.data = chartData;
+                trendChart.update('none'); // 'none' 模式不显示动画，避免闪屏
+            } else {
+                trendChart = new Chart(ctx, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 0 // 禁用动画避免闪屏
                         },
-                        {
-                            label: '支出',
-                            data: expensesData,
-                            borderColor: '#ef4444',
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            fill: true,
-                            tension: 0.4
-                        },
-                        {
-                            label: '利润',
-                            data: profitData,
-                            borderColor: '#10b981',
-                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                            fill: true,
-                            tension: 0.4
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            ticks: {
-                                callback: function(value) {
-                                    return formatCurrency(value);
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                ticks: {
+                                    callback: function(value) {
+                                        return formatCurrency(value);
+                                    }
                                 }
                             }
-                        }
-                    },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
         }
 
         // ==================== 加载 Owner Companies ====================
@@ -994,11 +1025,24 @@ if (isset($_GET['logout'])) {
             await loadData();
         }
 
-        // 初始化
+        // 初始化 - 使用防抖避免多次调用
+        let isInitializing = false;
         document.addEventListener('DOMContentLoaded', async function() {
-            initDatePickers();
-            await loadOwnerCompanies();
-            await loadData();
+            if (isInitializing) return;
+            isInitializing = true;
+            
+            try {
+                initDatePickers();
+                await loadOwnerCompanies();
+                // 确保日期范围已设置后再加载数据
+                if (dateRange.startDate && dateRange.endDate) {
+                    await loadData();
+                }
+            } catch (error) {
+                console.error('初始化失败:', error);
+            } finally {
+                isInitializing = false;
+            }
         });
     </script>
 </body>
