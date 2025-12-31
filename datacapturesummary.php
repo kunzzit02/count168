@@ -2518,15 +2518,29 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
+            
+            // Normalize idProduct for comparison
+            const normalizedIdProduct = normalizeIdProductText(idProduct);
+            
             rows.forEach((row, currentRowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 
                 // If rowIndex is provided, only process that specific row
                 // Otherwise, process all rows with matching id_product
-                const matchesIdProduct = rowIdProduct && rowIdProduct.trim() === idProduct.trim();
+                // CRITICAL: Use normalized comparison to ensure correct matching
+                const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
+                const matchesIdProduct = normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct;
                 const matchesRowIndex = rowIndex === null || currentRowIndex === rowIndex;
                 
                 if (matchesIdProduct && matchesRowIndex) {
+                    console.log('updateIdProductRowData - Found matching row:', {
+                        currentRowIndex,
+                        rowIndex,
+                        idProduct,
+                        rowIdProduct,
+                        normalizedIdProduct,
+                        normalizedRowIdProduct
+                    });
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
@@ -9214,29 +9228,88 @@ function getCurrentProcessId() {
             
             // Find the row index in Data Capture Table for this id_product
             // This is needed to correctly set descriptionSelect1 when there are duplicate id_products
+            // CRITICAL: We need to find the EXACT row that corresponds to this summary row
             let dataCaptureRowIndex = null;
             const capturedTableBody = document.getElementById('capturedTableBody');
             if (capturedTableBody && processValue) {
                 const capturedRows = capturedTableBody.querySelectorAll('tr');
-                // Try to find the row that matches this summary row's position
-                // Use row_index attribute if available
                 const rowIndexAttr = row.getAttribute('data-row-index');
+                const captureOrderAttr = row.getAttribute('data-capture-order');
+                
+                // Normalize processValue for comparison
+                const normalizedProcessValue = normalizeIdProductText(processValue);
+                
                 if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
                     const rowIndexNum = Number(rowIndexAttr);
-                    if (!isNaN(rowIndexNum) && rowIndexNum >= 0 && rowIndexNum < capturedRows.length) {
-                        dataCaptureRowIndex = rowIndexNum;
+                    if (!isNaN(rowIndexNum) && rowIndexNum >= 0) {
+                        // Find all rows with matching row_index and id_product
+                        const matchingRows = [];
+                        capturedRows.forEach((capturedRow, index) => {
+                            const capturedIdProduct = capturedRow.getAttribute('data-id-product');
+                            const normalizedCapturedIdProduct = normalizeIdProductText(capturedIdProduct || '');
+                            
+                            // Check if this row matches the row_index and id_product
+                            // The row_index in data-row-index corresponds to the position in Data Capture Table
+                            if (normalizedCapturedIdProduct === normalizedProcessValue && index === rowIndexNum) {
+                                matchingRows.push({ row: capturedRow, index: index });
+                            }
+                        });
+                        
+                        // If we have capture-order, use it to find the exact match
+                        // Otherwise, use the first matching row
+                        if (matchingRows.length > 0) {
+                            if (captureOrderAttr && captureOrderAttr !== '') {
+                                // Try to match by capture order (which row was created first)
+                                // This helps when multiple summary rows map to the same Data Capture Table row
+                                // For now, use the first matching row (most common case)
+                                dataCaptureRowIndex = matchingRows[0].index;
+                            } else {
+                                dataCaptureRowIndex = matchingRows[0].index;
+                            }
+                        } else {
+                            // If no exact match by row_index, find by id_product and use row_index as hint
+                            // This handles cases where row_index might be slightly off
+                            capturedRows.forEach((capturedRow, index) => {
+                                if (dataCaptureRowIndex === null) {
+                                    const capturedIdProduct = capturedRow.getAttribute('data-id-product');
+                                    const normalizedCapturedIdProduct = normalizeIdProductText(capturedIdProduct || '');
+                                    if (normalizedCapturedIdProduct === normalizedProcessValue) {
+                                        // Check if this is the row at the expected position
+                                        if (index === rowIndexNum) {
+                                            dataCaptureRowIndex = index;
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            // If still not found, use first matching row as fallback
+                            if (dataCaptureRowIndex === null) {
+                                capturedRows.forEach((capturedRow, index) => {
+                                    if (dataCaptureRowIndex === null) {
+                                        const capturedIdProduct = capturedRow.getAttribute('data-id-product');
+                                        const normalizedCapturedIdProduct = normalizeIdProductText(capturedIdProduct || '');
+                                        if (normalizedCapturedIdProduct === normalizedProcessValue) {
+                                            dataCaptureRowIndex = index;
+                                        }
+                                    }
+                                });
+                            }
+                        }
                     }
                 } else {
-                    // Fallback: find first matching row
+                    // Fallback: find first matching row by id_product
                     capturedRows.forEach((capturedRow, index) => {
                         if (dataCaptureRowIndex === null) {
                             const capturedIdProduct = capturedRow.getAttribute('data-id-product');
-                            if (capturedIdProduct && capturedIdProduct.trim() === processValue.trim()) {
+                            const normalizedCapturedIdProduct = normalizeIdProductText(capturedIdProduct || '');
+                            if (normalizedCapturedIdProduct === normalizedProcessValue) {
                                 dataCaptureRowIndex = index;
                             }
                         }
                     });
                 }
+                
+                console.log('editRowFormula - Found dataCaptureRowIndex:', dataCaptureRowIndex, 'for processValue:', processValue, 'rowIndexAttr:', rowIndexAttr, 'captureOrderAttr:', captureOrderAttr);
             }
             
             // Show the Edit Formula form with pre-populated data
