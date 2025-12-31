@@ -1627,6 +1627,42 @@ function getCurrentProcessId() {
                         updateIdProductRowData(this.value);
                     });
                 }
+                
+                // Add event listener for second select box (Select Row Data) change
+                // When user selects a data item, update the Id Product field to show which id product the data belongs to
+                const descriptionSelect2 = document.getElementById('descriptionSelect2');
+                if (descriptionSelect2) {
+                    descriptionSelect2.addEventListener('change', function() {
+                        const selectedValue = this.value;
+                        if (selectedValue) {
+                            const parts = selectedValue.split(':');
+                            if (parts.length === 2) {
+                                const rowIndex = parseInt(parts[0], 10);
+                                if (!isNaN(rowIndex)) {
+                                    const capturedTableBody = document.getElementById('capturedTableBody');
+                                    if (capturedTableBody) {
+                                        const rows = capturedTableBody.querySelectorAll('tr');
+                                        const selectedRow = rows[rowIndex];
+                                        if (selectedRow) {
+                                            const selectedIdProduct = selectedRow.getAttribute('data-id-product');
+                                            if (selectedIdProduct && selectedIdProduct.trim() !== '') {
+                                                // Update the Id Product field in the modal
+                                                const processInput = document.getElementById('process');
+                                                if (processInput) {
+                                                    processInput.value = selectedIdProduct.trim();
+                                                    console.log('Updated Id Product field to:', selectedIdProduct.trim(), 'based on selected row data');
+                                                    
+                                                    // Also update the formula data grid to show data for the selected id product
+                                                    updateFormulaDataGrid();
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
             }, 100);
             
             // Add input validation for Source Percent
@@ -5420,7 +5456,34 @@ function getCurrentProcessId() {
 
         // Save Formula
         function saveFormula() {
-            const processValue = document.getElementById('process').value;
+            // IMPORTANT: If user selected data from "Select Row Data" dropdown, use that id product instead of the modal's id product
+            // 重要：如果用户从 "Select Row Data" 下拉菜单选择了数据，使用那个数据对应的 id product，而不是模态窗口中的 id product
+            let processValue = document.getElementById('process').value;
+            const descriptionSelect2 = document.getElementById('descriptionSelect2');
+            
+            // Check if user selected a data item from descriptionSelect2
+            if (descriptionSelect2 && descriptionSelect2.value) {
+                const selectedValue = descriptionSelect2.value;
+                const parts = selectedValue.split(':');
+                if (parts.length === 2) {
+                    const rowIndex = parseInt(parts[0], 10);
+                    if (!isNaN(rowIndex)) {
+                        const capturedTableBody = document.getElementById('capturedTableBody');
+                        if (capturedTableBody) {
+                            const rows = capturedTableBody.querySelectorAll('tr');
+                            const selectedRow = rows[rowIndex];
+                            if (selectedRow) {
+                                const selectedIdProduct = selectedRow.getAttribute('data-id-product');
+                                if (selectedIdProduct && selectedIdProduct.trim() !== '') {
+                                    processValue = selectedIdProduct.trim();
+                                    console.log('Using id product from selected row data:', processValue, 'instead of modal id product:', document.getElementById('process').value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             const accountSelect = document.getElementById('account');
             const accountValue = accountSelect.value; // Database ID
             const accountId = accountSelect.options[accountSelect.selectedIndex].text; // Display text
