@@ -11024,7 +11024,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             // This is critical when rows are added/removed in Data Capture Table
             // Summary Table row should have row_index matching its position in Data Capture Table
             // CRITICAL: Each id_product instance should have its own unique row_index based on its position in Data Capture Table
-            const summaryTableBody = document.getElementById('summaryTableBody');
+            let summaryTableBody = document.getElementById('summaryTableBody');
             const capturedTableBody = document.getElementById('capturedTableBody');
             
             if (summaryTableBody && capturedTableBody) {
@@ -11112,7 +11112,10 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
         // IMPORTANT: Process ALL Summary Table rows directly (not through idProducts array)
         // This ensures that when there are duplicate id_products (e.g., two "M99M06"),
         // each row gets its own template applied correctly based on its row_index
-        const summaryTableBody = document.getElementById('summaryTableBody');
+        // Reuse summaryTableBody variable if already declared, otherwise get it
+        if (!summaryTableBody) {
+            summaryTableBody = document.getElementById('summaryTableBody');
+        }
         if (summaryTableBody) {
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
             
