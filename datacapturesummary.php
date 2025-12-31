@@ -3505,11 +3505,61 @@ function getCurrentProcessId() {
                 // 从后往前处理，避免位置偏移
                 allMatches.sort((a, b) => b.index - a.index);
                 
+                // IMPORTANT: Get cell references from data-clicked-cell-refs to use the correct id product
+                // 重要：从 data-clicked-cell-refs 获取 cell reference，使用正确的 id product
+                const formulaInput = document.getElementById('formula');
+                const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+                const cellRefsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
+                
+                // Build a map from column number to cell reference
+                // Format: "id_product:row_label:column_index" or "id_product:column_index"
+                const columnToCellRefMap = new Map();
+                cellRefsArray.forEach(cellRef => {
+                    // Parse cell reference: "id_product:row_label:column_index" or "id_product:column_index"
+                    const parts = cellRef.split(':');
+                    if (parts.length >= 2) {
+                        const columnIndex = parseInt(parts[parts.length - 1]); // Last part is column index
+                        if (!isNaN(columnIndex) && columnIndex > 0) {
+                            columnToCellRefMap.set(columnIndex, cellRef);
+                        }
+                    }
+                });
+                
                 for (let i = 0; i < allMatches.length; i++) {
                     const match = allMatches[i];
-                    // 获取列的实际值
-                    const columnReference = rowLabel + match.columnNumber;
-                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                    let columnValue = null;
+                    
+                    // Try to find cell reference for this column number
+                    const cellRef = columnToCellRefMap.get(match.columnNumber);
+                    if (cellRef) {
+                        // Parse cell reference to get id_product and row_label
+                        const parts = cellRef.split(':');
+                        if (parts.length >= 2) {
+                            const idProductFromRef = parts[0]; // First part is id_product
+                            const rowLabelFromRef = parts.length >= 3 ? parts[1] : null; // Second part is row_label (if exists)
+                            const columnIndexFromRef = parseInt(parts[parts.length - 1]); // Last part is column index
+                            
+                            // Use the id_product from cell reference, not from processValue
+                            if (rowLabelFromRef) {
+                                // Format: "id_product:row_label:column_index"
+                                const columnReference = rowLabelFromRef + columnIndexFromRef;
+                                columnValue = getCellValueByIdProductAndColumn(idProductFromRef, columnIndexFromRef, rowLabelFromRef);
+                            } else {
+                                // Format: "id_product:column_index" (backward compatibility)
+                                const rowLabelForRef = getRowLabelFromProcessValue(idProductFromRef);
+                                if (rowLabelForRef) {
+                                    const columnReference = rowLabelForRef + columnIndexFromRef;
+                                    columnValue = getColumnValueFromCellReference(columnReference, idProductFromRef);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Fallback: if no cell reference found, use processValue (for backward compatibility)
+                    if (columnValue === null) {
+                        const columnReference = rowLabel + match.columnNumber;
+                        columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                    }
                     
                     if (columnValue !== null) {
                         // 替换 $数字 为实际值
@@ -6251,11 +6301,56 @@ function getCurrentProcessId() {
                         // Replace from end to start to preserve indices
                         dollarMatches.sort((a, b) => b.index - a.index);
                         
+                        // IMPORTANT: Get cell references from data-clicked-cell-refs to use the correct id product
+                        // 重要：从 data-clicked-cell-refs 获取 cell reference，使用正确的 id product
+                        const formulaInput = document.getElementById('formula');
+                        const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+                        const cellRefsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
+                        
+                        // Build a map from column number to cell reference
+                        const columnToCellRefMap = new Map();
+                        cellRefsArray.forEach(cellRef => {
+                            const parts = cellRef.split(':');
+                            if (parts.length >= 2) {
+                                const columnIndex = parseInt(parts[parts.length - 1]);
+                                if (!isNaN(columnIndex) && columnIndex > 0) {
+                                    columnToCellRefMap.set(columnIndex, cellRef);
+                                }
+                            }
+                        });
+                        
                         for (let i = 0; i < dollarMatches.length; i++) {
                             const dollarMatch = dollarMatches[i];
-                            // Convert $数字 to cell reference (e.g., $2 -> A2)
-                            const columnReference = rowLabel + dollarMatch.columnNumber;
-                            const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                            let columnValue = null;
+                            
+                            // Try to find cell reference for this column number
+                            const cellRef = columnToCellRefMap.get(dollarMatch.columnNumber);
+                            if (cellRef) {
+                                // Parse cell reference to get id_product and row_label
+                                const parts = cellRef.split(':');
+                                if (parts.length >= 2) {
+                                    const idProductFromRef = parts[0];
+                                    const rowLabelFromRef = parts.length >= 3 ? parts[1] : null;
+                                    const columnIndexFromRef = parseInt(parts[parts.length - 1]);
+                                    
+                                    // Use the id_product from cell reference, not from processValue
+                                    if (rowLabelFromRef) {
+                                        columnValue = getCellValueByIdProductAndColumn(idProductFromRef, columnIndexFromRef, rowLabelFromRef);
+                                    } else {
+                                        const rowLabelForRef = getRowLabelFromProcessValue(idProductFromRef);
+                                        if (rowLabelForRef) {
+                                            const columnReference = rowLabelForRef + columnIndexFromRef;
+                                            columnValue = getColumnValueFromCellReference(columnReference, idProductFromRef);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Fallback: if no cell reference found, use processValue (for backward compatibility)
+                            if (columnValue === null) {
+                                const columnReference = rowLabel + dollarMatch.columnNumber;
+                                columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                            }
                             
                             if (columnValue !== null) {
                                 // Replace $数字 with actual value
@@ -6264,7 +6359,7 @@ function getCurrentProcessId() {
                                                parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
                             } else {
                                 // If value not found, replace with 0
-                                console.warn(`Cell value not found for $${dollarMatch.columnNumber} (${columnReference})`);
+                                console.warn(`Cell value not found for $${dollarMatch.columnNumber}`);
                                 parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
                                                '0' + 
                                                parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
