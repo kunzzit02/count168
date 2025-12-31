@@ -2518,85 +2518,39 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
-            
-            // Normalize idProduct for comparison
-            const normalizedIdProduct = normalizeIdProductText(idProduct);
-            
-            // Convert rowIndex to number if provided
-            let targetRowIndex = null;
-            if (rowIndex !== null && rowIndex !== undefined) {
-                targetRowIndex = typeof rowIndex === 'number' ? rowIndex : parseInt(String(rowIndex), 10);
-                if (isNaN(targetRowIndex)) {
-                    targetRowIndex = null;
-                }
-            }
-            
-            console.log('updateIdProductRowData called with idProduct:', idProduct, 'rowIndex:', rowIndex, 'targetRowIndex:', targetRowIndex, 'total rows:', rows.length);
-            
-            // CRITICAL: If rowIndex is provided, ONLY process that specific row, regardless of id_product match
-            // This ensures that when user selects "M99M06 (Row D)", we show Row D's data, not Row B's
-            if (targetRowIndex !== null && targetRowIndex >= 0 && targetRowIndex < rows.length) {
-                // Process ONLY the specific row at targetRowIndex
-                const row = rows[targetRowIndex];
-                console.log('updateIdProductRowData: Processing ONLY row at index', targetRowIndex);
+            rows.forEach((row, currentRowIndex) => {
+                const rowIdProduct = row.getAttribute('data-id-product');
                 
-                // Get all data cells (skip row header and id_product column)
-                const cells = row.querySelectorAll('td');
+                // If rowIndex is provided, only process that specific row
+                // Otherwise, process all rows with matching id_product
+                const matchesIdProduct = rowIdProduct && rowIdProduct.trim() === idProduct.trim();
+                const matchesRowIndex = rowIndex === null || currentRowIndex === rowIndex;
                 
-                cells.forEach((cell, cellIndex) => {
-                    const columnIndex = cell.getAttribute('data-column-index');
-                    if (columnIndex && parseInt(columnIndex) > 1) {
-                        // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                        const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                        if (cellValue !== '') {
-                            // Create a separate option for each column data
-                            const option = document.createElement('option');
-                            option.value = `${targetRowIndex}:${columnIndex}`; // Store row index and column index as value
-                            option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] M06-KZ"
-                            descriptionSelect2.appendChild(option);
-                            
-                            // Store first option value for auto-selection
-                            if (firstOptionValue === null) {
-                                firstOptionValue = option.value;
-                            }
-                        }
-                    }
-                });
-                
-                console.log('updateIdProductRowData: Added options from row index', targetRowIndex, 'total options:', descriptionSelect2.options.length - 1);
-            } else {
-                // Process all rows with matching id_product (fallback when rowIndex not provided)
-                console.log('updateIdProductRowData: Processing all rows with matching idProduct (rowIndex not provided)');
-                rows.forEach((row, currentRowIndex) => {
-                    const rowIdProduct = row.getAttribute('data-id-product');
-                    const normalizedRowIdProduct = rowIdProduct ? normalizeIdProductText(rowIdProduct.trim()) : '';
+                if (matchesIdProduct && matchesRowIndex) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
                     
-                    if (normalizedRowIdProduct === normalizedIdProduct) {
-                        // Get all data cells (skip row header and id_product column)
-                        const cells = row.querySelectorAll('td');
-                        
-                        cells.forEach((cell, cellIndex) => {
-                            const columnIndex = cell.getAttribute('data-column-index');
-                            if (columnIndex && parseInt(columnIndex) > 1) {
-                                // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                                const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                                if (cellValue !== '') {
-                                    // Create a separate option for each column data
-                                    const option = document.createElement('option');
-                                    option.value = `${currentRowIndex}:${columnIndex}`; // Store row index and column index as value
-                                    option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
-                                    descriptionSelect2.appendChild(option);
-                                    
-                                    // Store first option value for auto-selection
-                                    if (firstOptionValue === null) {
-                                        firstOptionValue = option.value;
-                                    }
+                    cells.forEach((cell, cellIndex) => {
+                        const columnIndex = cell.getAttribute('data-column-index');
+                        if (columnIndex && parseInt(columnIndex) > 1) {
+                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            if (cellValue !== '') {
+                                // Create a separate option for each column data
+                                const option = document.createElement('option');
+                                option.value = `${currentRowIndex}:${columnIndex}`; // Store row index and column index as value
+                                option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
+                                descriptionSelect2.appendChild(option);
+                                
+                                // Store first option value for auto-selection
+                                if (firstOptionValue === null) {
+                                    firstOptionValue = option.value;
                                 }
                             }
-                        });
-                    }
-                });
-            }
+                        }
+                    });
+                }
+            });
 
             // Auto-select first option if available
             if (firstOptionValue !== null) {
@@ -9271,53 +9225,17 @@ function getCurrentProcessId() {
                     const rowIndexNum = Number(rowIndexAttr);
                     if (!isNaN(rowIndexNum) && rowIndexNum >= 0 && rowIndexNum < capturedRows.length) {
                         dataCaptureRowIndex = rowIndexNum;
-                        console.log('editRowFormula: Using row_index attribute:', rowIndexNum, 'for id_product:', processValue);
                     }
-                }
-                
-                // If row_index not found or invalid, try to find by matching id_product and position
-                if (dataCaptureRowIndex === null) {
-                    const normalizedProcessValue = normalizeIdProductText(processValue);
-                    // Find all rows with matching id_product
-                    const matchingRows = [];
+                } else {
+                    // Fallback: find first matching row
                     capturedRows.forEach((capturedRow, index) => {
-                        const capturedIdProduct = capturedRow.getAttribute('data-id-product');
-                        if (capturedIdProduct) {
-                            const normalizedCapturedIdProduct = normalizeIdProductText(capturedIdProduct.trim());
-                            if (normalizedCapturedIdProduct === normalizedProcessValue) {
-                                matchingRows.push({ row: capturedRow, index: index });
+                        if (dataCaptureRowIndex === null) {
+                            const capturedIdProduct = capturedRow.getAttribute('data-id-product');
+                            if (capturedIdProduct && capturedIdProduct.trim() === processValue.trim()) {
+                                dataCaptureRowIndex = index;
                             }
                         }
                     });
-                    
-                    // If we have multiple matching rows, try to find the one that matches the summary row's position
-                    // Use the summary row's position in the summary table to determine which data capture row to use
-                    if (matchingRows.length > 1) {
-                        const summaryTableBody = document.getElementById('summaryTableBody');
-                        if (summaryTableBody) {
-                            const summaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                            const currentSummaryRowIndex = summaryRows.indexOf(row);
-                            
-                            // Find which occurrence of this id_product this summary row represents
-                            let occurrence = 0;
-                            for (let i = 0; i < currentSummaryRowIndex; i++) {
-                                const otherRow = summaryRows[i];
-                                const otherProcessValue = getProcessValueFromRow(otherRow);
-                                if (otherProcessValue && normalizeIdProductText(otherProcessValue) === normalizedProcessValue) {
-                                    occurrence++;
-                                }
-                            }
-                            
-                            // Use the same occurrence in data capture table
-                            if (occurrence < matchingRows.length) {
-                                dataCaptureRowIndex = matchingRows[occurrence].index;
-                                console.log('editRowFormula: Found matching row by occurrence:', occurrence, 'rowIndex:', dataCaptureRowIndex, 'for id_product:', processValue);
-                            }
-                        }
-                    } else if (matchingRows.length === 1) {
-                        dataCaptureRowIndex = matchingRows[0].index;
-                        console.log('editRowFormula: Found single matching row, rowIndex:', dataCaptureRowIndex, 'for id_product:', processValue);
-                    }
                 }
             }
             
