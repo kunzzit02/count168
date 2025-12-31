@@ -2309,9 +2309,7 @@ function getCurrentProcessId() {
             insertCellValueToFormula(targetCell);
         }
 
-        // Load all id products from table into first select box
-        // IMPORTANT: Show all id products, including duplicates, with row_label to distinguish them
-        // Format: "id_product (row_label)" e.g., "M99M06 (B)" and "M99M06 (D)"
+        // Load all unique id products from table into first select box
         function loadIdProductList() {
             const descriptionSelect1 = document.getElementById('descriptionSelect1');
             if (!descriptionSelect1) return;
@@ -2332,93 +2330,57 @@ function getCurrentProcessId() {
                 parsedTableData = JSON.parse(tableData);
             }
 
-            // Get all id products with their row labels (don't use Set to preserve duplicates)
-            const idProductRows = []; // Array of {idProduct, rowLabel, rowIndex}
+            // Get unique id products from table
+            const idProductSet = new Set();
             const capturedTableBody = document.getElementById('capturedTableBody');
             
             if (capturedTableBody) {
                 // Get from DOM
                 const rows = capturedTableBody.querySelectorAll('tr');
-                rows.forEach((row, rowIndex) => {
+                rows.forEach(row => {
                     const idProduct = row.getAttribute('data-id-product');
                     if (idProduct && idProduct.trim() !== '') {
-                        // Get row label (A, B, C, etc.)
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                        
-                        idProductRows.push({
-                            idProduct: idProduct.trim(),
-                            rowLabel: rowLabel,
-                            rowIndex: rowIndex
-                        });
+                        idProductSet.add(idProduct.trim());
                     }
                 });
             } else if (parsedTableData && parsedTableData.rows) {
                 // Get from parsed data
-                parsedTableData.rows.forEach((row, rowIndex) => {
+                parsedTableData.rows.forEach(row => {
                     if (row && row.length > 1 && row[1] && row[1].type === 'data') {
                         const idProduct = row[1].value;
                         if (idProduct && idProduct.trim() !== '') {
-                            // Get row label from first cell (row header)
-                            const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
-                            
-                            idProductRows.push({
-                                idProduct: idProduct.trim(),
-                                rowLabel: rowLabel,
-                                rowIndex: rowIndex
-                            });
+                            idProductSet.add(idProduct.trim());
                         }
                     }
                 });
             }
 
-            // Sort by row_index to maintain original table order (not by id_product)
-            // This ensures the dropdown order matches the original Data Capture Table order
-            idProductRows.sort((a, b) => {
-                return a.rowIndex - b.rowIndex;
-            });
-
             // Add options to select box
-            // Format: "id_product (row_label)" if row_label exists, otherwise just "id_product"
-            idProductRows.forEach(({idProduct, rowLabel}) => {
+            const sortedIdProducts = Array.from(idProductSet).sort();
+            sortedIdProducts.forEach(idProduct => {
                 const option = document.createElement('option');
-                // Store both id_product and row_label in value, format: "id_product:row_label" or "id_product"
-                const optionValue = rowLabel ? `${idProduct}:${rowLabel}` : idProduct;
-                option.value = optionValue;
-                // Display format: "id_product (row_label)" if row_label exists
-                option.textContent = rowLabel ? `${idProduct} (${rowLabel})` : idProduct;
+                option.value = idProduct;
+                option.textContent = idProduct;
                 descriptionSelect1.appendChild(option);
             });
 
             // Auto-select first option if available
-            if (idProductRows.length > 0) {
-                const firstOption = idProductRows[0];
-                const firstOptionValue = firstOption.rowLabel ? `${firstOption.idProduct}:${firstOption.rowLabel}` : firstOption.idProduct;
-                descriptionSelect1.value = firstOptionValue;
+            if (sortedIdProducts.length > 0) {
+                descriptionSelect1.value = sortedIdProducts[0];
                 // Trigger update for second select box
-                updateIdProductRowData(firstOptionValue);
+                updateIdProductRowData(sortedIdProducts[0]);
             }
         }
 
         // Update second select box with row data for selected id product
-        // IMPORTANT: Handle id_product with row_label format (e.g., "M99M06:B" or "M99M06:D")
-        function updateIdProductRowData(selectedValue) {
+        function updateIdProductRowData(idProduct) {
             const descriptionSelect2 = document.getElementById('descriptionSelect2');
             if (!descriptionSelect2) return;
 
             // Clear existing options
             descriptionSelect2.innerHTML = '<option value="">Select Row Data</option>';
 
-            if (!selectedValue || selectedValue.trim() === '') {
-                return;
-            }
-
-            // Parse selected value: format is "id_product:row_label" or just "id_product"
-            const parts = selectedValue.split(':');
-            const idProduct = parts[0].trim();
-            const rowLabel = parts.length > 1 ? parts[1].trim() : null;
-
-            if (!idProduct) {
+            if (!idProduct || idProduct.trim() === '') {
                 return;
             }
 
@@ -2440,22 +2402,9 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
-            
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                
-                // Check if id_product matches
-                if (rowIdProduct && rowIdProduct.trim() === idProduct) {
-                    // If row_label is specified, also check if it matches
-                    if (rowLabel) {
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        const actualRowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                        if (actualRowLabel !== rowLabel) {
-                            // Row label doesn't match, skip this row
-                            return;
-                        }
-                    }
-                    
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
