@@ -10690,26 +10690,38 @@ function getCurrentProcessId() {
             let row = targetRow;
             
             if (!row) {
-                // Find the row in the summary table that matches the process value
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                const rows = summaryTableBody.querySelectorAll('tr');
+                // IMPORTANT: If data.rowIndex is provided, use it to find the exact row
+                // This ensures that when there are duplicate id_products, we update the correct row
+                const rowIndex = (data.rowIndex !== undefined && data.rowIndex !== null && !Number.isNaN(Number(data.rowIndex)))
+                    ? Number(data.rowIndex) : null;
                 
-                for (let i = 0; i < rows.length; i++) {
-                    const currentRow = rows[i];
-                    const idProductCell = currentRow.querySelector('td:first-child');
+                if (rowIndex !== null) {
+                    // Try to find row by id_product + row_index
+                    row = findSummaryRowByIdProduct(processValue, rowIndex);
+                }
+                
+                // If not found by row_index, fallback to original logic
+                if (!row) {
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    const rows = summaryTableBody.querySelectorAll('tr');
                     
-                    if (!idProductCell) continue;
-                    
-                    // For main id product rows (text content in Main value matches)
-                    const productValues = getProductValuesFromCell(idProductCell);
-                    const cellText = productValues.main || productValues.sub || '';
-                    if (cellText) {
-                        // Remove description in parentheses if present
-                        const match = cellText.match(/^([^(]+)/);
-                        const cleanCellText = match ? match[1].trim() : cellText;
-                        if (cleanCellText === processValue) {
-                            row = currentRow;
-                            break;
+                    for (let i = 0; i < rows.length; i++) {
+                        const currentRow = rows[i];
+                        const idProductCell = currentRow.querySelector('td:first-child');
+                        
+                        if (!idProductCell) continue;
+                        
+                        // For main id product rows (text content in Main value matches)
+                        const productValues = getProductValuesFromCell(idProductCell);
+                        const cellText = productValues.main || productValues.sub || '';
+                        if (cellText) {
+                            // Remove description in parentheses if present
+                            const match = cellText.match(/^([^(]+)/);
+                            const cleanCellText = match ? match[1].trim() : cellText;
+                            if (cleanCellText === processValue) {
+                                row = currentRow;
+                                break;
+                            }
                         }
                     }
                 }
@@ -10867,7 +10879,7 @@ function getCurrentProcessId() {
         }
 
 // Auto-populate summary table rows from saved templates
-function findSummaryRowByIdProduct(idProduct) {
+function findSummaryRowByIdProduct(idProduct, rowIndex = null) {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) {
         return null;
@@ -10879,6 +10891,29 @@ function findSummaryRowByIdProduct(idProduct) {
     }
 
     const rows = summaryTableBody.querySelectorAll('tr');
+    
+    // If rowIndex is provided, try to find exact match first (for duplicate id_products)
+    if (rowIndex !== null && rowIndex !== undefined) {
+        for (const row of rows) {
+            const idProductCell = row.querySelector('td:first-child');
+            const productValues = getProductValuesFromCell(idProductCell);
+            const mainCellText = normalizeIdProductText(productValues.main || '');
+            const subCellText = normalizeIdProductText(productValues.sub || '');
+            
+            if (mainCellText === desired || subCellText === desired) {
+                const rowIndexAttr = row.getAttribute('data-row-index');
+                const rowRowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+                    ? Number(rowIndexAttr) : null;
+                
+                // If row_index matches, return this row
+                if (rowRowIndex === rowIndex) {
+                    return row;
+                }
+            }
+        }
+    }
+    
+    // Fallback: return first matching row (backward compatibility)
     for (const row of rows) {
         const idProductCell = row.querySelector('td:first-child');
         const productValues = getProductValuesFromCell(idProductCell);
@@ -10958,75 +10993,84 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
         const templates = result.templates || {};
 
-        // IMPORTANT: Recalculate row_index for all Summary Table rows based on Data Capture Table order
-        // This is critical when rows are added/removed in Data Capture Table
-        // Summary Table row should have row_index matching its position in Data Capture Table
-        const summaryTableBody = document.getElementById('summaryTableBody');
-        const capturedTableBody = document.getElementById('capturedTableBody');
-        
-        if (summaryTableBody && capturedTableBody) {
-            const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-            const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
+            // IMPORTANT: Recalculate row_index for all Summary Table rows based on Data Capture Table order
+            // This is critical when rows are added/removed in Data Capture Table
+            // Summary Table row should have row_index matching its position in Data Capture Table
+            // CRITICAL: Each id_product instance should have its own unique row_index based on its position in Data Capture Table
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            const capturedTableBody = document.getElementById('capturedTableBody');
             
-            // Recalculate row_index for each Summary Table row based on Data Capture Table position
-            // IMPORTANT: All rows with the same id_product should use the same row_index (their position in Data Capture Table)
-            // This ensures they are grouped together and sorted correctly
-            const idProductToRowIndex = new Map(); // Cache id_product -> row_index mapping
-            
-            // First pass: Build mapping from Data Capture Table
-            capturedRows.forEach((capturedRow, capturedIndex) => {
-                const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
-                if (capturedIdProductCell) {
-                    const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
-                    if (capturedIdProduct && !idProductToRowIndex.has(capturedIdProduct)) {
-                        // Store the first occurrence (position in Data Capture Table)
-                        idProductToRowIndex.set(capturedIdProduct, capturedIndex);
+            if (summaryTableBody && capturedTableBody) {
+                const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
+                
+                // Build mapping from Data Capture Table: row_index -> id_product
+                // This allows us to match each Summary Table row to its exact position in Data Capture Table
+                const capturedRowData = [];
+                capturedRows.forEach((capturedRow, capturedIndex) => {
+                    const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+                    if (capturedIdProductCell) {
+                        const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                        if (capturedIdProduct) {
+                            capturedRowData.push({
+                                rowIndex: capturedIndex,
+                                idProduct: capturedIdProduct
+                            });
+                        }
                     }
-                }
-            });
-            
-            // Second pass: Set row_index for all Summary Table rows
-            // IMPORTANT: Only set row_index if it doesn't exist yet, to preserve initial order
-            // This ensures the order (ABC, BAC, ABB, BAB) remains stable
-            allSummaryRows.forEach((summaryRow) => {
-                const summaryIdProductCell = summaryRow.querySelector('td:first-child');
-                if (!summaryIdProductCell) return;
+                });
                 
-                const productValues = getProductValuesFromCell(summaryIdProductCell);
-                const summaryIdProduct = normalizeIdProductText(productValues.main || '');
+                // Match Summary Table rows to Data Capture Table rows by position
+                // IMPORTANT: Match rows in order - first Summary Table row with id_product X matches first Data Capture Table row with id_product X
+                const usedRowIndices = new Set(); // Track which Data Capture Table row indices have been matched
                 
-                // Check if row already has a valid row_index - if so, preserve it
-                const existingRowIndex = summaryRow.getAttribute('data-row-index');
-                if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
-                    const existingIndexNum = Number(existingRowIndex);
-                    if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
-                        // Row already has a valid row_index, preserve it to maintain initial order
-                        console.log('Preserved existing row_index:', existingRowIndex, 'for id_product:', summaryIdProduct);
-                        return; // Keep existing row_index - don't recalculate
+                allSummaryRows.forEach((summaryRow) => {
+                    const summaryIdProductCell = summaryRow.querySelector('td:first-child');
+                    if (!summaryIdProductCell) return;
+                    
+                    const productValues = getProductValuesFromCell(summaryIdProductCell);
+                    const summaryIdProduct = normalizeIdProductText(productValues.main || '');
+                    
+                    // Check if row already has a valid row_index - if so, preserve it
+                    const existingRowIndex = summaryRow.getAttribute('data-row-index');
+                    if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
+                        const existingIndexNum = Number(existingRowIndex);
+                        if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
+                            // Row already has a valid row_index, preserve it to maintain initial order
+                            console.log('Preserved existing row_index:', existingRowIndex, 'for id_product:', summaryIdProduct);
+                            usedRowIndices.add(existingIndexNum); // Mark as used
+                            return; // Keep existing row_index - don't recalculate
+                        }
                     }
-                }
-                
-                if (!summaryIdProduct) {
-                    // For rows without id_product, use fallback
-                    if (!existingRowIndex || existingRowIndex === '') {
+                    
+                    if (!summaryIdProduct) {
+                        // For rows without id_product, use fallback
+                        if (!existingRowIndex || existingRowIndex === '') {
+                            summaryRow.setAttribute('data-row-index', '999999');
+                        }
+                        return;
+                    }
+                    
+                    // Find the first Data Capture Table row with matching id_product that hasn't been used yet
+                    let matchedIndex = null;
+                    for (const capturedData of capturedRowData) {
+                        if (capturedData.idProduct === summaryIdProduct && !usedRowIndices.has(capturedData.rowIndex)) {
+                            matchedIndex = capturedData.rowIndex;
+                            usedRowIndices.add(matchedIndex); // Mark as used
+                            break;
+                        }
+                    }
+                    
+                    // Set row_index based on Data Capture Table position
+                    if (matchedIndex !== null && matchedIndex >= 0) {
+                        summaryRow.setAttribute('data-row-index', String(matchedIndex));
+                        console.log('Set row_index:', matchedIndex, 'for id_product:', summaryIdProduct, 'based on Data Capture Table position');
+                    } else {
+                        // If no match found in Data Capture Table, use fallback
                         summaryRow.setAttribute('data-row-index', '999999');
+                        console.warn('No Data Capture Table match found for id_product:', summaryIdProduct, 'using fallback row_index 999999');
                     }
-                    return;
-                }
-                
-                // Get row_index from cache (all rows with same id_product get same row_index)
-                const matchedIndex = idProductToRowIndex.get(summaryIdProduct);
-                
-                // Set row_index based on Data Capture Table position (only if not already set)
-                if (matchedIndex !== undefined && matchedIndex >= 0) {
-                    summaryRow.setAttribute('data-row-index', String(matchedIndex));
-                    console.log('Set row_index:', matchedIndex, 'for id_product:', summaryIdProduct, 'based on Data Capture Table position');
-                } else {
-                    // If no match found in Data Capture Table, use fallback
-                    summaryRow.setAttribute('data-row-index', '999999');
-                    console.warn('No Data Capture Table match found for id_product:', summaryIdProduct, 'using fallback row_index 999999');
-                }
-            });
+                });
         } else if (summaryTableBody) {
             // Fallback: if Data Capture Table not available, preserve existing row_index or use position
             const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
@@ -11083,7 +11127,11 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
 function applyTemplateToSummaryRow(idProduct, template) {
     try {
-        const targetRow = findSummaryRowByIdProduct(idProduct);
+        // IMPORTANT: If template has row_index, use it to find the exact row
+        // This ensures that when there are duplicate id_products, we apply template to the correct row
+        const templateRowIndex = (template.row_index !== undefined && template.row_index !== null)
+            ? Number(template.row_index) : null;
+        const targetRow = findSummaryRowByIdProduct(idProduct, templateRowIndex);
 
         if (!targetRow) {
             return;
