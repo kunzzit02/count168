@@ -3513,14 +3513,18 @@ function getCurrentProcessId() {
                 
                 // Build a map from column number to cell reference
                 // Format: "id_product:row_label:column_index" or "id_product:column_index"
+                // IMPORTANT: cell reference stores dataColumnIndex, but $数字 uses displayColumnIndex
+                // displayColumnIndex = dataColumnIndex + 1 (because colIndex 2 = dataColumnIndex 1 = displayColumnIndex 2)
                 const columnToCellRefMap = new Map();
                 cellRefsArray.forEach(cellRef => {
                     // Parse cell reference: "id_product:row_label:column_index" or "id_product:column_index"
                     const parts = cellRef.split(':');
                     if (parts.length >= 2) {
-                        const columnIndex = parseInt(parts[parts.length - 1]); // Last part is column index
-                        if (!isNaN(columnIndex) && columnIndex > 0) {
-                            columnToCellRefMap.set(columnIndex, cellRef);
+                        const dataColumnIndex = parseInt(parts[parts.length - 1]); // Last part is dataColumnIndex
+                        if (!isNaN(dataColumnIndex) && dataColumnIndex > 0) {
+                            // Convert dataColumnIndex to displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                            const displayColumnIndex = dataColumnIndex + 1;
+                            columnToCellRefMap.set(displayColumnIndex, cellRef);
                         }
                     }
                 });
@@ -6308,13 +6312,17 @@ function getCurrentProcessId() {
                         const cellRefsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
                         
                         // Build a map from column number to cell reference
+                        // IMPORTANT: cell reference stores dataColumnIndex, but $数字 uses displayColumnIndex
+                        // displayColumnIndex = dataColumnIndex + 1 (because colIndex 2 = dataColumnIndex 1 = displayColumnIndex 2)
                         const columnToCellRefMap = new Map();
                         cellRefsArray.forEach(cellRef => {
                             const parts = cellRef.split(':');
                             if (parts.length >= 2) {
-                                const columnIndex = parseInt(parts[parts.length - 1]);
-                                if (!isNaN(columnIndex) && columnIndex > 0) {
-                                    columnToCellRefMap.set(columnIndex, cellRef);
+                                const dataColumnIndex = parseInt(parts[parts.length - 1]); // Last part is dataColumnIndex
+                                if (!isNaN(dataColumnIndex) && dataColumnIndex > 0) {
+                                    // Convert dataColumnIndex to displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                                    const displayColumnIndex = dataColumnIndex + 1;
+                                    columnToCellRefMap.set(displayColumnIndex, cellRef);
                                 }
                             }
                         });
@@ -6396,10 +6404,51 @@ function getCurrentProcessId() {
                     }
                 }
                 
+                // IMPORTANT: Get cell references from data-clicked-cell-refs to use the correct id product
+                // 重要：从 data-clicked-cell-refs 获取 cell reference，使用正确的 id product
+                const formulaInput = document.getElementById('formula');
+                const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+                const cellRefsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
+                
+                // Build a map from cell reference (e.g., "A7") to id_product
+                // Format: "id_product:row_label:column_index" or "id_product:column_index"
+                const cellRefToIdProductMap = new Map();
+                cellRefsArray.forEach(cellRef => {
+                    const parts = cellRef.split(':');
+                    if (parts.length >= 2) {
+                        const idProductFromRef = parts[0];
+                        const rowLabelFromRef = parts.length >= 3 ? parts[1] : null;
+                        const columnIndexFromRef = parseInt(parts[parts.length - 1]);
+                        
+                        if (rowLabelFromRef && !isNaN(columnIndexFromRef) && columnIndexFromRef > 0) {
+                            // Format: "id_product:row_label:column_index" -> "A7"
+                            const cellRefKey = rowLabelFromRef + columnIndexFromRef;
+                            cellRefToIdProductMap.set(cellRefKey, {
+                                idProduct: idProductFromRef,
+                                rowLabel: rowLabelFromRef,
+                                columnIndex: columnIndexFromRef
+                            });
+                        }
+                    }
+                });
+                
                 // Replace cell references in reverse order to preserve indices
                 for (let i = cellReferences.length - 1; i >= 0; i--) {
                     const ref = cellReferences[i];
-                    const cellValue = processValue ? getColumnValueFromCellReference(ref.fullMatch, processValue) : null;
+                    let cellValue = null;
+                    
+                    // Try to find id_product from cell reference map
+                    const cellRefInfo = cellRefToIdProductMap.get(ref.fullMatch);
+                    if (cellRefInfo) {
+                        // Use the id_product from cell reference, not from processValue
+                        cellValue = getCellValueByIdProductAndColumn(cellRefInfo.idProduct, cellRefInfo.columnIndex, cellRefInfo.rowLabel);
+                        console.log(`Using id_product from cell reference: ${cellRefInfo.idProduct} for cell ${ref.fullMatch}`);
+                    }
+                    
+                    // Fallback: if no cell reference found, use processValue (for backward compatibility)
+                    if (cellValue === null && processValue) {
+                        cellValue = getColumnValueFromCellReference(ref.fullMatch, processValue);
+                    }
                     
                     if (cellValue !== null) {
                         // Replace the cell reference with the actual value
