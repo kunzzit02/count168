@@ -1735,14 +1735,23 @@ function getCurrentProcessId() {
             }
 
             // 运算符、小括号、小数点：直接插入
+            if (!formulaInput) {
+                console.warn('handleFormulaValueInput - formulaInput is null, cannot insert value');
+                return;
+            }
+            
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             const textBefore = formulaInput.value.substring(0, cursorPos);
             const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
             formulaInput.value = textBefore + value + textAfter;
 
             const newCursorPos = cursorPos + value.length;
-            formulaInput.setSelectionRange(newCursorPos, newCursorPos);
-            formulaInput.focus();
+            try {
+                formulaInput.setSelectionRange(newCursorPos, newCursorPos);
+                formulaInput.focus();
+            } catch (error) {
+                console.warn('handleFormulaValueInput - Error setting selection range:', error);
+            }
         }
 
         // Initialize calculator keypad functionality
@@ -6461,9 +6470,9 @@ function getCurrentProcessId() {
                         // Replace from end to start to preserve indices
                         dollarMatches.sort((a, b) => b.index - a.index);
                         
-                        // IMPORTANT: Get cell references from data-clicked-cell-refs to use the correct id product
-                        // 重要：从 data-clicked-cell-refs 获取 cell reference，使用正确的 id product
-                        const formulaInput = document.getElementById('formula');
+                        // IMPORTANT: Use the formulaInput already declared above (line 6435)
+                        // 重要：使用上面已经声明的 formulaInput（第 6435 行）
+                        // formulaInput is already declared above, reuse it here
                         const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
                         const cellRefsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
                         
