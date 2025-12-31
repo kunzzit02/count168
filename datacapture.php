@@ -3437,6 +3437,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     firstText.includes('MY EARNINGS') ||
                     firstText.startsWith('TOTAL :');
                 if (!needsFix) return;
+                
+                // 跳过 TOTAL 行的处理，保持粘贴时的原始格式
+                if (firstText.startsWith('TOTAL :')) {
+                    return;
+                }
 
                 // 优先从右往左找数值/金额，避免把标题列当成金额
                 let amountCell = null;
