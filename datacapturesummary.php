@@ -2756,64 +2756,65 @@ function getCurrentProcessId() {
                     const normalizedRowIdProduct = rowIdProduct ? normalizeIdProductText(rowIdProduct.trim()) : '';
                     
                     if (normalizedRowIdProduct === normalizedIdProduct) {
-                    // Get all data cells (skip row header and id_product column)
-                    const cells = row.querySelectorAll('td');
-                    
-                    cells.forEach((cell, cellIndex) => {
-                        const columnIndex = cell.getAttribute('data-column-index');
-                        if (columnIndex && parseInt(columnIndex) > 1) {
-                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                            if (cellValue !== '') {
-                                // Create a grid item for each column data
-                                const gridItem = document.createElement('div');
-                                gridItem.className = 'formula-data-grid-item';
-                                gridItem.textContent = `[${columnIndex}] ${cellValue}`;
-                                gridItem.setAttribute('data-row-index', currentRowIndex);
-                                gridItem.setAttribute('data-column-index', columnIndex);
-                                
-                                // Add click event to insert value into formula (same behavior as descriptionSelect2)
-                                gridItem.addEventListener('click', function() {
-                                    const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
-                                    const targetColumnIndex = this.getAttribute('data-column-index');
+                        // Get all data cells (skip row header and id_product column)
+                        const cells = row.querySelectorAll('td');
+                        
+                        cells.forEach((cell, cellIndex) => {
+                            const columnIndex = cell.getAttribute('data-column-index');
+                            if (columnIndex && parseInt(columnIndex) > 1) {
+                                // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                                const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                                if (cellValue !== '') {
+                                    // Create a grid item for each column data
+                                    const gridItem = document.createElement('div');
+                                    gridItem.className = 'formula-data-grid-item';
+                                    gridItem.textContent = `[${columnIndex}] ${cellValue}`;
+                                    gridItem.setAttribute('data-row-index', currentRowIndex);
+                                    gridItem.setAttribute('data-column-index', columnIndex);
                                     
-                                    // Re-get rows to ensure we have the latest data
-                                    const capturedTableBody = document.getElementById('capturedTableBody');
-                                    if (!capturedTableBody) {
-                                        console.warn('Captured data table body not found.');
-                                        return;
-                                    }
-                                    
-                                    const currentRows = capturedTableBody.querySelectorAll('tr');
-                                    const targetRow = currentRows[targetRowIndex];
-                                    if (!targetRow) {
-                                        console.warn('Row not found for index:', targetRowIndex);
-                                        return;
-                                    }
-                                    
-                                    // Find the cell with matching data-column-index
-                                    const targetCells = targetRow.querySelectorAll('td');
-                                    let targetCell = null;
-                                    targetCells.forEach(cell => {
-                                        const colIdx = cell.getAttribute('data-column-index');
-                                        if (colIdx === targetColumnIndex) {
-                                            targetCell = cell;
+                                    // Add click event to insert value into formula (same behavior as descriptionSelect2)
+                                    gridItem.addEventListener('click', function() {
+                                        const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
+                                        const targetColumnIndex = this.getAttribute('data-column-index');
+                                        
+                                        // Re-get rows to ensure we have the latest data
+                                        const capturedTableBody = document.getElementById('capturedTableBody');
+                                        if (!capturedTableBody) {
+                                            console.warn('Captured data table body not found.');
+                                            return;
                                         }
+                                        
+                                        const currentRows = capturedTableBody.querySelectorAll('tr');
+                                        const targetRow = currentRows[targetRowIndex];
+                                        if (!targetRow) {
+                                            console.warn('Row not found for index:', targetRowIndex);
+                                            return;
+                                        }
+                                        
+                                        // Find the cell with matching data-column-index
+                                        const targetCells = targetRow.querySelectorAll('td');
+                                        let targetCell = null;
+                                        targetCells.forEach(cell => {
+                                            const colIdx = cell.getAttribute('data-column-index');
+                                            if (colIdx === targetColumnIndex) {
+                                                targetCell = cell;
+                                            }
+                                        });
+                                        
+                                        if (!targetCell) {
+                                            console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
+                                            return;
+                                        }
+                                        
+                                        // Reuse existing logic: behave exactly like clicking the cell
+                                        insertCellValueToFormula(targetCell);
                                     });
                                     
-                                    if (!targetCell) {
-                                        console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
-                                        return;
-                                    }
-                                    
-                                    // Reuse existing logic: behave exactly like clicking the cell
-                                    insertCellValueToFormula(targetCell);
-                                });
-                                
-                                formulaDataGrid.appendChild(gridItem);
+                                    formulaDataGrid.appendChild(gridItem);
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
             });
         }
@@ -17129,5 +17130,4 @@ function formatPercentValue(value) {
     </style>
     
 </body>
-</html>
 </html>
