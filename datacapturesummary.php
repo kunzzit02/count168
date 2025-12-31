@@ -12393,8 +12393,9 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
 }
 
 // After all templates are applied, reorder rows globally by row_index (if present)
-// IMPORTANT: This function should maintain the order of Data Capture Table
-// Rows with same id_product should be grouped together, ordered by their first appearance in Data Capture Table
+// IMPORTANT: This function should maintain the exact order of Data Capture Table
+// Rows are sorted by row_index directly, preserving the original order from Data Capture Table
+// Same id_product rows are NOT grouped together - they maintain their individual positions
 function reorderSummaryRowsByRowIndex() {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -12464,109 +12465,64 @@ function reorderSummaryRowsByRowIndex() {
         const withIndex = rowData.filter(r => r.rowIndex !== null);
         const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-        // Group rows by id_product (normalizedMain)
-        // IMPORTANT: Sub rows should be grouped with their parent main row's id_product
-        const groupedByProduct = {};
-        withIndex.forEach(data => {
-            // For sub rows, use the parent's id_product (normalizedMain)
-            // For main rows, use their own id_product
-            const key = data.normalizedMain || '__empty__';
-            if (!groupedByProduct[key]) {
-                groupedByProduct[key] = [];
+        // IMPORTANT: Sort rows directly by row_index, NOT by id_product groups
+        // This preserves the exact order from Data Capture Table, even if same id_product appears multiple times
+        withIndex.sort((a, b) => {
+            // Primary sort: by row_index (Data Capture Table order)
+            if (a.rowIndex !== b.rowIndex) {
+                return a.rowIndex - b.rowIndex;
             }
-            groupedByProduct[key].push(data);
-        });
-
-        // For each id_product group, find the minimum row_index (first appearance in Data Capture Table)
-        // Then sort groups by this minimum row_index
-        const productGroups = Object.keys(groupedByProduct).map(key => {
-            const groupRows = groupedByProduct[key];
-            const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
-            // Sort rows within each group
-            // IMPORTANT: Main rows and sub rows are sorted differently:
-            // - Main rows: sorted by row_index only
-            // - Sub rows: sorted by sub_order first (position relative to parent), then by row_index
-            groupRows.sort((a, b) => {
-                // Separate main and sub rows
-                const aIsSub = a.productType === 'sub';
-                const bIsSub = b.productType === 'sub';
-                
-                // If both are main rows, sort by row_index
-                if (!aIsSub && !bIsSub) {
-                    if (a.rowIndex !== b.rowIndex) {
-                        return a.rowIndex - b.rowIndex;
+            
+            // If same row_index, handle main vs sub rows
+            const aIsSub = a.productType === 'sub';
+            const bIsSub = b.productType === 'sub';
+            
+            // If both are sub rows, sort by sub_order first, then by creation order
+            if (aIsSub && bIsSub) {
+                // First sort by sub_order (position relative to parent main row)
+                if (a.subOrder !== null && b.subOrder !== null) {
+                    if (a.subOrder !== b.subOrder) {
+                        return a.subOrder - b.subOrder;
                     }
-                    return a.creationOrder - b.creationOrder;
-                }
-                
-                // If both are sub rows, sort by sub_order first, then by row_index
-                if (aIsSub && bIsSub) {
-                    // First sort by sub_order (position relative to parent main row)
-                    if (a.subOrder !== null && b.subOrder !== null) {
-                        if (a.subOrder !== b.subOrder) {
-                            return a.subOrder - b.subOrder;
-                        }
-                    } else if (a.subOrder !== null) {
-                        // a has sub_order, b doesn't - a comes first
-                        return -1;
-                    } else if (b.subOrder !== null) {
-                        // b has sub_order, a doesn't - b comes first
-                        return 1;
-                    }
-                    // If both have no sub_order or same sub_order, sort by row_index
-                    if (a.rowIndex !== b.rowIndex) {
-                        return a.rowIndex - b.rowIndex;
-                    }
-                    return a.creationOrder - b.creationOrder;
-                }
-                
-                // If one is main and one is sub, main comes first (main rows should appear before their sub rows)
-                if (!aIsSub && bIsSub) {
-                    // a is main, b is sub - a comes first
+                } else if (a.subOrder !== null) {
+                    // a has sub_order, b doesn't - a comes first
                     return -1;
-                }
-                if (aIsSub && !bIsSub) {
-                    // a is sub, b is main - b comes first
+                } else if (b.subOrder !== null) {
+                    // b has sub_order, a doesn't - b comes first
                     return 1;
                 }
-                
-                // Fallback: sort by row_index
-                if (a.rowIndex !== b.rowIndex) {
-                    return a.rowIndex - b.rowIndex;
-                }
+                // If both have no sub_order or same sub_order, sort by creation order
                 return a.creationOrder - b.creationOrder;
-            });
-            return {
-                key,
-                minRowIndex,
-                rows: groupRows
-            };
-        });
-
-        // Sort product groups by minimum row_index (Data Capture Table order)
-        productGroups.sort((a, b) => {
-            if (a.minRowIndex !== b.minRowIndex) {
-                return a.minRowIndex - b.minRowIndex;
             }
-            // If same minRowIndex, maintain order by first row's originalIndex
-            return a.rows[0].originalIndex - b.rows[0].originalIndex;
+            
+            // If one is main and one is sub, main comes first (main rows should appear before their sub rows)
+            if (!aIsSub && bIsSub) {
+                // a is main, b is sub - a comes first
+                return -1;
+            }
+            if (aIsSub && !bIsSub) {
+                // a is sub, b is main - b comes first
+                return 1;
+            }
+            
+            // Both are main rows with same row_index, sort by creation order
+            return a.creationOrder - b.creationOrder;
         });
 
-        // Flatten groups back into ordered rows array
-        // All rows (main and sub) are now sorted by row_index within each id_product group
-        const orderedRowsWithIndex = productGroups.flatMap(group => group.rows.map(data => data.row));
+        // Get ordered rows with index
+        const orderedRowsWithIndex = withIndex.map(data => data.row);
 
         // Sort rows without row_index by originalIndex (maintain their current order)
         withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
         const orderedRowsWithoutIndex = withoutIndex.map(data => data.row);
 
-        // Combine: rows with index first (grouped by id_product, sorted by Data Capture Table order), then rows without index
+        // Combine: rows with index first (sorted by Data Capture Table order), then rows without index
         const orderedRows = [...orderedRowsWithIndex, ...orderedRowsWithoutIndex];
 
         // Re-append rows in new order
         orderedRows.forEach(row => summaryTableBody.appendChild(row));
         
-        console.log('Reordered rows by id_product groups (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length, 'product groups:', productGroups.length);
+        console.log('Reordered rows by row_index (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
@@ -14460,6 +14416,13 @@ function formatPercentValue(value) {
                     const formulaVariantAttr = row.getAttribute('data-formula-variant');
                     const formulaVariant = formulaVariantAttr && formulaVariantAttr !== '' ? parseInt(formulaVariantAttr, 10) : null;
                     
+                    // Get displayOrder from data-row-index attribute to preserve row order
+                    // This ensures rows are displayed in the same order as in Data Capture Table
+                    const rowIndexAttr = row.getAttribute('data-row-index');
+                    const displayOrder = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+                        ? Number(rowIndexAttr)
+                        : null;
+                    
                     if (productTypeAttr) {
                         productType = productTypeAttr;
                     }
@@ -14555,7 +14518,8 @@ function formatPercentValue(value) {
                         batchSelection: batchSelectionValue ? 1 : 0,
                         formulaVariant: formulaVariant, // Include formulaVariant to help backend distinguish rows with same account
                         rateChecked: rateChecked, // Rate checkbox state
-                        rateValue: rateValue // Rate input value (only if checkbox is checked)
+                        rateValue: rateValue, // Rate input value (only if checkbox is checked)
+                        displayOrder: displayOrder // Preserve row order from Data Capture Table
                     });
                 });
                 
