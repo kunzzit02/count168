@@ -5497,46 +5497,59 @@ function getCurrentProcessId() {
             const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
             
             // 获取列引用格式（用于保存到 sourceColumns）
-            // 格式：id_product:row_label:column_index，如 "GGG:A:10 GGG:A:8"
+            // 格式：id_product:row_label:column_index，如 "GGG:A:10 GGG:A:8" 或 "OVERALL:A:7"
+            // IMPORTANT: 优先使用 data-clicked-cell-refs，因为它包含了实际选择的 cell 的 id_product
+            // 这样用户可以选择其他 id_product 的数据来构建公式
             let sourceColumns = '';
             // formulaInput 已经在上面声明过了，直接使用
             if (formulaInput && formulaValue && formulaValue.trim() !== '') {
-                // 从 formulaValue 中提取所有 $数字，转换为列引用格式
-                const rowLabel = getRowLabelFromProcessValue(processValue);
-                if (rowLabel) {
-                    const dollarPattern = /\$(\d+)(?!\d)/g;
-                    let match;
-                    dollarPattern.lastIndex = 0;
-                    const columnRefs = [];
-                    
-                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
-                        const columnNumber = parseInt(match[1]);
-                        if (!isNaN(columnNumber) && columnNumber > 0) {
-                            // 格式：id_product:row_label:column_index
-                            const columnRef = `${processValue}:${rowLabel}:${columnNumber}`;
-                            if (!columnRefs.includes(columnRef)) {
-                                columnRefs.push(columnRef);
+                // 优先使用 data-clicked-cell-refs（包含实际选择的 cell 的 id_product 和 row_label）
+                const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+                if (clickedCellRefs && clickedCellRefs.trim() !== '') {
+                    // data-clicked-cell-refs 格式：id_product:row_label:column_index（如 "OVERALL:A:7"）
+                    // 直接使用这些引用，因为它们已经包含了正确的 id_product
+                    sourceColumns = clickedCellRefs.trim();
+                    console.log('saveFormula - Using sourceColumns from data-clicked-cell-refs:', sourceColumns);
+                } else {
+                    // 如果没有 data-clicked-cell-refs，从 formulaValue 中提取所有 $数字，转换为列引用格式
+                    // 注意：这种情况下使用 processValue（模态窗口的 id product），因为无法确定实际选择的 cell
+                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    if (rowLabel) {
+                        const dollarPattern = /\$(\d+)(?!\d)/g;
+                        let match;
+                        dollarPattern.lastIndex = 0;
+                        const columnRefs = [];
+                        
+                        while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                            const columnNumber = parseInt(match[1]);
+                            if (!isNaN(columnNumber) && columnNumber > 0) {
+                                // 格式：id_product:row_label:column_index
+                                const columnRef = `${processValue}:${rowLabel}:${columnNumber}`;
+                                if (!columnRefs.includes(columnRef)) {
+                                    columnRefs.push(columnRef);
+                                }
                             }
+                        }
+                        
+                        if (columnRefs.length > 0) {
+                            sourceColumns = columnRefs.join(' ');
+                            console.log('saveFormula - Built sourceColumns from formula $numbers:', sourceColumns);
                         }
                     }
                     
-                    if (columnRefs.length > 0) {
-                        sourceColumns = columnRefs.join(' ');
-                    }
-                }
-                
-                // 如果从 $数字 格式中没有提取到列引用，尝试从 data-clicked-columns 属性中获取
-                // 这适用于用户通过键盘直接输入数字（如"2+6"）的情况
-                if (!sourceColumns && formulaInput) {
-                    const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
-                    if (clickedColumns && clickedColumns.trim() !== '') {
-                        const rowLabel = getRowLabelFromProcessValue(processValue);
-                        if (rowLabel) {
-                            const columnsArray = clickedColumns.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c) && c > 0);
-                            if (columnsArray.length > 0) {
-                                const columnRefs = columnsArray.map(colNum => `${processValue}:${rowLabel}:${colNum}`);
-                                sourceColumns = columnRefs.join(' ');
-                                console.log('saveFormula - Built sourceColumns from data-clicked-columns:', sourceColumns);
+                    // 如果从 $数字 格式中没有提取到列引用，尝试从 data-clicked-columns 属性中获取
+                    // 这适用于用户通过键盘直接输入数字（如"2+6"）的情况
+                    if (!sourceColumns && formulaInput) {
+                        const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
+                        if (clickedColumns && clickedColumns.trim() !== '') {
+                            const rowLabel = getRowLabelFromProcessValue(processValue);
+                            if (rowLabel) {
+                                const columnsArray = clickedColumns.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c) && c > 0);
+                                if (columnsArray.length > 0) {
+                                    const columnRefs = columnsArray.map(colNum => `${processValue}:${rowLabel}:${colNum}`);
+                                    sourceColumns = columnRefs.join(' ');
+                                    console.log('saveFormula - Built sourceColumns from data-clicked-columns:', sourceColumns);
+                                }
                             }
                         }
                     }
