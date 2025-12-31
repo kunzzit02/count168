@@ -2518,13 +2518,26 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
+            
+            // Normalize idProduct for comparison
+            const normalizedIdProduct = normalizeIdProductText(idProduct);
+            
             rows.forEach((row, currentRowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 
-                // If rowIndex is provided, only process that specific row
+                // Normalize row id_product for comparison
+                const normalizedRowIdProduct = rowIdProduct ? normalizeIdProductText(rowIdProduct.trim()) : '';
+                
+                // If rowIndex is provided, only process that specific row by index
                 // Otherwise, process all rows with matching id_product
-                const matchesIdProduct = rowIdProduct && rowIdProduct.trim() === idProduct.trim();
-                const matchesRowIndex = rowIndex === null || currentRowIndex === rowIndex;
+                const matchesIdProduct = normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct;
+                
+                // CRITICAL: When rowIndex is provided, use exact index match
+                // This ensures we get the correct row when there are duplicates
+                let matchesRowIndex = true;
+                if (rowIndex !== null && rowIndex !== undefined) {
+                    matchesRowIndex = currentRowIndex === rowIndex;
+                }
                 
                 if (matchesIdProduct && matchesRowIndex) {
                     // Get all data cells (skip row header and id_product column)
@@ -9225,17 +9238,53 @@ function getCurrentProcessId() {
                     const rowIndexNum = Number(rowIndexAttr);
                     if (!isNaN(rowIndexNum) && rowIndexNum >= 0 && rowIndexNum < capturedRows.length) {
                         dataCaptureRowIndex = rowIndexNum;
+                        console.log('editRowFormula: Using row_index attribute:', rowIndexNum, 'for id_product:', processValue);
                     }
-                } else {
-                    // Fallback: find first matching row
+                }
+                
+                // If row_index not found or invalid, try to find by matching id_product and position
+                if (dataCaptureRowIndex === null) {
+                    const normalizedProcessValue = normalizeIdProductText(processValue);
+                    // Find all rows with matching id_product
+                    const matchingRows = [];
                     capturedRows.forEach((capturedRow, index) => {
-                        if (dataCaptureRowIndex === null) {
-                            const capturedIdProduct = capturedRow.getAttribute('data-id-product');
-                            if (capturedIdProduct && capturedIdProduct.trim() === processValue.trim()) {
-                                dataCaptureRowIndex = index;
+                        const capturedIdProduct = capturedRow.getAttribute('data-id-product');
+                        if (capturedIdProduct) {
+                            const normalizedCapturedIdProduct = normalizeIdProductText(capturedIdProduct.trim());
+                            if (normalizedCapturedIdProduct === normalizedProcessValue) {
+                                matchingRows.push({ row: capturedRow, index: index });
                             }
                         }
                     });
+                    
+                    // If we have multiple matching rows, try to find the one that matches the summary row's position
+                    // Use the summary row's position in the summary table to determine which data capture row to use
+                    if (matchingRows.length > 1) {
+                        const summaryTableBody = document.getElementById('summaryTableBody');
+                        if (summaryTableBody) {
+                            const summaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                            const currentSummaryRowIndex = summaryRows.indexOf(row);
+                            
+                            // Find which occurrence of this id_product this summary row represents
+                            let occurrence = 0;
+                            for (let i = 0; i < currentSummaryRowIndex; i++) {
+                                const otherRow = summaryRows[i];
+                                const otherProcessValue = getProcessValueFromRow(otherRow);
+                                if (otherProcessValue && normalizeIdProductText(otherProcessValue) === normalizedProcessValue) {
+                                    occurrence++;
+                                }
+                            }
+                            
+                            // Use the same occurrence in data capture table
+                            if (occurrence < matchingRows.length) {
+                                dataCaptureRowIndex = matchingRows[occurrence].index;
+                                console.log('editRowFormula: Found matching row by occurrence:', occurrence, 'rowIndex:', dataCaptureRowIndex, 'for id_product:', processValue);
+                            }
+                        }
+                    } else if (matchingRows.length === 1) {
+                        dataCaptureRowIndex = matchingRows[0].index;
+                        console.log('editRowFormula: Found single matching row, rowIndex:', dataCaptureRowIndex, 'for id_product:', processValue);
+                    }
                 }
             }
             
