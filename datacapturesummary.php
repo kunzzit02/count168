@@ -14306,10 +14306,56 @@ function formatPercentValue(value) {
                 // Collect all rows with data from summary table
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 const rows = summaryTableBody.querySelectorAll('tr');
+                
+                // IMPORTANT: Sort rows by original order (row_index + creation_order) before submitting
+                // This ensures the submission order matches the original paste order from datacapture.php
+                // even if reorderSummaryRowsByRowIndex() has been called to group rows by id_product
+                const rowsWithOrder = Array.from(rows).map((row, domIndex) => {
+                    // Get row_index (from Data Capture Table)
+                    const rowIndexAttr = row.getAttribute('data-row-index');
+                    const rowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+                        ? Number(rowIndexAttr)
+                        : null;
+                    
+                    // Get creation_order (for stable sorting when row_index is same)
+                    const creationOrderAttr = row.getAttribute('data-creation-order');
+                    const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : domIndex * 1000000;
+                    
+                    return {
+                        row: row,
+                        rowIndex: rowIndex,
+                        creationOrder: creationOrder,
+                        domIndex: domIndex
+                    };
+                });
+                
+                // Sort by row_index first (original Data Capture Table order), then by creation_order
+                // This preserves the original paste order without grouping by id_product
+                rowsWithOrder.sort((a, b) => {
+                    // Rows with row_index come first
+                    if (a.rowIndex !== null && b.rowIndex !== null) {
+                        if (a.rowIndex !== b.rowIndex) {
+                            return a.rowIndex - b.rowIndex;
+                        }
+                        // If same row_index, sort by creation_order
+                        return a.creationOrder - b.creationOrder;
+                    }
+                    // If one has row_index and one doesn't, row with index comes first
+                    if (a.rowIndex !== null && b.rowIndex === null) {
+                        return -1;
+                    }
+                    if (a.rowIndex === null && b.rowIndex !== null) {
+                        return 1;
+                    }
+                    // If both don't have row_index, sort by creation_order
+                    return a.creationOrder - b.creationOrder;
+                });
+                
                 const summaryRows = [];
                 const seenRows = new Set(); // Track seen rows to prevent duplicates
                 
-                rows.forEach(row => {
+                // Process rows in original order (not grouped by id_product)
+                rowsWithOrder.forEach(({ row }) => {
                     const cells = row.querySelectorAll('td');
                     
                     // 如果 Select 列被勾选，则整行不提交到数据库
@@ -14570,7 +14616,8 @@ function formatPercentValue(value) {
                     return;
                 }
                 
-                console.log('Summary rows to submit:', summaryRows);
+                console.log('Summary rows to submit (preserving original paste order):', summaryRows);
+                console.log('Total rows submitted:', summaryRows.length);
                 
                 // Prepare data to send
                 const submitData = {
