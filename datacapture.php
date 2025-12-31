@@ -3579,6 +3579,43 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 对于 TOTAL 行：标签在列1，金额在列11
+                // 首先检查数据是否已经在正确位置，如果是则跳过处理
+                const firstCellText = (cells[0]?.textContent || '').trim().toUpperCase();
+                const targetCellText = (cells[amountTargetIndex]?.textContent || '').trim();
+                const nextCellText = (cells[amountTargetIndex + 1]?.textContent || '').trim(); // 第12列
+                const hasCorrectLabel = firstCellText.startsWith('TOTAL :') && 
+                                        (firstCellText.includes('RINGGIT') || firstCellText.includes('RM') || firstCellText.includes('MALAYSIA'));
+                // 检查金额是否已经在第11列或第12列（因为有些格式可能把金额放在第12列）
+                const hasAmountInTarget = (targetCellText && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(targetCellText)) ||
+                                          (nextCellText && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(nextCellText));
+                
+                // 如果标签已经在第一列且格式正确，且金额已经在第11列或第12列，则只确保标签格式正确并移动金额到第11列
+                if (hasCorrectLabel && hasAmountInTarget) {
+                    // 只确保第一列的标签格式正确（去除可能混在一起的金额）
+                    let labelText = (cells[0]?.textContent || '').trim();
+                    const labelAmountMatch = labelText.match(/^(.+?)\s+([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)$/);
+                    if (labelAmountMatch) {
+                        // 如果标签和金额混在一起，分离它们
+                        labelText = labelAmountMatch[1].trim();
+                        cells[0].textContent = labelText.toUpperCase();
+                        // 如果第11列为空，使用标签中的金额
+                        if (cells[amountTargetIndex] && !cells[amountTargetIndex].textContent.trim()) {
+                            cells[amountTargetIndex].textContent = labelAmountMatch[2];
+                        }
+                    } else {
+                        // 标签格式正确，确保是大写
+                        cells[0].textContent = labelText.toUpperCase();
+                        // 如果金额在第12列，移到第11列
+                        if (nextCellText && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(nextCellText) && 
+                            (!targetCellText || !/[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(targetCellText))) {
+                            cells[amountTargetIndex].textContent = nextCellText;
+                            cells[amountTargetIndex + 1].textContent = '';
+                        }
+                    }
+                    return; // 数据已经在正确位置，无需进一步处理
+                }
+                
+                // 数据不在正确位置，需要处理
                 // 确保有足够的列（至少11列）
                 const minCols = 11;
                 while (cells.length < minCols) {
@@ -3636,8 +3673,10 @@ if ($current_user_id && count($user_companies) > 0) {
                             } else {
                                 labelText = cellText;
                             }
-                            // 清除原单元格
-                            cells[i].textContent = '';
+                            // 清除原单元格（如果不是第一列）
+                            if (i !== 0) {
+                                cells[i].textContent = '';
+                            }
                             break;
                         }
                     }
@@ -3652,8 +3691,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (amountCell && amountCell !== cells[10]) {
                     amountCell.textContent = '';
                 }
-                    if (cells[amountTargetIndex]) {
-                        cells[amountTargetIndex].textContent = amountValue;
+                if (cells[amountTargetIndex] && amountValue) {
+                    cells[amountTargetIndex].textContent = amountValue;
                 }
             });
         }
