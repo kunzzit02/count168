@@ -2522,24 +2522,27 @@ function getCurrentProcessId() {
             // Normalize idProduct for comparison
             const normalizedIdProduct = normalizeIdProductText(idProduct);
             
-            rows.forEach((row, currentRowIndex) => {
+            // Convert rowIndex to number if provided
+            let targetRowIndex = null;
+            if (rowIndex !== null && rowIndex !== undefined) {
+                targetRowIndex = typeof rowIndex === 'number' ? rowIndex : parseInt(String(rowIndex), 10);
+                if (isNaN(targetRowIndex)) {
+                    targetRowIndex = null;
+                }
+            }
+            
+            console.log('updateIdProductRowData called with idProduct:', idProduct, 'rowIndex:', rowIndex, 'targetRowIndex:', targetRowIndex);
+            
+            // If rowIndex is provided, only process that specific row
+            // Otherwise, process all rows with matching id_product
+            if (targetRowIndex !== null && targetRowIndex >= 0 && targetRowIndex < rows.length) {
+                // Process only the specific row
+                const row = rows[targetRowIndex];
                 const rowIdProduct = row.getAttribute('data-id-product');
-                
-                // Normalize row id_product for comparison
                 const normalizedRowIdProduct = rowIdProduct ? normalizeIdProductText(rowIdProduct.trim()) : '';
                 
-                // If rowIndex is provided, only process that specific row by index
-                // Otherwise, process all rows with matching id_product
-                const matchesIdProduct = normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct;
-                
-                // CRITICAL: When rowIndex is provided, use exact index match
-                // This ensures we get the correct row when there are duplicates
-                let matchesRowIndex = true;
-                if (rowIndex !== null && rowIndex !== undefined) {
-                    matchesRowIndex = currentRowIndex === rowIndex;
-                }
-                
-                if (matchesIdProduct && matchesRowIndex) {
+                if (normalizedRowIdProduct === normalizedIdProduct) {
+                    console.log('updateIdProductRowData: Processing specific row at index', targetRowIndex);
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
@@ -2551,7 +2554,7 @@ function getCurrentProcessId() {
                             if (cellValue !== '') {
                                 // Create a separate option for each column data
                                 const option = document.createElement('option');
-                                option.value = `${currentRowIndex}:${columnIndex}`; // Store row index and column index as value
+                                option.value = `${targetRowIndex}:${columnIndex}`; // Store row index and column index as value
                                 option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
                                 descriptionSelect2.appendChild(option);
                                 
@@ -2562,8 +2565,42 @@ function getCurrentProcessId() {
                             }
                         }
                     });
+                } else {
+                    console.warn('updateIdProductRowData: Row at index', targetRowIndex, 'does not match idProduct. Expected:', normalizedIdProduct, 'Found:', normalizedRowIdProduct);
                 }
-            });
+            } else {
+                // Process all rows with matching id_product (fallback when rowIndex not provided)
+                console.log('updateIdProductRowData: Processing all rows with matching idProduct (rowIndex not provided)');
+                rows.forEach((row, currentRowIndex) => {
+                    const rowIdProduct = row.getAttribute('data-id-product');
+                    const normalizedRowIdProduct = rowIdProduct ? normalizeIdProductText(rowIdProduct.trim()) : '';
+                    
+                    if (normalizedRowIdProduct === normalizedIdProduct) {
+                        // Get all data cells (skip row header and id_product column)
+                        const cells = row.querySelectorAll('td');
+                        
+                        cells.forEach((cell, cellIndex) => {
+                            const columnIndex = cell.getAttribute('data-column-index');
+                            if (columnIndex && parseInt(columnIndex) > 1) {
+                                // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                                const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                                if (cellValue !== '') {
+                                    // Create a separate option for each column data
+                                    const option = document.createElement('option');
+                                    option.value = `${currentRowIndex}:${columnIndex}`; // Store row index and column index as value
+                                    option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
+                                    descriptionSelect2.appendChild(option);
+                                    
+                                    // Store first option value for auto-selection
+                                    if (firstOptionValue === null) {
+                                        firstOptionValue = option.value;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            }
 
             // Auto-select first option if available
             if (firstOptionValue !== null) {
