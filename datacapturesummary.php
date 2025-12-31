@@ -1619,40 +1619,67 @@ function getCurrentProcessId() {
             // Load id product list into first select box
             loadIdProductList();
             
-            // If editing and we have row index, set descriptionSelect1 to the correct value
-            if (prePopulatedData && prePopulatedData.dataCaptureRowIndex !== null && prePopulatedData.dataCaptureRowIndex !== undefined) {
-                setTimeout(() => {
-                    const descriptionSelect1 = document.getElementById('descriptionSelect1');
-                    if (descriptionSelect1 && productValue) {
+            // CRITICAL: When editing, automatically set descriptionSelect1 based on currentEditRow's data-row-index
+            // This ensures the correct row is selected even after page refresh
+            setTimeout(() => {
+                const descriptionSelect1 = document.getElementById('descriptionSelect1');
+                const processInput = document.getElementById('process');
+                
+                if (descriptionSelect1 && processInput && productValue) {
+                    let targetRowIndex = null;
+                    let targetRowLabel = null;
+                    
+                    // Priority 1: Use prePopulatedData.dataCaptureRowIndex if provided
+                    if (prePopulatedData && prePopulatedData.dataCaptureRowIndex !== null && prePopulatedData.dataCaptureRowIndex !== undefined) {
+                        targetRowIndex = prePopulatedData.dataCaptureRowIndex;
+                    }
+                    // Priority 2: Use currentEditRow's data-row-index (works even after page refresh)
+                    else if (window.currentEditRow) {
+                        const rowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
+                        if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
+                            const rowIndex = Number(rowIndexAttr);
+                            if (!isNaN(rowIndex) && rowIndex >= 0 && rowIndex < 999999) {
+                                // Verify this row has the matching id_product
+                                const editRowIdProduct = getProcessValueFromRow(window.currentEditRow);
+                                const normalizedEditRowIdProduct = normalizeIdProductText(editRowIdProduct);
+                                const normalizedProductValue = normalizeIdProductText(productValue);
+                                if (normalizedEditRowIdProduct === normalizedProductValue) {
+                                    targetRowIndex = rowIndex;
+                                    console.log('Auto-detected row index from currentEditRow data-row-index:', targetRowIndex);
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (targetRowIndex !== null) {
+                        // Get row label from the target row
+                        const capturedTableBody = document.getElementById('capturedTableBody');
+                        if (capturedTableBody) {
+                            const rows = capturedTableBody.querySelectorAll('tr');
+                            if (rows[targetRowIndex]) {
+                                const rowHeaderCell = rows[targetRowIndex].querySelector('.row-header');
+                                if (rowHeaderCell) {
+                                    targetRowLabel = rowHeaderCell.textContent.trim();
+                                }
+                            }
+                        }
+                        
                         // Find the option that matches this id_product and row index
-                        const targetValue = `${productValue}|${prePopulatedData.dataCaptureRowIndex}`;
+                        const targetValue = `${productValue}|${targetRowIndex}`;
                         const option = Array.from(descriptionSelect1.options).find(opt => opt.value === targetValue);
                         if (option) {
                             descriptionSelect1.value = targetValue;
                             
                             // Store the selected row index and rowLabel for later use
-                            const processInput = document.getElementById('process');
-                            if (processInput) {
-                                processInput.setAttribute('data-selected-row-index', String(prePopulatedData.dataCaptureRowIndex));
-                                processInput.setAttribute('data-selected-id-product', productValue);
-                                
-                                // Get row label from the selected row
-                                const capturedTableBody = document.getElementById('capturedTableBody');
-                                if (capturedTableBody) {
-                                    const rows = capturedTableBody.querySelectorAll('tr');
-                                    if (rows[prePopulatedData.dataCaptureRowIndex]) {
-                                        const rowHeaderCell = rows[prePopulatedData.dataCaptureRowIndex].querySelector('.row-header');
-                                        if (rowHeaderCell) {
-                                            const rowLabel = rowHeaderCell.textContent.trim();
-                                            processInput.setAttribute('data-selected-row-label', rowLabel);
-                                            console.log('Stored selected row info (edit mode) - idProduct:', productValue, 'rowIndex:', prePopulatedData.dataCaptureRowIndex, 'rowLabel:', rowLabel);
-                                        }
-                                    }
-                                }
+                            processInput.setAttribute('data-selected-row-index', String(targetRowIndex));
+                            processInput.setAttribute('data-selected-id-product', productValue);
+                            if (targetRowLabel) {
+                                processInput.setAttribute('data-selected-row-label', targetRowLabel);
                             }
+                            console.log('Auto-selected row info (edit mode) - idProduct:', productValue, 'rowIndex:', targetRowIndex, 'rowLabel:', targetRowLabel);
                             
                             // Trigger update for second select box
-                            updateIdProductRowData(productValue, prePopulatedData.dataCaptureRowIndex);
+                            updateIdProductRowData(productValue, targetRowIndex);
                         } else {
                             // Fallback: try to find any option with matching id_product
                             const fallbackOption = Array.from(descriptionSelect1.options).find(opt => {
@@ -3627,6 +3654,67 @@ function getCurrentProcessId() {
                     if (selectedRowLabel && selectedIdProduct && selectedIdProduct.trim() === processValue.trim()) {
                         console.log('getRowLabelFromProcessValue: Using stored row label from descriptionSelect1 selection:', selectedRowLabel);
                         return selectedRowLabel;
+                    }
+                }
+                
+                // CRITICAL: If editing a summary row, use its data-row-index to find the correct row
+                // This ensures we use the correct row even after page refresh
+                if (window.currentEditRow) {
+                    const rowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
+                    if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
+                        const rowIndex = Number(rowIndexAttr);
+                        if (!isNaN(rowIndex) && rowIndex >= 0 && rowIndex < 999999) {
+                            // Get row label from Data Capture Table using rowIndex
+                            const capturedTableBody = document.getElementById('capturedTableBody');
+                            if (capturedTableBody) {
+                                const rows = capturedTableBody.querySelectorAll('tr');
+                                if (rows[rowIndex]) {
+                                    const rowHeaderCell = rows[rowIndex].querySelector('.row-header');
+                                    if (rowHeaderCell) {
+                                        const rowLabel = rowHeaderCell.textContent.trim();
+                                        // Verify this row has the matching id_product
+                                        const idProductCell = rows[rowIndex].querySelector('td[data-column-index="1"]') || rows[rowIndex].querySelectorAll('td')[1];
+                                        if (idProductCell) {
+                                            const rowIdProduct = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                            const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct);
+                                            const normalizedProcessValue = normalizeIdProductText(processValue);
+                                            if (normalizedRowIdProduct === normalizedProcessValue) {
+                                                console.log('getRowLabelFromProcessValue: Using row label from currentEditRow data-row-index:', rowLabel, 'rowIndex:', rowIndex);
+                                                return rowLabel;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Also try from parsed table data
+                            let parsedTableData;
+                            if (window.transformedTableData) {
+                                parsedTableData = window.transformedTableData;
+                            } else {
+                                const tableData = localStorage.getItem('capturedTableData');
+                                if (tableData) {
+                                    parsedTableData = JSON.parse(tableData);
+                                }
+                            }
+                            
+                            if (parsedTableData && parsedTableData.rows && parsedTableData.rows[rowIndex]) {
+                                const row = parsedTableData.rows[rowIndex];
+                                if (row && row.length > 0 && row[0].type === 'header') {
+                                    const rowLabel = row[0].value.trim();
+                                    // Verify id_product matches
+                                    if (row.length > 1 && row[1].type === 'data') {
+                                        const rowIdProduct = row[1].value;
+                                        const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct);
+                                        const normalizedProcessValue = normalizeIdProductText(processValue);
+                                        if (normalizedRowIdProduct === normalizedProcessValue) {
+                                            console.log('getRowLabelFromProcessValue: Using row label from parsedTableData using currentEditRow data-row-index:', rowLabel, 'rowIndex:', rowIndex);
+                                            return rowLabel;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 
@@ -6391,8 +6479,10 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 }
                 
-                // CRITICAL: If user has selected a specific row from descriptionSelect1, use that row index
-                // This ensures we read from the correct row when there are duplicate id_products
+                // CRITICAL: Determine which row to use when there are duplicate id_products
+                // Priority 1: User selection from descriptionSelect1
+                // Priority 2: Current editing row's data-row-index
+                // Priority 3: First matching row (fallback)
                 let targetRowIndex = null;
                 const processInput = document.getElementById('process');
                 if (processInput) {
@@ -6405,6 +6495,24 @@ function getCurrentProcessId() {
                         if (!isNaN(selectedRowIndex) && selectedRowIndex >= 0) {
                             targetRowIndex = selectedRowIndex;
                             console.log('getColumnValueFromCellReference: Using stored row index from descriptionSelect1 selection:', targetRowIndex);
+                        }
+                    }
+                }
+                
+                // If no user selection, try to use currentEditRow's data-row-index
+                if (targetRowIndex === null && window.currentEditRow) {
+                    const rowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
+                    if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
+                        const rowIndex = Number(rowIndexAttr);
+                        if (!isNaN(rowIndex) && rowIndex >= 0 && rowIndex < 999999) {
+                            // Verify this row has the matching id_product
+                            const editRowIdProduct = getProcessValueFromRow(window.currentEditRow);
+                            const normalizedEditRowIdProduct = normalizeIdProductText(editRowIdProduct);
+                            const normalizedProcessValue = normalizeIdProductText(processValue);
+                            if (normalizedEditRowIdProduct === normalizedProcessValue) {
+                                targetRowIndex = rowIndex;
+                                console.log('getColumnValueFromCellReference: Using row index from currentEditRow data-row-index:', targetRowIndex);
+                            }
                         }
                     }
                 }
