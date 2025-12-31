@@ -9033,19 +9033,21 @@ function getCurrentProcessId() {
             let sourceValue = '';
             
             // Extract columns from data-source-columns attribute
-            // CRITICAL FIX: Preserve id_product:column format (e.g., "ABC123:3 DEF456:4")
+            // CRITICAL FIX: Preserve id_product:column format (e.g., "ABC123:3 DEF456:4" or "OVERALL:A:6")
             // Do NOT convert to pure numbers, as this loses id_product information
             const columnsValue = row.getAttribute('data-source-columns') || '';
             
-            // Check if columnsValue is in new format (id_product:column_index)
+            // Check if columnsValue is in new format (id_product:column_index or id_product:row_label:column_index)
             const isNewFormat = isNewIdProductColumnFormat(columnsValue);
             
             // For backward compatibility: if old format (pure numbers), convert to comma-separated
             // But preserve new format as-is
             let clickedColumns = '';
             if (isNewFormat) {
-                // New format: preserve as-is (e.g., "ABC123:3 DEF456:4")
+                // New format: preserve as-is (e.g., "ABC123:3 DEF456:4" or "OVERALL:A:6")
+                // IMPORTANT: This format will be restored to data-clicked-cell-refs in populateFormWithData
                 clickedColumns = columnsValue;
+                console.log('editRowFormula - Found new format sourceColumns:', clickedColumns);
             } else {
                 // Old format: convert to comma-separated numbers for backward compatibility
                 const columnsArray = columnsValue ? columnsValue.split(/\s+/).map(c => parseInt(c)).filter(c => !isNaN(c)) : [];
