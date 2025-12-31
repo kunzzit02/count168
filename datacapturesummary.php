@@ -1732,8 +1732,8 @@ function getCurrentProcessId() {
                             }
                         }
                     }
-                }, 200); // Slightly longer delay to ensure loadIdProductList has finished
-            }
+                }
+            }, 200); // Slightly longer delay to ensure loadIdProductList has finished
             
             // Update formula data grid for current editing id product
             setTimeout(() => {
