@@ -149,9 +149,9 @@ if (isset($_GET['logout'])) {
         .dashboard-title {
             color: #002C49;
             text-align: left;
-            margin-top: clamp(12px, 1.04vw, 20px);
-            margin-bottom: clamp(16px, 1.35vw, 26px);
-            font-size: clamp(26px, 2.08vw, 40px);
+            margin-top: clamp(8px, 0.7vw, 16px);
+            margin-bottom: clamp(10px, 0.9vw, 18px);
+            font-size: clamp(24px, 1.9vw, 36px);
             font-family: 'Amaranth';
             font-weight: 500;
             letter-spacing: -0.025em;
@@ -221,19 +221,35 @@ if (isset($_GET['logout'])) {
         .dashboard-kpi-grid {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
+            height: 100%;
         }
         
         .dashboard-main-layout {
             display: grid;
             grid-template-columns: 1fr 2fr;
-            gap: clamp(16px, 1.67vw, 32px);
-            margin-bottom: clamp(14px, 1.67vw, 32px);
+            gap: clamp(12px, 1.3vw, 24px);
+            height: calc(100vh - 240px);
+            min-height: 450px;
+            max-height: calc(100vh - 240px);
+        }
+        
+        .dashboard-kpi-card-vertical {
+            min-height: 0;
+        }
+        
+        .dashboard-card {
+            height: 100%;
+        }
+        
+        .dashboard-chart-container {
+            height: calc(100% - 50px);
         }
         
         @media (max-width: 1200px) {
             .dashboard-main-layout {
                 grid-template-columns: 1fr;
+                height: auto;
             }
         }
         
@@ -246,9 +262,9 @@ if (isset($_GET['logout'])) {
         }
 
         .dashboard-kpi-card-vertical .icon {
-            width: 50px;
-            height: 50px;
-            font-size: clamp(20px, 1.5vw, 28px);
+            width: 40px;
+            height: 40px;
+            font-size: clamp(18px, 1.3vw, 24px);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -257,7 +273,7 @@ if (isset($_GET['logout'])) {
         }
 
         .dashboard-kpi-card-vertical .kpi-label {
-            font-size: clamp(10px, 0.84vw, 16px);
+            font-size: clamp(9px, 0.7vw, 14px);
             color: #000000;
             font-weight: bold;
             margin-bottom: 0px;
@@ -265,16 +281,21 @@ if (isset($_GET['logout'])) {
         }
 
         .dashboard-kpi-card-vertical .kpi-value {
-            font-size: clamp(16px, 1.25vw, 24px);
+            font-size: clamp(14px, 1.1vw, 20px);
             font-weight: bold;
             color: #111827;
             font-family: 'Amaranth', sans-serif;
         }
         
+        .dashboard-card-body {
+            padding: clamp(10px, 0.8vw, 16px) clamp(12px, 1vw, 20px);
+        }
+        
         .dashboard-chart-container {
             position: relative;
-            height: 400px;
             width: 100%;
+            flex: 1;
+            min-height: 0;
         }
 
         .dashboard-date-controls {
@@ -282,6 +303,7 @@ if (isset($_GET['logout'])) {
             flex-wrap: wrap;
             gap: clamp(10px, 1.5vw, 30px);
             align-items: center;
+            margin-bottom: 12px;
         }
 
         .dashboard-enhanced-date-picker {
@@ -432,9 +454,23 @@ if (isset($_GET['logout'])) {
             padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
             background: rgba(255, 255, 255, 1);
             border-radius: 6px;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             border: 1px solid #e5e7eb;
             font-family: 'Amaranth', sans-serif;
+        }
+        
+        .dashboard-content {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(12px, 1.3vw, 20px);
+        }
+        
+        .dashboard-container {
+            padding-bottom: 20px;
+        }
+        
+        body.dashboard-page {
+            overflow: hidden;
         }
 
         .text-green { color: #10b981; }
@@ -560,10 +596,10 @@ if (isset($_GET['logout'])) {
                 </div>
                 
                 <!-- Right: Chart -->
-                <div class="dashboard-card" style="height: 400px;">
+                <div class="dashboard-card">
                     <div class="dashboard-card-body" style="height: 100%; display: flex; flex-direction: column;">
-                        <h3 style="font-size: clamp(14px, 1.04vw, 20px); font-weight: 600; color: #111827; margin-bottom: 16px; font-family: 'Amaranth', sans-serif;">趋势图表</h3>
-                        <div class="dashboard-chart-container" style="flex: 1;">
+                        <h3 style="font-size: clamp(14px, 1.04vw, 20px); font-weight: 600; color: #111827; margin-bottom: 12px; font-family: 'Amaranth', sans-serif;">趋势图表</h3>
+                        <div class="dashboard-chart-container">
                             <canvas id="trend-chart"></canvas>
                         </div>
                     </div>
