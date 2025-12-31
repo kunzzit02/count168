@@ -14305,48 +14305,7 @@ function formatPercentValue(value) {
                 
                 // Collect all rows with data from summary table
                 const summaryTableBody = document.getElementById('summaryTableBody');
-                const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                
-                // IMPORTANT: Sort rows by original order (row_index) without grouping by id_product
-                // This preserves the original paste order from Data Capture Table
-                // For rows with row_index, sort by row_index (preserves original paste order)
-                // For rows without row_index, sort by creation_order or DOM order
-                const sortedRows = allRows.map((row, domIndex) => {
-                    const rowIndexAttr = row.getAttribute('data-row-index');
-                    const rowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
-                        ? Number(rowIndexAttr)
-                        : null;
-                    
-                    const creationOrderAttr = row.getAttribute('data-creation-order');
-                    const creationOrder = creationOrderAttr ? Number(creationOrderAttr) : domIndex * 1000000;
-                    
-                    return {
-                        row,
-                        rowIndex,
-                        creationOrder,
-                        domIndex
-                    };
-                }).sort((a, b) => {
-                    // Rows with row_index come first, sorted by row_index (original paste order)
-                    if (a.rowIndex !== null && b.rowIndex !== null) {
-                        if (a.rowIndex !== b.rowIndex) {
-                            return a.rowIndex - b.rowIndex;
-                        }
-                        // If same row_index, maintain creation order
-                        return a.creationOrder - b.creationOrder;
-                    }
-                    // If one has row_index and one doesn't, row with index comes first
-                    if (a.rowIndex !== null && b.rowIndex === null) {
-                        return -1;
-                    }
-                    if (a.rowIndex === null && b.rowIndex !== null) {
-                        return 1;
-                    }
-                    // Both don't have row_index, sort by creation order
-                    return a.creationOrder - b.creationOrder;
-                });
-                
-                const rows = sortedRows.map(item => item.row);
+                const rows = summaryTableBody.querySelectorAll('tr');
                 const summaryRows = [];
                 const seenRows = new Set(); // Track seen rows to prevent duplicates
                 
