@@ -1222,8 +1222,10 @@ function getCurrentProcessId() {
                 if (processRowIndex >= 2 && processRowIndex < processRow.length) {
                     const cellData = processRow[processRowIndex];
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                        // Extract numeric value (remove formatting)
-                        const cellValue = cellData.value.toString();
+                        // Extract numeric value (remove formatting and $ symbol)
+                        let cellValue = cellData.value.toString();
+                        // Remove $ symbol
+                        cellValue = cellValue.replace(/\$/g, '');
                         const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
                         console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
                         return numericValue || cellValue;
@@ -1282,7 +1284,9 @@ function getCurrentProcessId() {
                 if (cellIndex >= 0 && cellIndex < cells.length) {
                     const cell = cells[cellIndex];
                     if (!cell.classList.contains('row-header')) {
-                        const cellValue = cell.textContent.trim();
+                        let cellValue = cell.textContent.trim();
+                        // Remove $ symbol
+                        cellValue = cellValue.replace(/\$/g, '');
                         // Extract numeric value (remove formatting)
                         const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
                         return numericValue || cellValue;
@@ -2566,6 +2570,29 @@ function getCurrentProcessId() {
             if (idProductList.length > 0) {
                 const firstOptionValue = `${idProductList[0].value}|${idProductList[0].rowIndex}`;
                 descriptionSelect1.value = firstOptionValue;
+                
+                // Store the selected row index and rowLabel for later use
+                // This ensures that when reading values (e.g., $数字 format), we use the correct row
+                const processInput = document.getElementById('process');
+                if (processInput) {
+                    processInput.setAttribute('data-selected-row-index', String(idProductList[0].rowIndex));
+                    processInput.setAttribute('data-selected-id-product', idProductList[0].value);
+                    
+                    // Get row label from the selected row
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const rows = capturedTableBody.querySelectorAll('tr');
+                        if (rows[idProductList[0].rowIndex]) {
+                            const rowHeaderCell = rows[idProductList[0].rowIndex].querySelector('.row-header');
+                            if (rowHeaderCell) {
+                                const rowLabel = rowHeaderCell.textContent.trim();
+                                processInput.setAttribute('data-selected-row-label', rowLabel);
+                                console.log('Stored selected row info (auto-select) - idProduct:', idProductList[0].value, 'rowIndex:', idProductList[0].rowIndex, 'rowLabel:', rowLabel);
+                            }
+                        }
+                    }
+                }
+                
                 // Trigger update for second select box (extract idProduct from value)
                 updateIdProductRowData(idProductList[0].value, idProductList[0].rowIndex);
             }
@@ -3627,6 +3654,35 @@ function getCurrentProcessId() {
                     if (selectedRowLabel && selectedIdProduct && selectedIdProduct.trim() === processValue.trim()) {
                         console.log('getRowLabelFromProcessValue: Using stored row label from descriptionSelect1 selection:', selectedRowLabel);
                         return selectedRowLabel;
+                    }
+                    
+                    // Also check descriptionSelect1 current value if stored info is not available
+                    // This handles the case when page is refreshed but descriptionSelect1 still has a value
+                    const descriptionSelect1 = document.getElementById('descriptionSelect1');
+                    if (descriptionSelect1 && descriptionSelect1.value && descriptionSelect1.value.includes('|')) {
+                        const [idProduct, rowIndexStr] = descriptionSelect1.value.split('|');
+                        if (idProduct.trim() === processValue.trim()) {
+                            const rowIndex = parseInt(rowIndexStr, 10);
+                            if (!isNaN(rowIndex)) {
+                                // Get row label from the selected row
+                                const capturedTableBody = document.getElementById('capturedTableBody');
+                                if (capturedTableBody) {
+                                    const rows = capturedTableBody.querySelectorAll('tr');
+                                    if (rows[rowIndex]) {
+                                        const rowHeaderCell = rows[rowIndex].querySelector('.row-header');
+                                        if (rowHeaderCell) {
+                                            const rowLabel = rowHeaderCell.textContent.trim();
+                                            // Store it for future use
+                                            processInput.setAttribute('data-selected-row-index', String(rowIndex));
+                                            processInput.setAttribute('data-selected-id-product', idProduct);
+                                            processInput.setAttribute('data-selected-row-label', rowLabel);
+                                            console.log('getRowLabelFromProcessValue: Retrieved row label from descriptionSelect1 value:', rowLabel);
+                                            return rowLabel;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 
@@ -6208,7 +6264,10 @@ function getCurrentProcessId() {
                         // Fix: Check for null/undefined explicitly, not truthy/falsy
                         // This ensures 0 and "0.00" values are included
                         if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                            const sanitizedValue = removeThousandsSeparators(cellData.value);
+                            // Remove $ symbol before processing
+                            let cellValue = cellData.value.toString();
+                            cellValue = cellValue.replace(/\$/g, '');
+                            const sanitizedValue = removeThousandsSeparators(cellValue);
                             const numValue = parseFloat(sanitizedValue);
                             if (!isNaN(numValue)) {
                                 values.push(numValue);
@@ -6346,8 +6405,10 @@ function getCurrentProcessId() {
                 if (colIndex >= 1 && colIndex < processRow.length) {
                     const cellData = processRow[colIndex];
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                        // Remove formatting and return numeric value
-                        const numericValue = removeThousandsSeparators(cellData.value.toString());
+                        // Remove formatting, $ symbol, and return numeric value
+                        let cellValue = cellData.value.toString();
+                        cellValue = cellValue.replace(/\$/g, ''); // Remove $ symbol
+                        const numericValue = removeThousandsSeparators(cellValue);
                         return numericValue;
                     }
                 }
@@ -6433,8 +6494,10 @@ function getCurrentProcessId() {
                 if (columnNumber >= 1 && columnNumber < processRow.length) {
                     const cellData = processRow[columnNumber];
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                        // Remove formatting and return numeric value
-                        const numericValue = removeThousandsSeparators(cellData.value.toString());
+                        // Remove formatting, $ symbol, and return numeric value
+                        let cellValue = cellData.value.toString();
+                        cellValue = cellValue.replace(/\$/g, ''); // Remove $ symbol
+                        const numericValue = removeThousandsSeparators(cellValue);
                         return numericValue;
                     }
                 }
