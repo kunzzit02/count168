@@ -3413,6 +3413,10 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // 把「MY EARNINGS / TOTAL」金额强制移到指定列（适配 Citibet / Citibet Major）
         function fixCitibetAmountColumns() {
+            // 完全禁用自动格式调整，保持用户粘贴时的原始格式
+            // 用户希望粘贴进去的格式长什么样子，submit的时候就是什么格式
+            return;
+            
             const tableBody = document.getElementById('tableBody');
             const tableHeader = document.getElementById('tableHeader');
             if (!tableBody || !tableHeader) return;
