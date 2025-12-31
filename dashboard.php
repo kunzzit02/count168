@@ -109,6 +109,8 @@ if (isset($_GET['logout'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>交易仪表盘 - EazyCount</title>
+    <link rel="icon" type="image/png" href="images/count_logo.png">
+    <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script>
@@ -117,100 +119,113 @@ if (isset($_GET['logout'])) {
         window.companyId = <?php echo isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 'null'; ?>;
     </script>
     <style>
-        * {
+        body.dashboard-page {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #faf7f2;
-            color: #000000;
             min-height: 100vh;
+            background-color: #e9f1ff;
+            background-image:
+                radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
+                radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+                radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
+                linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
+            background-blend-mode: screen, screen, multiply, screen, normal;
+            color: #334155;
             overflow-x: hidden;
             overflow-y: auto;
         }
-        
-        .container {
-            max-width: 1800px;
-            margin: 0 auto;
-            padding: clamp(16px, 1.25vw, 24px) 24px;
-        }
 
-        .main-content {
-            margin-left: 300px;
-            transition: margin-left 0.3s ease;
+        .dashboard-container {
+            max-width: none;
+            margin: 0;
+            padding: 1px clamp(20px, 2.08vw, 40px) 20px clamp(180px, 14.06vw, 270px);
+            width: 100%;
             min-height: 100vh;
-            position: relative;
-            overflow: visible;
+            box-sizing: border-box;
         }
 
-        .main-content.sidebar-collapsed {
-            margin-left: 60px;
+        .dashboard-title {
+            color: #002C49;
+            text-align: left;
+            margin-top: clamp(12px, 1.04vw, 20px);
+            margin-bottom: clamp(16px, 1.35vw, 26px);
+            font-size: clamp(26px, 2.08vw, 40px);
+            font-family: 'Amaranth';
+            font-weight: 500;
+            letter-spacing: -0.025em;
         }
 
-        html {
-            height: 100%;
-            overflow-x: hidden;
-            overflow-y: auto; 
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #c1c1c1;
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #a8a8a8;
-        }
-
-        html {
-            scrollbar-width: thin;
-            scrollbar-color: #c1c1c1 #f1f1f1;
-        }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
+        /* Company & Currency Buttons */
+        .transaction-company-filter {
+            display: none;
             align-items: center;
-            margin-bottom: clamp(16px, 1.67vw, 32px);
+            gap: clamp(8px, 0.83vw, 16px);
+            flex-wrap: wrap;
+            margin-top: 10px;
         }
-
-        .header h1 {
-            font-size: clamp(20px, 2.6vw, 50px);
+        .transaction-company-label {
             font-weight: bold;
-            color: #000000ff;
+            color: #374151;
+            font-size: small;
+            font-family: 'Amaranth', sans-serif;
+            white-space: nowrap;
+        }
+        .transaction-company-buttons {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+        .transaction-company-btn {
+            padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
+            background: #f1f5f9;
+            border: 1px solid #d0d7de;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: small;
+            transition: all 0.2s ease;
+            color: #1f2937;
+            font-weight: 600;
+        }
+        .transaction-company-btn:hover {
+            background: #e2e8f0;
+            border-color: #a5b4fc;
+        }
+        .transaction-company-btn.active {
+            background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
         
-        .card {
-            background: rgba(255, 255, 255, 1);
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        .dashboard-content {
+            display: flex;
+            flex-direction: column;
+            gap: clamp(16px, 1.35vw, 26px);
+        }
+        
+        .dashboard-card {
+            background-color: white;
             border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: clamp(12px, 1.04vw, 20px);
         }
         
-        .card-body {
+        .dashboard-card-body {
             padding: clamp(5.5px, 0.7vw, 13.5px) clamp(14px, 1.25vw, 24px);
         }
         
-        .kpi-grid {
+        .dashboard-kpi-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
             margin-bottom: clamp(14px, 1.67vw, 32px);
         }
         
-        .kpi-card-vertical {
+        .dashboard-kpi-card-vertical {
             display: flex;
             flex-direction: column;
             align-items: left;
@@ -218,7 +233,7 @@ if (isset($_GET['logout'])) {
             gap: 0px;
         }
 
-        .kpi-card-vertical .icon {
+        .dashboard-kpi-card-vertical .icon {
             width: 50px;
             height: 50px;
             font-size: clamp(20px, 1.5vw, 28px);
@@ -229,26 +244,35 @@ if (isset($_GET['logout'])) {
             margin-bottom: clamp(0px, 0.21vw, 4px);
         }
 
-        .kpi-card-vertical .kpi-label {
+        .dashboard-kpi-card-vertical .kpi-label {
             font-size: clamp(10px, 0.84vw, 16px);
             color: #000000;
             font-weight: bold;
             margin-bottom: 0px;
+            font-family: 'Amaranth', sans-serif;
         }
 
-        .kpi-card-vertical .kpi-value {
+        .dashboard-kpi-card-vertical .kpi-value {
             font-size: clamp(16px, 1.25vw, 24px);
             font-weight: bold;
             color: #111827;
+            font-family: 'Amaranth', sans-serif;
         }
         
-        .chart-container {
+        .dashboard-chart-container {
             position: relative;
             height: 400px;
             width: 100%;
         }
 
-        .enhanced-date-picker {
+        .dashboard-date-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: clamp(10px, 1.5vw, 30px);
+            align-items: center;
+        }
+
+        .dashboard-enhanced-date-picker {
             display: flex;
             align-items: center;
             background: white;
@@ -261,12 +285,12 @@ if (isset($_GET['logout'])) {
             position: relative;
         }
 
-        .enhanced-date-picker:focus-within {
+        .dashboard-enhanced-date-picker:focus-within {
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
-        .date-part {
+        .dashboard-date-part {
             position: relative;
             cursor: pointer;
             padding: 0px clamp(2px, 0.42vw, 8px);
@@ -278,28 +302,30 @@ if (isset($_GET['logout'])) {
             border: 1px solid transparent;
             font-size: clamp(8px, 0.74vw, 14px);
             color: #374151;
+            font-family: 'Amaranth', sans-serif;
         }
 
-        .date-part:hover {
+        .dashboard-date-part:hover {
             background-color: #f3f4f6;
             border-color: #d1d5db;
         }
 
-        .date-part.active {
+        .dashboard-date-part.active {
             background-color: #f99e00;
             color: white;
             border-color: #f99e00;
         }
 
-        .date-separator {
+        .dashboard-date-separator {
             color: #9ca3af;
             font-size: clamp(8px, 0.74vw, 14px);
             font-weight: 500;
             user-select: none;
             margin: 0 2px;
+            font-family: 'Amaranth', sans-serif;
         }
 
-        .date-dropdown {
+        .dashboard-date-dropdown {
             position: absolute;
             top: 120%;
             left: 0;
@@ -315,7 +341,7 @@ if (isset($_GET['logout'])) {
             display: none;
         }
 
-        .date-dropdown.show {
+        .dashboard-date-dropdown.show {
             display: block;
             animation: dropdownFadeIn 0.2s ease-out;
         }
@@ -331,21 +357,21 @@ if (isset($_GET['logout'])) {
             }
         }
 
-        .year-grid, .month-grid {
+        .dashboard-year-grid, .dashboard-month-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: clamp(0px, 0.21vw, 4px);
             padding: clamp(2px, 0.36vw, 8px);
         }
 
-        .day-grid {
+        .dashboard-day-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 0px;
             padding: 2px;
         }
 
-        .date-option {
+        .dashboard-date-option {
             padding: clamp(1px, 0.1vw, 2px);
             text-align: center;
             cursor: pointer;
@@ -355,43 +381,39 @@ if (isset($_GET['logout'])) {
             color: #374151;
             background: transparent;
             border: 1px solid transparent;
+            font-family: 'Amaranth', sans-serif;
         }
 
-        .date-option:hover {
+        .dashboard-date-option:hover {
             background-color: #f3f4f6;
             border-color: #d1d5db;
         }
 
-        .date-option.selected {
+        .dashboard-date-option.selected {
             background-color: #f99e00;
             color: white;
             border-color: #f99e00;
         }
 
-        .day-header {
+        .dashboard-day-header {
             padding: clamp(2px, 0.21vw, 4px);
             text-align: center;
             font-size: clamp(6px, 0.63vw, 12px);
             color: #6b7280;
             font-weight: 600;
+            font-family: 'Amaranth', sans-serif;
         }
 
-        .date-controls {
-            display: flex;
-            flex-wrap: wrap;
-            gap: clamp(10px, 1.5vw, 30px);
-            align-items: center;
-        }
-
-        .form-label {
+        .dashboard-form-label {
             display: block;
             font-size: clamp(8px, 0.74vw, 14px);
             font-weight: bold;
             color: #000000ff;
             margin-bottom: 8px;
+            font-family: 'Amaranth', sans-serif;
         }
 
-        .date-info {
+        .dashboard-date-info {
             font-size: clamp(8px, 0.74vw, 14px);
             font-weight: bold;
             color: #6b7280;
@@ -400,6 +422,7 @@ if (isset($_GET['logout'])) {
             border-radius: 6px;
             margin-bottom: 16px;
             border: 1px solid #e5e7eb;
+            font-family: 'Amaranth', sans-serif;
         }
 
         .text-green { color: #10b981; }
@@ -407,125 +430,130 @@ if (isset($_GET['logout'])) {
         .text-blue { color: #3b82f6; }
     </style>
 </head>
-<body>
+<body class="dashboard-page">
     <?php include 'sidebar.php'; ?>
     
-    <div class="main-content">
-        <div class="container">
-            <div class="header">
-                <h1>交易仪表盘</h1>
-            </div>
-            
-            <!-- 日期信息显示 -->
-            <div class="date-info" id="date-info" style="margin-bottom: 16px; border: 1px solid #e5e7eb;">
-                正在加载数据...
-            </div>
-            
-            <div id="app">
-                <!-- Date Controls -->
-                <div class="card" style="margin-bottom: clamp(14px, 1.67vw, 32px);">
-                    <div class="card-body">
-                        <div class="date-controls">
-                            <!-- 开始日期选择器 -->
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <label class="form-label" style="margin: 0;">开始日期</label>
-                                <div class="enhanced-date-picker" id="start-date-picker">
-                                    <div class="date-part" data-type="year" onclick="showDateDropdown('start', 'year')">
-                                        <span id="start-year-display">2024</span>
-                                    </div>
-                                    <span class="date-separator">年</span>
-                                    <div class="date-part" data-type="month" onclick="showDateDropdown('start', 'month')">
-                                        <span id="start-month-display">01</span>
-                                    </div>
-                                    <span class="date-separator">月</span>
-                                    <div class="date-part" data-type="day" onclick="showDateDropdown('start', 'day')">
-                                        <span id="start-day-display">01</span>
-                                    </div>
-                                    <span class="date-separator">日</span>
-                                    <div class="date-dropdown" id="start-dropdown"></div>
+    <div class="dashboard-container">
+        <h1 class="dashboard-title">交易仪表盘</h1>
+        
+        <!-- 日期信息显示 -->
+        <div class="dashboard-date-info" id="date-info" style="margin-bottom: 16px; border: 1px solid #e5e7eb;">
+            正在加载数据...
+        </div>
+        
+        <div id="app" class="dashboard-content">
+            <!-- Date Controls -->
+            <div class="dashboard-card">
+                <div class="dashboard-card-body">
+                    <div class="dashboard-date-controls">
+                        <!-- 开始日期选择器 -->
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label class="dashboard-form-label" style="margin: 0;">开始日期</label>
+                            <div class="dashboard-enhanced-date-picker" id="start-date-picker">
+                                <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('start', 'year')">
+                                    <span id="start-year-display">2024</span>
                                 </div>
+                                <span class="dashboard-date-separator">年</span>
+                                <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('start', 'month')">
+                                    <span id="start-month-display">01</span>
+                                </div>
+                                <span class="dashboard-date-separator">月</span>
+                                <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('start', 'day')">
+                                    <span id="start-day-display">01</span>
+                                </div>
+                                <span class="dashboard-date-separator">日</span>
+                                <div class="dashboard-date-dropdown" id="start-dropdown"></div>
                             </div>
-                            
-                            <!-- 结束日期选择器 -->
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <label class="form-label" style="margin: 0;">结束日期</label>
-                                <div class="enhanced-date-picker" id="end-date-picker">
-                                    <div class="date-part" data-type="year" onclick="showDateDropdown('end', 'year')">
-                                        <span id="end-year-display">2024</span>
-                                    </div>
-                                    <span class="date-separator">年</span>
-                                    <div class="date-part" data-type="month" onclick="showDateDropdown('end', 'month')">
-                                        <span id="end-month-display">01</span>
-                                    </div>
-                                    <span class="date-separator">月</span>
-                                    <div class="date-part" data-type="day" onclick="showDateDropdown('end', 'day')">
-                                        <span id="end-day-display">01</span>
-                                    </div>
-                                    <span class="date-separator">日</span>
-                                    <div class="date-dropdown" id="end-dropdown"></div>
+                        </div>
+                        
+                        <!-- 结束日期选择器 -->
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label class="dashboard-form-label" style="margin: 0;">结束日期</label>
+                            <div class="dashboard-enhanced-date-picker" id="end-date-picker">
+                                <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('end', 'year')">
+                                    <span id="end-year-display">2024</span>
                                 </div>
+                                <span class="dashboard-date-separator">年</span>
+                                <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('end', 'month')">
+                                    <span id="end-month-display">01</span>
+                                </div>
+                                <span class="dashboard-date-separator">月</span>
+                                <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('end', 'day')">
+                                    <span id="end-day-display">01</span>
+                                </div>
+                                <span class="dashboard-date-separator">日</span>
+                                <div class="dashboard-date-dropdown" id="end-dropdown"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Company Buttons -->
+                    <div id="company-buttons-wrapper" class="transaction-company-filter" style="margin-top: 16px;">
+                        <span class="transaction-company-label">Company:</span>
+                        <div id="company-buttons-container" class="transaction-company-buttons">
+                            <!-- Company buttons will be dynamically added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- KPI Cards - 3列 -->
+            <div class="dashboard-kpi-grid">
+                <!-- Capital -->
+                <div class="dashboard-card">
+                    <div class="dashboard-card-body">
+                        <div class="dashboard-kpi-card-vertical">
+                            <div class="icon text-blue">
+                                <i class="fas fa-wallet"></i>
+                            </div>
+                            <div>
+                                <p class="kpi-label">资本 (Capital)</p>
+                                <p class="kpi-value" id="capital-value">0</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- KPI Cards - 3列 -->
-                <div class="kpi-grid">
-                    <!-- Capital -->
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="kpi-card-vertical">
-                                <div class="icon text-blue">
-                                    <i class="fas fa-wallet"></i>
-                                </div>
-                                <div>
-                                    <p class="kpi-label">资本 (Capital)</p>
-                                    <p class="kpi-value" id="capital-value">0</p>
-                                </div>
+                <!-- Expenses -->
+                <div class="dashboard-card">
+                    <div class="dashboard-card-body">
+                        <div class="dashboard-kpi-card-vertical">
+                            <div class="icon text-red">
+                                <i class="fas fa-arrow-down"></i>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Expenses -->
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="kpi-card-vertical">
-                                <div class="icon text-red">
-                                    <i class="fas fa-arrow-down"></i>
-                                </div>
-                                <div>
-                                    <p class="kpi-label">支出 (Expenses)</p>
-                                    <p class="kpi-value" id="expenses-value">0</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Profit -->
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="kpi-card-vertical">
-                                <div class="icon text-green">
-                                    <i class="fas fa-chart-line"></i>
-                                </div>
-                                <div>
-                                    <p class="kpi-label">利润 (Profit)</p>
-                                    <p class="kpi-value" id="profit-value">0</p>
-                                </div>
+                            <div>
+                                <p class="kpi-label">支出 (Expenses)</p>
+                                <p class="kpi-value" id="expenses-value">0</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Chart -->
-                <div class="card" style="height: 400px;">
-                    <div class="card-body" style="height: 100%; display: flex; flex-direction: column;">
-                        <h3 style="font-size: clamp(14px, 1.04vw, 20px); font-weight: 600; color: #111827; margin-bottom: 16px;">趋势图表</h3>
-                        <div class="chart-container" style="flex: 1;">
-                            <canvas id="trend-chart"></canvas>
+                <!-- Profit -->
+                <div class="dashboard-card">
+                    <div class="dashboard-card-body">
+                        <div class="dashboard-kpi-card-vertical">
+                            <div class="icon text-green">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div>
+                                <p class="kpi-label">利润 (Profit)</p>
+                                <p class="kpi-value" id="profit-value">0</p>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Chart -->
+            <div class="dashboard-card" style="height: 400px;">
+                <div class="dashboard-card-body" style="height: 100%; display: flex; flex-direction: column;">
+                    <h3 style="font-size: clamp(14px, 1.04vw, 20px); font-weight: 600; color: #111827; margin-bottom: 16px; font-family: 'Amaranth', sans-serif;">趋势图表</h3>
+                    <div class="dashboard-chart-container" style="flex: 1;">
+                        <canvas id="trend-chart"></canvas>
+                    </div>
+                </div>
+            </div>
             </div>
         </div>
     </div>
@@ -571,10 +599,13 @@ if (isset($_GET['logout'])) {
             updateDateDisplay('end');
 
             document.addEventListener('click', function(e) {
-                if (!e.target.closest('.enhanced-date-picker')) {
+                if (!e.target.closest('.dashboard-enhanced-date-picker')) {
                     hideAllDropdowns();
                 }
             });
+            
+            // 加载公司列表
+            loadOwnerCompanies();
         }
 
         function updateDateDisplay(prefix) {
@@ -592,7 +623,7 @@ if (isset($_GET['logout'])) {
             currentDatePicker = prefix;
             currentDateType = type;
             
-            datePicker.querySelectorAll('.date-part').forEach(part => {
+            datePicker.querySelectorAll('.dashboard-date-part').forEach(part => {
                 part.classList.remove('active');
             });
             datePicker.querySelector(`[data-type="${type}"]`).classList.add('active');
@@ -602,10 +633,10 @@ if (isset($_GET['logout'])) {
         }
 
         function hideAllDropdowns() {
-            document.querySelectorAll('.date-dropdown').forEach(dropdown => {
+            document.querySelectorAll('.dashboard-date-dropdown').forEach(dropdown => {
                 dropdown.classList.remove('show');
             });
-            document.querySelectorAll('.date-part').forEach(part => {
+            document.querySelectorAll('.dashboard-date-part').forEach(part => {
                 part.classList.remove('active');
             });
             currentDatePicker = null;
@@ -621,11 +652,11 @@ if (isset($_GET['logout'])) {
             
             if (type === 'year') {
                 const yearGrid = document.createElement('div');
-                yearGrid.className = 'year-grid';
+                yearGrid.className = 'dashboard-year-grid';
                 const currentYear = today.getFullYear();
                 for (let year = 2022; year <= currentYear + 1; year++) {
                     const yearOption = document.createElement('div');
-                    yearOption.className = 'date-option';
+                    yearOption.className = 'dashboard-date-option';
                     yearOption.textContent = year;
                     if (year === dateValue.year) yearOption.classList.add('selected');
                     if (year === currentYear) yearOption.classList.add('today');
@@ -635,12 +666,12 @@ if (isset($_GET['logout'])) {
                 dropdown.appendChild(yearGrid);
             } else if (type === 'month') {
                 const monthGrid = document.createElement('div');
-                monthGrid.className = 'month-grid';
+                monthGrid.className = 'dashboard-month-grid';
                 const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
                 months.forEach((monthName, index) => {
                     const monthValue = index + 1;
                     const monthOption = document.createElement('div');
-                    monthOption.className = 'date-option';
+                    monthOption.className = 'dashboard-date-option';
                     monthOption.textContent = monthName;
                     if (monthValue === dateValue.month) monthOption.classList.add('selected');
                     monthOption.addEventListener('click', () => selectDateValue(prefix, 'month', monthValue));
@@ -649,11 +680,11 @@ if (isset($_GET['logout'])) {
                 dropdown.appendChild(monthGrid);
             } else if (type === 'day') {
                 const dayGrid = document.createElement('div');
-                dayGrid.className = 'day-grid';
+                dayGrid.className = 'dashboard-day-grid';
                 const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
                 weekdays.forEach(day => {
                     const dayHeader = document.createElement('div');
-                    dayHeader.className = 'day-header';
+                    dayHeader.className = 'dashboard-day-header';
                     dayHeader.textContent = day;
                     dayGrid.appendChild(dayHeader);
                 });
@@ -671,7 +702,7 @@ if (isset($_GET['logout'])) {
                 
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dayOption = document.createElement('div');
-                    dayOption.className = 'date-option';
+                    dayOption.className = 'dashboard-date-option';
                     dayOption.textContent = day;
                     if (day === dateValue.day) dayOption.classList.add('selected');
                     dayOption.addEventListener('click', () => selectDateValue(prefix, 'day', day));
@@ -849,9 +880,81 @@ if (isset($_GET['logout'])) {
             });
         }
 
+        // ==================== 加载 Owner Companies ====================
+        function loadOwnerCompanies() {
+            return fetch('transaction_get_owner_companies_api.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data.length > 0) {
+                        // 如果有多个 company，显示按钮
+                        if (data.data.length > 1) {
+                            const wrapper = document.getElementById('company-buttons-wrapper');
+                            const container = document.getElementById('company-buttons-container');
+                            container.innerHTML = '';
+                            
+                            data.data.forEach(company => {
+                                const btn = document.createElement('button');
+                                btn.className = 'transaction-company-btn';
+                                btn.textContent = company.company_id;
+                                btn.dataset.companyId = company.id;
+                                if (parseInt(company.id) === parseInt(window.companyId)) {
+                                    btn.classList.add('active');
+                                }
+                                btn.addEventListener('click', function() {
+                                    switchCompany(company.id, company.company_id);
+                                });
+                                container.appendChild(btn);
+                            });
+                            
+                            wrapper.style.display = 'flex';
+                        } else if (data.data.length === 1) {
+                            // 只有一个 company，直接设置
+                            window.companyId = data.data[0].id;
+                        }
+                    }
+                    return data;
+                })
+                .catch(error => {
+                    console.error('加载 Company 列表失败:', error);
+                    return { success: true, data: [] };
+                });
+        }
+        
+        // ==================== 切换 Company ====================
+        async function switchCompany(companyId, companyCode) {
+            // 先更新 session
+            try {
+                const response = await fetch(`update_company_session_api.php?company_id=${companyId}`);
+                const result = await response.json();
+                if (!result.success) {
+                    console.error('更新 session 失败:', result.error);
+                }
+            } catch (error) {
+                console.error('更新 session 时出错:', error);
+            }
+            
+            window.companyId = companyId;
+            
+            // 更新按钮状态
+            const buttons = document.querySelectorAll('.transaction-company-btn');
+            buttons.forEach(btn => {
+                if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
+            
+            // 重新加载数据
+            await loadData();
+        }
+
         // 初始化
         document.addEventListener('DOMContentLoaded', async function() {
             initDatePickers();
+            await loadOwnerCompanies();
             await loadData();
         });
     </script>
