@@ -4897,6 +4897,7 @@ function getCurrentProcessId() {
                         // sourceColumns format: "id_product:row_label:column_index" (e.g., "OVERALL:A:7 YONG:B:3")
                         // This is the format saved to database, and we need to restore it to data-clicked-cell-refs
                         let cellRefsToRestore = '';
+                        console.log('populateFormWithData - Checking data.sourceColumns:', data.sourceColumns, 'data.clickedColumns:', data.clickedColumns);
                         if (data.sourceColumns && data.sourceColumns.trim() !== '') {
                             // sourceColumns is already in the correct format (id_product:row_label:column_index)
                             cellRefsToRestore = data.sourceColumns.trim();
@@ -4905,6 +4906,8 @@ function getCurrentProcessId() {
                             // Fallback to clickedColumns (for backward compatibility)
                             cellRefsToRestore = data.clickedColumns.trim();
                             console.log('populateFormWithData - Restoring cell refs from clickedColumns:', cellRefsToRestore);
+                        } else {
+                            console.warn('populateFormWithData - No sourceColumns or clickedColumns found in data!');
                         }
                         
                         if (cellRefsToRestore) {
@@ -5564,31 +5567,106 @@ function getCurrentProcessId() {
             const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
             
             // 获取列引用格式（用于保存到 sourceColumns）
-            // 格式：id_product:row_label:column_index，如 "GGG:A:10 GGG:A:8"
+            // 格式：id_product:row_label:column_index，如 "OVERALL:A:7 YONG:B:3"
+            // CRITICAL: 必须从 data-clicked-cell-refs 中获取正确的 id product，而不是使用 processValue
             let sourceColumns = '';
             // formulaInput 已经在上面声明过了，直接使用
             if (formulaInput && formulaValue && formulaValue.trim() !== '') {
-                // 从 formulaValue 中提取所有 $数字，转换为列引用格式
-                const rowLabel = getRowLabelFromProcessValue(processValue);
-                if (rowLabel) {
+                // 优先从 data-clicked-cell-refs 中获取 cell reference（包含正确的 id product）
+                const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+                if (clickedCellRefs && clickedCellRefs.trim() !== '') {
+                    // data-clicked-cell-refs 格式：id_product:row_label:dataColumnIndex (e.g., "OVERALL:A:6 YONG:B:2")
+                    // 需要转换为 displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                    const cellRefsArray = clickedCellRefs.split(' ').filter(c => c.trim() !== '');
+                    const columnRefs = [];
+                    
+                    // 从 formulaValue 中提取所有 $数字，匹配到对应的 cell reference
                     const dollarPattern = /\$(\d+)(?!\d)/g;
                     let match;
                     dollarPattern.lastIndex = 0;
-                    const columnRefs = [];
+                    const dollarMatches = [];
                     
                     while ((match = dollarPattern.exec(formulaValue)) !== null) {
-                        const columnNumber = parseInt(match[1]);
+                        const columnNumber = parseInt(match[1]); // displayColumnIndex
                         if (!isNaN(columnNumber) && columnNumber > 0) {
-                            // 格式：id_product:row_label:column_index
-                            const columnRef = `${processValue}:${rowLabel}:${columnNumber}`;
-                            if (!columnRefs.includes(columnRef)) {
-                                columnRefs.push(columnRef);
-                            }
+                            dollarMatches.push({
+                                displayColumnIndex: columnNumber,
+                                index: match.index
+                            });
                         }
                     }
                     
+                    // 为每个 $数字 找到对应的 cell reference
+                    dollarMatches.forEach(dollarMatch => {
+                        // 查找匹配的 cell reference（dataColumnIndex = displayColumnIndex - 1）
+                        const dataColumnIndex = dollarMatch.displayColumnIndex - 1;
+                        const matchingCellRef = cellRefsArray.find(cellRef => {
+                            const parts = cellRef.split(':');
+                            if (parts.length >= 2) {
+                                const refDataColumnIndex = parseInt(parts[parts.length - 1]);
+                                return !isNaN(refDataColumnIndex) && refDataColumnIndex === dataColumnIndex;
+                            }
+                            return false;
+                        });
+                        
+                        if (matchingCellRef) {
+                            // 解析 cell reference: id_product:row_label:dataColumnIndex
+                            const parts = matchingCellRef.split(':');
+                            if (parts.length >= 2) {
+                                const idProductFromRef = parts[0];
+                                const rowLabelFromRef = parts.length >= 3 ? parts[1] : null;
+                                const dataColumnIndexFromRef = parseInt(parts[parts.length - 1]);
+                                
+                                if (rowLabelFromRef && !isNaN(dataColumnIndexFromRef)) {
+                                    // 格式：id_product:row_label:displayColumnIndex (保存时使用 displayColumnIndex)
+                                    const columnRef = `${idProductFromRef}:${rowLabelFromRef}:${dollarMatch.displayColumnIndex}`;
+                                    if (!columnRefs.includes(columnRef)) {
+                                        columnRefs.push(columnRef);
+                                    }
+                                }
+                            }
+                        } else {
+                            // 如果没有找到匹配的 cell reference，使用 processValue 作为 fallback
+                            const rowLabel = getRowLabelFromProcessValue(processValue);
+                            if (rowLabel) {
+                                const columnRef = `${processValue}:${rowLabel}:${dollarMatch.displayColumnIndex}`;
+                                if (!columnRefs.includes(columnRef)) {
+                                    columnRefs.push(columnRef);
+                                }
+                            }
+                        }
+                    });
+                    
                     if (columnRefs.length > 0) {
                         sourceColumns = columnRefs.join(' ');
+                        console.log('saveFormula - Built sourceColumns from data-clicked-cell-refs:', sourceColumns);
+                    }
+                }
+                
+                // 如果从 data-clicked-cell-refs 中没有提取到列引用，尝试从 $数字 格式中提取（使用 processValue 作为 fallback）
+                if (!sourceColumns) {
+                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    if (rowLabel) {
+                        const dollarPattern = /\$(\d+)(?!\d)/g;
+                        let match;
+                        dollarPattern.lastIndex = 0;
+                        const columnRefs = [];
+                        
+                        while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                            const columnNumber = parseInt(match[1]);
+                            if (!isNaN(columnNumber) && columnNumber > 0) {
+                                // 格式：id_product:row_label:column_index
+                                const columnRef = `${processValue}:${rowLabel}:${columnNumber}`;
+                                if (!columnRefs.includes(columnRef)) {
+                                    columnRefs.push(columnRef);
+                                }
+                            }
+                        }
+                        
+                        if (columnRefs.length > 0) {
+                            sourceColumns = columnRefs.join(' ');
+                            console.log('saveFormula - Built sourceColumns from $数字 format (fallback):', sourceColumns);
+                        }
                     }
                 }
                 
