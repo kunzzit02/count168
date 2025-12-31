@@ -770,9 +770,11 @@ function getCurrentProcessId() {
             });
             
             console.log('Column A data:', columnAData);
+            console.log('Column A data count (including duplicates):', columnAData.length);
             
             // Create rows for the original table
             // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
+            // CRITICAL: Create a row for EVERY value, including duplicates - do NOT skip duplicates
             columnAData.forEach((value, index) => {
                 if (value && value.trim() !== '') { // Only add non-empty values
                     const row = document.createElement('tr');
@@ -781,6 +783,19 @@ function getCurrentProcessId() {
                     // This ensures Summary Table order matches Data Capture Table order
                     row.setAttribute('data-row-index', String(index));
                     row.setAttribute('data-product-type', 'main');
+                    
+                    // Debug: Log when creating duplicate id_product rows
+                    const normalizedValue = normalizeIdProductText(value);
+                    const existingRows = originalTableBody.querySelectorAll('tr');
+                    const duplicateCount = Array.from(existingRows).filter(r => {
+                        const cell = r.querySelector('td:first-child');
+                        if (!cell) return false;
+                        const productValues = getProductValuesFromCell(cell);
+                        return normalizeIdProductText(productValues.main || '') === normalizedValue;
+                    }).length;
+                    if (duplicateCount > 0) {
+                        console.log(`Creating duplicate id_product row: "${value}" at index ${index} (this is occurrence #${duplicateCount + 1})`);
+                    }
                     
                     // Id Product column (merged main and sub)
                     const idProductCell = document.createElement('td');
@@ -874,7 +889,19 @@ function getCurrentProcessId() {
                 }
             });
             
-            console.log(`Populated ${columnAData.filter(v => v && v.trim() !== '').length} rows in original table`);
+            const populatedCount = columnAData.filter(v => v && v.trim() !== '').length;
+            const actualRowCount = originalTableBody.querySelectorAll('tr').length;
+            console.log(`Populated ${populatedCount} rows in original table (actual DOM rows: ${actualRowCount})`);
+            
+            // Debug: Log all created rows with their id_product and row_index
+            const allRows = originalTableBody.querySelectorAll('tr');
+            console.log('All created rows:');
+            allRows.forEach((row, idx) => {
+                const cell = row.querySelector('td:first-child');
+                const rowIndex = row.getAttribute('data-row-index');
+                const idProduct = cell ? cell.textContent.trim() : '';
+                console.log(`  Row ${idx}: id_product="${idProduct}", row_index=${rowIndex}`);
+            });
 
             updateProcessedAmountTotal();
 
@@ -11082,80 +11109,97 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             });
         }
 
-        // IMPORTANT: Process ALL idProducts in their original order (including duplicates)
-        // Do NOT use uniqueIds - we need to process each occurrence separately
+        // IMPORTANT: Process ALL Summary Table rows directly (not through idProducts array)
         // This ensures that when there are duplicate id_products (e.g., two "M99M06"),
-        // each one gets its own row and template applied correctly
-        idProducts.forEach((originalIdProduct, index) => {
-            if (!originalIdProduct || !originalIdProduct.trim()) {
-                return;
-            }
+        // each row gets its own template applied correctly based on its row_index
+        const summaryTableBody = document.getElementById('summaryTableBody');
+        if (summaryTableBody) {
+            const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
             
-            const normalizedIdProduct = normalizeIdProductText(originalIdProduct.trim());
-            if (!normalizedIdProduct) {
-                return;
-            }
+            // Track which templates have been applied to avoid duplicate application
+            const appliedTemplates = new Set();
             
-            if (templates[normalizedIdProduct]) {
-                // Check if there are multiple main templates for the same id_product (different accounts)
-                const template = templates[normalizedIdProduct];
-                if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
-                    // Sort templates by row_index to apply them in the correct order
-                    const sortedTemplates = [...template.allMains].sort((a, b) => {
-                        const aIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
-                        const bIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
-                        return aIndex - bIndex;
-                    });
+            allSummaryRows.forEach((summaryRow) => {
+                const idProductCell = summaryRow.querySelector('td:first-child');
+                if (!idProductCell) return;
+                
+                const productValues = getProductValuesFromCell(idProductCell);
+                const originalIdProduct = (productValues.main || '').trim();
+                if (!originalIdProduct) return;
+                
+                const normalizedIdProduct = normalizeIdProductText(originalIdProduct);
+                if (!normalizedIdProduct) return;
+                
+                // Get row_index for this row
+                const rowIndexAttr = summaryRow.getAttribute('data-row-index');
+                const currentRowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+                    ? Number(rowIndexAttr) : null;
+                
+                if (templates[normalizedIdProduct]) {
+                    const template = templates[normalizedIdProduct];
                     
-                    // Find the template that matches this row's position (row_index)
-                    // Use the row_index from the Summary Table row at this position
-                    const summaryTableBody = document.getElementById('summaryTableBody');
-                    if (summaryTableBody) {
-                        const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
-                        // Find the row at the current index position
-                        if (index < allSummaryRows.length) {
-                            const currentRow = allSummaryRows[index];
-                            const rowIndexAttr = currentRow.getAttribute('data-row-index');
-                            const currentRowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
-                                ? Number(rowIndexAttr) : null;
+                    if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
+                        // Sort templates by row_index to apply them in the correct order
+                        const sortedTemplates = [...template.allMains].sort((a, b) => {
+                            const aIndex = (a.row_index !== undefined && a.row_index !== null) ? Number(a.row_index) : 999999;
+                            const bIndex = (b.row_index !== undefined && b.row_index !== null) ? Number(b.row_index) : 999999;
+                            return aIndex - bIndex;
+                        });
+                        
+                        // Find template that matches this row's row_index
+                        let matchingTemplate = null;
+                        if (currentRowIndex !== null) {
+                            // Try exact match first
+                            matchingTemplate = sortedTemplates.find(t => {
+                                const tRowIndex = (t.row_index !== undefined && t.row_index !== null) ? Number(t.row_index) : null;
+                                return tRowIndex === currentRowIndex;
+                            });
                             
-                            // Find template that matches this row_index
-                            let matchingTemplate = null;
-                            if (currentRowIndex !== null) {
-                                matchingTemplate = sortedTemplates.find(t => 
-                                    t.row_index !== undefined && t.row_index !== null && Number(t.row_index) === currentRowIndex
-                                );
+                            // If no exact match, find the closest unused template
+                            if (!matchingTemplate) {
+                                // Find first unused template (not yet applied)
+                                for (const t of sortedTemplates) {
+                                    const templateKey = `${normalizedIdProduct}_${t.row_index}_${t.account_id}_${t.formula_variant}`;
+                                    if (!appliedTemplates.has(templateKey)) {
+                                        matchingTemplate = t;
+                                        break;
+                                    }
+                                }
                             }
-                            
-                            // If no exact match, use the first template (fallback)
-                            if (!matchingTemplate && sortedTemplates.length > 0) {
-                                matchingTemplate = sortedTemplates[0];
-                            }
-                            
-                            // Apply the matching template to this specific row
-                            if (matchingTemplate) {
-                                const mainRow = applyMainTemplateToRow(originalIdProduct.trim(), matchingTemplate);
-                                // Apply sub templates to this main row
-                                if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                                    applySubTemplatesToSummaryRow(originalIdProduct.trim(), mainRow, template.subs);
+                        } else {
+                            // If no row_index, use first unused template
+                            for (const t of sortedTemplates) {
+                                const templateKey = `${normalizedIdProduct}_${t.row_index}_${t.account_id}_${t.formula_variant}`;
+                                if (!appliedTemplates.has(templateKey)) {
+                                    matchingTemplate = t;
+                                    break;
                                 }
                             }
                         }
-                    } else {
-                        // Fallback: apply all templates (old behavior)
-                        sortedTemplates.forEach(mainTemplate => {
-                            const mainRow = applyMainTemplateToRow(originalIdProduct.trim(), mainTemplate);
+                        
+                        // Apply the matching template to this specific row
+                        if (matchingTemplate) {
+                            const templateKey = `${normalizedIdProduct}_${matchingTemplate.row_index}_${matchingTemplate.account_id}_${matchingTemplate.formula_variant}`;
+                            appliedTemplates.add(templateKey);
+                            
+                            const mainRow = applyMainTemplateToRow(originalIdProduct, matchingTemplate);
+                            // Apply sub templates to this main row
                             if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                                applySubTemplatesToSummaryRow(originalIdProduct.trim(), mainRow, template.subs);
+                                applySubTemplatesToSummaryRow(originalIdProduct, mainRow, template.subs);
                             }
-                        });
+                        }
+                    } else {
+                        // Fallback to original behavior for backward compatibility
+                        // Only apply if not already applied
+                        const templateKey = `${normalizedIdProduct}_default`;
+                        if (!appliedTemplates.has(templateKey)) {
+                            appliedTemplates.add(templateKey);
+                            applyTemplateToSummaryRow(originalIdProduct, template);
+                        }
                     }
-                } else {
-                    // Fallback to original behavior for backward compatibility
-                    applyTemplateToSummaryRow(originalIdProduct.trim(), template);
                 }
-            }
-        });
+            });
+        }
 
         // After applying all templates, reorder rows globally by row_index
         reorderSummaryRowsByRowIndex();
