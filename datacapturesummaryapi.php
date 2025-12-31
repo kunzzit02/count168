@@ -1398,13 +1398,28 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             // 如果以后真的需要一个「业务上的产品 ID」列，可以另外加字段，例如：
             //   ALTER TABLE data_capture_details ADD COLUMN business_product_id VARCHAR(255) NULL AFTER product_type;
             // 然后在下面的 INSERT 里一并写入。
+            
+            // Ensure display_order column exists to preserve row ordering
+            try {
+                $displayOrderColumnStmt = $pdo->query("SHOW COLUMNS FROM data_capture_details LIKE 'display_order'");
+                $hasDisplayOrder = $displayOrderColumnStmt && $displayOrderColumnStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$hasDisplayOrder) {
+                    $pdo->exec("ALTER TABLE data_capture_details ADD COLUMN display_order INT NULL AFTER rate");
+                    error_log('Added display_order column to data_capture_details');
+                }
+            } catch (Exception $columnException) {
+                error_log('display_order column check warning: ' . $columnException->getMessage());
+            }
+            
             $stmt = $pdo->prepare("
                 INSERT INTO data_capture_details 
-                (company_id, capture_id, id_product_main, description_main, id_product_sub, description_sub, product_type, formula_variant, account_id, currency_id, columns_value, source_value, source_percent, enable_source_percent, formula, processed_amount, rate) 
+                (company_id, capture_id, id_product_main, description_main, id_product_sub, description_sub, product_type, formula_variant, account_id, currency_id, columns_value, source_value, source_percent, enable_source_percent, formula, processed_amount, rate, display_order) 
                 VALUES 
-                (:company_id, :capture_id, :id_product_main, :description_main, :id_product_sub, :description_sub, :product_type, :formula_variant, :account_id, :currency_id, :columns_value, :source_value, :source_percent, :enable_source_percent, :formula, :processed_amount, :rate)
+                (:company_id, :capture_id, :id_product_main, :description_main, :id_product_sub, :description_sub, :product_type, :formula_variant, :account_id, :currency_id, :columns_value, :source_value, :source_percent, :enable_source_percent, :formula, :processed_amount, :rate, :display_order)
             ");
             
+            // Track display_order to preserve row order from frontend
+            $displayOrder = 0;
             foreach ($data['summaryRows'] as $row) {
                 // Validate row data
                 if (!isset($row['accountId'])) {
@@ -1415,6 +1430,11 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (empty($row['idProductMain']) && empty($row['idProductSub'])) {
                     throw new Exception('Missing required row data: idProductMain or idProductSub');
                 }
+                
+                // Get display_order from row data, or use auto-incrementing counter
+                // This preserves the exact order from the frontend summary table
+                $rowDisplayOrder = isset($row['displayOrder']) && $row['displayOrder'] !== null ? (int)$row['displayOrder'] : $displayOrder;
+                $displayOrder++;
                 
                 // Determine product_type: if idProductMain exists, it's 'main', otherwise 'sub'
                 $productType = 'main';
@@ -1577,6 +1597,15 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     $existingId = $existingRecord['id'];
                     error_log("Found duplicate data_capture_details record (ID: $existingId): capture_id=$captureId, product_type=$productType, id_product_main=" . ($row['idProductMain'] ?? 'NULL') . ", id_product_sub=" . ($row['idProductSub'] ?? 'NULL') . ", account_id=" . $row['accountId'] . " - Updating existing record instead of inserting");
                     
+                    // Get rate value: if rateChecked is true, use rateValue, otherwise NULL
+                    $rateValue = null;
+                    if (isset($row['rateChecked']) && $row['rateChecked']) {
+                        $rateValue = isset($row['rateValue']) && $row['rateValue'] !== '' && $row['rateValue'] !== null ? (float)$row['rateValue'] : null;
+                    }
+                    
+                    // Get display_order for update
+                    $rowDisplayOrderForUpdate = isset($row['displayOrder']) && $row['displayOrder'] !== null ? (int)$row['displayOrder'] : null;
+                    
                     // Update existing record instead of skipping
                     $updateStmt = $pdo->prepare("
                         UPDATE data_capture_details SET
@@ -1588,15 +1617,10 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                             enable_source_percent = :enable_source_percent,
                             formula = :formula,
                             processed_amount = :processed_amount,
-                            rate = :rate
+                            rate = :rate,
+                            display_order = :display_order
                         WHERE id = :id
                     ");
-                    
-                    // Get rate value: if rateChecked is true, use rateValue, otherwise NULL
-                    $rateValue = null;
-                    if (isset($row['rateChecked']) && $row['rateChecked']) {
-                        $rateValue = isset($row['rateValue']) && $row['rateValue'] !== '' && $row['rateValue'] !== null ? (float)$row['rateValue'] : null;
-                    }
                     
                     $updateStmt->execute([
                         ':id' => $existingId,
@@ -1609,7 +1633,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':enable_source_percent' => (isset($row['sourcePercent']) && $row['sourcePercent'] !== '' && $row['sourcePercent'] !== '0') ? 1 : 0,
                         ':formula' => $row['formula'] ?? '',
                         ':processed_amount' => $row['processedAmount'] ?? 0,
-                        ':rate' => $rateValue
+                        ':rate' => $rateValue,
+                        ':display_order' => $rowDisplayOrderForUpdate
                     ]);
                     
                     continue; // Skip insert, already updated
@@ -1640,7 +1665,8 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':enable_source_percent' => (isset($row['sourcePercent']) && $row['sourcePercent'] !== '' && $row['sourcePercent'] !== '0') ? 1 : 0,
                     ':formula' => $row['formula'] ?? '',
                     ':processed_amount' => $row['processedAmount'] ?? 0,
-                    ':rate' => $rateValue
+                    ':rate' => $rateValue,
+                    ':display_order' => $rowDisplayOrder
                 ]);
             }
             
