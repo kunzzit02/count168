@@ -11082,15 +11082,21 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             });
         }
 
-        // Match templates using original case-sensitive idProduct
-        // But use normalized version to find the row in the table
-        // IMPORTANT: Use original full idProduct value (from normalizedIdMap) when applying templates
-        // to preserve complete text (e.g., "AG(AGIN) - OP7AUD=SLOT" instead of just "AG")
-        uniqueIds.forEach(normalizedIdProduct => {
+        // IMPORTANT: Process ALL idProducts in their original order (including duplicates)
+        // Do NOT use uniqueIds - we need to process each occurrence separately
+        // This ensures that when there are duplicate id_products (e.g., two "M99M06"),
+        // each one gets its own row and template applied correctly
+        idProducts.forEach((originalIdProduct, index) => {
+            if (!originalIdProduct || !originalIdProduct.trim()) {
+                return;
+            }
+            
+            const normalizedIdProduct = normalizeIdProductText(originalIdProduct.trim());
+            if (!normalizedIdProduct) {
+                return;
+            }
+            
             if (templates[normalizedIdProduct]) {
-                // Get the original full idProduct value from the map
-                const originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
-                
                 // Check if there are multiple main templates for the same id_product (different accounts)
                 const template = templates[normalizedIdProduct];
                 if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
@@ -11101,19 +11107,52 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                         return aIndex - bIndex;
                     });
                     
-                    // Apply each main template to its corresponding row based on account_id and row_index
-                    // Use originalIdProduct (full value) instead of normalizedIdProduct
-                    sortedTemplates.forEach(mainTemplate => {
-                        const mainRow = applyMainTemplateToRow(originalIdProduct, mainTemplate);
-                        // Apply sub templates to each main row
-                        if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                            applySubTemplatesToSummaryRow(originalIdProduct, mainRow, template.subs);
+                    // Find the template that matches this row's position (row_index)
+                    // Use the row_index from the Summary Table row at this position
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    if (summaryTableBody) {
+                        const allSummaryRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                        // Find the row at the current index position
+                        if (index < allSummaryRows.length) {
+                            const currentRow = allSummaryRows[index];
+                            const rowIndexAttr = currentRow.getAttribute('data-row-index');
+                            const currentRowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+                                ? Number(rowIndexAttr) : null;
+                            
+                            // Find template that matches this row_index
+                            let matchingTemplate = null;
+                            if (currentRowIndex !== null) {
+                                matchingTemplate = sortedTemplates.find(t => 
+                                    t.row_index !== undefined && t.row_index !== null && Number(t.row_index) === currentRowIndex
+                                );
+                            }
+                            
+                            // If no exact match, use the first template (fallback)
+                            if (!matchingTemplate && sortedTemplates.length > 0) {
+                                matchingTemplate = sortedTemplates[0];
+                            }
+                            
+                            // Apply the matching template to this specific row
+                            if (matchingTemplate) {
+                                const mainRow = applyMainTemplateToRow(originalIdProduct.trim(), matchingTemplate);
+                                // Apply sub templates to this main row
+                                if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
+                                    applySubTemplatesToSummaryRow(originalIdProduct.trim(), mainRow, template.subs);
+                                }
+                            }
                         }
-                    });
+                    } else {
+                        // Fallback: apply all templates (old behavior)
+                        sortedTemplates.forEach(mainTemplate => {
+                            const mainRow = applyMainTemplateToRow(originalIdProduct.trim(), mainTemplate);
+                            if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
+                                applySubTemplatesToSummaryRow(originalIdProduct.trim(), mainRow, template.subs);
+                            }
+                        });
+                    }
                 } else {
                     // Fallback to original behavior for backward compatibility
-                    // Use originalIdProduct (full value) instead of normalizedIdProduct
-                    applyTemplateToSummaryRow(originalIdProduct, template);
+                    applyTemplateToSummaryRow(originalIdProduct.trim(), template);
                 }
             }
         });
