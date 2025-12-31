@@ -8169,6 +8169,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 tableData.rowCount = rows.length;
                 
                 // First pass: collect all row data and find maximum column count
+                // IMPORTANT: Preserve the exact row order from the table
                 let maxDataCols = 0;
                 const allRowData = [];
                 
@@ -8217,6 +8218,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         maxDataCols = dataCols;
                     }
                     
+                    // Store row data with its original index to preserve order
                     allRowData.push(rowData);
                 });
                 
@@ -8257,7 +8259,23 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // Add all row data to tableData
+                // IMPORTANT: Preserve the exact order of rows as they appear in the table
                 tableData.rows = allRowData;
+                
+                // Debug: Log Id Product column (index 1) values in order for CITIBET mode
+                if (typeof currentDataCaptureType !== 'undefined' && 
+                    (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR')) {
+                    const idProductOrder = [];
+                    allRowData.forEach((rowData, idx) => {
+                        if (rowData.length > 1 && rowData[1].type === 'data') {
+                            idProductOrder.push({
+                                index: idx,
+                                value: rowData[1].value
+                            });
+                        }
+                    });
+                    console.log('CITIBET Id Product order in captured data:', idProductOrder);
+                }
             }
             
             console.log('Captured table data:', tableData);

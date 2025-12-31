@@ -762,24 +762,36 @@ function getCurrentProcessId() {
             originalTableBody.innerHTML = '';
             
             // Get data from column A (index 1, since index 0 is row header)
+            // IMPORTANT: Preserve the original row order from Data Capture Table
+            // Store both the value and the original row index to maintain order
             const columnAData = [];
-            tableData.rows.forEach(rowData => {
+            tableData.rows.forEach((rowData, originalRowIndex) => {
                 if (rowData.length > 1 && rowData[1].type === 'data') {
-                    columnAData.push(rowData[1].value);
+                    const idProductValue = rowData[1].value;
+                    // Store both value and original index to preserve order
+                    columnAData.push({
+                        value: idProductValue,
+                        originalIndex: originalRowIndex
+                    });
                 }
             });
             
-            console.log('Column A data:', columnAData);
+            console.log('Column A data (with original indices):', columnAData);
             
             // Create rows for the original table
-            // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
-            columnAData.forEach((value, index) => {
+            // IMPORTANT: Maintain the exact order from Data Capture Table
+            // Filter out empty values but preserve the order of non-empty values
+            columnAData.forEach((item, displayIndex) => {
+                const value = item.value;
+                const originalIndex = item.originalIndex;
                 if (value && value.trim() !== '') { // Only add non-empty values
                     const row = document.createElement('tr');
                     
                     // Set data-row-index to match Data Capture Table row position
-                    // This ensures Summary Table order matches Data Capture Table order
-                    row.setAttribute('data-row-index', String(index));
+                    // Use originalIndex to preserve the exact order from Data Capture Table
+                    // This ensures Summary Table order matches Data Capture Table order exactly
+                    row.setAttribute('data-row-index', String(originalIndex));
+                    row.setAttribute('data-display-index', String(displayIndex));
                     row.setAttribute('data-product-type', 'main');
                     
                     // Id Product column (merged main and sub)
@@ -874,12 +886,16 @@ function getCurrentProcessId() {
                 }
             });
             
-            console.log(`Populated ${columnAData.filter(v => v && v.trim() !== '').length} rows in original table`);
+            // Count non-empty Id Products
+            const nonEmptyCount = columnAData.filter(item => item.value && item.value.trim() !== '').length;
+            console.log(`Populated ${nonEmptyCount} rows in original table`);
 
             updateProcessedAmountTotal();
 
             // Attempt to auto-populate summary rows from saved templates
-            autoPopulateSummaryRowsFromTemplates(columnAData)
+            // Extract just the values (strings) for backward compatibility with autoPopulateSummaryRowsFromTemplates
+            const idProductValues = columnAData.map(item => item.value).filter(v => v && v.trim() !== '');
+            autoPopulateSummaryRowsFromTemplates(idProductValues)
                 .catch(error => console.error('Auto-populate templates error:', error))
                 .finally(() => updateProcessedAmountTotal());
         }
