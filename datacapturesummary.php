@@ -1294,27 +1294,45 @@ function getCurrentProcessId() {
         
         function buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, currentEditRow = null) {
             // Build reference format formula: [id_product : column_number] or [id_product : cell_position] or [id_product : column_index] (new format)
+            // Supports: "id_product:row_label:column_index" (e.g., "OVERALL:A:4") or "id_product:column_index" (e.g., "ABC123:3")
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 return '';
             }
             
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             
-            // Check for new format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
-            const newFormatPattern = /^[^:]+:\d+$/;
             const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
-            const isNewFormat = parts.length > 0 && newFormatPattern.test(parts[0]);
             
-            if (isNewFormat) {
-                // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
-                // Build reference format expression: [ABC123 : 3] + [DEF456 : 4]
+            // Check for new format with row label: "id_product:row_label:column_index" (e.g., "OVERALL:A:4")
+            const newFormatWithRowLabelPattern = /^[^:]+:[A-Z]+:\d+$/;
+            // Check for new format without row label: "id_product:column_index" (e.g., "ABC123:3")
+            const newFormatWithoutRowLabelPattern = /^[^:]+:\d+$/;
+            const isNewFormatWithRowLabel = parts.length > 0 && newFormatWithRowLabelPattern.test(parts[0]);
+            const isNewFormatWithoutRowLabel = parts.length > 0 && newFormatWithoutRowLabelPattern.test(parts[0]);
+            
+            if (isNewFormatWithRowLabel || isNewFormatWithoutRowLabel) {
+                // New format: "id_product:row_label:column_index" or "id_product:column_index"
+                // Build reference format expression: [OVERALL : 4] + [ABC123 : 3]
                 const references = [];
                 parts.forEach(part => {
-                    const match = part.match(/^([^:]+):(\d+)$/);
+                    // Try format with row label first: "id_product:row_label:column_index"
+                    let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                     if (match) {
                         const idProduct = match[1];
-                        const columnIndex = match[2];
+                        const rowLabel = match[2];
+                        const columnIndex = match[3];
+                        // Include row label in reference to distinguish multiple rows with same id_product
                         references.push(`[${idProduct} : ${columnIndex}]`);
+                        console.log('buildSourceExpressionFromTable: new format with row label - idProduct:', idProduct, 'rowLabel:', rowLabel, 'columnIndex:', columnIndex);
+                    } else {
+                        // Fallback to format without row label: "id_product:column_index"
+                        match = part.match(/^([^:]+):(\d+)$/);
+                        if (match) {
+                            const idProduct = match[1];
+                            const columnIndex = match[2];
+                            references.push(`[${idProduct} : ${columnIndex}]`);
+                            console.log('buildSourceExpressionFromTable: new format without row label - idProduct:', idProduct, 'columnIndex:', columnIndex);
+                        }
                     }
                 });
                 
@@ -1324,6 +1342,7 @@ function getCurrentProcessId() {
                         const operator = operatorsString[i - 1] || '+';
                         expression += ` ${operator} ${references[i]}`;
                     }
+                    console.log('buildSourceExpressionFromTable: built expression from new format:', expression);
                     return expression;
                 }
             }
@@ -6469,25 +6488,82 @@ function getCurrentProcessId() {
                 }
                 
                 // Finally, parse reference format if present (e.g., [id_product : column_number])
+                // IMPORTANT: Try to get row_label from data-clicked-cell-refs to distinguish multiple rows with same id_product
                 const referencePattern = /\[([^\]]+)\s*:\s*(\d+)\]/g;
+                const formulaInput = document.getElementById('formula');
+                const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+                const refsMap = new Map(); // Map to store id_product:column -> row_label
                 
+                // Build map from data-clicked-cell-refs (format: "id_product:row_label:column_index" or "id_product:column_index")
+                if (clickedCellRefs && clickedCellRefs.trim() !== '') {
+                    const refs = clickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
+                    refs.forEach(ref => {
+                        const parts = ref.split(':');
+                        if (parts.length >= 2) {
+                            const refIdProduct = parts[0];
+                            const refColumnIndex = parts[parts.length - 1];
+                            const refRowLabel = parts.length === 3 ? parts[1] : null;
+                            const key = `${refIdProduct}:${refColumnIndex}`;
+                            refsMap.set(key, refRowLabel);
+                            console.log('parseReferenceFormula: Mapped ref key:', key, 'to rowLabel:', refRowLabel);
+                        }
+                    });
+                }
+                
+                // Reset regex lastIndex before using it
+                referencePattern.lastIndex = 0;
+                const referenceMatches = [];
+                let match;
+                
+                // Collect all matches first
                 while ((match = referencePattern.exec(parsedFormula)) !== null) {
-                    const fullMatch = match[0]; // e.g., "[iphsp3 : 4]"
-                    const idProduct = match[1].trim(); // e.g., "iphsp3"
-                    const columnNumber = match[2]; // e.g., "4"
+                    referenceMatches.push({
+                        fullMatch: match[0],
+                        idProduct: match[1].trim(),
+                        columnNumber: match[2],
+                        index: match.index
+                    });
+                }
+                
+                // Replace from end to start to preserve indices
+                referenceMatches.sort((a, b) => b.index - a.index);
+                
+                referenceMatches.forEach(refMatch => {
+                    const fullMatch = refMatch.fullMatch; // e.g., "[iphsp3 : 4]"
+                    const idProduct = refMatch.idProduct; // e.g., "iphsp3"
+                    const columnNumber = parseInt(refMatch.columnNumber); // e.g., 4
+                    const dataColumnIndex = columnNumber - 1; // Convert display column to data column index
+                    const key = `${idProduct}:${dataColumnIndex}`;
+                    const rowLabel = refsMap.get(key);
                     
-                    // Get the actual value
-                    const columnValue = getColumnValueByIdProduct(idProduct, columnNumber);
+                    console.log('parseReferenceFormula: Parsing reference', fullMatch, 'idProduct:', idProduct, 'columnNumber:', columnNumber, 'dataColumnIndex:', dataColumnIndex, 'rowLabel from map:', rowLabel);
+                    
+                    // Get the actual value using getCellValueByIdProductAndColumn (supports row_label)
+                    const columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
                     
                     if (columnValue !== null) {
                         // Replace the reference with the actual value
-                        parsedFormula = parsedFormula.replace(fullMatch, columnValue);
+                        parsedFormula = parsedFormula.substring(0, refMatch.index) + 
+                                       columnValue + 
+                                       parsedFormula.substring(refMatch.index + fullMatch.length);
+                        console.log('parseReferenceFormula: Replaced', fullMatch, 'with', columnValue);
                     } else {
-                        // If value not found, keep the reference or replace with 0
-                        console.warn(`Column value not found for [${idProduct} : ${columnNumber}]`);
-                        parsedFormula = parsedFormula.replace(fullMatch, '0');
+                        // If value not found, try without row_label (backward compatibility)
+                        const fallbackValue = getColumnValueByIdProduct(idProduct, columnNumber);
+                        if (fallbackValue !== null) {
+                            parsedFormula = parsedFormula.substring(0, refMatch.index) + 
+                                           fallbackValue + 
+                                           parsedFormula.substring(refMatch.index + fullMatch.length);
+                            console.log('parseReferenceFormula: Replaced', fullMatch, 'with fallback value', fallbackValue);
+                        } else {
+                            // If value not found, replace with 0
+                            console.warn(`Column value not found for [${idProduct} : ${columnNumber}]`);
+                            parsedFormula = parsedFormula.substring(0, refMatch.index) + 
+                                           '0' + 
+                                           parsedFormula.substring(refMatch.index + fullMatch.length);
+                        }
                     }
-                }
+                });
                 
                 return parsedFormula;
             } catch (error) {
