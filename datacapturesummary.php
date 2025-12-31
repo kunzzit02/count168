@@ -1614,6 +1614,46 @@ function getCurrentProcessId() {
             // Load id product list into first select box
             loadIdProductList();
             
+            // If editing and we have row index, set descriptionSelect1 to the correct value
+            if (prePopulatedData && prePopulatedData.dataCaptureRowIndex !== null && prePopulatedData.dataCaptureRowIndex !== undefined) {
+                setTimeout(() => {
+                    const descriptionSelect1 = document.getElementById('descriptionSelect1');
+                    if (descriptionSelect1 && productValue) {
+                        // Find the option that matches this id_product and row index
+                        const targetValue = `${productValue}|${prePopulatedData.dataCaptureRowIndex}`;
+                        const option = Array.from(descriptionSelect1.options).find(opt => opt.value === targetValue);
+                        if (option) {
+                            descriptionSelect1.value = targetValue;
+                            // Trigger update for second select box
+                            updateIdProductRowData(productValue, prePopulatedData.dataCaptureRowIndex);
+                        } else {
+                            // Fallback: try to find any option with matching id_product
+                            const fallbackOption = Array.from(descriptionSelect1.options).find(opt => {
+                                if (opt.value && opt.value.includes('|')) {
+                                    const [idProduct] = opt.value.split('|');
+                                    return idProduct === productValue;
+                                }
+                                return opt.value === productValue;
+                            });
+                            if (fallbackOption) {
+                                descriptionSelect1.value = fallbackOption.value;
+                                if (fallbackOption.value.includes('|')) {
+                                    const [idProduct, rowIndexStr] = fallbackOption.value.split('|');
+                                    const rowIndex = parseInt(rowIndexStr, 10);
+                                    if (!isNaN(rowIndex)) {
+                                        updateIdProductRowData(idProduct, rowIndex);
+                                    } else {
+                                        updateIdProductRowData(idProduct);
+                                    }
+                                } else {
+                                    updateIdProductRowData(fallbackOption.value);
+                                }
+                            }
+                        }
+                    }
+                }, 200); // Slightly longer delay to ensure loadIdProductList has finished
+            }
+            
             // Update formula data grid for current editing id product
             setTimeout(() => {
                 updateFormulaDataGrid();
@@ -1624,7 +1664,20 @@ function getCurrentProcessId() {
                 const descriptionSelect1 = document.getElementById('descriptionSelect1');
                 if (descriptionSelect1) {
                     descriptionSelect1.addEventListener('change', function() {
-                        updateIdProductRowData(this.value);
+                        // Extract idProduct and rowIndex from value (format: "idProduct|rowIndex")
+                        const value = this.value;
+                        if (value && value.includes('|')) {
+                            const [idProduct, rowIndexStr] = value.split('|');
+                            const rowIndex = parseInt(rowIndexStr, 10);
+                            if (!isNaN(rowIndex)) {
+                                updateIdProductRowData(idProduct, rowIndex);
+                            } else {
+                                updateIdProductRowData(idProduct);
+                            }
+                        } else {
+                            // Fallback for old format (just idProduct)
+                            updateIdProductRowData(value);
+                        }
                     });
                 }
             }, 100);
@@ -2308,7 +2361,8 @@ function getCurrentProcessId() {
             insertCellValueToFormula(targetCell);
         }
 
-        // Load all unique id products from table into first select box
+        // Load all id products from table into first select box (including duplicates)
+        // CRITICAL: Show all rows, even if they have the same id_product, so users can select different data
         function loadIdProductList() {
             const descriptionSelect1 = document.getElementById('descriptionSelect1');
             if (!descriptionSelect1) return;
@@ -2329,50 +2383,113 @@ function getCurrentProcessId() {
                 parsedTableData = JSON.parse(tableData);
             }
 
-            // Get unique id products from table
-            const idProductSet = new Set();
+            // Track id products and their occurrences to distinguish duplicates
+            const idProductList = [];
+            const idProductCount = new Map(); // Track how many times each id_product appears
             const capturedTableBody = document.getElementById('capturedTableBody');
             
             if (capturedTableBody) {
                 // Get from DOM
                 const rows = capturedTableBody.querySelectorAll('tr');
-                rows.forEach(row => {
+                rows.forEach((row, rowIndex) => {
                     const idProduct = row.getAttribute('data-id-product');
                     if (idProduct && idProduct.trim() !== '') {
-                        idProductSet.add(idProduct.trim());
+                        const trimmedIdProduct = idProduct.trim();
+                        const count = idProductCount.get(trimmedIdProduct) || 0;
+                        idProductCount.set(trimmedIdProduct, count + 1);
+                        
+                        // Store id product with row index for reference
+                        idProductList.push({
+                            value: trimmedIdProduct,
+                            rowIndex: rowIndex,
+                            displayText: trimmedIdProduct
+                        });
                     }
                 });
             } else if (parsedTableData && parsedTableData.rows) {
                 // Get from parsed data
-                parsedTableData.rows.forEach(row => {
+                parsedTableData.rows.forEach((row, rowIndex) => {
                     if (row && row.length > 1 && row[1] && row[1].type === 'data') {
                         const idProduct = row[1].value;
                         if (idProduct && idProduct.trim() !== '') {
-                            idProductSet.add(idProduct.trim());
+                            const trimmedIdProduct = idProduct.trim();
+                            const count = idProductCount.get(trimmedIdProduct) || 0;
+                            idProductCount.set(trimmedIdProduct, count + 1);
+                            
+                            // Store id product with row index for reference
+                            idProductList.push({
+                                value: trimmedIdProduct,
+                                rowIndex: rowIndex,
+                                displayText: trimmedIdProduct
+                            });
                         }
                     }
                 });
             }
 
             // Add options to select box
-            const sortedIdProducts = Array.from(idProductSet).sort();
-            sortedIdProducts.forEach(idProduct => {
+            // For duplicate id_products, add a suffix to distinguish them (e.g., "M99M06 (Row 2)")
+            idProductList.forEach((item, index) => {
                 const option = document.createElement('option');
-                option.value = idProduct;
-                option.textContent = idProduct;
+                const count = idProductCount.get(item.value);
+                
+                // If this id_product appears multiple times, add row indicator
+                if (count > 1) {
+                    // Find which occurrence this is (1st, 2nd, 3rd, etc.)
+                    let occurrence = 1;
+                    for (let i = 0; i < index; i++) {
+                        if (idProductList[i].value === item.value) {
+                            occurrence++;
+                        }
+                    }
+                    
+                    // Get row label (A, B, C, etc.) for better identification
+                    let rowLabel = '';
+                    if (capturedTableBody) {
+                        const rows = capturedTableBody.querySelectorAll('tr');
+                        if (rows[item.rowIndex]) {
+                            const rowHeaderCell = rows[item.rowIndex].querySelector('td.row-header');
+                            if (rowHeaderCell) {
+                                rowLabel = rowHeaderCell.textContent.trim();
+                            }
+                        }
+                    } else if (parsedTableData && parsedTableData.rows && parsedTableData.rows[item.rowIndex]) {
+                        const rowData = parsedTableData.rows[item.rowIndex];
+                        if (rowData && rowData.length > 0 && rowData[0].type === 'header') {
+                            rowLabel = rowData[0].value.trim();
+                        }
+                    }
+                    
+                    // Display format: "M99M06 (Row A)" or "M99M06 (#2)" if no row label
+                    if (rowLabel) {
+                        option.textContent = `${item.value} (Row ${rowLabel})`;
+                    } else {
+                        option.textContent = `${item.value} (#${occurrence})`;
+                    }
+                } else {
+                    // Single occurrence, no suffix needed
+                    option.textContent = item.value;
+                }
+                
+                // Store value with row index to uniquely identify each row
+                // Format: "idProduct|rowIndex" to distinguish duplicates
+                option.value = `${item.value}|${item.rowIndex}`;
+                option.setAttribute('data-row-index', String(item.rowIndex));
                 descriptionSelect1.appendChild(option);
             });
 
             // Auto-select first option if available
-            if (sortedIdProducts.length > 0) {
-                descriptionSelect1.value = sortedIdProducts[0];
-                // Trigger update for second select box
-                updateIdProductRowData(sortedIdProducts[0]);
+            if (idProductList.length > 0) {
+                const firstOptionValue = `${idProductList[0].value}|${idProductList[0].rowIndex}`;
+                descriptionSelect1.value = firstOptionValue;
+                // Trigger update for second select box (extract idProduct from value)
+                updateIdProductRowData(idProductList[0].value, idProductList[0].rowIndex);
             }
         }
 
         // Update second select box with row data for selected id product
-        function updateIdProductRowData(idProduct) {
+        // rowIndex is optional - if provided, only show data from that specific row
+        function updateIdProductRowData(idProduct, rowIndex = null) {
             const descriptionSelect2 = document.getElementById('descriptionSelect2');
             if (!descriptionSelect2) return;
 
@@ -2401,9 +2518,15 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
-            rows.forEach((row, rowIndex) => {
+            rows.forEach((row, currentRowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                
+                // If rowIndex is provided, only process that specific row
+                // Otherwise, process all rows with matching id_product
+                const matchesIdProduct = rowIdProduct && rowIdProduct.trim() === idProduct.trim();
+                const matchesRowIndex = rowIndex === null || currentRowIndex === rowIndex;
+                
+                if (matchesIdProduct && matchesRowIndex) {
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
@@ -2415,7 +2538,7 @@ function getCurrentProcessId() {
                             if (cellValue !== '') {
                                 // Create a separate option for each column data
                                 const option = document.createElement('option');
-                                option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
+                                option.value = `${currentRowIndex}:${columnIndex}`; // Store row index and column index as value
                                 option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
                                 descriptionSelect2.appendChild(option);
                                 
@@ -9089,6 +9212,33 @@ function getCurrentProcessId() {
                 sourcePercent: sourcePercentValue
             });
             
+            // Find the row index in Data Capture Table for this id_product
+            // This is needed to correctly set descriptionSelect1 when there are duplicate id_products
+            let dataCaptureRowIndex = null;
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            if (capturedTableBody && processValue) {
+                const capturedRows = capturedTableBody.querySelectorAll('tr');
+                // Try to find the row that matches this summary row's position
+                // Use row_index attribute if available
+                const rowIndexAttr = row.getAttribute('data-row-index');
+                if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
+                    const rowIndexNum = Number(rowIndexAttr);
+                    if (!isNaN(rowIndexNum) && rowIndexNum >= 0 && rowIndexNum < capturedRows.length) {
+                        dataCaptureRowIndex = rowIndexNum;
+                    }
+                } else {
+                    // Fallback: find first matching row
+                    capturedRows.forEach((capturedRow, index) => {
+                        if (dataCaptureRowIndex === null) {
+                            const capturedIdProduct = capturedRow.getAttribute('data-id-product');
+                            if (capturedIdProduct && capturedIdProduct.trim() === processValue.trim()) {
+                                dataCaptureRowIndex = index;
+                            }
+                        }
+                    });
+                }
+            }
+            
             // Show the Edit Formula form with pre-populated data
             showEditFormulaForm(processValue, false, {
                 account: accountValue,
@@ -9101,7 +9251,8 @@ function getCurrentProcessId() {
                 inputMethod: inputMethodValue,
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
-                clickedColumns: clickedColumns // Pass clicked columns for restoration
+                clickedColumns: clickedColumns, // Pass clicked columns for restoration
+                dataCaptureRowIndex: dataCaptureRowIndex // Pass row index for correct id_product selection
             });
         }
         
