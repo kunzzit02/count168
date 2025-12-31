@@ -1627,6 +1627,7 @@ function getCurrentProcessId() {
                         updateIdProductRowData(this.value);
                     });
                 }
+                
             }, 100);
             
             // Add input validation for Source Percent
@@ -3504,11 +3505,78 @@ function getCurrentProcessId() {
                 // 从后往前处理，避免位置偏移
                 allMatches.sort((a, b) => b.index - a.index);
                 
+                // IMPORTANT: Get cell references from data-clicked-cell-refs to use the correct id product
+                // 重要：从 data-clicked-cell-refs 获取 cell reference，使用正确的 id product
+                const formulaInput = document.getElementById('formula');
+                const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+                const cellRefsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
+                
+                // Build a map from column number to cell reference
+                // Format: "id_product:row_label:column_index" or "id_product:column_index"
+                // IMPORTANT: cell reference stores dataColumnIndex, but $数字 uses displayColumnIndex
+                // displayColumnIndex = dataColumnIndex + 1 (because colIndex 2 = dataColumnIndex 1 = displayColumnIndex 2)
+                const columnToCellRefMap = new Map();
+                cellRefsArray.forEach(cellRef => {
+                    // Parse cell reference: "id_product:row_label:column_index" or "id_product:column_index"
+                    const parts = cellRef.split(':');
+                    if (parts.length >= 2) {
+                        const dataColumnIndex = parseInt(parts[parts.length - 1]); // Last part is dataColumnIndex
+                        if (!isNaN(dataColumnIndex) && dataColumnIndex > 0) {
+                            // Convert dataColumnIndex to displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                            const displayColumnIndex = dataColumnIndex + 1;
+                            columnToCellRefMap.set(displayColumnIndex, cellRef);
+                        }
+                    }
+                });
+                
                 for (let i = 0; i < allMatches.length; i++) {
                     const match = allMatches[i];
-                    // 获取列的实际值
-                    const columnReference = rowLabel + match.columnNumber;
-                    const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                    let columnValue = null;
+                    
+                    // Try to find cell reference for this column number
+                    const cellRef = columnToCellRefMap.get(match.columnNumber);
+                    console.log('updateFormulaDisplay - Looking for $' + match.columnNumber + ', found cellRef:', cellRef, 'columnToCellRefMap:', Array.from(columnToCellRefMap.entries()));
+                    if (cellRef) {
+                        // Parse cell reference to get id_product and row_label
+                        const parts = cellRef.split(':');
+                        if (parts.length >= 2) {
+                            const idProductFromRef = parts[0]; // First part is id_product
+                            const rowLabelFromRef = parts.length >= 3 ? parts[1] : null; // Second part is row_label (if exists)
+                            const dataColumnIndexFromRef = parseInt(parts[parts.length - 1]); // Last part is dataColumnIndex
+                            
+                            console.log('updateFormulaDisplay - Parsed cellRef:', {
+                                idProductFromRef: idProductFromRef,
+                                rowLabelFromRef: rowLabelFromRef,
+                                dataColumnIndexFromRef: dataColumnIndexFromRef,
+                                displayColumnIndex: match.columnNumber
+                            });
+                            
+                            // Use the id_product from cell reference, not from processValue
+                            if (rowLabelFromRef) {
+                                // Format: "id_product:row_label:dataColumnIndex"
+                                // Use dataColumnIndex to get the value
+                                columnValue = getCellValueByIdProductAndColumn(idProductFromRef, dataColumnIndexFromRef, rowLabelFromRef);
+                                console.log('updateFormulaDisplay - Using getCellValueByIdProductAndColumn with idProduct:', idProductFromRef, 'dataColumnIndex:', dataColumnIndexFromRef, 'rowLabel:', rowLabelFromRef, 'result:', columnValue);
+                            } else {
+                                // Format: "id_product:dataColumnIndex" (backward compatibility)
+                                const rowLabelForRef = getRowLabelFromProcessValue(idProductFromRef);
+                                if (rowLabelForRef) {
+                                    // Convert dataColumnIndex to displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                                    const displayColumnIndexForRef = dataColumnIndexFromRef + 1;
+                                    const columnReference = rowLabelForRef + displayColumnIndexForRef;
+                                    columnValue = getColumnValueFromCellReference(columnReference, idProductFromRef);
+                                    console.log('updateFormulaDisplay - Using getColumnValueFromCellReference with columnReference:', columnReference, 'idProduct:', idProductFromRef, 'result:', columnValue);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Fallback: if no cell reference found, use processValue (for backward compatibility)
+                    if (columnValue === null) {
+                        console.log('updateFormulaDisplay - No cellRef found, using fallback with processValue:', processValue, 'rowLabel:', rowLabel, 'columnNumber:', match.columnNumber);
+                        const columnReference = rowLabel + match.columnNumber;
+                        columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                    }
                     
                     if (columnValue !== null) {
                         // 替换 $数字 为实际值
@@ -4555,9 +4623,13 @@ function getCurrentProcessId() {
                         idProduct = cells[1].textContent.trim();
                         // Store it for future use
                         row.setAttribute('data-id-product', idProduct);
+                        cell.setAttribute('data-id-product', idProduct); // Also store on cell
                     }
                 }
             }
+            
+            // CRITICAL: Log id product for debugging
+            console.log('insertCellValueToFormula - idProduct:', idProduct, 'columnIndex:', columnIndex, 'cell:', cell);
             
             // Calculate column index if not available
             if (columnIndex === null && row) {
@@ -4673,6 +4745,12 @@ function getCurrentProcessId() {
             // This prevents processManualFormulaInput from re-processing it based on column
             formulaInput.setAttribute('data-from-cell-click', 'true');
             formulaInput.value = newValue;
+            
+            // CRITICAL: Immediately update formula display after inserting value
+            // This ensures updateFormulaDisplay uses the correct data-clicked-cell-refs that was just set
+            const processValue = document.getElementById('process')?.value;
+            console.log('insertCellValueToFormula - Calling updateFormulaDisplay with newValue:', newValue, 'processValue:', processValue, 'data-clicked-cell-refs:', formulaInput.getAttribute('data-clicked-cell-refs'));
+            updateFormulaDisplay(newValue, processValue);
             
             // Set cursor position after inserted value
             const newCursorPos = cursorPos + valueToInsert.length;
@@ -4834,36 +4912,89 @@ function getCurrentProcessId() {
                     if (formulaInput) {
                         console.log('populateFormWithData - Setting formula value:', data.formula);
                         formulaInput.value = data.formula || '';
-                        // 更新显示框
-                        const processValue = document.getElementById('process')?.value;
-                        updateFormulaDisplay(data.formula || '', processValue);
-                        // Restore clicked columns if provided
-                        if (data.clickedColumns) {
-                            // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
-                            // If so, restore to data-clicked-cell-refs instead of data-clicked-columns
-                            const isNewFormat = isNewIdProductColumnFormat(data.clickedColumns);
+                        
+                        // CRITICAL FIX: Restore cell references from sourceColumns BEFORE calling updateFormulaDisplay
+                        // This ensures updateFormulaDisplay can correctly parse $数字 references using the restored cell references
+                        // sourceColumns format: "id_product:row_label:displayColumnIndex" (e.g., "OVERALL:A:7 YONG:B:3")
+                        // data-clicked-cell-refs format: "id_product:row_label:dataColumnIndex" (e.g., "OVERALL:A:6 YONG:B:2")
+                        // IMPORTANT: displayColumnIndex = dataColumnIndex + 1, so we need to convert when restoring
+                        let cellRefsToRestore = '';
+                        console.log('populateFormWithData - Checking data.sourceColumns:', data.sourceColumns, 'data.clickedColumns:', data.clickedColumns);
+                        if (data.sourceColumns && data.sourceColumns.trim() !== '') {
+                            // sourceColumns uses displayColumnIndex, but data-clicked-cell-refs uses dataColumnIndex
+                            // Convert displayColumnIndex to dataColumnIndex (dataColumnIndex = displayColumnIndex - 1)
+                            const sourceColumnsParts = data.sourceColumns.trim().split(' ').filter(c => c.trim() !== '');
+                            const convertedCellRefs = [];
+                            
+                            sourceColumnsParts.forEach(part => {
+                                const parts = part.split(':');
+                                if (parts.length >= 2) {
+                                    const idProduct = parts[0];
+                                    const rowLabel = parts.length >= 3 ? parts[1] : null;
+                                    const displayColumnIndex = parseInt(parts[parts.length - 1]);
+                                    
+                                    if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
+                                        // Convert displayColumnIndex to dataColumnIndex
+                                        const dataColumnIndex = displayColumnIndex - 1;
+                                        
+                                        if (rowLabel) {
+                                            // Format: "id_product:row_label:dataColumnIndex"
+                                            convertedCellRefs.push(`${idProduct}:${rowLabel}:${dataColumnIndex}`);
+                                        } else {
+                                            // Format: "id_product:dataColumnIndex" (backward compatibility)
+                                            convertedCellRefs.push(`${idProduct}:${dataColumnIndex}`);
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            if (convertedCellRefs.length > 0) {
+                                cellRefsToRestore = convertedCellRefs.join(' ');
+                                console.log('populateFormWithData - Converted sourceColumns from displayColumnIndex to dataColumnIndex:', data.sourceColumns, '->', cellRefsToRestore);
+                            } else {
+                                // Fallback: use sourceColumns as-is (might be old format)
+                                cellRefsToRestore = data.sourceColumns.trim();
+                                console.log('populateFormWithData - Using sourceColumns as-is (fallback):', cellRefsToRestore);
+                            }
+                        } else if (data.clickedColumns && data.clickedColumns.trim() !== '') {
+                            // Fallback to clickedColumns (for backward compatibility)
+                            cellRefsToRestore = data.clickedColumns.trim();
+                            console.log('populateFormWithData - Restoring cell refs from clickedColumns:', cellRefsToRestore);
+                        } else {
+                            console.warn('populateFormWithData - No sourceColumns or clickedColumns found in data!');
+                        }
+                        
+                        if (cellRefsToRestore) {
+                            // Check if it's in new format (id_product:row_label:column_index or id_product:column_index)
+                            const isNewFormat = isNewIdProductColumnFormat(cellRefsToRestore);
                             
                             if (isNewFormat) {
                                 // New format: restore to data-clicked-cell-refs (preserves id_product:column format)
-                                formulaInput.setAttribute('data-clicked-cell-refs', data.clickedColumns);
-                                console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs:', data.clickedColumns);
+                                formulaInput.setAttribute('data-clicked-cell-refs', cellRefsToRestore);
+                                console.log('populateFormWithData - Restored id_product:column format to data-clicked-cell-refs:', cellRefsToRestore);
                             } else {
                                 // Old format: restore to data-clicked-columns (backward compatibility)
-                                formulaInput.setAttribute('data-clicked-columns', data.clickedColumns);
-                                console.log('Edit mode: Restored old format to data-clicked-columns:', data.clickedColumns);
+                                formulaInput.setAttribute('data-clicked-columns', cellRefsToRestore);
+                                console.log('populateFormWithData - Restored old format to data-clicked-columns:', cellRefsToRestore);
                             }
                             
                             // In edit mode, save original columns to preserve them when user adds new columns
                             const isEditMode = !!window.currentEditRow;
                             if (isEditMode) {
                                 if (isNewFormat) {
-                                    formulaInput.setAttribute('data-original-clicked-cell-refs', data.clickedColumns);
+                                    formulaInput.setAttribute('data-original-clicked-cell-refs', cellRefsToRestore);
                                 } else {
-                                    formulaInput.setAttribute('data-original-clicked-columns', data.clickedColumns);
+                                    formulaInput.setAttribute('data-original-clicked-columns', cellRefsToRestore);
                                 }
-                                console.log('Edit mode: Saved original columns:', data.clickedColumns);
+                                console.log('populateFormWithData - Saved original columns:', cellRefsToRestore);
                             }
                         }
+                        
+                        // CRITICAL: Call updateFormulaDisplay AFTER restoring data-clicked-cell-refs
+                        // This ensures updateFormulaDisplay can correctly parse $数字 references using the restored cell references
+                        const processValue = document.getElementById('process')?.value;
+                        console.log('populateFormWithData - Calling updateFormulaDisplay after restoring cell refs, data-clicked-cell-refs:', formulaInput.getAttribute('data-clicked-cell-refs'));
+                        updateFormulaDisplay(data.formula || '', processValue);
                     } else {
                         console.warn('populateFormWithData - Formula input not found');
                     }
@@ -5420,6 +5551,10 @@ function getCurrentProcessId() {
 
         // Save Formula
         function saveFormula() {
+            // IMPORTANT: Always use the Id Product from the modal (the one that was set when the modal was opened)
+            // Users can select data from other id products to use in the formula, but the formula should always be saved to the original id product
+            // 重要：始终使用模态窗口中的 Id Product（打开模态窗口时设置的那个）
+            // 用户可以选择其他 id product 的数据来构建公式，但公式应该始终保存到原始的 id product
             const processValue = document.getElementById('process').value;
             const accountSelect = document.getElementById('account');
             const accountValue = accountSelect.value; // Database ID
@@ -5492,31 +5627,106 @@ function getCurrentProcessId() {
             const clickedColumnsDisplay = getColumnsDisplayFromClickedColumns();
             
             // 获取列引用格式（用于保存到 sourceColumns）
-            // 格式：id_product:row_label:column_index，如 "GGG:A:10 GGG:A:8"
+            // 格式：id_product:row_label:column_index，如 "OVERALL:A:7 YONG:B:3"
+            // CRITICAL: 必须从 data-clicked-cell-refs 中获取正确的 id product，而不是使用 processValue
             let sourceColumns = '';
             // formulaInput 已经在上面声明过了，直接使用
             if (formulaInput && formulaValue && formulaValue.trim() !== '') {
-                // 从 formulaValue 中提取所有 $数字，转换为列引用格式
-                const rowLabel = getRowLabelFromProcessValue(processValue);
-                if (rowLabel) {
+                // 优先从 data-clicked-cell-refs 中获取 cell reference（包含正确的 id product）
+                const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
+                if (clickedCellRefs && clickedCellRefs.trim() !== '') {
+                    // data-clicked-cell-refs 格式：id_product:row_label:dataColumnIndex (e.g., "OVERALL:A:6 YONG:B:2")
+                    // 需要转换为 displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                    const cellRefsArray = clickedCellRefs.split(' ').filter(c => c.trim() !== '');
+                    const columnRefs = [];
+                    
+                    // 从 formulaValue 中提取所有 $数字，匹配到对应的 cell reference
                     const dollarPattern = /\$(\d+)(?!\d)/g;
                     let match;
                     dollarPattern.lastIndex = 0;
-                    const columnRefs = [];
+                    const dollarMatches = [];
                     
                     while ((match = dollarPattern.exec(formulaValue)) !== null) {
-                        const columnNumber = parseInt(match[1]);
+                        const columnNumber = parseInt(match[1]); // displayColumnIndex
                         if (!isNaN(columnNumber) && columnNumber > 0) {
-                            // 格式：id_product:row_label:column_index
-                            const columnRef = `${processValue}:${rowLabel}:${columnNumber}`;
-                            if (!columnRefs.includes(columnRef)) {
-                                columnRefs.push(columnRef);
-                            }
+                            dollarMatches.push({
+                                displayColumnIndex: columnNumber,
+                                index: match.index
+                            });
                         }
                     }
                     
+                    // 为每个 $数字 找到对应的 cell reference
+                    dollarMatches.forEach(dollarMatch => {
+                        // 查找匹配的 cell reference（dataColumnIndex = displayColumnIndex - 1）
+                        const dataColumnIndex = dollarMatch.displayColumnIndex - 1;
+                        const matchingCellRef = cellRefsArray.find(cellRef => {
+                            const parts = cellRef.split(':');
+                            if (parts.length >= 2) {
+                                const refDataColumnIndex = parseInt(parts[parts.length - 1]);
+                                return !isNaN(refDataColumnIndex) && refDataColumnIndex === dataColumnIndex;
+                            }
+                            return false;
+                        });
+                        
+                        if (matchingCellRef) {
+                            // 解析 cell reference: id_product:row_label:dataColumnIndex
+                            const parts = matchingCellRef.split(':');
+                            if (parts.length >= 2) {
+                                const idProductFromRef = parts[0];
+                                const rowLabelFromRef = parts.length >= 3 ? parts[1] : null;
+                                const dataColumnIndexFromRef = parseInt(parts[parts.length - 1]);
+                                
+                                if (rowLabelFromRef && !isNaN(dataColumnIndexFromRef)) {
+                                    // 格式：id_product:row_label:displayColumnIndex (保存时使用 displayColumnIndex)
+                                    const columnRef = `${idProductFromRef}:${rowLabelFromRef}:${dollarMatch.displayColumnIndex}`;
+                                    if (!columnRefs.includes(columnRef)) {
+                                        columnRefs.push(columnRef);
+                                    }
+                                }
+                            }
+                        } else {
+                            // 如果没有找到匹配的 cell reference，使用 processValue 作为 fallback
+                            const rowLabel = getRowLabelFromProcessValue(processValue);
+                            if (rowLabel) {
+                                const columnRef = `${processValue}:${rowLabel}:${dollarMatch.displayColumnIndex}`;
+                                if (!columnRefs.includes(columnRef)) {
+                                    columnRefs.push(columnRef);
+                                }
+                            }
+                        }
+                    });
+                    
                     if (columnRefs.length > 0) {
                         sourceColumns = columnRefs.join(' ');
+                        console.log('saveFormula - Built sourceColumns from data-clicked-cell-refs:', sourceColumns);
+                    }
+                }
+                
+                // 如果从 data-clicked-cell-refs 中没有提取到列引用，尝试从 $数字 格式中提取（使用 processValue 作为 fallback）
+                if (!sourceColumns) {
+                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    if (rowLabel) {
+                        const dollarPattern = /\$(\d+)(?!\d)/g;
+                        let match;
+                        dollarPattern.lastIndex = 0;
+                        const columnRefs = [];
+                        
+                        while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                            const columnNumber = parseInt(match[1]);
+                            if (!isNaN(columnNumber) && columnNumber > 0) {
+                                // 格式：id_product:row_label:column_index
+                                const columnRef = `${processValue}:${rowLabel}:${columnNumber}`;
+                                if (!columnRefs.includes(columnRef)) {
+                                    columnRefs.push(columnRef);
+                                }
+                            }
+                        }
+                        
+                        if (columnRefs.length > 0) {
+                            sourceColumns = columnRefs.join(' ');
+                            console.log('saveFormula - Built sourceColumns from $数字 format (fallback):', sourceColumns);
+                        }
                     }
                 }
                 
@@ -6212,6 +6422,11 @@ function getCurrentProcessId() {
                 const processInput = document.getElementById('process');
                 const processValue = processInput ? processInput.value.trim() : null;
                 
+                // CRITICAL: Get cell references from data-clicked-cell-refs BEFORE parsing
+                const formulaInput = document.getElementById('formula');
+                const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+                console.log('parseReferenceFormula - formula:', formula, 'processValue:', processValue, 'data-clicked-cell-refs:', clickedCellRefs);
+                
                 let parsedFormula = formula;
                 
                 // First, parse $数字 format (e.g., "$2", "$3", "$10")
@@ -6246,11 +6461,76 @@ function getCurrentProcessId() {
                         // Replace from end to start to preserve indices
                         dollarMatches.sort((a, b) => b.index - a.index);
                         
+                        // IMPORTANT: Get cell references from data-clicked-cell-refs to use the correct id product
+                        // 重要：从 data-clicked-cell-refs 获取 cell reference，使用正确的 id product
+                        const formulaInput = document.getElementById('formula');
+                        const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+                        const cellRefsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
+                        
+                        // Build a map from column number to cell reference
+                        // IMPORTANT: cell reference stores dataColumnIndex, but $数字 uses displayColumnIndex
+                        // displayColumnIndex = dataColumnIndex + 1 (because colIndex 2 = dataColumnIndex 1 = displayColumnIndex 2)
+                        const columnToCellRefMap = new Map();
+                        cellRefsArray.forEach(cellRef => {
+                            const parts = cellRef.split(':');
+                            if (parts.length >= 2) {
+                                const dataColumnIndex = parseInt(parts[parts.length - 1]); // Last part is dataColumnIndex
+                                if (!isNaN(dataColumnIndex) && dataColumnIndex > 0) {
+                                    // Convert dataColumnIndex to displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                                    const displayColumnIndex = dataColumnIndex + 1;
+                                    columnToCellRefMap.set(displayColumnIndex, cellRef);
+                                }
+                            }
+                        });
+                        
+                        console.log('parseReferenceFormula - dollarMatches:', dollarMatches, 'columnToCellRefMap:', Array.from(columnToCellRefMap.entries()));
+                        
                         for (let i = 0; i < dollarMatches.length; i++) {
                             const dollarMatch = dollarMatches[i];
-                            // Convert $数字 to cell reference (e.g., $2 -> A2)
-                            const columnReference = rowLabel + dollarMatch.columnNumber;
-                            const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                            let columnValue = null;
+                            
+                            // Try to find cell reference for this column number
+                            const cellRef = columnToCellRefMap.get(dollarMatch.columnNumber);
+                            console.log('parseReferenceFormula - Looking for $' + dollarMatch.columnNumber + ', found cellRef:', cellRef);
+                            if (cellRef) {
+                                // Parse cell reference to get id_product and row_label
+                                const parts = cellRef.split(':');
+                                if (parts.length >= 2) {
+                                    const idProductFromRef = parts[0];
+                                    const rowLabelFromRef = parts.length >= 3 ? parts[1] : null;
+                                    const columnIndexFromRef = parseInt(parts[parts.length - 1]);
+                                    
+                                    // Use the id_product from cell reference, not from processValue
+                                    // IMPORTANT: columnIndexFromRef is dataColumnIndex (from cell reference storage)
+                                    console.log('parseReferenceFormula - Parsed cellRef:', {
+                                        idProductFromRef: idProductFromRef,
+                                        rowLabelFromRef: rowLabelFromRef,
+                                        columnIndexFromRef: columnIndexFromRef
+                                    });
+                                    if (rowLabelFromRef) {
+                                        // getCellValueByIdProductAndColumn expects dataColumnIndex (1-based data column index)
+                                        columnValue = getCellValueByIdProductAndColumn(idProductFromRef, columnIndexFromRef, rowLabelFromRef);
+                                        console.log('parseReferenceFormula - Using getCellValueByIdProductAndColumn with idProduct:', idProductFromRef, 'dataColumnIndex:', columnIndexFromRef, 'rowLabel:', rowLabelFromRef, 'result:', columnValue);
+                                    } else {
+                                        const rowLabelForRef = getRowLabelFromProcessValue(idProductFromRef);
+                                        if (rowLabelForRef) {
+                                            // Convert dataColumnIndex to displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
+                                            const displayColumnIndexForRef = columnIndexFromRef + 1;
+                                            const columnReference = rowLabelForRef + displayColumnIndexForRef;
+                                            columnValue = getColumnValueFromCellReference(columnReference, idProductFromRef);
+                                            console.log('parseReferenceFormula - Using getColumnValueFromCellReference with columnReference:', columnReference, 'idProduct:', idProductFromRef, 'result:', columnValue);
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Fallback: if no cell reference found, use processValue (for backward compatibility)
+                            if (columnValue === null) {
+                                console.log('parseReferenceFormula - No cellRef found for $' + dollarMatch.columnNumber + ', using fallback with processValue:', processValue, 'rowLabel:', rowLabel);
+                                const columnReference = rowLabel + dollarMatch.columnNumber;
+                                columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                console.log('parseReferenceFormula - Fallback result:', columnValue);
+                            }
                             
                             if (columnValue !== null) {
                                 // Replace $数字 with actual value
@@ -6259,7 +6539,7 @@ function getCurrentProcessId() {
                                                parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
                             } else {
                                 // If value not found, replace with 0
-                                console.warn(`Cell value not found for $${dollarMatch.columnNumber} (${columnReference})`);
+                                console.warn(`Cell value not found for $${dollarMatch.columnNumber}`);
                                 parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
                                                '0' + 
                                                parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
@@ -6296,10 +6576,51 @@ function getCurrentProcessId() {
                     }
                 }
                 
+                // IMPORTANT: Get cell references from data-clicked-cell-refs to use the correct id product
+                // 重要：从 data-clicked-cell-refs 获取 cell reference，使用正确的 id product
+                const formulaInput = document.getElementById('formula');
+                const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
+                const cellRefsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
+                
+                // Build a map from cell reference (e.g., "A7") to id_product
+                // Format: "id_product:row_label:column_index" or "id_product:column_index"
+                const cellRefToIdProductMap = new Map();
+                cellRefsArray.forEach(cellRef => {
+                    const parts = cellRef.split(':');
+                    if (parts.length >= 2) {
+                        const idProductFromRef = parts[0];
+                        const rowLabelFromRef = parts.length >= 3 ? parts[1] : null;
+                        const columnIndexFromRef = parseInt(parts[parts.length - 1]);
+                        
+                        if (rowLabelFromRef && !isNaN(columnIndexFromRef) && columnIndexFromRef > 0) {
+                            // Format: "id_product:row_label:column_index" -> "A7"
+                            const cellRefKey = rowLabelFromRef + columnIndexFromRef;
+                            cellRefToIdProductMap.set(cellRefKey, {
+                                idProduct: idProductFromRef,
+                                rowLabel: rowLabelFromRef,
+                                columnIndex: columnIndexFromRef
+                            });
+                        }
+                    }
+                });
+                
                 // Replace cell references in reverse order to preserve indices
                 for (let i = cellReferences.length - 1; i >= 0; i--) {
                     const ref = cellReferences[i];
-                    const cellValue = processValue ? getColumnValueFromCellReference(ref.fullMatch, processValue) : null;
+                    let cellValue = null;
+                    
+                    // Try to find id_product from cell reference map
+                    const cellRefInfo = cellRefToIdProductMap.get(ref.fullMatch);
+                    if (cellRefInfo) {
+                        // Use the id_product from cell reference, not from processValue
+                        cellValue = getCellValueByIdProductAndColumn(cellRefInfo.idProduct, cellRefInfo.columnIndex, cellRefInfo.rowLabel);
+                        console.log(`Using id_product from cell reference: ${cellRefInfo.idProduct} for cell ${ref.fullMatch}`);
+                    }
+                    
+                    // Fallback: if no cell reference found, use processValue (for backward compatibility)
+                    if (cellValue === null && processValue) {
+                        cellValue = getColumnValueFromCellReference(ref.fullMatch, processValue);
+                    }
                     
                     if (cellValue !== null) {
                         // Replace the cell reference with the actual value
@@ -9101,7 +9422,8 @@ function getCurrentProcessId() {
                 inputMethod: inputMethodValue,
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
-                clickedColumns: clickedColumns // Pass clicked columns for restoration
+                clickedColumns: clickedColumns, // Pass clicked columns for restoration (backward compatibility)
+                sourceColumns: sourceColumnsValue // Pass sourceColumns for restoration (CRITICAL: contains id_product:row_label:column_index format)
             });
         }
         
@@ -12393,8 +12715,9 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
 }
 
 // After all templates are applied, reorder rows globally by row_index (if present)
-// IMPORTANT: This function should maintain the order of Data Capture Table
-// Rows with same id_product should be grouped together, ordered by their first appearance in Data Capture Table
+// IMPORTANT: This function should maintain the exact order of Data Capture Table
+// Rows are sorted by row_index directly, preserving the original order from Data Capture Table
+// Same id_product rows are NOT grouped together - they maintain their individual positions
 function reorderSummaryRowsByRowIndex() {
     try {
         const summaryTableBody = document.getElementById('summaryTableBody');
@@ -12464,109 +12787,64 @@ function reorderSummaryRowsByRowIndex() {
         const withIndex = rowData.filter(r => r.rowIndex !== null);
         const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-        // Group rows by id_product (normalizedMain)
-        // IMPORTANT: Sub rows should be grouped with their parent main row's id_product
-        const groupedByProduct = {};
-        withIndex.forEach(data => {
-            // For sub rows, use the parent's id_product (normalizedMain)
-            // For main rows, use their own id_product
-            const key = data.normalizedMain || '__empty__';
-            if (!groupedByProduct[key]) {
-                groupedByProduct[key] = [];
+        // IMPORTANT: Sort rows directly by row_index, NOT by id_product groups
+        // This preserves the exact order from Data Capture Table, even if same id_product appears multiple times
+        withIndex.sort((a, b) => {
+            // Primary sort: by row_index (Data Capture Table order)
+            if (a.rowIndex !== b.rowIndex) {
+                return a.rowIndex - b.rowIndex;
             }
-            groupedByProduct[key].push(data);
-        });
-
-        // For each id_product group, find the minimum row_index (first appearance in Data Capture Table)
-        // Then sort groups by this minimum row_index
-        const productGroups = Object.keys(groupedByProduct).map(key => {
-            const groupRows = groupedByProduct[key];
-            const minRowIndex = Math.min(...groupRows.map(r => r.rowIndex));
-            // Sort rows within each group
-            // IMPORTANT: Main rows and sub rows are sorted differently:
-            // - Main rows: sorted by row_index only
-            // - Sub rows: sorted by sub_order first (position relative to parent), then by row_index
-            groupRows.sort((a, b) => {
-                // Separate main and sub rows
-                const aIsSub = a.productType === 'sub';
-                const bIsSub = b.productType === 'sub';
-                
-                // If both are main rows, sort by row_index
-                if (!aIsSub && !bIsSub) {
-                    if (a.rowIndex !== b.rowIndex) {
-                        return a.rowIndex - b.rowIndex;
+            
+            // If same row_index, handle main vs sub rows
+            const aIsSub = a.productType === 'sub';
+            const bIsSub = b.productType === 'sub';
+            
+            // If both are sub rows, sort by sub_order first, then by creation order
+            if (aIsSub && bIsSub) {
+                // First sort by sub_order (position relative to parent main row)
+                if (a.subOrder !== null && b.subOrder !== null) {
+                    if (a.subOrder !== b.subOrder) {
+                        return a.subOrder - b.subOrder;
                     }
-                    return a.creationOrder - b.creationOrder;
-                }
-                
-                // If both are sub rows, sort by sub_order first, then by row_index
-                if (aIsSub && bIsSub) {
-                    // First sort by sub_order (position relative to parent main row)
-                    if (a.subOrder !== null && b.subOrder !== null) {
-                        if (a.subOrder !== b.subOrder) {
-                            return a.subOrder - b.subOrder;
-                        }
-                    } else if (a.subOrder !== null) {
-                        // a has sub_order, b doesn't - a comes first
-                        return -1;
-                    } else if (b.subOrder !== null) {
-                        // b has sub_order, a doesn't - b comes first
-                        return 1;
-                    }
-                    // If both have no sub_order or same sub_order, sort by row_index
-                    if (a.rowIndex !== b.rowIndex) {
-                        return a.rowIndex - b.rowIndex;
-                    }
-                    return a.creationOrder - b.creationOrder;
-                }
-                
-                // If one is main and one is sub, main comes first (main rows should appear before their sub rows)
-                if (!aIsSub && bIsSub) {
-                    // a is main, b is sub - a comes first
+                } else if (a.subOrder !== null) {
+                    // a has sub_order, b doesn't - a comes first
                     return -1;
-                }
-                if (aIsSub && !bIsSub) {
-                    // a is sub, b is main - b comes first
+                } else if (b.subOrder !== null) {
+                    // b has sub_order, a doesn't - b comes first
                     return 1;
                 }
-                
-                // Fallback: sort by row_index
-                if (a.rowIndex !== b.rowIndex) {
-                    return a.rowIndex - b.rowIndex;
-                }
+                // If both have no sub_order or same sub_order, sort by creation order
                 return a.creationOrder - b.creationOrder;
-            });
-            return {
-                key,
-                minRowIndex,
-                rows: groupRows
-            };
-        });
-
-        // Sort product groups by minimum row_index (Data Capture Table order)
-        productGroups.sort((a, b) => {
-            if (a.minRowIndex !== b.minRowIndex) {
-                return a.minRowIndex - b.minRowIndex;
             }
-            // If same minRowIndex, maintain order by first row's originalIndex
-            return a.rows[0].originalIndex - b.rows[0].originalIndex;
+            
+            // If one is main and one is sub, main comes first (main rows should appear before their sub rows)
+            if (!aIsSub && bIsSub) {
+                // a is main, b is sub - a comes first
+                return -1;
+            }
+            if (aIsSub && !bIsSub) {
+                // a is sub, b is main - b comes first
+                return 1;
+            }
+            
+            // Both are main rows with same row_index, sort by creation order
+            return a.creationOrder - b.creationOrder;
         });
 
-        // Flatten groups back into ordered rows array
-        // All rows (main and sub) are now sorted by row_index within each id_product group
-        const orderedRowsWithIndex = productGroups.flatMap(group => group.rows.map(data => data.row));
+        // Get ordered rows with index
+        const orderedRowsWithIndex = withIndex.map(data => data.row);
 
         // Sort rows without row_index by originalIndex (maintain their current order)
         withoutIndex.sort((a, b) => a.originalIndex - b.originalIndex);
         const orderedRowsWithoutIndex = withoutIndex.map(data => data.row);
 
-        // Combine: rows with index first (grouped by id_product, sorted by Data Capture Table order), then rows without index
+        // Combine: rows with index first (sorted by Data Capture Table order), then rows without index
         const orderedRows = [...orderedRowsWithIndex, ...orderedRowsWithoutIndex];
 
         // Re-append rows in new order
         orderedRows.forEach(row => summaryTableBody.appendChild(row));
         
-        console.log('Reordered rows by id_product groups (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length, 'product groups:', productGroups.length);
+        console.log('Reordered rows by row_index (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
@@ -14460,6 +14738,13 @@ function formatPercentValue(value) {
                     const formulaVariantAttr = row.getAttribute('data-formula-variant');
                     const formulaVariant = formulaVariantAttr && formulaVariantAttr !== '' ? parseInt(formulaVariantAttr, 10) : null;
                     
+                    // Get displayOrder from data-row-index attribute to preserve row order
+                    // This ensures rows are displayed in the same order as in Data Capture Table
+                    const rowIndexAttr = row.getAttribute('data-row-index');
+                    const displayOrder = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+                        ? Number(rowIndexAttr)
+                        : null;
+                    
                     if (productTypeAttr) {
                         productType = productTypeAttr;
                     }
@@ -14555,7 +14840,8 @@ function formatPercentValue(value) {
                         batchSelection: batchSelectionValue ? 1 : 0,
                         formulaVariant: formulaVariant, // Include formulaVariant to help backend distinguish rows with same account
                         rateChecked: rateChecked, // Rate checkbox state
-                        rateValue: rateValue // Rate input value (only if checkbox is checked)
+                        rateValue: rateValue, // Rate input value (only if checkbox is checked)
+                        displayOrder: displayOrder // Preserve row order from Data Capture Table
                     });
                 });
                 
