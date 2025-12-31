@@ -2531,43 +2531,39 @@ function getCurrentProcessId() {
                 }
             }
             
-            console.log('updateIdProductRowData called with idProduct:', idProduct, 'rowIndex:', rowIndex, 'targetRowIndex:', targetRowIndex);
+            console.log('updateIdProductRowData called with idProduct:', idProduct, 'rowIndex:', rowIndex, 'targetRowIndex:', targetRowIndex, 'total rows:', rows.length);
             
-            // If rowIndex is provided, only process that specific row
-            // Otherwise, process all rows with matching id_product
+            // CRITICAL: If rowIndex is provided, ONLY process that specific row, regardless of id_product match
+            // This ensures that when user selects "M99M06 (Row D)", we show Row D's data, not Row B's
             if (targetRowIndex !== null && targetRowIndex >= 0 && targetRowIndex < rows.length) {
-                // Process only the specific row
+                // Process ONLY the specific row at targetRowIndex
                 const row = rows[targetRowIndex];
-                const rowIdProduct = row.getAttribute('data-id-product');
-                const normalizedRowIdProduct = rowIdProduct ? normalizeIdProductText(rowIdProduct.trim()) : '';
+                console.log('updateIdProductRowData: Processing ONLY row at index', targetRowIndex);
                 
-                if (normalizedRowIdProduct === normalizedIdProduct) {
-                    console.log('updateIdProductRowData: Processing specific row at index', targetRowIndex);
-                    // Get all data cells (skip row header and id_product column)
-                    const cells = row.querySelectorAll('td');
-                    
-                    cells.forEach((cell, cellIndex) => {
-                        const columnIndex = cell.getAttribute('data-column-index');
-                        if (columnIndex && parseInt(columnIndex) > 1) {
-                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                            if (cellValue !== '') {
-                                // Create a separate option for each column data
-                                const option = document.createElement('option');
-                                option.value = `${targetRowIndex}:${columnIndex}`; // Store row index and column index as value
-                                option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
-                                descriptionSelect2.appendChild(option);
-                                
-                                // Store first option value for auto-selection
-                                if (firstOptionValue === null) {
-                                    firstOptionValue = option.value;
-                                }
+                // Get all data cells (skip row header and id_product column)
+                const cells = row.querySelectorAll('td');
+                
+                cells.forEach((cell, cellIndex) => {
+                    const columnIndex = cell.getAttribute('data-column-index');
+                    if (columnIndex && parseInt(columnIndex) > 1) {
+                        // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                        const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                        if (cellValue !== '') {
+                            // Create a separate option for each column data
+                            const option = document.createElement('option');
+                            option.value = `${targetRowIndex}:${columnIndex}`; // Store row index and column index as value
+                            option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] M06-KZ"
+                            descriptionSelect2.appendChild(option);
+                            
+                            // Store first option value for auto-selection
+                            if (firstOptionValue === null) {
+                                firstOptionValue = option.value;
                             }
                         }
-                    });
-                } else {
-                    console.warn('updateIdProductRowData: Row at index', targetRowIndex, 'does not match idProduct. Expected:', normalizedIdProduct, 'Found:', normalizedRowIdProduct);
-                }
+                    }
+                });
+                
+                console.log('updateIdProductRowData: Added options from row index', targetRowIndex, 'total options:', descriptionSelect2.options.length - 1);
             } else {
                 // Process all rows with matching id_product (fallback when rowIndex not provided)
                 console.log('updateIdProductRowData: Processing all rows with matching idProduct (rowIndex not provided)');
