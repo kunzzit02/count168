@@ -1811,7 +1811,7 @@ function getCurrentProcessId() {
                     /[0-9+\-*/().]/.test(e.key)
                 ) {
                     e.preventDefault();
-                    handleFormulaValueInput(this, e.key);
+                    handleFormulaValueInput(formulaInput, e.key);
                 }
             });
         }
@@ -6490,7 +6490,7 @@ function getCurrentProcessId() {
                 // Finally, parse reference format if present (e.g., [id_product : column_number])
                 // IMPORTANT: Try to get row_label from data-clicked-cell-refs to distinguish multiple rows with same id_product
                 const referencePattern = /\[([^\]]+)\s*:\s*(\d+)\]/g;
-                const formulaInput = document.getElementById('formula');
+                // formulaInput is already declared above, reuse it
                 const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
                 const refsMap = new Map(); // Map to store id_product:column -> row_label
                 
