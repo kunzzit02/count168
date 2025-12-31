@@ -10691,25 +10691,38 @@ function getCurrentProcessId() {
             
             if (!row) {
                 // Find the row in the summary table that matches the process value
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                const rows = summaryTableBody.querySelectorAll('tr');
+                // IMPORTANT: If data.rowIndex is provided, use it to find the exact row
+                // This ensures that when there are duplicate id_products, we update the correct row
+                const rowIndex = (data.rowIndex !== undefined && data.rowIndex !== null && !Number.isNaN(Number(data.rowIndex)))
+                    ? Number(data.rowIndex) : null;
                 
-                for (let i = 0; i < rows.length; i++) {
-                    const currentRow = rows[i];
-                    const idProductCell = currentRow.querySelector('td:first-child');
+                if (rowIndex !== null) {
+                    // Try to find row by id_product + row_index
+                    row = findSummaryRowByIdProduct(processValue, rowIndex);
+                }
+                
+                // If not found by row_index, fallback to original logic
+                if (!row) {
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    const rows = summaryTableBody.querySelectorAll('tr');
                     
-                    if (!idProductCell) continue;
-                    
-                    // For main id product rows (text content in Main value matches)
-                    const productValues = getProductValuesFromCell(idProductCell);
-                    const cellText = productValues.main || productValues.sub || '';
-                    if (cellText) {
-                        // Remove description in parentheses if present
-                        const match = cellText.match(/^([^(]+)/);
-                        const cleanCellText = match ? match[1].trim() : cellText;
-                        if (cleanCellText === processValue) {
-                            row = currentRow;
-                            break;
+                    for (let i = 0; i < rows.length; i++) {
+                        const currentRow = rows[i];
+                        const idProductCell = currentRow.querySelector('td:first-child');
+                        
+                        if (!idProductCell) continue;
+                        
+                        // For main id product rows (text content in Main value matches)
+                        const productValues = getProductValuesFromCell(idProductCell);
+                        const cellText = productValues.main || productValues.sub || '';
+                        if (cellText) {
+                            // Remove description in parentheses if present
+                            const match = cellText.match(/^([^(]+)/);
+                            const cleanCellText = match ? match[1].trim() : cellText;
+                            if (cleanCellText === processValue) {
+                                row = currentRow;
+                                break;
+                            }
                         }
                     }
                 }
@@ -10867,7 +10880,7 @@ function getCurrentProcessId() {
         }
 
 // Auto-populate summary table rows from saved templates
-function findSummaryRowByIdProduct(idProduct) {
+function findSummaryRowByIdProduct(idProduct, rowIndex = null) {
     const summaryTableBody = document.getElementById('summaryTableBody');
     if (!summaryTableBody) {
         return null;
@@ -10879,6 +10892,29 @@ function findSummaryRowByIdProduct(idProduct) {
     }
 
     const rows = summaryTableBody.querySelectorAll('tr');
+    
+    // If rowIndex is provided, try to find exact match first
+    if (rowIndex !== null && rowIndex !== undefined) {
+        for (const row of rows) {
+            const idProductCell = row.querySelector('td:first-child');
+            const productValues = getProductValuesFromCell(idProductCell);
+            const mainCellText = normalizeIdProductText(productValues.main || '');
+            const subCellText = normalizeIdProductText(productValues.sub || '');
+            
+            if (mainCellText === desired || subCellText === desired) {
+                const rowIndexAttr = row.getAttribute('data-row-index');
+                const rowRowIndex = (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr)))
+                    ? Number(rowIndexAttr) : null;
+                
+                // If row_index matches, return this row
+                if (rowRowIndex === rowIndex) {
+                    return row;
+                }
+            }
+        }
+    }
+    
+    // Fallback: return first matching row (backward compatibility)
     for (const row of rows) {
         const idProductCell = row.querySelector('td:first-child');
         const productValues = getProductValuesFromCell(idProductCell);
@@ -11083,7 +11119,11 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
 
 function applyTemplateToSummaryRow(idProduct, template) {
     try {
-        const targetRow = findSummaryRowByIdProduct(idProduct);
+        // IMPORTANT: If template has row_index, use it to find the exact row
+        // This ensures that when there are duplicate id_products, we apply template to the correct row
+        const templateRowIndex = (template.row_index !== undefined && template.row_index !== null)
+            ? Number(template.row_index) : null;
+        const targetRow = findSummaryRowByIdProduct(idProduct, templateRowIndex);
 
         if (!targetRow) {
             return;
