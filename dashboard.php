@@ -219,10 +219,22 @@ if (isset($_GET['logout'])) {
         }
         
         .dashboard-kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            display: flex;
+            flex-direction: column;
             gap: 16px;
+        }
+        
+        .dashboard-main-layout {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: clamp(16px, 1.67vw, 32px);
             margin-bottom: clamp(14px, 1.67vw, 32px);
+        }
+        
+        @media (max-width: 1200px) {
+            .dashboard-main-layout {
+                grid-template-columns: 1fr;
+            }
         }
         
         .dashboard-kpi-card-vertical {
@@ -497,60 +509,63 @@ if (isset($_GET['logout'])) {
                 </div>
             </div>
             
-            <!-- KPI Cards - 3列 -->
-            <div class="dashboard-kpi-grid">
-                <!-- Capital -->
-                <div class="dashboard-card">
-                    <div class="dashboard-card-body">
-                        <div class="dashboard-kpi-card-vertical">
-                            <div class="icon text-blue">
-                                <i class="fas fa-wallet"></i>
+            <!-- Main Layout: KPI Cards (Left) + Chart (Right) -->
+            <div class="dashboard-main-layout">
+                <!-- Left: KPI Cards - 垂直排列 -->
+                <div class="dashboard-kpi-grid">
+                    <!-- Capital -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-body">
+                            <div class="dashboard-kpi-card-vertical">
+                                <div class="icon text-blue">
+                                    <i class="fas fa-wallet"></i>
+                                </div>
+                                <div>
+                                    <p class="kpi-label">资本 (Capital)</p>
+                                    <p class="kpi-value" id="capital-value">0</p>
+                                </div>
                             </div>
-                            <div>
-                                <p class="kpi-label">资本 (Capital)</p>
-                                <p class="kpi-value" id="capital-value">0</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Expenses -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-body">
+                            <div class="dashboard-kpi-card-vertical">
+                                <div class="icon text-red">
+                                    <i class="fas fa-arrow-down"></i>
+                                </div>
+                                <div>
+                                    <p class="kpi-label">支出 (Expenses)</p>
+                                    <p class="kpi-value" id="expenses-value">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Profit -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-body">
+                            <div class="dashboard-kpi-card-vertical">
+                                <div class="icon text-green">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div>
+                                    <p class="kpi-label">利润 (Profit)</p>
+                                    <p class="kpi-value" id="profit-value">0</p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Expenses -->
-                <div class="dashboard-card">
-                    <div class="dashboard-card-body">
-                        <div class="dashboard-kpi-card-vertical">
-                            <div class="icon text-red">
-                                <i class="fas fa-arrow-down"></i>
-                            </div>
-                            <div>
-                                <p class="kpi-label">支出 (Expenses)</p>
-                                <p class="kpi-value" id="expenses-value">0</p>
-                            </div>
+                <!-- Right: Chart -->
+                <div class="dashboard-card" style="height: 400px;">
+                    <div class="dashboard-card-body" style="height: 100%; display: flex; flex-direction: column;">
+                        <h3 style="font-size: clamp(14px, 1.04vw, 20px); font-weight: 600; color: #111827; margin-bottom: 16px; font-family: 'Amaranth', sans-serif;">趋势图表</h3>
+                        <div class="dashboard-chart-container" style="flex: 1;">
+                            <canvas id="trend-chart"></canvas>
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Profit -->
-                <div class="dashboard-card">
-                    <div class="dashboard-card-body">
-                        <div class="dashboard-kpi-card-vertical">
-                            <div class="icon text-green">
-                                <i class="fas fa-chart-line"></i>
-                            </div>
-                            <div>
-                                <p class="kpi-label">利润 (Profit)</p>
-                                <p class="kpi-value" id="profit-value">0</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Chart -->
-            <div class="dashboard-card" style="height: 400px;">
-                <div class="dashboard-card-body" style="height: 100%; display: flex; flex-direction: column;">
-                    <h3 style="font-size: clamp(14px, 1.04vw, 20px); font-weight: 600; color: #111827; margin-bottom: 16px; font-family: 'Amaranth', sans-serif;">趋势图表</h3>
-                    <div class="dashboard-chart-container" style="flex: 1;">
-                        <canvas id="trend-chart"></canvas>
                     </div>
                 </div>
             </div>
