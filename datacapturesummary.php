@@ -3597,6 +3597,10 @@ function getCurrentProcessId() {
                     // IMPORTANT: 严格按顺序匹配，第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用，以此类推
                     // 不管列号是否相同，都按顺序匹配，这样即使选择了相同列号的不同单元格，也能正确匹配
                     // 重要：按顺序匹配，第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用，以此类推
+                    console.log('updateFormulaDisplay: Found', allMatches.length, '$数字 matches,', refs.length, 'references');
+                    console.log('updateFormulaDisplay: $数字 matches:', allMatches.map(m => '$' + m.columnNumber));
+                    console.log('updateFormulaDisplay: References:', refs);
+                    
                     let refIndex = 0; // 跟踪已使用的引用索引
                     const matchValues = []; // 存储每个匹配项对应的值，用于后续替换
                     
@@ -3619,10 +3623,16 @@ function getCurrentProcessId() {
                                 // 因为引用是按点击顺序存储的，$数字也是按插入顺序出现的
                                 if (!isNaN(refDataColumnIndex)) {
                                     columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                    console.log('updateFormulaDisplay: Matched $' + match.columnNumber + ' (order ' + i + ') to ref[' + refIndex + ']:', ref, 'value:', columnValue);
+                                    console.log('updateFormulaDisplay: Matched $' + match.columnNumber + ' (order ' + i + ', position ' + match.index + ') to ref[' + refIndex + ']:', ref, 'value:', columnValue);
                                     refIndex++; // 更新已使用的引用索引，移动到下一个引用
+                                } else {
+                                    console.warn('updateFormulaDisplay: Invalid refDataColumnIndex in ref:', ref);
                                 }
+                            } else {
+                                console.warn('updateFormulaDisplay: Invalid ref format:', ref);
                             }
+                        } else {
+                            console.warn('updateFormulaDisplay: Not enough references! $' + match.columnNumber + ' (order ' + i + ') has no matching ref (refIndex:', refIndex, ', refs.length:', refs.length + ')');
                         }
                         
                         // 如果从引用中找不到值，回退到使用当前编辑的 id_product
@@ -3632,6 +3642,8 @@ function getCurrentProcessId() {
                                 const columnReference = rowLabel + match.columnNumber;
                                 columnValue = getColumnValueFromCellReference(columnReference, processValue);
                                 console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
+                            } else {
+                                console.warn('updateFormulaDisplay: Cannot get rowLabel for processValue:', processValue);
                             }
                         }
                         
@@ -4802,12 +4814,14 @@ function getCurrentProcessId() {
                 }
                 
                 // Store clicked cell references in new format
+                // IMPORTANT: Always add reference, even if it's a duplicate, because the formula may have multiple $数字
+                // For example, if user clicks the same cell twice, formula will have $6+$6, and we need two references
+                // This ensures that each $数字 in the formula can be matched to the corresponding reference in order
                 let clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
                 const refsArray = clickedCellRefs ? clickedCellRefs.split(' ').filter(c => c.trim() !== '') : [];
-                // Preserve click order, don't add duplicates
-                if (!refsArray.includes(cellReference)) {
-                    refsArray.push(cellReference);
-                }
+                // Always add reference to preserve click order and allow multiple references to the same cell
+                // This ensures that when formula has $6+$6, we have two references that can be matched in order
+                refsArray.push(cellReference);
                 formulaInput.setAttribute('data-clicked-cell-refs', refsArray.join(' '));
                 
                 // Also keep backward compatibility with old format (cell positions)
