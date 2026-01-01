@@ -3568,12 +3568,12 @@ function getCurrentProcessId() {
                     // 这些引用包含了正确的 id_product，可能来自其他 id product 的数据
                     const refs = clickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
                     
-                    // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
+                    // 匹配所有 $数字 模式，收集所有匹配项
                     const dollarPattern = /\$(\d+)(?!\d)/g;
                     let match;
                     dollarPattern.lastIndex = 0;
                     
-                    // 先收集所有匹配项及其位置
+                    // 先收集所有匹配项及其位置，保持它们在公式中出现的顺序
                     const allMatches = [];
                     while ((match = dollarPattern.exec(formulaValue)) !== null) {
                         const fullMatch = match[0];
@@ -3584,32 +3584,30 @@ function getCurrentProcessId() {
                             allMatches.push({
                                 fullMatch: fullMatch,
                                 columnNumber: columnNumber,
-                                index: matchIndex
+                                index: matchIndex,
+                                order: allMatches.length // 记录在公式中出现的顺序（第一个、第二个、第三个...）
                             });
                         }
                     }
                     
-                    // 从后往前处理，避免位置偏移
-                    allMatches.sort((a, b) => b.index - a.index);
+                    // 按公式中出现的顺序排序（从前往后），这样第一个 $数字 对应第一个引用
+                    allMatches.sort((a, b) => a.index - b.index);
                     
-                    // 为每个 $数字 找到对应的引用
-                    // IMPORTANT: $数字 中的列号是 displayColumnIndex（例如 $7 表示第7列）
-                    // 但引用中存储的是 dataColumnIndex（例如 6，因为 dataColumnIndex = displayColumnIndex - 1）
-                    // 所以需要将 match.columnNumber 转换为 dataColumnIndex 来匹配
+                    // 为每个 $数字 找到对应的引用（按顺序匹配）
+                    // IMPORTANT: 严格按顺序匹配，第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用，以此类推
+                    // 不管列号是否相同，都按顺序匹配，这样即使选择了相同列号的不同单元格，也能正确匹配
                     // 重要：按顺序匹配，第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用，以此类推
                     let refIndex = 0; // 跟踪已使用的引用索引
+                    const matchValues = []; // 存储每个匹配项对应的值，用于后续替换
+                    
                     for (let i = 0; i < allMatches.length; i++) {
                         const match = allMatches[i];
                         let columnValue = null;
                         
-                        // 尝试从 refs 中找到对应的引用
-                        // $数字 中的列号是 displayColumnIndex，引用中存储的是 dataColumnIndex
-                        // dataColumnIndex = displayColumnIndex - 1（因为 colIndex 1 = id_product, colIndex 2 = data column 1）
-                        const dataColumnIndex = match.columnNumber - 1;
-                        
-                        // 按顺序查找匹配的引用（从 refIndex 开始，避免重复使用）
-                        for (let j = refIndex; j < refs.length; j++) {
-                            const ref = refs[j];
+                        // CRITICAL: 严格按顺序匹配，不管列号是否相同
+                        // 第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用，以此类推
+                        if (refIndex < refs.length) {
+                            const ref = refs[refIndex];
                             // 解析引用：id_product:row_label:column_index 或 id_product:column_index
                             const parts = ref.split(':');
                             if (parts.length >= 2) {
@@ -3617,11 +3615,12 @@ function getCurrentProcessId() {
                                 const refDataColumnIndex = parseInt(parts[parts.length - 1]);
                                 const refRowLabel = parts.length === 3 ? parts[1] : null;
                                 
-                                // 如果 dataColumnIndex 匹配，使用这个引用
-                                if (!isNaN(refDataColumnIndex) && refDataColumnIndex === dataColumnIndex) {
+                                // 直接使用这个引用，不管列号是否匹配
+                                // 因为引用是按点击顺序存储的，$数字也是按插入顺序出现的
+                                if (!isNaN(refDataColumnIndex)) {
                                     columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                    refIndex = j + 1; // 更新已使用的引用索引
-                                    break; // 找到匹配的引用后退出循环
+                                    console.log('updateFormulaDisplay: Matched $' + match.columnNumber + ' (order ' + i + ') to ref[' + refIndex + ']:', ref, 'value:', columnValue);
+                                    refIndex++; // 更新已使用的引用索引，移动到下一个引用
                                 }
                             }
                         }
@@ -3632,20 +3631,28 @@ function getCurrentProcessId() {
                             if (rowLabel) {
                                 const columnReference = rowLabel + match.columnNumber;
                                 columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
                             }
                         }
                         
-                        if (columnValue !== null) {
-                            // 替换 $数字 为实际值
-                            displayFormula = displayFormula.substring(0, match.index) + 
-                                            columnValue + 
-                                            displayFormula.substring(match.index + match.fullMatch.length);
-                        } else {
-                            // 如果找不到值，替换为 0
-                            displayFormula = displayFormula.substring(0, match.index) + 
-                                            '0' + 
-                                            displayFormula.substring(match.index + match.fullMatch.length);
-                        }
+                        // 存储匹配的值（如果找不到值，存储 '0'）
+                        matchValues.push({
+                            match: match,
+                            value: columnValue !== null ? columnValue : '0'
+                        });
+                    }
+                    
+                    // 从后往前替换，避免位置偏移
+                    matchValues.sort((a, b) => b.match.index - a.match.index);
+                    for (let i = 0; i < matchValues.length; i++) {
+                        const matchValue = matchValues[i];
+                        const match = matchValue.match;
+                        const value = matchValue.value;
+                        
+                        // 替换 $数字 为实际值
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        value + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
                     }
                 } else {
                     // 如果没有 data-clicked-cell-refs，使用原来的逻辑（使用当前编辑的 id_product）
@@ -17310,5 +17317,6 @@ function formatPercentValue(value) {
     </style>
     
 </body>
+</html>
 </html>
 </html>
