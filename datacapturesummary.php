@@ -6891,19 +6891,27 @@ function getCurrentProcessId() {
                     return 'Formula';
                 }
                 
-                // If source percent is disabled, return formula as-is
+                // IMPORTANT: Parse reference format (e.g., [id_product : column]) to actual values first
+                // This ensures that references to other id_product rows are correctly resolved
+                let parsedFormula = formula;
+                if (formula.includes('[') && formula.includes(']')) {
+                    parsedFormula = parseReferenceFormula(formula);
+                    console.log('createFormulaDisplayFromExpression: Parsed reference format:', formula, '->', parsedFormula);
+                }
+                
+                // If source percent is disabled, return parsed formula as-is
                 if (!enableSourcePercent) {
-                    return formula.trim();
+                    return parsedFormula.trim();
                 }
                 
                 // If enableSourcePercent is true but sourcePercentValue is empty, treat as 0
                 if (!sourcePercentValue || sourcePercentValue.trim() === '') {
-                    const trimmedFormula = formula.trim();
+                    const trimmedFormula = parsedFormula.trim();
                     return `${trimmedFormula}*(0)`;
                 }
                 
                 // 保持公式本体不动，只在结尾统一乘上 Source Percent 展示
-                const trimmedFormula = formula.trim();
+                const trimmedFormula = parsedFormula.trim();
                 const formulaPart = trimmedFormula;
 
                 // If source is 1, don't add *(1) to the display
@@ -8787,17 +8795,19 @@ function getCurrentProcessId() {
             const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
 
             if (isDisplayReferenceFormat) {
-                // Use reference format directly, just add Source % if needed
+                // Parse reference format to actual values before creating display
+                const parsedExpression = parseReferenceFormula(displayExpression);
                 if (enableSourcePercent && sourcePercentText) {
-                    formulaDisplay = createFormulaDisplayFromExpression(displayExpression, sourcePercentText, enableSourcePercent);
+                    formulaDisplay = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, enableSourcePercent);
                 } else {
-                    formulaDisplay = displayExpression;
+                    formulaDisplay = parsedExpression;
                 }
-                console.log('Using reference format directly for display:', formulaDisplay);
+                console.log('Parsed reference format for display:', displayExpression, '->', parsedExpression, 'Final:', formulaDisplay);
             } else if (savedHasReferenceFormat) {
-                // Saved formula has reference format, use it directly
-                formulaDisplay = savedFormulaDisplay;
-                console.log('Using saved formula_display with reference format:', formulaDisplay);
+                // Saved formula has reference format, parse it to actual values
+                const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
+                formulaDisplay = parsedSavedFormula;
+                console.log('Parsed saved formula_display with reference format:', savedFormulaDisplay, '->', parsedSavedFormula);
             } else if (savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
                 // Use preserveFormulaStructure to update numbers while keeping formula structure
                 // Use resolvedSourceExpression (which has *0.008, etc.) instead of simple currentSourceData
