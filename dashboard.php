@@ -380,9 +380,9 @@ if (isset($_GET['logout'])) {
         }
 
         .dashboard-date-part.active {
-            background-color: #f99e00;
+            background-color: #3b82f6;
             color: white;
-            border-color: #f99e00;
+            border-color: #3b82f6;
         }
 
         .dashboard-date-separator {
@@ -459,9 +459,9 @@ if (isset($_GET['logout'])) {
         }
 
         .dashboard-date-option.selected {
-            background-color: #f99e00;
+            background-color: #3b82f6;
             color: white;
-            border-color: #f99e00;
+            border-color: #3b82f6;
         }
 
         .dashboard-day-header {
