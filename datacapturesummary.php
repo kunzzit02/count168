@@ -11758,9 +11758,21 @@ function applyTemplateToSummaryRow(idProduct, template) {
                             }
                         }
                     } else {
-                        // No current source data, use saved formula as-is
-                        formulaDisplay = savedFormulaDisplay;
-                        console.log('Batch template: using saved formula_display as-is (no current source data):', formulaDisplay);
+                        // No current source data, check if saved formula has reference format and parse it
+                        const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+                        if (savedHasRefFormat) {
+                            // Parse reference format to actual values
+                            const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
+                            if (percentValue && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(parsedSavedFormula, percentValue, enableSourcePercent);
+                            } else {
+                                formulaDisplay = parsedSavedFormula;
+                            }
+                            console.log('Batch template: Parsed saved formula_display with reference format (no current source data):', savedFormulaDisplay, '->', parsedSavedFormula, 'Final:', formulaDisplay);
+                        } else {
+                            formulaDisplay = savedFormulaDisplay;
+                            console.log('Batch template: using saved formula_display as-is (no current source data):', formulaDisplay);
+                        }
                     }
                 } else {
                     // No saved formula_display, recalculate from current Data Capture Table
@@ -11786,10 +11798,16 @@ function applyTemplateToSummaryRow(idProduct, template) {
                     const isResolvedReferenceFormat = resolvedSourceExpression && /\[[^\]]+\s*:\s*\d+\]/.test(resolvedSourceExpression);
                     const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
                     
-                    // If saved formula has reference format, use it directly
+                    // If saved formula has reference format, parse it to actual values
                     if (savedHasReferenceFormat) {
-                        formulaDisplay = savedFormulaDisplay;
-                        console.log('Using saved formula_display with reference format:', formulaDisplay);
+                        // Parse reference format to actual values before displaying
+                        const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
+                        if (percentValue && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(parsedSavedFormula, percentValue, enableSourcePercent);
+                        } else {
+                            formulaDisplay = parsedSavedFormula;
+                        }
+                        console.log('Parsed saved formula_display with reference format:', savedFormulaDisplay, '->', parsedSavedFormula, 'Final:', formulaDisplay);
                     } else if (isResolvedReferenceFormat) {
                         // Current data is reference format, use it directly
                         if (percentValue && enableSourcePercent) {
@@ -11852,9 +11870,21 @@ function applyTemplateToSummaryRow(idProduct, template) {
                             }
                         }
                     } else {
-                        // If no current source data, use saved formula as-is
-                        formulaDisplay = savedFormulaDisplay;
-                        console.log('Using saved formula_display as-is (no current source data):', formulaDisplay);
+                        // If no current source data, check if saved formula has reference format and parse it
+                        const savedHasRefFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+                        if (savedHasRefFormat) {
+                            // Parse reference format to actual values
+                            const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
+                            if (percentValue && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(parsedSavedFormula, percentValue, enableSourcePercent);
+                            } else {
+                                formulaDisplay = parsedSavedFormula;
+                            }
+                            console.log('Parsed saved formula_display with reference format (no current source data):', savedFormulaDisplay, '->', parsedSavedFormula, 'Final:', formulaDisplay);
+                        } else {
+                            formulaDisplay = savedFormulaDisplay;
+                            console.log('Using saved formula_display as-is (no current source data):', formulaDisplay);
+                        }
                     }
                 }
             }
