@@ -1140,7 +1140,10 @@ if (isset($_GET['logout'])) {
                 const chartDateRangeEl = document.getElementById('chart-date-range');
                 if (chartDateRangeEl && data.date_range) {
                     chartDateRangeEl.textContent = 
-                        `${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)} (无数据)`;
+                        `${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)} (该日期范围内无数据)`;
+                    chartDateRangeEl.style.color = '#9ca3af';
+                } else if (chartDateRangeEl) {
+                    chartDateRangeEl.textContent = '该日期范围内无数据';
                     chartDateRangeEl.style.color = '#9ca3af';
                 }
                 return;

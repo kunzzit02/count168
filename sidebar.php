@@ -1947,9 +1947,9 @@ if ($companyId) {
         const dropdown = document.getElementById('languageDropdown');
         const button = document.querySelector('.language-btn');
         
-        if (!languageDropdown.contains(e.target)) {
-            dropdown.classList.remove('show');
-            button.classList.remove('active');
+        if (languageDropdown && !languageDropdown.contains(e.target)) {
+            if (dropdown) dropdown.classList.remove('show');
+            if (button) button.classList.remove('active');
         }
     });
 
@@ -2055,10 +2055,14 @@ if ($companyId) {
         currentAvatarId = avatarId;
         const currentAvatarImg = document.getElementById('currentAvatarImg');
         const options = document.getElementById('avatarOptions');
-        currentAvatarImg.src = avatarImages[avatarId];
+        if (currentAvatarImg) {
+            currentAvatarImg.src = avatarImages[avatarId];
+        }
         
         // 隐藏选项
-        options.classList.remove('show');
+        if (options) {
+            options.classList.remove('show');
+        }
         
         // 保存用户选择到localStorage（可选）
         localStorage.setItem('selectedAvatar', avatarId);
@@ -2093,7 +2097,9 @@ if ($companyId) {
             currentAvatarId = 'male1';
         }
 
-        currentAvatarImg.src = avatarImages[currentAvatarId];
+        if (currentAvatarImg) {
+            currentAvatarImg.src = avatarImages[currentAvatarId];
+        }
         updateSelectedAvatar();
         
         // 根据当前头像的性别设置默认显示
@@ -2110,7 +2116,8 @@ if ($companyId) {
         const avatarContainer = document.querySelector('.avatar-selector-container');
         const avatarOptions = document.getElementById('avatarOptions');
         
-        if (!avatarContainer.contains(e.target) && !avatarOptions.contains(e.target)) {
+        if (avatarContainer && avatarOptions && 
+            !avatarContainer.contains(e.target) && !avatarOptions.contains(e.target)) {
             avatarOptions.classList.remove('show');
         }
     });
