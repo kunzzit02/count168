@@ -6178,8 +6178,16 @@ if ($current_user_id && count($user_companies) > 0) {
                     detectedColumnCount = firstInterval;
                     console.log(`Detected pattern: Row identifiers at indices ${rowIdentifierIndices[0]} and ${rowIdentifierIndices[1]}, interval is ${firstInterval}, will use ${firstInterval} columns`);
                 } else if (firstInterval > 0 && firstInterval < 14) {
-                    // 如果间隔太小，可能是检测错误，尝试检查第三个标识符
-                    if (rowIdentifierIndices.length >= 3) {
+                    // 如果间隔较小（2-13），需要检查是否是合理的列数
+                    // 对于少量行的数据（2-20行），较小的间隔可能是正确的列数
+                    const estimatedRows = Math.ceil(allCells.length / firstInterval);
+                    if (estimatedRows >= 2 && estimatedRows <= 20 && allCells.length <= 200) {
+                        // 数据行数合理，且总单元格数不太大，使用这个间隔作为列数
+                        force18Columns = true;
+                        detectedColumnCount = firstInterval;
+                        console.log(`Detected pattern: Row identifiers at indices ${rowIdentifierIndices[0]} and ${rowIdentifierIndices[1]}, interval is ${firstInterval}, will use ${firstInterval} columns (estimated ${estimatedRows} rows)`);
+                    } else if (rowIdentifierIndices.length >= 3) {
+                        // 如果间隔太小，可能是检测错误，尝试检查第三个标识符
                         const secondInterval = rowIdentifierIndices[2] - rowIdentifierIndices[1];
                         if (secondInterval === firstInterval) {
                             // 如果两个间隔相同，说明这是正确的列数
@@ -6190,7 +6198,43 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
             }
-            // 方法3：如果没有检测到多个标识符，但检测到了Grand Total，可以根据它来估算列数
+            // 方法3：如果只有一个行标识符，尝试通过数据总量来推断列数（适用于少量行的数据）
+            else if (rowIdentifierIndices.length === 1 && allCells.length <= 200) {
+                const identifierIndex = rowIdentifierIndices[0];
+                // 如果标识符不在索引0，尝试推断列数
+                // 假设标识符是每行的第一个单元格，那么从标识符位置可以推断出已经有多少列
+                // 如果标识符在索引6，且总共有11个单元格，可能是2行，每行约5-6列
+                if (identifierIndex > 0 && identifierIndex <= 15) {
+                    // 尝试使用标识符的位置作为列数（如果标识符在索引N，可能是第2行的开始，列数=N）
+                    const estimatedRows = Math.ceil(allCells.length / identifierIndex);
+                    const remainder = allCells.length % identifierIndex;
+                    // 放宽条件：如果估计的行数合理（2-20行），且剩余单元格数不超过标识符位置（允许最后一行不完整）
+                    if (estimatedRows >= 2 && estimatedRows <= 20 && remainder <= identifierIndex) {
+                        force18Columns = true;
+                        detectedColumnCount = identifierIndex;
+                        console.log(`Detected pattern: Single identifier at index ${identifierIndex}, will try ${identifierIndex} columns (estimated ${estimatedRows} rows, remainder ${remainder})`);
+                    } else {
+                        // 如果使用标识符位置作为列数不合理，尝试通过总单元格数推断合理的列数
+                        // 对于少量行的数据（2-10行），尝试常见的列数（3-12列）
+                        let bestMatch = null;
+                        for (let cols = 3; cols <= 12; cols++) {
+                            const rows = Math.ceil(allCells.length / cols);
+                            const rem = allCells.length % cols;
+                            if (rows >= 2 && rows <= 10 && rem < cols * 0.3) {
+                                if (!bestMatch || rem < bestMatch.remainder) {
+                                    bestMatch = { cols: cols, rows: rows, remainder: rem };
+                                }
+                            }
+                        }
+                        if (bestMatch) {
+                            force18Columns = true;
+                            detectedColumnCount = bestMatch.cols;
+                            console.log(`Detected pattern: Single identifier, trying ${bestMatch.cols} columns (estimated ${bestMatch.rows} rows, remainder ${bestMatch.remainder})`);
+                        }
+                    }
+                }
+            }
+            // 方法4：如果没有检测到多个标识符，但检测到了Grand Total，可以根据它来估算列数
             else if (grandTotalIndex > 0 && rowIdentifierIndices.length >= 1) {
                 // 计算从第一个标识符到Grand Total之间的单元格数
                 const cellsBeforeGrandTotal = grandTotalIndex - rowIdentifierIndices[0];
