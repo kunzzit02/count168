@@ -4699,10 +4699,14 @@ function getCurrentProcessId() {
                 // Contains operators or parentheses, remove thousands separators from numbers within the expression
                 // Use regex to find and clean numbers (sequences of digits with optional decimal points)
                 // Pattern: match numbers like "1,234.56" or "1,234" but not operators
-                numValue = extractedValue.replace(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/g, (match) => {
-                    // Remove commas from this number match
-                    return match.replace(/,/g, '');
-                }).replace(/\s+/g, ' ').trim();
+                if (extractedValue && typeof extractedValue === 'string') {
+                    numValue = extractedValue.replace(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?)/g, (match) => {
+                        // Remove commas from this number match
+                        return match.replace(/,/g, '');
+                    }).replace(/\s+/g, ' ').trim();
+                } else {
+                    numValue = extractedValue || '';
+                }
             }
             
             // Get cell information: id_product and column index
