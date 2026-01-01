@@ -2328,7 +2328,9 @@ function getCurrentProcessId() {
             insertCellValueToFormula(targetCell);
         }
 
-        // Load all unique id products from table into first select box
+        // Load all id products from table into first select box
+        // IMPORTANT: Show all rows, even if they have the same id_product, because they are different data
+        // Use row label (A, B, C, etc.) to distinguish between rows with same id_product
         function loadIdProductList() {
             const descriptionSelect1 = document.getElementById('descriptionSelect1');
             if (!descriptionSelect1) return;
@@ -2349,58 +2351,106 @@ function getCurrentProcessId() {
                 parsedTableData = JSON.parse(tableData);
             }
 
-            // Get unique id products from table
-            const idProductSet = new Set();
+            // Get all id products with their row labels (to distinguish duplicate id_products)
+            const idProductRows = [];
             const capturedTableBody = document.getElementById('capturedTableBody');
             
             if (capturedTableBody) {
                 // Get from DOM
                 const rows = capturedTableBody.querySelectorAll('tr');
-                rows.forEach(row => {
+                rows.forEach((row, rowIndex) => {
                     const idProduct = row.getAttribute('data-id-product');
                     if (idProduct && idProduct.trim() !== '') {
-                        idProductSet.add(idProduct.trim());
+                        // Get row label (A, B, C, etc.) from row header
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                        
+                        idProductRows.push({
+                            idProduct: idProduct.trim(),
+                            rowLabel: rowLabel,
+                            rowIndex: rowIndex
+                        });
                     }
                 });
             } else if (parsedTableData && parsedTableData.rows) {
                 // Get from parsed data
-                parsedTableData.rows.forEach(row => {
+                parsedTableData.rows.forEach((row, rowIndex) => {
                     if (row && row.length > 1 && row[1] && row[1].type === 'data') {
                         const idProduct = row[1].value;
                         if (idProduct && idProduct.trim() !== '') {
-                            idProductSet.add(idProduct.trim());
+                            // Get row label from first cell (header)
+                            const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
+                            
+                            idProductRows.push({
+                                idProduct: idProduct.trim(),
+                                rowLabel: rowLabel,
+                                rowIndex: rowIndex
+                            });
                         }
                     }
                 });
             }
 
+            // Count occurrences of each id_product to determine if we need to show row label
+            const idProductCount = new Map();
+            idProductRows.forEach(item => {
+                const count = idProductCount.get(item.idProduct) || 0;
+                idProductCount.set(item.idProduct, count + 1);
+            });
+
             // Add options to select box
-            const sortedIdProducts = Array.from(idProductSet).sort();
-            sortedIdProducts.forEach(idProduct => {
+            // Format: "id_product" if unique, or "id_product (row_label)" if duplicate
+            idProductRows.forEach(item => {
                 const option = document.createElement('option');
-                option.value = idProduct;
-                option.textContent = idProduct;
+                const count = idProductCount.get(item.idProduct);
+                
+                // If id_product appears multiple times, include row label to distinguish
+                if (count > 1 && item.rowLabel) {
+                    option.value = `${item.idProduct}:${item.rowLabel}`; // Store id_product:row_label as value
+                    option.textContent = `${item.idProduct} (${item.rowLabel})`; // Display: "M99M06 (B)"
+                } else {
+                    option.value = item.idProduct; // Store just id_product if unique
+                    option.textContent = item.idProduct; // Display: "OVERALL"
+                }
+                
+                // Store row index in data attribute for reference
+                option.setAttribute('data-row-index', String(item.rowIndex));
+                
                 descriptionSelect1.appendChild(option);
             });
 
             // Auto-select first option if available
-            if (sortedIdProducts.length > 0) {
-                descriptionSelect1.value = sortedIdProducts[0];
+            if (idProductRows.length > 0) {
+                const firstItem = idProductRows[0];
+                const firstCount = idProductCount.get(firstItem.idProduct);
+                const firstValue = (firstCount > 1 && firstItem.rowLabel) 
+                    ? `${firstItem.idProduct}:${firstItem.rowLabel}` 
+                    : firstItem.idProduct;
+                descriptionSelect1.value = firstValue;
                 // Trigger update for second select box
-                updateIdProductRowData(sortedIdProducts[0]);
+                updateIdProductRowData(firstValue);
             }
         }
 
         // Update second select box with row data for selected id product
-        function updateIdProductRowData(idProduct) {
+        function updateIdProductRowData(idProductValue) {
             const descriptionSelect2 = document.getElementById('descriptionSelect2');
             if (!descriptionSelect2) return;
 
             // Clear existing options
             descriptionSelect2.innerHTML = '<option value="">Select Row Data</option>';
 
-            if (!idProduct || idProduct.trim() === '') {
+            if (!idProductValue || idProductValue.trim() === '') {
                 return;
+            }
+
+            // Parse idProductValue: it can be "id_product" or "id_product:row_label"
+            let idProduct = idProductValue.trim();
+            let rowLabel = null;
+            const parts = idProductValue.split(':');
+            if (parts.length === 2) {
+                idProduct = parts[0].trim();
+                rowLabel = parts[1].trim();
             }
 
             // Get table data
@@ -2423,7 +2473,20 @@ function getCurrentProcessId() {
             let firstOptionValue = null;
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                
+                // Check if id_product matches
+                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
+                    return;
+                }
+                
+                // If row_label is specified, also check if it matches
+                if (rowLabel) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                    if (rowHeaderLabel !== rowLabel) {
+                        return; // Skip this row if row label doesn't match
+                    }
+                }
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
