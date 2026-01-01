@@ -756,95 +756,242 @@ if (isset($_GET['logout'])) {
         }
 
         function selectDateValue(prefix, type, value) {
-            const dateValue = prefix === 'start' ? startDateValue : endDateValue;
-            dateValue[type] = value;
-            
-            if (type === 'year' || type === 'month') {
-                const daysInMonth = new Date(dateValue.year, dateValue.month, 0).getDate();
-                if (dateValue.day > daysInMonth) {
-                    dateValue.day = daysInMonth;
+            try {
+                const dateValue = prefix === 'start' ? startDateValue : endDateValue;
+                dateValue[type] = value;
+                
+                if (type === 'year' || type === 'month') {
+                    const daysInMonth = new Date(dateValue.year, dateValue.month, 0).getDate();
+                    if (dateValue.day > daysInMonth) {
+                        dateValue.day = daysInMonth;
+                    }
                 }
+                
+                updateDateDisplay(prefix);
+                hideAllDropdowns();
+                updateDateRangeFromPickers();
+            } catch (error) {
+                console.error('选择日期值失败:', error);
             }
-            
-            updateDateDisplay(prefix);
-            hideAllDropdowns();
-            updateDateRangeFromPickers();
         }
 
         async function updateDateRangeFromPickers() {
-            const startDateStr = `${startDateValue.year}-${String(startDateValue.month).padStart(2, '0')}-${String(startDateValue.day).padStart(2, '0')}`;
-            const endDateStr = `${endDateValue.year}-${String(endDateValue.month).padStart(2, '0')}-${String(endDateValue.day).padStart(2, '0')}`;
-            
-            if (new Date(startDateStr) > new Date(endDateStr)) {
-                alert('开始日期不能晚于结束日期');
-                return;
+            try {
+                const startDateStr = `${startDateValue.year}-${String(startDateValue.month).padStart(2, '0')}-${String(startDateValue.day).padStart(2, '0')}`;
+                const endDateStr = `${endDateValue.year}-${String(endDateValue.month).padStart(2, '0')}-${String(endDateValue.day).padStart(2, '0')}`;
+                
+                const startDate = new Date(startDateStr);
+                const endDate = new Date(endDateStr);
+                
+                if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                    console.error('日期格式无效');
+                    return;
+                }
+                
+                if (startDate > endDate) {
+                    showError('开始日期不能晚于结束日期');
+                    return;
+                }
+                
+                dateRange = {
+                    startDate: startDateStr,
+                    endDate: endDateStr
+                };
+                
+                // 重置上次请求参数，允许重新加载
+                lastRequestParams = null;
+                await loadData();
+            } catch (error) {
+                console.error('更新日期范围失败:', error);
+                showError('日期更新失败');
             }
-            
-            dateRange = {
-                startDate: startDateStr,
-                endDate: endDateStr
-            };
-            
-            await loadData();
         }
 
         // 防抖函数，避免频繁调用
         let loadDataTimeout = null;
+        let isLoading = false; // 防止重复请求
+        let lastRequestParams = null; // 记录上次请求参数，避免重复请求相同数据
+        
         async function loadData() {
             // 清除之前的定时器
             if (loadDataTimeout) {
                 clearTimeout(loadDataTimeout);
             }
             
-            // 使用防抖，延迟 100ms 执行
+            // 如果正在加载，直接返回
+            if (isLoading) {
+                return Promise.resolve();
+            }
+            
+            // 检查是否与上次请求参数相同
+            const currentParams = JSON.stringify({
+                date_from: dateRange.startDate,
+                date_to: dateRange.endDate,
+                company_id: window.companyId
+            });
+            if (lastRequestParams === currentParams) {
+                return Promise.resolve();
+            }
+            
+            // 使用防抖，延迟 500ms 执行（增加延迟时间，减少请求频率）
             return new Promise((resolve) => {
                 loadDataTimeout = setTimeout(async () => {
+                    if (!dateRange.startDate || !dateRange.endDate || !window.companyId) {
+                        resolve();
+                        return;
+                    }
+                    
+                    // 检查参数是否仍然有效
+                    const checkParams = JSON.stringify({
+                        date_from: dateRange.startDate,
+                        date_to: dateRange.endDate,
+                        company_id: window.companyId
+                    });
+                    if (lastRequestParams === checkParams) {
+                        resolve();
+                        return;
+                    }
+                    
+                    // 如果页面不可见，不执行请求
+                    if (!isPageVisible) {
+                        resolve();
+                        return;
+                    }
+                    
+                    isLoading = true;
+                    lastRequestParams = checkParams;
+                    setLoadingState(true);
+                    
                     try {
-                        if (!dateRange.startDate || !dateRange.endDate) {
-                            resolve();
-                            return;
-                        }
-                        
                         const queryParams = new URLSearchParams({
                             date_from: dateRange.startDate,
                             date_to: dateRange.endDate,
                             company_id: window.companyId
                         });
                         
-                        const response = await fetch(`${API_BASE_URL}?${queryParams}`);
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
+                        
+                        const response = await fetch(`${API_BASE_URL}?${queryParams}`, {
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP错误: ${response.status}`);
+                        }
+                        
                         const result = await response.json();
                         
-                        if (result.success) {
-                            updateDashboard(result.data);
+                        if (result.success && result.data) {
+                            // 验证数据格式
+                            if (validateData(result.data)) {
+                                updateDashboard(result.data);
+                            } else {
+                                throw new Error('数据格式不正确');
+                            }
                         } else {
-                            console.error('加载数据失败:', result.message);
+                            throw new Error(result.message || '加载数据失败');
                         }
                     } catch (error) {
-                        console.error('API调用失败:', error);
+                        if (error.name === 'AbortError') {
+                            console.error('请求超时');
+                            showError('请求超时，请稍后重试');
+                        } else {
+                            console.error('API调用失败:', error);
+                            showError('加载数据失败: ' + (error.message || '未知错误'));
+                        }
+                        // 发生错误时，恢复上次请求参数，允许重试
+                        lastRequestParams = null;
                     } finally {
+                        isLoading = false;
+                        setLoadingState(false);
                         resolve();
                     }
-                }, 100);
+                }, 500); // 增加到 500ms
             });
+        }
+        
+        // 验证数据格式
+        function validateData(data) {
+            try {
+                if (!data || typeof data !== 'object') return false;
+                if (typeof data.capital !== 'number' && typeof data.capital !== 'string') return false;
+                if (typeof data.expenses !== 'number' && typeof data.expenses !== 'string') return false;
+                if (typeof data.profit !== 'number' && typeof data.profit !== 'string') return false;
+                if (!data.daily_data || typeof data.daily_data !== 'object') return false;
+                if (!data.date_range || !data.date_range.from || !data.date_range.to) return false;
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        
+        // 设置加载状态
+        function setLoadingState(loading) {
+            const dateInfo = document.getElementById('date-info');
+            if (loading) {
+                dateInfo.textContent = '正在加载数据...';
+                dateInfo.style.color = '#6b7280';
+            }
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            const dateInfo = document.getElementById('date-info');
+            dateInfo.textContent = '❌ ' + message;
+            dateInfo.style.color = '#ef4444';
+            
+            // 3秒后恢复
+            setTimeout(() => {
+                if (dateInfo.textContent.includes('❌')) {
+                    dateInfo.textContent = '数据加载失败，请刷新页面重试';
+                    dateInfo.style.color = '#6b7280';
+                }
+            }, 3000);
         }
 
         function updateDashboard(data) {
-            // 使用 requestAnimationFrame 批量更新 DOM，减少重绘
-            requestAnimationFrame(() => {
-                // 更新KPI卡片
-                document.getElementById('capital-value').textContent = formatCurrency(data.capital);
-                document.getElementById('expenses-value').textContent = formatCurrency(data.expenses);
-                document.getElementById('profit-value').textContent = formatCurrency(data.profit);
-                
-                // 更新日期信息
-                document.getElementById('date-info').textContent = 
-                    `日期范围: ${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)}`;
-                
-                // 更新图表（使用 requestAnimationFrame 延迟，避免与 DOM 更新冲突）
+            try {
+                // 使用 requestAnimationFrame 批量更新 DOM，减少重绘
                 requestAnimationFrame(() => {
-                    updateChart(data);
+                    try {
+                        // 更新KPI卡片
+                        const capitalEl = document.getElementById('capital-value');
+                        const expensesEl = document.getElementById('expenses-value');
+                        const profitEl = document.getElementById('profit-value');
+                        const dateInfoEl = document.getElementById('date-info');
+                        
+                        if (capitalEl) capitalEl.textContent = formatCurrency(data.capital);
+                        if (expensesEl) expensesEl.textContent = formatCurrency(data.expenses);
+                        if (profitEl) profitEl.textContent = formatCurrency(data.profit);
+                        
+                        // 更新日期信息
+                        if (dateInfoEl && data.date_range) {
+                            dateInfoEl.textContent = 
+                                `日期范围: ${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)}`;
+                            dateInfoEl.style.color = '#6b7280';
+                        }
+                        
+                        // 更新图表（使用 requestAnimationFrame 延迟，避免与 DOM 更新冲突）
+                        requestAnimationFrame(() => {
+                            try {
+                                updateChart(data);
+                            } catch (chartError) {
+                                console.error('更新图表失败:', chartError);
+                                showError('图表更新失败');
+                            }
+                        });
+                    } catch (domError) {
+                        console.error('更新DOM失败:', domError);
+                        showError('界面更新失败');
+                    }
                 });
-            });
+            } catch (error) {
+                console.error('updateDashboard 错误:', error);
+                showError('数据更新失败');
+            }
         }
 
         function formatCurrency(value) {
@@ -863,7 +1010,23 @@ if (isset($_GET['logout'])) {
         }
 
         function updateChart(data) {
-            const ctx = document.getElementById('trend-chart').getContext('2d');
+            const chartCanvas = document.getElementById('trend-chart');
+            if (!chartCanvas) {
+                console.error('图表canvas元素不存在');
+                return;
+            }
+            
+            // 验证数据
+            if (!data || !data.daily_data) {
+                console.error('图表数据格式不正确');
+                return;
+            }
+            
+            const dailyData = data.daily_data;
+            if (!dailyData.capital || !dailyData.expenses) {
+                console.error('缺少必要的图表数据');
+                return;
+            }
             
             // 准备图表数据
             const dates = [];
@@ -873,21 +1036,51 @@ if (isset($_GET['logout'])) {
             
             // 合并所有日期
             const allDates = new Set();
-            Object.keys(data.daily_data.capital).forEach(date => allDates.add(date));
-            Object.keys(data.daily_data.expenses).forEach(date => allDates.add(date));
+            if (dailyData.capital && typeof dailyData.capital === 'object') {
+                Object.keys(dailyData.capital).forEach(date => allDates.add(date));
+            }
+            if (dailyData.expenses && typeof dailyData.expenses === 'object') {
+                Object.keys(dailyData.expenses).forEach(date => allDates.add(date));
+            }
+            
+            if (allDates.size === 0) {
+                // 如果没有数据，显示空图表
+                if (trendChart) {
+                    trendChart.data = {
+                        labels: [],
+                        datasets: []
+                    };
+                    trendChart.update('none');
+                }
+                return;
+            }
             
             const sortedDates = Array.from(allDates).sort();
             
             sortedDates.forEach(date => {
-                dates.push(date);
-                capitalData.push(data.daily_data.capital[date] || 0);
-                expensesData.push(data.daily_data.expenses[date] || 0);
-                // Profit = Capital - Expenses (每日)
-                profitData.push((data.daily_data.capital[date] || 0) - (data.daily_data.expenses[date] || 0));
+                try {
+                    dates.push(date);
+                    const capital = parseFloat(dailyData.capital[date] || 0) || 0;
+                    const expenses = parseFloat(dailyData.expenses[date] || 0) || 0;
+                    capitalData.push(capital);
+                    expensesData.push(expenses);
+                    // Profit = Capital - Expenses (每日)
+                    profitData.push(capital - expenses);
+                } catch (e) {
+                    console.warn('处理日期数据时出错:', date, e);
+                }
             });
             
             const chartData = {
-                labels: dates.map(d => new Date(d).toLocaleDateString('zh-CN')),
+                labels: dates.map(d => {
+                    try {
+                        const date = new Date(d);
+                        if (isNaN(date.getTime())) return d;
+                        return date.toLocaleDateString('zh-CN');
+                    } catch (e) {
+                        return d;
+                    }
+                }),
                 datasets: [
                     {
                         label: '资本',
@@ -918,9 +1111,25 @@ if (isset($_GET['logout'])) {
             
             // 如果图表已存在，使用 update 而不是 destroy + create（避免闪屏）
             if (trendChart) {
-                trendChart.data = chartData;
-                trendChart.update('none'); // 'none' 模式不显示动画，避免闪屏
+                try {
+                    trendChart.data = chartData;
+                    trendChart.update('none'); // 'none' 模式不显示动画，避免闪屏
+                } catch (updateError) {
+                    console.error('更新图表失败，尝试重新创建:', updateError);
+                    // 如果更新失败，销毁并重新创建
+                    trendChart.destroy();
+                    trendChart = null;
+                    createChart(chartCanvas, chartData);
+                }
             } else {
+                createChart(chartCanvas, chartData);
+            }
+        }
+        
+        // 创建图表的辅助函数
+        function createChart(canvas, chartData) {
+            try {
+                const ctx = canvas.getContext('2d');
                 trendChart = new Chart(ctx, {
                     type: 'line',
                     data: chartData,
@@ -948,9 +1157,13 @@ if (isset($_GET['logout'])) {
                                     }
                                 }
                             }
-                        }
+                        },
+                        onResize: null // 禁用resize监听，减少性能开销
                     }
                 });
+            } catch (createError) {
+                console.error('创建图表失败:', createError);
+                showError('图表渲染失败');
             }
         }
 
@@ -996,35 +1209,72 @@ if (isset($_GET['logout'])) {
         
         // ==================== 切换 Company ====================
         async function switchCompany(companyId, companyCode) {
-            // 先更新 session
             try {
-                const response = await fetch(`update_company_session_api.php?company_id=${companyId}`);
-                const result = await response.json();
-                if (!result.success) {
-                    console.error('更新 session 失败:', result.error);
+                // 先更新 session
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+                    
+                    const response = await fetch(`update_company_session_api.php?company_id=${companyId}`, {
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP错误: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    if (!result.success) {
+                        throw new Error(result.error || '更新 session 失败');
+                    }
+                } catch (error) {
+                    if (error.name === 'AbortError') {
+                        console.error('更新 session 超时');
+                    } else {
+                        console.error('更新 session 失败:', error);
+                    }
+                    showError('切换公司失败，请刷新页面重试');
+                    return;
                 }
+                
+                window.companyId = companyId;
+                
+                // 更新按钮状态
+                const buttons = document.querySelectorAll('.transaction-company-btn');
+                buttons.forEach(btn => {
+                    if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+                
+                console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
+                
+                // 重置上次请求参数，允许重新加载
+                lastRequestParams = null;
+                
+                // 重新加载数据
+                await loadData();
             } catch (error) {
-                console.error('更新 session 时出错:', error);
+                console.error('切换公司失败:', error);
+                showError('切换公司时出错');
             }
-            
-            window.companyId = companyId;
-            
-            // 更新按钮状态
-            const buttons = document.querySelectorAll('.transaction-company-btn');
-            buttons.forEach(btn => {
-                if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
-            });
-            
-            console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
-            
-            // 重新加载数据
-            await loadData();
         }
 
+        // 页面可见性优化：当页面不可见时，暂停自动刷新
+        let isPageVisible = true;
+        document.addEventListener('visibilitychange', function() {
+            isPageVisible = !document.hidden;
+            if (isPageVisible && dateRange.startDate && dateRange.endDate) {
+                // 页面重新可见时，重置请求参数，允许重新加载
+                lastRequestParams = null;
+                loadData();
+            }
+        });
+        
         // 初始化 - 使用防抖避免多次调用
         let isInitializing = false;
         document.addEventListener('DOMContentLoaded', async function() {
@@ -1032,14 +1282,34 @@ if (isset($_GET['logout'])) {
             isInitializing = true;
             
             try {
+                // 添加全局错误处理
+                window.addEventListener('error', function(event) {
+                    console.error('全局错误:', event.error);
+                    if (event.error && event.error.message) {
+                        showError('页面发生错误: ' + event.error.message);
+                    } else {
+                        showError('页面发生错误，请刷新页面');
+                    }
+                    event.preventDefault(); // 阻止默认错误处理
+                });
+                
+                window.addEventListener('unhandledrejection', function(event) {
+                    console.error('未处理的Promise拒绝:', event.reason);
+                    showError('请求失败，请刷新页面');
+                    event.preventDefault(); // 阻止默认错误处理
+                });
+                
                 initDatePickers();
                 await loadOwnerCompanies();
                 // 确保日期范围已设置后再加载数据
-                if (dateRange.startDate && dateRange.endDate) {
+                if (dateRange.startDate && dateRange.endDate && window.companyId) {
                     await loadData();
+                } else {
+                    showError('缺少必要参数，请刷新页面');
                 }
             } catch (error) {
                 console.error('初始化失败:', error);
+                showError('页面初始化失败，请刷新页面');
             } finally {
                 isInitializing = false;
             }
