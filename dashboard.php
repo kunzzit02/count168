@@ -288,6 +288,38 @@ if (isset($_GET['logout'])) {
             font-family: 'Amaranth', sans-serif;
         }
         
+        .dashboard-chart-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: clamp(16px, 1.35vw, 26px);
+            flex-wrap: wrap;
+        }
+        
+        .chart-data-btn {
+            padding: 8px 16px;
+            background: #f1f5f9;
+            border: 1px solid #d0d7de;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            transition: all 0.2s ease;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        .chart-data-btn:hover {
+            background: #e2e8f0;
+            border-color: #a5b4fc;
+        }
+        
+        .chart-data-btn.active {
+            background: linear-gradient(180deg, #FF6B35 0%, #F7931E 100%);
+            color: #fff;
+            border-color: transparent;
+            box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+        }
+        
         .dashboard-chart-container {
             position: relative;
             width: 100%;
@@ -583,6 +615,13 @@ if (isset($_GET['logout'])) {
                         <div class="dashboard-date-info" id="chart-date-range" style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;">正在加载数据...</div>
                     </div>
                 </div>
+                <!-- 图表数据切换按钮 -->
+                <div class="dashboard-chart-buttons">
+                    <button class="chart-data-btn active" data-type="all">全部</button>
+                    <button class="chart-data-btn" data-type="capital">资本</button>
+                    <button class="chart-data-btn" data-type="expenses">支出</button>
+                    <button class="chart-data-btn" data-type="profit">利润</button>
+                </div>
                 <div class="dashboard-chart-container">
                     <canvas id="trend-chart"></canvas>
                 </div>
@@ -610,6 +649,9 @@ if (isset($_GET['logout'])) {
             expensesData: [],
             profitData: []
         };
+        
+        // 当前选择的图表数据类型（'all', 'capital', 'expenses', 'profit'）
+        let selectedChartDataType = 'all';
 
         // 初始化日期选择器
         function initDatePickers() {
@@ -1098,6 +1140,90 @@ if (isset($_GET['logout'])) {
                 profitData: profitData
             };
             
+            // 根据选择的数据类型过滤数据集
+            const allDatasets = [
+                {
+                    label: '资本',
+                    data: capitalData,
+                    borderColor: '#3b82f6',
+                    backgroundColor: function(context) {
+                        const chart = context.chart;
+                        const {ctx, chartArea} = chart;
+                        if (!chartArea) {
+                            return null;
+                        }
+                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+                        gradient.addColorStop(0.3, 'rgba(59, 130, 246, 0.2)');
+                        gradient.addColorStop(0.7, 'rgba(59, 130, 246, 0.1)');
+                        gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
+                        return gradient;
+                    },
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 8,
+                    type: 'capital'
+                },
+                {
+                    label: '支出',
+                    data: expensesData,
+                    borderColor: '#ef4444',
+                    backgroundColor: function(context) {
+                        const chart = context.chart;
+                        const {ctx, chartArea} = chart;
+                        if (!chartArea) {
+                            return null;
+                        }
+                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
+                        gradient.addColorStop(0.3, 'rgba(239, 68, 68, 0.2)');
+                        gradient.addColorStop(0.7, 'rgba(239, 68, 68, 0.1)');
+                        gradient.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
+                        return gradient;
+                    },
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 8,
+                    type: 'expenses'
+                },
+                {
+                    label: '利润',
+                    data: profitData,
+                    borderColor: '#10b981',
+                    backgroundColor: function(context) {
+                        const chart = context.chart;
+                        const {ctx, chartArea} = chart;
+                        if (!chartArea) {
+                            return null;
+                        }
+                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+                        gradient.addColorStop(0.3, 'rgba(16, 185, 129, 0.2)');
+                        gradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.1)');
+                        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+                        return gradient;
+                    },
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 8,
+                    type: 'profit'
+                }
+            ];
+            
+            // 根据选择的数据类型过滤数据集
+            let filteredDatasets = [];
+            if (selectedChartDataType === 'all') {
+                filteredDatasets = allDatasets;
+            } else {
+                filteredDatasets = allDatasets.filter(ds => ds.type === selectedChartDataType);
+            }
+            
             const chartData = {
                 labels: dates.map(d => {
                     try {
@@ -1109,77 +1235,7 @@ if (isset($_GET['logout'])) {
                         return d;
                     }
                 }),
-                datasets: [
-                    {
-                        label: '资本',
-                        data: capitalData,
-                        borderColor: '#3b82f6',
-                        backgroundColor: function(context) {
-                            const chart = context.chart;
-                            const {ctx, chartArea} = chart;
-                            if (!chartArea) {
-                                return null;
-                            }
-                            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
-                            gradient.addColorStop(0.3, 'rgba(59, 130, 246, 0.2)');
-                            gradient.addColorStop(0.7, 'rgba(59, 130, 246, 0.1)');
-                            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
-                            return gradient;
-                        },
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        pointHoverRadius: 8
-                    },
-                    {
-                        label: '支出',
-                        data: expensesData,
-                        borderColor: '#ef4444',
-                        backgroundColor: function(context) {
-                            const chart = context.chart;
-                            const {ctx, chartArea} = chart;
-                            if (!chartArea) {
-                                return null;
-                            }
-                            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                            gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
-                            gradient.addColorStop(0.3, 'rgba(239, 68, 68, 0.2)');
-                            gradient.addColorStop(0.7, 'rgba(239, 68, 68, 0.1)');
-                            gradient.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
-                            return gradient;
-                        },
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        pointHoverRadius: 8
-                    },
-                    {
-                        label: '利润',
-                        data: profitData,
-                        borderColor: '#10b981',
-                        backgroundColor: function(context) {
-                            const chart = context.chart;
-                            const {ctx, chartArea} = chart;
-                            if (!chartArea) {
-                                return null;
-                            }
-                            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
-                            gradient.addColorStop(0.3, 'rgba(16, 185, 129, 0.2)');
-                            gradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.1)');
-                            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
-                            return gradient;
-                        },
-                        fill: true,
-                        tension: 0.4,
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        pointHoverRadius: 8
-                    }
-                ]
+                datasets: filteredDatasets
             };
             
             // 如果图表已存在，销毁并重新创建（参考 kpi.php 的实现）
@@ -1456,6 +1512,125 @@ if (isset($_GET['logout'])) {
             }
         }
 
+        // 初始化图表数据切换按钮
+        function initChartDataButtons() {
+            const buttons = document.querySelectorAll('.chart-data-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // 移除所有按钮的 active 类
+                    buttons.forEach(b => b.classList.remove('active'));
+                    // 添加当前按钮的 active 类
+                    this.classList.add('active');
+                    // 更新选择的数据类型
+                    selectedChartDataType = this.getAttribute('data-type');
+                    // 重新渲染图表
+                    if (chartMetadata.sortedDates.length > 0) {
+                        const chartCanvas = document.getElementById('trend-chart');
+                        if (chartCanvas) {
+                            // 重新构建图表数据
+                            const dates = chartMetadata.sortedDates.map(d => {
+                                try {
+                                    const date = new Date(d);
+                                    if (isNaN(date.getTime())) return d;
+                                    return `${date.getMonth() + 1}/${date.getDate()}`;
+                                } catch (e) {
+                                    return d;
+                                }
+                            });
+                            
+                            const allDatasets = [
+                                {
+                                    label: '资本',
+                                    data: chartMetadata.capitalData,
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: function(context) {
+                                        const chart = context.chart;
+                                        const {ctx, chartArea} = chart;
+                                        if (!chartArea) return null;
+                                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                                        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+                                        gradient.addColorStop(0.3, 'rgba(59, 130, 246, 0.2)');
+                                        gradient.addColorStop(0.7, 'rgba(59, 130, 246, 0.1)');
+                                        gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
+                                        return gradient;
+                                    },
+                                    fill: true,
+                                    tension: 0.4,
+                                    borderWidth: 2,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 8,
+                                    type: 'capital'
+                                },
+                                {
+                                    label: '支出',
+                                    data: chartMetadata.expensesData,
+                                    borderColor: '#ef4444',
+                                    backgroundColor: function(context) {
+                                        const chart = context.chart;
+                                        const {ctx, chartArea} = chart;
+                                        if (!chartArea) return null;
+                                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                                        gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
+                                        gradient.addColorStop(0.3, 'rgba(239, 68, 68, 0.2)');
+                                        gradient.addColorStop(0.7, 'rgba(239, 68, 68, 0.1)');
+                                        gradient.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
+                                        return gradient;
+                                    },
+                                    fill: true,
+                                    tension: 0.4,
+                                    borderWidth: 2,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 8,
+                                    type: 'expenses'
+                                },
+                                {
+                                    label: '利润',
+                                    data: chartMetadata.profitData,
+                                    borderColor: '#10b981',
+                                    backgroundColor: function(context) {
+                                        const chart = context.chart;
+                                        const {ctx, chartArea} = chart;
+                                        if (!chartArea) return null;
+                                        const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                                        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+                                        gradient.addColorStop(0.3, 'rgba(16, 185, 129, 0.2)');
+                                        gradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.1)');
+                                        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+                                        return gradient;
+                                    },
+                                    fill: true,
+                                    tension: 0.4,
+                                    borderWidth: 2,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 8,
+                                    type: 'profit'
+                                }
+                            ];
+                            
+                            let filteredDatasets = [];
+                            if (selectedChartDataType === 'all') {
+                                filteredDatasets = allDatasets;
+                            } else {
+                                filteredDatasets = allDatasets.filter(ds => ds.type === selectedChartDataType);
+                            }
+                            
+                            const chartData = {
+                                labels: dates,
+                                datasets: filteredDatasets
+                            };
+                            
+                            // 销毁旧图表并创建新图表
+                            if (trendChart) {
+                                trendChart.destroy();
+                                trendChart = null;
+                            }
+                            createChart(chartCanvas, chartData);
+                        }
+                    }
+                });
+            });
+        }
+        
         // 页面可见性优化：当页面不可见时，暂停自动刷新
         let isPageVisible = true;
         document.addEventListener('visibilitychange', function() {
@@ -1492,6 +1667,7 @@ if (isset($_GET['logout'])) {
                 });
                 
                 initDatePickers();
+                initChartDataButtons();
                 await loadOwnerCompanies();
                 // 确保日期范围已设置后再加载数据
                 if (dateRange.startDate && dateRange.endDate && window.companyId) {
