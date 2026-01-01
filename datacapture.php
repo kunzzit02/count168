@@ -5205,6 +5205,85 @@ if ($current_user_id && count($user_companies) > 0) {
             const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
             const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
             
+            // 如果是单行数据，且包含制表符，直接按制表符分割并横向填充
+            if (lines.length === 1 && normalizedData.includes('\t')) {
+                const singleLine = lines[0];
+                const cells = singleLine.split('\t').map(cell => cell.trim());
+                
+                if (cells.length >= 2) {
+                    console.log('Detected single-line tab-separated data, filling horizontally');
+                    console.log('Cells:', cells);
+                    
+                    // 填充到表格
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col);
+                    
+                    // 确保表格有足够的列
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredCols = startCol + cells.length;
+                    
+                    if (requiredCols > currentCols) {
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        initializeTable(currentRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const tableRow = tableBody.children[startRow];
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    cells.forEach((cellData, colIndex) => {
+                        const actualColIndex = startCol + colIndex;
+                        const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                        
+                        if (cell && cell.contentEditable === 'true') {
+                            // 保存旧值（包括空单元格）
+                            const trimmedData = (cellData || '').trim();
+                            currentPasteChanges.push({
+                                row: startRow,
+                                col: actualColIndex,
+                                oldValue: cell.textContent,
+                                newValue: trimmedData
+                            });
+                            
+                            // 填充单元格（包括空单元格，以保留列位置）
+                            if (trimmedData === '') {
+                                cell.textContent = '';
+                            } else {
+                                const finalValue = trimmedData.toUpperCase();
+                                cell.textContent = finalValue;
+                                successCount++;
+                            }
+                        }
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+                    
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted ${successCount} cells in ${cells.length} columns!`, 'success');
+                    }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    
+                    // 粘贴完成后立即应用格式转换
+                    if (successCount > 0) {
+                        setTimeout(() => {
+                            convertTableFormatOnSubmit();
+                        }, 100);
+                    }
+                    
+                    console.log('=== PASTE DEBUG END (single-line tab-separated parser) ===');
+                    return;
+                }
+            }
+            
             // 如果是单行数据，且不包含制表符，尝试按空格分割
             if (lines.length === 1 && !normalizedData.includes('\t')) {
                 const singleLine = lines[0];
