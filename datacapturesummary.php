@@ -2539,9 +2539,62 @@ function getCurrentProcessId() {
                 return;
             }
 
-            // Get row_label for current editing row to distinguish between multiple rows with same id_product
-            const rowLabel = getRowLabelFromProcessValue(idProduct);
-            console.log('updateFormulaDataGrid - Current editing id_product:', idProduct, 'row_label:', rowLabel);
+            // IMPORTANT: Get row_label from summary table row's data-row-index
+            // This ensures we get the correct row_label even when there are multiple rows with same id_product
+            let rowLabel = null;
+            let targetRowIndex = null;
+            
+            // Try to get from currentSelectedRowForCalculator (set when opening edit formula modal)
+            if (currentSelectedRowForCalculator) {
+                const dataRowIndex = currentSelectedRowForCalculator.getAttribute('data-row-index');
+                if (dataRowIndex !== null) {
+                    targetRowIndex = parseInt(dataRowIndex, 10);
+                    console.log('updateFormulaDataGrid - Found data-row-index from currentSelectedRowForCalculator:', targetRowIndex);
+                }
+            }
+            
+            // If not found, try to find summary table row by id_product
+            if (targetRowIndex === null) {
+                const summaryTableBody = document.getElementById('summaryTableBody');
+                if (summaryTableBody) {
+                    const rows = summaryTableBody.querySelectorAll('tr');
+                    for (let row of rows) {
+                        const rowProcessValue = getProcessValueFromRow(row);
+                        if (rowProcessValue === idProduct) {
+                            const dataRowIndex = row.getAttribute('data-row-index');
+                            if (dataRowIndex !== null) {
+                                targetRowIndex = parseInt(dataRowIndex, 10);
+                                console.log('updateFormulaDataGrid - Found data-row-index from summary table row:', targetRowIndex);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Get row_label from data capture table using targetRowIndex
+            if (targetRowIndex !== null) {
+                const capturedTableBody = document.getElementById('capturedTableBody');
+                if (capturedTableBody) {
+                    const dataCaptureRows = capturedTableBody.querySelectorAll('tr');
+                    if (targetRowIndex >= 0 && targetRowIndex < dataCaptureRows.length) {
+                        const targetDataCaptureRow = dataCaptureRows[targetRowIndex];
+                        const rowHeaderCell = targetDataCaptureRow ? targetDataCaptureRow.querySelector('.row-header') : null;
+                        if (rowHeaderCell) {
+                            rowLabel = rowHeaderCell.textContent.trim();
+                            console.log('updateFormulaDataGrid - Found row_label from data capture table:', rowLabel, 'at index:', targetRowIndex);
+                        }
+                    }
+                }
+            }
+            
+            // Fallback: try getRowLabelFromProcessValue if rowLabel still not found
+            if (!rowLabel) {
+                rowLabel = getRowLabelFromProcessValue(idProduct);
+                console.log('updateFormulaDataGrid - Using fallback getRowLabelFromProcessValue, row_label:', rowLabel);
+            }
+            
+            console.log('updateFormulaDataGrid - Final: id_product:', idProduct, 'row_label:', rowLabel, 'targetRowIndex:', targetRowIndex);
 
             // Get table data
             let parsedTableData;
