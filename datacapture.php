@@ -5280,55 +5280,24 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 检测是否是应该横向排列的单行数据（包含制表符但被换行符分割）
             // 如果数据包含制表符，且行数较少（2-10行），可能是应该横向排列的单行数据
-            // 但首先需要检查是否是表格格式（多行，每行列数相同或接近），如果是表格格式则跳过横向排列
             if (normalizedData.includes('\t') && lines.length >= 1 && lines.length <= 10) {
-                // 先检查是否是表格格式：多行数据，每行列数相同或接近
-                let isTableFormat = false;
-                if (lines.length >= 2) {
-                    // 统计每行的列数（包括空单元格，因为表格可能包含空单元格）
-                    const columnCounts = [];
-                    const allLinesHaveTabs = lines.every(line => line.includes('\t'));
-                    
-                    if (allLinesHaveTabs) {
-                        // 如果所有行都包含制表符，按制表符分割统计列数
-                        for (let line of lines) {
-                            const cells = line.split('\t');
-                            columnCounts.push(cells.length);
-                        }
-                        
-                        // 如果至少有2行，且列数相同或接近（差异不超过2列），认为是表格格式
-                        if (columnCounts.length >= 2) {
-                            const minCols = Math.min(...columnCounts);
-                            const maxCols = Math.max(...columnCounts);
-                            // 如果最大列数和最小列数差异不超过2列，且列数至少为2，认为是表格格式
-                            // 允许一定的差异是为了处理某些行可能有空单元格的情况
-                            if (maxCols - minCols <= 2 && minCols >= 2) {
-                                isTableFormat = true;
-                                console.log('Detected table format (multi-row with consistent column count). Column counts:', columnCounts);
-                            }
+                // 提取所有单元格（合并所有行的数据）
+                const allCells = [];
+                for (let line of lines) {
+                    if (line.includes('\t')) {
+                        // 如果行包含制表符，按制表符分割
+                        const cells = line.split('\t').map(cell => cell.trim());
+                        allCells.push(...cells);
+                    } else {
+                        // 如果行不包含制表符，整行作为一个单元格
+                        if (line.trim() !== '') {
+                            allCells.push(line.trim());
                         }
                     }
                 }
                 
-                // 如果不是表格格式，才执行横向排列逻辑
-                if (!isTableFormat) {
-                    // 提取所有单元格（合并所有行的数据）
-                    const allCells = [];
-                    for (let line of lines) {
-                        if (line.includes('\t')) {
-                            // 如果行包含制表符，按制表符分割
-                            const cells = line.split('\t').map(cell => cell.trim());
-                            allCells.push(...cells);
-                        } else {
-                            // 如果行不包含制表符，整行作为一个单元格
-                            if (line.trim() !== '') {
-                                allCells.push(line.trim());
-                            }
-                        }
-                    }
-                    
-                    // 如果提取的单元格数量 >= 2，认为是单行数据，横向填充
-                    if (allCells.length >= 2) {
+                // 如果提取的单元格数量 >= 2，认为是单行数据，横向填充
+                if (allCells.length >= 2) {
                     console.log('Detected tab-separated data that should be arranged horizontally');
                     console.log('Original lines:', lines.length);
                     console.log('Extracted cells:', allCells.length);
