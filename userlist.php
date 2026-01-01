@@ -1614,21 +1614,30 @@ try {
                     $is_low_privilege_user = in_array(strtolower($current_user_role), $low_privilege_roles);
                     
                     // 判断是否可以编辑/删除：
-                    // 1. owner shadow: 只有 owner 本人可以编辑/删除
-                    // 2. 低权限角色: 不能编辑/删除 admin 和 owner
-                    // 3. 其他情况: 可以编辑/删除（包括 admin 编辑其他 admin，但编辑权限由层级关系控制）
-                    if ($is_owner_shadow) {
+                    // 1. 用户不能删除自己
+                    // 2. owner shadow: 只有 owner 本人可以编辑/删除
+                    // 3. 低权限角色: 不能编辑/删除 admin 和 owner
+                    // 4. 其他情况: 可以编辑/删除（包括 admin 编辑其他 admin，但编辑权限由层级关系控制）
+                    $is_self = ($current_user_id && $user['id'] == $current_user_id);
+                    
+                    if ($is_self) {
+                        $can_edit_delete = true; // 可以编辑自己，但不能删除
+                        $can_delete = false; // 不能删除自己
+                    } elseif ($is_owner_shadow) {
                         $can_edit_delete = $current_user_role === 'owner';
+                        $can_delete = $current_user_role === 'owner';
                     } elseif ($is_low_privilege_user && ($is_admin_user || $is_owner_user)) {
                         $can_edit_delete = false; // 低权限角色不能编辑/删除 admin 和 owner
+                        $can_delete = false;
                     } else {
                         // 允许编辑（包括 admin 编辑其他 admin，同级编辑同级等）
                         // 具体的编辑权限（哪些字段可以编辑）由 JavaScript 的层级关系控制
                         $can_edit_delete = true;
+                        $can_delete = true;
                     }
                     
-                    // 判断是否可以切换状态（与编辑/删除逻辑相同）
-                    $can_toggle_status = $can_edit_delete;
+                    // 判断是否可以切换状态（与编辑/删除逻辑相同，但不能切换自己的状态）
+                    $can_toggle_status = $can_edit_delete && !$is_self;
                 ?>
                 <div class="user-card <?php echo ($index % 2 == 0) ? 'row-even' : 'row-odd'; ?>" 
                      data-id="<?php echo $user['id']; ?>" 
@@ -1650,12 +1659,14 @@ try {
                         </span>
                     </div>
                     <div class="card-item uppercase-text">
-                        <?php if ($can_toggle_status): ?>
+                        <?php 
+                        if ($can_toggle_status && !$is_self): 
+                        ?>
                             <span class="role-badge <?php echo $user['status'] == 'active' ? 'status-active' : 'status-inactive'; ?> status-clickable" onclick="toggleUserStatus(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['status']); ?>', <?php echo $is_owner_shadow ? 'true' : 'false'; ?>)" title="Click to toggle status" style="cursor: pointer;">
                                 <?php echo strtoupper(htmlspecialchars($user['status'])); ?>
                             </span>
                         <?php else: ?>
-                            <span class="role-badge <?php echo $user['status'] == 'active' ? 'status-active' : 'status-inactive'; ?>" style="cursor: not-allowed; opacity: 0.6;" title="No permission to toggle status">
+                            <span class="role-badge <?php echo $user['status'] == 'active' ? 'status-active' : 'status-inactive'; ?>" style="cursor: not-allowed; opacity: 0.6;" title="<?php echo $is_self ? 'You cannot toggle your own status' : 'No permission to toggle status'; ?>">
                                 <?php echo strtoupper(htmlspecialchars($user['status'])); ?>
                             </span>
                         <?php endif; ?>
@@ -1672,10 +1683,10 @@ try {
                                 <img src="images/edit.svg" alt="Edit Disabled">
                             </button>
                         <?php endif; ?>
-                        <?php if ($can_edit_delete): ?>
+                        <?php if ($can_delete): ?>
                             <input type="checkbox" class="user-checkbox" value="<?php echo $user['id']; ?>" data-is-owner-shadow="<?php echo $is_owner_shadow ? '1' : '0'; ?>" onchange="updateDeleteButton()">
                         <?php else: ?>
-                            <input type="checkbox" class="user-checkbox" disabled style="opacity: 0.3; cursor: not-allowed;">
+                            <input type="checkbox" class="user-checkbox" disabled style="opacity: 0.3; cursor: not-allowed;" title="<?php echo $is_self ? 'You cannot delete your own account' : 'No permission to delete'; ?>">
                         <?php endif; ?>
                     </div>
                 </div>
@@ -3408,6 +3419,17 @@ try {
             
             if (selectedCheckboxes.length === 0) {
                 showAlert('Please select users to delete first', 'danger');
+                return;
+            }
+            
+            // 检查用户是否试图删除自己
+            const hasSelf = Array.from(selectedCheckboxes).some(cb => {
+                const userId = parseInt(cb.value);
+                return currentUserId && userId === currentUserId;
+            });
+            
+            if (hasSelf) {
+                showAlert('You cannot delete your own account', 'danger');
                 return;
             }
             

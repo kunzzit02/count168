@@ -647,6 +647,12 @@ try {
             
             global $current_company_id, $current_user_role;
             
+            // 检查用户是否试图删除自己
+            $currentUserId = $_SESSION['user_id'] ?? null;
+            if ($currentUserId && intval($currentUserId) === $userId) {
+                sendResponse(false, 'You cannot delete your own account');
+            }
+            
             // 检查是否是owner影子
             if (isOwnerShadow($pdo, $userId, $current_company_id)) {
                 // 只有owner本人可以删除owner记录
