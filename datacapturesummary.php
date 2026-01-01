@@ -12416,76 +12416,116 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
         // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
         // 这样当用户修改表格数据后，公式会反映最新的数据
+        // CRITICAL: 必须使用 sourceColumns 中保存的 id_product，而不是当前行的 id_product
         const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
         if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
             // 从当前表格数据重新计算 formula
-            // 获取行标签
-            const rowLabel = getRowLabelFromProcessValue(idProduct);
-            if (rowLabel) {
-                let displayFormula = formulaOperatorsValue;
+            // IMPORTANT: 使用 sourceColumns 中保存的 id_product，而不是当前行的 id_product
+            let displayFormula = formulaOperatorsValue;
+            
+            // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
+            const dollarPattern = /\$(\d+)(?!\d)/g;
+            const allMatches = [];
+            let match;
+            
+            // 重置正则表达式的 lastIndex
+            dollarPattern.lastIndex = 0;
+            
+            // 收集所有匹配项
+            while ((match = dollarPattern.exec(formulaOperatorsValue)) !== null) {
+                const fullMatch = match[0];
+                const columnNumber = parseInt(match[1]);
+                const matchIndex = match.index;
                 
-                // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
-                const dollarPattern = /\$(\d+)(?!\d)/g;
-                const allMatches = [];
-                let match;
-                
-                // 重置正则表达式的 lastIndex
-                dollarPattern.lastIndex = 0;
-                
-                // 收集所有匹配项
-                while ((match = dollarPattern.exec(formulaOperatorsValue)) !== null) {
-                    const fullMatch = match[0];
-                    const columnNumber = parseInt(match[1]);
-                    const matchIndex = match.index;
-                    
-                    if (!isNaN(columnNumber) && columnNumber > 0) {
-                        allMatches.push({
-                            fullMatch: fullMatch,
-                            columnNumber: columnNumber,
-                            index: matchIndex
-                        });
-                    }
+                if (!isNaN(columnNumber) && columnNumber > 0) {
+                    allMatches.push({
+                        fullMatch: fullMatch,
+                        columnNumber: columnNumber,
+                        index: matchIndex
+                    });
                 }
-                
-                // 从后往前处理，避免位置偏移
-                allMatches.sort((a, b) => b.index - a.index);
-                
-                for (let i = 0; i < allMatches.length; i++) {
-                    const match = allMatches[i];
-                    // 获取列的实际值
-                    const columnReference = rowLabel + match.columnNumber;
-                    const columnValue = getColumnValueFromCellReference(columnReference, idProduct);
-                    
-                    if (columnValue !== null) {
-                        // 替换 $数字 为实际值
-                        displayFormula = displayFormula.substring(0, match.index) + 
-                                        columnValue + 
-                                        displayFormula.substring(match.index + match.fullMatch.length);
-                    } else {
-                        // 如果找不到值，替换为 0
-                        displayFormula = displayFormula.substring(0, match.index) + 
-                                        '0' + 
-                                        displayFormula.substring(match.index + match.fullMatch.length);
-                    }
-                }
-                
-                // 如果还有列引用（如 A5），也转换为实际值
-                const parsedFormula = parseReferenceFormula(displayFormula);
-                const baseFormula = parsedFormula || displayFormula;
-                
-                // 应用 source percent
-                if (percentValue && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
-                } else {
-                    formulaDisplay = baseFormula;
-                }
-                
-                console.log('applyMainTemplateToRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
-            } else {
-                // 如果无法获取行标签，使用保存的 formula_display 作为后备
-                formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
-                console.log('applyMainTemplateToRow: cannot get row label, using saved formula_display:', formulaDisplay);
             }
+            
+            // 从后往前处理，避免位置偏移
+            allMatches.sort((a, b) => b.index - a.index);
+            
+            // IMPORTANT: 使用 sourceColumns 来获取正确的 id_product 和 row_label
+            const isNewFormat = sourceColumnsValue && isNewIdProductColumnFormat(sourceColumnsValue);
+            const columnRefMap = new Map();
+            
+            if (isNewFormat && sourceColumnsValue) {
+                // 从 sourceColumns 中提取 id_product 和 row_label 信息
+                const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+                parts.forEach(part => {
+                    // Try format with row label: "id_product:row_label:displayColumnIndex"
+                    let partMatch = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
+                    if (partMatch) {
+                        const refIdProduct = partMatch[1];
+                        const refRowLabel = partMatch[2];
+                        const displayColumnIndex = parseInt(partMatch[3]);
+                        columnRefMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: refRowLabel, dataColumnIndex: displayColumnIndex - 1 });
+                    } else {
+                        // Try format without row label: "id_product:displayColumnIndex"
+                        partMatch = part.match(/^([^:]+):(\d+)$/);
+                        if (partMatch) {
+                            const refIdProduct = partMatch[1];
+                            const displayColumnIndex = parseInt(partMatch[2]);
+                            columnRefMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: null, dataColumnIndex: displayColumnIndex - 1 });
+                        }
+                    }
+                });
+            }
+            
+            for (let i = 0; i < allMatches.length; i++) {
+                const match = allMatches[i];
+                let columnValue = null;
+                
+                // 优先从 columnRefMap 获取（使用 sourceColumns 中保存的 id_product）
+                if (columnRefMap.has(match.columnNumber)) {
+                    const ref = columnRefMap.get(match.columnNumber);
+                    columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel);
+                    console.log('applyMainTemplateToRow: Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
+                }
+                
+                // 回退到使用当前行的 id_product（如果没有在 sourceColumns 中找到）
+                if (columnValue === null) {
+                    const rowLabel = getRowLabelFromProcessValue(idProduct);
+                    if (rowLabel) {
+                        const columnReference = rowLabel + match.columnNumber;
+                        columnValue = getColumnValueFromCellReference(columnReference, idProduct);
+                        console.log('applyMainTemplateToRow: Fallback to current row id_product:', idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
+                    }
+                }
+                
+                if (columnValue !== null) {
+                    // 替换 $数字 为实际值
+                    displayFormula = displayFormula.substring(0, match.index) + 
+                                    columnValue + 
+                                    displayFormula.substring(match.index + match.fullMatch.length);
+                } else {
+                    // 如果找不到值，替换为 0
+                    displayFormula = displayFormula.substring(0, match.index) + 
+                                    '0' + 
+                                    displayFormula.substring(match.index + match.fullMatch.length);
+                }
+            }
+            
+            // 如果还有列引用（如 A5），也转换为实际值
+            const parsedFormula = parseReferenceFormula(displayFormula);
+            const baseFormula = parsedFormula || displayFormula;
+            
+            // 应用 source percent
+            if (percentValue && enableSourcePercent) {
+                formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
+            } else {
+                formulaDisplay = baseFormula;
+            }
+            
+            console.log('applyMainTemplateToRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
+        } else if (hasDollarSigns && !sourceColumnsValue) {
+            // 如果无法获取 sourceColumns，使用保存的 formula_display 作为后备
+            formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
+            console.log('applyMainTemplateToRow: cannot get sourceColumns, using saved formula_display:', formulaDisplay);
         }
         
         // 如果已经计算好 formulaDisplay（包含 $数字 的情况），跳过后续的 batch selection 逻辑
