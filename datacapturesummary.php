@@ -1433,13 +1433,7 @@ function getCurrentProcessId() {
             }
             
             // Find and store the current row for calculator keypad
-            // IMPORTANT: If window.currentEditRow is set (from editRowFormula), use it directly
-            // This ensures we get the correct row even when there are multiple rows with same id_product
-            if (window.currentEditRow) {
-                currentSelectedRowForCalculator = window.currentEditRow;
-                console.log('showEditFormulaForm - Using window.currentEditRow for currentSelectedRowForCalculator');
-            } else if (productValue) {
-                // Fallback: find row by productValue (but this may find the first matching row if duplicates exist)
+            if (productValue) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     const rows = summaryTableBody.querySelectorAll('tr');
@@ -1447,7 +1441,6 @@ function getCurrentProcessId() {
                         const rowProcessValue = getProcessValueFromRow(row);
                         if (rowProcessValue === productValue) {
                             currentSelectedRowForCalculator = row;
-                            console.log('showEditFormulaForm - Found row by productValue (fallback)');
                             break;
                         }
                     }
@@ -2596,11 +2589,9 @@ function getCurrentProcessId() {
             }
             
             // Fallback: try getRowLabelFromProcessValue if rowLabel still not found
-            // IMPORTANT: Only use this fallback if we couldn't get row_label from data-row-index
-            // But note: getRowLabelFromProcessValue may return the first matching row_label if duplicates exist
-            if (!rowLabel && targetRowIndex === null) {
+            if (!rowLabel) {
                 rowLabel = getRowLabelFromProcessValue(idProduct);
-                console.log('updateFormulaDataGrid - Using fallback getRowLabelFromProcessValue, row_label:', rowLabel, '(WARNING: may be incorrect if duplicates exist)');
+                console.log('updateFormulaDataGrid - Using fallback getRowLabelFromProcessValue, row_label:', rowLabel);
             }
             
             console.log('updateFormulaDataGrid - Final: id_product:', idProduct, 'row_label:', rowLabel, 'targetRowIndex:', targetRowIndex);
@@ -2630,18 +2621,9 @@ function getCurrentProcessId() {
                     return;
                 }
                 
-                // IMPORTANT: If targetRowIndex is available, only show data from that specific row
-                // This is the most reliable way to ensure we show the correct row when duplicates exist
-                if (targetRowIndex !== null) {
-                    if (rowIndex !== targetRowIndex) {
-                        console.log('updateFormulaDataGrid - Skipping row with different rowIndex:', rowIndex, 'expected:', targetRowIndex);
-                        return; // Skip this row if row index doesn't match
-                    }
-                    console.log('updateFormulaDataGrid - Found matching row with rowIndex:', targetRowIndex);
-                }
                 // IMPORTANT: If row_label is available, only show data from the row that matches the row_label
                 // This ensures that when there are multiple rows with the same id_product, only the current editing row's data is shown
-                else if (rowLabel) {
+                if (rowLabel) {
                     const rowHeaderCell = row.querySelector('.row-header');
                     const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
                     if (rowHeaderLabel !== rowLabel) {
