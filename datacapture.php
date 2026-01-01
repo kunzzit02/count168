@@ -6255,10 +6255,63 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 从原始数据来看，应该有几行数据（比如3-10行），每行有很多列（比如15-20列）
                 // 尝试不同的行数假设，找到最合理的列数
                 
+                // 特殊处理：如果第一个单元格是"Total"或"TOTAL"，且数据量较少（可能是单行数据）
+                // 优先尝试将所有数据放在一行
+                const firstCell = (allCells[0] || '').trim().toUpperCase();
+                const isTotalRow = (firstCell === 'TOTAL') && allCells.length <= 25;
+                
+                if (isTotalRow) {
+                    console.log('Detected single-row Total data, prioritizing single-row layout');
+                    // 尝试使用能容纳所有数据在一行的列数（15-25列）
+                    const singleRowCols = [];
+                    for (let cols = 15; cols <= 25; cols++) {
+                        const rows = Math.ceil(allCells.length / cols);
+                        const remainder = allCells.length % cols;
+                        // 如果能放在一行（rows === 1），或者剩余很少，优先考虑
+                        if (rows === 1) {
+                            singleRowCols.push({ cols: cols, rows: 1, remainder: remainder, score: 2000 + (25 - cols) });
+                        } else if (rows === 2 && remainder < cols * 0.1) {
+                            // 如果必须分成2行，但剩余很少，也考虑（但分数较低）
+                            singleRowCols.push({ cols: cols, rows: 2, remainder: remainder, score: 500 + (25 - cols) });
+                        }
+                    }
+                    
+                    // 如果找到能放在一行的列数，优先使用
+                    if (singleRowCols.length > 0) {
+                        // 优先选择能放在一行的（rows === 1），其次选择列数最接近数据量的
+                        singleRowCols.sort((a, b) => {
+                            if (a.rows === 1 && b.rows !== 1) return -1;
+                            if (a.rows !== 1 && b.rows === 1) return 1;
+                            if (a.rows === 1 && b.rows === 1) {
+                                // 都能放在一行，选择列数最接近数据量的（但至少15列）
+                                const aDiff = Math.abs(a.cols - allCells.length);
+                                const bDiff = Math.abs(b.cols - allCells.length);
+                                return aDiff - bDiff;
+                            }
+                            return b.score - a.score;
+                        });
+                        
+                        const bestSingleRow = singleRowCols[0];
+                        if (bestSingleRow.rows === 1) {
+                            detectedColumns = bestSingleRow.cols;
+                            console.log(`Using single-row layout: ${bestSingleRow.cols} columns (all ${allCells.length} cells in 1 row)`);
+                        } else {
+                            // 如果无法放在一行，继续使用原来的逻辑
+                            console.log(`Cannot fit all data in one row, continuing with standard detection`);
+                        }
+                    }
+                }
+                
                 // 先尝试常见的列数（15-20列），看看对应的行数是否合理
                 // 优先尝试18列（因为原始表格是A到R，18列）
+                // 但如果已经检测到单行Total数据，跳过这一步
                 const commonColumnCounts = [18, 17, 19, 16, 20, 15, 14, 12, 10]; // 优先18列
                 let bestMatch = { cols: 0, rows: 0, score: 0, remainder: Infinity };
+                
+                // 如果已经检测到单行Total数据且找到了合适的列数，跳过常见列数检测
+                if (isTotalRow && detectedColumns > 0 && Math.ceil(allCells.length / detectedColumns) === 1) {
+                    console.log('Skipping common column detection, using single-row Total layout');
+                } else {
                 
                 for (let cols of commonColumnCounts) {
                     const rows = Math.ceil(allCells.length / cols);
@@ -6302,7 +6355,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                if (bestMatch.cols > 0) {
+                if (bestMatch.cols > 0 && (!isTotalRow || detectedColumns === 0 || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     detectedColumns = bestMatch.cols;
                     const actualCellsUsed = bestMatch.rows * bestMatch.cols;
                     console.log('Best match found:', bestMatch.cols, 'columns,', bestMatch.rows, 'rows (remainder:', bestMatch.remainder, ', score:', bestMatch.score.toFixed(2), ')');
@@ -6310,7 +6363,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 方法3：如果还没有找到，尝试智能估算
-                if (detectedColumns === 0 || detectedColumns < 5) {
+                // 如果已经检测到单行Total数据，跳过此方法
+                if ((detectedColumns === 0 || detectedColumns < 5) && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     // 基于数据量估算：假设数据有3-10行，每行有合理的列数
                     // 从总单元格数除以可能的行数来估算列数
                     const possibleRowCounts = [3, 4, 5, 6, 7, 8, 9, 10]; // 可能的行数
@@ -6344,7 +6398,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 方法4：如果检测到的列数太少（<5列），可能检测错误，使用默认值
-                if (detectedColumns < 5) {
+                // 如果已经检测到单行Total数据，跳过此方法
+                if (detectedColumns < 5 && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     // 从原始数据来看，应该有18列左右（A到R列）
                     // 但如果数据量不够，也可能更少
                     // 尝试根据总单元格数来判断
@@ -6360,7 +6415,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 特殊检查：优先使用能整除的列数（包括18列，但不限于18列）
                 // 检查常见列数（15-25列）中哪些能整除或接近整除
-                if (allCells.length > 0) {
+                // 如果已经检测到单行Total数据，跳过此检查
+                if (allCells.length > 0 && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     const commonColumnCounts = [18, 20, 19, 17, 21, 16, 22, 15, 23, 24, 25]; // 优先18和20列
                     let bestDivisibleCols = null;
                     let bestDivisibleScore = 0;
@@ -6405,11 +6461,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 确保列数在合理范围内
-                if (detectedColumns > 25) {
+                // 确保列数在合理范围内（但如果已经检测到单行Total数据，允许更大的列数）
+                if (detectedColumns > 25 && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     detectedColumns = 18; // 限制最大列数
                     console.log('Column count too large, using default:', detectedColumns);
                 }
+                
+                } // 结束 else 块（如果已经检测到单行Total数据，跳过常见列数检测）
                 
                 } // 结束 else 块（如果force18Columns为false）
                 
