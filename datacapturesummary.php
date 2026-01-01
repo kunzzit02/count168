@@ -1306,21 +1306,34 @@ function getCurrentProcessId() {
             
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             
-            // Check for new format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
-            const newFormatPattern = /^[^:]+:\d+$/;
             const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
-            const isNewFormat = parts.length > 0 && newFormatPattern.test(parts[0]);
+            
+            // Check for new format with row label: "id_product:row_label:column_index" (e.g., "OVERALL:A:7")
+            // Or new format without row label: "id_product:column_index" (e.g., "ABC123:3")
+            const newFormatWithRowLabel = /^[^:]+:[A-Z]+:\d+$/;
+            const newFormatWithoutRowLabel = /^[^:]+:\d+$/;
+            const isNewFormat = parts.length > 0 && (newFormatWithRowLabel.test(parts[0]) || newFormatWithoutRowLabel.test(parts[0]));
             
             if (isNewFormat) {
-                // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4")
-                // Build reference format expression: [ABC123 : 3] + [DEF456 : 4]
+                // New format: "id_product:row_label:column_index" or "id_product:column_index"
+                // Build reference format expression: [OVERALL : 7] + [ABC123 : 3]
+                // IMPORTANT: Use the id_product from sourceColumns, NOT processValue (which is the current row's id_product)
                 const references = [];
                 parts.forEach(part => {
-                    const match = part.match(/^([^:]+):(\d+)$/);
+                    // Try format with row label first: "id_product:row_label:column_index"
+                    let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                     if (match) {
-                        const idProduct = match[1];
-                        const columnIndex = match[2];
+                        const idProduct = match[1];  // Use id_product from sourceColumns (e.g., OVERALL)
+                        const columnIndex = match[3]; // column_index is displayColumnIndex
                         references.push(`[${idProduct} : ${columnIndex}]`);
+                    } else {
+                        // Try format without row label: "id_product:column_index"
+                        match = part.match(/^([^:]+):(\d+)$/);
+                        if (match) {
+                            const idProduct = match[1];  // Use id_product from sourceColumns
+                            const columnIndex = match[2]; // column_index is displayColumnIndex
+                            references.push(`[${idProduct} : ${columnIndex}]`);
+                        }
                     }
                 });
                 
@@ -8619,33 +8632,47 @@ function getCurrentProcessId() {
             const processValue = getProcessValueFromRow(row);
             if (!processValue) return; // Skip rows without Id Product
             
-            // Parse columns value - it could be "6 5 5" (space-separated) or "5+4" (with operators)
-            let parseResult = null;
-            const spaceSeparated = columnsValue.trim().split(/\s+/);
-            if (spaceSeparated.length > 1) {
-                // Has spaces, treat as space-separated numbers
-                const columnNumbers = spaceSeparated
-                    .map(col => parseInt(col.trim()))
-                    .filter(col => !isNaN(col));
-                
-                if (columnNumbers.length > 0) {
-                    // Default to '+' operators for space-separated numbers
-                    parseResult = {
-                        columnNumbers: columnNumbers,
-                        operators: '+'.repeat(columnNumbers.length - 1)
-                    };
-                }
+            // IMPORTANT: Check if columnsValue is in new format (id_product:row_label:column_index or id_product:column_index)
+            // If so, use it directly with buildSourceExpressionFromTable (which will extract id_product from sourceColumns)
+            const isNewFormat = isNewIdProductColumnFormat(columnsValue);
+            
+            let columnNumbers, operators, originalInput, hasParentheses;
+            if (isNewFormat) {
+                // New format: use columnsValue directly, buildSourceExpressionFromTable will extract id_product from it
+                // Set dummy values for columnNumbers to pass validation, but we won't use them
+                columnNumbers = [];
+                operators = '';
+                originalInput = '';
+                hasParentheses = false;
             } else {
-                // No spaces, try parseSourceColumnsInput (handles "5+4" format)
-                parseResult = parseSourceColumnsInput(columnsValue);
+                // Old format: parse columns value - it could be "6 5 5" (space-separated) or "5+4" (with operators)
+                let parseResult = null;
+                const spaceSeparated = columnsValue.trim().split(/\s+/);
+                if (spaceSeparated.length > 1) {
+                    // Has spaces, treat as space-separated numbers
+                    const parsedNumbers = spaceSeparated
+                        .map(col => parseInt(col.trim()))
+                        .filter(col => !isNaN(col));
+                    
+                    if (parsedNumbers.length > 0) {
+                        // Default to '+' operators for space-separated numbers
+                        parseResult = {
+                            columnNumbers: parsedNumbers,
+                            operators: '+'.repeat(parsedNumbers.length - 1)
+                        };
+                    }
+                } else {
+                    // No spaces, try parseSourceColumnsInput (handles "5+4" format)
+                    parseResult = parseSourceColumnsInput(columnsValue);
+                }
+                
+                if (!parseResult || !parseResult.columnNumbers || parseResult.columnNumbers.length === 0) {
+                    console.warn('Could not parse columns value:', columnsValue);
+                    return; // Invalid format, do nothing
+                }
+                
+                ({ columnNumbers, operators, originalInput, hasParentheses } = parseResult);
             }
-            
-            if (!parseResult || !parseResult.columnNumbers || parseResult.columnNumbers.length === 0) {
-                console.warn('Could not parse columns value:', columnsValue);
-                return; // Invalid format, do nothing
-            }
-            
-            const { columnNumbers, operators, originalInput, hasParentheses } = parseResult;
             
             // Get Source % value
             const sourcePercentCell = cells[5]; // Source % column (index 5)
@@ -8685,6 +8712,11 @@ function getCurrentProcessId() {
                 // Use the saved formula expression directly (preserves values from other id product rows)
                 currentSourceData = formulaOperators;
                 console.log('Using saved formulaOperators as complete expression (preserves values from other rows):', currentSourceData);
+            } else if (isNewFormat) {
+                // New format: use columnsValue directly (it contains id_product:row_label:column_index)
+                // buildSourceExpressionFromTable will extract the correct id_product from sourceColumns
+                currentSourceData = buildSourceExpressionFromTable(processValue, columnsValue, formulaOperators, row);
+                console.log('Using new format sourceColumns to build expression:', currentSourceData);
             } else if (hasParentheses && originalInput) {
                 currentSourceData = getColumnDataFromTableWithParentheses(processValue, originalInput, columnNumbers, row);
             } else {
@@ -8730,7 +8762,9 @@ function getCurrentProcessId() {
             // 为展示单独准备一个表达式：优先使用引用格式 [id_product : col]
             let displayExpression = resolvedSourceExpression;
             if (!isSavedReferenceFormat && !/\[[^\]]+\s*:\s*\d+\]/.test(resolvedSourceExpression)) {
-                const storedColumns = row.getAttribute('data-source-columns') || (Array.isArray(columnNumbers) ? columnNumbers.join(' ') : '');
+                // IMPORTANT: Use the original columnsValue (which may contain id_product:row_label:column_index)
+                // buildSourceExpressionFromTable will extract the correct id_product from it
+                const storedColumns = row.getAttribute('data-source-columns') || columnsValue || (Array.isArray(columnNumbers) ? columnNumbers.join(' ') : '');
                 const referenceExpression = buildSourceExpressionFromTable(processValue, storedColumns, row.getAttribute('data-formula-operators') || formulaOperators, row);
                 if (referenceExpression) {
                     displayExpression = referenceExpression;
