@@ -1395,10 +1395,11 @@ function getCurrentProcessId() {
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
             
-            // IMPORTANT: Store the current row reference so updateFormulaDataGrid can use it
-            // This ensures that when there are multiple rows with same id_product, 
-            // the formula data grid shows data from the correct row
-            window.currentEditRow = row;
+            // IMPORTANT: Use a separate variable for updateFormulaDataGrid, NOT window.currentEditRow
+            // This ensures that clicking + button is NOT treated as edit mode
+            // window.currentEditRow should only be set when clicking edit button
+            window.currentRowForDataGrid = row;
+            window.currentEditRow = null; // Clear to ensure it's not treated as edit mode
             window.isEditMode = false; // This is a new entry, not editing existing one
             
             // 从 Add button 进入，一律视为"新增"，不带任何预填数据
@@ -1439,13 +1440,18 @@ function getCurrentProcessId() {
             }
             
             // Find and store the current row for calculator keypad
-            // IMPORTANT: Use window.currentEditRow if available (set when clicking edit button)
+            // IMPORTANT: Use window.currentEditRow (for edit mode) or window.currentRowForDataGrid (for add mode)
             // This ensures we get the correct row even when there are multiple rows with same id_product
             if (window.currentEditRow) {
+                // Edit mode: use the row being edited
                 currentSelectedRowForCalculator = window.currentEditRow;
-                console.log('showEditFormulaForm - Using window.currentEditRow for currentSelectedRowForCalculator');
+                console.log('showEditFormulaForm - Using window.currentEditRow for currentSelectedRowForCalculator (edit mode)');
+            } else if (window.currentRowForDataGrid) {
+                // Add mode: use the row where + button was clicked
+                currentSelectedRowForCalculator = window.currentRowForDataGrid;
+                console.log('showEditFormulaForm - Using window.currentRowForDataGrid for currentSelectedRowForCalculator (add mode)');
             } else if (productValue) {
-                // Fallback: find first matching row (for new entries)
+                // Fallback: find first matching row (shouldn't happen normally)
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     const rows = summaryTableBody.querySelectorAll('tr');
@@ -5210,6 +5216,7 @@ function getCurrentProcessId() {
             // Clean up the global references
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
+            window.currentRowForDataGrid = null;
             window.isEditMode = false;
         }
 
@@ -6286,6 +6293,7 @@ function getCurrentProcessId() {
                     closeEditFormulaForm();
                     window.currentAddAccountButton = null;
                     window.currentEditRow = null;
+                    window.currentRowForDataGrid = null;
                     window.isEditMode = false;
                     return;
                 }
@@ -6340,6 +6348,7 @@ function getCurrentProcessId() {
             // Clean up the global references
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
+            window.currentRowForDataGrid = null;
             window.isEditMode = false;
             
             const actionText = wasEditMode ? 'updated' : 'saved';
