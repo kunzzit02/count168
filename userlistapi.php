@@ -678,7 +678,7 @@ try {
                 sendResponse(false, 'User not found or access denied');
             }
             
-            // 检查是否试图删除同等级的用户
+            // 检查是否试图删除同等级或更高层级的用户
             $role_hierarchy = [
                 'owner' => 0,
                 'admin' => 1,
@@ -693,6 +693,11 @@ try {
             
             if ($current_user_level === $target_user_level) {
                 sendResponse(false, 'You cannot delete accounts with the same role level');
+            }
+            
+            // 检查是否试图删除比自己层级更高的用户（数字越小，层级越高）
+            if ($target_user_level < $current_user_level) {
+                sendResponse(false, 'You cannot delete accounts with higher role level');
             }
             
             // 获取当前登录用户ID（用于替换NOT NULL字段）

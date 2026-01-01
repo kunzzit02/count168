@@ -1634,6 +1634,7 @@ try {
                     $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;
                     $target_user_level = $role_hierarchy[strtolower($user_role)] ?? 999;
                     $is_same_level = ($current_user_level === $target_user_level && !$is_self);
+                    $is_higher_level = ($target_user_level < $current_user_level); // 数字越小，层级越高
                     
                     if ($is_self) {
                         $can_edit_delete = true; // 可以编辑自己，但不能删除
@@ -1647,8 +1648,11 @@ try {
                     } elseif ($is_same_level) {
                         $can_edit_delete = true; // 可以编辑同等级用户，但不能删除
                         $can_delete = false; // 不能删除同等级用户
+                    } elseif ($is_higher_level) {
+                        $can_edit_delete = true; // 可以编辑高阶用户，但不能删除
+                        $can_delete = false; // 不能删除比自己层级更高的用户
                     } else {
-                        // 允许编辑（包括 admin 编辑其他 admin，同级编辑同级等）
+                        // 允许编辑和删除（目标用户层级更低）
                         // 具体的编辑权限（哪些字段可以编辑）由 JavaScript 的层级关系控制
                         $can_edit_delete = true;
                         $can_delete = true;
@@ -1709,6 +1713,8 @@ try {
                                     echo 'You cannot delete your own account';
                                 } elseif ($is_same_level) {
                                     echo 'You cannot delete accounts with the same role level';
+                                } elseif ($is_higher_level) {
+                                    echo 'You cannot delete accounts with higher role level';
                                 } else {
                                     echo 'No permission to delete';
                                 }
@@ -3473,6 +3479,22 @@ try {
             
             if (hasSameLevel) {
                 showAlert('You cannot delete accounts with the same role level', 'danger');
+                return;
+            }
+            
+            // 检查是否包含比自己层级更高的用户（数字越小，层级越高）
+            const hasHigherLevel = Array.from(selectedCheckboxes).some(cb => {
+                const card = cb.closest('.user-card');
+                if (card) {
+                    const userRole = card.getAttribute('data-role')?.toLowerCase() || '';
+                    const userLevel = roleHierarchy[userRole] ?? 999;
+                    return userLevel < currentLevel; // 目标用户层级更高
+                }
+                return false;
+            });
+            
+            if (hasHigherLevel) {
+                showAlert('You cannot delete accounts with higher role level', 'danger');
                 return;
             }
             
