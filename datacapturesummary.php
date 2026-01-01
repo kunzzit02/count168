@@ -2538,6 +2538,59 @@ function getCurrentProcessId() {
                 return;
             }
 
+            // Get row_label from currentEditRow if in edit mode
+            // This ensures we only show data from the specific row being edited
+            let targetRowLabel = null;
+            if (window.currentEditRow) {
+                // Try to get row_label from data attribute first
+                const rowLabelAttr = window.currentEditRow.getAttribute('data-row-label');
+                if (rowLabelAttr) {
+                    targetRowLabel = rowLabelAttr.trim();
+                } else {
+                    // Fallback: use data-row-index to find the correct row in captured table
+                    // This is more reliable when there are duplicate id_products
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const dataRowIndex = window.currentEditRow.getAttribute('data-row-index');
+                        if (dataRowIndex !== null && dataRowIndex !== '') {
+                            const rowIndex = parseInt(dataRowIndex, 10);
+                            if (!isNaN(rowIndex) && rowIndex >= 0) {
+                                const capturedRows = capturedTableBody.querySelectorAll('tr');
+                                if (rowIndex < capturedRows.length) {
+                                    const targetCapturedRow = capturedRows[rowIndex];
+                                    const rowHeaderCell = targetCapturedRow.querySelector('.row-header');
+                                    if (rowHeaderCell) {
+                                        targetRowLabel = rowHeaderCell.textContent.trim();
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // If still not found, try to find by matching id_product (last resort)
+                        if (!targetRowLabel) {
+                            const summaryRowCells = window.currentEditRow.querySelectorAll('td');
+                            if (summaryRowCells.length > 0) {
+                                const summaryIdProductCell = summaryRowCells[0]; // First cell is id_product
+                                const summaryIdProductText = summaryIdProductCell ? summaryIdProductCell.textContent.trim() : '';
+                                
+                                // Find matching row in captured table
+                                const capturedRows = capturedTableBody.querySelectorAll('tr');
+                                for (const capturedRow of capturedRows) {
+                                    const capturedIdProduct = capturedRow.getAttribute('data-id-product');
+                                    if (capturedIdProduct && capturedIdProduct.trim() === summaryIdProductText) {
+                                        const rowHeaderCell = capturedRow.querySelector('.row-header');
+                                        if (rowHeaderCell) {
+                                            targetRowLabel = rowHeaderCell.textContent.trim();
+                                            break; // Found the matching row, use its row_label
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2557,11 +2610,26 @@ function getCurrentProcessId() {
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
-                    // Get all data cells (skip row header and id_product column)
-                    const cells = row.querySelectorAll('td');
-                    
-                    cells.forEach((cell, cellIndex) => {
+                
+                // Check if id_product matches
+                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
+                    return;
+                }
+                
+                // If row_label is specified (in edit mode), also check if it matches
+                if (targetRowLabel) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                    if (rowHeaderLabel !== targetRowLabel) {
+                        return; // Skip this row if row label doesn't match
+                    }
+                }
+                
+                // Match found, process this row
+                // Get all data cells (skip row header and id_product column)
+                const cells = row.querySelectorAll('td');
+                
+                cells.forEach((cell, cellIndex) => {
                         const columnIndex = cell.getAttribute('data-column-index');
                         if (columnIndex && parseInt(columnIndex) > 1) {
                             // Column index > 1 means data columns (skip row header=0 and id_product=1)
