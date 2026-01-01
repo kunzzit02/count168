@@ -134,7 +134,7 @@ if (isset($_GET['logout'])) {
             background-blend-mode: screen, screen, multiply, screen, normal;
             color: #334155;
             overflow-x: hidden;
-            overflow-y: hidden;
+            overflow-y: auto;
         }
 
         .dashboard-container {
@@ -142,9 +142,9 @@ if (isset($_GET['logout'])) {
             margin: 0;
             padding: 8px clamp(20px, 2.08vw, 40px) 8px clamp(180px, 14.06vw, 270px);
             width: 100%;
-            height: 100vh;
+            min-height: 100vh;
             box-sizing: border-box;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .dashboard-title {
@@ -501,13 +501,13 @@ if (isset($_GET['logout'])) {
         }
         
         body.dashboard-page {
-            overflow: hidden;
-            height: 100vh;
+            overflow-y: auto;
+            min-height: 100vh;
         }
         
         html {
-            overflow: hidden;
-            height: 100vh;
+            overflow-y: auto;
+            height: auto;
         }
 
         .text-green { color: #10b981; }
