@@ -1149,57 +1149,180 @@ if ($companyId) {
         font-size: 14px;
     }
 
-    /* 公司到期倒计时样式 */
+    /* 公司到期倒计时样式 - 现代化设计 */
     .company-expiration-countdown {
-        padding: 0;
-        margin-bottom: 0px;
-        text-align: center;
+        width: 100%;
+        padding: clamp(10px, 1.04vw, 16px);
+        margin-bottom: clamp(8px, 0.83vw, 14px);
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: clamp(10px, 1.04vw, 14px);
+        backdrop-filter: blur(10px);
+        box-shadow: 
+            0 4px 12px rgba(0, 0, 0, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
         display: flex;
-        align-items: baseline;
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
-        gap: clamp(4px, 0.42vw, 8px);
+        gap: clamp(6px, 0.63vw, 10px);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .company-expiration-countdown::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        transition: left 0.5s ease;
+    }
+
+    .company-expiration-countdown:hover::before {
+        left: 100%;
+    }
+
+    .company-expiration-countdown:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        box-shadow: 
+            0 6px 16px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        transform: translateY(-1px);
+    }
+
+    /* 到期状态特定的背景色 */
+    .company-expiration-countdown.expired {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.2) 0%, rgba(220, 38, 38, 0.2) 100%);
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .company-expiration-countdown.warning {
+        background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.2) 100%);
+        border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .expiration-header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(6px, 0.63vw, 10px);
+        width: 100%;
+    }
+
+    .expiration-icon {
+        width: clamp(16px, 1.46vw, 20px);
+        height: clamp(16px, 1.46vw, 20px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.9);
+        flex-shrink: 0;
+    }
+
+    .expiration-icon svg {
+        width: 100%;
+        height: 100%;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
     }
 
     .expiration-label {
-        font-size: clamp(10px, 0.73vw, 14px);
-        font-weight: 700;
-        color: rgba(255, 255, 255, 1);
+        font-size: clamp(9px, 0.73vw, 12px);
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.85);
         margin: 0;
-        line-height: 1.3;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        line-height: 1.2;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    .expiration-status-indicator {
+        width: clamp(6px, 0.52vw, 8px);
+        height: clamp(6px, 0.52vw, 8px);
+        border-radius: 50%;
+        flex-shrink: 0;
+        box-shadow: 0 0 clamp(4px, 0.42vw, 8px) currentColor;
+        animation: status-pulse 2s ease-in-out infinite;
+    }
+
+    .expiration-status-indicator.expired {
+        background: #ef4444;
+        color: #ef4444;
+    }
+
+    .expiration-status-indicator.warning {
+        background: #fbbf24;
+        color: #fbbf24;
+    }
+
+    .expiration-status-indicator.normal {
+        background: #60a5fa;
+        color: #60a5fa;
+    }
+
+    @keyframes status-pulse {
+        0%, 100% { 
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% { 
+            opacity: 0.7;
+            transform: scale(1.1);
+        }
     }
 
     .expiration-countdown-text {
-        font-size: clamp(8px, 0.625vw, 12px);
-        font-weight: 600;
+        font-size: clamp(11px, 0.94vw, 16px);
+        font-weight: 700;
         color: white;
         margin: 0;
         line-height: 1.3;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        letter-spacing: 0.3px;
+        text-align: center;
+        transition: all 0.3s ease;
     }
 
     .expiration-countdown-text.expired {
-        color:rgb(255, 0, 0);
+        color: #fee2e2;
+        text-shadow: 0 0 clamp(8px, 0.83vw, 12px) rgba(239, 68, 68, 0.6);
         animation: pulse-red 2s ease-in-out infinite;
     }
 
     .expiration-countdown-text.warning {
         color: #fef3c7;
+        text-shadow: 0 0 clamp(6px, 0.63vw, 10px) rgba(251, 191, 36, 0.5);
         animation: pulse-yellow 2s ease-in-out infinite;
     }
 
     .expiration-countdown-text.normal {
-        color: #cde7ff;
+        color: #dbeafe;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
 
     @keyframes pulse-red {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
+        0%, 100% { 
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% { 
+            opacity: 0.85;
+            transform: scale(1.02);
+        }
     }
 
     @keyframes pulse-yellow {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.8; }
+        0%, 100% { 
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% { 
+            opacity: 0.9;
+            transform: scale(1.01);
+        }
     }
 </style>
 
@@ -1544,8 +1667,19 @@ if ($companyId) {
 
     <div class="informationmenu-footer">
         <?php if ($company_expiration_date): ?>
-        <div class="company-expiration-countdown" id="companyExpirationCountdown">
-            <span class="expiration-label">Exp:</span>
+        <div class="company-expiration-countdown <?php echo $expiration_status; ?>" id="companyExpirationCountdown">
+            <div class="expiration-header">
+                <div class="expiration-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                </div>
+                <span class="expiration-label">Expiration</span>
+                <div class="expiration-status-indicator <?php echo $expiration_status; ?>"></div>
+            </div>
             <div class="expiration-countdown-text <?php echo $expiration_status; ?>" id="expirationCountdownText">
                 <?php echo htmlspecialchars($expiration_countdown_text); ?>
             </div>
@@ -2347,12 +2481,20 @@ if ($companyId) {
 
     function updateExpirationCountdown() {
         const expirationDate = '<?php echo $company_expiration_date ? $company_expiration_date : ''; ?>';
+        const countdownContainer = document.getElementById('companyExpirationCountdown');
         const countdownText = document.getElementById('expirationCountdownText');
+        const statusIndicator = countdownContainer ? countdownContainer.querySelector('.expiration-status-indicator') : null;
         
         if (!expirationDate || expirationDate.trim() === '' || !countdownText) {
             if (countdownText) {
                 countdownText.textContent = 'No expiration date';
                 countdownText.className = 'expiration-countdown-text normal';
+            }
+            if (countdownContainer) {
+                countdownContainer.className = 'company-expiration-countdown normal';
+            }
+            if (statusIndicator) {
+                statusIndicator.className = 'expiration-status-indicator normal';
             }
             return;
         }
@@ -2362,9 +2504,25 @@ if ($companyId) {
         if (countdown) {
             countdownText.textContent = countdown.text;
             countdownText.className = 'expiration-countdown-text ' + countdown.status;
+            
+            // 更新容器的状态类
+            if (countdownContainer) {
+                countdownContainer.className = 'company-expiration-countdown ' + countdown.status;
+            }
+            
+            // 更新状态指示器的状态类
+            if (statusIndicator) {
+                statusIndicator.className = 'expiration-status-indicator ' + countdown.status;
+            }
         } else {
             countdownText.textContent = 'No expiration date';
             countdownText.className = 'expiration-countdown-text normal';
+            if (countdownContainer) {
+                countdownContainer.className = 'company-expiration-countdown normal';
+            }
+            if (statusIndicator) {
+                statusIndicator.className = 'expiration-status-indicator normal';
+            }
         }
     }
 
