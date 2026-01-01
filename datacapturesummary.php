@@ -1771,7 +1771,10 @@ function getCurrentProcessId() {
             const calcButtons = document.querySelectorAll('.calc-btn[data-value], .calc-btn[data-action]');
             const formulaInput = document.getElementById('formula');
 
-            if (!formulaInput) return;
+            if (!formulaInput) {
+                console.warn('Formula input not found in initializeCalculatorKeypad');
+                return;
+            }
 
             // 1）鼠标点击 keypad 按钮
             calcButtons.forEach(button => {
@@ -1805,17 +1808,19 @@ function getCurrentProcessId() {
             });
 
             // 2）电脑键盘输入：和 keypad 完全同一套逻辑
-            formulaInput.addEventListener('keydown', function(e) {
-                // 已经在别处处理 Backspace/Delete/剪贴板等，这里只接管数字和常用运算符输入
-                if (
-                    e.key &&
-                    e.key.length === 1 &&
-                    /[0-9+\-*/().]/.test(e.key)
-                ) {
-                    e.preventDefault();
-                    handleFormulaValueInput(this, e.key);
-                }
-            });
+            if (formulaInput) {
+                formulaInput.addEventListener('keydown', function(e) {
+                    // 已经在别处处理 Backspace/Delete/剪贴板等，这里只接管数字和常用运算符输入
+                    if (
+                        e.key &&
+                        e.key.length === 1 &&
+                        /[0-9+\-*/().]/.test(e.key)
+                    ) {
+                        e.preventDefault();
+                        handleFormulaValueInput(this, e.key);
+                    }
+                });
+            }
         }
         
         // Get column value from the currently selected row
