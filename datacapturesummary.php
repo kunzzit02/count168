@@ -782,25 +782,12 @@ function getCurrentProcessId() {
                     row.setAttribute('data-row-index', String(index));
                     row.setAttribute('data-product-type', 'main');
                     
-                    // Get row_label from data capture table for this row index
-                    let rowLabel = '';
-                    if (parsedTableData && parsedTableData.rows && parsedTableData.rows[index]) {
-                        const rowData = parsedTableData.rows[index];
-                        if (rowData.length > 0 && rowData[0].type === 'header') {
-                            rowLabel = rowData[0].value.trim();
-                        }
-                    }
-                    
                     // Id Product column (merged main and sub)
                     const idProductCell = document.createElement('td');
                     idProductCell.textContent = value;
                     idProductCell.className = 'id-product';
                     idProductCell.setAttribute('data-main-product', value);
                     idProductCell.setAttribute('data-sub-product', '');
-                    // Store row_label to distinguish between duplicate id_products
-                    if (rowLabel) {
-                        idProductCell.setAttribute('data-row-label', rowLabel);
-                    }
                     row.appendChild(idProductCell);
                     
                     // Account column (text only)
@@ -2551,38 +2538,6 @@ function getCurrentProcessId() {
                 return;
             }
 
-            // Get current edit row's row_label if available (to distinguish between duplicate id_products)
-            let targetRowLabel = null;
-            if (window.currentEditRow) {
-                // Try to get row_label from summary table row's id product cell
-                const idProductCell = window.currentEditRow.querySelector('td.id-product');
-                if (idProductCell) {
-                    targetRowLabel = idProductCell.getAttribute('data-row-label');
-                    if (targetRowLabel) {
-                        targetRowLabel = targetRowLabel.trim();
-                    }
-                }
-                
-                // If not found, try to get from data-row-index and find corresponding row in data capture table
-                if (!targetRowLabel) {
-                    const rowIndex = window.currentEditRow.getAttribute('data-row-index');
-                    if (rowIndex !== null) {
-                        const capturedTableBody = document.getElementById('capturedTableBody');
-                        if (capturedTableBody) {
-                            const rows = capturedTableBody.querySelectorAll('tr');
-                            const targetIndex = parseInt(rowIndex, 10);
-                            if (!isNaN(targetIndex) && targetIndex >= 0 && targetIndex < rows.length) {
-                                const targetRow = rows[targetIndex];
-                                const rowHeaderCell = targetRow.querySelector('.row-header');
-                                if (rowHeaderCell) {
-                                    targetRowLabel = rowHeaderCell.textContent.trim();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2602,80 +2557,65 @@ function getCurrentProcessId() {
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                
-                // Check if id_product matches
-                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
-                    return;
-                }
-                
-                // If targetRowLabel is specified, also check if it matches
-                if (targetRowLabel) {
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                    if (rowHeaderLabel !== targetRowLabel) {
-                        return; // Skip this row if row label doesn't match
-                    }
-                }
-                
-                // Match found, process this row
-                // Get all data cells (skip row header and id_product column)
-                const cells = row.querySelectorAll('td');
-                
-                cells.forEach((cell, cellIndex) => {
-                    const columnIndex = cell.getAttribute('data-column-index');
-                    if (columnIndex && parseInt(columnIndex) > 1) {
-                        // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                        const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                        if (cellValue !== '') {
-                            // Create a grid item for each column data
-                            const gridItem = document.createElement('div');
-                            gridItem.className = 'formula-data-grid-item';
-                            gridItem.textContent = `[${columnIndex}] ${cellValue}`;
-                            gridItem.setAttribute('data-row-index', rowIndex);
-                            gridItem.setAttribute('data-column-index', columnIndex);
-                            
-                            // Add click event to insert value into formula (same behavior as descriptionSelect2)
-                            gridItem.addEventListener('click', function() {
-                                const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
-                                const targetColumnIndex = this.getAttribute('data-column-index');
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
+                    
+                    cells.forEach((cell, cellIndex) => {
+                        const columnIndex = cell.getAttribute('data-column-index');
+                        if (columnIndex && parseInt(columnIndex) > 1) {
+                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            if (cellValue !== '') {
+                                // Create a grid item for each column data
+                                const gridItem = document.createElement('div');
+                                gridItem.className = 'formula-data-grid-item';
+                                gridItem.textContent = `[${columnIndex}] ${cellValue}`;
+                                gridItem.setAttribute('data-row-index', rowIndex);
+                                gridItem.setAttribute('data-column-index', columnIndex);
                                 
-                                // Re-get rows to ensure we have the latest data
-                                const capturedTableBody = document.getElementById('capturedTableBody');
-                                if (!capturedTableBody) {
-                                    console.warn('Captured data table body not found.');
-                                    return;
-                                }
-                                
-                                const currentRows = capturedTableBody.querySelectorAll('tr');
-                                const targetRow = currentRows[targetRowIndex];
-                                if (!targetRow) {
-                                    console.warn('Row not found for index:', targetRowIndex);
-                                    return;
-                                }
-                                
-                                // Find the cell with matching data-column-index
-                                const targetCells = targetRow.querySelectorAll('td');
-                                let targetCell = null;
-                                targetCells.forEach(cell => {
-                                    const colIdx = cell.getAttribute('data-column-index');
-                                    if (colIdx === targetColumnIndex) {
-                                        targetCell = cell;
+                                // Add click event to insert value into formula (same behavior as descriptionSelect2)
+                                gridItem.addEventListener('click', function() {
+                                    const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
+                                    const targetColumnIndex = this.getAttribute('data-column-index');
+                                    
+                                    // Re-get rows to ensure we have the latest data
+                                    const capturedTableBody = document.getElementById('capturedTableBody');
+                                    if (!capturedTableBody) {
+                                        console.warn('Captured data table body not found.');
+                                        return;
                                     }
+                                    
+                                    const currentRows = capturedTableBody.querySelectorAll('tr');
+                                    const targetRow = currentRows[targetRowIndex];
+                                    if (!targetRow) {
+                                        console.warn('Row not found for index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Find the cell with matching data-column-index
+                                    const targetCells = targetRow.querySelectorAll('td');
+                                    let targetCell = null;
+                                    targetCells.forEach(cell => {
+                                        const colIdx = cell.getAttribute('data-column-index');
+                                        if (colIdx === targetColumnIndex) {
+                                            targetCell = cell;
+                                        }
+                                    });
+                                    
+                                    if (!targetCell) {
+                                        console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Reuse existing logic: behave exactly like clicking the cell
+                                    insertCellValueToFormula(targetCell);
                                 });
                                 
-                                if (!targetCell) {
-                                    console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
-                                    return;
-                                }
-                                
-                                // Reuse existing logic: behave exactly like clicking the cell
-                                insertCellValueToFormula(targetCell);
-                            });
-                            
-                            formulaDataGrid.appendChild(gridItem);
+                                formulaDataGrid.appendChild(gridItem);
+                            }
                         }
-                    }
-                });
+                    });
                 }
             });
         }
