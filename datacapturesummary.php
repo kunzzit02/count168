@@ -1395,7 +1395,11 @@ function getCurrentProcessId() {
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
             
-            // 从 Add button 进入，一律视为“新增”，不带任何预填数据
+            // Clear edit mode state when adding new entry
+            window.currentEditRow = null;
+            window.isEditMode = false;
+            
+            // 从 Add button 进入，一律视为"新增"，不带任何预填数据
             console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
             
             // 打开空白表单（edit 按钮才负责加载旧数据）
@@ -2554,10 +2558,19 @@ function getCurrentProcessId() {
             const capturedTableBody = document.getElementById('capturedTableBody');
             if (!capturedTableBody) return;
 
+            // Check if we're in edit mode and have a specific row to display
+            const currentEditRow = window.currentEditRow;
+            const isEditMode = window.isEditMode && currentEditRow;
+
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // If in edit mode, only show data for the current editing row
+                    if (isEditMode && row !== currentEditRow) {
+                        return; // Skip other rows with same id product
+                    }
+                    
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
                     rowContainer.className = 'formula-data-grid-row';
