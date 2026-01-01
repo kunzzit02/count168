@@ -110,7 +110,8 @@ if (isset($_GET['logout'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>交易仪表盘 - EazyCount</title>
     <link rel="icon" type="image/png" href="images/count_logo.png">
-    <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
+    <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
+    <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script>
@@ -118,44 +119,26 @@ if (isset($_GET['logout'])) {
         window.userData = <?php echo json_encode($userData); ?>;
         window.companyId = <?php echo isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 'null'; ?>;
     </script>
+    <?php include 'sidebar.php'; ?>
     <style>
+        /* 使用 accountCSS.css 的基础样式，只添加 dashboard 特定的样式 */
         body.dashboard-page {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-            background-color: #e9f1ff;
-            background-image:
-                radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
-                radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
-                radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
-                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
-                linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
-            background-blend-mode: screen, screen, multiply, screen, normal;
-            color: #334155;
-            overflow-x: hidden;
-            overflow-y: hidden;
+            /* 基础样式已在 accountCSS.css 中定义 */
         }
 
         .dashboard-container {
-            max-width: none;
-            margin: 0;
-            padding: 8px clamp(20px, 2.08vw, 40px) 8px clamp(180px, 14.06vw, 270px);
-            width: 100%;
-            height: 100vh;
-            box-sizing: border-box;
-            overflow: hidden;
+            /* 使用 .container 样式，已在 accountCSS.css 中定义 */
         }
 
         .dashboard-title {
             color: #002C49;
             text-align: left;
-            margin-top: 0;
-            margin-bottom: clamp(6px, 0.5vw, 10px);
-            font-size: clamp(22px, 1.8vw, 32px);
-            font-family: 'Amaranth';
+            margin-top: clamp(12px, 1.04vw, 20px);
+            margin-bottom: clamp(16px, 1.35vw, 26px);
+            font-size: clamp(26px, 2.08vw, 40px);
             font-weight: 500;
             letter-spacing: -0.025em;
+            font-family: 'Amaranth', sans-serif;
         }
 
         /* Company & Currency Buttons */
@@ -164,12 +147,12 @@ if (isset($_GET['logout'])) {
             align-items: center;
             gap: clamp(8px, 0.83vw, 16px);
             flex-wrap: wrap;
-            margin-top: 10px;
+            margin-top: clamp(12px, 1.04vw, 20px);
         }
         .transaction-company-label {
             font-weight: bold;
             color: #374151;
-            font-size: small;
+            font-size: clamp(10px, 0.73vw, 14px);
             font-family: 'Amaranth', sans-serif;
             white-space: nowrap;
         }
@@ -185,7 +168,7 @@ if (isset($_GET['logout'])) {
             border: 1px solid #d0d7de;
             border-radius: 999px;
             cursor: pointer;
-            font-size: small;
+            font-size: clamp(9px, 0.63vw, 12px);
             transition: all 0.2s ease;
             color: #1f2937;
             font-weight: 600;
@@ -210,13 +193,14 @@ if (isset($_GET['logout'])) {
         .dashboard-card {
             background-color: white;
             border: 1px solid #e5e7eb;
-            border-radius: 8px;
+            border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            padding: clamp(8px, 0.7vw, 14px);
+            padding: clamp(10px, 0.83vw, 16px);
+            margin-bottom: clamp(12px, 1.04vw, 20px);
         }
         
         .dashboard-card-body {
-            padding: clamp(8px, 0.6vw, 12px) clamp(12px, 1vw, 18px);
+            padding: clamp(10px, 0.83vw, 16px) clamp(12px, 1.04vw, 20px);
         }
         
         .dashboard-kpi-grid {
@@ -274,15 +258,15 @@ if (isset($_GET['logout'])) {
         }
 
         .dashboard-kpi-card-vertical .kpi-label {
-            font-size: clamp(8px, 0.65vw, 13px);
+            font-size: clamp(10px, 0.8vw, 15px);
             color: #000000;
             font-weight: bold;
-            margin-bottom: 0px;
+            margin-bottom: clamp(4px, 0.31vw, 6px);
             font-family: 'Amaranth', sans-serif;
         }
 
         .dashboard-kpi-card-vertical .kpi-value {
-            font-size: clamp(13px, 1vw, 18px);
+            font-size: clamp(16px, 1.25vw, 24px);
             font-weight: bold;
             color: #111827;
             font-family: 'Amaranth', sans-serif;
@@ -291,22 +275,23 @@ if (isset($_GET['logout'])) {
         .dashboard-date-controls {
             display: flex;
             flex-wrap: wrap;
-            gap: clamp(8px, 1.2vw, 20px);
+            gap: clamp(12px, 1.25vw, 24px);
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: clamp(12px, 1.04vw, 20px);
         }
 
         .dashboard-enhanced-date-picker {
             display: flex;
             align-items: center;
             background: white;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            padding: clamp(2px, 0.31vw, 6px) clamp(0px, 0.21vw, 4px);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 6px;
+            padding: clamp(6px, 0.42vw, 8px) clamp(8px, 0.63vw, 12px);
             gap: 0px;
             min-width: 100px;
             transition: all 0.2s;
             position: relative;
+            box-shadow: 0 3px 4px rgba(15, 23, 42, 0.1);
         }
 
         .dashboard-enhanced-date-picker:focus-within {
@@ -430,23 +415,24 @@ if (isset($_GET['logout'])) {
 
         .dashboard-form-label {
             display: block;
-            font-size: clamp(8px, 0.74vw, 14px);
+            font-size: clamp(10px, 0.8vw, 15px);
             font-weight: bold;
             color: #000000ff;
-            margin-bottom: 8px;
+            margin-bottom: clamp(6px, 0.42vw, 8px);
             font-family: 'Amaranth', sans-serif;
         }
 
         .dashboard-date-info {
-            font-size: clamp(8px, 0.74vw, 14px);
+            font-size: clamp(10px, 0.8vw, 15px);
             font-weight: bold;
             color: #6b7280;
-            padding: clamp(3px, 0.3vw, 6px) clamp(6px, 0.63vw, 12px);
+            padding: clamp(8px, 0.63vw, 12px) clamp(12px, 1.04vw, 20px);
             background: rgba(255, 255, 255, 1);
-            border-radius: 6px;
-            margin-bottom: 8px;
+            border-radius: 8px;
+            margin-bottom: clamp(16px, 1.35vw, 26px);
             border: 1px solid #e5e7eb;
             font-family: 'Amaranth', sans-serif;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         .dashboard-content {
@@ -471,13 +457,11 @@ if (isset($_GET['logout'])) {
     </style>
 </head>
 <body class="dashboard-page">
-    <?php include 'sidebar.php'; ?>
-    
-    <div class="dashboard-container">
+    <div class="container">
         <h1 class="dashboard-title">交易仪表盘</h1>
         
         <!-- 日期信息显示 -->
-        <div class="dashboard-date-info" id="date-info" style="margin-bottom: 16px; border: 1px solid #e5e7eb;">
+        <div class="dashboard-date-info" id="date-info">
             正在加载数据...
         </div>
         
@@ -590,7 +574,7 @@ if (isset($_GET['logout'])) {
                 <!-- Right: Chart -->
                 <div class="dashboard-card">
                     <div class="dashboard-card-body" style="height: 100%; display: flex; flex-direction: column;">
-                        <h3 style="font-size: clamp(12px, 0.9vw, 18px); font-weight: 600; color: #111827; margin-bottom: 8px; font-family: 'Amaranth', sans-serif;">趋势图表</h3>
+                        <h3 style="font-size: clamp(14px, 1.04vw, 20px); font-weight: 600; color: #111827; margin-bottom: clamp(12px, 1.04vw, 20px); font-family: 'Amaranth', sans-serif;">趋势图表</h3>
                         <div class="dashboard-chart-container">
                             <canvas id="trend-chart"></canvas>
                         </div>
