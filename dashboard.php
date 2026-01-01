@@ -1203,7 +1203,7 @@ if (isset($_GET['logout'])) {
                     borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 8,
-                    type: 'capital'
+                    dataType: 'capital'
                 },
                 {
                     label: '支出',
@@ -1227,7 +1227,7 @@ if (isset($_GET['logout'])) {
                     borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 8,
-                    type: 'expenses'
+                    dataType: 'expenses'
                 },
                 {
                     label: '利润',
@@ -1251,7 +1251,7 @@ if (isset($_GET['logout'])) {
                     borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 8,
-                    type: 'profit'
+                    dataType: 'profit'
                 }
             ];
             
@@ -1260,7 +1260,7 @@ if (isset($_GET['logout'])) {
             if (selectedChartDataType === 'all') {
                 filteredDatasets = allDatasets;
             } else {
-                filteredDatasets = allDatasets.filter(ds => ds.type === selectedChartDataType);
+                filteredDatasets = allDatasets.filter(ds => ds.dataType === selectedChartDataType);
             }
             
             const chartData = {
@@ -1598,7 +1598,7 @@ if (isset($_GET['logout'])) {
                                     borderWidth: 2,
                                     pointRadius: 0,
                                     pointHoverRadius: 8,
-                                    type: 'capital'
+                                    dataType: 'capital'
                                 },
                                 {
                                     label: '支出',
@@ -1620,7 +1620,7 @@ if (isset($_GET['logout'])) {
                                     borderWidth: 2,
                                     pointRadius: 0,
                                     pointHoverRadius: 8,
-                                    type: 'expenses'
+                                    dataType: 'expenses'
                                 },
                                 {
                                     label: '利润',
@@ -1642,7 +1642,7 @@ if (isset($_GET['logout'])) {
                                     borderWidth: 2,
                                     pointRadius: 0,
                                     pointHoverRadius: 8,
-                                    type: 'profit'
+                                    dataType: 'profit'
                                 }
                             ];
                             
@@ -1650,7 +1650,7 @@ if (isset($_GET['logout'])) {
                             if (selectedChartDataType === 'all') {
                                 filteredDatasets = allDatasets;
                             } else {
-                                filteredDatasets = allDatasets.filter(ds => ds.type === selectedChartDataType);
+                                filteredDatasets = allDatasets.filter(ds => ds.dataType === selectedChartDataType);
                             }
                             
                             const chartData = {
