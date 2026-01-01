@@ -2538,6 +2538,18 @@ function getCurrentProcessId() {
                 return;
             }
 
+            // IMPORTANT: Get row_label for current editing row to distinguish between multiple rows with same id_product
+            // If in edit mode, only show data from the current editing row
+            let targetRowLabel = null;
+            if (window.currentEditRow) {
+                const currentEditProcessValue = getProcessValueFromRow(window.currentEditRow);
+                if (currentEditProcessValue && currentEditProcessValue.trim() === idProduct.trim()) {
+                    // Get row_label for current editing row
+                    targetRowLabel = getRowLabelFromProcessValue(currentEditProcessValue);
+                    console.log('updateFormulaDataGrid - Edit mode: Only showing data for current editing row, row_label:', targetRowLabel);
+                }
+            }
+
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2557,9 +2569,24 @@ function getCurrentProcessId() {
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
-                    // Get all data cells (skip row header and id_product column)
-                    const cells = row.querySelectorAll('td');
+                
+                // Check if id_product matches
+                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
+                    return;
+                }
+                
+                // If row_label is specified (edit mode), also check if it matches
+                if (targetRowLabel) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                    if (rowHeaderLabel !== targetRowLabel) {
+                        return; // Skip this row if row label doesn't match
+                    }
+                }
+                
+                // Match found, process this row
+                // Get all data cells (skip row header and id_product column)
+                const cells = row.querySelectorAll('td');
                     
                     cells.forEach((cell, cellIndex) => {
                         const columnIndex = cell.getAttribute('data-column-index');
