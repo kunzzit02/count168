@@ -193,6 +193,9 @@ try {
                 $total_balance += $balance;
                 
                 // 计算每日数据（用于图表）
+                // 包含两部分：1. Data Capture 的 Win/Loss  2. Transactions 的 Cr/Dr
+                
+                // 1. 获取 Data Capture 的每日 Win/Loss
                 $daily_stmt = $pdo->prepare("
                     SELECT DATE(dc.capture_date) as date, 
                            COALESCE(SUM(dcd.processed_amount), 0) as win_loss
@@ -209,13 +212,79 @@ try {
                 $daily_stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from_db, $date_to_db]);
                 $daily_rows = $daily_stmt->fetchAll(PDO::FETCH_ASSOC);
                 
-                // 合并每日数据（按日期累加）
+                // 合并 Data Capture 的每日数据（按日期累加）
                 foreach ($daily_rows as $daily_row) {
                     $date = $daily_row['date'];
                     if (!isset($daily_data[$date])) {
                         $daily_data[$date] = 0;
                     }
                     $daily_data[$date] += (float)$daily_row['win_loss'];
+                }
+                
+                // 2. 获取 Transactions 的每日 Cr/Dr
+                $check_transaction_currency = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+                $has_transaction_currency = $check_transaction_currency->rowCount() > 0;
+                
+                if ($has_transaction_currency) {
+                    // 作为 To Account 的每日 Cr/Dr
+                    $txn_daily_stmt = $pdo->prepare("
+                        SELECT DATE(t.transaction_date) as date,
+                               COALESCE(SUM(CASE 
+                                   WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN t.amount
+                                   WHEN transaction_type = 'PAYMENT' THEN t.amount
+                                   WHEN transaction_type = 'WIN' THEN t.amount
+                                   WHEN transaction_type = 'LOSE' THEN -t.amount
+                                   ELSE 0
+                               END), 0) as cr_dr
+                        FROM transactions t
+                        WHERE t.company_id = ?
+                          AND t.account_id = ?
+                          AND t.currency_id = ?
+                          AND t.transaction_date BETWEEN ? AND ?
+                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                        GROUP BY DATE(t.transaction_date)
+                        ORDER BY DATE(t.transaction_date)
+                    ");
+                    $txn_daily_stmt->execute([$company_id, $account_id, $currency_id, $date_from_db, $date_to_db]);
+                    $txn_daily_rows = $txn_daily_stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // 合并 To Account 的每日 Cr/Dr
+                    foreach ($txn_daily_rows as $txn_row) {
+                        $date = $txn_row['date'];
+                        if (!isset($daily_data[$date])) {
+                            $daily_data[$date] = 0;
+                        }
+                        $daily_data[$date] += (float)$txn_row['cr_dr'];
+                    }
+                    
+                    // 作为 From Account 的每日 Cr/Dr
+                    $txn_from_daily_stmt = $pdo->prepare("
+                        SELECT DATE(t.transaction_date) as date,
+                               COALESCE(SUM(CASE 
+                                   WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -t.amount
+                                   WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
+                                   ELSE 0
+                               END), 0) as cr_dr
+                        FROM transactions t
+                        WHERE t.company_id = ?
+                          AND t.from_account_id = ?
+                          AND t.currency_id = ?
+                          AND t.transaction_date BETWEEN ? AND ?
+                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
+                        GROUP BY DATE(t.transaction_date)
+                        ORDER BY DATE(t.transaction_date)
+                    ");
+                    $txn_from_daily_stmt->execute([$company_id, $account_id, $currency_id, $date_from_db, $date_to_db]);
+                    $txn_from_daily_rows = $txn_from_daily_stmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    // 合并 From Account 的每日 Cr/Dr
+                    foreach ($txn_from_daily_rows as $txn_row) {
+                        $date = $txn_row['date'];
+                        if (!isset($daily_data[$date])) {
+                            $daily_data[$date] = 0;
+                        }
+                        $daily_data[$date] += (float)$txn_row['cr_dr'];
+                    }
                 }
             }
         }
