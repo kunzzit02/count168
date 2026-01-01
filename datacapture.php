@@ -6257,6 +6257,77 @@ if ($current_user_id && count($user_companies) > 0) {
             console.log('First 20 cells:', allCells.slice(0, 20));
             console.log('Last 10 cells:', allCells.slice(-10));
             
+            // ===== 专用解析：检测 User Name + profit 模式（从表格复制，每行一个值） =====
+            // 检测模式：用户名（字母数字组合）后跟数字（可能是利润值）
+            // 例如：m99mmyr, -120.72, -, -, -, 2, ucs9myr, 25.61
+            // 应该转换为：m99mmyr, -120.72 (一行) 和 ucs9myr, 25.61 (另一行)
+            let isUserNameProfitFormat = false;
+            let userNameProfitPairs = [];
+            try {
+                // 检测是否有用户名模式（必须包含至少一个字母，长度3-15字符）
+                const usernamePattern = /^[A-Z0-9]{3,15}$/i;
+                // 检测利润值模式（可能带负号和小数点的数字）
+                const profitPattern = /^-?\d+\.?\d*$/;
+                
+                // 尝试找到用户名-利润值配对
+                for (let i = 0; i < allCells.length - 1; i++) {
+                    const cell1 = (allCells[i] || '').trim();
+                    const cell2 = (allCells[i + 1] || '').trim();
+                    
+                    // 检查是否是用户名模式（必须包含至少一个字母）
+                    const hasLetter = /[A-Z]/i.test(cell1);
+                    const isUsername = cell1 && usernamePattern.test(cell1) && 
+                                      hasLetter && // 必须包含至少一个字母
+                                      !cell1.match(/^[\d-]+$/) && // 不是纯数字
+                                      cell1.length >= 3 && cell1.length <= 15;
+                    
+                    // 检查是否是利润值（数字，可能是负数）
+                    const isProfit = cell2 && profitPattern.test(cell2);
+                    
+                    if (isUsername && isProfit) {
+                        // 找到一对：用户名 + 利润值
+                        userNameProfitPairs.push({
+                            username: cell1,
+                            profit: cell2,
+                            startIndex: i
+                        });
+                        i++; // 跳过下一个单元格，因为已经配对了
+                    }
+                }
+                
+                // 如果找到至少2对，且这些对在数据中分布合理，认为是这种格式
+                if (userNameProfitPairs.length >= 2) {
+                    // 检查这些对之间的间隔是否合理（不应该太密集，也不应该太分散）
+                    let intervals = [];
+                    for (let i = 1; i < userNameProfitPairs.length; i++) {
+                        intervals.push(userNameProfitPairs[i].startIndex - userNameProfitPairs[i-1].startIndex);
+                    }
+                    const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+                    
+                    // 如果平均间隔在合理范围内（2-20），认为是这种格式
+                    if (avgInterval >= 2 && avgInterval <= 20) {
+                        isUserNameProfitFormat = true;
+                        console.log('Detected User Name + profit format (one cell per line), converting to row-based format');
+                        console.log('Found', userNameProfitPairs.length, 'user-profit pairs');
+                        
+                        // 转换为新格式：每行只有用户名和利润值
+                        const newAllCells = [];
+                        userNameProfitPairs.forEach(pair => {
+                            newAllCells.push(pair.username);
+                            newAllCells.push(pair.profit);
+                        });
+                        
+                        // 替换 allCells，后续的分组逻辑会将其处理为2列格式
+                        allCells = newAllCells;
+                        console.log('Converted to', userNameProfitPairs.length, 'rows x 2 cols format');
+                        console.log('New allCells:', allCells);
+                    }
+                }
+            } catch (userNameProfitErr) {
+                console.error('User Name + profit format detection error:', userNameProfitErr);
+            }
+            // ===== User Name + profit 格式检测结束 =====
+            
             // 检查是否有"Total"或"TOTAL"在数据中，以及它的位置
             let totalIndex = -1;
             for (let i = 0; i < allCells.length; i++) {
@@ -6314,8 +6385,14 @@ if ($current_user_id && count($user_companies) > 0) {
             let needsPaddingAfterTotal = false;
             let detectedColumnCount = 0;
             
+            // 优先处理：如果检测到 User Name + profit 格式，强制使用2列
+            if (isUserNameProfitFormat) {
+                force18Columns = true;
+                detectedColumnCount = 2;
+                console.log('Using 2 columns for User Name + profit format');
+            }
             // 方法1：如果Total在索引18，强制使用18列
-            if (totalIndex === 18) {
+            else if (totalIndex === 18) {
                 // Total在索引18，说明第一行有18个数据（索引0-17），Total是第二行第一列
                 // 这意味着应该使用18列分组
                 force18Columns = true;
