@@ -5208,116 +5208,95 @@ if ($current_user_id && count($user_companies) > 0) {
             // 检测是否是应该横向排列的单行数据（包含制表符但被换行符分割）
             // 如果数据包含制表符，且行数较少（2-10行），可能是应该横向排列的单行数据
             if (normalizedData.includes('\t') && lines.length >= 1 && lines.length <= 10) {
-                // 先检测是否是表格格式（多行数据，每行的列数相同或相似）
-                // 如果是表格格式，应该保持行结构，不应该合并成一行
-                let isTableFormat = false;
-                const rowsWithTabs = lines.filter(line => line.includes('\t'));
-                if (rowsWithTabs.length >= 2) {
-                    // 计算每行的列数
-                    const colCounts = rowsWithTabs.map(line => line.split('\t').length);
-                    const minCols = Math.min(...colCounts);
-                    const maxCols = Math.max(...colCounts);
-                    // 如果所有行的列数相同或差异很小（允许1列的差异），认为是表格格式
-                    if (minCols === maxCols || (maxCols - minCols <= 1 && minCols >= 2)) {
-                        isTableFormat = true;
-                        console.log('Detected table format (multiple rows with similar column counts), skipping horizontal merge');
+                // 提取所有单元格（合并所有行的数据）
+                const allCells = [];
+                for (let line of lines) {
+                    if (line.includes('\t')) {
+                        // 如果行包含制表符，按制表符分割
+                        const cells = line.split('\t').map(cell => cell.trim());
+                        allCells.push(...cells);
+                    } else {
+                        // 如果行不包含制表符，整行作为一个单元格
+                        if (line.trim() !== '') {
+                            allCells.push(line.trim());
+                        }
                     }
                 }
                 
-                // 如果是表格格式，跳过合并逻辑，让后续的表格处理逻辑来处理
-                if (isTableFormat) {
-                    // 不执行合并，继续执行后续的表格处理逻辑
-                } else {
-                    // 提取所有单元格（合并所有行的数据）
-                    const allCells = [];
-                    for (let line of lines) {
-                        if (line.includes('\t')) {
-                            // 如果行包含制表符，按制表符分割
-                            const cells = line.split('\t').map(cell => cell.trim());
-                            allCells.push(...cells);
-                        } else {
-                            // 如果行不包含制表符，整行作为一个单元格
-                            if (line.trim() !== '') {
-                                allCells.push(line.trim());
+                // 如果提取的单元格数量 >= 2，认为是单行数据，横向填充
+                if (allCells.length >= 2) {
+                    console.log('Detected tab-separated data that should be arranged horizontally');
+                    console.log('Original lines:', lines.length);
+                    console.log('Extracted cells:', allCells.length);
+                    console.log('Cells:', allCells);
+                    
+                    // 填充到表格
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col);
+                    
+                    // 确保表格有足够的列
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredCols = startCol + allCells.length;
+                    
+                    if (requiredCols > currentCols) {
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        initializeTable(currentRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const tableRow = tableBody.children[startRow];
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    allCells.forEach((cellData, colIndex) => {
+                        const actualColIndex = startCol + colIndex;
+                        const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                        
+                        if (cell && cell.contentEditable === 'true') {
+                            // 保存旧值（包括空单元格）
+                            const trimmedData = (cellData || '').trim();
+                            currentPasteChanges.push({
+                                row: startRow,
+                                col: actualColIndex,
+                                oldValue: cell.textContent,
+                                newValue: trimmedData
+                            });
+                            
+                            // 填充单元格（包括空单元格，以保留列位置）
+                            if (trimmedData === '') {
+                                cell.textContent = '';
+                            } else {
+                                const finalValue = trimmedData.toUpperCase();
+                                cell.textContent = finalValue;
+                                successCount++;
                             }
+                        }
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
                         }
                     }
                     
-                    // 如果提取的单元格数量 >= 2，认为是单行数据，横向填充
-                    if (allCells.length >= 2) {
-                        console.log('Detected tab-separated data that should be arranged horizontally');
-                        console.log('Original lines:', lines.length);
-                        console.log('Extracted cells:', allCells.length);
-                        console.log('Cells:', allCells);
-                        
-                        // 填充到表格
-                        const startCell = e.target;
-                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = parseInt(startCell.dataset.col);
-                        
-                        // 确保表格有足够的列
-                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredCols = startCol + allCells.length;
-                        
-                        if (requiredCols > currentCols) {
-                            const targetCols = Math.max(currentCols, requiredCols);
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            initializeTable(currentRows, targetCols);
-                        }
-                        
-                        const tableBody = document.getElementById('tableBody');
-                        const tableRow = tableBody.children[startRow];
-                        const currentPasteChanges = [];
-                        let successCount = 0;
-                        
-                        allCells.forEach((cellData, colIndex) => {
-                            const actualColIndex = startCol + colIndex;
-                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
-                            
-                            if (cell && cell.contentEditable === 'true') {
-                                // 保存旧值（包括空单元格）
-                                const trimmedData = (cellData || '').trim();
-                                currentPasteChanges.push({
-                                    row: startRow,
-                                    col: actualColIndex,
-                                    oldValue: cell.textContent,
-                                    newValue: trimmedData
-                                });
-                                
-                                // 填充单元格（包括空单元格，以保留列位置）
-                                if (trimmedData === '') {
-                                    cell.textContent = '';
-                                } else {
-                                    const finalValue = trimmedData.toUpperCase();
-                                    cell.textContent = finalValue;
-                                    successCount++;
-                                }
-                            }
-                        });
-                        
-                        if (currentPasteChanges.length > 0) {
-                            pasteHistory.push(currentPasteChanges);
-                            if (pasteHistory.length > maxHistorySize) {
-                                pasteHistory.shift();
-                            }
-                        }
-                        
-                        if (successCount > 0) {
-                            showNotification(`Successfully pasted ${successCount} cells in ${allCells.length} columns!`, 'success');
-                        }
-                        
-                        setTimeout(updateSubmitButtonState, 0);
-                        
-                        // 粘贴完成后立即应用格式转换
-                        if (successCount > 0) {
-                            setTimeout(() => {
-                                convertTableFormatOnSubmit();
-                            }, 100);
-                        }
-                        
-                        console.log('=== PASTE DEBUG END (single-line tab-separated parser) ===');
-                        return;
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted ${successCount} cells in ${allCells.length} columns!`, 'success');
                     }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    
+                    // 粘贴完成后立即应用格式转换
+                    if (successCount > 0) {
+                        setTimeout(() => {
+                            convertTableFormatOnSubmit();
+                        }, 100);
+                    }
+                    
+                    console.log('=== PASTE DEBUG END (single-line tab-separated parser) ===');
+                    return;
                 }
             }
             
@@ -5525,105 +5504,6 @@ if ($current_user_id && count($user_companies) > 0) {
             // 智能解析粘贴数据
             const parseResult = parsePastedData(pastedData);
             let rows = parseResult.rows;
-            
-            // ===== 处理标准表格格式（多行，每行列数相同或相似） =====
-            // 如果数据是表格格式，且不是特定格式（如Downline Payment），直接按照标准表格格式处理
-            if (parseResult.isTableFormat && rows.length >= 2) {
-                const rowsWithTabs = rows.filter(row => row.trim() && row.includes('\t'));
-                if (rowsWithTabs.length >= 2) {
-                    // 计算每行的列数
-                    const colCounts = rowsWithTabs.map(row => row.split('\t').length);
-                    const minCols = Math.min(...colCounts);
-                    const maxCols = Math.max(...colCounts);
-                    
-                    // 如果所有行的列数相同或差异很小（允许1列的差异），认为是标准表格格式
-                    if (minCols === maxCols || (maxCols - minCols <= 1 && minCols >= 2)) {
-                        // 检查是否不是特定格式（Downline Payment等）
-                        const hasDownlinePaymentFeatures = rows.some(row => {
-                            const cells = row.split('\t').map(c => c.trim());
-                            const first = (cells[0] || '').toString().toUpperCase();
-                            return first === 'MG' || first.includes('OVERALL') || 
-                                   first.includes('MY EARNINGS') || first.includes('DOWNLINE PAYMENT');
-                        });
-                        
-                        // 如果不是特定格式，按照标准表格格式处理
-                        if (!hasDownlinePaymentFeatures) {
-                            console.log('Detected standard table format, filling directly');
-                            
-                            const startCell = e.target;
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
-                            
-                            // 扩展表格（如果需要）
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const tableMaxCols = Math.max(...colCounts);
-                            const requiredRows = startRow + rowsWithTabs.length;
-                            const requiredCols = startCol + tableMaxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            // 填充数据
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            rowsWithTabs.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                
-                                if (tableRow) {
-                                    const cells = rowData.split('\t').map(cell => cell.trim());
-                                    cells.forEach((cellData, colIndex) => {
-                                        const actualColIndex = startCol + colIndex;
-                                        const cell = tableRow.children[actualColIndex + 1];
-                                        
-                                        if (cell && cell.contentEditable === 'true') {
-                                            const trimmedData = (cellData || '').trim();
-                                            currentPasteChanges.push({
-                                                row: actualRowIndex,
-                                                col: actualColIndex,
-                                                oldValue: cell.textContent,
-                                                newValue: trimmedData
-                                            });
-                                            
-                                            if (trimmedData === '') {
-                                                cell.textContent = '';
-                                            } else {
-                                                const finalValue = trimmedData.toUpperCase();
-                                                cell.textContent = finalValue;
-                                                successCount++;
-                                            }
-                                        }
-                                    });
-                                }
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
-                                }
-                            }
-                            
-                            if (successCount > 0) {
-                                showNotification(`Successfully pasted standard table (${rowsWithTabs.length} rows x ${tableMaxCols} cols)! Press Ctrl+Z to undo`, 'success');
-                            }
-                            
-                            setTimeout(updateSubmitButtonState, 0);
-                            setTimeout(() => {
-                                convertTableFormatOnSubmit();
-                            }, 100);
-                            
-                            return;
-                        }
-                    }
-                }
-            }
             
             // ===== 专用过滤：Downline Payment 报表（纯文本格式） =====
             // 检测是否是 Downline Payment 格式（从 Excel/Google Sheet 复制）
