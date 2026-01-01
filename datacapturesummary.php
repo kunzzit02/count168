@@ -8978,13 +8978,57 @@ function getCurrentProcessId() {
                                         }
                                     }
                                     
+                                    // IMPORTANT: Use data-source-columns to get the correct id_product for each column
+                                    // Instead of using processValue (current row's id_product), use the id_product from sourceColumns
+                                    const sourceColumnsValue = row.getAttribute('data-source-columns') || '';
+                                    const isNewFormat = sourceColumnsValue && isNewIdProductColumnFormat(sourceColumnsValue);
+                                    
+                                    // Build a map of columnNumber -> {idProduct, rowLabel, dataColumnIndex} from sourceColumns
+                                    const columnRefMap = new Map();
+                                    if (isNewFormat) {
+                                        const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+                                        parts.forEach(part => {
+                                            // Try format with row label: "id_product:row_label:displayColumnIndex"
+                                            let partMatch = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
+                                            if (partMatch) {
+                                                const idProduct = partMatch[1];
+                                                const refRowLabel = partMatch[2];
+                                                const displayColumnIndex = parseInt(partMatch[3]);
+                                                const dataColumnIndex = displayColumnIndex - 1;
+                                                columnRefMap.set(displayColumnIndex, { idProduct, rowLabel: refRowLabel, dataColumnIndex });
+                                            } else {
+                                                // Try format without row label: "id_product:displayColumnIndex"
+                                                partMatch = part.match(/^([^:]+):(\d+)$/);
+                                                if (partMatch) {
+                                                    const idProduct = partMatch[1];
+                                                    const displayColumnIndex = parseInt(partMatch[2]);
+                                                    const dataColumnIndex = displayColumnIndex - 1;
+                                                    columnRefMap.set(displayColumnIndex, { idProduct, rowLabel: null, dataColumnIndex });
+                                                }
+                                            }
+                                        });
+                                    }
+                                    
                                     // Replace from back to front to preserve indices
                                     allMatches.sort((a, b) => b.index - a.index);
                                     
                                     for (let i = 0; i < allMatches.length; i++) {
                                         const match = allMatches[i];
-                                        const columnReference = rowLabel + match.columnNumber;
-                                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                        let columnValue = null;
+                                        
+                                        // Try to get from columnRefMap first (uses correct id_product from sourceColumns)
+                                        if (columnRefMap.has(match.columnNumber)) {
+                                            const ref = columnRefMap.get(match.columnNumber);
+                                            columnValue = getCellValueByIdProductAndColumn(ref.idProduct, ref.dataColumnIndex, ref.rowLabel);
+                                            console.log('Using id_product from sourceColumns:', ref.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
+                                        }
+                                        
+                                        // Fallback to old logic if not found in columnRefMap
+                                        if (columnValue === null) {
+                                            const columnReference = rowLabel + match.columnNumber;
+                                            columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                            console.log('Fallback to current row id_product:', processValue, 'for column:', match.columnNumber, 'value:', columnValue);
+                                        }
                                         
                                         if (columnValue !== null) {
                                             displayFormula = displayFormula.substring(0, match.index) +
