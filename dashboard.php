@@ -219,165 +219,73 @@ if (isset($_GET['logout'])) {
             padding: clamp(8px, 0.6vw, 12px) clamp(12px, 1vw, 18px);
         }
         
-        /* 顶部控制栏 */
-        .dashboard-header-controls {
-            display: flex;
-            align-items: center;
-            gap: clamp(12px, 1.25vw, 24px);
-            flex-wrap: wrap;
-            margin-bottom: clamp(16px, 1.35vw, 26px);
-        }
-        
-        .dashboard-header-left {
-            display: flex;
-            align-items: center;
-            gap: clamp(12px, 1.25vw, 24px);
-            flex-wrap: wrap;
-            flex: 1;
-        }
-        
-        .dashboard-header-right {
-            display: flex;
-            align-items: center;
-            gap: clamp(8px, 0.83vw, 16px);
-        }
-        
-        /* KPI卡片网格 - 水平排列 */
         .dashboard-kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: clamp(12px, 1.04vw, 20px);
-            margin-bottom: clamp(16px, 1.35vw, 26px);
-        }
-        
-        .dashboard-kpi-card {
-            background-color: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            padding: clamp(16px, 1.35vw, 26px);
             display: flex;
             flex-direction: column;
-            gap: clamp(8px, 0.63vw, 12px);
+            gap: 8px;
+            height: 100%;
         }
         
-        .dashboard-kpi-card .icon {
-            width: 40px;
-            height: 40px;
-            font-size: clamp(20px, 1.56vw, 30px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: clamp(4px, 0.31vw, 6px);
-        }
-
-        .dashboard-kpi-card .kpi-label {
-            font-size: clamp(12px, 0.94vw, 18px);
-            color: #6b7280;
-            font-weight: 600;
-            margin-bottom: clamp(4px, 0.31vw, 6px);
-            font-family: 'Amaranth', sans-serif;
-        }
-
-        .dashboard-kpi-card .kpi-value {
-            font-size: clamp(20px, 1.56vw, 30px);
-            font-weight: bold;
-            color: #111827;
-            font-family: 'Amaranth', sans-serif;
-        }
-        
-        /* 图表区域 */
-        .dashboard-chart-section {
-            background-color: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            padding: clamp(16px, 1.35vw, 26px);
+        .dashboard-main-layout {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: clamp(10px, 1.1vw, 18px);
+            height: calc(100vh - 200px);
             min-height: 400px;
+            max-height: calc(100vh - 200px);
         }
         
-        .dashboard-chart-header {
+        .dashboard-kpi-card-vertical {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: clamp(16px, 1.35vw, 26px);
-            flex-wrap: wrap;
-            gap: clamp(12px, 1.04vw, 20px);
+            flex-direction: column;
+            align-items: left;
+            text-align: left;
+            gap: 0px;
+            min-height: 0;
         }
         
-        .dashboard-chart-title {
-            font-size: clamp(16px, 1.25vw, 24px);
-            font-weight: 600;
-            color: #111827;
-            font-family: 'Amaranth', sans-serif;
-        }
-        
-        .dashboard-chart-date-range {
-            font-size: clamp(12px, 0.94vw, 18px);
-            color: #6b7280;
-            font-family: 'Amaranth', sans-serif;
+        .dashboard-card {
+            height: 100%;
         }
         
         .dashboard-chart-container {
             position: relative;
             width: 100%;
-            height: 400px;
-            min-height: 400px;
+            flex: 1;
+            min-height: 0;
         }
         
         @media (max-width: 1200px) {
-            .dashboard-kpi-grid {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            .dashboard-main-layout {
+                grid-template-columns: 1fr;
+                height: auto;
             }
         }
-        
-        /* 快速选择按钮 */
-        .dashboard-quick-select {
+
+        .dashboard-kpi-card-vertical .icon {
+            width: 35px;
+            height: 35px;
+            font-size: clamp(16px, 1.2vw, 22px);
             display: flex;
             align-items: center;
-            gap: clamp(8px, 0.63vw, 12px);
+            justify-content: center;
+            flex-shrink: 0;
+            margin-bottom: clamp(0px, 0.15vw, 3px);
         }
-        
-        .dashboard-quick-select-label {
-            font-size: clamp(10px, 0.83vw, 16px);
-            font-weight: 600;
-            color: #374151;
+
+        .dashboard-kpi-card-vertical .kpi-label {
+            font-size: clamp(8px, 0.65vw, 13px);
+            color: #000000;
+            font-weight: bold;
+            margin-bottom: 0px;
             font-family: 'Amaranth', sans-serif;
         }
-        
-        .dashboard-quick-select-dropdown {
-            padding: clamp(6px, 0.52vw, 10px) clamp(12px, 1.04vw, 20px);
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            background: white;
-            font-size: clamp(10px, 0.83vw, 16px);
-            color: #374151;
-            cursor: pointer;
+
+        .dashboard-kpi-card-vertical .kpi-value {
+            font-size: clamp(13px, 1vw, 18px);
+            font-weight: bold;
+            color: #111827;
             font-family: 'Amaranth', sans-serif;
-            transition: all 0.2s;
-        }
-        
-        .dashboard-quick-select-dropdown:hover {
-            border-color: #3b82f6;
-        }
-        
-        /* 操作按钮 */
-        .dashboard-action-btn {
-            padding: clamp(6px, 0.52vw, 10px) clamp(12px, 1.04vw, 20px);
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            background: white;
-            font-size: clamp(10px, 0.83vw, 16px);
-            color: #374151;
-            cursor: pointer;
-            font-family: 'Amaranth', sans-serif;
-            transition: all 0.2s;
-            font-weight: 600;
-        }
-        
-        .dashboard-action-btn:hover {
-            background: #f3f4f6;
-            border-color: #3b82f6;
         }
         
         .dashboard-date-controls {
@@ -385,6 +293,7 @@ if (isset($_GET['logout'])) {
             flex-wrap: wrap;
             gap: clamp(8px, 1.2vw, 20px);
             align-items: center;
+            margin-bottom: 8px;
         }
 
         .dashboard-enhanced-date-picker {
@@ -528,6 +437,17 @@ if (isset($_GET['logout'])) {
             font-family: 'Amaranth', sans-serif;
         }
 
+        .dashboard-date-info {
+            font-size: clamp(8px, 0.74vw, 14px);
+            font-weight: bold;
+            color: #6b7280;
+            padding: clamp(3px, 0.3vw, 6px) clamp(6px, 0.63vw, 12px);
+            background: rgba(255, 255, 255, 1);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #e5e7eb;
+            font-family: 'Amaranth', sans-serif;
+        }
         
         .dashboard-content {
             display: flex;
@@ -556,115 +476,127 @@ if (isset($_GET['logout'])) {
     <div class="dashboard-container">
         <h1 class="dashboard-title">交易仪表盘</h1>
         
-        <!-- 顶部控制栏 -->
-        <div class="dashboard-header-controls">
-            <div class="dashboard-header-left">
-                <!-- 开始日期选择器 -->
-                <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <label class="dashboard-form-label" style="margin: 0;">开始日期</label>
-                    <div class="dashboard-enhanced-date-picker" id="start-date-picker">
-                        <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('start', 'year')">
-                            <span id="start-year-display">2024</span>
+        <!-- 日期信息显示 -->
+        <div class="dashboard-date-info" id="date-info" style="margin-bottom: 16px; border: 1px solid #e5e7eb;">
+            正在加载数据...
+        </div>
+        
+        <div id="app" class="dashboard-content">
+            <!-- Date Controls -->
+            <div class="dashboard-card">
+                <div class="dashboard-card-body">
+                    <div class="dashboard-date-controls">
+                        <!-- 开始日期选择器 -->
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label class="dashboard-form-label" style="margin: 0;">开始日期</label>
+                            <div class="dashboard-enhanced-date-picker" id="start-date-picker">
+                                <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('start', 'year')">
+                                    <span id="start-year-display">2024</span>
+                                </div>
+                                <span class="dashboard-date-separator">年</span>
+                                <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('start', 'month')">
+                                    <span id="start-month-display">01</span>
+                                </div>
+                                <span class="dashboard-date-separator">月</span>
+                                <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('start', 'day')">
+                                    <span id="start-day-display">01</span>
+                                </div>
+                                <span class="dashboard-date-separator">日</span>
+                                <div class="dashboard-date-dropdown" id="start-dropdown"></div>
+                            </div>
                         </div>
-                        <span class="dashboard-date-separator">年</span>
-                        <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('start', 'month')">
-                            <span id="start-month-display">01</span>
+                        
+                        <!-- 结束日期选择器 -->
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label class="dashboard-form-label" style="margin: 0;">结束日期</label>
+                            <div class="dashboard-enhanced-date-picker" id="end-date-picker">
+                                <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('end', 'year')">
+                                    <span id="end-year-display">2024</span>
+                                </div>
+                                <span class="dashboard-date-separator">年</span>
+                                <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('end', 'month')">
+                                    <span id="end-month-display">01</span>
+                                </div>
+                                <span class="dashboard-date-separator">月</span>
+                                <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('end', 'day')">
+                                    <span id="end-day-display">01</span>
+                                </div>
+                                <span class="dashboard-date-separator">日</span>
+                                <div class="dashboard-date-dropdown" id="end-dropdown"></div>
+                            </div>
                         </div>
-                        <span class="dashboard-date-separator">月</span>
-                        <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('start', 'day')">
-                            <span id="start-day-display">01</span>
+                    </div>
+                    
+                    <!-- Company Buttons -->
+                    <div id="company-buttons-wrapper" class="transaction-company-filter" style="margin-top: 8px;">
+                        <span class="transaction-company-label">Company:</span>
+                        <div id="company-buttons-container" class="transaction-company-buttons">
+                            <!-- Company buttons will be dynamically added here -->
                         </div>
-                        <span class="dashboard-date-separator">日</span>
-                        <div class="dashboard-date-dropdown" id="start-dropdown"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Layout: KPI Cards (Left) + Chart (Right) -->
+            <div class="dashboard-main-layout">
+                <!-- Left: KPI Cards - 垂直排列 -->
+                <div class="dashboard-kpi-grid">
+                    <!-- Capital -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-body">
+                            <div class="dashboard-kpi-card-vertical">
+                                <div class="icon text-blue">
+                                    <i class="fas fa-wallet"></i>
+                                </div>
+                                <div>
+                                    <p class="kpi-label">资本 (Capital)</p>
+                                    <p class="kpi-value" id="capital-value">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Expenses -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-body">
+                            <div class="dashboard-kpi-card-vertical">
+                                <div class="icon text-red">
+                                    <i class="fas fa-arrow-down"></i>
+                                </div>
+                                <div>
+                                    <p class="kpi-label">支出 (Expenses)</p>
+                                    <p class="kpi-value" id="expenses-value">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Profit -->
+                    <div class="dashboard-card">
+                        <div class="dashboard-card-body">
+                            <div class="dashboard-kpi-card-vertical">
+                                <div class="icon text-green">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div>
+                                    <p class="kpi-label">利润 (Profit)</p>
+                                    <p class="kpi-value" id="profit-value">0</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- 结束日期选择器 -->
-                <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <label class="dashboard-form-label" style="margin: 0;">结束日期</label>
-                    <div class="dashboard-enhanced-date-picker" id="end-date-picker">
-                        <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('end', 'year')">
-                            <span id="end-year-display">2024</span>
+                <!-- Right: Chart -->
+                <div class="dashboard-card">
+                    <div class="dashboard-card-body" style="height: 100%; display: flex; flex-direction: column;">
+                        <h3 style="font-size: clamp(12px, 0.9vw, 18px); font-weight: 600; color: #111827; margin-bottom: 8px; font-family: 'Amaranth', sans-serif;">趋势图表</h3>
+                        <div class="dashboard-chart-container">
+                            <canvas id="trend-chart"></canvas>
                         </div>
-                        <span class="dashboard-date-separator">年</span>
-                        <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('end', 'month')">
-                            <span id="end-month-display">01</span>
-                        </div>
-                        <span class="dashboard-date-separator">月</span>
-                        <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('end', 'day')">
-                            <span id="end-day-display">01</span>
-                        </div>
-                        <span class="dashboard-date-separator">日</span>
-                        <div class="dashboard-date-dropdown" id="end-dropdown"></div>
-                    </div>
-                </div>
-                
-                <!-- 快速选择 -->
-                <div class="dashboard-quick-select">
-                    <span class="dashboard-quick-select-label">快速选择:</span>
-                    <select class="dashboard-quick-select-dropdown" id="quick-select" onchange="handleQuickSelect(this.value)">
-                        <option value="">-- 选择 --</option>
-                        <option value="today">今天</option>
-                        <option value="yesterday">昨天</option>
-                        <option value="thisWeek">本周</option>
-                        <option value="lastWeek">上周</option>
-                        <option value="thisMonth">本月</option>
-                        <option value="lastMonth">上月</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="dashboard-header-right">
-                <button class="dashboard-action-btn" onclick="exportReport()">KPI 报表</button>
-                <!-- Company Buttons -->
-                <div id="company-buttons-wrapper" class="transaction-company-filter">
-                    <div id="company-buttons-container" class="transaction-company-buttons">
-                        <!-- Company buttons will be dynamically added here -->
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- KPI卡片区域 -->
-        <div class="dashboard-kpi-grid">
-            <!-- Capital -->
-            <div class="dashboard-kpi-card">
-                <div class="icon text-blue">
-                    <i class="fas fa-wallet"></i>
-                </div>
-                <div class="kpi-label">资本 (Capital)</div>
-                <div class="kpi-value" id="capital-value">0</div>
-            </div>
-            
-            <!-- Expenses -->
-            <div class="dashboard-kpi-card">
-                <div class="icon text-red">
-                    <i class="fas fa-arrow-down"></i>
-                </div>
-                <div class="kpi-label">支出 (Expenses)</div>
-                <div class="kpi-value" id="expenses-value">0</div>
-            </div>
-            
-            <!-- Profit -->
-            <div class="dashboard-kpi-card">
-                <div class="icon text-green">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div class="kpi-label">利润 (Profit)</div>
-                <div class="kpi-value" id="profit-value">0</div>
-            </div>
-        </div>
-        
-        <!-- 图表区域 -->
-        <div class="dashboard-chart-section">
-            <div class="dashboard-chart-header">
-                <div>
-                    <div class="dashboard-chart-title">趋势图表</div>
-                    <div class="dashboard-chart-date-range" id="chart-date-range">正在加载数据...</div>
-                </div>
-            </div>
-            <div class="dashboard-chart-container">
-                <canvas id="trend-chart"></canvas>
             </div>
         </div>
     </div>
@@ -998,28 +930,26 @@ if (isset($_GET['logout'])) {
         
         // 设置加载状态
         function setLoadingState(loading) {
-            const chartDateRangeEl = document.getElementById('chart-date-range');
-            if (loading && chartDateRangeEl) {
-                chartDateRangeEl.textContent = '正在加载数据...';
-                chartDateRangeEl.style.color = '#6b7280';
+            const dateInfo = document.getElementById('date-info');
+            if (loading) {
+                dateInfo.textContent = '正在加载数据...';
+                dateInfo.style.color = '#6b7280';
             }
         }
         
         // 显示错误信息
         function showError(message) {
-            const chartDateRangeEl = document.getElementById('chart-date-range');
-            if (chartDateRangeEl) {
-                chartDateRangeEl.textContent = '❌ ' + message;
-                chartDateRangeEl.style.color = '#ef4444';
-                
-                // 3秒后恢复
-                setTimeout(() => {
-                    if (chartDateRangeEl.textContent.includes('❌')) {
-                        chartDateRangeEl.textContent = '数据加载失败，请刷新页面重试';
-                        chartDateRangeEl.style.color = '#6b7280';
-                    }
-                }, 3000);
-            }
+            const dateInfo = document.getElementById('date-info');
+            dateInfo.textContent = '❌ ' + message;
+            dateInfo.style.color = '#ef4444';
+            
+            // 3秒后恢复
+            setTimeout(() => {
+                if (dateInfo.textContent.includes('❌')) {
+                    dateInfo.textContent = '数据加载失败，请刷新页面重试';
+                    dateInfo.style.color = '#6b7280';
+                }
+            }, 3000);
         }
 
         function updateDashboard(data) {
@@ -1031,16 +961,17 @@ if (isset($_GET['logout'])) {
                         const capitalEl = document.getElementById('capital-value');
                         const expensesEl = document.getElementById('expenses-value');
                         const profitEl = document.getElementById('profit-value');
-                        const chartDateRangeEl = document.getElementById('chart-date-range');
+                        const dateInfoEl = document.getElementById('date-info');
                         
                         if (capitalEl) capitalEl.textContent = formatCurrency(data.capital);
                         if (expensesEl) expensesEl.textContent = formatCurrency(data.expenses);
                         if (profitEl) profitEl.textContent = formatCurrency(data.profit);
                         
-                        // 更新图表日期范围
-                        if (chartDateRangeEl && data.date_range) {
-                            chartDateRangeEl.textContent = 
-                                `${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)}`;
+                        // 更新日期信息
+                        if (dateInfoEl && data.date_range) {
+                            dateInfoEl.textContent = 
+                                `日期范围: ${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)}`;
+                            dateInfoEl.style.color = '#6b7280';
                         }
                         
                         // 更新图表（使用 requestAnimationFrame 延迟，避免与 DOM 更新冲突）
@@ -1061,82 +992,6 @@ if (isset($_GET['logout'])) {
                 console.error('updateDashboard 错误:', error);
                 showError('数据更新失败');
             }
-        }
-        
-        // 快速选择处理
-        function handleQuickSelect(value) {
-            if (!value) return;
-            
-            const today = new Date();
-            let startDate, endDate;
-            
-            switch(value) {
-                case 'today':
-                    startDate = new Date(today);
-                    endDate = new Date(today);
-                    break;
-                case 'yesterday':
-                    startDate = new Date(today);
-                    startDate.setDate(today.getDate() - 1);
-                    endDate = new Date(startDate);
-                    break;
-                case 'thisWeek':
-                    startDate = new Date(today);
-                    startDate.setDate(today.getDate() - today.getDay());
-                    endDate = new Date(today);
-                    break;
-                case 'lastWeek':
-                    endDate = new Date(today);
-                    endDate.setDate(today.getDate() - today.getDay() - 1);
-                    startDate = new Date(endDate);
-                    startDate.setDate(endDate.getDate() - 6);
-                    break;
-                case 'thisMonth':
-                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                    endDate = new Date(today);
-                    break;
-                case 'lastMonth':
-                    startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                    endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-                    break;
-                default:
-                    return;
-            }
-            
-            // 更新日期选择器
-            startDateValue = {
-                year: startDate.getFullYear(),
-                month: startDate.getMonth() + 1,
-                day: startDate.getDate()
-            };
-            
-            endDateValue = {
-                year: endDate.getFullYear(),
-                month: endDate.getMonth() + 1,
-                day: endDate.getDate()
-            };
-            
-            updateDateDisplay('start');
-            updateDateDisplay('end');
-            
-            // 更新日期范围并加载数据
-            dateRange = {
-                startDate: `${startDateValue.year}-${String(startDateValue.month).padStart(2, '0')}-${String(startDateValue.day).padStart(2, '0')}`,
-                endDate: `${endDateValue.year}-${String(endDateValue.month).padStart(2, '0')}-${String(endDateValue.day).padStart(2, '0')}`
-            };
-            
-            // 重置快速选择下拉框
-            document.getElementById('quick-select').value = '';
-            
-            // 重置上次请求参数，允许重新加载
-            lastRequestParams = null;
-            loadData();
-        }
-        
-        // 导出报表
-        function exportReport() {
-            // TODO: 实现报表导出功能
-            alert('报表导出功能开发中...');
         }
 
         function formatCurrency(value) {
