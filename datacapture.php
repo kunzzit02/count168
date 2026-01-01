@@ -5210,25 +5210,25 @@ if ($current_user_id && count($user_companies) > 0) {
             if (normalizedData.includes('\t') && lines.length >= 1 && lines.length <= 10) {
                 // 首先检查是否是标准表格格式（每行都有制表符，列数相似）
                 let isStandardTable = false;
-                let rowsWithTabs = 0;
+                let tabSeparatedRowsCount = 0;
                 const columnCounts = [];
                 
                 for (let line of lines) {
                     if (line.includes('\t')) {
-                        rowsWithTabs++;
+                        tabSeparatedRowsCount++;
                         const cells = line.split('\t').map(cell => cell.trim()).filter(cell => cell !== '');
                         columnCounts.push(cells.length);
                     }
                 }
                 
                 // 如果大部分行（>=50%）都有制表符，且列数相似（差异不超过2列），认为是标准表格
-                if (rowsWithTabs >= 2 && rowsWithTabs >= lines.length * 0.5 && columnCounts.length > 0) {
+                if (tabSeparatedRowsCount >= 2 && tabSeparatedRowsCount >= lines.length * 0.5 && columnCounts.length > 0) {
                     const minCols = Math.min(...columnCounts);
                     const maxCols = Math.max(...columnCounts);
                     // 列数差异不超过2列，或者列数在2-10之间（典型表格列数），认为是标准表格
                     if ((maxCols - minCols <= 2) || (minCols >= 2 && maxCols <= 10)) {
                         isStandardTable = true;
-                        console.log('Detected standard table format (rows:', rowsWithTabs, ', columns:', minCols, '-', maxCols, '), will paste row by row');
+                        console.log('Detected standard table format (rows:', tabSeparatedRowsCount, ', columns:', minCols, '-', maxCols, '), will paste row by row');
                     }
                 }
                 
