@@ -314,10 +314,10 @@ if (isset($_GET['logout'])) {
         }
         
         .chart-data-btn.active {
-            background: linear-gradient(180deg, #FF6B35 0%, #F7931E 100%);
+            background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
             color: #fff;
             border-color: transparent;
-            box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
         }
         
         .dashboard-chart-container {
@@ -924,14 +924,19 @@ if (isset($_GET['logout'])) {
                         
                         const result = await response.json();
                         
+                        console.log('API响应:', result);
+                        
                         if (result.success && result.data) {
                             // 验证数据格式
                             if (validateData(result.data)) {
+                                console.log('数据验证通过，更新仪表盘');
                                 updateDashboard(result.data);
                             } else {
+                                console.error('数据格式验证失败:', result.data);
                                 throw new Error('数据格式不正确');
                             }
                         } else {
+                            console.error('API返回失败:', result);
                             throw new Error(result.message || '加载数据失败');
                         }
                     } catch (error) {
@@ -1060,8 +1065,9 @@ if (isset($_GET['logout'])) {
             }
             
             // 验证数据
-            if (!data || !data.daily_data) {
-                console.error('图表数据格式不正确', data);
+            if (!data) {
+                console.error('图表数据为空', data);
+                showError('图表数据为空');
                 // 即使没有数据，也显示空图表
                 if (trendChart) {
                     trendChart.destroy();
@@ -1070,12 +1076,22 @@ if (isset($_GET['logout'])) {
                 return;
             }
             
+            if (!data.daily_data) {
+                console.warn('daily_data 不存在，使用空对象', data);
+                data.daily_data = {};
+            }
+            
             const dailyData = data.daily_data;
-            if (!dailyData.capital || !dailyData.expenses) {
-                console.warn('缺少必要的图表数据，使用默认值', dailyData);
-                // 如果缺少数据，使用空对象
-                if (!dailyData.capital) dailyData.capital = {};
-                if (!dailyData.expenses) dailyData.expenses = {};
+            console.log('dailyData:', dailyData);
+            
+            // 确保 capital 和 expenses 存在
+            if (!dailyData.capital) {
+                console.warn('缺少 capital 数据，使用空对象');
+                dailyData.capital = {};
+            }
+            if (!dailyData.expenses) {
+                console.warn('缺少 expenses 数据，使用空对象');
+                dailyData.expenses = {};
             }
             
             // 准备图表数据
@@ -1084,7 +1100,7 @@ if (isset($_GET['logout'])) {
             const expensesData = [];
             const profitData = [];
             
-            // 合并所有日期
+            // 合并所有日期（包括profit）
             const allDates = new Set();
             if (dailyData.capital && typeof dailyData.capital === 'object') {
                 Object.keys(dailyData.capital).forEach(date => allDates.add(date));
@@ -1092,10 +1108,16 @@ if (isset($_GET['logout'])) {
             if (dailyData.expenses && typeof dailyData.expenses === 'object') {
                 Object.keys(dailyData.expenses).forEach(date => allDates.add(date));
             }
+            if (dailyData.profit && typeof dailyData.profit === 'object') {
+                Object.keys(dailyData.profit).forEach(date => allDates.add(date));
+            }
             
             if (allDates.size === 0) {
                 // 如果没有数据，显示空图表
                 console.warn('没有图表数据，显示空图表');
+                console.log('capital keys:', dailyData.capital ? Object.keys(dailyData.capital) : 'null');
+                console.log('expenses keys:', dailyData.expenses ? Object.keys(dailyData.expenses) : 'null');
+                
                 // 清空元数据
                 chartMetadata = {
                     sortedDates: [],
@@ -1113,6 +1135,14 @@ if (isset($_GET['logout'])) {
                     datasets: []
                 };
                 createChart(chartCanvas, emptyChartData);
+                
+                // 更新日期范围显示
+                const chartDateRangeEl = document.getElementById('chart-date-range');
+                if (chartDateRangeEl && data.date_range) {
+                    chartDateRangeEl.textContent = 
+                        `${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)} (无数据)`;
+                    chartDateRangeEl.style.color = '#9ca3af';
+                }
                 return;
             }
             
@@ -1123,10 +1153,16 @@ if (isset($_GET['logout'])) {
                     dates.push(date);
                     const capital = parseFloat(dailyData.capital[date] || 0) || 0;
                     const expenses = parseFloat(dailyData.expenses[date] || 0) || 0;
+                    // Profit: 优先使用API返回的profit daily_data，如果没有则计算 capital - expenses
+                    let profit = 0;
+                    if (dailyData.profit && typeof dailyData.profit === 'object' && dailyData.profit[date] !== undefined) {
+                        profit = parseFloat(dailyData.profit[date] || 0) || 0;
+                    } else {
+                        profit = capital - expenses;
+                    }
                     capitalData.push(capital);
                     expensesData.push(expenses);
-                    // Profit = Capital - Expenses (每日)
-                    profitData.push(capital - expenses);
+                    profitData.push(profit);
                 } catch (e) {
                     console.warn('处理日期数据时出错:', date, e);
                 }
