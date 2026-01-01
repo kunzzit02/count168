@@ -1151,55 +1151,78 @@ if ($companyId) {
 
     /* 公司到期倒计时样式 */
     .company-expiration-countdown {
-        padding: 0;
-        margin-bottom: 0px;
-        text-align: center;
+        padding: clamp(8px, 0.83vw, 12px) clamp(10px, 1.04vw, 16px);
+        margin-bottom: clamp(8px, 0.83vw, 12px);
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(6px, 0.63vw, 10px);
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .company-expiration-countdown.expired {
+        background: rgba(239, 68, 68, 0.15);
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .company-expiration-countdown.warning {
+        background: rgba(251, 191, 36, 0.15);
+        border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .company-expiration-countdown.normal {
+        background: rgba(59, 130, 246, 0.1);
+        border-color: rgba(59, 130, 246, 0.2);
+    }
+
+    .expiration-icon {
+        width: clamp(14px, 1.04vw, 18px);
+        height: clamp(14px, 1.04vw, 18px);
+        flex-shrink: 0;
+        opacity: 0.9;
+    }
+
+    .expiration-content {
         display: flex;
         align-items: baseline;
+        gap: clamp(4px, 0.42vw, 6px);
+        flex-wrap: wrap;
         justify-content: center;
-        gap: clamp(4px, 0.42vw, 8px);
     }
 
     .expiration-label {
-        font-size: clamp(10px, 0.73vw, 14px);
-        font-weight: 700;
-        color: rgba(255, 255, 255, 1);
+        font-size: clamp(9px, 0.68vw, 12px);
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.9);
         margin: 0;
-        line-height: 1.3;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        line-height: 1.4;
+        letter-spacing: 0.3px;
     }
 
     .expiration-countdown-text {
-        font-size: clamp(8px, 0.625vw, 12px);
+        font-size: clamp(10px, 0.73vw, 13px);
         font-weight: 600;
         color: white;
         margin: 0;
-        line-height: 1.3;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        line-height: 1.4;
+        letter-spacing: 0.2px;
     }
 
     .expiration-countdown-text.expired {
-        color:rgb(255, 0, 0);
-        animation: pulse-red 2s ease-in-out infinite;
+        color: #fca5a5;
     }
 
     .expiration-countdown-text.warning {
-        color: #fef3c7;
-        animation: pulse-yellow 2s ease-in-out infinite;
+        color: #fde047;
     }
 
     .expiration-countdown-text.normal {
-        color: #cde7ff;
-    }
-
-    @keyframes pulse-red {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
-    }
-
-    @keyframes pulse-yellow {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.8; }
+        color: #93c5fd;
     }
 </style>
 
@@ -1544,10 +1567,16 @@ if ($companyId) {
 
     <div class="informationmenu-footer">
         <?php if ($company_expiration_date): ?>
-        <div class="company-expiration-countdown" id="companyExpirationCountdown">
-            <span class="expiration-label">Exp:</span>
-            <div class="expiration-countdown-text <?php echo $expiration_status; ?>" id="expirationCountdownText">
-                <?php echo htmlspecialchars($expiration_countdown_text); ?>
+        <div class="company-expiration-countdown <?php echo $expiration_status; ?>" id="companyExpirationCountdown">
+            <svg class="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <div class="expiration-content">
+                <span class="expiration-label">Exp:</span>
+                <span class="expiration-countdown-text <?php echo $expiration_status; ?>" id="expirationCountdownText">
+                    <?php echo htmlspecialchars($expiration_countdown_text); ?>
+                </span>
             </div>
         </div>
         <?php endif; ?>
@@ -2347,12 +2376,16 @@ if ($companyId) {
 
     function updateExpirationCountdown() {
         const expirationDate = '<?php echo $company_expiration_date ? $company_expiration_date : ''; ?>';
+        const countdownContainer = document.getElementById('companyExpirationCountdown');
         const countdownText = document.getElementById('expirationCountdownText');
         
-        if (!expirationDate || expirationDate.trim() === '' || !countdownText) {
+        if (!expirationDate || expirationDate.trim() === '' || !countdownText || !countdownContainer) {
             if (countdownText) {
                 countdownText.textContent = 'No expiration date';
                 countdownText.className = 'expiration-countdown-text normal';
+            }
+            if (countdownContainer) {
+                countdownContainer.className = 'company-expiration-countdown normal';
             }
             return;
         }
@@ -2362,9 +2395,12 @@ if ($companyId) {
         if (countdown) {
             countdownText.textContent = countdown.text;
             countdownText.className = 'expiration-countdown-text ' + countdown.status;
+            // 同时更新容器的状态类
+            countdownContainer.className = 'company-expiration-countdown ' + countdown.status;
         } else {
             countdownText.textContent = 'No expiration date';
             countdownText.className = 'expiration-countdown-text normal';
+            countdownContainer.className = 'company-expiration-countdown normal';
         }
     }
 
