@@ -4811,7 +4811,7 @@ function getCurrentProcessId() {
             // Calculate data column number (colIndex 1 = id_product, colIndex 2 = data column 1, etc.)
             // Data column index starts from 1: colIndex 2 = column 1, colIndex 3 = column 2, etc.
             // dataColumnIndex: 1-based index within data columns (used for internal references)
-            // displayColumnIndex: actual table column index shown to用户 (用于 $数字 显示)
+            // displayColumnIndex: actual table column index shown to user (used for $number display)
             let dataColumnIndex = null;
             let displayColumnIndex = null;
             if (columnIndex !== null) {
