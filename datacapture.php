@@ -5205,14 +5205,30 @@ if ($current_user_id && count($user_companies) > 0) {
             const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
             const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
             
-            // 如果是单行数据，且包含制表符，直接按制表符分割并横向填充
-            if (lines.length === 1 && normalizedData.includes('\t')) {
-                const singleLine = lines[0];
-                const cells = singleLine.split('\t').map(cell => cell.trim());
+            // 检测是否是应该横向排列的单行数据（包含制表符但被换行符分割）
+            // 如果数据包含制表符，且行数较少（2-10行），可能是应该横向排列的单行数据
+            if (normalizedData.includes('\t') && lines.length >= 1 && lines.length <= 10) {
+                // 提取所有单元格（合并所有行的数据）
+                const allCells = [];
+                for (let line of lines) {
+                    if (line.includes('\t')) {
+                        // 如果行包含制表符，按制表符分割
+                        const cells = line.split('\t').map(cell => cell.trim());
+                        allCells.push(...cells);
+                    } else {
+                        // 如果行不包含制表符，整行作为一个单元格
+                        if (line.trim() !== '') {
+                            allCells.push(line.trim());
+                        }
+                    }
+                }
                 
-                if (cells.length >= 2) {
-                    console.log('Detected single-line tab-separated data, filling horizontally');
-                    console.log('Cells:', cells);
+                // 如果提取的单元格数量 >= 2，认为是单行数据，横向填充
+                if (allCells.length >= 2) {
+                    console.log('Detected tab-separated data that should be arranged horizontally');
+                    console.log('Original lines:', lines.length);
+                    console.log('Extracted cells:', allCells.length);
+                    console.log('Cells:', allCells);
                     
                     // 填充到表格
                     const startCell = e.target;
@@ -5221,7 +5237,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 确保表格有足够的列
                     const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                    const requiredCols = startCol + cells.length;
+                    const requiredCols = startCol + allCells.length;
                     
                     if (requiredCols > currentCols) {
                         const targetCols = Math.max(currentCols, requiredCols);
@@ -5234,7 +5250,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const currentPasteChanges = [];
                     let successCount = 0;
                     
-                    cells.forEach((cellData, colIndex) => {
+                    allCells.forEach((cellData, colIndex) => {
                         const actualColIndex = startCol + colIndex;
                         const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
                         
@@ -5267,7 +5283,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     if (successCount > 0) {
-                        showNotification(`Successfully pasted ${successCount} cells in ${cells.length} columns!`, 'success');
+                        showNotification(`Successfully pasted ${successCount} cells in ${allCells.length} columns!`, 'success');
                     }
                     
                     setTimeout(updateSubmitButtonState, 0);
