@@ -1432,13 +1432,6 @@ function getCurrentProcessId() {
                 modalContent = document.getElementById('editFormulaModalContent');
             }
             
-            // Store row_label from prePopulatedData for filtering formula data grid
-            // This ensures that when there are multiple rows with same id_product,
-            // each row only shows its own data in the formula data grid
-            const rowLabel = prePopulatedData && prePopulatedData.rowLabel ? prePopulatedData.rowLabel : null;
-            window.currentEditRowLabel = rowLabel; // Store globally for updateFormulaDataGrid to use
-            console.log('showEditFormulaForm - Stored row_label:', rowLabel, 'for id_product:', productValue);
-            
             // Find and store the current row for calculator keypad
             if (productValue) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
@@ -2545,12 +2538,6 @@ function getCurrentProcessId() {
                 return;
             }
 
-            // Get row_label from global variable (set by showEditFormulaForm)
-            // This ensures that when there are multiple rows with same id_product,
-            // each row only shows its own data in the formula data grid
-            const rowLabel = window.currentEditRowLabel || null;
-            console.log('updateFormulaDataGrid - id_product:', idProduct, 'row_label:', rowLabel);
-
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2568,33 +2555,9 @@ function getCurrentProcessId() {
             if (!capturedTableBody) return;
 
             const rows = capturedTableBody.querySelectorAll('tr');
-            let matchedRowsCount = 0;
-            let displayedRowsCount = 0;
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
-                    matchedRowsCount++;
-                    // If row_label is specified, also check if it matches
-                    // This ensures that when there are multiple rows with same id_product,
-                    // only the current row's data is shown
-                    if (rowLabel) {
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        if (rowHeaderCell) {
-                            const rowHeaderLabel = rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
-                            console.log('updateFormulaDataGrid - Checking row', rowIndex, 'rowHeaderLabel:', rowHeaderLabel, 'target rowLabel:', rowLabel, 'match:', rowHeaderLabel === rowLabel);
-                            if (rowHeaderLabel !== rowLabel) {
-                                console.log('updateFormulaDataGrid - Skipping row', rowIndex, 'because row_label does not match');
-                                return; // Skip this row if row label doesn't match
-                            }
-                        } else {
-                            console.log('updateFormulaDataGrid - Skipping row', rowIndex, 'because no row header found');
-                            return; // Skip this row if no row header found
-                        }
-                    } else {
-                        console.log('updateFormulaDataGrid - No row_label specified, will show all matching rows');
-                    }
-                    
-                    // Match found (id_product matches, and row_label matches if specified)
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
@@ -2650,13 +2613,11 @@ function getCurrentProcessId() {
                                 });
                                 
                                 formulaDataGrid.appendChild(gridItem);
-                                displayedRowsCount++;
                             }
                         }
                     });
                 }
             });
-            console.log('updateFormulaDataGrid - Total rows with matching id_product:', matchedRowsCount, 'Rows displayed:', displayedRowsCount, 'row_label filter:', rowLabel);
         }
 
         // Close add account modal (wrapper for compatibility)
@@ -9587,103 +9548,11 @@ function getCurrentProcessId() {
             window.currentEditRow = row;
             window.isEditMode = true;
             
-            // Get row_label from corresponding captured table row
-            // This is needed to filter data in formula data grid when there are multiple rows with same id_product
-            let rowLabel = null;
-            const capturedTableBody = document.getElementById('capturedTableBody');
-            if (capturedTableBody && processValue) {
-                const capturedRows = capturedTableBody.querySelectorAll('tr');
-                const summaryRowIndex = row.getAttribute('data-row-index');
-                
-                console.log('editRowFormula - Getting row_label for id_product:', processValue, 'summaryRowIndex:', summaryRowIndex, 'total captured rows:', capturedRows.length);
-                
-                // If summary row has data-row-index, use it to find the exact captured table row
-                if (summaryRowIndex !== null && summaryRowIndex !== '') {
-                    const targetRowIndex = parseInt(summaryRowIndex, 10);
-                    console.log('editRowFormula - Using data-row-index to find row:', targetRowIndex);
-                    if (!isNaN(targetRowIndex) && targetRowIndex >= 0 && targetRowIndex < capturedRows.length) {
-                        const targetCapturedRow = capturedRows[targetRowIndex];
-                        const rowIdProduct = targetCapturedRow.getAttribute('data-id-product');
-                        console.log('editRowFormula - Found captured row at index', targetRowIndex, 'id_product:', rowIdProduct);
-                        // Verify that the captured row has matching id_product
-                        if (rowIdProduct && rowIdProduct.trim() === processValue.trim()) {
-                            const rowHeaderCell = targetCapturedRow.querySelector('.row-header');
-                            if (rowHeaderCell) {
-                                const headerText = rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
-                                if (headerText) {
-                                    rowLabel = headerText;
-                                    console.log('editRowFormula - Found row_label by index:', rowLabel);
-                                }
-                            }
-                        } else {
-                            console.log('editRowFormula - Captured row id_product does not match, trying alternative method');
-                        }
-                    }
-                }
-                
-                // If row_label not found by index, try to find by matching account or other attributes
-                // But only if there are multiple rows with same id_product
-                if (!rowLabel) {
-                    const matchingRows = [];
-                    for (let i = 0; i < capturedRows.length; i++) {
-                        const capturedRow = capturedRows[i];
-                        const rowIdProduct = capturedRow.getAttribute('data-id-product');
-                        if (rowIdProduct && rowIdProduct.trim() === processValue.trim()) {
-                            const rowHeaderCell = capturedRow.querySelector('.row-header');
-                            if (rowHeaderCell) {
-                                const headerText = rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
-                                if (headerText) {
-                                    matchingRows.push({ index: i, rowLabel: headerText, row: capturedRow });
-                                }
-                            }
-                        }
-                    }
-                    
-                    console.log('editRowFormula - Found', matchingRows.length, 'matching rows with id_product:', processValue);
-                    
-                    // If there are multiple rows with same id_product, try to match by account
-                    if (matchingRows.length > 1 && accountValue) {
-                        console.log('editRowFormula - Multiple rows found, trying to match by account:', accountValue);
-                        // Try to find row that matches the account from summary row
-                        for (const match of matchingRows) {
-                            // Check if we can match by some other attribute
-                            // For now, if we have summaryRowIndex, try to use it even if it didn't match before
-                            if (summaryRowIndex !== null && summaryRowIndex !== '') {
-                                const targetRowIndex = parseInt(summaryRowIndex, 10);
-                                if (match.index === targetRowIndex) {
-                                    rowLabel = match.rowLabel;
-                                    console.log('editRowFormula - Matched by row index after all:', rowLabel);
-                                    break;
-                                }
-                            }
-                        }
-                        // If still not found, use first matching row (but this might not be correct)
-                        if (!rowLabel && matchingRows.length > 0) {
-                            rowLabel = matchingRows[0].rowLabel;
-                            console.log('editRowFormula - Using first matching row (fallback):', rowLabel);
-                        }
-                    } else if (matchingRows.length === 1) {
-                        // Only one matching row, use it
-                        rowLabel = matchingRows[0].rowLabel;
-                        console.log('editRowFormula - Using single matching row:', rowLabel);
-                    } else if (matchingRows.length > 0) {
-                        // Multiple rows but no way to distinguish, use first
-                        rowLabel = matchingRows[0].rowLabel;
-                        console.log('editRowFormula - Multiple rows found, using first (no way to distinguish):', rowLabel);
-                    }
-                }
-            }
-            
-            console.log('editRowFormula - Final row_label:', rowLabel);
-            
             // Debug log before showing form
             console.log('editRowFormula - Passing to showEditFormulaForm:', {
                 formula: formulaValue,
                 source: sourceValue,
-                sourcePercent: sourcePercentValue,
-                rowLabel: rowLabel,
-                accountValue: accountValue,
-                processValue: processValue
+                sourcePercent: sourcePercentValue
             });
             
             // Show the Edit Formula form with pre-populated data
@@ -9698,8 +9567,7 @@ function getCurrentProcessId() {
                 inputMethod: inputMethodValue,
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
-                clickedColumns: clickedColumns, // Pass clicked columns for restoration
-                rowLabel: rowLabel // Pass row_label to filter data in formula grid
+                clickedColumns: clickedColumns // Pass clicked columns for restoration
             });
         }
         
