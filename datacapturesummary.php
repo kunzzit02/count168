@@ -2558,6 +2558,10 @@ function getCurrentProcessId() {
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Create a separate row container for each matching row
+                    const rowContainer = document.createElement('div');
+                    rowContainer.className = 'formula-data-grid-row';
+                    
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
@@ -2612,10 +2616,15 @@ function getCurrentProcessId() {
                                     insertCellValueToFormula(targetCell);
                                 });
                                 
-                                formulaDataGrid.appendChild(gridItem);
+                                rowContainer.appendChild(gridItem);
                             }
                         }
                     });
+                    
+                    // Only append row container if it has items
+                    if (rowContainer.children.length > 0) {
+                        formulaDataGrid.appendChild(rowContainer);
+                    }
                 }
             });
         }
@@ -17208,13 +17217,20 @@ function formatPercentValue(value) {
         /* Formula Data Grid Styles */
         .formula-data-grid {
             display: flex;
-            flex-wrap: nowrap;
-            gap: 4px;
+            flex-direction: column;
+            gap: 6px;
             margin-top: 0px;
-            overflow-x: auto;
-            overflow-y: visible;
             padding-bottom: 4px;
             padding-top: 2px;
+        }
+
+        .formula-data-grid-row {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 4px;
+            overflow-x: auto;
+            overflow-y: visible;
+            padding-bottom: 2px;
         }
 
         .formula-data-grid-item {
@@ -17248,22 +17264,22 @@ function formatPercentValue(value) {
             color: white;
         }
         
-        /* Scrollbar styling for formula data grid */
-        .formula-data-grid::-webkit-scrollbar {
+        /* Scrollbar styling for formula data grid rows */
+        .formula-data-grid-row::-webkit-scrollbar {
             height: 6px;
         }
         
-        .formula-data-grid::-webkit-scrollbar-track {
+        .formula-data-grid-row::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.05);
             border-radius: 3px;
         }
         
-        .formula-data-grid::-webkit-scrollbar-thumb {
+        .formula-data-grid-row::-webkit-scrollbar-thumb {
             background: rgba(0, 0, 0, 0.2);
             border-radius: 3px;
         }
         
-        .formula-data-grid::-webkit-scrollbar-thumb:hover {
+        .formula-data-grid-row::-webkit-scrollbar-thumb:hover {
             background: rgba(0, 0, 0, 0.3);
         }
 
