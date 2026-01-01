@@ -1151,78 +1151,74 @@ if ($companyId) {
 
     /* 公司到期倒计时样式 */
     .company-expiration-countdown {
-        padding: clamp(8px, 0.83vw, 12px) clamp(10px, 1.04vw, 16px);
-        margin-bottom: clamp(8px, 0.83vw, 12px);
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
+        padding: clamp(4px, 0.42vw, 6px) clamp(6px, 0.63vw, 10px);
+        margin-bottom: clamp(6px, 0.52vw, 10px);
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: clamp(6px, 0.63vw, 10px);
+        gap: clamp(4px, 0.42vw, 6px);
         transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .company-expiration-countdown.expired {
-        background: rgba(239, 68, 68, 0.15);
-        border-color: rgba(239, 68, 68, 0.3);
+        background: rgba(239, 68, 68, 0.25);
+        border-color: rgba(239, 68, 68, 0.5);
     }
 
     .company-expiration-countdown.warning {
-        background: rgba(251, 191, 36, 0.15);
-        border-color: rgba(251, 191, 36, 0.3);
+        background: rgba(251, 191, 36, 0.25);
+        border-color: rgba(251, 191, 36, 0.5);
     }
 
     .company-expiration-countdown.normal {
-        background: rgba(59, 130, 246, 0.1);
-        border-color: rgba(59, 130, 246, 0.2);
+        background: rgba(59, 130, 246, 0.2);
+        border-color: rgba(59, 130, 246, 0.4);
     }
 
     .expiration-icon {
-        width: clamp(14px, 1.04vw, 18px);
-        height: clamp(14px, 1.04vw, 18px);
+        width: clamp(11px, 0.78vw, 14px);
+        height: clamp(11px, 0.78vw, 14px);
         flex-shrink: 0;
-        opacity: 0.9;
+        opacity: 0.95;
     }
 
     .expiration-content {
         display: flex;
         align-items: baseline;
-        gap: clamp(4px, 0.42vw, 6px);
+        gap: clamp(3px, 0.31vw, 4px);
         flex-wrap: wrap;
         justify-content: center;
     }
 
     .expiration-label {
-        font-size: clamp(9px, 0.68vw, 12px);
-        font-weight: 600;
-        color: rgba(255, 255, 255, 0.9);
+        font-size: clamp(8px, 0.625vw, 10px);
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.95);
         margin: 0;
-        line-height: 1.4;
-        letter-spacing: 0.3px;
+        line-height: 1.3;
     }
 
     .expiration-countdown-text {
-        font-size: clamp(10px, 0.73vw, 13px);
+        font-size: clamp(8px, 0.625vw, 10px);
         font-weight: 600;
         color: white;
         margin: 0;
-        line-height: 1.4;
-        letter-spacing: 0.2px;
+        line-height: 1.3;
     }
 
     .expiration-countdown-text.expired {
-        color: #fca5a5;
+        color: #ff6b6b;
     }
 
     .expiration-countdown-text.warning {
-        color: #fde047;
+        color: #ffd93d;
     }
 
     .expiration-countdown-text.normal {
-        color: #93c5fd;
+        color: #74b0ff;
     }
 </style>
 
