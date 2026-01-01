@@ -602,6 +602,14 @@ if (isset($_GET['logout'])) {
         let endDateValue = { year: null, month: null, day: null };
         let currentDatePicker = null;
         let currentDateType = null;
+        
+        // 存储图表元数据（用于 tooltip）
+        let chartMetadata = {
+            sortedDates: [],
+            capitalData: [],
+            expensesData: [],
+            profitData: []
+        };
 
         // 初始化日期选择器
         function initDatePickers() {
@@ -1005,19 +1013,27 @@ if (isset($_GET['logout'])) {
             const chartCanvas = document.getElementById('trend-chart');
             if (!chartCanvas) {
                 console.error('图表canvas元素不存在');
+                showError('图表元素不存在');
                 return;
             }
             
             // 验证数据
             if (!data || !data.daily_data) {
-                console.error('图表数据格式不正确');
+                console.error('图表数据格式不正确', data);
+                // 即使没有数据，也显示空图表
+                if (trendChart) {
+                    trendChart.destroy();
+                    trendChart = null;
+                }
                 return;
             }
             
             const dailyData = data.daily_data;
             if (!dailyData.capital || !dailyData.expenses) {
-                console.error('缺少必要的图表数据');
-                return;
+                console.warn('缺少必要的图表数据，使用默认值', dailyData);
+                // 如果缺少数据，使用空对象
+                if (!dailyData.capital) dailyData.capital = {};
+                if (!dailyData.expenses) dailyData.expenses = {};
             }
             
             // 准备图表数据
@@ -1037,13 +1053,24 @@ if (isset($_GET['logout'])) {
             
             if (allDates.size === 0) {
                 // 如果没有数据，显示空图表
+                console.warn('没有图表数据，显示空图表');
+                // 清空元数据
+                chartMetadata = {
+                    sortedDates: [],
+                    capitalData: [],
+                    expensesData: [],
+                    profitData: []
+                };
                 if (trendChart) {
-                    trendChart.data = {
-                        labels: [],
-                        datasets: []
-                    };
-                    trendChart.update('none');
+                    trendChart.destroy();
+                    trendChart = null;
                 }
+                // 创建空图表
+                const emptyChartData = {
+                    labels: [],
+                    datasets: []
+                };
+                createChart(chartCanvas, emptyChartData);
                 return;
             }
             
@@ -1062,6 +1089,14 @@ if (isset($_GET['logout'])) {
                     console.warn('处理日期数据时出错:', date, e);
                 }
             });
+            
+            // 存储元数据到外部变量（用于 tooltip）
+            chartMetadata = {
+                sortedDates: sortedDates,
+                capitalData: capitalData,
+                expensesData: expensesData,
+                profitData: profitData
+            };
             
             const chartData = {
                 labels: dates.map(d => {
@@ -1147,40 +1182,61 @@ if (isset($_GET['logout'])) {
                 ]
             };
             
-            // 将数据存储到 chartData 中，以便在 tooltip 中使用
-            chartData.metadata = {
-                sortedDates: sortedDates,
-                capitalData: capitalData,
-                expensesData: expensesData,
-                profitData: profitData
-            };
-            
-            // 如果图表已存在，使用 update 而不是 destroy + create（避免闪屏）
+            // 如果图表已存在，销毁并重新创建（参考 kpi.php 的实现）
             if (trendChart) {
-                try {
-                    trendChart.data = chartData;
-                    trendChart.update('none'); // 'none' 模式不显示动画，避免闪屏
-                } catch (updateError) {
-                    console.error('更新图表失败，尝试重新创建:', updateError);
-                    // 如果更新失败，销毁并重新创建
-                    trendChart.destroy();
-                    trendChart = null;
-                    createChart(chartCanvas, chartData);
-                }
-            } else {
-                createChart(chartCanvas, chartData);
+                trendChart.destroy();
+                trendChart = null;
             }
+            
+            // 创建新图表
+            createChart(chartCanvas, chartData);
         }
         
         // 创建图表的辅助函数
         function createChart(canvas, chartData) {
             try {
+                // 检查 Chart.js 是否已加载
+                if (typeof Chart === 'undefined') {
+                    console.error('Chart.js 库未加载');
+                    showError('图表库未加载，请刷新页面');
+                    return;
+                }
+                
+                // 检查 canvas 是否存在
+                if (!canvas) {
+                    console.error('Canvas 元素不存在');
+                    return;
+                }
+                
                 const ctx = canvas.getContext('2d');
-                const metadata = chartData.metadata || {};
-                const sortedDates = metadata.sortedDates || [];
-                const capitalData = metadata.capitalData || [];
-                const expensesData = metadata.expensesData || [];
-                const profitData = metadata.profitData || [];
+                if (!ctx) {
+                    console.error('无法获取 canvas context');
+                    return;
+                }
+                
+                // 从外部变量获取元数据
+                const sortedDates = chartMetadata.sortedDates || [];
+                const capitalData = chartMetadata.capitalData || [];
+                const expensesData = chartMetadata.expensesData || [];
+                const profitData = chartMetadata.profitData || [];
+                
+                // 确保 chartData 结构正确
+                if (!chartData || !chartData.labels || !chartData.datasets) {
+                    console.error('图表数据格式不正确', chartData);
+                    return;
+                }
+                
+                console.log('创建图表，数据点数量:', chartData.labels.length, '数据集数量:', chartData.datasets.length);
+                
+                // 如果图表已存在，先销毁
+                if (trendChart) {
+                    try {
+                        trendChart.destroy();
+                    } catch (e) {
+                        console.warn('销毁旧图表时出错:', e);
+                    }
+                    trendChart = null;
+                }
                 
                 trendChart = new Chart(ctx, {
                     type: 'line',
