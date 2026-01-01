@@ -1223,9 +1223,10 @@ function getCurrentProcessId() {
                 if (processRowIndex >= 2 && processRowIndex < processRow.length) {
                     const cellData = processRow[processRowIndex];
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                        // Extract numeric value (remove formatting)
+                        // Extract numeric value (remove formatting including $ symbol)
                         const cellValue = cellData.value.toString();
-                        const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                        // Remove $ symbol and other formatting characters
+                        const numericValue = cellValue.replace(/\$/g, '').replace(/[^0-9+\-*/.\s()]/g, '').trim();
                         console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
                         return numericValue || cellValue;
                     }
@@ -1284,8 +1285,9 @@ function getCurrentProcessId() {
                     const cell = cells[cellIndex];
                     if (!cell.classList.contains('row-header')) {
                         const cellValue = cell.textContent.trim();
-                        // Extract numeric value (remove formatting)
-                        const numericValue = cellValue.replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                        // Extract numeric value (remove formatting including $ symbol)
+                        // Remove $ symbol and other formatting characters
+                        const numericValue = cellValue.replace(/\$/g, '').replace(/[^0-9+\-*/.\s()]/g, '').trim();
                         return numericValue || cellValue;
                     }
                 }
@@ -4667,6 +4669,9 @@ function getCurrentProcessId() {
             // Allow: digits (0-9), decimal point (.), operators (+, -, *, /), parentheses, spaces
             let cellValue = cell.textContent.trim();
             
+            // Remove $ symbol first
+            cellValue = cellValue.replace(/\$/g, '');
+            
             // Extract numbers and mathematical symbols, ignoring letters
             // Pattern: match digits, decimal points, operators, parentheses, spaces, and minus signs
             // This will extract things like: "123", "45.67", "+100", "-50", "100-50", "(10+20)", etc.
@@ -6433,8 +6438,11 @@ function getCurrentProcessId() {
                 if (colIndex >= 1 && colIndex < processRow.length) {
                     const cellData = processRow[colIndex];
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                        // Remove formatting and return numeric value
-                        const numericValue = removeThousandsSeparators(cellData.value.toString());
+                        // Remove formatting including $ symbol and return numeric value
+                        let cellValue = cellData.value.toString();
+                        // Remove $ symbol first, then remove thousands separators
+                        cellValue = cellValue.replace(/\$/g, '');
+                        const numericValue = removeThousandsSeparators(cellValue);
                         return numericValue;
                     }
                 }
@@ -6498,8 +6506,11 @@ function getCurrentProcessId() {
                 if (columnNumber >= 1 && columnNumber < processRow.length) {
                     const cellData = processRow[columnNumber];
                     if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                        // Remove formatting and return numeric value
-                        const numericValue = removeThousandsSeparators(cellData.value.toString());
+                        // Remove formatting including $ symbol and return numeric value
+                        let cellValue = cellData.value.toString();
+                        // Remove $ symbol first, then remove thousands separators
+                        cellValue = cellValue.replace(/\$/g, '');
+                        const numericValue = removeThousandsSeparators(cellValue);
                         return numericValue;
                     }
                 }
