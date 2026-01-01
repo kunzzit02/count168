@@ -2452,7 +2452,14 @@ function getCurrentProcessId() {
             const parts = idProductValue.split(':');
             if (parts.length === 2) {
                 idProduct = parts[0].trim();
-                rowLabel = parts[1].trim();
+                const parsedRowLabel = parts[1].trim();
+                // Only set rowLabel if it's not empty
+                if (parsedRowLabel !== '') {
+                    rowLabel = parsedRowLabel;
+                }
+                console.log('updateIdProductRowData: Parsed idProductValue:', idProductValue, '-> idProduct:', idProduct, 'rowLabel:', rowLabel || 'none');
+            } else {
+                console.log('updateIdProductRowData: No row_label in idProductValue:', idProductValue);
             }
 
             // Get table data
@@ -2473,6 +2480,8 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
+            let matchedRowsCount = 0;
+            
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 
@@ -2482,15 +2491,22 @@ function getCurrentProcessId() {
                 }
                 
                 // If row_label is specified, also check if it matches
+                // IMPORTANT: When row_label is provided, ONLY show data from the matching row
                 if (rowLabel) {
                     const rowHeaderCell = row.querySelector('.row-header');
                     const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                    console.log('updateIdProductRowData: Checking row_label match - expected:', rowLabel, 'found:', rowHeaderLabel, 'match:', rowHeaderLabel === rowLabel);
                     if (rowHeaderLabel !== rowLabel) {
+                        console.log('updateIdProductRowData: Row label mismatch, skipping row', rowIndex);
                         return; // Skip this row if row label doesn't match
                     }
+                    console.log('updateIdProductRowData: Row label matched! Processing row', rowIndex);
                 }
                 
                 // Match found, process this row
+                matchedRowsCount++;
+                console.log('updateIdProductRowData: Processing row', rowIndex, 'id_product:', rowIdProduct, 'row_label:', rowLabel || 'none');
+                
                 // Get all data cells (skip row header and id_product column)
                 const cells = row.querySelectorAll('td');
                 
@@ -2515,6 +2531,8 @@ function getCurrentProcessId() {
                 });
             });
 
+            console.log('updateIdProductRowData: Total matched rows:', matchedRowsCount, 'for id_product:', idProduct, 'row_label:', rowLabel || 'none');
+            
             // Auto-select first option if available
             if (firstOptionValue !== null) {
                 descriptionSelect2.value = firstOptionValue;
