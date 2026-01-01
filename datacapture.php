@@ -5219,17 +5219,15 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 如果所有行都包含制表符，且列数相似（差异不超过2列），认为是标准表格格式，应该按行排列
+                // 如果有多行数据，且所有行都包含制表符，认为是标准表格格式，应该按行排列
                 let isStandardTableFormat = false;
+                // 简化逻辑：如果有多行（>=2行），且所有行都包含制表符，就按行排列
                 if (rowsWithTabs.length === lines.length && rowsWithTabs.length >= 2) {
-                    const minCols = Math.min(...columnCounts);
-                    const maxCols = Math.max(...columnCounts);
-                    // 如果列数差异不大（最多相差2列），认为是标准表格
-                    if (maxCols - minCols <= 2) {
-                        isStandardTableFormat = true;
-                        console.log('Detected standard table format (similar column counts across rows), will arrange vertically');
-                        
-                        // 处理标准表格格式：每行数据放在对应的表格行中
+                    isStandardTableFormat = true;
+                    console.log('Detected multi-row table format (all rows have tabs), will arrange vertically');
+                    console.log('Rows:', rowsWithTabs.length, 'Column counts:', columnCounts);
+                    
+                    // 处理标准表格格式：每行数据放在对应的表格行中
                         const startCell = e.target;
                         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                         const startCol = parseInt(startCell.dataset.col);
@@ -5300,9 +5298,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             }, 100);
                         }
                         
-                        console.log('=== PASTE DEBUG END (standard table format parser) ===');
-                        return;
-                    }
+                    console.log('=== PASTE DEBUG END (standard table format parser) ===');
+                    return;
                 }
                 
                 // 如果不是标准表格格式，使用横向排列逻辑（合并所有行）
