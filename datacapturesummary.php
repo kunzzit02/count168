@@ -2392,16 +2392,14 @@ function getCurrentProcessId() {
         }
 
         // Update second select box with row data for selected id product
+        // IMPORTANT: Show ALL rows from table, even if they have the same id_product
+        // This allows users to select data from any row, including multiple rows with same id_product
         function updateIdProductRowData(idProduct) {
             const descriptionSelect2 = document.getElementById('descriptionSelect2');
             if (!descriptionSelect2) return;
 
             // Clear existing options
             descriptionSelect2.innerHTML = '<option value="">Select Row Data</option>';
-
-            if (!idProduct || idProduct.trim() === '') {
-                return;
-            }
 
             // Get table data
             let parsedTableData;
@@ -2421,32 +2419,57 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
+            
+            // IMPORTANT: Show ALL rows, not just rows matching the selected id_product
+            // This allows users to select data from any row, even if it has a different id_product
             rows.forEach((row, rowIndex) => {
+                // Get row label (A, B, C, etc.) to distinguish rows with same id_product
+                const rowHeaderCell = row.querySelector('.row-header');
+                const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                
+                // Get id_product for this row
                 const rowIdProduct = row.getAttribute('data-id-product');
-                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
-                    // Get all data cells (skip row header and id_product column)
+                if (!rowIdProduct || rowIdProduct.trim() === '') {
+                    // Try to get from first data cell (column index 1)
                     const cells = row.querySelectorAll('td');
-                    
-                    cells.forEach((cell, cellIndex) => {
-                        const columnIndex = cell.getAttribute('data-column-index');
-                        if (columnIndex && parseInt(columnIndex) > 1) {
-                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                            if (cellValue !== '') {
-                                // Create a separate option for each column data
-                                const option = document.createElement('option');
-                                option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
-                                option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
-                                descriptionSelect2.appendChild(option);
-                                
-                                // Store first option value for auto-selection
-                                if (firstOptionValue === null) {
-                                    firstOptionValue = option.value;
-                                }
+                    if (cells.length > 1) {
+                        const idProductCell = cells[1];
+                        const idProductText = idProductCell ? idProductCell.textContent.trim() : '';
+                        if (idProductText) {
+                            row.setAttribute('data-id-product', idProductText);
+                        }
+                    }
+                }
+                
+                // Get all data cells (skip row header and id_product column)
+                const cells = row.querySelectorAll('td');
+                
+                cells.forEach((cell, cellIndex) => {
+                    const columnIndex = cell.getAttribute('data-column-index');
+                    if (columnIndex && parseInt(columnIndex) > 1) {
+                        // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                        const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                        if (cellValue !== '') {
+                            // Create a separate option for each column data
+                            const option = document.createElement('option');
+                            option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
+                            
+                            // Format: "[RowLabel] id_product - [ColumnIndex] value"
+                            // Example: "[A] OVERALL - [6] $0.69" or "[B] M99M06 - [6] $1.98"
+                            // This distinguishes rows with same id_product
+                            const displayText = rowLabel 
+                                ? `[${rowLabel}] ${rowIdProduct || ''} - [${columnIndex}] ${cellValue}`
+                                : `${rowIdProduct || ''} - [${columnIndex}] ${cellValue}`;
+                            option.textContent = displayText;
+                            descriptionSelect2.appendChild(option);
+                            
+                            // Store first option value for auto-selection
+                            if (firstOptionValue === null) {
+                                firstOptionValue = option.value;
                             }
                         }
-                    });
-                }
+                    }
+                });
             });
 
             // Auto-select first option if available
