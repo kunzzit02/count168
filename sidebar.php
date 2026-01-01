@@ -1153,9 +1153,9 @@ if ($companyId) {
     .company-expiration-countdown {
         padding: clamp(4px, 0.42vw, 6px) clamp(6px, 0.63vw, 10px);
         margin-bottom: clamp(6px, 0.52vw, 10px);
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.12);
         border-radius: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.2);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1164,25 +1164,37 @@ if ($companyId) {
     }
 
     .company-expiration-countdown.expired {
-        background: rgba(239, 68, 68, 0.25);
-        border-color: rgba(239, 68, 68, 0.5);
+        background: rgba(239, 68, 68, 0.4);
+        border-color: rgba(239, 68, 68, 0.7);
     }
 
     .company-expiration-countdown.warning {
-        background: rgba(251, 191, 36, 0.25);
-        border-color: rgba(251, 191, 36, 0.5);
+        background: rgba(251, 191, 36, 0.4);
+        border-color: rgba(251, 191, 36, 0.7);
     }
 
     .company-expiration-countdown.normal {
-        background: rgba(59, 130, 246, 0.2);
-        border-color: rgba(59, 130, 246, 0.4);
+        background: rgba(59, 130, 246, 0.35);
+        border-color: rgba(59, 130, 246, 0.6);
     }
 
     .expiration-icon {
-        width: clamp(11px, 0.78vw, 14px);
-        height: clamp(11px, 0.78vw, 14px);
+        width: clamp(12px, 0.83vw, 15px);
+        height: clamp(12px, 0.83vw, 15px);
         flex-shrink: 0;
-        opacity: 0.95;
+        color: white;
+    }
+
+    .company-expiration-countdown.expired .expiration-icon {
+        color: #ffffff;
+    }
+
+    .company-expiration-countdown.warning .expiration-icon {
+        color: #ffffff;
+    }
+
+    .company-expiration-countdown.normal .expiration-icon {
+        color: #ffffff;
     }
 
     .expiration-content {
@@ -1196,29 +1208,19 @@ if ($companyId) {
     .expiration-label {
         font-size: clamp(8px, 0.625vw, 10px);
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.95);
+        color: #ffffff;
         margin: 0;
         line-height: 1.3;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     }
 
     .expiration-countdown-text {
         font-size: clamp(8px, 0.625vw, 10px);
         font-weight: 600;
-        color: white;
+        color: #ffffff;
         margin: 0;
         line-height: 1.3;
-    }
-
-    .expiration-countdown-text.expired {
-        color: #ff6b6b;
-    }
-
-    .expiration-countdown-text.warning {
-        color: #ffd93d;
-    }
-
-    .expiration-countdown-text.normal {
-        color: #74b0ff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     }
 </style>
 
@@ -1564,7 +1566,7 @@ if ($companyId) {
     <div class="informationmenu-footer">
         <?php if ($company_expiration_date): ?>
         <div class="company-expiration-countdown <?php echo $expiration_status; ?>" id="companyExpirationCountdown">
-            <svg class="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg class="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
