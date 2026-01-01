@@ -6391,14 +6391,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 detectedColumnCount = 2;
                 console.log('Using 2 columns for User Name + profit format');
             }
-            // 特殊处理：如果Total在索引0（第一行第一列）且数据量较少，优先考虑单行
-            else if (totalIndex === 0 && allCells.length <= 25) {
-                // Total在第一行第一列，且数据量较少，很可能是单行数据
-                // 使用总单元格数作为列数（单行）
-                force18Columns = true;
-                detectedColumnCount = allCells.length;
-                console.log(`Detected pattern: Total at index 0 with ${allCells.length} cells, will use single row with ${allCells.length} columns`);
-            }
             // 方法1：如果Total在索引18，强制使用18列
             else if (totalIndex === 18) {
                 // Total在索引18，说明第一行有18个数据（索引0-17），Total是第二行第一列
@@ -6513,14 +6505,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 const commonColumnCounts = [18, 17, 19, 16, 20, 15, 14, 12, 10]; // 优先18列
                 let bestMatch = { cols: 0, rows: 0, score: 0, remainder: Infinity };
                 
-                // 特殊处理：如果数据量较少（<=25个单元格），优先考虑单行的情况
-                const isSmallDataset = allCells.length <= 25;
-                const minRows = isSmallDataset ? 1 : 2; // 小数据集允许1行，大数据集至少2行
-                
                 for (let cols of commonColumnCounts) {
                     const rows = Math.ceil(allCells.length / cols);
-                    // 行数应该在合理范围内（小数据集允许1行，大数据集至少2行，最多50行）
-                    if (rows >= minRows && rows <= 50) {
+                    // 行数应该在合理范围内（2-50行）
+                    if (rows >= 2 && rows <= 50) {
                         const remainder = allCells.length % cols;
                         const expectedCells = rows * cols;
                         
@@ -6529,31 +6517,18 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 2. 如果18列能整除，额外加分（因为原始表格是18列）
                         // 3. 剩余越少越好
                         // 4. 列数越多越好（更可能是原始表格）
-                        // 5. 对于小数据集，单行（rows === 1）额外加分
                         let score = 0;
                         if (remainder === 0) {
                             // 能整除：基础分1000，如果是18列再加500
                             score = 1000 + (cols === 18 ? 500 : 0);
-                            // 如果是单行且数据量较少，额外加分（优先单行）
-                            if (rows === 1 && isSmallDataset) {
-                                score += 2000; // 单行额外加分，优先选择
-                            }
                         } else {
                             // 不能整除：根据剩余数计算分数，剩余越少分数越高
                             const remainderRatio = remainder / cols;
                             score = (1 - remainderRatio) * 100 + (cols === 18 ? 50 : 0);
-                            // 如果是单行且数据量较少，额外加分
-                            if (rows === 1 && isSmallDataset) {
-                                score += 500; // 单行额外加分
-                            }
                         }
                         
                         // 更新最佳匹配：优先选择能整除的，如果不能整除则选择剩余最少的
-                        // 对于小数据集，优先选择单行
-                        if (rows === 1 && isSmallDataset && bestMatch.rows !== 1) {
-                            // 单行优先（小数据集）
-                            bestMatch = { cols: cols, rows: rows, score: score, remainder: remainder };
-                        } else if (remainder === 0 && bestMatch.remainder !== 0) {
+                        if (remainder === 0 && bestMatch.remainder !== 0) {
                             // 当前能整除，之前不能，选择当前
                             bestMatch = { cols: cols, rows: rows, score: score, remainder: remainder };
                         } else if (remainder === 0 && bestMatch.remainder === 0) {
@@ -6635,34 +6610,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     let bestDivisibleCols = null;
                     let bestDivisibleScore = 0;
                     
-                    // 对于小数据集，允许单行
-                    const isSmallDataset = allCells.length <= 25;
-                    const minRows = isSmallDataset ? 1 : 2;
-                    
                     for (let cols of commonColumnCounts) {
                         const rows = Math.ceil(allCells.length / cols);
                         const remainder = allCells.length % cols;
                         const remainderRatio = remainder / cols;
                         
                         // 如果能整除，优先选择
-                        if (remainder === 0 && rows >= minRows && rows <= 50) {
-                            let score = 1000 + (cols === 18 ? 100 : cols === 20 ? 90 : 0); // 18列和20列额外加分
-                            // 如果是单行且数据量较少，额外加分（优先单行）
-                            if (rows === 1 && isSmallDataset) {
-                                score += 2000; // 单行额外加分，优先选择
-                            }
+                        if (remainder === 0 && rows >= 2 && rows <= 50) {
+                            const score = 1000 + (cols === 18 ? 100 : cols === 20 ? 90 : 0); // 18列和20列额外加分
                             if (score > bestDivisibleScore) {
                                 bestDivisibleCols = cols;
                                 bestDivisibleScore = score;
                             }
                         }
                         // 如果剩余很少（<5%），也考虑
-                        else if (remainderRatio < 0.05 && rows >= minRows && rows <= 50) {
-                            let score = (1 - remainderRatio) * 100 + (cols === 18 ? 10 : cols === 20 ? 9 : 0);
-                            // 如果是单行且数据量较少，额外加分
-                            if (rows === 1 && isSmallDataset) {
-                                score += 500; // 单行额外加分
-                            }
+                        else if (remainderRatio < 0.05 && rows >= 2 && rows <= 50) {
+                            const score = (1 - remainderRatio) * 100 + (cols === 18 ? 10 : cols === 20 ? 9 : 0);
                             if (score > bestDivisibleScore && bestDivisibleCols === null) {
                                 bestDivisibleCols = cols;
                                 bestDivisibleScore = score;
@@ -6688,13 +6651,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 确保列数在合理范围内
-                // 但如果检测到单行（列数等于总单元格数），且数据量较少，保持单行
-                const isSingleRow = detectedColumns === allCells.length && allCells.length <= 25;
-                if (detectedColumns > 25 && !isSingleRow) {
+                if (detectedColumns > 25) {
                     detectedColumns = 18; // 限制最大列数
                     console.log('Column count too large, using default:', detectedColumns);
-                } else if (isSingleRow) {
-                    console.log('Keeping single row format:', detectedColumns, 'columns');
                 }
                 
                 } // 结束 else 块（如果force18Columns为false）
