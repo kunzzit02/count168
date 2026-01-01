@@ -1395,7 +1395,13 @@ function getCurrentProcessId() {
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
             
-            // 从 Add button 进入，一律视为“新增”，不带任何预填数据
+            // IMPORTANT: Store the current row reference so updateFormulaDataGrid can use it
+            // This ensures that when there are multiple rows with same id_product, 
+            // the formula data grid shows data from the correct row
+            window.currentEditRow = row;
+            window.isEditMode = false; // This is a new entry, not editing existing one
+            
+            // 从 Add button 进入，一律视为"新增"，不带任何预填数据
             console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
             
             // 打开空白表单（edit 按钮才负责加载旧数据）
@@ -1433,7 +1439,13 @@ function getCurrentProcessId() {
             }
             
             // Find and store the current row for calculator keypad
-            if (productValue) {
+            // IMPORTANT: Use window.currentEditRow if available (set when clicking edit button)
+            // This ensures we get the correct row even when there are multiple rows with same id_product
+            if (window.currentEditRow) {
+                currentSelectedRowForCalculator = window.currentEditRow;
+                console.log('showEditFormulaForm - Using window.currentEditRow for currentSelectedRowForCalculator');
+            } else if (productValue) {
+                // Fallback: find first matching row (for new entries)
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     const rows = summaryTableBody.querySelectorAll('tr');
@@ -1441,6 +1453,7 @@ function getCurrentProcessId() {
                         const rowProcessValue = getProcessValueFromRow(row);
                         if (rowProcessValue === productValue) {
                             currentSelectedRowForCalculator = row;
+                            console.log('showEditFormulaForm - Found first matching row for productValue:', productValue);
                             break;
                         }
                     }
