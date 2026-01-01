@@ -6624,22 +6624,30 @@ function getCurrentProcessId() {
                 }
                 
                 // Finally, parse reference format if present (e.g., [id_product : column_number])
+                // IMPORTANT: column_number here is displayColumnIndex (e.g., 7 means column 7 in the table)
+                // We need to convert it to dataColumnIndex for getCellValueByIdProductAndColumn
                 const referencePattern = /\[([^\]]+)\s*:\s*(\d+)\]/g;
                 
                 while ((match = referencePattern.exec(parsedFormula)) !== null) {
-                    const fullMatch = match[0]; // e.g., "[iphsp3 : 4]"
-                    const idProduct = match[1].trim(); // e.g., "iphsp3"
-                    const columnNumber = match[2]; // e.g., "4"
+                    const fullMatch = match[0]; // e.g., "[OVERALL : 7]"
+                    const idProduct = match[1].trim(); // e.g., "OVERALL"
+                    const displayColumnIndex = parseInt(match[2]); // e.g., 7 (displayColumnIndex)
                     
-                    // Get the actual value
-                    const columnValue = getColumnValueByIdProduct(idProduct, columnNumber);
+                    // Convert displayColumnIndex to dataColumnIndex (dataColumnIndex = displayColumnIndex - 1)
+                    // Because: colIndex 1 = id_product, colIndex 2 = data column 1, so displayColumnIndex 7 = dataColumnIndex 6
+                    const dataColumnIndex = displayColumnIndex - 1;
+                    
+                    // IMPORTANT: Use getCellValueByIdProductAndColumn instead of getColumnValueByIdProduct
+                    // Because getCellValueByIdProductAndColumn can handle row_label if needed
+                    // Try without row_label first (most common case)
+                    let columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, null);
                     
                     if (columnValue !== null) {
                         // Replace the reference with the actual value
                         parsedFormula = parsedFormula.replace(fullMatch, columnValue);
                     } else {
                         // If value not found, keep the reference or replace with 0
-                        console.warn(`Column value not found for [${idProduct} : ${columnNumber}]`);
+                        console.warn(`Column value not found for [${idProduct} : ${displayColumnIndex}] (dataColumnIndex: ${dataColumnIndex})`);
                         parsedFormula = parsedFormula.replace(fullMatch, '0');
                     }
                 }
