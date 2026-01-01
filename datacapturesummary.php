@@ -13519,80 +13519,123 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
         // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
         // 这样当用户修改表格数据后，公式会反映最新的数据
+        // CRITICAL: 必须从 sourceColumnsValue 中提取正确的 id_product 和 row_label，而不是使用当前 sub row 的 idProduct
         const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
         if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
-            // 从当前表格数据重新计算 formula
-            // 获取行标签
-            const rowLabel = getRowLabelFromProcessValue(idProduct);
-            if (rowLabel) {
-                let displayFormula = formulaOperatorsValue;
+            let displayFormula = formulaOperatorsValue;
+            
+            // 匹配所有 $数字 模式
+            const dollarPattern = /\$(\d+)(?!\d)/g;
+            const allMatches = [];
+            let match;
+            
+            // 重置正则表达式的 lastIndex
+            dollarPattern.lastIndex = 0;
+            
+            // 收集所有匹配项
+            while ((match = dollarPattern.exec(formulaOperatorsValue)) !== null) {
+                const fullMatch = match[0];
+                const columnNumber = parseInt(match[1]);
+                const matchIndex = match.index;
                 
-                // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
-                const dollarPattern = /\$(\d+)(?!\d)/g;
-                const allMatches = [];
-                let match;
-                
-                // 重置正则表达式的 lastIndex
-                dollarPattern.lastIndex = 0;
-                
-                // 收集所有匹配项
-                while ((match = dollarPattern.exec(formulaOperatorsValue)) !== null) {
-                    const fullMatch = match[0];
-                    const columnNumber = parseInt(match[1]);
-                    const matchIndex = match.index;
-                    
-                    if (!isNaN(columnNumber) && columnNumber > 0) {
-                        allMatches.push({
-                            fullMatch: fullMatch,
-                            columnNumber: columnNumber,
-                            index: matchIndex
-                        });
-                    }
+                if (!isNaN(columnNumber) && columnNumber > 0) {
+                    allMatches.push({
+                        fullMatch: fullMatch,
+                        columnNumber: columnNumber,
+                        index: matchIndex
+                    });
                 }
-                
-                // 从后往前处理，避免位置偏移
-                allMatches.sort((a, b) => b.index - a.index);
-                
-                for (let i = 0; i < allMatches.length; i++) {
-                    const match = allMatches[i];
-                    // 获取列的实际值
-                    const columnReference = rowLabel + match.columnNumber;
-                    const columnValue = getColumnValueFromCellReference(columnReference, idProduct);
-                    
-                    if (columnValue !== null) {
-                        // 替换 $数字 为实际值
-                        displayFormula = displayFormula.substring(0, match.index) + 
-                                        columnValue + 
-                                        displayFormula.substring(match.index + match.fullMatch.length);
+            }
+            
+            // IMPORTANT: 从 sourceColumnsValue 构建 columnNumber 到 id_product, row_label, dataColumnIndex 的映射
+            // 这样可以使用正确的 id_product（可能来自其他 id product 的数据）而不是当前 sub row 的 idProduct
+            const sourceColumnRefsMap = new Map(); // Map: columnNumber -> {idProduct, rowLabel, dataColumnIndex, displayColumnIndex}
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+                parts.forEach(part => {
+                    let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
+                    if (match) {
+                        const refIdProduct = match[1];
+                        const refRowLabel = match[2];
+                        const displayColumnIndex = parseInt(match[3]);
+                        const dataColumnIndex = displayColumnIndex - 1;
+                        sourceColumnRefsMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: refRowLabel, dataColumnIndex: dataColumnIndex, displayColumnIndex: displayColumnIndex });
                     } else {
-                        // 如果找不到值，替换为 0
-                        displayFormula = displayFormula.substring(0, match.index) + 
-                                        '0' + 
-                                        displayFormula.substring(match.index + match.fullMatch.length);
+                        match = part.match(/^([^:]+):(\d+)$/);
+                        if (match) {
+                            const refIdProduct = match[1];
+                            const displayColumnIndex = parseInt(match[2]);
+                            const dataColumnIndex = displayColumnIndex - 1;
+                            sourceColumnRefsMap.set(displayColumnIndex, { idProduct: refIdProduct, rowLabel: null, dataColumnIndex: dataColumnIndex, displayColumnIndex: displayColumnIndex });
+                        }
+                    }
+                });
+            }
+            
+            // 从后往前处理，避免位置偏移
+            allMatches.sort((a, b) => b.index - a.index);
+            
+            for (let i = 0; i < allMatches.length; i++) {
+                const match = allMatches[i];
+                let columnValue = null;
+                const mappedRef = sourceColumnRefsMap.get(match.columnNumber);
+                
+                if (mappedRef) {
+                    // 使用 sourceColumns 中的 id_product 和 row_label
+                    columnValue = getCellValueByIdProductAndColumn(mappedRef.idProduct, mappedRef.dataColumnIndex, mappedRef.rowLabel);
+                    console.log('applySubTemplatesToSummaryRow: Using id_product from sourceColumns:', mappedRef.idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
+                } else {
+                    // 回退到当前 sub row 的 idProduct（如果 sourceColumns 中没有找到）
+                    const rowLabel = getRowLabelFromProcessValue(idProduct);
+                    if (rowLabel) {
+                        const dataColumnIndex = match.columnNumber - 1;
+                        columnValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
+                        console.log('applySubTemplatesToSummaryRow: Fallback to current sub row id_product:', idProduct, 'for column:', match.columnNumber, 'value:', columnValue);
                     }
                 }
                 
-                // 如果还有列引用（如 A5），也转换为实际值
-                const parsedFormula = parseReferenceFormula(displayFormula);
-                const baseFormula = parsedFormula || displayFormula;
-                
-                // 应用 source percent
-                if (percentValue && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
+                if (columnValue !== null) {
+                    // 替换 $数字 为实际值
+                    displayFormula = displayFormula.substring(0, match.index) + 
+                                    columnValue + 
+                                    displayFormula.substring(match.index + match.fullMatch.length);
                 } else {
-                    formulaDisplay = baseFormula;
+                    // 如果找不到值，替换为 0
+                    displayFormula = displayFormula.substring(0, match.index) + 
+                                    '0' + 
+                                    displayFormula.substring(match.index + match.fullMatch.length);
                 }
-                
-                console.log('applySubTemplatesToSummaryRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
+            }
+            
+            // 如果还有列引用（如 [id_product : column]），也转换为实际值
+            const parsedFormula = parseReferenceFormula(displayFormula);
+            const baseFormula = parsedFormula || displayFormula;
+            
+            // 应用 source percent
+            if (percentValue && enableSourcePercent) {
+                formulaDisplay = createFormulaDisplayFromExpression(baseFormula, percentValue, enableSourcePercent);
             } else {
-                // 如果无法获取行标签，使用保存的 formula_display 作为后备
-                formulaDisplay = savedFormulaDisplay || formulaOperatorsValue;
-                console.log('applySubTemplatesToSummaryRow: cannot get row label, using saved formula_display:', formulaDisplay);
+                formulaDisplay = baseFormula;
+            }
+            
+            console.log('applySubTemplatesToSummaryRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
+        } else if (!hasDollarSigns && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+            // Check if savedFormulaDisplay has reference format (e.g., [id_product : column])
+            const savedHasReferenceFormat = /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
+            if (savedHasReferenceFormat) {
+                // Saved formula has reference format, parse it to get actual values
+                const parsedSavedFormula = parseReferenceFormula(savedFormulaDisplay);
+                if (percentValue && enableSourcePercent) {
+                    formulaDisplay = createFormulaDisplayFromExpression(parsedSavedFormula, percentValue, enableSourcePercent);
+                } else {
+                    formulaDisplay = parsedSavedFormula;
+                }
+                console.log('applySubTemplatesToSummaryRow: Using saved formula_display with reference format (parsed):', formulaDisplay);
             }
         }
         
         // 如果已经计算好 formulaDisplay（包含 $数字 的情况），跳过后续的 batch selection 逻辑
-        const hasCalculatedFormulaDisplay = hasDollarSigns && formulaDisplay && formulaDisplay.trim() !== '';
+        const hasCalculatedFormulaDisplay = (hasDollarSigns || (savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay))) && formulaDisplay && formulaDisplay.trim() !== '';
         
             if (isBatchSelectedTemplate && !hasCalculatedFormulaDisplay) {
                 // 对于 Batch Selection 的子模板，优先使用保存的 formula_display
