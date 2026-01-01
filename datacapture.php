@@ -6203,6 +6203,86 @@ if ($current_user_id && count($user_companies) > 0) {
             console.log('Rows with tabs:', rowsWithTabs, 'out of', rows.length, '(', (rowsWithTabsRatio * 100).toFixed(1), '%)');
             console.log('Max cells in a row:', maxCellsInRow);
             
+            // ===== 优先检查：单行数据（只有一行包含制表符，且单元格数量较多） =====
+            // 如果只有一行包含制表符，且该行的单元格数量较多（>=10），应该视为单行数据
+            // 这种情况不应该被识别为"每个单元格占一行"的格式
+            if (rowsWithTabs === 1 && maxCellsInRow >= 10) {
+                console.log('Detected SINGLE ROW with multiple columns, will paste horizontally');
+                // 提取该行的所有单元格
+                const singleRow = rows.find(row => row.trim().includes('\t'));
+                if (singleRow) {
+                    const allCells = singleRow.split('\t').map(cell => cell.trim());
+                    console.log('Single row cells:', allCells.length, allCells);
+                    
+                    // 填充到表格
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col);
+                    
+                    // 确保表格有足够的列
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredCols = startCol + allCells.length;
+                    
+                    if (requiredCols > currentCols) {
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        initializeTable(currentRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const tableRow = tableBody.children[startRow];
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    allCells.forEach((cellData, colIndex) => {
+                        const actualColIndex = startCol + colIndex;
+                        const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                        
+                        if (cell && cell.contentEditable === 'true') {
+                            // 保存旧值（包括空单元格）
+                            const trimmedData = (cellData || '').trim();
+                            currentPasteChanges.push({
+                                row: startRow,
+                                col: actualColIndex,
+                                oldValue: cell.textContent,
+                                newValue: trimmedData
+                            });
+                            
+                            // 填充单元格（包括空单元格，以保留列位置）
+                            if (trimmedData === '') {
+                                cell.textContent = '';
+                            } else {
+                                const finalValue = trimmedData.toUpperCase();
+                                cell.textContent = finalValue;
+                                successCount++;
+                            }
+                        }
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+                    
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted ${successCount} cells in ${allCells.length} columns!`, 'success');
+                    }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    
+                    // 粘贴完成后立即应用格式转换
+                    if (successCount > 0) {
+                        setTimeout(() => {
+                            convertTableFormatOnSubmit();
+                        }, 100);
+                    }
+                    
+                    return; // 直接返回，不继续处理
+                }
+            }
+            
             // 判断是否为特殊格式（每个单元格占一行的行优先格式）：
             // - 如果大部分行（少于30%）包含制表符，且行数很多，可能是特殊格式
             // - 这种格式：每个单元格占一行，顺序是行优先的（第一行的所有列，然后第二行的所有列）
