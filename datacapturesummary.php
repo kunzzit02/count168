@@ -1395,14 +1395,7 @@ function getCurrentProcessId() {
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
             
-            // IMPORTANT: Use a separate variable for updateFormulaDataGrid, NOT window.currentEditRow
-            // This ensures that clicking + button is NOT treated as edit mode
-            // window.currentEditRow should only be set when clicking edit button
-            window.currentRowForDataGrid = row;
-            window.currentEditRow = null; // Clear to ensure it's not treated as edit mode
-            window.isEditMode = false; // This is a new entry, not editing existing one
-            
-            // 从 Add button 进入，一律视为"新增"，不带任何预填数据
+            // 从 Add button 进入，一律视为“新增”，不带任何预填数据
             console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
             
             // 打开空白表单（edit 按钮才负责加载旧数据）
@@ -1440,18 +1433,7 @@ function getCurrentProcessId() {
             }
             
             // Find and store the current row for calculator keypad
-            // IMPORTANT: Use window.currentEditRow (for edit mode) or window.currentRowForDataGrid (for add mode)
-            // This ensures we get the correct row even when there are multiple rows with same id_product
-            if (window.currentEditRow) {
-                // Edit mode: use the row being edited
-                currentSelectedRowForCalculator = window.currentEditRow;
-                console.log('showEditFormulaForm - Using window.currentEditRow for currentSelectedRowForCalculator (edit mode)');
-            } else if (window.currentRowForDataGrid) {
-                // Add mode: use the row where + button was clicked
-                currentSelectedRowForCalculator = window.currentRowForDataGrid;
-                console.log('showEditFormulaForm - Using window.currentRowForDataGrid for currentSelectedRowForCalculator (add mode)');
-            } else if (productValue) {
-                // Fallback: find first matching row (shouldn't happen normally)
+            if (productValue) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
                     const rows = summaryTableBody.querySelectorAll('tr');
@@ -1459,7 +1441,6 @@ function getCurrentProcessId() {
                         const rowProcessValue = getProcessValueFromRow(row);
                         if (rowProcessValue === productValue) {
                             currentSelectedRowForCalculator = row;
-                            console.log('showEditFormulaForm - Found first matching row for productValue:', productValue);
                             break;
                         }
                     }
@@ -2541,7 +2522,6 @@ function getCurrentProcessId() {
         }
 
         // Update formula data grid with row data for current editing id product
-        // IMPORTANT: Only show data from the current editing row, not all rows with the same id_product
         function updateFormulaDataGrid() {
             const formulaDataGrid = document.getElementById('formulaDataGrid');
             if (!formulaDataGrid) return;
@@ -2557,63 +2537,6 @@ function getCurrentProcessId() {
             if (!idProduct || idProduct === '') {
                 return;
             }
-
-            // IMPORTANT: Get row_label from summary table row's data-row-index
-            // This ensures we get the correct row_label even when there are multiple rows with same id_product
-            let rowLabel = null;
-            let targetRowIndex = null;
-            
-            // Try to get from currentSelectedRowForCalculator (set when opening edit formula modal)
-            if (currentSelectedRowForCalculator) {
-                const dataRowIndex = currentSelectedRowForCalculator.getAttribute('data-row-index');
-                if (dataRowIndex !== null) {
-                    targetRowIndex = parseInt(dataRowIndex, 10);
-                    console.log('updateFormulaDataGrid - Found data-row-index from currentSelectedRowForCalculator:', targetRowIndex);
-                }
-            }
-            
-            // If not found, try to find summary table row by id_product
-            if (targetRowIndex === null) {
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    const rows = summaryTableBody.querySelectorAll('tr');
-                    for (let row of rows) {
-                        const rowProcessValue = getProcessValueFromRow(row);
-                        if (rowProcessValue === idProduct) {
-                            const dataRowIndex = row.getAttribute('data-row-index');
-                            if (dataRowIndex !== null) {
-                                targetRowIndex = parseInt(dataRowIndex, 10);
-                                console.log('updateFormulaDataGrid - Found data-row-index from summary table row:', targetRowIndex);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Get row_label from data capture table using targetRowIndex
-            if (targetRowIndex !== null) {
-                const capturedTableBody = document.getElementById('capturedTableBody');
-                if (capturedTableBody) {
-                    const dataCaptureRows = capturedTableBody.querySelectorAll('tr');
-                    if (targetRowIndex >= 0 && targetRowIndex < dataCaptureRows.length) {
-                        const targetDataCaptureRow = dataCaptureRows[targetRowIndex];
-                        const rowHeaderCell = targetDataCaptureRow ? targetDataCaptureRow.querySelector('.row-header') : null;
-                        if (rowHeaderCell) {
-                            rowLabel = rowHeaderCell.textContent.trim();
-                            console.log('updateFormulaDataGrid - Found row_label from data capture table:', rowLabel, 'at index:', targetRowIndex);
-                        }
-                    }
-                }
-            }
-            
-            // Fallback: try getRowLabelFromProcessValue if rowLabel still not found
-            if (!rowLabel) {
-                rowLabel = getRowLabelFromProcessValue(idProduct);
-                console.log('updateFormulaDataGrid - Using fallback getRowLabelFromProcessValue, row_label:', rowLabel);
-            }
-            
-            console.log('updateFormulaDataGrid - Final: id_product:', idProduct, 'row_label:', rowLabel, 'targetRowIndex:', targetRowIndex);
 
             // Get table data
             let parsedTableData;
@@ -2634,83 +2557,66 @@ function getCurrentProcessId() {
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                
-                // Check if id_product matches
-                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
-                    return;
-                }
-                
-                // IMPORTANT: If row_label is available, only show data from the row that matches the row_label
-                // This ensures that when there are multiple rows with the same id_product, only the current editing row's data is shown
-                if (rowLabel) {
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                    if (rowHeaderLabel !== rowLabel) {
-                        console.log('updateFormulaDataGrid - Skipping row with different row_label:', rowHeaderLabel, 'expected:', rowLabel);
-                        return; // Skip this row if row label doesn't match
-                    }
-                    console.log('updateFormulaDataGrid - Found matching row with row_label:', rowLabel);
-                }
-                
-                // Match found, process this row
-                // Get all data cells (skip row header and id_product column)
-                const cells = row.querySelectorAll('td');
-                
-                cells.forEach((cell, cellIndex) => {
-                    const columnIndex = cell.getAttribute('data-column-index');
-                    if (columnIndex && parseInt(columnIndex) > 1) {
-                        // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                        const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                        if (cellValue !== '') {
-                            // Create a grid item for each column data
-                            const gridItem = document.createElement('div');
-                            gridItem.className = 'formula-data-grid-item';
-                            gridItem.textContent = `[${columnIndex}] ${cellValue}`;
-                            gridItem.setAttribute('data-row-index', rowIndex);
-                            gridItem.setAttribute('data-column-index', columnIndex);
-                            
-                            // Add click event to insert value into formula (same behavior as descriptionSelect2)
-                            gridItem.addEventListener('click', function() {
-                                const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
-                                const targetColumnIndex = this.getAttribute('data-column-index');
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
+                    
+                    cells.forEach((cell, cellIndex) => {
+                        const columnIndex = cell.getAttribute('data-column-index');
+                        if (columnIndex && parseInt(columnIndex) > 1) {
+                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
+                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                            if (cellValue !== '') {
+                                // Create a grid item for each column data
+                                const gridItem = document.createElement('div');
+                                gridItem.className = 'formula-data-grid-item';
+                                gridItem.textContent = `[${columnIndex}] ${cellValue}`;
+                                gridItem.setAttribute('data-row-index', rowIndex);
+                                gridItem.setAttribute('data-column-index', columnIndex);
                                 
-                                // Re-get rows to ensure we have the latest data
-                                const capturedTableBody = document.getElementById('capturedTableBody');
-                                if (!capturedTableBody) {
-                                    console.warn('Captured data table body not found.');
-                                    return;
-                                }
-                                
-                                const currentRows = capturedTableBody.querySelectorAll('tr');
-                                const targetRow = currentRows[targetRowIndex];
-                                if (!targetRow) {
-                                    console.warn('Row not found for index:', targetRowIndex);
-                                    return;
-                                }
-                                
-                                // Find the cell with matching data-column-index
-                                const targetCells = targetRow.querySelectorAll('td');
-                                let targetCell = null;
-                                targetCells.forEach(cell => {
-                                    const colIdx = cell.getAttribute('data-column-index');
-                                    if (colIdx === targetColumnIndex) {
-                                        targetCell = cell;
+                                // Add click event to insert value into formula (same behavior as descriptionSelect2)
+                                gridItem.addEventListener('click', function() {
+                                    const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
+                                    const targetColumnIndex = this.getAttribute('data-column-index');
+                                    
+                                    // Re-get rows to ensure we have the latest data
+                                    const capturedTableBody = document.getElementById('capturedTableBody');
+                                    if (!capturedTableBody) {
+                                        console.warn('Captured data table body not found.');
+                                        return;
                                     }
+                                    
+                                    const currentRows = capturedTableBody.querySelectorAll('tr');
+                                    const targetRow = currentRows[targetRowIndex];
+                                    if (!targetRow) {
+                                        console.warn('Row not found for index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Find the cell with matching data-column-index
+                                    const targetCells = targetRow.querySelectorAll('td');
+                                    let targetCell = null;
+                                    targetCells.forEach(cell => {
+                                        const colIdx = cell.getAttribute('data-column-index');
+                                        if (colIdx === targetColumnIndex) {
+                                            targetCell = cell;
+                                        }
+                                    });
+                                    
+                                    if (!targetCell) {
+                                        console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Reuse existing logic: behave exactly like clicking the cell
+                                    insertCellValueToFormula(targetCell);
                                 });
                                 
-                                if (!targetCell) {
-                                    console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
-                                    return;
-                                }
-                                
-                                // Reuse existing logic: behave exactly like clicking the cell
-                                insertCellValueToFormula(targetCell);
-                            });
-                            
-                            formulaDataGrid.appendChild(gridItem);
+                                formulaDataGrid.appendChild(gridItem);
+                            }
                         }
-                    }
-                });
+                    });
+                }
             });
         }
 
@@ -5216,7 +5122,6 @@ function getCurrentProcessId() {
             // Clean up the global references
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
-            window.currentRowForDataGrid = null;
             window.isEditMode = false;
         }
 
@@ -6293,7 +6198,6 @@ function getCurrentProcessId() {
                     closeEditFormulaForm();
                     window.currentAddAccountButton = null;
                     window.currentEditRow = null;
-                    window.currentRowForDataGrid = null;
                     window.isEditMode = false;
                     return;
                 }
@@ -6348,7 +6252,6 @@ function getCurrentProcessId() {
             // Clean up the global references
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
-            window.currentRowForDataGrid = null;
             window.isEditMode = false;
             
             const actionText = wasEditMode ? 'updated' : 'saved';
