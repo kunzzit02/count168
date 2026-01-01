@@ -1416,6 +1416,11 @@ function getCurrentProcessId() {
 
         // Show Edit Formula Form as modal positioned slightly towards top
         function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
+            // If not in edit mode (no prePopulatedData), clear row label to show all rows
+            if (!prePopulatedData || !window.isEditMode) {
+                window.currentEditRowLabel = null;
+            }
+            
             // Ensure modal container exists
             let modal = document.getElementById('editFormulaModal');
             let modalContent = document.getElementById('editFormulaModalContent');
@@ -2538,6 +2543,9 @@ function getCurrentProcessId() {
                 return;
             }
 
+            // Get current editing row label (if in edit mode)
+            const currentEditRowLabel = window.currentEditRowLabel || null;
+
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2564,6 +2572,11 @@ function getCurrentProcessId() {
                     // Get row label for identification
                     const rowHeaderCell = row.querySelector('.row-header');
                     const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                    
+                    // If we're in edit mode and have a specific row label, only show that row's data
+                    if (currentEditRowLabel && rowLabel !== currentEditRowLabel) {
+                        return; // Skip this row if it doesn't match the current editing row
+                    }
                     
                     // Collect all data cells for this row
                     const rowData = [];
@@ -2606,8 +2619,9 @@ function getCurrentProcessId() {
                 const rowContainer = document.createElement('div');
                 rowContainer.className = 'formula-data-grid-row';
                 
-                // If there are multiple rows, add a label to distinguish them
-                if (matchingRows.length > 1 && rowInfo.rowLabel) {
+                // If there are multiple rows and we're not filtering by row label, add a label to distinguish them
+                // But if we're filtering by row label (edit mode), we don't need the label since there's only one row
+                if (matchingRows.length > 1 && rowInfo.rowLabel && !currentEditRowLabel) {
                     const rowLabelDiv = document.createElement('div');
                     rowLabelDiv.className = 'formula-data-grid-row-label';
                     rowLabelDiv.textContent = `Row ${rowInfo.rowLabel}:`;
@@ -5174,6 +5188,7 @@ function getCurrentProcessId() {
             // Clean up the global references
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
+            window.currentEditRowLabel = null;
             window.isEditMode = false;
         }
 
@@ -9600,11 +9615,52 @@ function getCurrentProcessId() {
             window.currentEditRow = row;
             window.isEditMode = true;
             
+            // Extract row label from data-source-columns if available
+            // Format: "id_product:row_label:column_index" (e.g., "M99M06:B:5")
+            let currentEditRowLabel = null;
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
+                if (parts.length > 0) {
+                    // Try to extract row label from first part
+                    const match = parts[0].match(/^[^:]+:([A-Z]+):\d+$/);
+                    if (match) {
+                        currentEditRowLabel = match[1];
+                        console.log('editRowFormula - Extracted row label from sourceColumnsValue:', currentEditRowLabel);
+                    }
+                }
+            }
+            
+            // If no row label found in sourceColumnsValue, try to find it from Data Capture Table
+            if (!currentEditRowLabel) {
+                const capturedTableBody = document.getElementById('capturedTableBody');
+                if (capturedTableBody) {
+                    const capturedRows = capturedTableBody.querySelectorAll('tr');
+                    capturedRows.forEach((capturedRow, capturedRowIndex) => {
+                        const rowIdProduct = capturedRow.getAttribute('data-id-product');
+                        if (rowIdProduct && rowIdProduct.trim() === processValue.trim()) {
+                            const rowHeaderCell = capturedRow.querySelector('.row-header');
+                            const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                            if (rowLabel) {
+                                // Check if this is the first matching row (use first one as default)
+                                if (!currentEditRowLabel) {
+                                    currentEditRowLabel = rowLabel;
+                                    console.log('editRowFormula - Found row label from Data Capture Table:', currentEditRowLabel);
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+            
+            // Store row label globally for updateFormulaDataGrid to use
+            window.currentEditRowLabel = currentEditRowLabel;
+            
             // Debug log before showing form
             console.log('editRowFormula - Passing to showEditFormulaForm:', {
                 formula: formulaValue,
                 source: sourceValue,
-                sourcePercent: sourcePercentValue
+                sourcePercent: sourcePercentValue,
+                rowLabel: currentEditRowLabel
             });
             
             // Show the Edit Formula form with pre-populated data
