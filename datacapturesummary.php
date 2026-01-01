@@ -2421,47 +2421,16 @@ function getCurrentProcessId() {
                 descriptionSelect1.appendChild(option);
             });
 
-            // Auto-select option
+            // Auto-select first option if available
             if (idProductRows.length > 0) {
-                let selectedValue = null;
-                
-                // IMPORTANT: If in edit mode, auto-select the current editing row's id_product
-                if (window.currentEditRow) {
-                    const currentEditProcessValue = getProcessValueFromRow(window.currentEditRow);
-                    if (currentEditProcessValue) {
-                        const currentEditRowLabel = getRowLabelFromProcessValue(currentEditProcessValue);
-                        // Find matching id_product in the list
-                        for (const item of idProductRows) {
-                            if (item.idProduct.trim() === currentEditProcessValue.trim()) {
-                                const count = idProductCount.get(item.idProduct);
-                                if (count > 1 && item.rowLabel && currentEditRowLabel === item.rowLabel) {
-                                    // Match found: use id_product:row_label format
-                                    selectedValue = `${item.idProduct}:${item.rowLabel}`;
-                                    console.log('loadIdProductList - Edit mode: Auto-selected current editing row:', selectedValue);
-                                    break;
-                                } else if (count === 1 || !item.rowLabel) {
-                                    // Unique id_product or no row_label needed
-                                    selectedValue = item.idProduct;
-                                    console.log('loadIdProductList - Edit mode: Auto-selected unique id_product:', selectedValue);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // If not in edit mode or no match found, select first option
-                if (!selectedValue) {
-                    const firstItem = idProductRows[0];
-                    const firstCount = idProductCount.get(firstItem.idProduct);
-                    selectedValue = (firstCount > 1 && firstItem.rowLabel) 
-                        ? `${firstItem.idProduct}:${firstItem.rowLabel}` 
-                        : firstItem.idProduct;
-                }
-                
-                descriptionSelect1.value = selectedValue;
+                const firstItem = idProductRows[0];
+                const firstCount = idProductCount.get(firstItem.idProduct);
+                const firstValue = (firstCount > 1 && firstItem.rowLabel) 
+                    ? `${firstItem.idProduct}:${firstItem.rowLabel}` 
+                    : firstItem.idProduct;
+                descriptionSelect1.value = firstValue;
                 // Trigger update for second select box
-                updateIdProductRowData(selectedValue);
+                updateIdProductRowData(firstValue);
             }
         }
 
@@ -2484,20 +2453,6 @@ function getCurrentProcessId() {
             if (parts.length === 2) {
                 idProduct = parts[0].trim();
                 rowLabel = parts[1].trim();
-            }
-
-            // IMPORTANT: If in edit mode and the selected id_product matches the current editing row's id_product,
-            // only show data from the current editing row (not all rows with the same id_product)
-            if (window.currentEditRow && !rowLabel) {
-                const currentEditProcessValue = getProcessValueFromRow(window.currentEditRow);
-                if (currentEditProcessValue && currentEditProcessValue.trim() === idProduct.trim()) {
-                    // Get row_label for current editing row
-                    const currentEditRowLabel = getRowLabelFromProcessValue(currentEditProcessValue);
-                    if (currentEditRowLabel) {
-                        rowLabel = currentEditRowLabel;
-                        console.log('updateIdProductRowData - Edit mode: Only showing data for current editing row, row_label:', rowLabel);
-                    }
-                }
             }
 
             // Get table data
