@@ -2955,6 +2955,79 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 });
 
+                // ===== 专用解析：User Name 和 profit 列格式（转换为每行一个用户格式） =====
+                try {
+                    // 检测表头是否包含 "User Name" 和 "profit"（但不是 Downline Payment 格式）
+                    let looksLikeUserNameProfitTable = false;
+                    let userNameColIndex = -1;
+                    let profitColIndex = -1;
+                    let headerRowIndex = -1;
+                    
+                    // 先检查是否像 Downline Payment 格式（如果是，则跳过此格式的转换）
+                    const flatCells = dataMatrix.flat().map(v => (v || '').toString().toLowerCase().trim());
+                    const isDownlinePaymentFormat = 
+                        (flatCells.includes('downline payment') && flatCells.includes('username') && flatCells.includes('total profit/loss')) ||
+                        (dataMatrix.length >= 2 && dataMatrix.some(row => ((row[0] || '').toString().toUpperCase() === 'MG')));
+                    
+                    // 如果不是 Downline Payment 格式，才检测 User Name + profit 格式
+                    if (!isDownlinePaymentFormat) {
+                        // 查找表头行（通常在前几行中）
+                        for (let i = 0; i < Math.min(3, dataMatrix.length); i++) {
+                            const row = dataMatrix[i].map(c => (c || '').toString().toLowerCase().trim());
+                            const userNameIndex = row.findIndex(c => c === 'user name' || c === 'username');
+                            const profitIndex = row.findIndex(c => c === 'profit');
+                            // 确保不是 Downline Payment 格式（不应该有 "type" 列）
+                            const hasTypeCol = row.includes('type');
+                            
+                            if (userNameIndex >= 0 && profitIndex >= 0 && !hasTypeCol) {
+                                looksLikeUserNameProfitTable = true;
+                                userNameColIndex = userNameIndex;
+                                profitColIndex = profitIndex;
+                                headerRowIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 如果检测到这种格式，进行转换
+                    if (looksLikeUserNameProfitTable && headerRowIndex >= 0) {
+                        console.log('Detected User Name + profit table format, converting to row-based format',
+                            { userNameColIndex, profitColIndex, headerRowIndex });
+                        
+                        const newMatrix = [];
+                        
+                        // 从表头行之后开始处理数据行
+                        for (let i = headerRowIndex + 1; i < dataMatrix.length; i++) {
+                            const row = dataMatrix[i];
+                            const userName = (row[userNameColIndex] || '').toString().trim();
+                            const profit = (row[profitColIndex] || '').toString().trim();
+                            
+                            // 跳过空行或没有用户名的行
+                            if (!userName) {
+                                continue;
+                            }
+                            
+                            // 创建新行：第一列是 User Name，第二列是 profit，其他列留空
+                            const newRow = [userName, profit];
+                            // 确保至少有2列
+                            while (newRow.length < 2) {
+                                newRow.push('');
+                            }
+                            
+                            newMatrix.push(newRow);
+                        }
+                        
+                        if (newMatrix.length > 0) {
+                            console.log('Converted to row-based format:', newMatrix.length, 'rows');
+                            dataMatrix = newMatrix;
+                            maxCols = 2; // 只需要2列
+                        }
+                    }
+                } catch (userNameProfitErr) {
+                    console.error('User Name + profit table parser error:', userNameProfitErr);
+                }
+                // ===== User Name + profit 格式解析结束 =====
+
                 // ===== 专用解析：Downline Payment 报表（忽略 No/Lvl/Minor 行） =====
                 try {
                     // 在单元格里找是否有 Downline Payment 抬头或典型列名
