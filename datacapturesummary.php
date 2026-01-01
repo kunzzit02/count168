@@ -2604,8 +2604,8 @@ function getCurrentProcessId() {
                 // Match found, process this row
                 // Get all data cells (skip row header and id_product column)
                 const cells = row.querySelectorAll('td');
-                    
-                    cells.forEach((cell, cellIndex) => {
+                
+                cells.forEach((cell, cellIndex) => {
                         const columnIndex = cell.getAttribute('data-column-index');
                         if (columnIndex && parseInt(columnIndex) > 1) {
                             // Column index > 1 means data columns (skip row header=0 and id_product=1)
