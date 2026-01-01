@@ -1068,7 +1068,8 @@ if (isset($_GET['logout'])) {
                     try {
                         const date = new Date(d);
                         if (isNaN(date.getTime())) return d;
-                        return date.toLocaleDateString('zh-CN');
+                        // 只显示日期，不显示年份（如果日期范围在同一年）
+                        return `${date.getMonth() + 1}/${date.getDate()}`;
                     } catch (e) {
                         return d;
                     }
@@ -1078,27 +1079,80 @@ if (isset($_GET['logout'])) {
                         label: '资本',
                         data: capitalData,
                         borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        backgroundColor: function(context) {
+                            const chart = context.chart;
+                            const {ctx, chartArea} = chart;
+                            if (!chartArea) {
+                                return null;
+                            }
+                            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.4)');
+                            gradient.addColorStop(0.3, 'rgba(59, 130, 246, 0.2)');
+                            gradient.addColorStop(0.7, 'rgba(59, 130, 246, 0.1)');
+                            gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
+                            return gradient;
+                        },
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 8
                     },
                     {
                         label: '支出',
                         data: expensesData,
                         borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        backgroundColor: function(context) {
+                            const chart = context.chart;
+                            const {ctx, chartArea} = chart;
+                            if (!chartArea) {
+                                return null;
+                            }
+                            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                            gradient.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
+                            gradient.addColorStop(0.3, 'rgba(239, 68, 68, 0.2)');
+                            gradient.addColorStop(0.7, 'rgba(239, 68, 68, 0.1)');
+                            gradient.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
+                            return gradient;
+                        },
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 8
                     },
                     {
                         label: '利润',
                         data: profitData,
                         borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        backgroundColor: function(context) {
+                            const chart = context.chart;
+                            const {ctx, chartArea} = chart;
+                            if (!chartArea) {
+                                return null;
+                            }
+                            const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
+                            gradient.addColorStop(0.3, 'rgba(16, 185, 129, 0.2)');
+                            gradient.addColorStop(0.7, 'rgba(16, 185, 129, 0.1)');
+                            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+                            return gradient;
+                        },
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        pointHoverRadius: 8
                     }
                 ]
+            };
+            
+            // 将数据存储到 chartData 中，以便在 tooltip 中使用
+            chartData.metadata = {
+                sortedDates: sortedDates,
+                capitalData: capitalData,
+                expensesData: expensesData,
+                profitData: profitData
             };
             
             // 如果图表已存在，使用 update 而不是 destroy + create（避免闪屏）
@@ -1122,6 +1176,12 @@ if (isset($_GET['logout'])) {
         function createChart(canvas, chartData) {
             try {
                 const ctx = canvas.getContext('2d');
+                const metadata = chartData.metadata || {};
+                const sortedDates = metadata.sortedDates || [];
+                const capitalData = metadata.capitalData || [];
+                const expensesData = metadata.expensesData || [];
+                const profitData = metadata.profitData || [];
+                
                 trendChart = new Chart(ctx, {
                     type: 'line',
                     data: chartData,
@@ -1131,26 +1191,110 @@ if (isset($_GET['logout'])) {
                         animation: {
                             duration: 0 // 禁用动画避免闪屏
                         },
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        },
                         scales: {
                             y: {
                                 beginAtZero: false,
                                 ticks: {
                                     callback: function(value) {
-                                        return formatCurrency(value);
+                                        return 'RM ' + formatCurrency(value);
+                                    },
+                                    font: {
+                                        size: 11
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    font: {
+                                        size: 11
                                     }
                                 }
                             }
                         },
                         plugins: {
                             tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12,
+                                titleFont: {
+                                    size: 13,
+                                    weight: 'bold'
+                                },
+                                bodyFont: {
+                                    size: 12
+                                },
                                 callbacks: {
+                                    title: function(context) {
+                                        if (context.length > 0) {
+                                            const dataIndex = context[0].dataIndex;
+                                            const date = sortedDates[dataIndex];
+                                            if (date) {
+                                                try {
+                                                    const dateObj = new Date(date);
+                                                    if (!isNaN(dateObj.getTime())) {
+                                                        return `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`;
+                                                    }
+                                                } catch (e) {
+                                                    return date;
+                                                }
+                                            }
+                                        }
+                                        return '';
+                                    },
                                     label: function(context) {
-                                        return context.dataset.label + ': ' + formatCurrency(context.parsed.y);
+                                        const label = context.dataset.label || '';
+                                        const value = context.parsed.y;
+                                        return label + ': RM ' + formatCurrency(value);
+                                    },
+                                    afterBody: function(context) {
+                                        if (context.length > 0) {
+                                            const dataIndex = context[0].dataIndex;
+                                            const date = sortedDates[dataIndex];
+                                            if (date) {
+                                                try {
+                                                    const dateObj = new Date(date);
+                                                    if (!isNaN(dateObj.getTime())) {
+                                                        const capital = capitalData[dataIndex] || 0;
+                                                        const expenses = expensesData[dataIndex] || 0;
+                                                        const profit = profitData[dataIndex] || 0;
+                                                        return [
+                                                            '',
+                                                            '--- 当日汇总 ---',
+                                                            `资本: RM ${formatCurrency(capital)}`,
+                                                            `支出: RM ${formatCurrency(expenses)}`,
+                                                            `利润: RM ${formatCurrency(profit)}`
+                                                        ];
+                                                    }
+                                                } catch (e) {
+                                                    return [];
+                                                }
+                                            }
+                                        }
+                                        return [];
+                                    }
+                                }
+                            },
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    usePointStyle: true,
+                                    padding: 15,
+                                    font: {
+                                        size: 12
                                     }
                                 }
                             }
-                        },
-                        onResize: null // 禁用resize监听，减少性能开销
+                        }
                     }
                 });
             } catch (createError) {
