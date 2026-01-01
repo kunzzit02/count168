@@ -2554,10 +2554,31 @@ function getCurrentProcessId() {
             const capturedTableBody = document.getElementById('capturedTableBody');
             if (!capturedTableBody) return;
 
+            // Check if we're in edit mode and have a current edit row label
+            // If so, only show data from the specific row being edited
+            let targetRowLabel = null;
+            if (window.isEditMode && window.currentEditRowLabel) {
+                targetRowLabel = window.currentEditRowLabel;
+                console.log('updateFormulaDataGrid: Using row_label from window.currentEditRowLabel:', targetRowLabel);
+            }
+
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // If we have a target row_label, only process rows that match it
+                    if (targetRowLabel) {
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        if (!rowHeaderCell) {
+                            return; // Skip rows without header
+                        }
+                        const rowHeaderText = rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
+                        if (rowHeaderText !== targetRowLabel) {
+                            return; // Skip rows that don't match the target row_label
+                        }
+                        console.log('updateFormulaDataGrid: Processing row with matching row_label:', targetRowLabel);
+                    }
+                    
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
@@ -5123,6 +5144,7 @@ function getCurrentProcessId() {
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
             window.isEditMode = false;
+            window.currentEditRowLabel = null;
         }
 
         // Find summary table row by idProduct, accountId, and product type
@@ -6253,6 +6275,7 @@ function getCurrentProcessId() {
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
             window.isEditMode = false;
+            window.currentEditRowLabel = null;
             
             const actionText = wasEditMode ? 'updated' : 'saved';
             showNotification('Success', `Formula ${actionText} successfully! Processed Amount: ${processedAmount}`, 'success');
@@ -9547,6 +9570,71 @@ function getCurrentProcessId() {
             // Store the current row reference globally so saveFormula can access it
             window.currentEditRow = row;
             window.isEditMode = true;
+            
+            // Try to get row_label for this row to filter data in formula data grid
+            // First, check if there's a data-row-label attribute
+            let rowLabel = row.getAttribute('data-row-label');
+            
+            // If not found, try to extract from source_columns (format: "id_product:row_label:column_index")
+            if (!rowLabel) {
+                const sourceColumns = row.getAttribute('data-source-columns') || '';
+                if (sourceColumns) {
+                    const parts = sourceColumns.split(/\s+/).filter(c => c.trim() !== '');
+                    if (parts.length > 0) {
+                        const firstPart = parts[0];
+                        const rowLabelMatch = firstPart.match(/^[^:]+:([A-Z]+):\d+$/);
+                        if (rowLabelMatch) {
+                            rowLabel = rowLabelMatch[1];
+                            console.log('editRowFormula: Found row_label from source_columns:', rowLabel);
+                        }
+                    }
+                }
+            }
+            
+            // If still not found, try to find from captured table by matching id_product
+            if (!rowLabel) {
+                const capturedTableBody = document.getElementById('capturedTableBody');
+                if (capturedTableBody) {
+                    const capturedRows = capturedTableBody.querySelectorAll('tr');
+                    const matchingRows = Array.from(capturedRows).filter(capturedRow => {
+                        const rowIdProduct = capturedRow.getAttribute('data-id-product');
+                        return rowIdProduct && rowIdProduct.trim() === processValue.trim();
+                    });
+                    
+                    // If there are multiple rows with same id_product, try to identify which one
+                    // by checking the position in summary table
+                    if (matchingRows.length > 1) {
+                        const summaryTableBody = document.getElementById('summaryTableBody');
+                        if (summaryTableBody) {
+                            const allSummaryRows = summaryTableBody.querySelectorAll('tr');
+                            const matchingSummaryRows = Array.from(allSummaryRows).filter((summaryRow, idx) => {
+                                const rowProcessValue = getProcessValueFromRow(summaryRow);
+                                return rowProcessValue === processValue;
+                            });
+                            
+                            const currentRowIndexInGroup = matchingSummaryRows.indexOf(row);
+                            if (currentRowIndexInGroup >= 0 && currentRowIndexInGroup < matchingRows.length) {
+                                const correspondingCapturedRow = matchingRows[currentRowIndexInGroup];
+                                const rowHeaderCell = correspondingCapturedRow.querySelector('.row-header');
+                                if (rowHeaderCell) {
+                                    rowLabel = rowHeaderCell.textContent.trim();
+                                    console.log('editRowFormula: Found row_label by position matching:', rowLabel);
+                                }
+                            }
+                        }
+                    } else if (matchingRows.length === 1) {
+                        // Only one matching row, use its row_label
+                        const rowHeaderCell = matchingRows[0].querySelector('.row-header');
+                        if (rowHeaderCell) {
+                            rowLabel = rowHeaderCell.textContent.trim();
+                            console.log('editRowFormula: Found row_label for single row:', rowLabel);
+                        }
+                    }
+                }
+            }
+            
+            // Store row_label globally for updateFormulaDataGrid to use
+            window.currentEditRowLabel = rowLabel || null;
             
             // Debug log before showing form
             console.log('editRowFormula - Passing to showEditFormulaForm:', {
