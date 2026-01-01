@@ -1771,10 +1771,7 @@ function getCurrentProcessId() {
             const calcButtons = document.querySelectorAll('.calc-btn[data-value], .calc-btn[data-action]');
             const formulaInput = document.getElementById('formula');
 
-            if (!formulaInput) {
-                console.warn('Formula input not found in initializeCalculatorKeypad');
-                return;
-            }
+            if (!formulaInput) return;
 
             // 1）鼠标点击 keypad 按钮
             calcButtons.forEach(button => {
@@ -1808,19 +1805,17 @@ function getCurrentProcessId() {
             });
 
             // 2）电脑键盘输入：和 keypad 完全同一套逻辑
-            if (formulaInput) {
-                formulaInput.addEventListener('keydown', function(e) {
-                    // 已经在别处处理 Backspace/Delete/剪贴板等，这里只接管数字和常用运算符输入
-                    if (
-                        e.key &&
-                        e.key.length === 1 &&
-                        /[0-9+\-*/().]/.test(e.key)
-                    ) {
-                        e.preventDefault();
-                        handleFormulaValueInput(this, e.key);
-                    }
-                });
-            }
+            formulaInput.addEventListener('keydown', function(e) {
+                // 已经在别处处理 Backspace/Delete/剪贴板等，这里只接管数字和常用运算符输入
+                if (
+                    e.key &&
+                    e.key.length === 1 &&
+                    /[0-9+\-*/().]/.test(e.key)
+                ) {
+                    e.preventDefault();
+                    handleFormulaValueInput(this, e.key);
+                }
+            });
         }
         
         // Get column value from the currently selected row
@@ -2543,18 +2538,6 @@ function getCurrentProcessId() {
                 return;
             }
 
-            // IMPORTANT: Get row_label for current editing row to distinguish between multiple rows with same id_product
-            // If in edit mode, only show data from the current editing row
-            let targetRowLabel = null;
-            if (window.currentEditRow) {
-                const currentEditProcessValue = getProcessValueFromRow(window.currentEditRow);
-                if (currentEditProcessValue && currentEditProcessValue.trim() === idProduct.trim()) {
-                    // Get row_label for current editing row
-                    targetRowLabel = getRowLabelFromProcessValue(currentEditProcessValue);
-                    console.log('updateFormulaDataGrid - Edit mode: Only showing data for current editing row, row_label:', targetRowLabel);
-                }
-            }
-
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2574,24 +2557,9 @@ function getCurrentProcessId() {
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                
-                // Check if id_product matches
-                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
-                    return;
-                }
-                
-                // If row_label is specified (edit mode), also check if it matches
-                if (targetRowLabel) {
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                    if (rowHeaderLabel !== targetRowLabel) {
-                        return; // Skip this row if row label doesn't match
-                    }
-                }
-                
-                // Match found, process this row
-                // Get all data cells (skip row header and id_product column)
-                const cells = row.querySelectorAll('td');
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
                     
                     cells.forEach((cell, cellIndex) => {
                         const columnIndex = cell.getAttribute('data-column-index');
