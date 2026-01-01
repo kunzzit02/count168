@@ -1721,7 +1721,7 @@ function getCurrentProcessId() {
                 if (shouldUseColumnValue) {
                     // 使用当前选中行的列值
                     const columnValue = getColumnValueFromSelectedRow(parseInt(value));
-                    if (columnValue !== null) {
+                    if (columnValue !== null && formulaInput) {
                         const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
                         formulaInput.value = textBefore + columnValue + textAfter;
 
@@ -1740,7 +1740,9 @@ function getCurrentProcessId() {
                         mapEntries.push(`${columnValue}:${value}`);
                         formulaInput.setAttribute('data-value-column-map', mapEntries.join(','));
 
-                        formulaInput.focus();
+                        if (formulaInput.focus) {
+                            formulaInput.focus();
+                        }
                         return;
                     }
                 }
@@ -4879,7 +4881,7 @@ function getCurrentProcessId() {
                 
                 // Also keep backward compatibility with old format (cell positions)
                 let cellPosition = cell.getAttribute('data-cell-position');
-                if (!cellPosition && rowLabel) {
+                if (!cellPosition && rowLabel && columnIndex !== null) {
                     cellPosition = rowLabel + columnIndex;
                     cell.setAttribute('data-cell-position', cellPosition);
                 }
