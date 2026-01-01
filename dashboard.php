@@ -219,73 +219,86 @@ if (isset($_GET['logout'])) {
             padding: clamp(8px, 0.6vw, 12px) clamp(12px, 1vw, 18px);
         }
         
+        /* KPI卡片网格 - 水平排列 */
         .dashboard-kpi-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            height: 100%;
-        }
-        
-        .dashboard-main-layout {
             display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: clamp(10px, 1.1vw, 18px);
-            height: calc(100vh - 200px);
-            min-height: 400px;
-            max-height: calc(100vh - 200px);
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: clamp(12px, 1.04vw, 20px);
+            margin-bottom: clamp(16px, 1.35vw, 26px);
         }
         
-        .dashboard-kpi-card-vertical {
+        .dashboard-kpi-card {
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: clamp(16px, 1.35vw, 26px);
             display: flex;
             flex-direction: column;
-            align-items: left;
-            text-align: left;
-            gap: 0px;
-            min-height: 0;
+            gap: clamp(8px, 0.63vw, 12px);
         }
         
-        .dashboard-card {
-            height: 100%;
+        .dashboard-kpi-card .icon {
+            width: 40px;
+            height: 40px;
+            font-size: clamp(20px, 1.56vw, 30px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: clamp(4px, 0.31vw, 6px);
+        }
+
+        .dashboard-kpi-card .kpi-label {
+            font-size: clamp(12px, 0.94vw, 18px);
+            color: #6b7280;
+            font-weight: 600;
+            margin-bottom: clamp(4px, 0.31vw, 6px);
+            font-family: 'Amaranth', sans-serif;
+        }
+
+        .dashboard-kpi-card .kpi-value {
+            font-size: clamp(20px, 1.56vw, 30px);
+            font-weight: bold;
+            color: #111827;
+            font-family: 'Amaranth', sans-serif;
+        }
+        
+        /* 图表区域 */
+        .dashboard-chart-section {
+            background-color: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: clamp(16px, 1.35vw, 26px);
+        }
+        
+        .dashboard-chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: clamp(16px, 1.35vw, 26px);
+            flex-wrap: wrap;
+            gap: clamp(12px, 1.04vw, 20px);
+        }
+        
+        .dashboard-chart-title {
+            font-size: clamp(16px, 1.25vw, 24px);
+            font-weight: 600;
+            color: #111827;
+            font-family: 'Amaranth', sans-serif;
         }
         
         .dashboard-chart-container {
             position: relative;
             width: 100%;
-            flex: 1;
-            min-height: 0;
+            height: 400px;
+            min-height: 400px;
         }
         
         @media (max-width: 1200px) {
-            .dashboard-main-layout {
-                grid-template-columns: 1fr;
-                height: auto;
+            .dashboard-kpi-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             }
-        }
-
-        .dashboard-kpi-card-vertical .icon {
-            width: 35px;
-            height: 35px;
-            font-size: clamp(16px, 1.2vw, 22px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            margin-bottom: clamp(0px, 0.15vw, 3px);
-        }
-
-        .dashboard-kpi-card-vertical .kpi-label {
-            font-size: clamp(8px, 0.65vw, 13px);
-            color: #000000;
-            font-weight: bold;
-            margin-bottom: 0px;
-            font-family: 'Amaranth', sans-serif;
-        }
-
-        .dashboard-kpi-card-vertical .kpi-value {
-            font-size: clamp(13px, 1vw, 18px);
-            font-weight: bold;
-            color: #111827;
-            font-family: 'Amaranth', sans-serif;
         }
         
         .dashboard-date-controls {
@@ -476,11 +489,6 @@ if (isset($_GET['logout'])) {
     <div class="dashboard-container">
         <h1 class="dashboard-title">交易仪表盘</h1>
         
-        <!-- 日期信息显示 -->
-        <div class="dashboard-date-info" id="date-info" style="margin-bottom: 16px; border: 1px solid #e5e7eb;">
-            正在加载数据...
-        </div>
-        
         <div id="app" class="dashboard-content">
             <!-- Date Controls -->
             <div class="dashboard-card">
@@ -537,67 +545,49 @@ if (isset($_GET['logout'])) {
                 </div>
             </div>
             
-            <!-- Main Layout: KPI Cards (Left) + Chart (Right) -->
-            <div class="dashboard-main-layout">
-                <!-- Left: KPI Cards - 垂直排列 -->
-                <div class="dashboard-kpi-grid">
-                    <!-- Capital -->
-                    <div class="dashboard-card">
-                        <div class="dashboard-card-body">
-                            <div class="dashboard-kpi-card-vertical">
-                                <div class="icon text-blue">
-                                    <i class="fas fa-wallet"></i>
-                                </div>
-                                <div>
-                                    <p class="kpi-label">资本 (Capital)</p>
-                                    <p class="kpi-value" id="capital-value">0</p>
-                                </div>
-                            </div>
-                        </div>
+            <!-- KPI卡片区域 -->
+            <div class="dashboard-kpi-grid">
+                <!-- Capital -->
+                <div class="dashboard-kpi-card">
+                    <div class="icon text-blue">
+                        <i class="fas fa-wallet"></i>
                     </div>
-                    
-                    <!-- Expenses -->
-                    <div class="dashboard-card">
-                        <div class="dashboard-card-body">
-                            <div class="dashboard-kpi-card-vertical">
-                                <div class="icon text-red">
-                                    <i class="fas fa-arrow-down"></i>
-                                </div>
-                                <div>
-                                    <p class="kpi-label">支出 (Expenses)</p>
-                                    <p class="kpi-value" id="expenses-value">0</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Profit -->
-                    <div class="dashboard-card">
-                        <div class="dashboard-card-body">
-                            <div class="dashboard-kpi-card-vertical">
-                                <div class="icon text-green">
-                                    <i class="fas fa-chart-line"></i>
-                                </div>
-                                <div>
-                                    <p class="kpi-label">利润 (Profit)</p>
-                                    <p class="kpi-value" id="profit-value">0</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="kpi-label">资本 (Capital)</div>
+                    <div class="kpi-value" id="capital-value">0</div>
                 </div>
                 
-                <!-- Right: Chart -->
-                <div class="dashboard-card">
-                    <div class="dashboard-card-body" style="height: 100%; display: flex; flex-direction: column;">
-                        <h3 style="font-size: clamp(12px, 0.9vw, 18px); font-weight: 600; color: #111827; margin-bottom: 8px; font-family: 'Amaranth', sans-serif;">趋势图表</h3>
-                        <div class="dashboard-chart-container">
-                            <canvas id="trend-chart"></canvas>
-                        </div>
+                <!-- Expenses -->
+                <div class="dashboard-kpi-card">
+                    <div class="icon text-red">
+                        <i class="fas fa-arrow-down"></i>
                     </div>
+                    <div class="kpi-label">支出 (Expenses)</div>
+                    <div class="kpi-value" id="expenses-value">0</div>
+                </div>
+                
+                <!-- Profit -->
+                <div class="dashboard-kpi-card">
+                    <div class="icon text-green">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="kpi-label">利润 (Profit)</div>
+                    <div class="kpi-value" id="profit-value">0</div>
                 </div>
             </div>
+            
+            <!-- 图表区域 -->
+            <div class="dashboard-chart-section">
+                <div class="dashboard-chart-header">
+                    <div>
+                        <div class="dashboard-chart-title">趋势图表</div>
+                        <div class="dashboard-date-info" id="chart-date-range" style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;">正在加载数据...</div>
+                    </div>
+                </div>
+                <div class="dashboard-chart-container">
+                    <canvas id="trend-chart"></canvas>
+                </div>
             </div>
+        </div>
         </div>
     </div>
 
@@ -930,24 +920,26 @@ if (isset($_GET['logout'])) {
         
         // 设置加载状态
         function setLoadingState(loading) {
-            const dateInfo = document.getElementById('date-info');
-            if (loading) {
-                dateInfo.textContent = '正在加载数据...';
-                dateInfo.style.color = '#6b7280';
+            const chartDateRange = document.getElementById('chart-date-range');
+            if (loading && chartDateRange) {
+                chartDateRange.textContent = '正在加载数据...';
+                chartDateRange.style.color = '#6b7280';
             }
         }
         
         // 显示错误信息
         function showError(message) {
-            const dateInfo = document.getElementById('date-info');
-            dateInfo.textContent = '❌ ' + message;
-            dateInfo.style.color = '#ef4444';
+            const chartDateRange = document.getElementById('chart-date-range');
+            if (chartDateRange) {
+                chartDateRange.textContent = '❌ ' + message;
+                chartDateRange.style.color = '#ef4444';
+            }
             
             // 3秒后恢复
             setTimeout(() => {
-                if (dateInfo.textContent.includes('❌')) {
-                    dateInfo.textContent = '数据加载失败，请刷新页面重试';
-                    dateInfo.style.color = '#6b7280';
+                if (chartDateRange && chartDateRange.textContent.includes('❌')) {
+                    chartDateRange.textContent = '数据加载失败，请刷新页面重试';
+                    chartDateRange.style.color = '#6b7280';
                 }
             }, 3000);
         }
@@ -961,17 +953,17 @@ if (isset($_GET['logout'])) {
                         const capitalEl = document.getElementById('capital-value');
                         const expensesEl = document.getElementById('expenses-value');
                         const profitEl = document.getElementById('profit-value');
-                        const dateInfoEl = document.getElementById('date-info');
                         
                         if (capitalEl) capitalEl.textContent = formatCurrency(data.capital);
                         if (expensesEl) expensesEl.textContent = formatCurrency(data.expenses);
                         if (profitEl) profitEl.textContent = formatCurrency(data.profit);
                         
-                        // 更新日期信息
-                        if (dateInfoEl && data.date_range) {
-                            dateInfoEl.textContent = 
-                                `日期范围: ${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)}`;
-                            dateInfoEl.style.color = '#6b7280';
+                        // 更新图表日期范围
+                        const chartDateRangeEl = document.getElementById('chart-date-range');
+                        if (chartDateRangeEl && data.date_range) {
+                            chartDateRangeEl.textContent = 
+                                `${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)}`;
+                            chartDateRangeEl.style.color = '#6b7280';
                         }
                         
                         // 更新图表（使用 requestAnimationFrame 延迟，避免与 DOM 更新冲突）
