@@ -1432,6 +1432,12 @@ function getCurrentProcessId() {
                 modalContent = document.getElementById('editFormulaModalContent');
             }
             
+            // Store row_label from prePopulatedData for filtering formula data grid
+            // This ensures that when there are multiple rows with same id_product,
+            // each row only shows its own data in the formula data grid
+            const rowLabel = prePopulatedData && prePopulatedData.rowLabel ? prePopulatedData.rowLabel : null;
+            window.currentEditRowLabel = rowLabel; // Store globally for updateFormulaDataGrid to use
+            
             // Find and store the current row for calculator keypad
             if (productValue) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
@@ -2538,6 +2544,11 @@ function getCurrentProcessId() {
                 return;
             }
 
+            // Get row_label from global variable (set by showEditFormulaForm)
+            // This ensures that when there are multiple rows with same id_product,
+            // each row only shows its own data in the formula data grid
+            const rowLabel = window.currentEditRowLabel || null;
+
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2558,6 +2569,22 @@ function getCurrentProcessId() {
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // If row_label is specified, also check if it matches
+                    // This ensures that when there are multiple rows with same id_product,
+                    // only the current row's data is shown
+                    if (rowLabel) {
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        if (rowHeaderCell) {
+                            const rowHeaderLabel = rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
+                            if (rowHeaderLabel !== rowLabel) {
+                                return; // Skip this row if row label doesn't match
+                            }
+                        } else {
+                            return; // Skip this row if no row header found
+                        }
+                    }
+                    
+                    // Match found (id_product matches, and row_label matches if specified)
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
@@ -9548,11 +9575,57 @@ function getCurrentProcessId() {
             window.currentEditRow = row;
             window.isEditMode = true;
             
+            // Get row_label from corresponding captured table row
+            // This is needed to filter data in formula data grid when there are multiple rows with same id_product
+            let rowLabel = null;
+            const capturedTableBody = document.getElementById('capturedTableBody');
+            if (capturedTableBody && processValue) {
+                const capturedRows = capturedTableBody.querySelectorAll('tr');
+                const summaryRowIndex = row.getAttribute('data-row-index');
+                
+                // If summary row has data-row-index, use it to find the exact captured table row
+                if (summaryRowIndex !== null) {
+                    const targetRowIndex = parseInt(summaryRowIndex, 10);
+                    if (!isNaN(targetRowIndex) && targetRowIndex >= 0 && targetRowIndex < capturedRows.length) {
+                        const targetCapturedRow = capturedRows[targetRowIndex];
+                        const rowIdProduct = targetCapturedRow.getAttribute('data-id-product');
+                        // Verify that the captured row has matching id_product
+                        if (rowIdProduct && rowIdProduct.trim() === processValue.trim()) {
+                            const rowHeaderCell = targetCapturedRow.querySelector('.row-header');
+                            if (rowHeaderCell) {
+                                const headerText = rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
+                                if (headerText) {
+                                    rowLabel = headerText;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // If row_label not found by index, try to find by id_product (backward compatibility)
+                if (!rowLabel) {
+                    for (const capturedRow of capturedRows) {
+                        const rowIdProduct = capturedRow.getAttribute('data-id-product');
+                        if (rowIdProduct && rowIdProduct.trim() === processValue.trim()) {
+                            const rowHeaderCell = capturedRow.querySelector('.row-header');
+                            if (rowHeaderCell) {
+                                const headerText = rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
+                                if (headerText) {
+                                    rowLabel = headerText;
+                                    break; // Use first matching row (backward compatibility)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             // Debug log before showing form
             console.log('editRowFormula - Passing to showEditFormulaForm:', {
                 formula: formulaValue,
                 source: sourceValue,
-                sourcePercent: sourcePercentValue
+                sourcePercent: sourcePercentValue,
+                rowLabel: rowLabel
             });
             
             // Show the Edit Formula form with pre-populated data
@@ -9567,7 +9640,8 @@ function getCurrentProcessId() {
                 inputMethod: inputMethodValue,
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
-                clickedColumns: clickedColumns // Pass clicked columns for restoration
+                clickedColumns: clickedColumns, // Pass clicked columns for restoration
+                rowLabel: rowLabel // Pass row_label to filter data in formula grid
             });
         }
         
