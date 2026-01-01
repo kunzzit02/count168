@@ -2538,6 +2538,49 @@ function getCurrentProcessId() {
                 return;
             }
 
+            // Get current edit row's row_index if available (to distinguish between duplicate id_products)
+            let targetRowIndex = null;
+            if (window.currentEditRow) {
+                // Try to get row_index from summary table row
+                const rowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
+                if (rowIndexAttr !== null) {
+                    targetRowIndex = parseInt(rowIndexAttr, 10);
+                    if (isNaN(targetRowIndex)) {
+                        targetRowIndex = null;
+                    }
+                }
+                
+                // If not found, try to get from data capture table by matching id_product and row position
+                if (targetRowIndex === null) {
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const summaryRows = document.querySelectorAll('#summaryTableBody tr');
+                        let currentEditRowIndex = -1;
+                        summaryRows.forEach((row, index) => {
+                            if (row === window.currentEditRow) {
+                                currentEditRowIndex = index;
+                            }
+                        });
+                        
+                        // If we found the row index in summary table, try to match with data capture table
+                        if (currentEditRowIndex >= 0) {
+                            const dataCaptureRows = capturedTableBody.querySelectorAll('tr');
+                            let matchCount = 0;
+                            for (let i = 0; i < dataCaptureRows.length; i++) {
+                                const rowIdProduct = dataCaptureRows[i].getAttribute('data-id-product');
+                                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                                    if (matchCount === currentEditRowIndex) {
+                                        targetRowIndex = i;
+                                        break;
+                                    }
+                                    matchCount++;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2557,7 +2600,18 @@ function getCurrentProcessId() {
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                
+                // Check if id_product matches
+                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
+                    return;
+                }
+                
+                // If targetRowIndex is specified, only show data for that specific row
+                if (targetRowIndex !== null && rowIndex !== targetRowIndex) {
+                    return; // Skip this row if it's not the target row
+                }
+                
+                // Match found, process this row
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
