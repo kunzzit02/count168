@@ -1395,13 +1395,7 @@ function getCurrentProcessId() {
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
             
-            // Clear edit mode state when adding new entry
-            window.currentEditRow = null;
-            window.isEditMode = false;
-            window.currentEditRowIndex = null;
-            window.currentEditCapturedRow = null;
-            
-            // 从 Add button 进入，一律视为"新增"，不带任何预填数据
+            // 从 Add button 进入，一律视为“新增”，不带任何预填数据
             console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
             
             // 打开空白表单（edit 按钮才负责加载旧数据）
@@ -2560,32 +2554,10 @@ function getCurrentProcessId() {
             const capturedTableBody = document.getElementById('capturedTableBody');
             if (!capturedTableBody) return;
 
-            // Check if we're in edit mode and have a specific row to display
-            const isEditMode = window.isEditMode;
-            const currentEditRowIndex = window.currentEditRowIndex;
-            const currentEditCapturedRow = window.currentEditCapturedRow;
-            
-            console.log('updateFormulaDataGrid - isEditMode:', isEditMode, 'currentEditRowIndex:', currentEditRowIndex, 'currentEditCapturedRow:', currentEditCapturedRow, 'idProduct:', idProduct);
-
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
-                    console.log('updateFormulaDataGrid - Found matching row, rowIndex:', rowIndex, 'rowIdProduct:', rowIdProduct);
-                    // If in edit mode, only show data for the current editing row
-                    if (isEditMode) {
-                        // First try to match by row reference (most reliable)
-                        if (currentEditCapturedRow && row !== currentEditCapturedRow) {
-                            console.log('updateFormulaDataGrid - Skipping row (not current edit row by reference)');
-                            return; // Skip other rows with same id product
-                        }
-                        // Fallback to row index comparison
-                        if (currentEditRowIndex !== null && rowIndex !== currentEditRowIndex) {
-                            console.log('updateFormulaDataGrid - Skipping row (not current edit row by index)');
-                            return; // Skip other rows with same id product
-                        }
-                    }
-                    
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
                     rowContainer.className = 'formula-data-grid-row';
@@ -5160,8 +5132,6 @@ function getCurrentProcessId() {
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
             window.isEditMode = false;
-            window.currentEditRowIndex = null;
-            window.currentEditCapturedRow = null;
         }
 
         // Find summary table row by idProduct, accountId, and product type
@@ -9586,45 +9556,6 @@ function getCurrentProcessId() {
             // Store the current row reference globally so saveFormula can access it
             window.currentEditRow = row;
             window.isEditMode = true;
-            
-            // Store the row index for filtering in updateFormulaDataGrid
-            // Find the corresponding row in capturedTableBody by matching id product and account
-            const capturedTableBody = document.getElementById('capturedTableBody');
-            if (capturedTableBody) {
-                const allRows = capturedTableBody.querySelectorAll('tr');
-                let matchedRowIndex = null;
-                
-                // Try to find matching row in capturedTableBody
-                // First, check if the current row is already in capturedTableBody
-                if (row.closest('#capturedTableBody') === capturedTableBody) {
-                    // Row is in capturedTableBody, use its index directly
-                    matchedRowIndex = Array.from(allRows).indexOf(row);
-                } else {
-                    // Row is from summaryTableBody, need to find corresponding row in capturedTableBody
-                    // Match by id product and account
-                    for (let i = 0; i < allRows.length; i++) {
-                        const capturedRow = allRows[i];
-                        const capturedRowIdProduct = capturedRow.getAttribute('data-id-product');
-                        if (capturedRowIdProduct && capturedRowIdProduct.trim() === processValue.trim()) {
-                            // Found matching id product, check if this is the first occurrence or match by account
-                            // For now, we'll use the first matching row, but ideally we should match by account
-                            // Since we don't have account info easily accessible, we'll use a different approach:
-                            // Store the row reference itself and compare by reference in updateFormulaDataGrid
-                            matchedRowIndex = i;
-                            // Store the actual row reference for comparison
-                            window.currentEditCapturedRow = capturedRow;
-                            break;
-                        }
-                    }
-                }
-                
-                window.currentEditRowIndex = matchedRowIndex >= 0 ? matchedRowIndex : null;
-                console.log('editRowFormula - Set currentEditRowIndex:', window.currentEditRowIndex, 'for idProduct:', processValue);
-            } else {
-                window.currentEditRowIndex = null;
-                window.currentEditCapturedRow = null;
-                console.log('editRowFormula - capturedTableBody not found, currentEditRowIndex set to null');
-            }
             
             // Debug log before showing form
             console.log('editRowFormula - Passing to showEditFormulaForm:', {
