@@ -4886,7 +4886,7 @@ function getCurrentProcessId() {
                     formulaInput.setAttribute('data-clicked-cells', cellsArray.join(' '));
                 }
                 
-                console.log('Added clicked cell reference:', cellReference, 'All references:', refsArray);
+                console.log('Added clicked cell reference:', cellReference, 'All references:', refsArray || []);
             } else {
                 console.warn('Could not determine id_product or column index for cell');
             }
