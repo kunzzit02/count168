@@ -2706,7 +2706,7 @@ function getCurrentProcessId() {
         // Close add account modal (wrapper for compatibility)
         function closeAddAccountModal() {
             closeAddModal();
-                    }
+        }
                     
         // Account-list compatible wrappers
         function showAddModal() { showAddAccountModal(); }
