@@ -1091,13 +1091,17 @@ function getCurrentProcessId() {
             
             parts.forEach(part => {
                 // Try new format with row label first: "id_product:row_label:column_index"
+                // IMPORTANT: sourceColumns stored in database uses displayColumnIndex (e.g., "OVERALL:A:7")
+                // But getCellValueByIdProductAndColumn expects dataColumnIndex (e.g., 6, where dataColumnIndex = displayColumnIndex - 1)
                 let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                 if (match) {
                     const idProduct = match[1];
                     const rowLabel = match[2];
-                    const columnIndex = parseInt(match[3]);
-                    console.log('getCellValuesFromNewFormat: new format match - idProduct:', idProduct, 'rowLabel:', rowLabel, 'columnIndex:', columnIndex);
-                    const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel);
+                    const displayColumnIndex = parseInt(match[3]);
+                    // Convert displayColumnIndex to dataColumnIndex for getCellValueByIdProductAndColumn
+                    const dataColumnIndex = displayColumnIndex - 1;
+                    console.log('getCellValuesFromNewFormat: new format match - idProduct:', idProduct, 'rowLabel:', rowLabel, 'displayColumnIndex:', displayColumnIndex, 'dataColumnIndex:', dataColumnIndex);
+                    const cellValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
                     console.log('getCellValuesFromNewFormat: cellValue from new format:', cellValue);
                     if (cellValue !== null && cellValue !== '') {
                         cellValues.push(cellValue);
@@ -1107,9 +1111,11 @@ function getCurrentProcessId() {
                     match = part.match(/^([^:]+):(\d+)$/);
                     if (match) {
                         const idProduct = match[1];
-                        const columnIndex = parseInt(match[2]);
-                        console.log('getCellValuesFromNewFormat: old format match - idProduct:', idProduct, 'columnIndex:', columnIndex);
-                        const cellValue = getCellValueByIdProductAndColumn(idProduct, columnIndex);
+                        const displayColumnIndex = parseInt(match[2]);
+                        // Convert displayColumnIndex to dataColumnIndex for getCellValueByIdProductAndColumn
+                        const dataColumnIndex = displayColumnIndex - 1;
+                        console.log('getCellValuesFromNewFormat: old format match - idProduct:', idProduct, 'displayColumnIndex:', displayColumnIndex, 'dataColumnIndex:', dataColumnIndex);
+                        const cellValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex);
                         console.log('getCellValuesFromNewFormat: cellValue from old format:', cellValue);
                         if (cellValue !== null && cellValue !== '') {
                             cellValues.push(cellValue);
@@ -4927,9 +4933,35 @@ function getCurrentProcessId() {
                             const isNewFormat = isNewIdProductColumnFormat(data.clickedColumns);
                             
                             if (isNewFormat) {
-                                // New format: restore to data-clicked-cell-refs (preserves id_product:column format)
-                                formulaInput.setAttribute('data-clicked-cell-refs', data.clickedColumns);
-                                console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs:', data.clickedColumns);
+                                // New format: convert displayColumnIndex to dataColumnIndex for data-clicked-cell-refs
+                                // Saved format uses displayColumnIndex (e.g., "OVERALL:A:7"), but data-clicked-cell-refs needs dataColumnIndex (e.g., "OVERALL:A:6")
+                                // dataColumnIndex = displayColumnIndex - 1
+                                const parts = data.clickedColumns.split(/\s+/).filter(c => c.trim() !== '');
+                                const convertedRefs = parts.map(part => {
+                                    // Try format with row label: "id_product:row_label:displayColumnIndex"
+                                    let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
+                                    if (match) {
+                                        const idProduct = match[1];
+                                        const rowLabel = match[2];
+                                        const displayColumnIndex = parseInt(match[3]);
+                                        const dataColumnIndex = displayColumnIndex - 1;
+                                        return `${idProduct}:${rowLabel}:${dataColumnIndex}`;
+                                    }
+                                    // Try format without row label: "id_product:displayColumnIndex"
+                                    match = part.match(/^([^:]+):(\d+)$/);
+                                    if (match) {
+                                        const idProduct = match[1];
+                                        const displayColumnIndex = parseInt(match[2]);
+                                        const dataColumnIndex = displayColumnIndex - 1;
+                                        return `${idProduct}:${dataColumnIndex}`;
+                                    }
+                                    // If format doesn't match, return as-is (shouldn't happen)
+                                    return part;
+                                });
+                                
+                                const convertedClickedCellRefs = convertedRefs.join(' ');
+                                formulaInput.setAttribute('data-clicked-cell-refs', convertedClickedCellRefs);
+                                console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs (converted displayColumnIndex to dataColumnIndex):', convertedClickedCellRefs, 'from:', data.clickedColumns);
                             } else {
                                 // Old format: restore to data-clicked-columns (backward compatibility)
                                 formulaInput.setAttribute('data-clicked-columns', data.clickedColumns);
@@ -4940,7 +4972,27 @@ function getCurrentProcessId() {
                             const isEditMode = !!window.currentEditRow;
                             if (isEditMode) {
                                 if (isNewFormat) {
-                                    formulaInput.setAttribute('data-original-clicked-cell-refs', data.clickedColumns);
+                                    // For original refs, also convert to dataColumnIndex for consistency
+                                    const parts = data.clickedColumns.split(/\s+/).filter(c => c.trim() !== '');
+                                    const convertedRefs = parts.map(part => {
+                                        let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
+                                        if (match) {
+                                            const idProduct = match[1];
+                                            const rowLabel = match[2];
+                                            const displayColumnIndex = parseInt(match[3]);
+                                            const dataColumnIndex = displayColumnIndex - 1;
+                                            return `${idProduct}:${rowLabel}:${dataColumnIndex}`;
+                                        }
+                                        match = part.match(/^([^:]+):(\d+)$/);
+                                        if (match) {
+                                            const idProduct = match[1];
+                                            const displayColumnIndex = parseInt(match[2]);
+                                            const dataColumnIndex = displayColumnIndex - 1;
+                                            return `${idProduct}:${dataColumnIndex}`;
+                                        }
+                                        return part;
+                                    });
+                                    formulaInput.setAttribute('data-original-clicked-cell-refs', convertedRefs.join(' '));
                                 } else {
                                     formulaInput.setAttribute('data-original-clicked-columns', data.clickedColumns);
                                 }
