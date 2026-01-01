@@ -666,7 +666,7 @@ try {
             
             // Check if user exists and belongs to same company
             $checkStmt = $pdo->prepare("
-                SELECT u.id, u.login_id, u.name 
+                SELECT u.id, u.login_id, u.name, u.role
                 FROM user u
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
                 WHERE u.id = ? AND ucm.company_id = ?
@@ -676,6 +676,23 @@ try {
             
             if (!$user) {
                 sendResponse(false, 'User not found or access denied');
+            }
+            
+            // 检查是否试图删除同等级的用户
+            $role_hierarchy = [
+                'owner' => 0,
+                'admin' => 1,
+                'manager' => 2,
+                'supervisor' => 3,
+                'accountant' => 4,
+                'audit' => 5,
+                'customer service' => 6
+            ];
+            $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;
+            $target_user_level = $role_hierarchy[strtolower($user['role'] ?? '')] ?? 999;
+            
+            if ($current_user_level === $target_user_level) {
+                sendResponse(false, 'You cannot delete accounts with the same role level');
             }
             
             // 获取当前登录用户ID（用于替换NOT NULL字段）

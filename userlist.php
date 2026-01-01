@@ -1617,8 +1617,23 @@ try {
                     // 1. 用户不能删除自己
                     // 2. owner shadow: 只有 owner 本人可以编辑/删除
                     // 3. 低权限角色: 不能编辑/删除 admin 和 owner
-                    // 4. 其他情况: 可以编辑/删除（包括 admin 编辑其他 admin，但编辑权限由层级关系控制）
+                    // 4. 不能删除同等级的角色
+                    // 5. 其他情况: 可以编辑/删除（包括 admin 编辑其他 admin，但编辑权限由层级关系控制）
                     $is_self = ($current_user_id && $user['id'] == $current_user_id);
+                    
+                    // 定义角色层级（数字越小，层级越高）
+                    $role_hierarchy = [
+                        'owner' => 0,
+                        'admin' => 1,
+                        'manager' => 2,
+                        'supervisor' => 3,
+                        'accountant' => 4,
+                        'audit' => 5,
+                        'customer service' => 6
+                    ];
+                    $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;
+                    $target_user_level = $role_hierarchy[strtolower($user_role)] ?? 999;
+                    $is_same_level = ($current_user_level === $target_user_level && !$is_self);
                     
                     if ($is_self) {
                         $can_edit_delete = true; // 可以编辑自己，但不能删除
@@ -1629,6 +1644,9 @@ try {
                     } elseif ($is_low_privilege_user && ($is_admin_user || $is_owner_user)) {
                         $can_edit_delete = false; // 低权限角色不能编辑/删除 admin 和 owner
                         $can_delete = false;
+                    } elseif ($is_same_level) {
+                        $can_edit_delete = true; // 可以编辑同等级用户，但不能删除
+                        $can_delete = false; // 不能删除同等级用户
                     } else {
                         // 允许编辑（包括 admin 编辑其他 admin，同级编辑同级等）
                         // 具体的编辑权限（哪些字段可以编辑）由 JavaScript 的层级关系控制
@@ -1684,9 +1702,17 @@ try {
                             </button>
                         <?php endif; ?>
                         <?php if ($can_delete): ?>
-                            <input type="checkbox" class="user-checkbox" value="<?php echo $user['id']; ?>" data-is-owner-shadow="<?php echo $is_owner_shadow ? '1' : '0'; ?>" onchange="updateDeleteButton()">
+                            <input type="checkbox" class="user-checkbox" value="<?php echo $user['id']; ?>" data-is-owner-shadow="<?php echo $is_owner_shadow ? '1' : '0'; ?>" data-role="<?php echo htmlspecialchars($user_role); ?>" onchange="updateDeleteButton()">
                         <?php else: ?>
-                            <input type="checkbox" class="user-checkbox" disabled style="opacity: 0.3; cursor: not-allowed;" title="<?php echo $is_self ? 'You cannot delete your own account' : 'No permission to delete'; ?>">
+                            <input type="checkbox" class="user-checkbox" disabled style="opacity: 0.3; cursor: not-allowed;" title="<?php 
+                                if ($is_self) {
+                                    echo 'You cannot delete your own account';
+                                } elseif ($is_same_level) {
+                                    echo 'You cannot delete accounts with the same role level';
+                                } else {
+                                    echo 'No permission to delete';
+                                }
+                            ?>">
                         <?php endif; ?>
                     </div>
                 </div>
@@ -3433,6 +3459,23 @@ try {
                 return;
             }
             
+            // 检查是否包含同等级的用户
+            const currentLevel = roleHierarchy[currentUserRole] ?? 999;
+            const hasSameLevel = Array.from(selectedCheckboxes).some(cb => {
+                const card = cb.closest('.user-card');
+                if (card) {
+                    const userRole = card.getAttribute('data-role')?.toLowerCase() || '';
+                    const userLevel = roleHierarchy[userRole] ?? 999;
+                    return currentLevel === userLevel;
+                }
+                return false;
+            });
+            
+            if (hasSameLevel) {
+                showAlert('You cannot delete accounts with the same role level', 'danger');
+                return;
+            }
+            
             // 检查是否包含owner影子且当前用户不是owner
             const hasOwnerShadow = Array.from(selectedCheckboxes).some(cb => {
                 return cb.getAttribute('data-is-owner-shadow') === '1';
@@ -3447,26 +3490,7 @@ try {
             const lowPrivilegeRoles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service'];
             const isLowPrivilegeUser = lowPrivilegeRoles.includes(currentUserRole);
             
-            // 检查如果当前用户是admin，是否包含其他admin用户（可以删除自己）
-            if (currentUserRole === 'admin') {
-                const hasOtherAdminUser = Array.from(selectedCheckboxes).some(cb => {
-                    const card = cb.closest('.user-card');
-                    if (card) {
-                        const userRole = card.getAttribute('data-role')?.toLowerCase() || '';
-                        const userId = parseInt(cb.value);
-                        // 如果是admin但不是自己，则不能删除
-                        return userRole === 'admin' && currentUserId !== userId;
-                    }
-                    return false;
-                });
-                
-                if (hasOtherAdminUser) {
-                    showAlert('Admin accounts cannot delete other admin accounts', 'danger');
-                    return;
-                }
-            }
-            
-            // 检查低权限角色不能删除admin和owner
+            // 检查低权限角色不能删除admin和owner（注意：同等级检查已在上面处理）
             if (isLowPrivilegeUser) {
                 const hasRestrictedUser = Array.from(selectedCheckboxes).some(cb => {
                     const card = cb.closest('.user-card');
