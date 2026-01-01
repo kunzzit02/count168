@@ -1740,7 +1740,9 @@ function getCurrentProcessId() {
                         mapEntries.push(`${columnValue}:${value}`);
                         formulaInput.setAttribute('data-value-column-map', mapEntries.join(','));
 
-                        formulaInput.focus();
+                        if (formulaInput) {
+                            formulaInput.focus();
+                        }
                         return;
                     }
                 }
@@ -4869,7 +4871,7 @@ function getCurrentProcessId() {
                 // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
                 // displayColumnIndex 就是 data-column-index 的值，直接使用
                 valueToInsert = `$${displayColumnIndex}`;
-                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex || 'null');
             } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
