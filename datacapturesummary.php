@@ -2522,7 +2522,6 @@ function getCurrentProcessId() {
         }
 
         // Update formula data grid with row data for current editing id product
-        // IMPORTANT: Only show data from the current editing row, not all rows with the same id_product
         function updateFormulaDataGrid() {
             const formulaDataGrid = document.getElementById('formulaDataGrid');
             if (!formulaDataGrid) return;
@@ -2538,63 +2537,6 @@ function getCurrentProcessId() {
             if (!idProduct || idProduct === '') {
                 return;
             }
-
-            // IMPORTANT: Get row_label from summary table row's data-row-index
-            // This ensures we get the correct row_label even when there are multiple rows with same id_product
-            let rowLabel = null;
-            let targetRowIndex = null;
-            
-            // Try to get from currentSelectedRowForCalculator (set when opening edit formula modal)
-            if (currentSelectedRowForCalculator) {
-                const dataRowIndex = currentSelectedRowForCalculator.getAttribute('data-row-index');
-                if (dataRowIndex !== null) {
-                    targetRowIndex = parseInt(dataRowIndex, 10);
-                    console.log('updateFormulaDataGrid - Found data-row-index from currentSelectedRowForCalculator:', targetRowIndex);
-                }
-            }
-            
-            // If not found, try to find summary table row by id_product
-            if (targetRowIndex === null) {
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    const rows = summaryTableBody.querySelectorAll('tr');
-                    for (let row of rows) {
-                        const rowProcessValue = getProcessValueFromRow(row);
-                        if (rowProcessValue === idProduct) {
-                            const dataRowIndex = row.getAttribute('data-row-index');
-                            if (dataRowIndex !== null) {
-                                targetRowIndex = parseInt(dataRowIndex, 10);
-                                console.log('updateFormulaDataGrid - Found data-row-index from summary table row:', targetRowIndex);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Get row_label from data capture table using targetRowIndex
-            if (targetRowIndex !== null) {
-                const capturedTableBody = document.getElementById('capturedTableBody');
-                if (capturedTableBody) {
-                    const dataCaptureRows = capturedTableBody.querySelectorAll('tr');
-                    if (targetRowIndex >= 0 && targetRowIndex < dataCaptureRows.length) {
-                        const targetDataCaptureRow = dataCaptureRows[targetRowIndex];
-                        const rowHeaderCell = targetDataCaptureRow ? targetDataCaptureRow.querySelector('.row-header') : null;
-                        if (rowHeaderCell) {
-                            rowLabel = rowHeaderCell.textContent.trim();
-                            console.log('updateFormulaDataGrid - Found row_label from data capture table:', rowLabel, 'at index:', targetRowIndex);
-                        }
-                    }
-                }
-            }
-            
-            // Fallback: try getRowLabelFromProcessValue if rowLabel still not found
-            if (!rowLabel) {
-                rowLabel = getRowLabelFromProcessValue(idProduct);
-                console.log('updateFormulaDataGrid - Using fallback getRowLabelFromProcessValue, row_label:', rowLabel);
-            }
-            
-            console.log('updateFormulaDataGrid - Final: id_product:', idProduct, 'row_label:', rowLabel, 'targetRowIndex:', targetRowIndex);
 
             // Get table data
             let parsedTableData;
@@ -2615,27 +2557,9 @@ function getCurrentProcessId() {
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                
-                // Check if id_product matches
-                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
-                    return;
-                }
-                
-                // IMPORTANT: If row_label is available, only show data from the row that matches the row_label
-                // This ensures that when there are multiple rows with the same id_product, only the current editing row's data is shown
-                if (rowLabel) {
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                    if (rowHeaderLabel !== rowLabel) {
-                        console.log('updateFormulaDataGrid - Skipping row with different row_label:', rowHeaderLabel, 'expected:', rowLabel);
-                        return; // Skip this row if row label doesn't match
-                    }
-                    console.log('updateFormulaDataGrid - Found matching row with row_label:', rowLabel);
-                }
-                
-                // Match found, process this row
-                // Get all data cells (skip row header and id_product column)
-                const cells = row.querySelectorAll('td');
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
                     
                     cells.forEach((cell, cellIndex) => {
                         const columnIndex = cell.getAttribute('data-column-index');
