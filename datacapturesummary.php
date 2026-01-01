@@ -17216,26 +17216,33 @@ function formatPercentValue(value) {
 
         /* Formula Data Grid Styles */
         .formula-data-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            display: block;
+            width: 100%;
             margin-top: 0px;
             padding-bottom: 4px;
             padding-top: 2px;
         }
 
         .formula-data-grid-row {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
+            display: block;
+            width: 100%;
+            margin-bottom: 12px;
+            clear: both;
+            overflow: hidden;
+        }
+        
+        .formula-data-grid-row:last-child {
+            margin-bottom: 0;
         }
 
         .formula-data-grid-row-label {
+            display: block;
             font-size: clamp(9px, 0.73vw, 13px);
             font-weight: 600;
             color: #666;
-            margin-bottom: 2px;
+            margin-bottom: 4px;
             padding-left: 2px;
+            width: 100%;
         }
 
         .formula-data-grid-items {
@@ -17243,8 +17250,11 @@ function formatPercentValue(value) {
             flex-wrap: nowrap;
             gap: 4px;
             overflow-x: auto;
-            overflow-y: visible;
+            overflow-y: hidden;
             padding-bottom: 2px;
+            width: 100%;
+            box-sizing: border-box;
+            clear: both;
         }
 
         .formula-data-grid-item {
