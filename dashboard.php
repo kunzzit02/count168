@@ -108,7 +108,7 @@ if (isset($_GET['logout'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交易仪表盘 - EazyCount</title>
+    <title>Transaction Dashboard - EazyCount</title>
     <link rel="icon" type="image/png" href="images/count_logo.png">
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
@@ -287,7 +287,7 @@ if (isset($_GET['logout'])) {
             color: #111827;
             font-family: 'Amaranth', sans-serif;
         }
-        
+
         .dashboard-chart-buttons {
             display: flex;
             gap: 8px;
@@ -519,7 +519,7 @@ if (isset($_GET['logout'])) {
     <?php include 'sidebar.php'; ?>
     
     <div class="dashboard-container">
-        <h1 class="dashboard-title">交易仪表盘</h1>
+        <h1 class="dashboard-title">Transaction Dashboard</h1>
         
         <div id="app" class="dashboard-content">
             <!-- Date Controls -->
@@ -528,40 +528,40 @@ if (isset($_GET['logout'])) {
                     <div class="dashboard-date-controls">
                         <!-- 开始日期选择器 -->
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label class="dashboard-form-label" style="margin: 0;">开始日期</label>
+                            <label class="dashboard-form-label" style="margin: 0;">Start Date</label>
                             <div class="dashboard-enhanced-date-picker" id="start-date-picker">
                                 <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('start', 'year')">
                                     <span id="start-year-display">2024</span>
                                 </div>
-                                <span class="dashboard-date-separator">年</span>
+                                <span class="dashboard-date-separator">Year</span>
                                 <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('start', 'month')">
                                     <span id="start-month-display">01</span>
                                 </div>
-                                <span class="dashboard-date-separator">月</span>
+                                <span class="dashboard-date-separator">Month</span>
                                 <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('start', 'day')">
                                     <span id="start-day-display">01</span>
                                 </div>
-                                <span class="dashboard-date-separator">日</span>
+                                <span class="dashboard-date-separator">Day</span>
                                 <div class="dashboard-date-dropdown" id="start-dropdown"></div>
                             </div>
                         </div>
                         
                         <!-- 结束日期选择器 -->
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label class="dashboard-form-label" style="margin: 0;">结束日期</label>
+                            <label class="dashboard-form-label" style="margin: 0;">End Date</label>
                             <div class="dashboard-enhanced-date-picker" id="end-date-picker">
                                 <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('end', 'year')">
                                     <span id="end-year-display">2024</span>
                                 </div>
-                                <span class="dashboard-date-separator">年</span>
+                                <span class="dashboard-date-separator">Year</span>
                                 <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('end', 'month')">
                                     <span id="end-month-display">01</span>
                                 </div>
-                                <span class="dashboard-date-separator">月</span>
+                                <span class="dashboard-date-separator">Month</span>
                                 <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('end', 'day')">
                                     <span id="end-day-display">01</span>
                                 </div>
-                                <span class="dashboard-date-separator">日</span>
+                                <span class="dashboard-date-separator">Day</span>
                                 <div class="dashboard-date-dropdown" id="end-dropdown"></div>
                             </div>
                         </div>
@@ -578,55 +578,55 @@ if (isset($_GET['logout'])) {
             </div>
             
             <!-- KPI卡片区域 -->
-            <div class="dashboard-kpi-grid">
-                <!-- Capital -->
+                <div class="dashboard-kpi-grid">
+                    <!-- Capital -->
                 <div class="dashboard-kpi-card">
-                    <div class="icon text-blue">
-                        <i class="fas fa-wallet"></i>
-                    </div>
-                    <div class="kpi-label">资本 (Capital)</div>
+                                <div class="icon text-blue">
+                                    <i class="fas fa-wallet"></i>
+                                </div>
+                    <div class="kpi-label">Capital</div>
                     <div class="kpi-value" id="capital-value">0</div>
-                </div>
-                
-                <!-- Expenses -->
-                <div class="dashboard-kpi-card">
-                    <div class="icon text-red">
-                        <i class="fas fa-arrow-down"></i>
                     </div>
-                    <div class="kpi-label">支出 (Expenses)</div>
+                    
+                    <!-- Expenses -->
+                <div class="dashboard-kpi-card">
+                                <div class="icon text-red">
+                                    <i class="fas fa-arrow-down"></i>
+                                </div>
+                    <div class="kpi-label">Expenses</div>
                     <div class="kpi-value" id="expenses-value">0</div>
-                </div>
-                
-                <!-- Profit -->
-                <div class="dashboard-kpi-card">
-                    <div class="icon text-green">
-                        <i class="fas fa-chart-line"></i>
                     </div>
-                    <div class="kpi-label">利润 (Profit)</div>
+                    
+                    <!-- Profit -->
+                <div class="dashboard-kpi-card">
+                                <div class="icon text-green">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                    <div class="kpi-label">Profit</div>
                     <div class="kpi-value" id="profit-value">0</div>
-                </div>
-            </div>
+                                </div>
+                            </div>
             
             <!-- 图表区域 -->
             <div class="dashboard-chart-section">
                 <div class="dashboard-chart-header">
                     <div>
-                        <div class="dashboard-chart-title">趋势图表</div>
-                        <div class="dashboard-date-info" id="chart-date-range" style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;">正在加载数据...</div>
+                        <div class="dashboard-chart-title">Trend Chart</div>
+                        <div class="dashboard-date-info" id="chart-date-range" style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;">Loading data...</div>
+                        </div>
                     </div>
-                </div>
                 <!-- 图表数据切换按钮 -->
                 <div class="dashboard-chart-buttons">
-                    <button class="chart-data-btn active" data-type="all">全部</button>
-                    <button class="chart-data-btn" data-type="capital">资本</button>
-                    <button class="chart-data-btn" data-type="expenses">支出</button>
-                    <button class="chart-data-btn" data-type="profit">利润</button>
+                    <button class="chart-data-btn active" data-type="all">All</button>
+                    <button class="chart-data-btn" data-type="capital">Capital</button>
+                    <button class="chart-data-btn" data-type="expenses">Expenses</button>
+                    <button class="chart-data-btn" data-type="profit">Profit</button>
                 </div>
-                <div class="dashboard-chart-container">
-                    <canvas id="trend-chart"></canvas>
+                        <div class="dashboard-chart-container">
+                            <canvas id="trend-chart"></canvas>
                 </div>
             </div>
-        </div>
+            </div>
         </div>
     </div>
 
@@ -750,7 +750,7 @@ if (isset($_GET['logout'])) {
             } else if (type === 'month') {
                 const monthGrid = document.createElement('div');
                 monthGrid.className = 'dashboard-month-grid';
-                const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                 months.forEach((monthName, index) => {
                     const monthValue = index + 1;
                     const monthOption = document.createElement('div');
@@ -764,7 +764,7 @@ if (isset($_GET['logout'])) {
             } else if (type === 'day') {
                 const dayGrid = document.createElement('div');
                 dayGrid.className = 'dashboard-day-grid';
-                const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+                const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                 weekdays.forEach(day => {
                     const dayHeader = document.createElement('div');
                     dayHeader.className = 'dashboard-day-header';
@@ -797,53 +797,53 @@ if (isset($_GET['logout'])) {
 
         function selectDateValue(prefix, type, value) {
             try {
-                const dateValue = prefix === 'start' ? startDateValue : endDateValue;
-                dateValue[type] = value;
-                
-                if (type === 'year' || type === 'month') {
-                    const daysInMonth = new Date(dateValue.year, dateValue.month, 0).getDate();
-                    if (dateValue.day > daysInMonth) {
-                        dateValue.day = daysInMonth;
-                    }
+            const dateValue = prefix === 'start' ? startDateValue : endDateValue;
+            dateValue[type] = value;
+            
+            if (type === 'year' || type === 'month') {
+                const daysInMonth = new Date(dateValue.year, dateValue.month, 0).getDate();
+                if (dateValue.day > daysInMonth) {
+                    dateValue.day = daysInMonth;
                 }
-                
-                updateDateDisplay(prefix);
-                hideAllDropdowns();
-                updateDateRangeFromPickers();
+            }
+            
+            updateDateDisplay(prefix);
+            hideAllDropdowns();
+            updateDateRangeFromPickers();
             } catch (error) {
-                console.error('选择日期值失败:', error);
+                console.error('Failed to select date value:', error);
             }
         }
 
         async function updateDateRangeFromPickers() {
             try {
-                const startDateStr = `${startDateValue.year}-${String(startDateValue.month).padStart(2, '0')}-${String(startDateValue.day).padStart(2, '0')}`;
-                const endDateStr = `${endDateValue.year}-${String(endDateValue.month).padStart(2, '0')}-${String(endDateValue.day).padStart(2, '0')}`;
-                
+            const startDateStr = `${startDateValue.year}-${String(startDateValue.month).padStart(2, '0')}-${String(startDateValue.day).padStart(2, '0')}`;
+            const endDateStr = `${endDateValue.year}-${String(endDateValue.month).padStart(2, '0')}-${String(endDateValue.day).padStart(2, '0')}`;
+            
                 const startDate = new Date(startDateStr);
                 const endDate = new Date(endDateStr);
                 
                 if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-                    console.error('日期格式无效');
+                    console.error('Invalid date format');
                     return;
                 }
                 
                 if (startDate > endDate) {
-                    showError('开始日期不能晚于结束日期');
-                    return;
-                }
-                
-                dateRange = {
-                    startDate: startDateStr,
-                    endDate: endDateStr
-                };
-                
+                    showError('Start date cannot be later than end date');
+                return;
+            }
+            
+            dateRange = {
+                startDate: startDateStr,
+                endDate: endDateStr
+            };
+            
                 // 重置上次请求参数，允许重新加载
                 lastRequestParams = null;
-                await loadData();
+            await loadData();
             } catch (error) {
-                console.error('更新日期范围失败:', error);
-                showError('日期更新失败');
+                console.error('Failed to update date range:', error);
+                showError('Failed to update date range');
             }
         }
 
@@ -877,10 +877,10 @@ if (isset($_GET['logout'])) {
             return new Promise((resolve) => {
                 loadDataTimeout = setTimeout(async () => {
                     if (!dateRange.startDate || !dateRange.endDate || !window.companyId) {
-                        resolve();
-                        return;
-                    }
-                    
+                            resolve();
+                            return;
+                        }
+                        
                     // 检查参数是否仍然有效
                     const checkParams = JSON.stringify({
                         date_from: dateRange.startDate,
@@ -919,7 +919,7 @@ if (isset($_GET['logout'])) {
                         clearTimeout(timeoutId);
                         
                         if (!response.ok) {
-                            throw new Error(`HTTP错误: ${response.status}`);
+                            throw new Error(`HTTP error: ${response.status}`);
                         }
                         
                         const result = await response.json();
@@ -930,22 +930,22 @@ if (isset($_GET['logout'])) {
                             // 验证数据格式
                             if (validateData(result.data)) {
                                 console.log('数据验证通过，更新仪表盘');
-                                updateDashboard(result.data);
-                            } else {
+                            updateDashboard(result.data);
+                        } else {
                                 console.error('数据格式验证失败:', result.data);
-                                throw new Error('数据格式不正确');
+                                throw new Error('Invalid data format');
                             }
                         } else {
                             console.error('API返回失败:', result);
-                            throw new Error(result.message || '加载数据失败');
+                            throw new Error(result.message || 'Failed to load data');
                         }
                     } catch (error) {
                         if (error.name === 'AbortError') {
                             console.error('请求超时');
-                            showError('请求超时，请稍后重试');
+                            showError('Request timeout, please try again later');
                         } else {
-                            console.error('API调用失败:', error);
-                            showError('加载数据失败: ' + (error.message || '未知错误'));
+                        console.error('API调用失败:', error);
+                            showError('Failed to load data: ' + (error.message || 'Unknown error'));
                         }
                         // 发生错误时，恢复上次请求参数，允许重试
                         lastRequestParams = null;
@@ -977,7 +977,7 @@ if (isset($_GET['logout'])) {
         function setLoadingState(loading) {
             const chartDateRange = document.getElementById('chart-date-range');
             if (loading && chartDateRange) {
-                chartDateRange.textContent = '正在加载数据...';
+                chartDateRange.textContent = 'Loading data...';
                 chartDateRange.style.color = '#6b7280';
             }
         }
@@ -993,7 +993,7 @@ if (isset($_GET['logout'])) {
             // 3秒后恢复
             setTimeout(() => {
                 if (chartDateRange && chartDateRange.textContent.includes('❌')) {
-                    chartDateRange.textContent = '数据加载失败，请刷新页面重试';
+                    chartDateRange.textContent = 'Data loading failed, please refresh the page';
                     chartDateRange.style.color = '#6b7280';
                 }
             }, 3000);
@@ -1001,10 +1001,10 @@ if (isset($_GET['logout'])) {
 
         function updateDashboard(data) {
             try {
-                // 使用 requestAnimationFrame 批量更新 DOM，减少重绘
-                requestAnimationFrame(() => {
+            // 使用 requestAnimationFrame 批量更新 DOM，减少重绘
+            requestAnimationFrame(() => {
                     try {
-                        // 更新KPI卡片
+                // 更新KPI卡片
                         const capitalEl = document.getElementById('capital-value');
                         const expensesEl = document.getElementById('expenses-value');
                         const profitEl = document.getElementById('profit-value');
@@ -1017,27 +1017,27 @@ if (isset($_GET['logout'])) {
                         const chartDateRangeEl = document.getElementById('chart-date-range');
                         if (chartDateRangeEl && data.date_range) {
                             chartDateRangeEl.textContent = 
-                                `${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)}`;
+                                `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)}`;
                             chartDateRangeEl.style.color = '#6b7280';
                         }
-                        
-                        // 更新图表（使用 requestAnimationFrame 延迟，避免与 DOM 更新冲突）
-                        requestAnimationFrame(() => {
+                
+                // 更新图表（使用 requestAnimationFrame 延迟，避免与 DOM 更新冲突）
+                requestAnimationFrame(() => {
                             try {
-                                updateChart(data);
+                    updateChart(data);
                             } catch (chartError) {
                                 console.error('更新图表失败:', chartError);
-                                showError('图表更新失败');
+                                showError('Chart update failed');
                             }
-                        });
+                });
                     } catch (domError) {
                         console.error('更新DOM失败:', domError);
-                        showError('界面更新失败');
+                        showError('UI update failed');
                     }
-                });
+            });
             } catch (error) {
                 console.error('updateDashboard 错误:', error);
-                showError('数据更新失败');
+                showError('Data update failed');
             }
         }
 
@@ -1053,21 +1053,21 @@ if (isset($_GET['logout'])) {
             const year = date.getFullYear();
             const month = date.getMonth() + 1;
             const day = date.getDate();
-            return `${year}年${month}月${day}日`;
+            return `${month}/${day}/${year}`;
         }
 
         function updateChart(data) {
             const chartCanvas = document.getElementById('trend-chart');
             if (!chartCanvas) {
                 console.error('图表canvas元素不存在');
-                showError('图表元素不存在');
+                showError('Chart element not found');
                 return;
             }
             
             // 验证数据
             if (!data) {
                 console.error('图表数据为空', data);
-                showError('图表数据为空');
+                showError('Chart data is empty');
                 // 即使没有数据，也显示空图表
                 if (trendChart) {
                     trendChart.destroy();
@@ -1140,10 +1140,10 @@ if (isset($_GET['logout'])) {
                 const chartDateRangeEl = document.getElementById('chart-date-range');
                 if (chartDateRangeEl && data.date_range) {
                     chartDateRangeEl.textContent = 
-                        `${formatDateForDisplay(data.date_range.from)} 至 ${formatDateForDisplay(data.date_range.to)} (该日期范围内无数据)`;
+                        `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)} (No data in this date range)`;
                     chartDateRangeEl.style.color = '#9ca3af';
                 } else if (chartDateRangeEl) {
-                    chartDateRangeEl.textContent = '该日期范围内无数据';
+                    chartDateRangeEl.textContent = 'No data in this date range';
                     chartDateRangeEl.style.color = '#9ca3af';
                 }
                 return;
@@ -1153,7 +1153,7 @@ if (isset($_GET['logout'])) {
             
             sortedDates.forEach(date => {
                 try {
-                    dates.push(date);
+                dates.push(date);
                     const capital = parseFloat(dailyData.capital[date] || 0) || 0;
                     const expenses = parseFloat(dailyData.expenses[date] || 0) || 0;
                     // Profit: 优先使用API返回的profit daily_data，如果没有则计算 capital - expenses
@@ -1167,7 +1167,7 @@ if (isset($_GET['logout'])) {
                     expensesData.push(expenses);
                     profitData.push(profit);
                 } catch (e) {
-                    console.warn('处理日期数据时出错:', date, e);
+                    console.warn('Error processing date data:', date, e);
                 }
             });
             
@@ -1181,10 +1181,10 @@ if (isset($_GET['logout'])) {
             
             // 根据选择的数据类型过滤数据集
             const allDatasets = [
-                {
-                    label: '资本',
-                    data: capitalData,
-                    borderColor: '#3b82f6',
+                    {
+                        label: 'Capital',
+                        data: capitalData,
+                        borderColor: '#3b82f6',
                     backgroundColor: function(context) {
                         const chart = context.chart;
                         const {ctx, chartArea} = chart;
@@ -1198,17 +1198,17 @@ if (isset($_GET['logout'])) {
                         gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
                         return gradient;
                     },
-                    fill: true,
+                        fill: true,
                     tension: 0.4,
                     borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 8,
                     dataType: 'capital'
-                },
-                {
-                    label: '支出',
-                    data: expensesData,
-                    borderColor: '#ef4444',
+                    },
+                    {
+                        label: 'Expenses',
+                        data: expensesData,
+                        borderColor: '#ef4444',
                     backgroundColor: function(context) {
                         const chart = context.chart;
                         const {ctx, chartArea} = chart;
@@ -1222,17 +1222,17 @@ if (isset($_GET['logout'])) {
                         gradient.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
                         return gradient;
                     },
-                    fill: true,
+                        fill: true,
                     tension: 0.4,
                     borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 8,
                     dataType: 'expenses'
-                },
-                {
-                    label: '利润',
-                    data: profitData,
-                    borderColor: '#10b981',
+                    },
+                    {
+                        label: 'Profit',
+                        data: profitData,
+                        borderColor: '#10b981',
                     backgroundColor: function(context) {
                         const chart = context.chart;
                         const {ctx, chartArea} = chart;
@@ -1246,7 +1246,7 @@ if (isset($_GET['logout'])) {
                         gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
                         return gradient;
                     },
-                    fill: true,
+                        fill: true,
                     tension: 0.4,
                     borderWidth: 2,
                     pointRadius: 0,
@@ -1293,7 +1293,7 @@ if (isset($_GET['logout'])) {
                 // 检查 Chart.js 是否已加载
                 if (typeof Chart === 'undefined') {
                     console.error('Chart.js 库未加载');
-                    showError('图表库未加载，请刷新页面');
+                    showError('Chart library not loaded, please refresh the page');
                     return;
                 }
                 
@@ -1392,7 +1392,7 @@ if (isset($_GET['logout'])) {
                                                 try {
                                                     const dateObj = new Date(date);
                                                     if (!isNaN(dateObj.getTime())) {
-                                                        return `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`;
+                                                        return `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
                                                     }
                                                 } catch (e) {
                                                     return date;
@@ -1419,10 +1419,10 @@ if (isset($_GET['logout'])) {
                                                         const profit = profitData[dataIndex] || 0;
                                                         return [
                                                             '',
-                                                            '--- 当日汇总 ---',
-                                                            `资本: RM ${formatCurrency(capital)}`,
-                                                            `支出: RM ${formatCurrency(expenses)}`,
-                                                            `利润: RM ${formatCurrency(profit)}`
+                                                            '--- Daily Summary ---',
+                                                            `Capital: RM ${formatCurrency(capital)}`,
+                                                            `Expenses: RM ${formatCurrency(expenses)}`,
+                                                            `Profit: RM ${formatCurrency(profit)}`
                                                         ];
                                                     }
                                                 } catch (e) {
@@ -1450,7 +1450,7 @@ if (isset($_GET['logout'])) {
                 });
             } catch (createError) {
                 console.error('创建图表失败:', createError);
-                showError('图表渲染失败');
+                showError('Chart rendering failed');
             }
         }
 
@@ -1497,8 +1497,8 @@ if (isset($_GET['logout'])) {
         // ==================== 切换 Company ====================
         async function switchCompany(companyId, companyCode) {
             try {
-                // 先更新 session
-                try {
+            // 先更新 session
+            try {
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
                     
@@ -1512,42 +1512,42 @@ if (isset($_GET['logout'])) {
                         throw new Error(`HTTP错误: ${response.status}`);
                     }
                     
-                    const result = await response.json();
-                    if (!result.success) {
+                const result = await response.json();
+                if (!result.success) {
                         throw new Error(result.error || '更新 session 失败');
-                    }
-                } catch (error) {
+                }
+            } catch (error) {
                     if (error.name === 'AbortError') {
                         console.error('更新 session 超时');
                     } else {
                         console.error('更新 session 失败:', error);
                     }
-                    showError('切换公司失败，请刷新页面重试');
+                    showError('Failed to switch company, please refresh the page and try again');
                     return;
+            }
+            
+            window.companyId = companyId;
+            
+            // 更新按钮状态
+            const buttons = document.querySelectorAll('.transaction-company-btn');
+            buttons.forEach(btn => {
+                if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
                 }
-                
-                window.companyId = companyId;
-                
-                // 更新按钮状态
-                const buttons = document.querySelectorAll('.transaction-company-btn');
-                buttons.forEach(btn => {
-                    if (parseInt(btn.dataset.companyId) === parseInt(companyId)) {
-                        btn.classList.add('active');
-                    } else {
-                        btn.classList.remove('active');
-                    }
-                });
-                
-                console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
+            });
+            
+            console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
                 
                 // 重置上次请求参数，允许重新加载
                 lastRequestParams = null;
-                
-                // 重新加载数据
-                await loadData();
+            
+            // 重新加载数据
+            await loadData();
             } catch (error) {
                 console.error('切换公司失败:', error);
-                showError('切换公司时出错');
+                showError('Error switching company');
             }
         }
 
@@ -1579,7 +1579,7 @@ if (isset($_GET['logout'])) {
                             
                             const allDatasets = [
                                 {
-                                    label: '资本',
+                                    label: 'Capital',
                                     data: chartMetadata.capitalData,
                                     borderColor: '#3b82f6',
                                     backgroundColor: function(context) {
@@ -1601,7 +1601,7 @@ if (isset($_GET['logout'])) {
                                     dataType: 'capital'
                                 },
                                 {
-                                    label: '支出',
+                                    label: 'Expenses',
                                     data: chartMetadata.expensesData,
                                     borderColor: '#ef4444',
                                     backgroundColor: function(context) {
@@ -1623,7 +1623,7 @@ if (isset($_GET['logout'])) {
                                     dataType: 'expenses'
                                 },
                                 {
-                                    label: '利润',
+                                    label: 'Profit',
                                     data: chartMetadata.profitData,
                                     borderColor: '#10b981',
                                     backgroundColor: function(context) {
@@ -1680,7 +1680,7 @@ if (isset($_GET['logout'])) {
                 loadData();
             }
         });
-        
+
         // 初始化 - 使用防抖避免多次调用
         let isInitializing = false;
         document.addEventListener('DOMContentLoaded', async function() {
@@ -1692,16 +1692,16 @@ if (isset($_GET['logout'])) {
                 window.addEventListener('error', function(event) {
                     console.error('全局错误:', event.error);
                     if (event.error && event.error.message) {
-                        showError('页面发生错误: ' + event.error.message);
+                        showError('Page error: ' + event.error.message);
                     } else {
-                        showError('页面发生错误，请刷新页面');
+                        showError('Page error, please refresh the page');
                     }
                     event.preventDefault(); // 阻止默认错误处理
                 });
                 
                 window.addEventListener('unhandledrejection', function(event) {
                     console.error('未处理的Promise拒绝:', event.reason);
-                    showError('请求失败，请刷新页面');
+                    showError('Request failed, please refresh the page');
                     event.preventDefault(); // 阻止默认错误处理
                 });
                 
@@ -1712,11 +1712,11 @@ if (isset($_GET['logout'])) {
                 if (dateRange.startDate && dateRange.endDate && window.companyId) {
                     await loadData();
                 } else {
-                    showError('缺少必要参数，请刷新页面');
+                    showError('Missing required parameters, please refresh the page');
                 }
             } catch (error) {
                 console.error('初始化失败:', error);
-                showError('页面初始化失败，请刷新页面');
+                showError('Page initialization failed, please refresh the page');
             } finally {
                 isInitializing = false;
             }
