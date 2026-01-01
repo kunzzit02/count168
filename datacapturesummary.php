@@ -1740,9 +1740,7 @@ function getCurrentProcessId() {
                         mapEntries.push(`${columnValue}:${value}`);
                         formulaInput.setAttribute('data-value-column-map', mapEntries.join(','));
 
-                        if (formulaInput) {
-                            formulaInput.focus();
-                        }
+                        formulaInput.focus();
                         return;
                     }
                 }
@@ -2524,7 +2522,6 @@ function getCurrentProcessId() {
         }
 
         // Update formula data grid with row data for current editing id product
-        // IMPORTANT: Only show data from the current editing row, not all rows with the same id_product
         function updateFormulaDataGrid() {
             const formulaDataGrid = document.getElementById('formulaDataGrid');
             if (!formulaDataGrid) return;
@@ -2539,36 +2536,6 @@ function getCurrentProcessId() {
             const idProduct = processInput.value.trim();
             if (!idProduct || idProduct === '') {
                 return;
-            }
-
-            // IMPORTANT: Get the target row index from currentSelectedRowForCalculator
-            // This ensures we only show data from the current editing row, not all rows with the same id_product
-            let targetRowIndex = null;
-            if (currentSelectedRowForCalculator) {
-                const dataRowIndex = currentSelectedRowForCalculator.getAttribute('data-row-index');
-                if (dataRowIndex !== null) {
-                    targetRowIndex = parseInt(dataRowIndex, 10);
-                    console.log('updateFormulaDataGrid - Found data-row-index from currentSelectedRowForCalculator:', targetRowIndex);
-                }
-            }
-            
-            // If not found, try to find summary table row by id_product
-            if (targetRowIndex === null) {
-                const summaryTableBody = document.getElementById('summaryTableBody');
-                if (summaryTableBody) {
-                    const rows = summaryTableBody.querySelectorAll('tr');
-                    for (let row of rows) {
-                        const rowProcessValue = getProcessValueFromRow(row);
-                        if (rowProcessValue === idProduct) {
-                            const dataRowIndex = row.getAttribute('data-row-index');
-                            if (dataRowIndex !== null) {
-                                targetRowIndex = parseInt(dataRowIndex, 10);
-                                console.log('updateFormulaDataGrid - Found data-row-index from summary table row:', targetRowIndex);
-                                break;
-                            }
-                        }
-                    }
-                }
             }
 
             // Get table data
@@ -2590,24 +2557,11 @@ function getCurrentProcessId() {
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
-                
-                // Check if id_product matches
-                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
-                    return;
-                }
-                
-                // IMPORTANT: If targetRowIndex is specified, only show data from that specific row
-                // This ensures that when there are multiple rows with the same id_product, only the current editing row's data is shown
-                if (targetRowIndex !== null && rowIndex !== targetRowIndex) {
-                    console.log('updateFormulaDataGrid - Skipping row with different rowIndex:', rowIndex, 'expected:', targetRowIndex);
-                    return; // Skip this row if row index doesn't match
-                }
-                
-                // Match found, process this row
-                // Get all data cells (skip row header and id_product column)
-                const cells = row.querySelectorAll('td');
-                
-                cells.forEach((cell, cellIndex) => {
+                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                    // Get all data cells (skip row header and id_product column)
+                    const cells = row.querySelectorAll('td');
+                    
+                    cells.forEach((cell, cellIndex) => {
                         const columnIndex = cell.getAttribute('data-column-index');
                         if (columnIndex && parseInt(columnIndex) > 1) {
                             // Column index > 1 means data columns (skip row header=0 and id_product=1)
@@ -4871,7 +4825,7 @@ function getCurrentProcessId() {
                 // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
                 // displayColumnIndex 就是 data-column-index 的值，直接使用
                 valueToInsert = `$${displayColumnIndex}`;
-                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex || 'null');
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
             } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
