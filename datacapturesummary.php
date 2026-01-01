@@ -2555,18 +2555,10 @@ function getCurrentProcessId() {
             if (!capturedTableBody) return;
 
             const rows = capturedTableBody.querySelectorAll('tr');
-            
-            // First, collect all matching rows with their data
-            const matchingRows = [];
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
-                    // Get row label for identification
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                    
-                    // Collect all data cells for this row
-                    const rowData = [];
+                    // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
                     
                     cells.forEach((cell, cellIndex) => {
@@ -2575,100 +2567,56 @@ function getCurrentProcessId() {
                             // Column index > 1 means data columns (skip row header=0 and id_product=1)
                             const cellValue = cell.textContent ? cell.textContent.trim() : '';
                             if (cellValue !== '') {
-                                rowData.push({
-                                    columnIndex: columnIndex,
-                                    cellValue: cellValue,
-                                    rowIndex: rowIndex,
-                                    cell: cell
+                                // Create a grid item for each column data
+                                const gridItem = document.createElement('div');
+                                gridItem.className = 'formula-data-grid-item';
+                                gridItem.textContent = `[${columnIndex}] ${cellValue}`;
+                                gridItem.setAttribute('data-row-index', rowIndex);
+                                gridItem.setAttribute('data-column-index', columnIndex);
+                                
+                                // Add click event to insert value into formula (same behavior as descriptionSelect2)
+                                gridItem.addEventListener('click', function() {
+                                    const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
+                                    const targetColumnIndex = this.getAttribute('data-column-index');
+                                    
+                                    // Re-get rows to ensure we have the latest data
+                                    const capturedTableBody = document.getElementById('capturedTableBody');
+                                    if (!capturedTableBody) {
+                                        console.warn('Captured data table body not found.');
+                                        return;
+                                    }
+                                    
+                                    const currentRows = capturedTableBody.querySelectorAll('tr');
+                                    const targetRow = currentRows[targetRowIndex];
+                                    if (!targetRow) {
+                                        console.warn('Row not found for index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Find the cell with matching data-column-index
+                                    const targetCells = targetRow.querySelectorAll('td');
+                                    let targetCell = null;
+                                    targetCells.forEach(cell => {
+                                        const colIdx = cell.getAttribute('data-column-index');
+                                        if (colIdx === targetColumnIndex) {
+                                            targetCell = cell;
+                                        }
+                                    });
+                                    
+                                    if (!targetCell) {
+                                        console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
+                                        return;
+                                    }
+                                    
+                                    // Reuse existing logic: behave exactly like clicking the cell
+                                    insertCellValueToFormula(targetCell);
                                 });
+                                
+                                formulaDataGrid.appendChild(gridItem);
                             }
                         }
                     });
-                    
-                    if (rowData.length > 0) {
-                        matchingRows.push({
-                            rowIndex: rowIndex,
-                            rowLabel: rowLabel,
-                            rowData: rowData
-                        });
-                    }
                 }
-            });
-            
-            // If no matching rows found, return
-            if (matchingRows.length === 0) {
-                return;
-            }
-            
-            // Create a row container for each matching row
-            matchingRows.forEach((rowInfo, rowInfoIndex) => {
-                // Create a row container
-                const rowContainer = document.createElement('div');
-                rowContainer.className = 'formula-data-grid-row';
-                
-                // If there are multiple rows, add a label to distinguish them
-                if (matchingRows.length > 1 && rowInfo.rowLabel) {
-                    const rowLabelDiv = document.createElement('div');
-                    rowLabelDiv.className = 'formula-data-grid-row-label';
-                    rowLabelDiv.textContent = `Row ${rowInfo.rowLabel}:`;
-                    rowContainer.appendChild(rowLabelDiv);
-                }
-                
-                // Create the grid container for this row's data
-                const gridContainer = document.createElement('div');
-                gridContainer.className = 'formula-data-grid-items';
-                
-                // Add grid items for this row
-                rowInfo.rowData.forEach((item) => {
-                    const gridItem = document.createElement('div');
-                    gridItem.className = 'formula-data-grid-item';
-                    gridItem.textContent = `[${item.columnIndex}] ${item.cellValue}`;
-                    gridItem.setAttribute('data-row-index', item.rowIndex);
-                    gridItem.setAttribute('data-column-index', item.columnIndex);
-                    
-                    // Add click event to insert value into formula (same behavior as descriptionSelect2)
-                    gridItem.addEventListener('click', function() {
-                        const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
-                        const targetColumnIndex = this.getAttribute('data-column-index');
-                        
-                        // Re-get rows to ensure we have the latest data
-                        const capturedTableBody = document.getElementById('capturedTableBody');
-                        if (!capturedTableBody) {
-                            console.warn('Captured data table body not found.');
-                            return;
-                        }
-                        
-                        const currentRows = capturedTableBody.querySelectorAll('tr');
-                        const targetRow = currentRows[targetRowIndex];
-                        if (!targetRow) {
-                            console.warn('Row not found for index:', targetRowIndex);
-                            return;
-                        }
-                        
-                        // Find the cell with matching data-column-index
-                        const targetCells = targetRow.querySelectorAll('td');
-                        let targetCell = null;
-                        targetCells.forEach(cell => {
-                            const colIdx = cell.getAttribute('data-column-index');
-                            if (colIdx === targetColumnIndex) {
-                                targetCell = cell;
-                            }
-                        });
-                        
-                        if (!targetCell) {
-                            console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
-                            return;
-                        }
-                        
-                        // Reuse existing logic: behave exactly like clicking the cell
-                        insertCellValueToFormula(targetCell);
-                    });
-                    
-                    gridContainer.appendChild(gridItem);
-                });
-                
-                rowContainer.appendChild(gridContainer);
-                formulaDataGrid.appendChild(rowContainer);
             });
         }
 
@@ -17217,34 +17165,13 @@ function formatPercentValue(value) {
         /* Formula Data Grid Styles */
         .formula-data-grid {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 0px;
-            padding-bottom: 4px;
-            padding-top: 2px;
-        }
-
-        .formula-data-grid-row {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .formula-data-grid-row-label {
-            font-size: clamp(9px, 0.73vw, 13px);
-            font-weight: 600;
-            color: #666;
-            margin-bottom: 2px;
-            padding-left: 2px;
-        }
-
-        .formula-data-grid-items {
-            display: flex;
             flex-wrap: nowrap;
             gap: 4px;
+            margin-top: 0px;
             overflow-x: auto;
             overflow-y: visible;
-            padding-bottom: 2px;
+            padding-bottom: 4px;
+            padding-top: 2px;
         }
 
         .formula-data-grid-item {
@@ -17278,22 +17205,22 @@ function formatPercentValue(value) {
             color: white;
         }
         
-        /* Scrollbar styling for formula data grid items */
-        .formula-data-grid-items::-webkit-scrollbar {
+        /* Scrollbar styling for formula data grid */
+        .formula-data-grid::-webkit-scrollbar {
             height: 6px;
         }
         
-        .formula-data-grid-items::-webkit-scrollbar-track {
+        .formula-data-grid::-webkit-scrollbar-track {
             background: rgba(0, 0, 0, 0.05);
             border-radius: 3px;
         }
         
-        .formula-data-grid-items::-webkit-scrollbar-thumb {
+        .formula-data-grid::-webkit-scrollbar-thumb {
             background: rgba(0, 0, 0, 0.2);
             border-radius: 3px;
         }
         
-        .formula-data-grid-items::-webkit-scrollbar-thumb:hover {
+        .formula-data-grid::-webkit-scrollbar-thumb:hover {
             background: rgba(0, 0, 0, 0.3);
         }
 
