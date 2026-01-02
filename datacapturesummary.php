@@ -5178,10 +5178,60 @@ function getCurrentProcessId() {
                     const formulaInput = document.getElementById('formula');
                     if (formulaInput) {
                         console.log('populateFormWithData - Setting formula value:', data.formula);
-                        formulaInput.value = data.formula || '';
+                        const formulaValue = data.formula || '';
+                        formulaInput.value = formulaValue;
+                        
+                        // Parse new format from formula: [id_product]$数字 or [id_product (row_label) ]$数字
+                        // Extract references and set data-clicked-cell-refs
+                        if (formulaValue) {
+                            const newFormatPattern = /\[([^\]]+)\]\$(\d+)/g;
+                            const refs = [];
+                            let match;
+                            
+                            // Reset regex lastIndex
+                            newFormatPattern.lastIndex = 0;
+                            
+                            // Collect all new format matches
+                            while ((match = newFormatPattern.exec(formulaValue)) !== null) {
+                                const idProductPart = match[1].trim(); // e.g., "M99M06 (B) " or "M99M06"
+                                const displayColumnIndex = parseInt(match[2]); // e.g., 4
+                                
+                                if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
+                                    // Parse id_product and row_label from idProductPart
+                                    let idProduct = idProductPart;
+                                    let rowLabel = null;
+                                    
+                                    // Check if it contains row_label format: "id_product (row_label)"
+                                    const rowLabelMatch = idProductPart.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+                                    if (rowLabelMatch) {
+                                        idProduct = rowLabelMatch[1].trim();
+                                        rowLabel = rowLabelMatch[2].trim();
+                                    }
+                                    
+                                    // Convert displayColumnIndex to dataColumnIndex (1-based)
+                                    // displayColumnIndex 2 -> dataColumnIndex 1, displayColumnIndex 3 -> dataColumnIndex 2, etc.
+                                    const dataColumnIndex = displayColumnIndex - 1;
+                                    
+                                    // Build reference: id_product:row_label:dataColumnIndex or id_product:dataColumnIndex
+                                    if (rowLabel) {
+                                        refs.push(`${idProduct}:${rowLabel}:${dataColumnIndex}`);
+                                    } else {
+                                        refs.push(`${idProduct}:${dataColumnIndex}`);
+                                    }
+                                }
+                            }
+                            
+                            // If we found references in new format, set data-clicked-cell-refs
+                            if (refs.length > 0) {
+                                const clickedCellRefs = refs.join(' ');
+                                formulaInput.setAttribute('data-clicked-cell-refs', clickedCellRefs);
+                                console.log('populateFormWithData - Parsed new format from formula and set data-clicked-cell-refs:', clickedCellRefs);
+                            }
+                        }
+                        
                         // 更新显示框
                         const processValue = document.getElementById('process')?.value;
-                        updateFormulaDisplay(data.formula || '', processValue);
+                        updateFormulaDisplay(formulaValue, processValue);
                         // Restore clicked columns if provided
                         if (data.clickedColumns) {
                             // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
