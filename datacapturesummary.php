@@ -1432,6 +1432,10 @@ function getCurrentProcessId() {
                 modalContent = document.getElementById('editFormulaModalContent');
             }
             
+            // Immediately disable animations to prevent flash (will re-enable for normal size later)
+            modal.classList.add('scaled');
+            modalContent.classList.add('scaled');
+            
             // Find and store the current row for calculator keypad
             if (productValue) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
@@ -1622,36 +1626,36 @@ function getCurrentProcessId() {
             const heightScale = availableHeight / estimatedHeight;
             const initialScale = Math.max(0.4, Math.min(widthScale, heightScale, 1));
             
-            // Render into modal first
-            modalContent.innerHTML = formHTML;
-            
             // Determine if we need to scale (scale < 1)
             const needsScaling = initialScale < 0.99; // Use 0.99 to account for floating point precision
             
+            // Pre-apply all styles BEFORE rendering to prevent flash
+            modalContent.style.maxWidth = `${baseWidth}px`;
+            modalContent.style.width = `${baseWidth}px`;
+            modalContent.style.transformOrigin = 'center top';
+            modalContent.style.transition = 'none'; // Disable all transitions initially
+            
             if (needsScaling) {
-                // Pre-apply scale and styles BEFORE showing to prevent flash
+                // Pre-apply scale BEFORE rendering
                 modalContent.style.transform = `scale(${initialScale})`;
-                modalContent.style.transformOrigin = 'center top';
-                modalContent.style.maxWidth = `${baseWidth}px`;
-                modalContent.style.width = `${baseWidth}px`;
-                modalContent.style.transition = 'none';
-                // Add scaled class to disable animations
-                modal.classList.add('scaled');
-                modalContent.classList.add('scaled');
-            } else {
-                // Normal size - keep animations enabled, don't pre-apply transform
-                modalContent.style.maxWidth = `${baseWidth}px`;
-                modalContent.style.width = `${baseWidth}px`;
             }
             
-            // Show modal
+            // Render into modal
+            modalContent.innerHTML = formHTML;
+            
+            // Show modal but keep it invisible initially (force reflow)
             modal.style.display = 'flex';
+            modal.style.opacity = '0';
+            modal.style.visibility = 'hidden';
             document.body.style.overflow = 'hidden';
             
-            // Fine-tune scale after DOM renders (only if scaling is needed)
-            if (needsScaling) {
+            // Force a reflow to ensure styles are applied
+            void modal.offsetHeight;
+            
+            // Wait for browser to apply styles, then show
+            requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
+                    if (needsScaling) {
                         // Recalculate with actual DOM dimensions
                         const formContainer = modalContent.querySelector('.edit-formula-form-container');
                         if (formContainer) {
@@ -1661,25 +1665,29 @@ function getCurrentProcessId() {
                             
                             // Only update if significantly different
                             if (Math.abs(finalScale - initialScale) > 0.01) {
-                                modalContent.style.transition = 'none';
                                 modalContent.style.transform = `scale(${finalScale})`;
                             }
                         }
-                        
-                        // Add resize listener to adjust scale when window is resized
-                        if (!editFormulaModalResizeHandler) {
-                            editFormulaModalResizeHandler = adjustEditFormulaModalScale;
-                            window.addEventListener('resize', editFormulaModalResizeHandler);
-                        }
-                    });
+                        // Keep scaled class for scaled version
+                    } else {
+                        // Normal size - remove scaled class to enable animations
+                        modal.classList.remove('scaled');
+                        modalContent.classList.remove('scaled');
+                        modalContent.style.transition = ''; // Restore default transition
+                    }
+                    
+                    // Now show the modal (fade in)
+                    modal.style.visibility = 'visible';
+                    modal.style.opacity = '1';
+                    modal.style.transition = 'opacity 0.2s ease';
+                    
+                    // Add resize listener to adjust scale when window is resized
+                    if (!editFormulaModalResizeHandler) {
+                        editFormulaModalResizeHandler = adjustEditFormulaModalScale;
+                        window.addEventListener('resize', editFormulaModalResizeHandler);
+                    }
                 });
-            } else {
-                // Normal size - add resize listener (but won't scale unless window gets smaller)
-                if (!editFormulaModalResizeHandler) {
-                    editFormulaModalResizeHandler = adjustEditFormulaModalScale;
-                    window.addEventListener('resize', editFormulaModalResizeHandler);
-                }
-            }
+            });
             
             // Clear clicked columns when opening new form (unless editing)
             setTimeout(() => {
