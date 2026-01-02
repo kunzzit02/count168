@@ -595,6 +595,17 @@ function autoDetectFieldMapping(array $sampleRows): array {
         ];
     }
     
+    // 记录数据行信息用于调试
+    error_log("使用的数据行索引: $dataRowIndex");
+    $col0Value = '';
+    foreach ($dataRow as $key => $value) {
+        if (preg_match('/^col_0$|^0$/', $key)) {
+            $col0Value = (string)$value;
+            break;
+        }
+    }
+    error_log("数据行col_0值: '$col0Value'");
+    
     // 遍历数据行的所有键
     foreach ($dataRow as $key => $value) {
         if ($key === '_raw') continue; // 跳过原始数据
@@ -608,20 +619,23 @@ function autoDetectFieldMapping(array $sampleRows): array {
             continue;
         }
         
-        // 账号检测：通常是第一列（col_0），或列名包含"账号"、"account"等关键词
+        // 账号检测：优先查找第一列不为空且不是表头关键词的值
         if (empty($mapping['account'])) {
-            // 优先检查列名
-            if (strpos($keyLower, 'account') !== false ||
+            // 如果第一列不为空，优先使用第一列
+            if (preg_match('/^col_0$|^0$/', $key)) {
+                if (!empty(trim($valueStr)) && !in_array($valueLower, $headerKeywords)) {
+                    $mapping['account'][] = $key;
+                    error_log("识别账号列为: $key (值: '$valueStr')");
+                }
+            }
+            // 否则检查列名
+            elseif (strpos($keyLower, 'account') !== false ||
                 strpos($keyLower, '账号') !== false ||
                 strpos($keyLower, 'user') !== false ||
                 strpos($keyLower, 'player') !== false ||
-                strpos($keyLower, 'member') !== false ||
-                preg_match('/^col_0$|^0$/', $key)) {
+                strpos($keyLower, 'member') !== false) {
                 $mapping['account'][] = $key;
-            }
-            // 如果列名不匹配，检查是否是第一列且值不是数字
-            elseif (preg_match('/^col_0$|^0$/', $key) && !is_numeric($valueStr) && strlen($valueStr) > 2) {
-                $mapping['account'][] = $key;
+                error_log("识别账号列为: $key (通过列名, 值: '$valueStr')");
             }
         }
         
@@ -661,9 +675,38 @@ function autoDetectFieldMapping(array $sampleRows): array {
         }
     }
     
-    // 如果自动检测失败，使用默认的列索引
+    // 如果自动检测失败，尝试查找所有行中第一列不为空的行
     if (empty($mapping['account'])) {
-        $mapping['account'] = ['col_0', '0', 'account', 'Account', '账号'];
+        // 遍历所有样本行，查找第一列不为空的行
+        foreach ($sampleRows as $row) {
+            if (!is_array($row) || isset($row['_raw'])) {
+                continue;
+            }
+            foreach ($row as $key => $value) {
+                if ($key === '_raw') continue;
+                if (preg_match('/^col_0$|^0$/', $key)) {
+                    $valueStr = trim((string)$value);
+                    if (!empty($valueStr)) {
+                        $valueLower = strtolower($valueStr);
+                        // 排除表头和汇总行
+                        if (stripos($valueLower, 'total') === false && 
+                            stripos($valueLower, 'subtotal') === false &&
+                            stripos($valueLower, 'sum') === false &&
+                            !in_array($valueLower, $headerKeywords)) {
+                            $mapping['account'] = ['col_0', '0', 'account', 'Account', '账号'];
+                            error_log("通过遍历所有行找到账号列: col_0 (值: '$valueStr')");
+                            break 2;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 如果还是找不到，使用默认映射
+        if (empty($mapping['account'])) {
+            error_log("警告: 无法自动识别账号列，使用默认映射 col_0");
+            $mapping['account'] = ['col_0', '0', 'account', 'Account', '账号'];
+        }
     }
     if (empty($mapping['amount'])) {
         // 尝试找到包含数字的列（排除第一列）

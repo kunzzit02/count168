@@ -308,10 +308,28 @@ try {
                 
                 if (empty($userMapping)) {
                     // 智能自动匹配：使用前几行数据来识别字段（会跳过表头和汇总行）
-                    $sampleRows = array_slice($webData, 0, min(10, count($webData))); // 使用前10行作为样本
+                    $sampleRows = array_slice($webData, 0, min(20, count($webData))); // 使用前20行作为样本，确保能跳过表头行
+                    
+                    // 记录样本行用于调试
+                    error_log("样本行数: " . count($sampleRows));
+                    if (!empty($sampleRows)) {
+                        $firstFewRows = array_slice($sampleRows, 0, min(3, count($sampleRows)));
+                        foreach ($firstFewRows as $idx => $sampleRow) {
+                            $col0 = '';
+                            foreach ($sampleRow as $key => $value) {
+                                if (preg_match('/^col_0$|^0$/', $key)) {
+                                    $col0 = (string)$value;
+                                    break;
+                                }
+                            }
+                            error_log("样本行 #$idx - col_0值: '" . $col0 . "', 所有列: " . implode(', ', array_keys($sampleRow)));
+                        }
+                    }
+                    
                     // 确保autoDetectFieldMapping函数可用（在auto_login_web_scraper.php中定义）
                     if (function_exists('autoDetectFieldMapping')) {
                         $autoMapping = autoDetectFieldMapping($sampleRows);
+                        error_log("自动映射结果: " . json_encode($autoMapping, JSON_UNESCAPED_UNICODE));
                         $mapping = $autoMapping;
                     } else {
                         // 如果函数不存在，使用默认映射
