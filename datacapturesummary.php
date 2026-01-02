@@ -16758,13 +16758,13 @@ function formatPercentValue(value) {
             align-items: flex-start;
             width: 100%;
             box-sizing: border-box;
+            position: relative; /* For formula rows absolute positioning */
         }
 
         .edit-formula-form-container .form-left-column {
-            flex: 2;
+            flex: 2 1 0; /* Ensure same flex basis as middle column */
             max-width: 500px;
             min-width: 0;
-            flex-shrink: 1;
             box-sizing: border-box;
         }
         
@@ -16819,13 +16819,19 @@ function formatPercentValue(value) {
         }
         
         /* Make Formula input span across left and middle columns */
+        .edit-formula-form-container .form-left-column {
+            position: relative; /* Ensure formula rows can be positioned relative to this */
+        }
+        
         .edit-formula-form-container .form-left-column .form-row.formula-row-full-width {
             position: relative;
-            width: calc(200% + 30px); /* left column (100%) + gap (30px) + middle column (100%) */
+            /* Calculate width: left column (100%) + gap + middle column (same as left column since both flex: 2) */
+            width: calc(200% + 30px);
             max-width: calc(200% + 30px);
             z-index: 1;
             overflow: visible;
             box-sizing: border-box;
+            margin-right: 0;
         }
         
         .edit-formula-form-container .form-left-column .form-row.formula-row-full-width .form-group {
@@ -16846,11 +16852,24 @@ function formatPercentValue(value) {
             }
         }
         
+        @media (max-width: 1200px) {
+            .edit-formula-form-container .form-left-column .form-row.formula-row-full-width {
+                width: calc(200% + 20px);
+                max-width: calc(200% + 20px);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .edit-formula-form-container .form-left-column .form-row.formula-row-full-width {
+                width: calc(200% + 15px);
+                max-width: calc(200% + 15px);
+            }
+        }
+        
         .edit-formula-form-container .form-middle-column {
-            flex: 2;
+            flex: 2 1 0; /* Ensure same flex basis as left column for proper alignment */
             max-width: 500px;
             min-width: 0;
-            flex-shrink: 1;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
