@@ -3,7 +3,21 @@
  * 执行自动登录并下载报告API
  * 这是一个占位符API，实际执行需要根据具体网站实现
  */
+// 开启错误报告（用于调试）
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // 不显示错误，而是记录到日志
+ini_set('log_errors', 1);
+
 header('Content-Type: application/json');
+
+// 捕获所有错误和警告
+set_error_handler(function($severity, $message, $file, $line) {
+    error_log("PHP Error [$severity]: $message in $file:$line");
+    if ($severity & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR)) {
+        throw new ErrorException($message, 0, $severity, $file, $line);
+    }
+});
+
 require_once 'session_check.php';
 require_once 'config.php';
 require_once 'auto_login_encrypt.php';
@@ -90,15 +104,21 @@ try {
     
     // 检查是否使用网页抓取模式（从网页直接提取数据，不下载文件）
     $useWebScraping = isset($input['use_web_scraping']) ? (bool)$input['use_web_scraping'] : true; // 默认使用网页抓取
-    $reportPageUrl = isset($input['report_page_url']) ? trim($input['report_page_url']) : ($credential['website_url'] ?? '');
+    $reportPageUrl = isset($input['report_page_url']) ? trim($input['report_page_url']) : ($credential['report_page_url'] ?? $credential['website_url'] ?? '');
     
     $webData = null;
     $downloadedReportPath = null;
     $tempDir = null;
+    $loginResult = null;
     
     if ($useWebScraping) {
         // 方式1: 从网页直接提取数据
         try {
+            // 如果没有指定报告页面URL，使用登录后的页面（可能需要先导航到报告页面）
+            if (empty($reportPageUrl)) {
+                $reportPageUrl = $credential['report_page_url'] ?? $credential['website_url'];
+            }
+            
             // 执行登录
             $loginResult = executeLoginOnly($credential, $password, $two_fa_code);
             
@@ -181,6 +201,12 @@ try {
         ]
     ];
     
+    // 如果没有启用自动导入，也要返回提取的数据信息
+    if ($useWebScraping && !empty($webData) && empty($credential['auto_import_enabled'])) {
+        $result['data_extracted'] = count($webData);
+        $result['note'] = '已从网页提取 ' . count($webData) . ' 行数据，但未启用自动导入';
+    }
+    
     $importResult = null;
     
     // 如果启用自动导入，自动导入到data capture
@@ -196,6 +222,11 @@ try {
             
             if (empty($importConfig['process_id'])) {
                 throw new Exception('自动导入已启用但未配置流程ID');
+            }
+            
+            // 确保有数据可以导入
+            if ($useWebScraping && empty($webData)) {
+                throw new Exception('网页抓取未提取到任何数据');
             }
             
             // 导入报告
@@ -246,34 +277,50 @@ try {
                 
                 // 直接调用保存函数
                 $importResult = saveToDataCaptureDirectly($pdo, $company_id, $submitData);
+                
+                // 清理临时目录（如果使用网页抓取模式）
+                if (isset($loginResult['temp_dir']) && $loginResult['temp_dir'] && is_dir($loginResult['temp_dir'])) {
+                    $files = glob($loginResult['temp_dir'] . '/*');
+                    if ($files) {
+                        foreach ($files as $file) {
+                            if (is_file($file)) {
+                                @unlink($file);
+                            }
+                        }
+                    }
+                    @rmdir($loginResult['temp_dir']);
+                }
             } elseif ($downloadedReportPath && file_exists($downloadedReportPath)) {
                 // 方式2: 从文件导入（原有方式）
                 $importResult = importReportToDataCapture($pdo, $company_id, $id, $downloadedReportPath, $importConfig);
-            
-            // 清理临时文件和目录
-            if ($downloadedReportPath && file_exists($downloadedReportPath)) {
-                @unlink($downloadedReportPath);
-            }
-            if ($tempDir && is_dir($tempDir)) {
-                @array_map('unlink', glob($tempDir . '/*'));
-                @rmdir($tempDir);
+                
+                // 清理临时文件和目录
+                if ($downloadedReportPath && file_exists($downloadedReportPath)) {
+                    @unlink($downloadedReportPath);
+                }
+                if ($tempDir && is_dir($tempDir)) {
+                    @array_map('unlink', glob($tempDir . '/*'));
+                    @rmdir($tempDir);
+                }
             }
             
             // 更新结果信息
-            if ($importResult['success']) {
-                $result['import'] = [
-                    'success' => true,
-                    'message' => $importResult['message'],
-                    'capture_id' => $importResult['capture_id'] ?? null,
-                    'rows_imported' => $importResult['rows_imported'] ?? 0
-                ];
-                $result['message'] = '执行完成并已自动导入到data capture';
-            } else {
-                $result['import'] = [
-                    'success' => false,
-                    'error' => $importResult['error'] ?? '导入失败'
-                ];
-                $result['message'] = '执行完成但导入失败: ' . ($importResult['error'] ?? '未知错误');
+            if (!empty($importResult)) {
+                if ($importResult['success']) {
+                    $result['import'] = [
+                        'success' => true,
+                        'message' => $importResult['message'],
+                        'capture_id' => $importResult['capture_id'] ?? null,
+                        'rows_imported' => $importResult['rows_imported'] ?? 0
+                    ];
+                    $result['message'] = '执行完成并已自动导入到data capture';
+                } else {
+                    $result['import'] = [
+                        'success' => false,
+                        'error' => $importResult['error'] ?? '导入失败'
+                    ];
+                    $result['message'] = '执行完成但导入失败: ' . ($importResult['error'] ?? '未知错误');
+                }
             }
             
         } catch (Exception $importError) {
@@ -297,7 +344,11 @@ try {
     echo json_encode($result, JSON_UNESCAPED_UNICODE);
     
 } catch (Exception $e) {
-    http_response_code(400);
+    http_response_code(500);
+    
+    // 记录详细错误信息
+    error_log('auto_login_execute_api.php Error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
     
     // 如果有ID，更新错误结果
     if (isset($id) && $id > 0) {
@@ -307,15 +358,34 @@ try {
                 SET last_result = ?
                 WHERE id = ?
             ");
-            $stmt->execute([json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE), $id]);
+            $errorResult = json_encode([
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ], JSON_UNESCAPED_UNICODE);
+            $stmt->execute([$errorResult, $id]);
         } catch (Exception $updateError) {
-            // 忽略更新错误
+            error_log('Failed to update error result: ' . $updateError->getMessage());
         }
     }
     
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine()
+    ], JSON_UNESCAPED_UNICODE);
+} catch (Error $e) {
+    // 捕获PHP致命错误
+    http_response_code(500);
+    error_log('auto_login_execute_api.php Fatal Error: ' . $e->getMessage());
+    error_log('Stack trace: ' . $e->getTraceAsString());
+    
+    echo json_encode([
+        'success' => false,
+        'error' => '服务器内部错误: ' . $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine()
     ], JSON_UNESCAPED_UNICODE);
 }
 

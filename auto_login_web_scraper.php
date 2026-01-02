@@ -307,6 +307,10 @@ function getReportFromWebPage(string $reportPageUrl, string $cookieFile, array $
     // 提取报告数据
     $reportData = extractReportFromWebPage($html, $reportPageUrl, $extractionConfig);
     
+    if (empty($reportData)) {
+        throw new Exception('从网页中未找到表格数据，请检查报告页面URL或页面结构');
+    }
+    
     return $reportData;
 }
 
