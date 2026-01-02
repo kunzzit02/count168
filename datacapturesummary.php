@@ -1622,44 +1622,64 @@ function getCurrentProcessId() {
             const heightScale = availableHeight / estimatedHeight;
             const initialScale = Math.max(0.4, Math.min(widthScale, heightScale, 1));
             
-            // Pre-apply scale and styles BEFORE rendering content
-            modalContent.style.transform = `scale(${initialScale})`;
-            modalContent.style.transformOrigin = 'center top';
-            modalContent.style.maxWidth = `${baseWidth}px`;
-            modalContent.style.width = `${baseWidth}px`;
-            modalContent.style.transition = 'none';
-            
-            // Render into modal
+            // Render into modal first
             modalContent.innerHTML = formHTML;
             
-            // Show modal immediately with pre-calculated scale
+            // Determine if we need to scale (scale < 1)
+            const needsScaling = initialScale < 0.99; // Use 0.99 to account for floating point precision
+            
+            if (needsScaling) {
+                // Pre-apply scale and styles BEFORE showing to prevent flash
+                modalContent.style.transform = `scale(${initialScale})`;
+                modalContent.style.transformOrigin = 'center top';
+                modalContent.style.maxWidth = `${baseWidth}px`;
+                modalContent.style.width = `${baseWidth}px`;
+                modalContent.style.transition = 'none';
+                // Add scaled class to disable animations
+                modal.classList.add('scaled');
+                modalContent.classList.add('scaled');
+            } else {
+                // Normal size - keep animations enabled, don't pre-apply transform
+                modalContent.style.maxWidth = `${baseWidth}px`;
+                modalContent.style.width = `${baseWidth}px`;
+            }
+            
+            // Show modal
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
-            // Fine-tune scale after DOM renders (silently, no transition)
-            requestAnimationFrame(() => {
+            // Fine-tune scale after DOM renders (only if scaling is needed)
+            if (needsScaling) {
                 requestAnimationFrame(() => {
-                    // Recalculate with actual DOM dimensions
-                    const formContainer = modalContent.querySelector('.edit-formula-form-container');
-                    if (formContainer) {
-                        const actualHeight = formContainer.offsetHeight || formContainer.scrollHeight || estimatedHeight;
-                        const actualHeightScale = availableHeight / actualHeight;
-                        const finalScale = Math.max(0.4, Math.min(widthScale, actualHeightScale, 1));
-                        
-                        // Only update if significantly different
-                        if (Math.abs(finalScale - initialScale) > 0.01) {
-                            modalContent.style.transition = 'none';
-                            modalContent.style.transform = `scale(${finalScale})`;
+                    requestAnimationFrame(() => {
+                        // Recalculate with actual DOM dimensions
+                        const formContainer = modalContent.querySelector('.edit-formula-form-container');
+                        if (formContainer) {
+                            const actualHeight = formContainer.offsetHeight || formContainer.scrollHeight || estimatedHeight;
+                            const actualHeightScale = availableHeight / actualHeight;
+                            const finalScale = Math.max(0.4, Math.min(widthScale, actualHeightScale, 1));
+                            
+                            // Only update if significantly different
+                            if (Math.abs(finalScale - initialScale) > 0.01) {
+                                modalContent.style.transition = 'none';
+                                modalContent.style.transform = `scale(${finalScale})`;
+                            }
                         }
-                    }
-                    
-                    // Add resize listener to adjust scale when window is resized
-                    if (!editFormulaModalResizeHandler) {
-                        editFormulaModalResizeHandler = adjustEditFormulaModalScale;
-                        window.addEventListener('resize', editFormulaModalResizeHandler);
-                    }
+                        
+                        // Add resize listener to adjust scale when window is resized
+                        if (!editFormulaModalResizeHandler) {
+                            editFormulaModalResizeHandler = adjustEditFormulaModalScale;
+                            window.addEventListener('resize', editFormulaModalResizeHandler);
+                        }
+                    });
                 });
-            });
+            } else {
+                // Normal size - add resize listener (but won't scale unless window gets smaller)
+                if (!editFormulaModalResizeHandler) {
+                    editFormulaModalResizeHandler = adjustEditFormulaModalScale;
+                    window.addEventListener('resize', editFormulaModalResizeHandler);
+                }
+            }
             
             // Clear clicked columns when opening new form (unless editing)
             setTimeout(() => {
@@ -5362,8 +5382,9 @@ function getCurrentProcessId() {
 
         // Adjust Edit Formula Modal scale based on viewport size
         function adjustEditFormulaModalScale() {
+            const modal = document.getElementById('editFormulaModal');
             const modalContent = document.getElementById('editFormulaModalContent');
-            if (!modalContent) return;
+            if (!modalContent || !modal) return;
             
             const formContainer = modalContent.querySelector('.edit-formula-form-container');
             if (!formContainer) return;
@@ -5394,10 +5415,23 @@ function getCurrentProcessId() {
             // Minimum scale to prevent content from being too small
             scale = Math.max(0.4, scale);
             
-            // Always apply scale transform (no transition to prevent flash)
-            modalContent.style.transform = `scale(${scale})`;
+            const needsScaling = scale < 0.99;
+            
+            // Apply scale transform
+            if (needsScaling) {
+                modalContent.style.transform = `scale(${scale})`;
+                modalContent.style.transition = 'none'; // Disable transition when scaling
+                modal.classList.add('scaled');
+                modalContent.classList.add('scaled');
+            } else {
+                // Normal size - remove transform and restore animations
+                modalContent.style.transform = '';
+                modalContent.style.transition = '';
+                modal.classList.remove('scaled');
+                modalContent.classList.remove('scaled');
+            }
+            
             modalContent.style.transformOrigin = 'center top';
-            modalContent.style.transition = 'none'; // Disable transition to prevent flash
             
             // Ensure modal content doesn't overflow
             modalContent.style.maxWidth = `${baseWidth}px`;
@@ -5416,6 +5450,7 @@ function getCurrentProcessId() {
                 modal.style.visibility = '';
                 modal.style.opacity = '';
                 modal.style.transition = '';
+                modal.classList.remove('scaled');
                 document.body.style.overflow = '';
             }
             if (modalContent) {
@@ -5426,6 +5461,7 @@ function getCurrentProcessId() {
                 modalContent.style.transition = '';
                 modalContent.style.maxWidth = '';
                 modalContent.style.width = '';
+                modalContent.classList.remove('scaled');
             }
             // Remove resize listener
             if (editFormulaModalResizeHandler) {
@@ -16424,14 +16460,21 @@ function formatPercentValue(value) {
             justify-content: center; /* keep horizontal centering within content area */
             /* Allow clicks to pass through background to reach table cells */
             pointer-events: none;
-            /* Disable fadeIn animation to prevent flash */
-            animation: none !important;
+            /* Keep original fadeIn animation for normal size */
         }
         
         /* Make modal content clickable while allowing background clicks to pass through */
         #editFormulaModal .summary-confirm-modal-content {
             pointer-events: auto;
-            /* Disable slideDown animation to prevent flash */
+            /* Keep original slideDown animation for normal size */
+        }
+        
+        /* Only disable animations when scaled (scale < 1) */
+        #editFormulaModal.summary-modal.scaled {
+            animation: none !important;
+        }
+        
+        #editFormulaModal .summary-confirm-modal-content.scaled {
             animation: none !important;
             transition: none !important;
         }
@@ -16499,8 +16542,8 @@ function formatPercentValue(value) {
             max-width: 95%;
             /* Enable scaling for smaller screens */
             transform-origin: center top;
-            /* No transition to prevent flash - transition is controlled by JavaScript */
-            transition: none;
+            /* Keep transition for normal size animations */
+            transition: transform 0.2s ease;
         }
 
         @keyframes slideDown {
