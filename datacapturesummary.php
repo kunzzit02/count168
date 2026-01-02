@@ -1611,42 +1611,29 @@ function getCurrentProcessId() {
             // Render into modal
             modalContent.innerHTML = formHTML;
             
-            // Calculate initial scale before showing modal to prevent flash
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            const sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.1302));
-            const topMargin = Math.max(103, Math.min(115, viewportWidth * 0.06));
-            const topPadding = Math.max(20, Math.min(80, viewportHeight * 0.08));
-            const availableWidth = viewportWidth - sidebarWidth - 40;
-            const availableHeight = viewportHeight - topMargin - topPadding - 40;
-            const baseWidth = 1400;
-            const baseHeight = 800; // Estimated initial height
-            const widthScale = availableWidth / baseWidth;
-            const heightScale = availableHeight / baseHeight;
-            const initialScale = Math.max(0.4, Math.min(widthScale, heightScale, 1));
-            
-            // Apply initial scale immediately to prevent flash
-            modalContent.style.transform = `scale(${initialScale})`;
-            modalContent.style.transformOrigin = 'center top';
-            modalContent.style.maxWidth = `${baseWidth}px`;
-            modalContent.style.width = `${baseWidth}px`;
-            
-            // Now show the modal
+            // Set modal to be invisible but rendered (for accurate measurement)
             modal.style.display = 'flex';
+            modal.style.visibility = 'hidden';
+            modal.style.opacity = '0';
             document.body.style.overflow = 'hidden';
             
-            // Fine-tune scale after DOM renders (for accurate height calculation)
-            // Use requestAnimationFrame to ensure smooth transition
+            // Wait for DOM to render, then calculate accurate scale
             requestAnimationFrame(() => {
-                setTimeout(() => {
+                requestAnimationFrame(() => {
+                    // Now calculate accurate scale with real DOM dimensions
                     adjustEditFormulaModalScale();
+                    
+                    // Show modal with correct scale (fade in)
+                    modal.style.visibility = 'visible';
+                    modal.style.opacity = '1';
+                    modal.style.transition = 'opacity 0.1s ease';
                     
                     // Add resize listener to adjust scale when window is resized
                     if (!editFormulaModalResizeHandler) {
                         editFormulaModalResizeHandler = adjustEditFormulaModalScale;
                         window.addEventListener('resize', editFormulaModalResizeHandler);
                     }
-                }, 10);
+                });
             });
             
             // Clear clicked columns when opening new form (unless editing)
@@ -1666,9 +1653,13 @@ function getCurrentProcessId() {
                     // Even if no prePopulatedData, set default currency from capturedProcessData
                     populateFormWithData({});
                 }
-                // Recalculate scale after data is loaded
+                // Recalculate scale after data is loaded (silently, no transition)
                 setTimeout(() => {
-                    adjustEditFormulaModalScale();
+                    const modalContent = document.getElementById('editFormulaModalContent');
+                    if (modalContent) {
+                        modalContent.style.transition = 'none';
+                        adjustEditFormulaModalScale();
+                    }
                 }, 50);
             });
             
@@ -1678,9 +1669,13 @@ function getCurrentProcessId() {
             // Update formula data grid for current editing id product
             setTimeout(() => {
                 updateFormulaDataGrid();
-                // Recalculate scale after grid is updated
+                // Recalculate scale after grid is updated (silently, no transition)
                 setTimeout(() => {
-                    adjustEditFormulaModalScale();
+                    const modalContent = document.getElementById('editFormulaModalContent');
+                    if (modalContent) {
+                        modalContent.style.transition = 'none';
+                        adjustEditFormulaModalScale();
+                    }
                 }, 50);
             }, 100);
             
@@ -5361,7 +5356,8 @@ function getCurrentProcessId() {
             
             // Base dimensions for 1920x1080
             const baseWidth = 1400;
-            const baseHeight = formContainer.offsetHeight || 800; // Fallback height
+            // Get actual height from rendered DOM
+            const baseHeight = formContainer.offsetHeight || formContainer.scrollHeight || 800;
             
             // Calculate scale factors for width and height
             const widthScale = availableWidth / baseWidth;
@@ -5373,13 +5369,10 @@ function getCurrentProcessId() {
             // Minimum scale to prevent content from being too small
             scale = Math.max(0.4, scale);
             
-            // Apply scale transform with smooth transition (only if scale changed significantly)
-            const currentScale = parseFloat(modalContent.style.transform.match(/scale\(([\d.]+)\)/)?.[1] || '1');
-            if (Math.abs(currentScale - scale) > 0.01) {
-                // Only update if change is significant to avoid unnecessary repaints
-                modalContent.style.transform = `scale(${scale})`;
-            }
+            // Always apply scale transform (no transition to prevent flash)
+            modalContent.style.transform = `scale(${scale})`;
             modalContent.style.transformOrigin = 'center top';
+            modalContent.style.transition = 'none'; // Disable transition to prevent flash
             
             // Ensure modal content doesn't overflow
             modalContent.style.maxWidth = `${baseWidth}px`;
@@ -5395,13 +5388,19 @@ function getCurrentProcessId() {
             const modalContent = document.getElementById('editFormulaModalContent');
             if (modal) {
                 modal.style.display = 'none';
+                modal.style.visibility = '';
+                modal.style.opacity = '';
+                modal.style.transition = '';
                 document.body.style.overflow = '';
             }
             if (modalContent) {
                 modalContent.innerHTML = '';
-                // Reset transform
+                // Reset transform and styles
                 modalContent.style.transform = '';
                 modalContent.style.height = '';
+                modalContent.style.transition = '';
+                modalContent.style.maxWidth = '';
+                modalContent.style.width = '';
             }
             // Remove resize listener
             if (editFormulaModalResizeHandler) {
