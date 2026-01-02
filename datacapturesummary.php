@@ -1722,10 +1722,58 @@ function getCurrentProcessId() {
                     // 使用当前选中行的列值
                     const columnValue = getColumnValueFromSelectedRow(parseInt(value));
                     if (columnValue !== null) {
+                        // 获取当前选中行的产品ID信息
+                        let idProduct = '';
+                        let rowLabel = '';
+                        let targetRow = currentSelectedRowForCalculator;
+                        
+                        if (!targetRow) {
+                            const processInput = document.getElementById('process');
+                            if (processInput && processInput.value) {
+                                const processValue = processInput.value.trim();
+                                if (processValue) {
+                                    const summaryTableBody = document.getElementById('summaryTableBody');
+                                    if (summaryTableBody) {
+                                        const rows = summaryTableBody.querySelectorAll('tr');
+                                        for (let row of rows) {
+                                            const rowProcessValue = getProcessValueFromRow(row);
+                                            if (rowProcessValue === processValue) {
+                                                targetRow = row;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (targetRow) {
+                            const idProductCell = targetRow.querySelector('td:first-child');
+                            if (idProductCell) {
+                                const productValues = getProductValuesFromCell(idProductCell);
+                                idProduct = productValues.main || productValues.sub || '';
+                                // 尝试从产品ID文本中提取行标签（如果有括号）
+                                const match = (productValues.main || productValues.sub || '').match(/\(([^)]+)\)/);
+                                if (match) {
+                                    rowLabel = match[1].trim();
+                                }
+                            }
+                        }
+                        
+                        // 构建显示格式：[id_product]$数字 或 [id_product (row_label) ]$数字
+                        let displayValue = `$${value}`;
+                        if (idProduct && idProduct.trim() !== '') {
+                            if (rowLabel && rowLabel.trim() !== '') {
+                                displayValue = `[${idProduct} (${rowLabel}) ]$${value}`;
+                            } else {
+                                displayValue = `[${idProduct}]$${value}`;
+                            }
+                        }
+                        
                         const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                        formulaInput.value = textBefore + columnValue + textAfter;
+                        formulaInput.value = textBefore + displayValue + textAfter;
 
-                        const newCursorPos = cursorPos + columnValue.length;
+                        const newCursorPos = cursorPos + displayValue.length;
                         formulaInput.setSelectionRange(newCursorPos, newCursorPos);
 
                         // 记录被使用的列号
@@ -1734,7 +1782,7 @@ function getCurrentProcessId() {
                         columnsArray.push(parseInt(value));
                         formulaInput.setAttribute('data-clicked-columns', columnsArray.join(','));
 
-                        // 记录「值 -> 列号」的映射
+                        // 记录「值 -> 列号」的映射（保持原有格式用于内部处理）
                         let valueColumnMap = formulaInput.getAttribute('data-value-column-map') || '';
                         const mapEntries = valueColumnMap ? valueColumnMap.split(',') : [];
                         mapEntries.push(`${columnValue}:${value}`);
@@ -4850,17 +4898,53 @@ function getCurrentProcessId() {
             
             // Insert column reference ($columnNumber) instead of value at cursor position
             // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
+            // 格式：[id_product]$数字 或 [id_product (row_label) ]$数字
             let valueToInsert;
             if (displayColumnIndex !== null && displayColumnIndex > 0) {
-                // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
+                // Build product ID prefix
+                let productPrefix = '';
+                if (idProduct) {
+                    // Get row label if available
+                    let rowLabel = cell.getAttribute('data-row-label');
+                    if (!rowLabel && row) {
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        if (rowHeaderCell) {
+                            rowLabel = rowHeaderCell.textContent.trim();
+                        }
+                    }
+                    
+                    // Format: [id_product (row_label) ] or [id_product]
+                    if (rowLabel && rowLabel.trim() !== '') {
+                        productPrefix = `[${idProduct} (${rowLabel}) ]`;
+                    } else {
+                        productPrefix = `[${idProduct}]`;
+                    }
+                }
+                
+                // Insert column reference format: [id_product]$columnNumber (e.g., [M99M06 (B) ]$4, [id_product]$2)
                 // displayColumnIndex 就是 data-column-index 的值，直接使用
-                valueToInsert = `$${displayColumnIndex}`;
-                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
+                valueToInsert = `${productPrefix}$${displayColumnIndex}`;
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex, 'idProduct:', idProduct);
             } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
-                valueToInsert = `$${dataColumnIndex + 1}`;
-                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex);
+                let productPrefix = '';
+                if (idProduct) {
+                    let rowLabel = cell.getAttribute('data-row-label');
+                    if (!rowLabel && row) {
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        if (rowHeaderCell) {
+                            rowLabel = rowHeaderCell.textContent.trim();
+                        }
+                    }
+                    if (rowLabel && rowLabel.trim() !== '') {
+                        productPrefix = `[${idProduct} (${rowLabel}) ]`;
+                    } else {
+                        productPrefix = `[${idProduct}]`;
+                    }
+                }
+                valueToInsert = `${productPrefix}$${dataColumnIndex + 1}`;
+                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct);
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
                 valueToInsert = numValue;
