@@ -4,30 +4,40 @@
  * 用于诊断500错误
  */
 
+// 首先设置输出缓冲（必须在任何输出之前）
+if (!ob_get_level()) {
+    ob_start();
+}
+
 // 开启所有错误报告，但不显示（避免HTML输出）
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// 输出缓冲（必须在任何输出之前）
-ob_start();
+// 初始化调试数组（在错误处理器中使用）
+$debug = [];
 
 // 设置错误处理器，捕获所有错误
 set_error_handler(function($severity, $message, $file, $line) {
+    global $debug;
     // 记录错误
     error_log("PHP Error [$severity]: $message in $file:$line");
     
+    // 添加到调试信息
+    $debug[] = "错误: [$severity] $message in " . basename($file) . ":$line";
+    
     // 对于致命错误，立即返回JSON
     if ($severity & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR | E_USER_ERROR)) {
-        ob_clean();
+        @ob_clean();
         http_response_code(500);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
             'success' => false,
-            'error' => 'PHP Error: ' . $message,
+            'error' => 'PHP Fatal Error: ' . $message,
             'file' => basename($file),
             'line' => $line,
-            'severity' => $severity
+            'severity' => $severity,
+            'debug' => $debug
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -36,7 +46,8 @@ set_error_handler(function($severity, $message, $file, $line) {
 
 // 设置异常处理器
 set_exception_handler(function($exception) {
-    ob_clean();
+    global $debug;
+    @ob_clean();
     http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
@@ -44,21 +55,15 @@ set_exception_handler(function($exception) {
         'error' => 'Uncaught Exception: ' . $exception->getMessage(),
         'file' => basename($exception->getFile()),
         'line' => $exception->getLine(),
-        'trace' => $exception->getTraceAsString()
+        'trace' => explode("\n", $exception->getTraceAsString()),
+        'debug' => $debug ?? []
     ], JSON_UNESCAPED_UNICODE);
     exit;
 });
 
 header('Content-Type: application/json; charset=utf-8');
 
-$debug = [];
-
 try {
-    // 确保输出缓冲正常工作
-    if (!ob_get_level()) {
-        ob_start();
-    }
-    
     $debug[] = "步骤1: 开始执行";
     $debug[] = "PHP版本: " . PHP_VERSION;
     $debug[] = "错误报告级别: " . error_reporting();
@@ -86,7 +91,7 @@ try {
     }
     $debug[] = "步骤5: PDO已初始化";
     
-    // 3. 获取POST数据
+    // 3. 获取请求数据
     $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
     $debug[] = "步骤6: 请求方法: " . $requestMethod;
     
@@ -96,7 +101,7 @@ try {
             $input = ['id' => (int)$_GET['id']];
             $debug[] = "步骤6.1: 使用GET参数（测试模式）";
         } else {
-            throw new Exception('无效的请求方法: ' . $requestMethod . '。请使用POST请求。');
+            throw new Exception('无效的请求方法: ' . $requestMethod . '。请使用POST请求或GET参数?id=xxx');
         }
     } else {
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
@@ -123,9 +128,13 @@ try {
     $debug[] = "步骤8: ID已获取: " . $id;
     
     // 4. 查询凭证
-    $stmt = $pdo->prepare("SELECT * FROM auto_login_credentials WHERE id = ?");
-    $stmt->execute([$id]);
-    $credential = $stmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM auto_login_credentials WHERE id = ?");
+        $stmt->execute([$id]);
+        $credential = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        throw new Exception('数据库查询失败: ' . $e->getMessage());
+    }
     
     if (!$credential) {
         throw new Exception('凭证不存在 (ID: ' . $id . ')');
@@ -137,19 +146,23 @@ try {
     $current_user_id = $_SESSION['user_id'];
     $current_user_role = $_SESSION['role'] ?? '';
     
-    if ($current_user_role === 'owner') {
-        $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
-        $stmt->execute([$company_id, $owner_id]);
-        if ($stmt->fetchColumn() == 0) {
-            throw new Exception('无权限访问该公司');
+    try {
+        if ($current_user_role === 'owner') {
+            $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
+            $stmt->execute([$company_id, $owner_id]);
+            if ($stmt->fetchColumn() == 0) {
+                throw new Exception('无权限访问该公司');
+            }
+        } else {
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
+            $stmt->execute([$current_user_id, $company_id]);
+            if ($stmt->fetchColumn() == 0) {
+                throw new Exception('无权限访问该公司');
+            }
         }
-    } else {
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
-        $stmt->execute([$current_user_id, $company_id]);
-        if ($stmt->fetchColumn() == 0) {
-            throw new Exception('无权限访问该公司');
-        }
+    } catch (PDOException $e) {
+        throw new Exception('权限检查失败: ' . $e->getMessage());
     }
     $debug[] = "步骤10: 权限检查通过";
     
@@ -161,7 +174,8 @@ try {
         'auto_login_web_scraper.php'
     ];
     
-    foreach ($files as $index => $file) {
+    $stepNumber = 11;
+    foreach ($files as $file) {
         if (!file_exists($file)) {
             throw new Exception($file . ' 文件不存在');
         }
@@ -169,9 +183,14 @@ try {
         // 尝试加载文件，捕获任何错误
         try {
             require_once $file;
-            $debug[] = "步骤" . (11 + $index) . ": " . $file . " 已加载";
-        } catch (Throwable $loadError) {
-            throw new Exception("加载文件失败: $file - " . $loadError->getMessage());
+            $debug[] = "步骤" . $stepNumber . ": " . $file . " 已加载";
+            $stepNumber++;
+        } catch (ParseError $e) {
+            throw new Exception("文件语法错误: $file - " . $e->getMessage() . " at line " . $e->getLine());
+        } catch (Error $e) {
+            throw new Exception("加载文件失败: $file - " . $e->getMessage() . " in " . basename($e->getFile()) . ":" . $e->getLine());
+        } catch (Exception $e) {
+            throw new Exception("加载文件失败: $file - " . $e->getMessage());
         }
     }
     
@@ -192,20 +211,28 @@ try {
     }
     
     // 8. 解密密码
-    $password = decrypt_password($credential['encrypted_password']);
-    $debug[] = "步骤15: 密码已解密";
+    try {
+        $password = decrypt_password($credential['encrypted_password']);
+        $debug[] = "步骤15: 密码已解密";
+    } catch (Exception $e) {
+        throw new Exception('密码解密失败: ' . $e->getMessage());
+    }
     
     // 9. 更新执行时间
-    $stmt = $pdo->prepare("
-        UPDATE auto_login_credentials 
-        SET last_executed = NOW(), last_result = '执行中...'
-        WHERE id = ?
-    ");
-    $stmt->execute([$id]);
-    $debug[] = "步骤16: 执行时间已更新";
+    try {
+        $stmt = $pdo->prepare("
+            UPDATE auto_login_credentials 
+            SET last_executed = NOW(), last_result = '执行中...'
+            WHERE id = ?
+        ");
+        $stmt->execute([$id]);
+        $debug[] = "步骤16: 执行时间已更新";
+    } catch (PDOException $e) {
+        throw new Exception('更新执行时间失败: ' . $e->getMessage());
+    }
     
     // 返回成功（暂时不执行实际登录）
-    ob_clean();
+    @ob_clean();
     echo json_encode([
         'success' => true,
         'message' => '诊断完成，所有检查通过',
@@ -219,7 +246,7 @@ try {
     exit;
     
 } catch (Exception $e) {
-    ob_clean();
+    @ob_clean();
     http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
@@ -232,7 +259,7 @@ try {
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     exit;
 } catch (Error $e) {
-    ob_clean();
+    @ob_clean();
     http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
@@ -245,17 +272,16 @@ try {
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     exit;
 } catch (Throwable $e) {
-    ob_clean();
+    @ob_clean();
     http_response_code(500);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'success' => false,
         'error' => 'Throwable: ' . $e->getMessage(),
-        'debug' => $debug,
+        'debug' => $debug ?? [],
         'file' => basename($e->getFile()),
         'line' => $e->getLine(),
         'type' => get_class($e)
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     exit;
 }
-
