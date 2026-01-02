@@ -1722,58 +1722,10 @@ function getCurrentProcessId() {
                     // 使用当前选中行的列值
                     const columnValue = getColumnValueFromSelectedRow(parseInt(value));
                     if (columnValue !== null) {
-                        // 获取当前选中行的产品ID信息
-                        let idProduct = '';
-                        let rowLabel = '';
-                        let targetRow = currentSelectedRowForCalculator;
-                        
-                        if (!targetRow) {
-                            const processInput = document.getElementById('process');
-                            if (processInput && processInput.value) {
-                                const processValue = processInput.value.trim();
-                                if (processValue) {
-                                    const summaryTableBody = document.getElementById('summaryTableBody');
-                                    if (summaryTableBody) {
-                                        const rows = summaryTableBody.querySelectorAll('tr');
-                                        for (let row of rows) {
-                                            const rowProcessValue = getProcessValueFromRow(row);
-                                            if (rowProcessValue === processValue) {
-                                                targetRow = row;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        
-                        if (targetRow) {
-                            const idProductCell = targetRow.querySelector('td:first-child');
-                            if (idProductCell) {
-                                const productValues = getProductValuesFromCell(idProductCell);
-                                idProduct = productValues.main || productValues.sub || '';
-                                // 尝试从产品ID文本中提取行标签（如果有括号）
-                                const match = (productValues.main || productValues.sub || '').match(/\(([^)]+)\)/);
-                                if (match) {
-                                    rowLabel = match[1].trim();
-                                }
-                            }
-                        }
-                        
-                        // 构建显示格式：[id_product]$数字 或 [id_product (row_label) ]$数字
-                        let displayValue = `$${value}`;
-                        if (idProduct && idProduct.trim() !== '') {
-                            if (rowLabel && rowLabel.trim() !== '') {
-                                displayValue = `[${idProduct} (${rowLabel}) ]$${value}`;
-                            } else {
-                                displayValue = `[${idProduct}]$${value}`;
-                            }
-                        }
-                        
                         const textAfter = formulaInput.value.substring(formulaInput.selectionEnd || cursorPos);
-                        formulaInput.value = textBefore + displayValue + textAfter;
+                        formulaInput.value = textBefore + columnValue + textAfter;
 
-                        const newCursorPos = cursorPos + displayValue.length;
+                        const newCursorPos = cursorPos + columnValue.length;
                         formulaInput.setSelectionRange(newCursorPos, newCursorPos);
 
                         // 记录被使用的列号
@@ -1782,7 +1734,7 @@ function getCurrentProcessId() {
                         columnsArray.push(parseInt(value));
                         formulaInput.setAttribute('data-clicked-columns', columnsArray.join(','));
 
-                        // 记录「值 -> 列号」的映射（保持原有格式用于内部处理）
+                        // 记录「值 -> 列号」的映射
                         let valueColumnMap = formulaInput.getAttribute('data-value-column-map') || '';
                         const mapEntries = valueColumnMap ? valueColumnMap.split(',') : [];
                         mapEntries.push(`${columnValue}:${value}`);
@@ -4898,53 +4850,17 @@ function getCurrentProcessId() {
             
             // Insert column reference ($columnNumber) instead of value at cursor position
             // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
-            // 格式：[id_product]$数字 或 [id_product (row_label) ]$数字
             let valueToInsert;
             if (displayColumnIndex !== null && displayColumnIndex > 0) {
-                // Build product ID prefix
-                let productPrefix = '';
-                if (idProduct) {
-                    // Get row label if available
-                    let rowLabel = cell.getAttribute('data-row-label');
-                    if (!rowLabel && row) {
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        if (rowHeaderCell) {
-                            rowLabel = rowHeaderCell.textContent.trim();
-                        }
-                    }
-                    
-                    // Format: [id_product (row_label) ] or [id_product]
-                    if (rowLabel && rowLabel.trim() !== '') {
-                        productPrefix = `[${idProduct} (${rowLabel}) ]`;
-                    } else {
-                        productPrefix = `[${idProduct}]`;
-                    }
-                }
-                
-                // Insert column reference format: [id_product]$columnNumber (e.g., [M99M06 (B) ]$4, [id_product]$2)
+                // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
                 // displayColumnIndex 就是 data-column-index 的值，直接使用
-                valueToInsert = `${productPrefix}$${displayColumnIndex}`;
-                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex, 'idProduct:', idProduct);
+                valueToInsert = `$${displayColumnIndex}`;
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
             } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
-                let productPrefix = '';
-                if (idProduct) {
-                    let rowLabel = cell.getAttribute('data-row-label');
-                    if (!rowLabel && row) {
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        if (rowHeaderCell) {
-                            rowLabel = rowHeaderCell.textContent.trim();
-                        }
-                    }
-                    if (rowLabel && rowLabel.trim() !== '') {
-                        productPrefix = `[${idProduct} (${rowLabel}) ]`;
-                    } else {
-                        productPrefix = `[${idProduct}]`;
-                    }
-                }
-                valueToInsert = `${productPrefix}$${dataColumnIndex + 1}`;
-                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct);
+                valueToInsert = `$${dataColumnIndex + 1}`;
+                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex);
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
                 valueToInsert = numValue;
@@ -5979,8 +5895,8 @@ function getCurrentProcessId() {
                 columnsDisplay = sourceColumns || clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
             }
             
-            // 直接使用 formulaValue（公式输入框中的原始值，包含 [id_product]$数字 格式）
-            // 不再转换为实际值，保持 [id_product]$数字 格式以便用户识别
+            // 优先使用 formulaDisplay 输入框的值（转换后的值，如 "9+7*0.7/5"）
+            // 如果 formulaDisplay 输入框为空，则从 formulaValue 转换
             const formulaDisplayInput = document.getElementById('formulaDisplay');
             let formulaDisplay = '';
             
@@ -5990,11 +5906,27 @@ function getCurrentProcessId() {
                 sourceColumns = ''; // Clear sourceColumns when formula is empty
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
             } else {
-                // 直接使用 formulaValue，保持 [id_product]$数字 格式
-                // 添加 Source Percent 部分（如果需要）
-                const trimmedFormula = formulaValue.trim();
-                formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                console.log('saveFormula - Using formulaValue directly (preserving [id_product]$number format):', trimmedFormula, 'Final formulaDisplay:', formulaDisplay);
+                // 优先使用 formulaDisplay 输入框的值（已经转换好的值）
+                if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
+                    const convertedFormula = formulaDisplayInput.value.trim();
+                    // 添加 Source Percent 部分（如果需要）
+                    formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    console.log('saveFormula - Using formulaDisplay input value:', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
+                } else {
+                    // 如果 formulaDisplay 输入框为空，从 formulaValue 转换
+                    const trimmedFormula = formulaValue.trim();
+                    // 先将 $数字 转换为实际值
+                    const processValueForDisplay = processValue;
+                    // 临时更新显示框以获取转换后的值
+                    updateFormulaDisplay(trimmedFormula, processValueForDisplay);
+                    const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
+                    if (convertedFormula && convertedFormula !== '') {
+                        formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    } else {
+                        formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    }
+                    console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
+                }
             }
             
             // Calculate processed amount
@@ -6644,9 +6576,8 @@ function getCurrentProcessId() {
                 
                 if (processValue) {
                     // Match $ followed by digits (e.g., $2, $10, $123)
-                    // Also match [id_product]$数字 format (e.g., [M99M06 (B) ]$4, [id_product]$2)
                     // Use negative lookahead to ensure we match complete numbers (e.g., $10 not $1 and $0)
-                    const dollarPattern = /(?:\[[^\]]+\])?\$(\d+)(?!\d)/g;
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
                     const dollarMatches = [];
                     let match;
                     
@@ -6655,8 +6586,8 @@ function getCurrentProcessId() {
                     
                     // Collect all matches
                     while ((match = dollarPattern.exec(formula)) !== null) {
-                        const fullMatch = match[0]; // e.g., "$2" or "[M99M06 (B) ]$4"
-                        const columnNumber = parseInt(match[1]); // e.g., 2 or 4
+                        const fullMatch = match[0]; // e.g., "$2"
+                        const columnNumber = parseInt(match[1]); // e.g., 2
                         const matchIndex = match.index;
                         
                         if (!isNaN(columnNumber) && columnNumber > 0) {
