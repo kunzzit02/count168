@@ -927,13 +927,13 @@ if ($current_user_id && count($user_companies) > 0) {
         // Load submitted processes from database by date
         async function loadSubmittedProcesses(date = null) {
             try {
-                // Use current submit date (today) instead of capture_date from form
-                // This shows processes submitted today, not processes for a selected capture_date
-                const selectedDate = date || getLocalDateString();
+                // Use capture_date from form for filtering/grouping, but display will show date_submitted
+                const selectedDate = date || document.getElementById('capture_date').value || getLocalDateString();
                 
                 // Add currently selected company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                const url = `submittedprocessesapi.php?action=get_submissions_by_date&date=${selectedDate}`;
+                // Pass capture_date as filter parameter (different from date_submitted)
+                const url = `submittedprocessesapi.php?action=get_submissions_by_capture_date&capture_date=${selectedDate}`;
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
@@ -1080,9 +1080,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 const formData = new FormData();
                 formData.append('action', 'save_submission');
                 formData.append('process_id', processData.process); // This is the id of the process table
-                // Use current submit date instead of the form's capture_date
+                // Use current submit date for date_submitted (actual submission time)
                 const submitDate = getLocalDateString();
                 formData.append('date_submitted', submitDate);
+                // Use capture_date from form for grouping/filtering purposes
+                const captureDate = processData.date || document.getElementById('capture_date').value || getLocalDateString();
+                formData.append('capture_date', captureDate);
                 
                 // Add currently selected company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
@@ -1090,7 +1093,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     formData.append('company_id', currentCompanyId);
                 }
                 
-                console.log('Sending to API - process_id:', processData.process, 'submit_date:', submitDate, 'company_id:', currentCompanyId);
+                console.log('Sending to API - process_id:', processData.process, 'submit_date:', submitDate, 'capture_date:', captureDate, 'company_id:', currentCompanyId);
                 
                 const response = await fetch('submittedprocessesapi.php', {
                     method: 'POST',
@@ -8556,8 +8559,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 // Reload processes for the selected date
                 await loadProcessesByDate();
                 
-                // Reload submitted processes for today's submit date (not the selected capture_date)
-                await loadSubmittedProcesses();
+                // Reload submitted processes filtered by the selected capture_date
+                const selectedDate = document.getElementById('capture_date').value || getLocalDateString();
+                await loadSubmittedProcesses(selectedDate);
                 
                 // Wait a bit for process dropdown to populate, then restore process selection
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -8766,7 +8770,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const shouldRestore = urlParams.get('restore') === '1';
             
             if (!shouldRestore) {
-                // Load submitted processes for today's submit date (not capture_date)
+                // Load submitted processes filtered by capture_date from form
                 loadSubmittedProcesses();
                 // Initialize table with default 10 rows and 15 columns
                 initializeTable(10, 15);
@@ -8830,8 +8834,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('Date changed to:', this.value);
                     // Reload processes based on new date
                     await loadProcessesByDate();
-                    // Reload submitted processes for today's submit date (not the selected capture_date)
-                    loadSubmittedProcesses();
+                    // Reload submitted processes filtered by the selected capture_date
+                    loadSubmittedProcesses(this.value);
                     // Clear process selection when date changes (but not during restoration)
                     if (!isRestoringData) {
                         const processInput = document.getElementById('capture_process');

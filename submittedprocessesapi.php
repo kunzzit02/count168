@@ -81,6 +81,10 @@ try {
             getSubmissionsByDate($user_id);
             break;
             
+        case 'get_submissions_by_capture_date':
+            getSubmissionsByCaptureDate($user_id);
+            break;
+            
         case 'get_processes_by_day':
             getProcessesByDay($user_id);
             break;
@@ -332,6 +336,155 @@ function getSubmissionsByDate($user_id) {
     }
 }
 
+// 根据 capture_date 获取提交的processes（按选择的日期归类，显示提交日期）
+function getSubmissionsByCaptureDate($user_id) {
+    global $pdo, $company_id;
+    
+    try {
+        // 使用全局的 $company_id（已经过验证）
+        $currentCompanyId = $company_id;
+        
+        if (!$currentCompanyId) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'User company_id not found'
+            ]);
+            return;
+        }
+        
+        // 获取选择的 capture_date，默认为今天
+        $capture_date = $_GET['capture_date'] ?? date('Y-m-d');
+        
+        // 验证日期格式
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $capture_date)) {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Invalid date format'
+            ]);
+            return;
+        }
+        
+        // 获取用户权限（仅对 user 类型，owner 有所有权限）
+        $processIds = [];
+        $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
+        
+        if ($user_type === 'user') {
+            try {
+                $userStmt = $pdo->prepare("SELECT process_permissions FROM user WHERE id = ?");
+                $userStmt->execute([$user_id]);
+                $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+                
+                // 检查 process_permissions 字段是否存在且非空
+                if ($user && isset($user['process_permissions']) && !empty($user['process_permissions'])) {
+                    $processPermissions = json_decode($user['process_permissions'], true);
+                    
+                    // 处理权限数据：可能是对象数组（每个对象有 id 字段）或简单的 ID 数组
+                    if (is_array($processPermissions) && !empty($processPermissions)) {
+                        // 检查第一个元素是否是对象（有 id 字段）
+                        if (isset($processPermissions[0]) && is_array($processPermissions[0]) && isset($processPermissions[0]['id'])) {
+                            // 对象数组格式，提取 id
+                            $processIds = array_column($processPermissions, 'id');
+                        } else {
+                            // 简单的 ID 数组格式，直接使用
+                            $processIds = $processPermissions;
+                        }
+                    }
+                }
+                // 如果 process_permissions 为空或不存在，$processIds 保持为空数组，表示可以看见所有 process
+            } catch (PDOException $e) {
+                error_log("Error fetching user permissions in getSubmissionsByCaptureDate: " . $e->getMessage());
+                // 继续执行，使用空数组（表示可以看见所有 process）
+            }
+        }
+        // owner 类型不需要权限限制，$processIds 保持为空数组
+        
+        // 构建权限过滤条件
+        $permissionCondition = "";
+        
+        // 只有当用户设置了权限（$processIds 不为空）时才添加权限过滤
+        if (!empty($processIds) && is_array($processIds)) {
+            // 过滤掉非数字的 ID
+            $processIds = array_filter($processIds, function($id) {
+                return is_numeric($id);
+            });
+            $processIds = array_values($processIds); // 重新索引数组
+            
+            if (!empty($processIds)) {
+                $placeholders = str_repeat('?,', count($processIds) - 1) . '?';
+                $permissionCondition = "AND p.id IN ($placeholders)";
+            }
+        }
+        
+        // Check if capture_date column exists by trying to query it
+        // If it doesn't exist, fall back to using date_submitted for filtering
+        try {
+            $testStmt = $pdo->prepare("SELECT capture_date FROM submitted_processes LIMIT 1");
+            $testStmt->execute();
+            $hasCaptureDateColumn = true;
+        } catch (PDOException $e) {
+            $hasCaptureDateColumn = false;
+        }
+        
+        if ($hasCaptureDateColumn) {
+            // Use capture_date for filtering
+            $dateFilter = "DATE(sp.capture_date) = ?";
+            $dateParam = $capture_date;
+        } else {
+            // Fall back to date_submitted if capture_date column doesn't exist
+            $dateFilter = "DATE(sp.date_submitted) = ?";
+            $dateParam = $capture_date;
+        }
+        
+        $stmt = $pdo->prepare("
+            SELECT 
+                sp.id,
+                sp.process_id,
+                sp.date_submitted,
+                sp.created_at,
+                sp.user_type,
+                p.process_id as process_code,
+                d.name as description_name,
+                COALESCE(u.login_id, o.owner_code) as submitted_by
+            FROM submitted_processes sp
+            JOIN process p ON sp.process_id = p.id
+            LEFT JOIN description d ON p.description_id = d.id
+            LEFT JOIN user u ON sp.user_id = u.id AND sp.user_type = 'user'
+            LEFT JOIN owner o ON sp.user_id = o.id AND sp.user_type = 'owner'
+            WHERE sp.company_id = ?
+              AND $dateFilter
+              AND p.company_id = ?
+            $permissionCondition
+            ORDER BY sp.created_at DESC
+        ");
+        
+        // 调整参数顺序：company_id, date, company_id (for process), processIds...
+        $params = array_merge([$currentCompanyId, $dateParam, $currentCompanyId], !empty($processIds) ? $processIds : []);
+        
+        $stmt->execute($params);
+        $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $submissions,
+            'capture_date' => $capture_date
+        ]);
+    } catch (PDOException $e) {
+        error_log("SQL Error in getSubmissionsByCaptureDate: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        echo json_encode([
+            'success' => false,
+            'error' => 'Database error: ' . $e->getMessage()
+        ]);
+    } catch (Exception $e) {
+        error_log("Error in getSubmissionsByCaptureDate: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        echo json_encode([
+            'success' => false,
+            'error' => 'Internal error: ' . $e->getMessage()
+        ]);
+    }
+}
+
 // 根据星期几获取processes
 function getProcessesByDay($user_id) {
     global $pdo, $company_id;
@@ -408,6 +561,7 @@ function saveSubmission($user_id) {
         // 获取POST数据
         $process_id = $_POST['process_id'] ?? '';
         $date_submitted = $_POST['date_submitted'] ?? date('Y-m-d');
+        $capture_date = $_POST['capture_date'] ?? $date_submitted; // Default to date_submitted if not provided
         
         // 检查当前用户是 owner 还是 user
         $user_type = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' ? 'owner' : 'user';
@@ -434,6 +588,13 @@ function saveSubmission($user_id) {
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_submitted)) {
             error_log("Invalid date format in saveSubmission: $date_submitted");
             echo json_encode(['success' => false, 'error' => 'Invalid date format']);
+            return;
+        }
+        
+        // 验证 capture_date 格式
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $capture_date)) {
+            error_log("Invalid capture_date format in saveSubmission: $capture_date");
+            echo json_encode(['success' => false, 'error' => 'Invalid capture_date format']);
             return;
         }
         
@@ -488,12 +649,30 @@ function saveSubmission($user_id) {
             return;
         }
         
-        $stmt = $pdo->prepare("
-            INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted)
-            VALUES (?, ?, ?, ?, ?)
-        ");
+        // Try to insert with capture_date field (if it exists in the table)
+        // If the field doesn't exist, the SQL will fail and we'll try without it
+        try {
+            $stmt = $pdo->prepare("
+                INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted, capture_date)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            
+            $success = $stmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted, $capture_date]);
+        } catch (PDOException $e) {
+            // If capture_date column doesn't exist, try without it
+            if (strpos($e->getMessage(), 'Unknown column') !== false && strpos($e->getMessage(), 'capture_date') !== false) {
+                error_log("capture_date column doesn't exist, inserting without it");
+                $stmt = $pdo->prepare("
+                    INSERT INTO submitted_processes (company_id, user_id, user_type, process_id, date_submitted)
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                $success = $stmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted]);
+            } else {
+                throw $e; // Re-throw if it's a different error
+            }
+        }
         
-        if ($stmt->execute([$processCompanyId, $user_id, $user_type, $process_id, $date_submitted])) {
+        if ($success) {
             $submission_id = $pdo->lastInsertId();
             error_log("Submission saved successfully with ID: $submission_id (Type: $user_type)");
             echo json_encode([
