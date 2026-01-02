@@ -6600,32 +6600,79 @@ function getCurrentProcessId() {
                 const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
                 
                 if (processValue) {
-                    // Match $ followed by digits (e.g., $2, $10, $123)
-                    // Use negative lookahead to ensure we match complete numbers (e.g., $10 not $1 and $0)
-                    const dollarPattern = /\$(\d+)(?!\d)/g;
-                    const dollarMatches = [];
+                    // First, try to match new format: [id_product]$数字 or [id_product (row_label) ]$数字
+                    // Pattern: \[([^\]]+)\]\$(\d+)
+                    // This matches: [M99M06]$4 or [M99M06 (B) ]$4
+                    const newFormatPattern = /\[([^\]]+)\]\$(\d+)/g;
+                    const newFormatMatches = [];
                     let match;
                     
                     // Reset regex lastIndex
-                    dollarPattern.lastIndex = 0;
+                    newFormatPattern.lastIndex = 0;
                     
-                    // Collect all matches
-                    while ((match = dollarPattern.exec(formula)) !== null) {
-                        const fullMatch = match[0]; // e.g., "$2"
-                        const columnNumber = parseInt(match[1]); // e.g., 2
+                    // Collect all new format matches
+                    while ((match = newFormatPattern.exec(formula)) !== null) {
+                        const fullMatch = match[0]; // e.g., "[M99M06 (B) ]$4"
+                        const idProductPart = match[1].trim(); // e.g., "M99M06 (B) " or "M99M06"
+                        const columnNumber = parseInt(match[2]); // e.g., 4
                         const matchIndex = match.index;
                         
                         if (!isNaN(columnNumber) && columnNumber > 0) {
-                            dollarMatches.push({
+                            // Parse id_product and row_label from idProductPart
+                            let idProduct = idProductPart;
+                            let rowLabel = null;
+                            
+                            // Check if it contains row_label format: "id_product (row_label)"
+                            const rowLabelMatch = idProductPart.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+                            if (rowLabelMatch) {
+                                idProduct = rowLabelMatch[1].trim();
+                                rowLabel = rowLabelMatch[2].trim();
+                            }
+                            
+                            newFormatMatches.push({
                                 fullMatch: fullMatch,
                                 columnNumber: columnNumber,
+                                idProduct: idProduct,
+                                rowLabel: rowLabel,
                                 index: matchIndex
                             });
                         }
                     }
                     
-                    // Replace from end to start to preserve indices
-                    dollarMatches.sort((a, b) => b.index - a.index);
+                    // Then, match old format: $数字 (for backward compatibility)
+                    // Use negative lookahead to ensure we match complete numbers (e.g., $10 not $1 and $0)
+                    // But exclude matches that are already part of new format (inside [...])
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                    const dollarMatches = [];
+                    
+                    // Reset regex lastIndex
+                    dollarPattern.lastIndex = 0;
+                    
+                    // Collect all old format matches, but exclude those already matched by new format
+                    while ((match = dollarPattern.exec(formula)) !== null) {
+                        const fullMatch = match[0]; // e.g., "$2"
+                        const columnNumber = parseInt(match[1]); // e.g., 2
+                        const matchIndex = match.index;
+                        
+                        // Check if this match is already part of a new format match
+                        const isPartOfNewFormat = newFormatMatches.some(newMatch => {
+                            return matchIndex >= newMatch.index && 
+                                   matchIndex < newMatch.index + newMatch.fullMatch.length;
+                        });
+                        
+                        if (!isPartOfNewFormat && !isNaN(columnNumber) && columnNumber > 0) {
+                            dollarMatches.push({
+                                fullMatch: fullMatch,
+                                columnNumber: columnNumber,
+                                idProduct: null, // Old format doesn't have id_product
+                                rowLabel: null, // Old format doesn't have row_label
+                                index: matchIndex
+                            });
+                        }
+                    }
+                    
+                    // Combine both formats, sort by index (descending) for replacement
+                    const allMatches = [...newFormatMatches, ...dollarMatches].sort((a, b) => b.index - a.index);
                     
                     // 优先从 data-clicked-cell-refs 读取引用
                     if (clickedCellRefs && clickedCellRefs.trim() !== '') {
@@ -6634,25 +6681,37 @@ function getCurrentProcessId() {
                         // dataColumnIndex = displayColumnIndex - 1
                         let refIndex = 0; // 跟踪已使用的引用索引
                         
-                        for (let i = 0; i < dollarMatches.length; i++) {
-                            const dollarMatch = dollarMatches[i];
+                        for (let i = 0; i < allMatches.length; i++) {
+                            const match = allMatches[i];
                             let columnValue = null;
-                            const dataColumnIndex = dollarMatch.columnNumber - 1;
+                            const dataColumnIndex = match.columnNumber - 1;
                             
-                            // 按顺序查找匹配的引用（从 refIndex 开始，避免重复使用）
-                            for (let j = refIndex; j < refs.length; j++) {
-                                const ref = refs[j];
-                                const parts = ref.split(':');
-                                if (parts.length >= 2) {
-                                    const refIdProduct = parts[0];
-                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                    const refRowLabel = parts.length === 3 ? parts[1] : null;
-                                    
-                                    // 如果 dataColumnIndex 匹配，使用这个引用
-                                    if (!isNaN(refDataColumnIndex) && refDataColumnIndex === dataColumnIndex) {
-                                        columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                        refIndex = j + 1; // 更新已使用的引用索引
-                                        break;
+                            // If match has id_product (new format), use it directly
+                            // match.columnNumber is displayColumnIndex (e.g., 4 = 4th column in table)
+                            // displayColumnIndex 1 = id_product, 2 = first data column, 3 = second data column, etc.
+                            // So: displayColumnIndex 4 = third data column = dataColumnIndex 3 (1-based)
+                            // getCellValueByIdProductAndColumn expects 1-based data column index
+                            if (match.idProduct) {
+                                // Convert displayColumnIndex to 1-based data column index
+                                // displayColumnIndex 2 -> dataColumnIndex 1, displayColumnIndex 3 -> dataColumnIndex 2, etc.
+                                const dataColumnIndex1Based = match.columnNumber - 1;
+                                columnValue = getCellValueByIdProductAndColumn(match.idProduct, dataColumnIndex1Based, match.rowLabel);
+                            } else {
+                                // Old format: 按顺序查找匹配的引用（从 refIndex 开始，避免重复使用）
+                                for (let j = refIndex; j < refs.length; j++) {
+                                    const ref = refs[j];
+                                    const parts = ref.split(':');
+                                    if (parts.length >= 2) {
+                                        const refIdProduct = parts[0];
+                                        const refDataColumnIndex = parseInt(parts[parts.length - 1]);
+                                        const refRowLabel = parts.length === 3 ? parts[1] : null;
+                                        
+                                        // 如果 dataColumnIndex 匹配，使用这个引用
+                                        if (!isNaN(refDataColumnIndex) && refDataColumnIndex === dataColumnIndex) {
+                                            columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
+                                            refIndex = j + 1; // 更新已使用的引用索引
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -6661,46 +6720,66 @@ function getCurrentProcessId() {
                             if (columnValue === null) {
                                 const rowLabel = getRowLabelFromProcessValue(processValue);
                                 if (rowLabel) {
-                                    const columnReference = rowLabel + dollarMatch.columnNumber;
+                                    const columnReference = rowLabel + match.columnNumber;
                                     columnValue = getColumnValueFromCellReference(columnReference, processValue);
                                 }
                             }
                             
                             if (columnValue !== null) {
-                                // Replace $数字 with actual value
-                                parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
+                                // Replace match with actual value
+                                parsedFormula = parsedFormula.substring(0, match.index) + 
                                                columnValue + 
-                                               parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                                               parsedFormula.substring(match.index + match.fullMatch.length);
                             } else {
                                 // If value not found, replace with 0
-                                console.warn(`Cell value not found for $${dollarMatch.columnNumber}`);
-                                parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
+                                const matchDesc = match.idProduct 
+                                    ? `[${match.idProduct}${match.rowLabel ? ' (' + match.rowLabel + ')' : ''}]$${match.columnNumber}`
+                                    : `$${match.columnNumber}`;
+                                console.warn(`Cell value not found for ${matchDesc}`);
+                                parsedFormula = parsedFormula.substring(0, match.index) + 
                                                '0' + 
-                                               parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                                               parsedFormula.substring(match.index + match.fullMatch.length);
                             }
                         }
                     } else {
                         // 如果没有 data-clicked-cell-refs，使用原来的逻辑
-                        const rowLabel = getRowLabelFromProcessValue(processValue);
-                        if (rowLabel) {
-                            for (let i = 0; i < dollarMatches.length; i++) {
-                                const dollarMatch = dollarMatches[i];
-                                // Convert $数字 to cell reference (e.g., $2 -> A2)
-                                const columnReference = rowLabel + dollarMatch.columnNumber;
-                                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                
-                                if (columnValue !== null) {
-                                    // Replace $数字 with actual value
-                                    parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                   columnValue + 
-                                                   parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                } else {
-                                    // If value not found, replace with 0
-                                    console.warn(`Cell value not found for $${dollarMatch.columnNumber} (${columnReference})`);
-                                    parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                   '0' + 
-                                                   parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                        for (let i = 0; i < allMatches.length; i++) {
+                            const match = allMatches[i];
+                            let columnValue = null;
+                            
+                            // If match has id_product (new format), use it directly
+                            // match.columnNumber is displayColumnIndex (e.g., 4 = 4th column in table)
+                            // displayColumnIndex 1 = id_product, 2 = first data column, 3 = second data column, etc.
+                            // So: displayColumnIndex 4 = third data column = dataColumnIndex 3 (1-based)
+                            // getCellValueByIdProductAndColumn expects 1-based data column index
+                            if (match.idProduct) {
+                                // Convert displayColumnIndex to 1-based data column index
+                                // displayColumnIndex 2 -> dataColumnIndex 1, displayColumnIndex 3 -> dataColumnIndex 2, etc.
+                                const dataColumnIndex1Based = match.columnNumber - 1;
+                                columnValue = getCellValueByIdProductAndColumn(match.idProduct, dataColumnIndex1Based, match.rowLabel);
+                            } else {
+                                // Old format: Convert $数字 to cell reference (e.g., $2 -> A2)
+                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                if (rowLabel) {
+                                    const columnReference = rowLabel + match.columnNumber;
+                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
                                 }
+                            }
+                            
+                            if (columnValue !== null) {
+                                // Replace match with actual value
+                                parsedFormula = parsedFormula.substring(0, match.index) + 
+                                               columnValue + 
+                                               parsedFormula.substring(match.index + match.fullMatch.length);
+                            } else {
+                                // If value not found, replace with 0
+                                const matchDesc = match.idProduct 
+                                    ? `[${match.idProduct}${match.rowLabel ? ' (' + match.rowLabel + ')' : ''}]$${match.columnNumber}`
+                                    : `$${match.columnNumber}`;
+                                console.warn(`Cell value not found for ${matchDesc}`);
+                                parsedFormula = parsedFormula.substring(0, match.index) + 
+                                               '0' + 
+                                               parsedFormula.substring(match.index + match.fullMatch.length);
                             }
                         }
                     }
