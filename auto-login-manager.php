@@ -729,21 +729,28 @@ if (!$company_id) {
                 body: JSON.stringify({ id: id })
             })
             .then(response => {
-                // 检查响应状态
-                if (!response.ok) {
-                    return response.text().then(text => {
-                        try {
-                            const json = JSON.parse(text);
-                            throw new Error(json.error || '服务器错误: ' + response.status);
-                        } catch (e) {
-                            if (e instanceof Error && e.message.includes('服务器错误')) {
-                                throw e;
-                            }
-                            throw new Error('服务器错误 (' + response.status + '): ' + text.substring(0, 100));
-                        }
-                    });
-                }
-                return response.json();
+                // 先获取响应文本，不管状态码
+                return response.text().then(text => {
+                    console.log('服务器响应状态:', response.status);
+                    console.log('服务器响应内容:', text.substring(0, 500));
+                    
+                    // 尝试解析为JSON
+                    let json;
+                    try {
+                        json = JSON.parse(text);
+                    } catch (e) {
+                        // 如果不是JSON，说明是HTML或其他格式
+                        console.error('响应不是有效的JSON:', text.substring(0, 200));
+                        throw new Error('服务器返回的不是JSON格式: ' + text.substring(0, 100));
+                    }
+                    
+                    // 检查HTTP状态码
+                    if (!response.ok) {
+                        throw new Error(json.error || json.message || '服务器错误: ' + response.status);
+                    }
+                    
+                    return json;
+                });
             })
             .then(data => {
                 btn.disabled = false;

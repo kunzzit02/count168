@@ -54,13 +54,20 @@ header('Content-Type: application/json; charset=utf-8');
 $debug = [];
 
 try {
+    // 确保输出缓冲正常工作
+    if (!ob_get_level()) {
+        ob_start();
+    }
+    
     $debug[] = "步骤1: 开始执行";
+    $debug[] = "PHP版本: " . PHP_VERSION;
+    $debug[] = "错误报告级别: " . error_reporting();
     
     // 1. 检查session
     if (session_status() == PHP_SESSION_NONE) {
-        session_start();
+        @session_start();
     }
-    $debug[] = "步骤2: Session已启动";
+    $debug[] = "步骤2: Session已启动 (状态: " . session_status() . ")";
     
     if (!isset($_SESSION['user_id'])) {
         throw new Exception('未登录');
