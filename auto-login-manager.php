@@ -720,8 +720,8 @@ if (!$company_id) {
             btn.disabled = true;
             btn.textContent = '执行中...';
             
-            // 测试完整调试版本
-            fetch('auto_login_execute_api_debug.php', {
+            // 先测试最简单的文件
+            fetch('test_minimal.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
