@@ -451,16 +451,50 @@ try {
                         
                         if (!empty($webData)) {
                             $errorMsg .= "\n原始数据列名（第一行）: " . implode(', ', array_keys($webData[0] ?? []));
-                            // 显示前3行的更多信息
-                            for ($i = 0; $i < min(3, count($webData)); $i++) {
+                            // 显示前10行的信息，以便找到真正的数据行
+                            $displayedRows = min(10, count($webData));
+                            $errorMsg .= "\n前 $displayedRows 行的样本数据:";
+                            for ($i = 0; $i < $displayedRows; $i++) {
                                 $row = $webData[$i] ?? [];
                                 $rowSample = [];
-                                foreach (['col_0', 'col_1', 'col_2', 'col_3'] as $col) {
+                                // 显示前5列
+                                foreach (['col_0', 'col_1', 'col_2', 'col_3', 'col_4'] as $col) {
                                     if (isset($row[$col])) {
-                                        $rowSample[$col] = substr((string)$row[$col], 0, 30);
+                                        $val = (string)$row[$col];
+                                        $rowSample[$col] = mb_substr($val, 0, 30);
                                     }
                                 }
-                                $errorMsg .= "\n第" . ($i+1) . "行样本: " . json_encode($rowSample, JSON_UNESCAPED_UNICODE);
+                                $rowType = '';
+                                // 判断行类型
+                                $col0 = isset($row['col_0']) ? trim((string)$row['col_0']) : '';
+                                if (empty($col0)) {
+                                    $rowType = ' (可能是表头行)';
+                                } elseif (stripos($col0, 'total') !== false || stripos($col0, 'subtotal') !== false) {
+                                    $rowType = ' (汇总行)';
+                                }
+                                $errorMsg .= "\n  第" . ($i+1) . "行$rowType: " . json_encode($rowSample, JSON_UNESCAPED_UNICODE);
+                            }
+                            
+                            // 查找所有非空的 col_0 值
+                            $nonEmptyCol0Values = [];
+                            foreach ($webData as $idx => $row) {
+                                $col0 = isset($row['col_0']) ? trim((string)$row['col_0']) : '';
+                                if (!empty($col0) && 
+                                    stripos($col0, 'total') === false && 
+                                    stripos($col0, 'subtotal') === false) {
+                                    $nonEmptyCol0Values[] = [
+                                        'row' => $idx + 1,
+                                        'value' => mb_substr($col0, 0, 50)
+                                    ];
+                                }
+                            }
+                            if (!empty($nonEmptyCol0Values)) {
+                                $errorMsg .= "\n找到 " . count($nonEmptyCol0Values) . " 行 col_0 不为空且不是汇总行:";
+                                foreach (array_slice($nonEmptyCol0Values, 0, 5) as $item) {
+                                    $errorMsg .= "\n  第{$item['row']}行: '{$item['value']}'";
+                                }
+                            } else {
+                                $errorMsg .= "\n警告：所有行的 col_0 都是空的或者是汇总行！";
                             }
                         }
                         throw new Exception($errorMsg);
