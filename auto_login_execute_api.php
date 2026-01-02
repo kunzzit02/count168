@@ -7,6 +7,7 @@ header('Content-Type: application/json');
 require_once 'session_check.php';
 require_once 'config.php';
 require_once 'auto_login_encrypt.php';
+require_once 'auto_login_report_importer.php';
 
 try {
     // 获取POST数据
@@ -131,6 +132,61 @@ try {
     // - 对于TOTP：使用TOTP库（如PHPOTP）根据密钥生成当前时间的验证码
     // - 对于SMS/Email：可能需要手动输入或使用其他服务获取验证码
     
+    // 模拟：假设报告已下载到临时文件
+    // 实际实现中，这里应该是真实的下载逻辑
+    $downloadedReportPath = null; // 例如：'/tmp/report_' . $id . '_' . time() . '.csv';
+    $importResult = null;
+    
+    // 如果启用自动导入且下载成功，自动导入到data capture
+    if (!empty($credential['auto_import_enabled']) && $credential['auto_import_enabled'] == 1 && $downloadedReportPath && file_exists($downloadedReportPath)) {
+        try {
+            // 准备导入配置
+            $importConfig = [
+                'process_id' => $credential['import_process_id'] ?? null,
+                'capture_date' => getCaptureDate($credential['import_capture_date'] ?? 'today'),
+                'currency_id' => $credential['import_currency_id'] ?? null,
+                'field_mapping' => !empty($credential['import_field_mapping']) ? json_decode($credential['import_field_mapping'], true) : []
+            ];
+            
+            if (empty($importConfig['process_id'])) {
+                throw new Exception('自动导入已启用但未配置流程ID');
+            }
+            
+            // 导入报告
+            $importResult = importReportToDataCapture($pdo, $company_id, $id, $downloadedReportPath, $importConfig);
+            
+            // 清理临时文件
+            if (file_exists($downloadedReportPath)) {
+                @unlink($downloadedReportPath);
+            }
+            
+            // 更新结果信息
+            if ($importResult['success']) {
+                $result['import'] = [
+                    'success' => true,
+                    'message' => $importResult['message'],
+                    'capture_id' => $importResult['capture_id'] ?? null,
+                    'rows_imported' => $importResult['rows_imported'] ?? 0
+                ];
+                $result['message'] = '执行完成并已自动导入到data capture';
+            } else {
+                $result['import'] = [
+                    'success' => false,
+                    'error' => $importResult['error'] ?? '导入失败'
+                ];
+                $result['message'] = '执行完成但导入失败: ' . ($importResult['error'] ?? '未知错误');
+            }
+            
+        } catch (Exception $importError) {
+            $result['import'] = [
+                'success' => false,
+                'error' => $importError->getMessage()
+            ];
+            $result['message'] = '执行完成但导入失败: ' . $importError->getMessage();
+            error_log('自动导入失败: ' . $importError->getMessage());
+        }
+    }
+    
     // 更新执行结果
     $stmt = $pdo->prepare("
         UPDATE auto_login_credentials 
@@ -162,5 +218,25 @@ try {
         'success' => false,
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 获取捕获日期
+ */
+function getCaptureDate($dateRule): string {
+    switch (strtolower($dateRule)) {
+        case 'today':
+            return date('Y-m-d');
+        case 'yesterday':
+            return date('Y-m-d', strtotime('-1 day'));
+        default:
+            // 如果是日期格式，验证并返回
+            $timestamp = strtotime($dateRule);
+            if ($timestamp !== false) {
+                return date('Y-m-d', $timestamp);
+            }
+            // 默认返回今天
+            return date('Y-m-d');
+    }
 }
 

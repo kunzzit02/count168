@@ -29,6 +29,11 @@ try {
     $two_fa_code = isset($input['two_fa_code']) ? trim($input['two_fa_code']) : '';
     $two_fa_type = isset($input['two_fa_type']) ? trim($input['two_fa_type']) : null;
     $two_fa_instructions = isset($input['two_fa_instructions']) ? trim($input['two_fa_instructions']) : '';
+    $auto_import_enabled = isset($input['auto_import_enabled']) ? (int)$input['auto_import_enabled'] : 0;
+    $import_process_id = isset($input['import_process_id']) && !empty($input['import_process_id']) ? (int)$input['import_process_id'] : null;
+    $import_capture_date = isset($input['import_capture_date']) ? trim($input['import_capture_date']) : 'today';
+    $import_currency_id = isset($input['import_currency_id']) && !empty($input['import_currency_id']) ? (int)$input['import_currency_id'] : null;
+    $import_field_mapping = isset($input['import_field_mapping']) ? json_encode($input['import_field_mapping']) : null;
     $status = isset($input['status']) ? trim($input['status']) : 'active';
     $remark = isset($input['remark']) ? trim($input['remark']) : '';
     
@@ -103,8 +108,8 @@ try {
     // 插入数据库
     $stmt = $pdo->prepare("
         INSERT INTO auto_login_credentials 
-        (company_id, name, website_url, username, encrypted_password, encryption_key, has_2fa, encrypted_2fa_code, two_fa_type, two_fa_instructions, status, remark, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (company_id, name, website_url, username, encrypted_password, encryption_key, has_2fa, encrypted_2fa_code, two_fa_type, two_fa_instructions, auto_import_enabled, import_process_id, import_capture_date, import_currency_id, import_field_mapping, status, remark, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     $stmt->execute([
@@ -118,6 +123,11 @@ try {
         $encrypted_2fa_code,
         $two_fa_type,
         $two_fa_instructions ?: null,
+        $auto_import_enabled,
+        $import_process_id,
+        $import_capture_date ?: 'today',
+        $import_currency_id,
+        $import_field_mapping,
         $status,
         $remark,
         $current_user_id
