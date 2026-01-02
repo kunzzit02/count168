@@ -941,8 +941,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (result.success) {
                     submittedProcesses = result.data || [];
+                    console.log('Loaded', submittedProcesses.length, 'submitted processes for capture_date:', selectedDate);
+                    console.log('Sample submission dates:', submittedProcesses.slice(0, 3).map(p => ({ 
+                        process: p.process_code, 
+                        date_submitted: p.date_submitted, 
+                        created_at: p.created_at 
+                    })));
                     renderSubmittedProcesses();
-                    console.log('Loaded', submittedProcesses.length, 'submitted processes for date:', selectedDate);
                 } else {
                     console.error('Failed to load submitted processes:', result.error);
                 }
@@ -1094,6 +1099,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 console.log('Sending to API - process_id:', processData.process, 'submit_date:', submitDate, 'capture_date:', captureDate, 'company_id:', currentCompanyId);
+                console.log('Current date from getLocalDateString():', submitDate);
+                console.log('Form capture_date:', captureDate);
                 
                 const response = await fetch('submittedprocessesapi.php', {
                     method: 'POST',
@@ -1128,8 +1135,21 @@ if ($current_user_id && count($user_companies) > 0) {
             
             let html = '';
             submittedProcesses.forEach((process, index) => {
-                // Format date as dd/mm/yyyy using local date
-                const dateObj = new Date(process.date_submitted);
+                // Format date as dd/mm/yyyy using date_submitted (actual submission date)
+                // Handle date string format (YYYY-MM-DD) properly to avoid timezone issues
+                let dateObj;
+                if (process.date_submitted) {
+                    // If it's already a date string in YYYY-MM-DD format, parse it directly
+                    if (typeof process.date_submitted === 'string' && process.date_submitted.match(/^\d{4}-\d{2}-\d{2}/)) {
+                        const dateParts = process.date_submitted.split(' ')[0].split('-');
+                        dateObj = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+                    } else {
+                        dateObj = new Date(process.date_submitted);
+                    }
+                } else {
+                    dateObj = new Date();
+                }
+                
                 const day = String(dateObj.getDate()).padStart(2, '0');
                 const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                 const year = dateObj.getFullYear();
