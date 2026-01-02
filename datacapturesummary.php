@@ -1608,21 +1608,46 @@ function getCurrentProcessId() {
                 </div>
             `;
             
-            // Render into modal and open
+            // Render into modal
             modalContent.innerHTML = formHTML;
+            
+            // Calculate initial scale before showing modal to prevent flash
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.1302));
+            const topMargin = Math.max(103, Math.min(115, viewportWidth * 0.06));
+            const topPadding = Math.max(20, Math.min(80, viewportHeight * 0.08));
+            const availableWidth = viewportWidth - sidebarWidth - 40;
+            const availableHeight = viewportHeight - topMargin - topPadding - 40;
+            const baseWidth = 1400;
+            const baseHeight = 800; // Estimated initial height
+            const widthScale = availableWidth / baseWidth;
+            const heightScale = availableHeight / baseHeight;
+            const initialScale = Math.max(0.4, Math.min(widthScale, heightScale, 1));
+            
+            // Apply initial scale immediately to prevent flash
+            modalContent.style.transform = `scale(${initialScale})`;
+            modalContent.style.transformOrigin = 'center top';
+            modalContent.style.maxWidth = `${baseWidth}px`;
+            modalContent.style.width = `${baseWidth}px`;
+            
+            // Now show the modal
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
-            // Adjust modal scale based on viewport size (wait for DOM to render)
-            setTimeout(() => {
-                adjustEditFormulaModalScale();
-                
-                // Add resize listener to adjust scale when window is resized
-                if (!editFormulaModalResizeHandler) {
-                    editFormulaModalResizeHandler = adjustEditFormulaModalScale;
-                    window.addEventListener('resize', editFormulaModalResizeHandler);
-                }
-            }, 100);
+            // Fine-tune scale after DOM renders (for accurate height calculation)
+            // Use requestAnimationFrame to ensure smooth transition
+            requestAnimationFrame(() => {
+                setTimeout(() => {
+                    adjustEditFormulaModalScale();
+                    
+                    // Add resize listener to adjust scale when window is resized
+                    if (!editFormulaModalResizeHandler) {
+                        editFormulaModalResizeHandler = adjustEditFormulaModalScale;
+                        window.addEventListener('resize', editFormulaModalResizeHandler);
+                    }
+                }, 10);
+            });
             
             // Clear clicked columns when opening new form (unless editing)
             setTimeout(() => {
@@ -5348,8 +5373,12 @@ function getCurrentProcessId() {
             // Minimum scale to prevent content from being too small
             scale = Math.max(0.4, scale);
             
-            // Apply scale transform
-            modalContent.style.transform = `scale(${scale})`;
+            // Apply scale transform with smooth transition (only if scale changed significantly)
+            const currentScale = parseFloat(modalContent.style.transform.match(/scale\(([\d.]+)\)/)?.[1] || '1');
+            if (Math.abs(currentScale - scale) > 0.01) {
+                // Only update if change is significant to avoid unnecessary repaints
+                modalContent.style.transform = `scale(${scale})`;
+            }
             modalContent.style.transformOrigin = 'center top';
             
             // Ensure modal content doesn't overflow
