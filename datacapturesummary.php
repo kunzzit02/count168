@@ -16750,7 +16750,7 @@ function formatPercentValue(value) {
 
         .edit-formula-form-container .form-layout {
             display: flex;
-            gap: 30px;
+            gap: clamp(20px, 1.56vw, 30px);
             flex-wrap: nowrap;
             overflow-x: hidden;
             overflow-y: visible;
