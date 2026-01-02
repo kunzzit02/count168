@@ -326,7 +326,32 @@ try {
                     $mapping = $userMapping;
                 }
                 
+                // 记录字段映射用于调试
+                error_log("字段映射配置: " . json_encode($mapping, JSON_UNESCAPED_UNICODE));
+                error_log("原始数据行数: " . count($webData));
+                
+                // 显示原始数据的前3行样本（用于调试）
+                if (!empty($webData)) {
+                    $sampleRawData = array_slice($webData, 0, min(3, count($webData)));
+                    error_log("原始数据样本: " . json_encode($sampleRawData, JSON_UNESCAPED_UNICODE));
+                }
+                
                 $summaryRows = convertWebDataToDataCaptureFormat($webData, $mapping);
+                
+                error_log("转换后数据行数: " . count($summaryRows));
+                
+                // 如果转换后没有数据，提供原始数据信息
+                if (empty($summaryRows)) {
+                    $errorMsg = '无法从网页数据中提取账号信息。';
+                    $errorMsg .= "\n可能原因：1) 所有行都被过滤（可能是汇总行） 2) 字段映射未识别到账号列";
+                    $errorMsg .= "\n字段映射配置: " . json_encode($mapping, JSON_UNESCAPED_UNICODE);
+                    if (!empty($webData)) {
+                        $errorMsg .= "\n原始数据列名（第一行）: " . implode(', ', array_keys($webData[0] ?? []));
+                        $sampleRow = $webData[0] ?? [];
+                        $errorMsg .= "\n原始数据第一行值: " . json_encode(array_slice($sampleRow, 0, 5, true), JSON_UNESCAPED_UNICODE);
+                    }
+                    throw new Exception($errorMsg);
+                }
                 
                 // 解析账号ID
                 $unmatchedAccounts = [];
@@ -363,6 +388,12 @@ try {
                         $errorMsg .= "\n提取到的账号样本（前10个）: " . implode(', ', array_slice($uniqueSamples, 0, 10));
                         if (count($uniqueSamples) > 10) {
                             $errorMsg .= ' ... (共' . count($uniqueSamples) . '个)';
+                        }
+                    } else {
+                        $errorMsg .= "\n警告：未提取到任何账号值，可能是字段映射配置错误。";
+                        $errorMsg .= "\n字段映射配置: " . json_encode($mapping, JSON_UNESCAPED_UNICODE);
+                        if (!empty($webData)) {
+                            $errorMsg .= "\n原始数据列名（第一行）: " . implode(', ', array_keys($webData[0] ?? []));
                         }
                     }
                     
