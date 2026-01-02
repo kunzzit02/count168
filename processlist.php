@@ -10,8 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             // 检查是否有 formula 链接到这些 process
             $placeholders = str_repeat('?,', count($ids) - 1) . '?';
             
-            // 获取要删除的 process 的 process_id 和 id
-            $stmt = $pdo->prepare("SELECT id, process_id FROM process WHERE id IN ($placeholders) AND status = 'inactive'");
+            // 获取要删除的 process 的 id、process_id 和 company_id
+            $stmt = $pdo->prepare("SELECT id, process_id, company_id FROM process WHERE id IN ($placeholders) AND status = 'inactive'");
             $stmt->execute($ids);
             $processesToDelete = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
@@ -23,39 +23,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             
             // 检查每个 process 是否被 formula 使用
             $processIds = array_column($processesToDelete, 'id');
-            $processCodes = array_column($processesToDelete, 'process_id');
+            $processCompanyIds = array_unique(array_column($processesToDelete, 'company_id'));
             
             // 检查 data_capture_templates 表中是否有记录使用这些 process
-            // process_id 可能是 process 的 process_id（代码）或 process 的 id（数字）
-            // 需要检查两种情况：
-            // 1. data_capture_templates.process_id = process.process_id（代码匹配）
-            // 2. data_capture_templates.process_id 是数字且等于 process.id（ID匹配）
+            // 注意：data_capture_templates.process_id 现在是 INT(11)，存储的是 process.id（整数）
+            // 不再存储 process.process_id（字符串代码）
             
             $formulaCount = 0;
-            if (!empty($processCodes) || !empty($processIds)) {
-                $conditions = [];
-                $formulaCheckParams = [];
+            if (!empty($processIds)) {
+                $idPlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
+                $formulaCheckParams = $processIds;
                 
-                // 检查代码匹配
-                if (!empty($processCodes)) {
-                    $codePlaceholders = str_repeat('?,', count($processCodes) - 1) . '?';
-                    $conditions[] = "process_id IN ($codePlaceholders)";
-                    $formulaCheckParams = array_merge($formulaCheckParams, $processCodes);
+                // 构建查询：检查 data_capture_templates 表中是否有使用这些 process.id 的记录
+                // 只检查这些 process 所属的 company 下的 formula（确保准确性）
+                if (!empty($processCompanyIds)) {
+                    $companyPlaceholders = str_repeat('?,', count($processCompanyIds) - 1) . '?';
+                    $formulaCheckSql = "SELECT COUNT(*) as count FROM data_capture_templates 
+                                        WHERE process_id IN ($idPlaceholders) 
+                                        AND company_id IN ($companyPlaceholders)";
+                    $formulaCheckParams = array_merge($formulaCheckParams, $processCompanyIds);
+                } else {
+                    // 如果没有 company_id，检查所有公司的 formula（向后兼容，但应该不会发生）
+                    $formulaCheckSql = "SELECT COUNT(*) as count FROM data_capture_templates 
+                                        WHERE process_id IN ($idPlaceholders)";
                 }
                 
-                // 检查 ID 匹配（数字格式）
-                if (!empty($processIds)) {
-                    $idPlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
-                    $conditions[] = "(process_id REGEXP '^[0-9]+$' AND CAST(process_id AS UNSIGNED) IN ($idPlaceholders))";
-                    $formulaCheckParams = array_merge($formulaCheckParams, $processIds);
-                }
-                
-                if (!empty($conditions)) {
-                    $formulaCheckSql = "SELECT COUNT(*) as count FROM data_capture_templates WHERE " . implode(' OR ', $conditions);
-                    $stmt = $pdo->prepare($formulaCheckSql);
-                    $stmt->execute($formulaCheckParams);
-                    $formulaCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-                }
+                $stmt = $pdo->prepare($formulaCheckSql);
+                $stmt->execute($formulaCheckParams);
+                $formulaCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
             }
             
             if ($formulaCount > 0) {
