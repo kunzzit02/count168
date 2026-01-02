@@ -404,25 +404,62 @@ function evaluateColumnExpression(array $row, string $expression): string {
  * @return array 提取的报告数据
  */
 function getReportFromWebPage(string $reportPageUrl, string $cookieFile, array $extractionConfig = []): array {
-    // 获取报告页面HTML
-    $ch = curl_init($reportPageUrl);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_COOKIEJAR => $cookieFile,
-        CURLOPT_COOKIEFILE => $cookieFile,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => false,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    ]);
+    // 获取报告页面HTML（可能需要多次尝试或等待）
+    $maxAttempts = 3;
+    $html = '';
     
-    $html = curl_exec($ch);
-    $error = curl_error($ch);
-    curl_close($ch);
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        $ch = curl_init($reportPageUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_COOKIEJAR => $cookieFile,
+            CURLOPT_COOKIEFILE => $cookieFile,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            CURLOPT_HTTPHEADER => [
+                'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language: zh-CN,zh;q=0.9,en;q=0.8',
+                'Connection: keep-alive',
+                'Upgrade-Insecure-Requests: 1'
+            ]
+        ]);
+        
+        $html = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        
+        if ($error) {
+            if ($attempt < $maxAttempts) {
+                sleep(1); // 等待1秒后重试
+                continue;
+            }
+            throw new Exception('无法获取报告页面: ' . $error);
+        }
+        
+        if ($httpCode !== 200) {
+            if ($attempt < $maxAttempts) {
+                sleep(1);
+                continue;
+            }
+            throw new Exception("报告页面返回HTTP状态码: $httpCode");
+        }
+        
+        if (!empty($html)) {
+            break; // 成功获取
+        }
+    }
     
-    if ($error || empty($html)) {
-        throw new Exception('无法获取报告页面: ' . ($error ?: '页面为空'));
+    if (empty($html)) {
+        throw new Exception('无法获取报告页面: 页面为空（已重试' . $maxAttempts . '次）');
+    }
+    
+    // 检查HTML长度，如果太短可能是错误页面
+    if (strlen($html) < 1000) {
+        error_log("警告：报告页面HTML内容很短（" . strlen($html) . "字节），可能是错误页面或需要登录");
     }
     
     // 提取报告数据

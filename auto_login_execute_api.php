@@ -202,6 +202,24 @@ try {
                 ? json_decode($credential['import_field_mapping'], true) 
                 : [];
             
+            // 检查是否需要先访问主页（如果报告页面URL与登录URL不同）
+            if ($reportPageUrl !== $credential['website_url']) {
+                // 先访问一次报告页面，确保会话正确
+                $ch = curl_init($reportPageUrl);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_COOKIEJAR => $loginResult['cookie_file'],
+                    CURLOPT_COOKIEFILE => $loginResult['cookie_file'],
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => false,
+                    CURLOPT_TIMEOUT => 30,
+                    CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                ]);
+                curl_exec($ch);
+                curl_close($ch);
+            }
+            
             $webData = getReportFromWebPage($reportPageUrl, $loginResult['cookie_file'], $extractionConfig);
             
             if (empty($webData)) {
@@ -487,7 +505,13 @@ try {
                             }
                         }
                         
-                        $errorMsg .= " 字段映射: " . json_encode($mapping, JSON_UNESCAPED_UNICODE);
+                        $errorMsg .= "\n\n可能的原因和解决方案：";
+                        $errorMsg .= "\n1. 网页数据可能是通过JavaScript动态加载的，cURL无法获取";
+                        $errorMsg .= "\n2. 可能需要先选择日期范围或点击按钮才能显示数据";
+                        $errorMsg .= "\n3. 报告页面URL可能需要登录后手动访问一次才能获取数据";
+                        $errorMsg .= "\n4. 可以尝试手动配置字段映射，或使用浏览器开发者工具查看实际的数据结构";
+                        
+                        $errorMsg .= "\n字段映射: " . json_encode($mapping, JSON_UNESCAPED_UNICODE);
                         
                         if ($allCol0Empty) {
                             $errorMsg .= "\n检测结果：所有行的 col_0 都是空的";
