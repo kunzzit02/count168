@@ -2276,10 +2276,15 @@ function getCurrentProcessId() {
 
         // Add selected row data (from second select) into Formula, same behavior as clicking table cell
         function addSelectedDataToFormula() {
+            console.log('addSelectedDataToFormula called');
             const descriptionSelect2 = document.getElementById('descriptionSelect2');
-            if (!descriptionSelect2) return;
+            if (!descriptionSelect2) {
+                console.warn('descriptionSelect2 not found');
+                return;
+            }
 
             const selectedValue = descriptionSelect2.value;
+            console.log('Selected value:', selectedValue);
             if (!selectedValue) {
                 showNotification('Info', 'Please select row data first.', 'info');
                 return;
@@ -2293,6 +2298,7 @@ function getCurrentProcessId() {
 
             const rowIndex = parseInt(parts[0], 10);
             const columnIndex = parts[1];
+            console.log('Parsed rowIndex:', rowIndex, 'columnIndex:', columnIndex);
             if (isNaN(rowIndex)) {
                 console.warn('Invalid row index in selected value for descriptionSelect2:', selectedValue);
                 return;
@@ -2305,29 +2311,46 @@ function getCurrentProcessId() {
             }
 
             const rows = capturedTableBody.querySelectorAll('tr');
+            console.log('Total rows found:', rows.length);
             const targetRow = rows[rowIndex];
             if (!targetRow) {
-                console.warn('Row not found for index:', rowIndex);
+                console.warn('Row not found for index:', rowIndex, 'Total rows:', rows.length);
                 return;
             }
 
             // Find the cell with matching data-column-index
             const cells = targetRow.querySelectorAll('td');
+            console.log('Cells in target row:', cells.length);
             let targetCell = null;
-            cells.forEach(cell => {
+            cells.forEach((cell, index) => {
                 const colIdx = cell.getAttribute('data-column-index');
+                console.log(`Cell ${index}: data-column-index="${colIdx}", looking for "${columnIndex}"`);
                 if (colIdx === columnIndex) {
                     targetCell = cell;
+                    console.log('Found target cell at index:', index);
                 }
             });
 
             if (!targetCell) {
                 console.warn('Cell not found for column index:', columnIndex, 'in row index:', rowIndex);
-                return;
+                // Try to find by position instead
+                const cellByPosition = cells[parseInt(columnIndex)];
+                if (cellByPosition) {
+                    console.log('Found cell by position instead');
+                    targetCell = cellByPosition;
+                } else {
+                    return;
+                }
             }
 
+            console.log('Calling insertCellValueToFormula with targetCell');
             // Reuse existing logic: behave exactly like clicking the cell
-            insertCellValueToFormula(targetCell);
+            try {
+                insertCellValueToFormula(targetCell);
+            } catch (error) {
+                console.error('Error in insertCellValueToFormula:', error);
+                showNotification('Error', 'Failed to add data to formula: ' + error.message, 'danger');
+            }
         }
 
         // Load all id products from table into first select box
@@ -4855,13 +4878,24 @@ function getCurrentProcessId() {
             // Insert column reference with id_product format: [id_product (row_label) ]$columnNumber
             // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
             let valueToInsert;
+            
+            // Debug: Log all variables to help diagnose issues
+            console.log('insertCellValueToFormula - Debug info:', {
+                idProduct: idProduct,
+                rowLabel: rowLabel,
+                displayColumnIndex: displayColumnIndex,
+                dataColumnIndex: dataColumnIndex,
+                columnIndex: columnIndex,
+                row: row ? 'exists' : 'null'
+            });
+            
             if (displayColumnIndex !== null && displayColumnIndex > 0) {
                 // Build the full format: [id_product (row_label) ]$columnNumber
                 // If rowLabel exists, format: [M99M06 (B) ]$4
                 // If no rowLabel, format: [M99M06 ]$4
                 let idProductPart = '';
-                if (idProduct) {
-                    if (rowLabel) {
+                if (idProduct && idProduct.trim() !== '') {
+                    if (rowLabel && rowLabel.trim() !== '') {
                         idProductPart = `[${idProduct} (${rowLabel}) ]`;
                     } else {
                         idProductPart = `[${idProduct} ]`;
@@ -4873,8 +4907,8 @@ function getCurrentProcessId() {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
                 let idProductPart = '';
-                if (idProduct) {
-                    if (rowLabel) {
+                if (idProduct && idProduct.trim() !== '') {
+                    if (rowLabel && rowLabel.trim() !== '') {
                         idProductPart = `[${idProduct} (${rowLabel}) ]`;
                     } else {
                         idProductPart = `[${idProduct} ]`;
