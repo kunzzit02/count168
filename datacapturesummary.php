@@ -1613,6 +1613,17 @@ function getCurrentProcessId() {
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
+            // Adjust modal scale based on viewport size (wait for DOM to render)
+            setTimeout(() => {
+                adjustEditFormulaModalScale();
+                
+                // Add resize listener to adjust scale when window is resized
+                if (!editFormulaModalResizeHandler) {
+                    editFormulaModalResizeHandler = adjustEditFormulaModalScale;
+                    window.addEventListener('resize', editFormulaModalResizeHandler);
+                }
+            }, 100);
+            
             // Clear clicked columns when opening new form (unless editing)
             setTimeout(() => {
                 const formulaInput = document.getElementById('formula');
@@ -1630,6 +1641,10 @@ function getCurrentProcessId() {
                     // Even if no prePopulatedData, set default currency from capturedProcessData
                     populateFormWithData({});
                 }
+                // Recalculate scale after data is loaded
+                setTimeout(() => {
+                    adjustEditFormulaModalScale();
+                }, 50);
             });
             
             // Load id product list into first select box
@@ -1638,6 +1653,10 @@ function getCurrentProcessId() {
             // Update formula data grid for current editing id product
             setTimeout(() => {
                 updateFormulaDataGrid();
+                // Recalculate scale after grid is updated
+                setTimeout(() => {
+                    adjustEditFormulaModalScale();
+                }, 50);
             }, 100);
             
             // Add event listener for first select box change
@@ -5296,6 +5315,51 @@ function getCurrentProcessId() {
             }, 100);
         }
 
+        // Adjust Edit Formula Modal scale based on viewport size
+        function adjustEditFormulaModalScale() {
+            const modalContent = document.getElementById('editFormulaModalContent');
+            if (!modalContent) return;
+            
+            const formContainer = modalContent.querySelector('.edit-formula-form-container');
+            if (!formContainer) return;
+            
+            // Get viewport dimensions (excluding sidebar)
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.1302)); // Same calculation as padding-left
+            const topMargin = Math.max(103, Math.min(115, viewportWidth * 0.06)); // Same as margin-top
+            const topPadding = Math.max(20, Math.min(80, viewportHeight * 0.08)); // Same as padding-top
+            
+            // Available space
+            const availableWidth = viewportWidth - sidebarWidth - 40; // 40px for padding/margins
+            const availableHeight = viewportHeight - topMargin - topPadding - 40; // 40px for bottom margin
+            
+            // Base dimensions for 1920x1080
+            const baseWidth = 1400;
+            const baseHeight = formContainer.offsetHeight || 800; // Fallback height
+            
+            // Calculate scale factors for width and height
+            const widthScale = availableWidth / baseWidth;
+            const heightScale = availableHeight / baseHeight;
+            
+            // Use the smaller scale to ensure content fits both dimensions
+            let scale = Math.min(widthScale, heightScale, 1); // Never scale up beyond 1
+            
+            // Minimum scale to prevent content from being too small
+            scale = Math.max(0.4, scale);
+            
+            // Apply scale transform
+            modalContent.style.transform = `scale(${scale})`;
+            modalContent.style.transformOrigin = 'center top';
+            
+            // Ensure modal content doesn't overflow
+            modalContent.style.maxWidth = `${baseWidth}px`;
+            modalContent.style.width = `${baseWidth}px`;
+        }
+        
+        // Store resize handler reference for cleanup
+        let editFormulaModalResizeHandler = null;
+
         // Close Edit Formula Form (modal)
         function closeEditFormulaForm() {
             const modal = document.getElementById('editFormulaModal');
@@ -5306,6 +5370,14 @@ function getCurrentProcessId() {
             }
             if (modalContent) {
                 modalContent.innerHTML = '';
+                // Reset transform
+                modalContent.style.transform = '';
+                modalContent.style.height = '';
+            }
+            // Remove resize listener
+            if (editFormulaModalResizeHandler) {
+                window.removeEventListener('resize', editFormulaModalResizeHandler);
+                editFormulaModalResizeHandler = null;
             }
             // Clean up the global references
             window.currentAddAccountButton = null;
@@ -16364,9 +16436,12 @@ function formatPercentValue(value) {
             overflow: visible;
             /* Ensure modal content is clickable */
             pointer-events: auto;
-            /* Make Edit Formula modal wider */
-            width: clamp(900px, 75vw, 1400px);
+            /* Make Edit Formula modal wider - fixed width for 1920x1080 */
+            width: 1400px;
             max-width: 95%;
+            /* Enable scaling for smaller screens */
+            transform-origin: center top;
+            transition: transform 0.2s ease;
         }
 
         @keyframes slideDown {
@@ -16727,7 +16802,7 @@ function formatPercentValue(value) {
 
         .edit-formula-form-container .form-content {
             padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
-            overflow-x: auto;
+            overflow-x: hidden;
             overflow-y: visible;
         }
 
@@ -16735,7 +16810,7 @@ function formatPercentValue(value) {
             display: flex;
             gap: 30px;
             flex-wrap: nowrap;
-            overflow-x: auto;
+            overflow-x: hidden;
             justify-content: flex-start;
             align-items: flex-start;
         }
