@@ -4848,19 +4848,43 @@ function getCurrentProcessId() {
             // Get cursor position
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
-            // Insert column reference ($columnNumber) instead of value at cursor position
+            // Insert column reference with id_product prefix: [id_product]$columnNumber
             // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
             let valueToInsert;
+            
+            // Get id_product display value (ensure we have the full display value)
+            let idProductDisplay = idProduct;
+            if (idProduct && row) {
+                // Try to get the actual display value from the id_product column (colIndex 1)
+                const cells = row.querySelectorAll('td');
+                if (cells.length > 1 && cells[1]) {
+                    const idProductCellValue = cells[1].textContent.trim();
+                    if (idProductCellValue && idProductCellValue !== '') {
+                        idProductDisplay = idProductCellValue;
+                    }
+                }
+            }
+            
             if (displayColumnIndex !== null && displayColumnIndex > 0) {
-                // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
+                // Insert column reference format: [id_product]$columnNumber (e.g., [M99M06 (B) ]$4)
                 // displayColumnIndex 就是 data-column-index 的值，直接使用
-                valueToInsert = `$${displayColumnIndex}`;
-                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
+                if (idProductDisplay && idProductDisplay.trim() !== '') {
+                    valueToInsert = `[${idProductDisplay} ]$${displayColumnIndex}`;
+                } else {
+                    // Fallback if id_product is not available
+                    valueToInsert = `$${displayColumnIndex}`;
+                }
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex, 'idProduct:', idProductDisplay);
             } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
-                valueToInsert = `$${dataColumnIndex + 1}`;
-                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex);
+                if (idProductDisplay && idProductDisplay.trim() !== '') {
+                    valueToInsert = `[${idProductDisplay} ]$${dataColumnIndex + 1}`;
+                } else {
+                    // Fallback if id_product is not available
+                    valueToInsert = `$${dataColumnIndex + 1}`;
+                }
+                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProductDisplay);
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
                 valueToInsert = numValue;
