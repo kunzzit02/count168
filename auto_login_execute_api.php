@@ -8,6 +8,7 @@ require_once 'session_check.php';
 require_once 'config.php';
 require_once 'auto_login_encrypt.php';
 require_once 'auto_login_report_importer.php';
+require_once 'auto_login_executor.php';
 
 try {
     // 获取POST数据
@@ -86,55 +87,38 @@ try {
     ");
     $stmt->execute([$id]);
     
-    // TODO: 这里需要实现实际的自动化登录和下载逻辑
-    // 这通常需要使用：
-    // 1. cURL 或 Guzzle HTTP 客户端进行HTTP请求
-    // 2. 或者使用 Selenium/Puppeteer 等浏览器自动化工具
-    // 3. 解析HTML响应，找到登录表单、填写表单、提交
-    // 4. 处理Cookie和Session
-    // 5. 找到报告下载链接并下载
-    // 6. 将下载的报告上传到count168.com
+    // 执行自动登录并下载报告
+    $executionResult = executeAutoLogin($credential, $password, $two_fa_code);
     
-    // 示例：使用cURL模拟登录（需要根据实际网站调整）
-    /*
-    $ch = curl_init($credential['website_url']);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_COOKIEJAR, '/tmp/cookies.txt');
-    curl_setopt($ch, CURLOPT_COOKIEFILE, '/tmp/cookies.txt');
+    $downloadedReportPath = $executionResult['file_path'] ?? null;
+    $tempDir = $executionResult['temp_dir'] ?? null;
     
-    // 获取登录页面
-    $html = curl_exec($ch);
-    
-    // 解析表单字段...
-    // 提交登录...
-    // 下载报告...
-    */
-    
-    // 暂时返回模拟结果
+    // 初始化结果
     $result = [
-        'success' => true,
-        'message' => '执行完成（模拟）',
-        'note' => '此功能需要根据具体网站实现自动化登录和下载逻辑',
+        'success' => $executionResult['success'],
+        'message' => $executionResult['success'] ? '执行完成' : $executionResult['error'],
         'credential_info' => [
             'name' => $credential['name'],
             'website_url' => $credential['website_url'],
             'username' => $credential['username'],
             'has_2fa' => !empty($credential['has_2fa']) && $credential['has_2fa'] == 1,
             'two_fa_type' => $credential['two_fa_type'] ?? null
-            // 不返回密码和2FA代码
         ]
     ];
     
-    // 注意：在实际实现中，可以使用 $password 和 $two_fa_code 进行登录
-    // 例如：
-    // - 对于静态码：直接在登录表单中填写 $two_fa_code
-    // - 对于TOTP：使用TOTP库（如PHPOTP）根据密钥生成当前时间的验证码
-    // - 对于SMS/Email：可能需要手动输入或使用其他服务获取验证码
+    if (!$executionResult['success']) {
+        // 如果登录/下载失败，直接返回错误
+        $result['error'] = $executionResult['error'];
+        $stmt = $pdo->prepare("
+            UPDATE auto_login_credentials 
+            SET last_result = ?
+            WHERE id = ?
+        ");
+        $stmt->execute([json_encode($result, JSON_UNESCAPED_UNICODE), $id]);
+        echo json_encode($result, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     
-    // 模拟：假设报告已下载到临时文件
-    // 实际实现中，这里应该是真实的下载逻辑
-    $downloadedReportPath = null; // 例如：'/tmp/report_' . $id . '_' . time() . '.csv';
     $importResult = null;
     
     // 如果启用自动导入且下载成功，自动导入到data capture
@@ -155,9 +139,13 @@ try {
             // 导入报告
             $importResult = importReportToDataCapture($pdo, $company_id, $id, $downloadedReportPath, $importConfig);
             
-            // 清理临时文件
-            if (file_exists($downloadedReportPath)) {
+            // 清理临时文件和目录
+            if ($downloadedReportPath && file_exists($downloadedReportPath)) {
                 @unlink($downloadedReportPath);
+            }
+            if ($tempDir && is_dir($tempDir)) {
+                @array_map('unlink', glob($tempDir . '/*'));
+                @rmdir($tempDir);
             }
             
             // 更新结果信息
