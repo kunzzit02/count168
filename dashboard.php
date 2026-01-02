@@ -185,7 +185,7 @@ if (isset($_GET['logout'])) {
             border: 1px solid #d0d7de;
             border-radius: 999px;
             cursor: pointer;
-            font-size: small;
+            font-size: clamp(9px, 0.63vw, 12px);
             transition: all 0.2s ease;
             color: #1f2937;
             font-weight: 600;
