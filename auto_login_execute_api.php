@@ -8,22 +8,66 @@ error_reporting(E_ALL);
 ini_set('display_errors', 0); // 不显示错误，而是记录到日志
 ini_set('log_errors', 1);
 
-header('Content-Type: application/json');
+// 设置输出缓冲，确保错误时也能返回JSON
+ob_start();
+
+header('Content-Type: application/json; charset=utf-8');
 
 // 捕获所有错误和警告
 set_error_handler(function($severity, $message, $file, $line) {
     error_log("PHP Error [$severity]: $message in $file:$line");
+    // 对于致命错误，立即返回JSON错误
     if ($severity & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR)) {
-        throw new ErrorException($message, 0, $severity, $file, $line);
+        ob_clean();
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'error' => 'PHP Fatal Error: ' . $message . ' in ' . $file . ':' . $line
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
     }
 });
 
-require_once 'session_check.php';
-require_once 'config.php';
-require_once 'auto_login_encrypt.php';
-require_once 'auto_login_report_importer.php';
-require_once 'auto_login_executor.php';
-require_once 'auto_login_web_scraper.php';
+// 确保所有require_once都成功
+try {
+    if (!file_exists('session_check.php')) {
+        throw new Exception('session_check.php 文件不存在');
+    }
+    require_once 'session_check.php';
+    
+    if (!file_exists('config.php')) {
+        throw new Exception('config.php 文件不存在');
+    }
+    require_once 'config.php';
+    
+    if (!file_exists('auto_login_encrypt.php')) {
+        throw new Exception('auto_login_encrypt.php 文件不存在');
+    }
+    require_once 'auto_login_encrypt.php';
+    
+    if (!file_exists('auto_login_report_importer.php')) {
+        throw new Exception('auto_login_report_importer.php 文件不存在');
+    }
+    require_once 'auto_login_report_importer.php';
+    
+    if (!file_exists('auto_login_executor.php')) {
+        throw new Exception('auto_login_executor.php 文件不存在');
+    }
+    require_once 'auto_login_executor.php';
+    
+    if (!file_exists('auto_login_web_scraper.php')) {
+        throw new Exception('auto_login_web_scraper.php 文件不存在');
+    }
+    require_once 'auto_login_web_scraper.php';
+} catch (Exception $loadError) {
+    ob_clean();
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'error' => '加载文件失败: ' . $loadError->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 try {
     // 获取POST数据
@@ -341,17 +385,25 @@ try {
     ");
     $stmt->execute([json_encode($result, JSON_UNESCAPED_UNICODE), $id]);
     
+    ob_end_flush(); // 结束输出缓冲
     echo json_encode($result, JSON_UNESCAPED_UNICODE);
     
 } catch (Exception $e) {
+    ob_clean(); // 清除之前的输出
     http_response_code(500);
     
     // 记录详细错误信息
-    error_log('auto_login_execute_api.php Error: ' . $e->getMessage());
-    error_log('Stack trace: ' . $e->getTraceAsString());
+    $errorMsg = $e->getMessage();
+    $errorFile = $e->getFile();
+    $errorLine = $e->getLine();
+    $errorTrace = $e->getTraceAsString();
+    
+    error_log('auto_login_execute_api.php Error: ' . $errorMsg);
+    error_log('File: ' . $errorFile . ':' . $errorLine);
+    error_log('Stack trace: ' . $errorTrace);
     
     // 如果有ID，更新错误结果
-    if (isset($id) && $id > 0) {
+    if (isset($id) && $id > 0 && isset($pdo)) {
         try {
             $stmt = $pdo->prepare("
                 UPDATE auto_login_credentials 
@@ -359,9 +411,9 @@ try {
                 WHERE id = ?
             ");
             $errorResult = json_encode([
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'error' => $errorMsg,
+                'file' => basename($errorFile),
+                'line' => $errorLine
             ], JSON_UNESCAPED_UNICODE);
             $stmt->execute([$errorResult, $id]);
         } catch (Exception $updateError) {
@@ -369,24 +421,51 @@ try {
         }
     }
     
-    echo json_encode([
+    // 返回JSON错误
+    $response = [
         'success' => false,
-        'error' => $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine()
-    ], JSON_UNESCAPED_UNICODE);
+        'error' => $errorMsg,
+        'file' => basename($errorFile),
+        'line' => $errorLine
+    ];
+    
+    echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    exit;
 } catch (Error $e) {
     // 捕获PHP致命错误
+    ob_clean();
     http_response_code(500);
-    error_log('auto_login_execute_api.php Fatal Error: ' . $e->getMessage());
+    
+    $errorMsg = $e->getMessage();
+    $errorFile = $e->getFile();
+    $errorLine = $e->getLine();
+    
+    error_log('auto_login_execute_api.php Fatal Error: ' . $errorMsg);
+    error_log('File: ' . $errorFile . ':' . $errorLine);
     error_log('Stack trace: ' . $e->getTraceAsString());
+    
+    $response = [
+        'success' => false,
+        'error' => '服务器内部错误: ' . $errorMsg,
+        'file' => basename($errorFile),
+        'line' => $errorLine
+    ];
+    
+    echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    exit;
+} catch (Throwable $e) {
+    // 捕获所有其他可抛出的错误
+    ob_clean();
+    http_response_code(500);
+    
+    error_log('auto_login_execute_api.php Throwable: ' . $e->getMessage());
     
     echo json_encode([
         'success' => false,
-        'error' => '服务器内部错误: ' . $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine()
+        'error' => '未知错误: ' . $e->getMessage(),
+        'type' => get_class($e)
     ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 /**
