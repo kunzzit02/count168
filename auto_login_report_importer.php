@@ -331,14 +331,21 @@ function findFieldValue(array $row, array $fieldNames, bool $asNumber = false) {
 
 /**
  * 解析账号ID（可能是账号代码或ID）
+ * 支持多种匹配方式：精确匹配、部分匹配、名称匹配
  */
 function resolveAccountId(PDO $pdo, int $companyId, $accountIdentifier): ?int {
-    // 如果是数字，直接作为ID使用
+    if (empty($accountIdentifier)) {
+        return null;
+    }
+    
+    $accountIdentifier = trim((string)$accountIdentifier);
+    
+    // 方式1: 如果是数字，直接作为ID使用
     if (is_numeric($accountIdentifier)) {
         $stmt = $pdo->prepare("
             SELECT a.id FROM account a
             INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE ac.company_id = ? AND a.id = ?
+            WHERE ac.company_id = ? AND a.id = ? AND a.status = 'active'
         ");
         $stmt->execute([$companyId, (int)$accountIdentifier]);
         $result = $stmt->fetchColumn();
@@ -347,16 +354,81 @@ function resolveAccountId(PDO $pdo, int $companyId, $accountIdentifier): ?int {
         }
     }
     
-    // 尝试通过account_id匹配
+    // 方式2: 精确匹配 account_id（不区分大小写）
     $stmt = $pdo->prepare("
         SELECT a.id FROM account a
         INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE ac.company_id = ? AND UPPER(a.account_id) = UPPER(?)
+        WHERE ac.company_id = ? AND UPPER(TRIM(a.account_id)) = UPPER(TRIM(?)) AND a.status = 'active'
     ");
-    $stmt->execute([$companyId, (string)$accountIdentifier]);
+    $stmt->execute([$companyId, $accountIdentifier]);
     $result = $stmt->fetchColumn();
+    if ($result) {
+        return (int)$result;
+    }
     
-    return $result ? (int)$result : null;
+    // 方式3: 精确匹配账号名称（不区分大小写）
+    $stmt = $pdo->prepare("
+        SELECT a.id FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ? AND UPPER(TRIM(a.name)) = UPPER(TRIM(?)) AND a.status = 'active'
+    ");
+    $stmt->execute([$companyId, $accountIdentifier]);
+    $result = $stmt->fetchColumn();
+    if ($result) {
+        return (int)$result;
+    }
+    
+    // 方式4: 部分匹配 account_id（移除空格、特殊字符后匹配）
+    $cleanIdentifier = preg_replace('/[^a-zA-Z0-9]/', '', $accountIdentifier);
+    if (!empty($cleanIdentifier)) {
+        $stmt = $pdo->prepare("
+            SELECT a.id FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE ac.company_id = ? 
+            AND UPPER(REGEXP_REPLACE(a.account_id, '[^a-zA-Z0-9]', '')) = UPPER(?)
+            AND a.status = 'active'
+        ");
+        try {
+            $stmt->execute([$companyId, $cleanIdentifier]);
+            $result = $stmt->fetchColumn();
+            if ($result) {
+                return (int)$result;
+            }
+        } catch (Exception $e) {
+            // REGEXP_REPLACE 可能不支持，忽略错误继续
+        }
+        
+        // 如果 REGEXP_REPLACE 不支持，使用 LIKE 模糊匹配
+        $stmt = $pdo->prepare("
+            SELECT a.id FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE ac.company_id = ? 
+            AND (UPPER(a.account_id) LIKE UPPER(?) OR UPPER(a.name) LIKE UPPER(?))
+            AND a.status = 'active'
+            LIMIT 1
+        ");
+        $likePattern = '%' . $cleanIdentifier . '%';
+        $stmt->execute([$companyId, $likePattern, $likePattern]);
+        $result = $stmt->fetchColumn();
+        if ($result) {
+            return (int)$result;
+        }
+    }
+    
+    // 方式5: 如果账号标识符包含特殊字符或空格，尝试提取其中的账号代码部分
+    // 例如："X8914sub" 或 "账号: X8914sub" -> "X8914sub"
+    if (preg_match('/[A-Za-z0-9]{3,}/', $accountIdentifier, $matches)) {
+        $extractedCode = $matches[0];
+        if ($extractedCode !== $accountIdentifier) {
+            // 递归调用，使用提取的代码
+            return resolveAccountId($pdo, $companyId, $extractedCode);
+        }
+    }
+    
+    // 所有方式都失败，记录日志
+    error_log("无法解析账号标识符: '$accountIdentifier' (公司ID: $companyId)");
+    
+    return null;
 }
 
 /**

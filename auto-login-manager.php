@@ -746,7 +746,7 @@ if (!$company_id) {
                             
                             // 设置自动导入字段
                             // 先加载下拉选项，然后再设置值（确保选项已存在）
-                            Promise.all([loadProcesses(), loadCurrencies()]).then(() => {
+                            loadProcesses().then(() => {
                                 const autoImportEnabled = cred.auto_import_enabled == 1 || cred.auto_import_enabled === true;
                                 document.getElementById('auto_import_enabled').checked = autoImportEnabled;
                                 if (autoImportEnabled) {

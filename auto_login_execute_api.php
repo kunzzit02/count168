@@ -329,26 +329,45 @@ try {
                 $summaryRows = convertWebDataToDataCaptureFormat($webData, $mapping);
                 
                 // 解析账号ID
+                $unmatchedAccounts = [];
                 foreach ($summaryRows as &$row) {
-                    $accountId = resolveAccountId($pdo, $company_id, $row['account']);
+                    $originalAccount = $row['account'] ?? '';
+                    $accountId = resolveAccountId($pdo, $company_id, $originalAccount);
                     if ($accountId) {
                         $row['accountId'] = $accountId;
                     } else {
                         // 如果找不到账号，标记为需要手动处理
                         $row['accountId'] = null;
-                        $row['_account_not_found'] = $row['account'];
+                        $unmatchedAccounts[] = $originalAccount;
                     }
                     unset($row['account']); // 移除原始账号字段
                 }
                 
                 // 过滤掉找不到账号的行
-                $summaryRows = array_filter($summaryRows, function($row) {
+                $validRows = array_filter($summaryRows, function($row) {
                     return !empty($row['accountId']);
                 });
                 
-                if (empty($summaryRows)) {
-                    throw new Exception('无法匹配任何账号，请检查账号映射配置');
+                if (empty($validRows)) {
+                    $errorMsg = '无法匹配任何账号。';
+                    if (!empty($unmatchedAccounts)) {
+                        $uniqueUnmatched = array_unique(array_slice($unmatchedAccounts, 0, 10));
+                        $errorMsg .= ' 无法匹配的账号示例: ' . implode(', ', $uniqueUnmatched);
+                        if (count($unmatchedAccounts) > 10) {
+                            $errorMsg .= ' ... (共' . count($unmatchedAccounts) . '个)';
+                        }
+                    }
+                    $errorMsg .= ' 请检查账号映射配置或确保账号已存在于系统中。';
+                    throw new Exception($errorMsg);
                 }
+                
+                // 如果有部分账号无法匹配，记录警告但不阻止导入
+                if (!empty($unmatchedAccounts)) {
+                    $uniqueUnmatched = array_unique(array_slice($unmatchedAccounts, 0, 10));
+                    error_log("警告: 部分账号无法匹配 (" . count($unmatchedAccounts) . "个): " . implode(', ', $uniqueUnmatched));
+                }
+                
+                $summaryRows = array_values($validRows);
                 
                 // 准备提交数据
                 $submitData = [
