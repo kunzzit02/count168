@@ -797,7 +797,7 @@ if ($companyId) {
         margin-top: auto;
         flex-shrink: 0;
         backdrop-filter: blur(10px);
-        gap: clamp(6px, 0.52vw, 10px);
+        gap: 0px;
     }
 
     /* 滚动条样式 */
@@ -1151,55 +1151,76 @@ if ($companyId) {
 
     /* 公司到期倒计时样式 */
     .company-expiration-countdown {
-        padding: 0;
-        margin-bottom: 0px;
-        text-align: center;
+        padding: clamp(4px, 0.42vw, 6px) clamp(6px, 0.63vw, 10px);
+        margin-bottom: clamp(6px, 0.52vw, 10px);
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(4px, 0.42vw, 6px);
+        transition: all 0.3s ease;
+    }
+
+    .company-expiration-countdown.expired {
+        background: rgba(239, 68, 68, 0.4);
+        border-color: rgba(239, 68, 68, 0.7);
+    }
+
+    .company-expiration-countdown.warning {
+        background: rgba(251, 191, 36, 0.4);
+        border-color: rgba(251, 191, 36, 0.7);
+    }
+
+    .company-expiration-countdown.normal {
+        background: rgba(59, 130, 246, 0.35);
+        border-color: rgba(59, 130, 246, 0.6);
+    }
+
+    .expiration-icon {
+        width: clamp(10px, 0.83vw, 15px);
+        height: clamp(10px, 0.83vw, 15px);
+        flex-shrink: 0;
+        color: white;
+    }
+
+    .company-expiration-countdown.expired .expiration-icon {
+        color: #ffffff;
+    }
+
+    .company-expiration-countdown.warning .expiration-icon {
+        color: #ffffff;
+    }
+
+    .company-expiration-countdown.normal .expiration-icon {
+        color: #ffffff;
+    }
+
+    .expiration-content {
         display: flex;
         align-items: baseline;
+        gap: clamp(3px, 0.31vw, 4px);
+        flex-wrap: wrap;
         justify-content: center;
-        gap: clamp(4px, 0.42vw, 8px);
     }
 
     .expiration-label {
-        font-size: clamp(10px, 0.73vw, 14px);
+        font-size: clamp(6px, 0.625vw, 10px);
         font-weight: 700;
-        color: rgba(255, 255, 255, 1);
+        color: #ffffff;
         margin: 0;
         line-height: 1.3;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     }
 
     .expiration-countdown-text {
-        font-size: clamp(8px, 0.625vw, 12px);
+        font-size: clamp(6px, 0.625vw, 10px);
         font-weight: 600;
-        color: white;
+        color: #ffffff;
         margin: 0;
         line-height: 1.3;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    }
-
-    .expiration-countdown-text.expired {
-        color:rgb(255, 0, 0);
-        animation: pulse-red 2s ease-in-out infinite;
-    }
-
-    .expiration-countdown-text.warning {
-        color: #fef3c7;
-        animation: pulse-yellow 2s ease-in-out infinite;
-    }
-
-    .expiration-countdown-text.normal {
-        color: #cde7ff;
-    }
-
-    @keyframes pulse-red {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }
-    }
-
-    @keyframes pulse-yellow {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.8; }
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     }
 </style>
 
@@ -1554,10 +1575,16 @@ if ($companyId) {
 
     <div class="informationmenu-footer">
         <?php if ($company_expiration_date): ?>
-        <div class="company-expiration-countdown" id="companyExpirationCountdown">
-            <span class="expiration-label">Exp:</span>
-            <div class="expiration-countdown-text <?php echo $expiration_status; ?>" id="expirationCountdownText">
-                <?php echo htmlspecialchars($expiration_countdown_text); ?>
+        <div class="company-expiration-countdown <?php echo $expiration_status; ?>" id="companyExpirationCountdown">
+            <svg class="expiration-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <div class="expiration-content">
+                <span class="expiration-label">Exp:</span>
+                <span class="expiration-countdown-text <?php echo $expiration_status; ?>" id="expirationCountdownText">
+                    <?php echo htmlspecialchars($expiration_countdown_text); ?>
+                </span>
             </div>
         </div>
         <?php endif; ?>
@@ -1930,9 +1957,9 @@ if ($companyId) {
         const dropdown = document.getElementById('languageDropdown');
         const button = document.querySelector('.language-btn');
         
-        if (!languageDropdown.contains(e.target)) {
-            dropdown.classList.remove('show');
-            button.classList.remove('active');
+        if (languageDropdown && !languageDropdown.contains(e.target)) {
+            if (dropdown) dropdown.classList.remove('show');
+            if (button) button.classList.remove('active');
         }
     });
 
@@ -2038,10 +2065,14 @@ if ($companyId) {
         currentAvatarId = avatarId;
         const currentAvatarImg = document.getElementById('currentAvatarImg');
         const options = document.getElementById('avatarOptions');
-        currentAvatarImg.src = avatarImages[avatarId];
+        if (currentAvatarImg) {
+            currentAvatarImg.src = avatarImages[avatarId];
+        }
         
         // 隐藏选项
-        options.classList.remove('show');
+        if (options) {
+            options.classList.remove('show');
+        }
         
         // 保存用户选择到localStorage（可选）
         localStorage.setItem('selectedAvatar', avatarId);
@@ -2076,7 +2107,9 @@ if ($companyId) {
             currentAvatarId = 'male1';
         }
 
-        currentAvatarImg.src = avatarImages[currentAvatarId];
+        if (currentAvatarImg) {
+            currentAvatarImg.src = avatarImages[currentAvatarId];
+        }
         updateSelectedAvatar();
         
         // 根据当前头像的性别设置默认显示
@@ -2093,7 +2126,8 @@ if ($companyId) {
         const avatarContainer = document.querySelector('.avatar-selector-container');
         const avatarOptions = document.getElementById('avatarOptions');
         
-        if (!avatarContainer.contains(e.target) && !avatarOptions.contains(e.target)) {
+        if (avatarContainer && avatarOptions && 
+            !avatarContainer.contains(e.target) && !avatarOptions.contains(e.target)) {
             avatarOptions.classList.remove('show');
         }
     });
@@ -2357,12 +2391,16 @@ if ($companyId) {
 
     function updateExpirationCountdown() {
         const expirationDate = '<?php echo $company_expiration_date ? $company_expiration_date : ''; ?>';
+        const countdownContainer = document.getElementById('companyExpirationCountdown');
         const countdownText = document.getElementById('expirationCountdownText');
         
-        if (!expirationDate || expirationDate.trim() === '' || !countdownText) {
+        if (!expirationDate || expirationDate.trim() === '' || !countdownText || !countdownContainer) {
             if (countdownText) {
                 countdownText.textContent = 'No expiration date';
                 countdownText.className = 'expiration-countdown-text normal';
+            }
+            if (countdownContainer) {
+                countdownContainer.className = 'company-expiration-countdown normal';
             }
             return;
         }
@@ -2372,9 +2410,12 @@ if ($companyId) {
         if (countdown) {
             countdownText.textContent = countdown.text;
             countdownText.className = 'expiration-countdown-text ' + countdown.status;
+            // 同时更新容器的状态类
+            countdownContainer.className = 'company-expiration-countdown ' + countdown.status;
         } else {
             countdownText.textContent = 'No expiration date';
             countdownText.className = 'expiration-countdown-text normal';
+            countdownContainer.className = 'company-expiration-countdown normal';
         }
     }
 

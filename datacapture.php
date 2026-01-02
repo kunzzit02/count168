@@ -5410,6 +5410,123 @@ if ($current_user_id && count($user_companies) > 0) {
             const parseResult = parsePastedData(pastedData);
             let rows = parseResult.rows;
             
+            // ===== 特殊处理：合并单行表格数据（即使有换行符也保持在同一行） =====
+            // 检测是否是单行表格数据被换行符分割的情况
+            // 例如：allbet95sgd\t\r\n901\r\n374.40\t374.40\t... 应该合并成一行
+            if (rows.length > 1) {
+                let hasTabSeparatedRow = false;
+                let singleValueRows = [];
+                let tabSeparatedRows = [];
+                
+                // 检查是否有包含制表符的行，以及单值行
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i].trim();
+                    if (row === '') continue;
+                    
+                    if (row.includes('\t')) {
+                        hasTabSeparatedRow = true;
+                        tabSeparatedRows.push({ index: i, row: row });
+                    } else {
+                        // 单值行（没有制表符）
+                        singleValueRows.push({ index: i, value: row });
+                    }
+                }
+                
+                // 如果存在包含制表符的行，且有很多单值行，可能是同一行数据被分割了
+                // 或者只有少量行（2-10行），且大部分是单值行，可能是同一行数据
+                if (hasTabSeparatedRow && singleValueRows.length > 0) {
+                    // 检查单值行是否看起来像是数值或标识符（而不是独立的行）
+                    const allSingleValuesAreData = singleValueRows.every(item => {
+                        const val = item.value;
+                        // 检查是否是数值、标识符（如allbet95sgd）或其他数据格式
+                        return /^[\d.]+$/.test(val) || // 纯数字
+                               /^[a-z0-9]+$/i.test(val) || // 字母数字组合（如allbet95sgd）
+                               /^-?\d[\d,.-]*$/.test(val); // 带符号的数字
+                    });
+                    
+                    // 如果所有单值行都像是数据，且总行数不多（可能是单行数据被分割），则合并
+                    const totalDataRows = tabSeparatedRows.length + singleValueRows.length;
+                    if (allSingleValuesAreData && totalDataRows <= 10) {
+                        // 收集所有需要合并的值（按原始顺序）
+                        const allValues = [];
+                        const allIndices = [];
+                        
+                        // 收集所有非空行的索引和值（按原始顺序）
+                        for (let i = 0; i < rows.length; i++) {
+                            const row = rows[i];
+                            const trimmed = row.trim();
+                            if (trimmed === '') continue;
+                            
+                            if (row.includes('\t')) {
+                                // 制表符分隔的行，分割成多个值（保留空单元格）
+                                const cells = row.split('\t').map(c => c.trim());
+                                // 过滤掉末尾的空单元格（但保留中间的空单元格）
+                                let filteredCells = [];
+                                let foundNonEmpty = false;
+                                for (let j = cells.length - 1; j >= 0; j--) {
+                                    if (cells[j] !== '' || foundNonEmpty) {
+                                        foundNonEmpty = true;
+                                        filteredCells.unshift(cells[j]);
+                                    }
+                                }
+                                allValues.push(...filteredCells);
+                                allIndices.push(i);
+                            } else {
+                                // 单值行
+                                allValues.push(trimmed);
+                                allIndices.push(i);
+                            }
+                        }
+                        
+                        // 如果收集到的值看起来像是一行表格数据（至少3个值），则合并
+                        if (allValues.length >= 3) {
+                            // 创建合并后的行（用制表符连接所有值）
+                            const mergedRow = allValues.join('\t');
+                            
+                            // 替换第一行，删除其他行
+                            const firstDataRowIndex = allIndices[0];
+                            rows[firstDataRowIndex] = mergedRow;
+                            
+                            // 删除其他数据行（从后往前删除，避免索引变化）
+                            const indicesToRemove = allIndices.slice(1).sort((a, b) => b - a);
+                            for (let idx of indicesToRemove) {
+                                rows.splice(idx, 1);
+                            }
+                            
+                            console.log('Merged single-row table data: combined', totalDataRows, 'rows into 1 row');
+                            console.log('Merged row:', mergedRow);
+                            console.log('Total cells in merged row:', allValues.length);
+                        }
+                    }
+                } else if (!hasTabSeparatedRow && singleValueRows.length > 0 && singleValueRows.length <= 15) {
+                    // 如果没有制表符行，但有很多单值行（可能是单行数据被完全分割）
+                    // 检查是否所有值都像是数据
+                    const allValuesAreData = singleValueRows.every(item => {
+                        const val = item.value;
+                        return /^[\d.]+$/.test(val) || 
+                               /^[a-z0-9]+$/i.test(val) || 
+                               /^-?\d[\d,.-]*$/.test(val);
+                    });
+                    
+                    if (allValuesAreData && singleValueRows.length >= 3) {
+                        // 合并所有单值行成一行
+                        const allValues = singleValueRows.map(item => item.value);
+                        const mergedRow = allValues.join('\t');
+                        
+                        // 替换第一行，删除其他行
+                        rows[singleValueRows[0].index] = mergedRow;
+                        const indicesToRemove = singleValueRows.slice(1).map(item => item.index).sort((a, b) => b - a);
+                        for (let idx of indicesToRemove) {
+                            rows.splice(idx, 1);
+                        }
+                        
+                        console.log('Merged single-row table data (no tabs): combined', singleValueRows.length, 'rows into 1 row');
+                        console.log('Merged row:', mergedRow);
+                    }
+                }
+            }
+            // ===== 单行表格数据合并处理结束 =====
+            
             // ===== 专用过滤：Downline Payment 报表（纯文本格式） =====
             // 检测是否是 Downline Payment 格式（从 Excel/Google Sheet 复制）
             // 特征：可能包含 Overall、My Earnings、IPHSP3 IPHSP3 MAJOR、MG 行等
@@ -6178,8 +6295,16 @@ if ($current_user_id && count($user_companies) > 0) {
                     detectedColumnCount = firstInterval;
                     console.log(`Detected pattern: Row identifiers at indices ${rowIdentifierIndices[0]} and ${rowIdentifierIndices[1]}, interval is ${firstInterval}, will use ${firstInterval} columns`);
                 } else if (firstInterval > 0 && firstInterval < 14) {
-                    // 如果间隔太小，可能是检测错误，尝试检查第三个标识符
-                    if (rowIdentifierIndices.length >= 3) {
+                    // 如果间隔较小（2-13），需要检查是否是合理的列数
+                    // 对于少量行的数据（2-20行），较小的间隔可能是正确的列数
+                    const estimatedRows = Math.ceil(allCells.length / firstInterval);
+                    if (estimatedRows >= 2 && estimatedRows <= 20 && allCells.length <= 200) {
+                        // 数据行数合理，且总单元格数不太大，使用这个间隔作为列数
+                        force18Columns = true;
+                        detectedColumnCount = firstInterval;
+                        console.log(`Detected pattern: Row identifiers at indices ${rowIdentifierIndices[0]} and ${rowIdentifierIndices[1]}, interval is ${firstInterval}, will use ${firstInterval} columns (estimated ${estimatedRows} rows)`);
+                    } else if (rowIdentifierIndices.length >= 3) {
+                        // 如果间隔太小，可能是检测错误，尝试检查第三个标识符
                         const secondInterval = rowIdentifierIndices[2] - rowIdentifierIndices[1];
                         if (secondInterval === firstInterval) {
                             // 如果两个间隔相同，说明这是正确的列数
@@ -6190,7 +6315,43 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
             }
-            // 方法3：如果没有检测到多个标识符，但检测到了Grand Total，可以根据它来估算列数
+            // 方法3：如果只有一个行标识符，尝试通过数据总量来推断列数（适用于少量行的数据）
+            else if (rowIdentifierIndices.length === 1 && allCells.length <= 200) {
+                const identifierIndex = rowIdentifierIndices[0];
+                // 如果标识符不在索引0，尝试推断列数
+                // 假设标识符是每行的第一个单元格，那么从标识符位置可以推断出已经有多少列
+                // 如果标识符在索引6，且总共有11个单元格，可能是2行，每行约5-6列
+                if (identifierIndex > 0 && identifierIndex <= 15) {
+                    // 尝试使用标识符的位置作为列数（如果标识符在索引N，可能是第2行的开始，列数=N）
+                    const estimatedRows = Math.ceil(allCells.length / identifierIndex);
+                    const remainder = allCells.length % identifierIndex;
+                    // 放宽条件：如果估计的行数合理（2-20行），且剩余单元格数不超过标识符位置（允许最后一行不完整）
+                    if (estimatedRows >= 2 && estimatedRows <= 20 && remainder <= identifierIndex) {
+                        force18Columns = true;
+                        detectedColumnCount = identifierIndex;
+                        console.log(`Detected pattern: Single identifier at index ${identifierIndex}, will try ${identifierIndex} columns (estimated ${estimatedRows} rows, remainder ${remainder})`);
+                    } else {
+                        // 如果使用标识符位置作为列数不合理，尝试通过总单元格数推断合理的列数
+                        // 对于少量行的数据（2-10行），尝试常见的列数（3-12列）
+                        let bestMatch = null;
+                        for (let cols = 3; cols <= 12; cols++) {
+                            const rows = Math.ceil(allCells.length / cols);
+                            const rem = allCells.length % cols;
+                            if (rows >= 2 && rows <= 10 && rem < cols * 0.3) {
+                                if (!bestMatch || rem < bestMatch.remainder) {
+                                    bestMatch = { cols: cols, rows: rows, remainder: rem };
+                                }
+                            }
+                        }
+                        if (bestMatch) {
+                            force18Columns = true;
+                            detectedColumnCount = bestMatch.cols;
+                            console.log(`Detected pattern: Single identifier, trying ${bestMatch.cols} columns (estimated ${bestMatch.rows} rows, remainder ${bestMatch.remainder})`);
+                        }
+                    }
+                }
+            }
+            // 方法4：如果没有检测到多个标识符，但检测到了Grand Total，可以根据它来估算列数
             else if (grandTotalIndex > 0 && rowIdentifierIndices.length >= 1) {
                 // 计算从第一个标识符到Grand Total之间的单元格数
                 const cellsBeforeGrandTotal = grandTotalIndex - rowIdentifierIndices[0];
@@ -6255,10 +6416,63 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 从原始数据来看，应该有几行数据（比如3-10行），每行有很多列（比如15-20列）
                 // 尝试不同的行数假设，找到最合理的列数
                 
+                // 特殊处理：如果第一个单元格是"Total"或"TOTAL"，且数据量较少（可能是单行数据）
+                // 优先尝试将所有数据放在一行
+                const firstCell = (allCells[0] || '').trim().toUpperCase();
+                const isTotalRow = (firstCell === 'TOTAL') && allCells.length <= 25;
+                
+                if (isTotalRow) {
+                    console.log('Detected single-row Total data, prioritizing single-row layout');
+                    // 尝试使用能容纳所有数据在一行的列数（15-25列）
+                    const singleRowCols = [];
+                    for (let cols = 15; cols <= 25; cols++) {
+                        const rows = Math.ceil(allCells.length / cols);
+                        const remainder = allCells.length % cols;
+                        // 如果能放在一行（rows === 1），或者剩余很少，优先考虑
+                        if (rows === 1) {
+                            singleRowCols.push({ cols: cols, rows: 1, remainder: remainder, score: 2000 + (25 - cols) });
+                        } else if (rows === 2 && remainder < cols * 0.1) {
+                            // 如果必须分成2行，但剩余很少，也考虑（但分数较低）
+                            singleRowCols.push({ cols: cols, rows: 2, remainder: remainder, score: 500 + (25 - cols) });
+                        }
+                    }
+                    
+                    // 如果找到能放在一行的列数，优先使用
+                    if (singleRowCols.length > 0) {
+                        // 优先选择能放在一行的（rows === 1），其次选择列数最接近数据量的
+                        singleRowCols.sort((a, b) => {
+                            if (a.rows === 1 && b.rows !== 1) return -1;
+                            if (a.rows !== 1 && b.rows === 1) return 1;
+                            if (a.rows === 1 && b.rows === 1) {
+                                // 都能放在一行，选择列数最接近数据量的（但至少15列）
+                                const aDiff = Math.abs(a.cols - allCells.length);
+                                const bDiff = Math.abs(b.cols - allCells.length);
+                                return aDiff - bDiff;
+                            }
+                            return b.score - a.score;
+                        });
+                        
+                        const bestSingleRow = singleRowCols[0];
+                        if (bestSingleRow.rows === 1) {
+                            detectedColumns = bestSingleRow.cols;
+                            console.log(`Using single-row layout: ${bestSingleRow.cols} columns (all ${allCells.length} cells in 1 row)`);
+                        } else {
+                            // 如果无法放在一行，继续使用原来的逻辑
+                            console.log(`Cannot fit all data in one row, continuing with standard detection`);
+                        }
+                    }
+                }
+                
                 // 先尝试常见的列数（15-20列），看看对应的行数是否合理
                 // 优先尝试18列（因为原始表格是A到R，18列）
+                // 但如果已经检测到单行Total数据，跳过这一步
                 const commonColumnCounts = [18, 17, 19, 16, 20, 15, 14, 12, 10]; // 优先18列
                 let bestMatch = { cols: 0, rows: 0, score: 0, remainder: Infinity };
+                
+                // 如果已经检测到单行Total数据且找到了合适的列数，跳过常见列数检测
+                if (isTotalRow && detectedColumns > 0 && Math.ceil(allCells.length / detectedColumns) === 1) {
+                    console.log('Skipping common column detection, using single-row Total layout');
+                } else {
                 
                 for (let cols of commonColumnCounts) {
                     const rows = Math.ceil(allCells.length / cols);
@@ -6302,7 +6516,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                if (bestMatch.cols > 0) {
+                if (bestMatch.cols > 0 && (!isTotalRow || detectedColumns === 0 || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     detectedColumns = bestMatch.cols;
                     const actualCellsUsed = bestMatch.rows * bestMatch.cols;
                     console.log('Best match found:', bestMatch.cols, 'columns,', bestMatch.rows, 'rows (remainder:', bestMatch.remainder, ', score:', bestMatch.score.toFixed(2), ')');
@@ -6310,7 +6524,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 方法3：如果还没有找到，尝试智能估算
-                if (detectedColumns === 0 || detectedColumns < 5) {
+                // 如果已经检测到单行Total数据，跳过此方法
+                if ((detectedColumns === 0 || detectedColumns < 5) && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     // 基于数据量估算：假设数据有3-10行，每行有合理的列数
                     // 从总单元格数除以可能的行数来估算列数
                     const possibleRowCounts = [3, 4, 5, 6, 7, 8, 9, 10]; // 可能的行数
@@ -6344,7 +6559,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 方法4：如果检测到的列数太少（<5列），可能检测错误，使用默认值
-                if (detectedColumns < 5) {
+                // 如果已经检测到单行Total数据，跳过此方法
+                if (detectedColumns < 5 && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     // 从原始数据来看，应该有18列左右（A到R列）
                     // 但如果数据量不够，也可能更少
                     // 尝试根据总单元格数来判断
@@ -6360,7 +6576,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 特殊检查：优先使用能整除的列数（包括18列，但不限于18列）
                 // 检查常见列数（15-25列）中哪些能整除或接近整除
-                if (allCells.length > 0) {
+                // 如果已经检测到单行Total数据，跳过此检查
+                if (allCells.length > 0 && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     const commonColumnCounts = [18, 20, 19, 17, 21, 16, 22, 15, 23, 24, 25]; // 优先18和20列
                     let bestDivisibleCols = null;
                     let bestDivisibleScore = 0;
@@ -6405,11 +6622,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 确保列数在合理范围内
-                if (detectedColumns > 25) {
+                // 确保列数在合理范围内（但如果已经检测到单行Total数据，允许更大的列数）
+                if (detectedColumns > 25 && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     detectedColumns = 18; // 限制最大列数
                     console.log('Column count too large, using default:', detectedColumns);
                 }
+                
+                } // 结束 else 块（如果已经检测到单行Total数据，跳过常见列数检测）
                 
                 } // 结束 else 块（如果force18Columns为false）
                 

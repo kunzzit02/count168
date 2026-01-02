@@ -647,6 +647,12 @@ try {
             
             global $current_company_id, $current_user_role;
             
+            // 检查用户是否试图删除自己
+            $currentUserId = $_SESSION['user_id'] ?? null;
+            if ($currentUserId && intval($currentUserId) === $userId) {
+                sendResponse(false, 'You cannot delete your own account');
+            }
+            
             // 检查是否是owner影子
             if (isOwnerShadow($pdo, $userId, $current_company_id)) {
                 // 只有owner本人可以删除owner记录
@@ -660,7 +666,7 @@ try {
             
             // Check if user exists and belongs to same company
             $checkStmt = $pdo->prepare("
-                SELECT u.id, u.login_id, u.name 
+                SELECT u.id, u.login_id, u.name, u.role
                 FROM user u
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
                 WHERE u.id = ? AND ucm.company_id = ?
@@ -670,6 +676,28 @@ try {
             
             if (!$user) {
                 sendResponse(false, 'User not found or access denied');
+            }
+            
+            // 检查是否试图删除同等级或更高层级的用户
+            $role_hierarchy = [
+                'owner' => 0,
+                'admin' => 1,
+                'manager' => 2,
+                'supervisor' => 3,
+                'accountant' => 4,
+                'audit' => 5,
+                'customer service' => 6
+            ];
+            $current_user_level = $role_hierarchy[strtolower($current_user_role)] ?? 999;
+            $target_user_level = $role_hierarchy[strtolower($user['role'] ?? '')] ?? 999;
+            
+            if ($current_user_level === $target_user_level) {
+                sendResponse(false, 'You cannot delete accounts with the same role level');
+            }
+            
+            // 检查是否试图删除比自己层级更高的用户（数字越小，层级越高）
+            if ($target_user_level < $current_user_level) {
+                sendResponse(false, 'You cannot delete accounts with higher role level');
             }
             
             // 获取当前登录用户ID（用于替换NOT NULL字段）
