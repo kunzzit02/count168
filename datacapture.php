@@ -927,8 +927,9 @@ if ($current_user_id && count($user_companies) > 0) {
         // Load submitted processes from database by date
         async function loadSubmittedProcesses(date = null) {
             try {
-                // Use provided date or get from date input field
-                const selectedDate = date || document.getElementById('capture_date').value || getLocalDateString();
+                // Use current submit date (today) instead of capture_date from form
+                // This shows processes submitted today, not processes for a selected capture_date
+                const selectedDate = date || getLocalDateString();
                 
                 // Add currently selected company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
@@ -8548,17 +8549,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (dateInput && processData.date) {
                     dateInput.value = processData.date;
                 } else {
-                    // If no date in saved data, use today's date
-                    const initialDate = document.getElementById('capture_date').value || getLocalDateString();
-                    await loadSubmittedProcesses(initialDate);
+                    // If no date in saved data, use today's submit date
+                    await loadSubmittedProcesses();
                 }
                 
                 // Reload processes for the selected date
                 await loadProcessesByDate();
                 
-                // Reload submitted processes for the selected date
-                const selectedDate = document.getElementById('capture_date').value || getLocalDateString();
-                await loadSubmittedProcesses(selectedDate);
+                // Reload submitted processes for today's submit date (not the selected capture_date)
+                await loadSubmittedProcesses();
                 
                 // Wait a bit for process dropdown to populate, then restore process selection
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -8767,9 +8766,8 @@ if ($current_user_id && count($user_companies) > 0) {
             const shouldRestore = urlParams.get('restore') === '1';
             
             if (!shouldRestore) {
-                // Load submitted processes for today's date (or selected date)
-                const initialDate = document.getElementById('capture_date').value || getLocalDateString();
-                loadSubmittedProcesses(initialDate);
+                // Load submitted processes for today's submit date (not capture_date)
+                loadSubmittedProcesses();
                 // Initialize table with default 10 rows and 15 columns
                 initializeTable(10, 15);
             }
@@ -8832,8 +8830,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('Date changed to:', this.value);
                     // Reload processes based on new date
                     await loadProcessesByDate();
-                    // Reload submitted processes for the new date
-                    await loadSubmittedProcesses(this.value);
+                    // Reload submitted processes for today's submit date (not the selected capture_date)
+                    loadSubmittedProcesses();
                     // Clear process selection when date changes (but not during restoration)
                     if (!isRestoringData) {
                         const processInput = document.getElementById('capture_process');
