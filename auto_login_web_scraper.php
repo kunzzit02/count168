@@ -64,7 +64,7 @@ function extractReportFromWebPage(string $html, string $baseUrl, array $config =
                 $headerRow = $headerRows->item(0);
                 $thNodes = $xpath->query(".//th", $headerRow);
                 foreach ($thNodes as $th) {
-                    $headers[] = trim($th->textContent);
+                    $headers[] = trim((string)$th->textContent);
                 }
             }
             
@@ -77,7 +77,8 @@ function extractReportFromWebPage(string $html, string $baseUrl, array $config =
                 
                 $colIndex = 0;
                 foreach ($tdNodes as $td) {
-                    $cellValue = trim($td->textContent);
+                    // 确保textContent是字符串
+                    $cellValue = trim((string)$td->textContent);
                     
                     // 如果有表头，使用表头作为键
                     if (isset($headers[$colIndex])) {
@@ -94,8 +95,12 @@ function extractReportFromWebPage(string $html, string $baseUrl, array $config =
                 }
                 
                 // 跳过空行
-                if (!empty(array_filter($rowData, function($v) { 
-                    return !empty(trim($v)); 
+                if (!empty($rowData) && !empty(array_filter($rowData, function($v) { 
+                    if (is_array($v)) {
+                        return false;
+                    }
+                    $strValue = (string)$v;
+                    return !empty(trim($strValue)); 
                 }))) {
                     $data[] = $rowData;
                 }
@@ -108,13 +113,23 @@ function extractReportFromWebPage(string $html, string $baseUrl, array $config =
                 if (preg_match_all('/<t[dh][^>]*>(.*?)<\/t[dh]>/is', $rowHtml, $cellMatches)) {
                     $rowData = [];
                     foreach ($cellMatches[1] as $index => $cellValue) {
-                        $cellValue = trim(strip_tags($cellValue));
-                        $rowData['col_' . $index] = $cellValue;
-                        $rowData['_raw'][$index] = $cellValue;
+                        // 确保$cellValue是字符串
+                        if (is_array($cellValue)) {
+                            $cellValue = implode(' ', $cellValue);
+                        }
+                        $cellValue = trim(strip_tags((string)$cellValue));
+                        if ($cellValue !== '') {
+                            $rowData['col_' . $index] = $cellValue;
+                            $rowData['_raw'][$index] = $cellValue;
+                        }
                     }
                     
-                    if (!empty(array_filter($rowData, function($v) { 
-                        return !empty(trim($v)); 
+                    // 跳过空行
+                    if (!empty($rowData) && !empty(array_filter($rowData, function($v) { 
+                        if (is_array($v)) {
+                            return false;
+                        }
+                        return !empty(trim((string)$v)); 
                     }))) {
                         $data[] = $rowData;
                     }
