@@ -5112,11 +5112,17 @@ function getCurrentProcessId() {
                 if (data.formula !== undefined) {
                     const formulaInput = document.getElementById('formula');
                     if (formulaInput) {
-                        console.log('populateFormWithData - Setting formula value:', data.formula);
-                        formulaInput.value = data.formula || '';
+                        let formulaValueToSet = data.formula || '';
+                        console.log('populateFormWithData - Setting formula value (before conversion):', formulaValueToSet);
+                        
+                        // 如果 formula 是旧格式（$数字），需要转换为新格式 [id_product]$数字
+                        // 转换需要从 data-clicked-cell-refs 或 data-source-columns 中获取 id_product 信息
+                        // 但此时 data-clicked-cell-refs 可能还没有设置，所以先设置 formula，然后在设置 data-clicked-cell-refs 后再转换
+                        formulaInput.value = formulaValueToSet;
+                        
                         // 更新显示框
                         const processValue = document.getElementById('process')?.value;
-                        updateFormulaDisplay(data.formula || '', processValue);
+                        updateFormulaDisplay(formulaValueToSet || '', processValue);
                         // Restore clicked columns if provided
                         if (data.clickedColumns) {
                             // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
@@ -5153,6 +5159,79 @@ function getCurrentProcessId() {
                                 const convertedClickedCellRefs = convertedRefs.join(' ');
                                 formulaInput.setAttribute('data-clicked-cell-refs', convertedClickedCellRefs);
                                 console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs (converted displayColumnIndex to dataColumnIndex):', convertedClickedCellRefs, 'from:', data.clickedColumns);
+                                
+                                // 将 formula 中的旧格式 $数字 转换为新格式 [id_product]$数字
+                                let currentFormula = formulaInput.value || '';
+                                if (currentFormula && currentFormula.trim() !== '') {
+                                    // 匹配所有 $数字
+                                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                                    let match;
+                                    const replacements = [];
+                                    
+                                    // 收集所有需要替换的位置和内容
+                                    while ((match = dollarPattern.exec(currentFormula)) !== null) {
+                                        const columnNumber = parseInt(match[1]);
+                                        const matchIndex = match.index;
+                                        
+                                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                                            // 从 data-clicked-cell-refs 中找到对应的 id_product
+                                            // 按顺序匹配：第一个 $数字 匹配第一个引用
+                                            const displayColumnIndex = columnNumber;
+                                            const dataColumnIndex = displayColumnIndex - 1;
+                                            
+                                            // 在 convertedRefs 中查找匹配的引用（按顺序）
+                                            let matchedRef = null;
+                                            for (let i = 0; i < convertedRefs.length; i++) {
+                                                const ref = convertedRefs[i];
+                                                const parts = ref.split(':');
+                                                if (parts.length >= 2) {
+                                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
+                                                    if (refDataColumnIndex === dataColumnIndex) {
+                                                        matchedRef = ref;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (matchedRef) {
+                                                const parts = matchedRef.split(':');
+                                                const idProduct = parts[0];
+                                                const rowLabel = parts.length === 3 ? parts[1] : null;
+                                                
+                                                // 构建新格式：[id_product (row_label) ]$数字 或 [id_product ]$数字
+                                                let newFormat = '';
+                                                if (rowLabel) {
+                                                    newFormat = `[${idProduct} (${rowLabel}) ]$${displayColumnIndex}`;
+                                                } else {
+                                                    newFormat = `[${idProduct} ]$${displayColumnIndex}`;
+                                                }
+                                                
+                                                replacements.push({
+                                                    from: match[0], // 例如 "$4"
+                                                    to: newFormat, // 例如 "[M99M06 (B) ]$4"
+                                                    index: matchIndex
+                                                });
+                                            }
+                                        }
+                                    }
+                                    
+                                    // 从后往前替换，避免位置偏移
+                                    if (replacements.length > 0) {
+                                        replacements.sort((a, b) => b.index - a.index);
+                                        let newFormula = currentFormula;
+                                        for (const replacement of replacements) {
+                                            newFormula = newFormula.substring(0, replacement.index) + 
+                                                        replacement.to + 
+                                                        newFormula.substring(replacement.index + replacement.from.length);
+                                        }
+                                        formulaInput.value = newFormula;
+                                        console.log('populateFormWithData - Converted formula from old format to new format:', currentFormula, '->', newFormula);
+                                        
+                                        // 更新显示框
+                                        const processValue = document.getElementById('process')?.value;
+                                        updateFormulaDisplay(newFormula, processValue);
+                                    }
+                                }
                             } else {
                                 // Old format: restore to data-clicked-columns (backward compatibility)
                                 formulaInput.setAttribute('data-clicked-columns', data.clickedColumns);
@@ -5772,7 +5851,17 @@ function getCurrentProcessId() {
             if (formulaInput) {
                 // 强制重新读取值，确保获取最新状态
                 formulaValue = String(formulaInput.value || '');
-                console.log('saveFormula - Formula value read from input:', formulaValue, 'Type:', typeof formulaValue);
+                console.log('saveFormula - Formula value read from input (before conversion):', formulaValue, 'Type:', typeof formulaValue);
+                
+                // 将新格式 [id_product]$数字 转换回旧格式 $数字（仅用于保存到数据库）
+                // 显示格式： [M99M06 (B) ]$4 -> 保存格式： $4
+                // 匹配新格式：\[([^\]]+)\]\$(\d+)
+                const newFormatPattern = /\[([^\]]+)\]\$(\d+)(?!\d)/g;
+                formulaValue = formulaValue.replace(newFormatPattern, (match, idProductPart, columnNumber) => {
+                    // 只保留 $列号 部分，去掉 [id_product] 前缀
+                    return `$${columnNumber}`;
+                });
+                console.log('saveFormula - Formula value after converting new format to old format:', formulaValue);
             }
             const descriptionValue = document.getElementById('description').value;
             const enableValue = inputMethodValue ? true : false;
