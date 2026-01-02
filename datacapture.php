@@ -1079,7 +1079,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 const formData = new FormData();
                 formData.append('action', 'save_submission');
                 formData.append('process_id', processData.process); // This is the id of the process table
-                formData.append('date_submitted', processData.date);
+                // Use current submit date instead of the form's capture_date
+                const submitDate = getLocalDateString();
+                formData.append('date_submitted', submitDate);
                 
                 // Add currently selected company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
@@ -1087,7 +1089,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     formData.append('company_id', currentCompanyId);
                 }
                 
-                console.log('Sending to API - process_id:', processData.process, 'date:', processData.date, 'company_id:', currentCompanyId);
+                console.log('Sending to API - process_id:', processData.process, 'submit_date:', submitDate, 'company_id:', currentCompanyId);
                 
                 const response = await fetch('submittedprocessesapi.php', {
                     method: 'POST',
