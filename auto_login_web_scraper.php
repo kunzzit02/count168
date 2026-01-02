@@ -158,12 +158,56 @@ function extractReportFromWebPage(string $html, string $baseUrl, array $config =
 function convertWebDataToDataCaptureFormat(array $webData, array $mapping): array {
     $summaryRows = [];
     
+    // 汇总行关键词（用于过滤）
+    $summaryKeywords = [
+        'total', 'subtotal', 'sub total', 'sub-total',
+        'grand total', 'grand-total', 'grandtotal',
+        'sum', 'summary', '合计', '总计', '小计',
+        'total:', 'subtotal:', '合计:'
+    ];
+    
     foreach ($webData as $rowIndex => $row) {
         // 提取账号
         $account = findMappedValue($row, $mapping['account'] ?? []);
         
         // 如果找不到账号，跳过
         if (empty($account)) {
+            continue;
+        }
+        
+        // 过滤汇总行：检查账号字段是否包含汇总关键词
+        $accountLower = strtolower(trim((string)$account));
+        $isSummaryRow = false;
+        foreach ($summaryKeywords as $keyword) {
+            if (stripos($accountLower, $keyword) !== false) {
+                $isSummaryRow = true;
+                break;
+            }
+        }
+        
+        // 如果账号是纯数字但长度很短（可能是序号），也可能是表头或汇总行的一部分
+        if (!$isSummaryRow && is_numeric($account) && strlen(trim($account)) <= 3) {
+            // 检查同一行的其他字段，如果都是空的或数字，可能是序号行
+            $nonEmptyFields = 0;
+            $numericFields = 0;
+            foreach ($row as $key => $value) {
+                if ($key === '_raw') continue;
+                $trimmed = trim((string)$value);
+                if (!empty($trimmed)) {
+                    $nonEmptyFields++;
+                    if (is_numeric($trimmed)) {
+                        $numericFields++;
+                    }
+                }
+            }
+            // 如果大部分字段都是数字或空，可能是汇总行
+            if ($nonEmptyFields > 0 && $numericFields / $nonEmptyFields > 0.7) {
+                $isSummaryRow = true;
+            }
+        }
+        
+        // 跳过汇总行
+        if ($isSummaryRow) {
             continue;
         }
         
@@ -357,9 +401,9 @@ function getReportFromWebPage(string $reportPageUrl, string $cookieFile, array $
 
 /**
  * 智能自动检测字段映射
- * 根据表格的第一行数据，自动推断字段含义
+ * 根据表格的多行数据，自动推断字段含义（会跳过表头和汇总行）
  */
-function autoDetectFieldMapping(array $sampleRow): array {
+function autoDetectFieldMapping(array $sampleRows): array {
     $mapping = [
         'account' => [],
         'amount' => [],
@@ -367,37 +411,119 @@ function autoDetectFieldMapping(array $sampleRow): array {
         'description_main' => []
     ];
     
-    // 遍历样本行的所有键
-    foreach ($sampleRow as $key => $value) {
+    // 表头关键词（用于识别和跳过表头行）
+    $headerKeywords = [
+        'account', 'player', 'username', 'user', 'member', '账号', '用户名',
+        'amount', 'balance', 'total', '金额', '余额', '总计',
+        'currency', 'curr', '币别', '货币',
+        'description', 'name', '描述', '名称'
+    ];
+    
+    // 如果只传入一行，转换为数组
+    if (!is_array($sampleRows) || isset($sampleRows['_raw'])) {
+        $sampleRows = [$sampleRows];
+    }
+    
+    // 找到第一个真正的数据行（不是表头，不是汇总行）
+    $dataRow = null;
+    foreach ($sampleRows as $row) {
+        if (!is_array($row) || isset($row['_raw'])) {
+            continue;
+        }
+        
+        // 检查是否是表头行：如果所有值都是关键词或很短的文本，可能是表头
+        $isHeader = true;
+        $hasNumericValue = false;
+        foreach ($row as $key => $value) {
+            if ($key === '_raw') continue;
+            $valueStr = strtolower(trim((string)$value));
+            if (!empty($valueStr) && strlen($valueStr) > 3 && !in_array($valueStr, $headerKeywords)) {
+                $isHeader = false;
+            }
+            if (is_numeric($value) || preg_match('/^[0-9,]+\.?[0-9]*$/', (string)$value)) {
+                $hasNumericValue = true;
+            }
+        }
+        
+        // 如果有数字值，且不是明显的表头，就认为是数据行
+        if ($hasNumericValue && !$isHeader) {
+            $dataRow = $row;
+            break;
+        }
+        
+        // 如果值不是表头关键词，且不是汇总行关键词，也认为是数据行
+        if (!$isHeader) {
+            $valueLower = strtolower(implode(' ', array_values($row)));
+            $isSummary = (
+                stripos($valueLower, 'total') !== false ||
+                stripos($valueLower, 'subtotal') !== false ||
+                stripos($valueLower, 'sum') !== false
+            );
+            if (!$isSummary) {
+                $dataRow = $row;
+                break;
+            }
+        }
+    }
+    
+    // 如果找不到数据行，使用第一行
+    if (!$dataRow && !empty($sampleRows)) {
+        $dataRow = $sampleRows[0];
+    }
+    
+    if (!$dataRow) {
+        // 如果完全找不到，使用默认映射
+        return [
+            'account' => ['col_0', '0', 'account', 'Account', '账号'],
+            'amount' => ['col_3', '3', 'amount', 'Amount', '金额', 'total', 'Total'],
+            'currency' => ['currency', 'Currency', '币别'],
+            'description_main' => []
+        ];
+    }
+    
+    // 遍历数据行的所有键
+    foreach ($dataRow as $key => $value) {
         if ($key === '_raw') continue; // 跳过原始数据
         
         $keyLower = strtolower($key);
         $valueStr = is_array($value) ? '' : (string)$value;
         $valueLower = strtolower($valueStr);
         
-        // 账号检测：通常是第一列，或包含"账号"、"account"等关键词
-        if (empty($mapping['account']) && (
-            strpos($keyLower, 'account') !== false ||
-            strpos($keyLower, '账号') !== false ||
-            strpos($keyLower, 'user') !== false ||
-            strpos($keyLower, 'player') !== false ||
-            strpos($keyLower, 'member') !== false ||
-            preg_match('/^col_0$|^0$/', $key) // 第一列
-        )) {
-            $mapping['account'][] = $key;
+        // 跳过表头关键词
+        if (in_array($valueLower, $headerKeywords) || in_array($keyLower, $headerKeywords)) {
+            continue;
         }
         
-        // 金额检测：包含数字，或包含"金额"、"amount"、"total"等关键词
-        if (empty($mapping['amount']) && (
-            strpos($keyLower, 'amount') !== false ||
-            strpos($keyLower, '金额') !== false ||
-            strpos($keyLower, 'total') !== false ||
-            strpos($keyLower, 'sum') !== false ||
-            strpos($keyLower, 'balance') !== false ||
-            (is_numeric($valueStr) && floatval($valueStr) > 0) ||
-            preg_match('/[0-9,]+\.?[0-9]*/', $valueStr) // 包含数字格式
-        )) {
-            $mapping['amount'][] = $key;
+        // 账号检测：通常是第一列（col_0），或列名包含"账号"、"account"等关键词
+        if (empty($mapping['account'])) {
+            // 优先检查列名
+            if (strpos($keyLower, 'account') !== false ||
+                strpos($keyLower, '账号') !== false ||
+                strpos($keyLower, 'user') !== false ||
+                strpos($keyLower, 'player') !== false ||
+                strpos($keyLower, 'member') !== false ||
+                preg_match('/^col_0$|^0$/', $key)) {
+                $mapping['account'][] = $key;
+            }
+            // 如果列名不匹配，检查是否是第一列且值不是数字
+            elseif (preg_match('/^col_0$|^0$/', $key) && !is_numeric($valueStr) && strlen($valueStr) > 2) {
+                $mapping['account'][] = $key;
+            }
+        }
+        
+        // 金额检测：包含数字，或列名包含"金额"、"amount"等关键词（但要排除"total"作为列名，因为这可能是汇总行）
+        if (empty($mapping['amount'])) {
+            $isAmountColumn = (
+                (strpos($keyLower, 'amount') !== false && strpos($keyLower, 'total') === false) ||
+                strpos($keyLower, '金额') !== false ||
+                strpos($keyLower, 'balance') !== false ||
+                (is_numeric($valueStr) && floatval($valueStr) > 0) ||
+                preg_match('/^[0-9,]+\.?[0-9]*$/', trim($valueStr))
+            );
+            
+            if ($isAmountColumn) {
+                $mapping['amount'][] = $key;
+            }
         }
         
         // 币别检测
@@ -426,16 +552,18 @@ function autoDetectFieldMapping(array $sampleRow): array {
         $mapping['account'] = ['col_0', '0', 'account', 'Account', '账号'];
     }
     if (empty($mapping['amount'])) {
-        // 尝试找到包含数字的列
-        foreach ($sampleRow as $key => $value) {
+        // 尝试找到包含数字的列（排除第一列）
+        foreach ($dataRow as $key => $value) {
             if ($key === '_raw') continue;
-            if (is_numeric($value) || preg_match('/[0-9,]+\.?[0-9]*/', (string)$value)) {
-                $mapping['amount'][] = $key;
-                break;
+            if (preg_match('/^col_[1-9]|[1-9]$/', $key)) { // 不是第一列
+                if (is_numeric($value) || preg_match('/^[0-9,]+\.?[0-9]*$/', trim((string)$value))) {
+                    $mapping['amount'][] = $key;
+                    break;
+                }
             }
         }
         if (empty($mapping['amount'])) {
-            $mapping['amount'] = ['col_3', '3', 'amount', 'Amount', '金额', 'total', 'Total'];
+            $mapping['amount'] = ['col_3', '3', 'amount', 'Amount', '金额'];
         }
     }
     

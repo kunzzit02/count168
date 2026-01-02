@@ -307,11 +307,11 @@ try {
                 $userMapping = $importConfig['field_mapping'] ?? [];
                 
                 if (empty($userMapping)) {
-                    // 智能自动匹配：尝试识别第一列作为账号，最后一列或包含数字的列作为金额
-                    $firstRow = $webData[0] ?? [];
+                    // 智能自动匹配：使用前几行数据来识别字段（会跳过表头和汇总行）
+                    $sampleRows = array_slice($webData, 0, min(10, count($webData))); // 使用前10行作为样本
                     // 确保autoDetectFieldMapping函数可用（在auto_login_web_scraper.php中定义）
                     if (function_exists('autoDetectFieldMapping')) {
-                        $autoMapping = autoDetectFieldMapping($firstRow);
+                        $autoMapping = autoDetectFieldMapping($sampleRows);
                         $mapping = $autoMapping;
                     } else {
                         // 如果函数不存在，使用默认映射
