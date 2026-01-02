@@ -60,36 +60,38 @@ if (!isset($_SESSION['user_id'])) {
 
 // 确保所有require_once都成功
 try {
-    if (!file_exists('auto_login_encrypt.php')) {
-        throw new Exception('auto_login_encrypt.php 文件不存在');
-    }
-    require_once 'auto_login_encrypt.php';
+    $requiredFiles = [
+        'auto_login_encrypt.php',
+        'auto_login_report_importer.php',
+        'auto_login_executor.php',
+        'auto_login_web_scraper.php'
+    ];
     
-    if (!file_exists('auto_login_encrypt.php')) {
-        throw new Exception('auto_login_encrypt.php 文件不存在');
+    foreach ($requiredFiles as $file) {
+        if (!file_exists($file)) {
+            throw new Exception($file . ' 文件不存在');
+        }
+        
+        // 尝试加载文件，捕获任何错误
+        try {
+            require_once $file;
+        } catch (ParseError $e) {
+            throw new Exception("文件语法错误: $file - " . $e->getMessage() . " at line " . $e->getLine());
+        } catch (Error $e) {
+            throw new Exception("加载文件失败: $file - " . $e->getMessage() . " in " . basename($e->getFile()) . ":" . $e->getLine());
+        } catch (Exception $e) {
+            throw new Exception("加载文件失败: $file - " . $e->getMessage());
+        }
     }
-    require_once 'auto_login_encrypt.php';
-    
-    if (!file_exists('auto_login_report_importer.php')) {
-        throw new Exception('auto_login_report_importer.php 文件不存在');
-    }
-    require_once 'auto_login_report_importer.php';
-    
-    if (!file_exists('auto_login_executor.php')) {
-        throw new Exception('auto_login_executor.php 文件不存在');
-    }
-    require_once 'auto_login_executor.php';
-    
-    if (!file_exists('auto_login_web_scraper.php')) {
-        throw new Exception('auto_login_web_scraper.php 文件不存在');
-    }
-    require_once 'auto_login_web_scraper.php';
 } catch (Exception $loadError) {
     ob_clean();
     http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'success' => false,
-        'error' => '加载文件失败: ' . $loadError->getMessage()
+        'error' => '加载文件失败: ' . $loadError->getMessage(),
+        'file' => basename($loadError->getFile()),
+        'line' => $loadError->getLine()
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
