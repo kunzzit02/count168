@@ -375,17 +375,96 @@ try {
                 
                 error_log("转换后数据行数: " . count($summaryRows));
                 
-                // 如果转换后没有数据，提供原始数据信息
+                // 如果转换后没有数据，尝试重新识别账号列
                 if (empty($summaryRows)) {
-                    $errorMsg = '无法从网页数据中提取账号信息。';
-                    $errorMsg .= "\n可能原因：1) 所有行都被过滤（可能是汇总行） 2) 字段映射未识别到账号列";
-                    $errorMsg .= "\n字段映射配置: " . json_encode($mapping, JSON_UNESCAPED_UNICODE);
-                    if (!empty($webData)) {
-                        $errorMsg .= "\n原始数据列名（第一行）: " . implode(', ', array_keys($webData[0] ?? []));
-                        $sampleRow = $webData[0] ?? [];
-                        $errorMsg .= "\n原始数据第一行值: " . json_encode(array_slice($sampleRow, 0, 5, true), JSON_UNESCAPED_UNICODE);
+                    // 检查是否是账号列识别问题：如果所有行的 col_0 都为空，尝试查找其他列
+                    $allCol0Empty = true;
+                    $potentialAccountCols = [];
+                    
+                    // 检查前10行，查找可能的账号列
+                    foreach (array_slice($webData, 0, min(10, count($webData))) as $row) {
+                        if (!is_array($row)) continue;
+                        
+                        foreach ($row as $key => $value) {
+                            if ($key === '_raw') continue;
+                            
+                            // 检查 col_0
+                            if (preg_match('/^col_0$|^0$/', $key)) {
+                                if (!empty(trim((string)$value))) {
+                                    $allCol0Empty = false;
+                                }
+                            }
+                            
+                            // 查找可能的账号列：包含字母数字组合，不是纯数字，不是表头关键词
+                            $valueStr = trim((string)$value);
+                            if (!empty($valueStr) && 
+                                preg_match('/[A-Za-z]/', $valueStr) && // 包含字母
+                                !is_numeric($valueStr) && // 不是纯数字
+                                strlen($valueStr) > 2 && // 长度大于2
+                                stripos($valueStr, 'transfer') === false &&
+                                stripos($valueStr, 'total') === false &&
+                                stripos($valueStr, 'bet') === false &&
+                                stripos($valueStr, 'win') === false &&
+                                stripos($valueStr, 'gaming') === false &&
+                                stripos($valueStr, 'lottery') === false) {
+                                if (!isset($potentialAccountCols[$key])) {
+                                    $potentialAccountCols[$key] = 0;
+                                }
+                                $potentialAccountCols[$key]++;
+                            }
+                        }
                     }
-                    throw new Exception($errorMsg);
+                    
+                    // 如果 col_0 全为空，且找到了其他可能的账号列，尝试重新映射
+                    if ($allCol0Empty && !empty($potentialAccountCols)) {
+                        // 找到出现最多的列作为账号列
+                        arsort($potentialAccountCols);
+                        $newAccountCol = key($potentialAccountCols);
+                        
+                        error_log("检测到 col_0 全为空，尝试使用列 $newAccountCol 作为账号列");
+                        
+                        // 重新构建映射
+                        $newMapping = $mapping;
+                        $newMapping['account'] = [$newAccountCol];
+                        
+                        // 重新转换
+                        $summaryRows = convertWebDataToDataCaptureFormat($webData, $newMapping);
+                        error_log("重新映射后数据行数: " . count($summaryRows));
+                        
+                        if (!empty($summaryRows)) {
+                            $mapping = $newMapping; // 使用新映射
+                        }
+                    }
+                    
+                    // 如果还是空的，提供详细错误信息
+                    if (empty($summaryRows)) {
+                        $errorMsg = '无法从网页数据中提取账号信息。';
+                        $errorMsg .= "\n可能原因：1) 所有行都被过滤（可能是汇总行） 2) 字段映射未识别到账号列";
+                        $errorMsg .= "\n字段映射配置: " . json_encode($mapping, JSON_UNESCAPED_UNICODE);
+                        
+                        if ($allCol0Empty) {
+                            $errorMsg .= "\n检测结果：所有行的 col_0 都是空的";
+                            if (!empty($potentialAccountCols)) {
+                                $errorMsg .= "\n发现的可能账号列: " . json_encode($potentialAccountCols);
+                            }
+                        }
+                        
+                        if (!empty($webData)) {
+                            $errorMsg .= "\n原始数据列名（第一行）: " . implode(', ', array_keys($webData[0] ?? []));
+                            // 显示前3行的更多信息
+                            for ($i = 0; $i < min(3, count($webData)); $i++) {
+                                $row = $webData[$i] ?? [];
+                                $rowSample = [];
+                                foreach (['col_0', 'col_1', 'col_2', 'col_3'] as $col) {
+                                    if (isset($row[$col])) {
+                                        $rowSample[$col] = substr((string)$row[$col], 0, 30);
+                                    }
+                                }
+                                $errorMsg .= "\n第" . ($i+1) . "行样本: " . json_encode($rowSample, JSON_UNESCAPED_UNICODE);
+                            }
+                        }
+                        throw new Exception($errorMsg);
+                    }
                 }
                 
                 // 解析账号ID
