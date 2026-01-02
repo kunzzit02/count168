@@ -296,12 +296,12 @@ if (isset($_GET['logout'])) {
         }
         
         .chart-data-btn {
-            padding: 8px 16px;
+            padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
             background: #f1f5f9;
             border: 1px solid #d0d7de;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: clamp(9px, 0.63vw, 12px);
             font-weight: 500;
             color: #374151;
             transition: all 0.2s ease;
