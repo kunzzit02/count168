@@ -720,8 +720,8 @@ if (!$company_id) {
             btn.disabled = true;
             btn.textContent = '执行中...';
             
-            // 先测试文件加载
-            fetch('test_load_files.php', {
+            // 使用安全版本的文件加载测试
+            fetch('test_load_files_safe.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
