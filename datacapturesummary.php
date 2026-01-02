@@ -16577,37 +16577,30 @@ function formatPercentValue(value) {
                 max-width: calc(100vw - clamp(150px, 13.02vw, 250px) - 20px);
             }
             
+            /* Scale down proportionally while maintaining layout */
+            .edit-formula-form-container {
+                transform: scale(0.65);
+                transform-origin: top left;
+            }
+            
             .edit-formula-form-container .form-layout {
-                gap: 10px;
+                gap: 30px;
             }
             
             .edit-formula-form-container .form-left-column {
-                flex: 1;
-                max-width: none;
-                min-width: 0;
+                width: 500px;
+                min-width: 500px;
             }
             
             .edit-formula-form-container .form-middle-column {
-                flex: 1;
-                max-width: none;
-                min-width: 0;
+                width: 500px;
+                min-width: 500px;
             }
             
             .edit-formula-form-container .form-right-column {
-                flex: 0 0 auto;
-                min-width: 140px;
-                max-width: 160px;
-            }
-            
-            .calculator-keypad {
-                max-width: 160px;
-                min-width: 140px;
-            }
-            
-            .calc-btn {
-                min-width: clamp(18px, 1.41vw, 27px);
-                height: clamp(18px, 1.41vw, 27px);
-                font-size: clamp(7px, 0.55vw, 11px);
+                width: 220px;
+                min-width: 220px;
+                max-width: 220px;
             }
         }
         
@@ -16615,6 +16608,12 @@ function formatPercentValue(value) {
             #editFormulaModal .summary-confirm-modal-content {
                 width: clamp(800px, 92vw, 1200px);
                 max-width: calc(100vw - clamp(150px, 13.02vw, 250px) - 30px);
+            }
+            
+            /* Scale down proportionally while maintaining layout */
+            .edit-formula-form-container {
+                transform: scale(0.75);
+                transform-origin: top left;
             }
         }
         
@@ -16624,29 +16623,34 @@ function formatPercentValue(value) {
                 max-width: calc(100vw - clamp(150px, 13.02vw, 250px) - 40px);
             }
             
+            /* Scale down proportionally while maintaining layout */
+            .edit-formula-form-container {
+                transform: scale(0.85);
+                transform-origin: top left;
+            }
+            
             .edit-formula-form-container .form-layout {
-                gap: 15px;
+                gap: 30px;
             }
             
             .edit-formula-form-container .form-left-column {
-                max-width: none;
-                min-width: 0;
-                flex: 1;
+                width: 500px;
+                min-width: 500px;
             }
             
             .edit-formula-form-container .form-middle-column {
-                max-width: none;
-                min-width: 0;
-                flex: 1;
+                width: 500px;
+                min-width: 500px;
             }
             
             .edit-formula-form-container .form-right-column {
-                min-width: 160px;
-                max-width: 200px;
+                width: 220px;
+                min-width: 220px;
+                max-width: 220px;
             }
             
             .calculator-keypad {
-                max-width: 210px;
+                max-width: 220px;
                 min-width: 190px;
             }
         }
@@ -16721,7 +16725,7 @@ function formatPercentValue(value) {
             border-radius: 4px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             margin-bottom: clamp(10px, 1.04vw, 20px);
-            overflow: hidden;
+            overflow: visible;
             border: 1px solid #ddd;
             width: 100%;
         }
@@ -16765,10 +16769,9 @@ function formatPercentValue(value) {
         }
 
         .edit-formula-form-container .form-left-column {
-            flex: 2;
-            max-width: 500px;
-            min-width: 0;
-            flex-shrink: 1;
+            flex: 0 0 auto;
+            width: 500px;
+            min-width: 500px;
         }
         
         .edit-formula-form-container .form-left-column .form-group {
@@ -16855,10 +16858,9 @@ function formatPercentValue(value) {
         }
         
         .edit-formula-form-container .form-middle-column {
-            flex: 2;
-            max-width: 500px;
-            min-width: 0;
-            flex-shrink: 1;
+            flex: 0 0 auto;
+            width: 500px;
+            min-width: 500px;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
@@ -16885,7 +16887,8 @@ function formatPercentValue(value) {
         
         .edit-formula-form-container .form-right-column {
             flex: 0 0 auto;
-            min-width: 180px;
+            width: 220px;
+            min-width: 220px;
             max-width: 220px;
             flex-shrink: 0;
             margin-left: auto;
