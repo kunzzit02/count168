@@ -4789,19 +4789,23 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Store id_product:column_index reference (new format)
-            // IMPORTANT: Include row_label to distinguish between multiple rows with same id_product
-            // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
-            if (idProduct && dataColumnIndex !== null) {
-                // Get row label from cell or row
-                let rowLabel = cell.getAttribute('data-row-label');
-                if (!rowLabel && row) {
+            // Get row label from cell or row (define early so it's available for display format)
+            let rowLabel = null;
+            if (row) {
+                rowLabel = cell.getAttribute('data-row-label');
+                if (!rowLabel) {
                     const rowHeaderCell = row.querySelector('.row-header');
                     if (rowHeaderCell) {
                         rowLabel = rowHeaderCell.textContent.trim();
                         cell.setAttribute('data-row-label', rowLabel);
                     }
                 }
+            }
+            
+            // Store id_product:column_index reference (new format)
+            // IMPORTANT: Include row_label to distinguish between multiple rows with same id_product
+            // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
+            if (idProduct && dataColumnIndex !== null) {
                 
                 // Build cell reference with row label if available
                 let cellReference;
