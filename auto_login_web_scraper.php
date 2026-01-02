@@ -355,3 +355,90 @@ function getReportFromWebPage(string $reportPageUrl, string $cookieFile, array $
     return $reportData;
 }
 
+/**
+ * 智能自动检测字段映射
+ * 根据表格的第一行数据，自动推断字段含义
+ */
+function autoDetectFieldMapping(array $sampleRow): array {
+    $mapping = [
+        'account' => [],
+        'amount' => [],
+        'currency' => [],
+        'description_main' => []
+    ];
+    
+    // 遍历样本行的所有键
+    foreach ($sampleRow as $key => $value) {
+        if ($key === '_raw') continue; // 跳过原始数据
+        
+        $keyLower = strtolower($key);
+        $valueStr = is_array($value) ? '' : (string)$value;
+        $valueLower = strtolower($valueStr);
+        
+        // 账号检测：通常是第一列，或包含"账号"、"account"等关键词
+        if (empty($mapping['account']) && (
+            strpos($keyLower, 'account') !== false ||
+            strpos($keyLower, '账号') !== false ||
+            strpos($keyLower, 'user') !== false ||
+            strpos($keyLower, 'player') !== false ||
+            strpos($keyLower, 'member') !== false ||
+            preg_match('/^col_0$|^0$/', $key) // 第一列
+        )) {
+            $mapping['account'][] = $key;
+        }
+        
+        // 金额检测：包含数字，或包含"金额"、"amount"、"total"等关键词
+        if (empty($mapping['amount']) && (
+            strpos($keyLower, 'amount') !== false ||
+            strpos($keyLower, '金额') !== false ||
+            strpos($keyLower, 'total') !== false ||
+            strpos($keyLower, 'sum') !== false ||
+            strpos($keyLower, 'balance') !== false ||
+            (is_numeric($valueStr) && floatval($valueStr) > 0) ||
+            preg_match('/[0-9,]+\.?[0-9]*/', $valueStr) // 包含数字格式
+        )) {
+            $mapping['amount'][] = $key;
+        }
+        
+        // 币别检测
+        if (empty($mapping['currency']) && (
+            strpos($keyLower, 'currency') !== false ||
+            strpos($keyLower, '币别') !== false ||
+            strpos($keyLower, 'curr') !== false ||
+            in_array(strtoupper($valueStr), ['USD', 'CNY', 'EUR', 'GBP', 'HKD', 'MYR', 'SGD'])
+        )) {
+            $mapping['currency'][] = $key;
+        }
+        
+        // 描述检测
+        if (empty($mapping['description_main']) && (
+            strpos($keyLower, 'description') !== false ||
+            strpos($keyLower, '描述') !== false ||
+            strpos($keyLower, 'name') !== false ||
+            strpos($keyLower, 'product') !== false
+        )) {
+            $mapping['description_main'][] = $key;
+        }
+    }
+    
+    // 如果自动检测失败，使用默认的列索引
+    if (empty($mapping['account'])) {
+        $mapping['account'] = ['col_0', '0', 'account', 'Account', '账号'];
+    }
+    if (empty($mapping['amount'])) {
+        // 尝试找到包含数字的列
+        foreach ($sampleRow as $key => $value) {
+            if ($key === '_raw') continue;
+            if (is_numeric($value) || preg_match('/[0-9,]+\.?[0-9]*/', (string)$value)) {
+                $mapping['amount'][] = $key;
+                break;
+            }
+        }
+        if (empty($mapping['amount'])) {
+            $mapping['amount'] = ['col_3', '3', 'amount', 'Amount', '金额', 'total', 'Total'];
+        }
+    }
+    
+    return $mapping;
+}
+

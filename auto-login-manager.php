@@ -523,7 +523,7 @@ if (!$company_id) {
                     </div>
                     
                     <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
-                        <h3 style="margin: 0 0 15px 0; color: #002C49; font-size: 16px;">自动导入配置</h3>
+                        <h3 style="margin: 0 0 15px 0; color: #002C49; font-size: 16px;">自动导入配置（简化版）</h3>
                         
                         <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
                             <input type="checkbox" id="auto_import_enabled" name="auto_import_enabled" value="1" onchange="toggleImportFields()">
@@ -532,9 +532,9 @@ if (!$company_id) {
                         
                         <div id="import_fields" style="display: none;">
                             <div class="form-group">
-                                <label for="report_page_url">报告页面URL</label>
-                                <input type="url" id="report_page_url" name="report_page_url" placeholder="https://example.com/report（如果与登录URL不同）">
-                                <small style="color: #6b7280; font-size: 11px;">如果报告页面与登录页面不同，请填写报告页面的完整URL</small>
+                                <label for="report_page_url">报告页面URL（可选）</label>
+                                <input type="url" id="report_page_url" name="report_page_url" placeholder="留空则使用登录URL">
+                                <small style="color: #6b7280; font-size: 11px;">如果报告页面与登录页面不同，请填写</small>
                             </div>
                             
                             <div class="form-group">
@@ -542,25 +542,11 @@ if (!$company_id) {
                                 <select id="import_process_id" name="import_process_id" required>
                                     <option value="">请选择流程</option>
                                 </select>
+                                <small style="color: #6b7280; font-size: 11px;">仅需选择流程，其他设置使用默认值（今天日期，自动匹配字段）</small>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="import_capture_date">导入日期</label>
-                                <input type="text" id="import_capture_date" name="import_capture_date" placeholder="today" value="today">
-                                <small style="color: #6b7280; font-size: 11px;">today=今天，yesterday=昨天，或具体日期如 2024-01-01</small>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="import_currency_id">默认币别</label>
-                                <select id="import_currency_id" name="import_currency_id">
-                                    <option value="">请选择币别</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="import_field_mapping">字段映射配置（JSON格式，可选）</label>
-                                <textarea id="import_field_mapping" name="import_field_mapping" rows="6" placeholder='{"account": ["账号", "Account"], "amount": ["金额", "Amount"]}'></textarea>
-                                <small style="color: #6b7280; font-size: 11px;">用于映射网页表格列名到系统字段。如果不填写，系统将尝试自动匹配。</small>
+                            <div style="background: #f0f9ff; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 12px; color: #0369a1;">
+                                <strong>提示：</strong>系统会自动识别网页表格结构，匹配账号、金额等字段。如果无法自动匹配，可以手动配置字段映射。
                             </div>
                         </div>
                     </div>
@@ -622,7 +608,7 @@ if (!$company_id) {
             }
         }
         
-        // 切换自动导入字段显示
+        // 切换自动导入字段显示（简化版）
         function toggleImportFields() {
             const enabled = document.getElementById('auto_import_enabled').checked;
             const fieldsDiv = document.getElementById('import_fields');
@@ -631,6 +617,10 @@ if (!$company_id) {
             if (enabled) {
                 fieldsDiv.style.display = 'block';
                 processSelect.required = true;
+                // 确保流程列表已加载
+                if (!processesList.length) {
+                    loadProcesses();
+                }
             } else {
                 fieldsDiv.style.display = 'none';
                 processSelect.required = false;
@@ -663,31 +653,7 @@ if (!$company_id) {
                 });
         }
         
-        // 加载币别列表
-        function loadCurrencies() {
-            const params = new URLSearchParams({
-                company_id: currentCompanyId
-            });
-            
-            fetch(`currencyapi.php?${params}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.data) {
-                        currenciesList = data.data;
-                        const select = document.getElementById('import_currency_id');
-                        select.innerHTML = '<option value="">请选择币别</option>';
-                        data.data.forEach(currency => {
-                            const option = document.createElement('option');
-                            option.value = currency.id;
-                            option.textContent = currency.code || `币别 #${currency.id}`;
-                            select.appendChild(option);
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('加载币别列表失败:', error);
-                });
-        }
+        // 加载币别列表（已移除 - 简化版不需要）
 
         // 加载列表
         function loadCredentials() {
@@ -943,25 +909,27 @@ if (!$company_id) {
                 formData.two_fa_instructions = document.getElementById('two_fa_instructions').value.trim();
             }
             
-            // 如果启用自动导入，添加相关字段
+            // 如果启用自动导入，添加相关字段（简化版 - 只要求流程ID）
             const autoImportEnabled = document.getElementById('auto_import_enabled').checked;
             formData.auto_import_enabled = autoImportEnabled ? 1 : 0;
             if (autoImportEnabled) {
-                formData.report_page_url = document.getElementById('report_page_url').value.trim();
+                // 只保存必需的流程ID，其他使用默认值
                 formData.import_process_id = document.getElementById('import_process_id').value;
-                formData.import_capture_date = document.getElementById('import_capture_date').value.trim() || 'today';
-                formData.import_currency_id = document.getElementById('import_currency_id').value || null;
-                
-                // 解析字段映射JSON（如果提供）
-                const fieldMapping = document.getElementById('import_field_mapping').value.trim();
-                if (fieldMapping) {
-                    try {
-                        formData.import_field_mapping = JSON.parse(fieldMapping);
-                    } catch (e) {
-                        showNotification('字段映射配置格式错误，请检查JSON格式', 'error');
-                        return;
-                    }
+                if (!formData.import_process_id) {
+                    showNotification('启用自动导入时必须选择流程', 'error');
+                    return;
                 }
+                
+                // 可选字段：报告页面URL
+                const reportPageUrl = document.getElementById('report_page_url').value.trim();
+                if (reportPageUrl) {
+                    formData.report_page_url = reportPageUrl;
+                }
+                
+                // 其他字段使用默认值（在服务器端处理）
+                // - import_capture_date: 默认 'today'
+                // - import_currency_id: 可选，留空
+                // - import_field_mapping: 自动智能匹配
             }
             
             const id = document.getElementById('credential_id').value;
@@ -1061,9 +1029,8 @@ if (!$company_id) {
             // 初始化字段状态
             toggle2FAFields();
             toggleImportFields();
-            // 加载下拉选项
+            // 预加载流程列表（币别列表已移除 - 简化版不需要）
             loadProcesses();
-            loadCurrencies();
         });
     </script>
 </body>

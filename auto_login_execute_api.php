@@ -302,16 +302,29 @@ try {
             
             // 导入报告
             if ($useWebScraping && !empty($webData)) {
-                // 方式1: 从网页数据直接导入
-                $mapping = $importConfig['field_mapping'] ?? [
-                    'account' => ['account', 'account_id', 'accountId', 'account_code', 'col_0', 'Account'],
-                    'id_product_main' => ['product', 'product_id', 'idProductMain', 'product_code', 'col_1', 'Product'],
-                    'description_main' => ['description', 'product_name', 'descriptionMain', 'col_2', 'Description'],
-                    'amount' => ['amount', 'value', 'total', 'processed_amount', 'col_3', 'Amount'],
-                    'currency' => ['currency', 'currency_code', 'col_4', 'Currency'],
-                    'columns' => ['columns', 'columns_value'],
-                    'source' => ['source', 'source_value']
-                ];
+                // 方式1: 从网页数据直接导入（智能匹配模式）
+                // 如果用户没有配置字段映射，使用智能自动匹配
+                $userMapping = $importConfig['field_mapping'] ?? [];
+                
+                if (empty($userMapping)) {
+                    // 智能自动匹配：尝试识别第一列作为账号，最后一列或包含数字的列作为金额
+                    $firstRow = $webData[0] ?? [];
+                    // 确保autoDetectFieldMapping函数可用（在auto_login_web_scraper.php中定义）
+                    if (function_exists('autoDetectFieldMapping')) {
+                        $autoMapping = autoDetectFieldMapping($firstRow);
+                        $mapping = $autoMapping;
+                    } else {
+                        // 如果函数不存在，使用默认映射
+                        $mapping = [
+                            'account' => ['account', 'account_id', 'accountId', 'account_code', 'col_0', 'Account', '账号'],
+                            'amount' => ['amount', 'value', 'total', 'processed_amount', 'col_3', 'Amount', '金额'],
+                            'currency' => ['currency', 'currency_code', 'col_4', 'Currency', '币别']
+                        ];
+                    }
+                } else {
+                    // 使用用户配置的映射
+                    $mapping = $userMapping;
+                }
                 
                 $summaryRows = convertWebDataToDataCaptureFormat($webData, $mapping);
                 
