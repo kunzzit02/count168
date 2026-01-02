@@ -1613,17 +1613,6 @@ function getCurrentProcessId() {
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
-            // Adjust modal scale based on viewport size (wait for DOM to render)
-            setTimeout(() => {
-                adjustEditFormulaModalScale();
-                
-                // Add resize listener to adjust scale when window is resized
-                if (!editFormulaModalResizeHandler) {
-                    editFormulaModalResizeHandler = adjustEditFormulaModalScale;
-                    window.addEventListener('resize', editFormulaModalResizeHandler);
-                }
-            }, 100);
-            
             // Clear clicked columns when opening new form (unless editing)
             setTimeout(() => {
                 const formulaInput = document.getElementById('formula');
@@ -1641,10 +1630,6 @@ function getCurrentProcessId() {
                     // Even if no prePopulatedData, set default currency from capturedProcessData
                     populateFormWithData({});
                 }
-                // Recalculate scale after data is loaded
-                setTimeout(() => {
-                    adjustEditFormulaModalScale();
-                }, 50);
             });
             
             // Load id product list into first select box
@@ -1653,10 +1638,6 @@ function getCurrentProcessId() {
             // Update formula data grid for current editing id product
             setTimeout(() => {
                 updateFormulaDataGrid();
-                // Recalculate scale after grid is updated
-                setTimeout(() => {
-                    adjustEditFormulaModalScale();
-                }, 50);
             }, 100);
             
             // Add event listener for first select box change
@@ -5315,51 +5296,6 @@ function getCurrentProcessId() {
             }, 100);
         }
 
-        // Adjust Edit Formula Modal scale based on viewport size
-        function adjustEditFormulaModalScale() {
-            const modalContent = document.getElementById('editFormulaModalContent');
-            if (!modalContent) return;
-            
-            const formContainer = modalContent.querySelector('.edit-formula-form-container');
-            if (!formContainer) return;
-            
-            // Get viewport dimensions (excluding sidebar)
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            const sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.1302)); // Same calculation as padding-left
-            const topMargin = Math.max(103, Math.min(115, viewportWidth * 0.06)); // Same as margin-top
-            const topPadding = Math.max(20, Math.min(80, viewportHeight * 0.08)); // Same as padding-top
-            
-            // Available space
-            const availableWidth = viewportWidth - sidebarWidth - 40; // 40px for padding/margins
-            const availableHeight = viewportHeight - topMargin - topPadding - 40; // 40px for bottom margin
-            
-            // Base dimensions for 1920x1080
-            const baseWidth = 1400;
-            const baseHeight = formContainer.offsetHeight || 800; // Fallback height
-            
-            // Calculate scale factors for width and height
-            const widthScale = availableWidth / baseWidth;
-            const heightScale = availableHeight / baseHeight;
-            
-            // Use the smaller scale to ensure content fits both dimensions
-            let scale = Math.min(widthScale, heightScale, 1); // Never scale up beyond 1
-            
-            // Minimum scale to prevent content from being too small
-            scale = Math.max(0.4, scale);
-            
-            // Apply scale transform
-            modalContent.style.transform = `scale(${scale})`;
-            modalContent.style.transformOrigin = 'center top';
-            
-            // Ensure modal content doesn't overflow
-            modalContent.style.maxWidth = `${baseWidth}px`;
-            modalContent.style.width = `${baseWidth}px`;
-        }
-        
-        // Store resize handler reference for cleanup
-        let editFormulaModalResizeHandler = null;
-
         // Close Edit Formula Form (modal)
         function closeEditFormulaForm() {
             const modal = document.getElementById('editFormulaModal');
@@ -5370,14 +5306,6 @@ function getCurrentProcessId() {
             }
             if (modalContent) {
                 modalContent.innerHTML = '';
-                // Reset transform
-                modalContent.style.transform = '';
-                modalContent.style.height = '';
-            }
-            // Remove resize listener
-            if (editFormulaModalResizeHandler) {
-                window.removeEventListener('resize', editFormulaModalResizeHandler);
-                editFormulaModalResizeHandler = null;
             }
             // Clean up the global references
             window.currentAddAccountButton = null;
@@ -16439,9 +16367,120 @@ function formatPercentValue(value) {
             /* Make Edit Formula modal wider - fixed width for 1920x1080 */
             width: 1400px;
             max-width: 95%;
-            /* Enable scaling for smaller screens */
+            /* Enable scaling for smaller screens using CSS only */
             transform-origin: center top;
-            transition: transform 0.2s ease;
+            /* Default: no scaling at 1920x1080 and above */
+            transform: scale(1);
+            zoom: 1;
+        }
+        
+        /* Responsive scaling using CSS zoom property - more reliable than transform scale */
+        /* Base: 1400px modal width, available space = 100vw - sidebar(250px) - margins(40px) = 100vw - 290px */
+        /* Scale = (100vw - 290px) / 1400 */
+        
+        /* For screens smaller than 1920px */
+        @media (max-width: 1920px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                /* Calculate scale and clamp between 0.4 and 1 */
+                zoom: clamp(0.4, calc((100vw - 290px) / 1400), 1);
+                transform: scale(clamp(0.4, calc((100vw - 290px) / 1400), 1)) !important;
+            }
+        }
+        
+        /* Adjust for smaller sidebar on smaller screens */
+        @media (max-width: 1400px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                zoom: clamp(0.4, calc((100vw - 240px) / 1400), 1);
+                transform: scale(clamp(0.4, calc((100vw - 240px) / 1400), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                zoom: clamp(0.4, calc((100vw - 220px) / 1400), 1);
+                transform: scale(clamp(0.4, calc((100vw - 220px) / 1400), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 1000px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                zoom: clamp(0.4, calc((100vw - 190px) / 1400), 1);
+                transform: scale(clamp(0.4, calc((100vw - 190px) / 1400), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 800px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                zoom: clamp(0.35, calc((100vw - 190px) / 1400), 1);
+                transform: scale(clamp(0.35, calc((100vw - 190px) / 1400), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                zoom: clamp(0.3, calc((100vw - 190px) / 1400), 1);
+                transform: scale(clamp(0.3, calc((100vw - 190px) / 1400), 1)) !important;
+            }
+        }
+        
+        /* Also consider height for very short screens */
+        @media (max-height: 900px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                /* Available height: 100vh - 115px(margin) - 80px(padding) - 40px(margin) = 100vh - 235px */
+                /* Base height: 800px */
+                zoom: clamp(0.4, calc((100vh - 235px) / 800), 1);
+                transform: scale(clamp(0.4, calc((100vh - 235px) / 800), 1)) !important;
+            }
+        }
+        
+        @media (max-height: 700px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                zoom: clamp(0.35, calc((100vh - 235px) / 800), 1);
+                transform: scale(clamp(0.35, calc((100vh - 235px) / 800), 1)) !important;
+            }
+        }
+        
+        @media (max-height: 600px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                zoom: clamp(0.3, calc((100vh - 235px) / 800), 1);
+                transform: scale(clamp(0.3, calc((100vh - 235px) / 800), 1)) !important;
+            }
+        }
+        
+        /* For screens that are both narrow and short, use the more restrictive scale */
+        @media (max-width: 1400px) and (max-height: 900px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                /* Calculate both scales and use the smaller one */
+                --w-scale: calc((100vw - 240px) / 1400);
+                --h-scale: calc((100vh - 235px) / 800);
+                zoom: clamp(0.4, var(--w-scale), 1);
+                transform: scale(clamp(0.4, var(--w-scale), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 1400px) and (max-height: 700px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                --h-scale: calc((100vh - 235px) / 800);
+                zoom: clamp(0.35, var(--h-scale), 1);
+                transform: scale(clamp(0.35, var(--h-scale), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 1000px) and (max-height: 700px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                --w-scale: calc((100vw - 190px) / 1400);
+                --h-scale: calc((100vh - 235px) / 800);
+                zoom: clamp(0.35, var(--w-scale), 1);
+                transform: scale(clamp(0.35, var(--w-scale), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 1000px) and (max-height: 600px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                --h-scale: calc((100vh - 235px) / 800);
+                zoom: clamp(0.3, var(--h-scale), 1);
+                transform: scale(clamp(0.3, var(--h-scale), 1)) !important;
+            }
         }
 
         @keyframes slideDown {
