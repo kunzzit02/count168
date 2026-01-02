@@ -4743,6 +4743,7 @@ function getCurrentProcessId() {
             const row = cell.closest('tr');
             let idProduct = cell.getAttribute('data-id-product');
             let columnIndex = cell.getAttribute('data-column-index');
+            let rowLabel = null; // Initialize rowLabel early to avoid reference errors
             
             // If id_product not found on cell, try to get from row
             if (!idProduct && row) {
@@ -4754,6 +4755,18 @@ function getCurrentProcessId() {
                         idProduct = cells[1].textContent.trim();
                         // Store it for future use
                         row.setAttribute('data-id-product', idProduct);
+                    }
+                }
+            }
+            
+            // Get row label early (if available)
+            if (row) {
+                rowLabel = cell.getAttribute('data-row-label');
+                if (!rowLabel) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    if (rowHeaderCell) {
+                        rowLabel = rowHeaderCell.textContent.trim();
+                        cell.setAttribute('data-row-label', rowLabel);
                     }
                 }
             }
@@ -4793,15 +4806,7 @@ function getCurrentProcessId() {
             // IMPORTANT: Include row_label to distinguish between multiple rows with same id_product
             // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
             if (idProduct && dataColumnIndex !== null) {
-                // Get row label from cell or row
-                let rowLabel = cell.getAttribute('data-row-label');
-                if (!rowLabel && row) {
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    if (rowHeaderCell) {
-                        rowLabel = rowHeaderCell.textContent.trim();
-                        cell.setAttribute('data-row-label', rowLabel);
-                    }
-                }
+                // rowLabel is already retrieved above, use it here
                 
                 // Build cell reference with row label if available
                 let cellReference;
@@ -4848,14 +4853,8 @@ function getCurrentProcessId() {
             // Get cursor position
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
-            // Get row label for display format (if not already retrieved)
-            let rowLabelForDisplay = rowLabel;
-            if (!rowLabelForDisplay && row) {
-                const rowHeaderCell = row.querySelector('.row-header');
-                if (rowHeaderCell) {
-                    rowLabelForDisplay = rowHeaderCell.textContent.trim();
-                }
-            }
+            // rowLabel is already retrieved above, use it for display format
+            const rowLabelForDisplay = rowLabel;
             
             // Format id_product for display: include row_label if available
             // Format: "[id_product]$数字" or "[id_product (row_label) ]$数字"
