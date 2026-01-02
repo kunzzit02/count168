@@ -224,7 +224,6 @@ if (isset($_GET['logout'])) {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: clamp(12px, 1.04vw, 20px);
-            margin-bottom: clamp(16px, 1.35vw, 26px);
         }
         
         .dashboard-kpi-card {
