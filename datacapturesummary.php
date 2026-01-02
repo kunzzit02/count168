@@ -1668,6 +1668,75 @@ function getCurrentProcessId() {
             
             // Initialize calculator keypad
             initializeCalculatorKeypad();
+            
+            // Calculate and apply dynamic scale after a short delay to ensure DOM is rendered
+            setTimeout(() => {
+                calculateAndApplyModalScale();
+            }, 50);
+            
+            // Add resize event listener to recalculate scale on window resize
+            // Store handler reference for cleanup
+            modalResizeHandler = () => {
+                calculateAndApplyModalScale();
+            };
+            window.addEventListener('resize', modalResizeHandler);
+        }
+        
+        // Function to calculate and apply dynamic scale for Edit Formula modal
+        function calculateAndApplyModalScale() {
+            const modalContent = document.getElementById('editFormulaModalContent');
+            const modal = document.getElementById('editFormulaModal');
+            if (!modalContent || !modal || modal.style.display === 'none' || modal.style.display === '') return;
+            
+            // Modal base width (fixed)
+            const modalBaseWidth = 1400;
+            
+            // Get viewport dimensions
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            // Get actual sidebar width if possible, otherwise estimate
+            const sidebar = document.querySelector('.sidebar, #sidebar, [class*="sidebar"]');
+            let sidebarWidth = 250; // Default estimate
+            if (sidebar) {
+                const sidebarRect = sidebar.getBoundingClientRect();
+                sidebarWidth = sidebarRect.width || 250;
+            } else {
+                // Estimate based on viewport width (clamp between 150-250px)
+                sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.13));
+            }
+            
+            // Calculate available width (viewport - sidebar - modal padding)
+            // Modal has padding-left: clamp(150px, 13.02vw, 250px) and padding-right: 20px
+            const modalPaddingLeft = Math.max(150, Math.min(250, viewportWidth * 0.1302));
+            const modalPaddingRight = 20;
+            const availableWidth = viewportWidth - sidebarWidth - modalPaddingLeft - modalPaddingRight;
+            
+            // Calculate available height (viewport - top padding - bottom margin)
+            // Modal has padding-top: clamp(20px, 8vh, 80px)
+            const modalPaddingTop = Math.max(20, Math.min(80, viewportHeight * 0.08));
+            const availableHeight = viewportHeight - modalPaddingTop - 50; // 50px for bottom margin
+            
+            // Calculate scale based on width (primary constraint)
+            let scaleX = availableWidth / modalBaseWidth;
+            
+            // Also consider height constraint (modal height is approximately 700-800px at scale 1)
+            const estimatedModalHeight = 750; // Approximate height at scale 1
+            let scaleY = availableHeight / estimatedModalHeight;
+            
+            // Use the smaller scale to ensure both width and height fit
+            let scale = Math.min(scaleX, scaleY, 1); // Never scale up beyond 100%
+            
+            // Set minimum scale to prevent it from becoming too small
+            // Allow smaller scale for very small screens to ensure content is visible
+            scale = Math.max(scale, 0.3);
+            
+            // Round to 2 decimal places for cleaner CSS
+            scale = Math.round(scale * 100) / 100;
+            
+            // Apply the scale
+            modalContent.style.transform = `scale(${scale})`;
+            modalContent.style.transformOrigin = 'center top';
         }
         
         // Store the current selected row for calculator keypad
@@ -5297,6 +5366,9 @@ function getCurrentProcessId() {
         }
 
         // Close Edit Formula Form (modal)
+        // Store resize handler reference for cleanup
+        let modalResizeHandler = null;
+        
         function closeEditFormulaForm() {
             const modal = document.getElementById('editFormulaModal');
             const modalContent = document.getElementById('editFormulaModalContent');
@@ -5307,6 +5379,13 @@ function getCurrentProcessId() {
             if (modalContent) {
                 modalContent.innerHTML = '';
             }
+            
+            // Remove resize event listener
+            if (modalResizeHandler) {
+                window.removeEventListener('resize', modalResizeHandler);
+                modalResizeHandler = null;
+            }
+            
             // Clean up the global references
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
@@ -16374,53 +16453,23 @@ function formatPercentValue(value) {
             transition: transform 0.2s ease;
         }
         
-        /* Scale down modal on smaller screens while maintaining content size */
-        /* Calculate scale based on available width (viewport - sidebar - padding) */
-        @media (min-width: 1920px) {
-            #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(1);
-            }
-        }
-        
-        @media (max-width: 1919px) and (min-width: 1600px) {
-            #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(0.95);
-            }
-        }
-        
-        @media (max-width: 1599px) and (min-width: 1400px) {
-            #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(0.85);
-            }
-        }
-        
-        @media (max-width: 1399px) and (min-width: 1200px) {
-            #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(0.75);
-            }
-        }
-        
-        @media (max-width: 1199px) and (min-width: 1000px) {
-            #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(0.65);
-            }
-        }
-        
-        @media (max-width: 999px) {
-            #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(0.55);
-            }
-        }
+        /* Scale is now calculated dynamically via JavaScript based on viewport size */
+        /* This ensures the modal always fits within the available space without horizontal scrollbars */
 
         @keyframes slideDown {
             from {
-                transform: translateY(-80px) scale(0.95);
+                transform: translateY(-80px);
                 opacity: 0;
             }
             to {
-                transform: translateY(0) scale(1);
+                transform: translateY(0);
                 opacity: 1;
             }
+        }
+        
+        /* Disable slideDown animation for Edit Formula modal to avoid scale conflicts */
+        #editFormulaModal .summary-confirm-modal-content {
+            animation: none;
         }
 
         .summary-confirm-icon-container {
