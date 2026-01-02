@@ -538,11 +538,15 @@ if (!$company_id) {
                             </div>
                             
                             <div class="form-group">
-                                <label for="import_process_id">导入流程 *</label>
-                                <select id="import_process_id" name="import_process_id" required>
-                                    <option value="">请选择流程</option>
+                                <label for="import_process_id">导入流程 (Process) *</label>
+                                <select id="import_process_id" name="import_process_id" required style="width: 100%; padding: 8px; font-size: 14px;">
+                                    <option value="">请选择流程（Process）</option>
                                 </select>
-                                <small style="color: #6b7280; font-size: 11px;">仅需选择流程，其他设置使用默认值（今天日期，自动匹配字段）</small>
+                                <small style="color: #6b7280; font-size: 11px; display: block; margin-top: 5px;">
+                                    <strong>Process 是什么？</strong> Process 是您系统中已定义的算账流程，用于分类和计算不同类型的交易数据。<br>
+                                    <strong>显示格式：</strong> 流程代码 - 描述 [币别]（例如：GW99 - 游戏平台 [USD]）<br>
+                                    <strong>其他设置：</strong> 使用默认值（今天日期，自动匹配字段）
+                                </small>
                             </div>
                             
                             <div style="background: #f0f9ff; padding: 10px; border-radius: 6px; margin-top: 10px; font-size: 12px; color: #0369a1;">
@@ -639,17 +643,51 @@ if (!$company_id) {
                     if (data.success && data.data) {
                         processesList = data.data;
                         const select = document.getElementById('import_process_id');
-                        select.innerHTML = '<option value="">请选择流程</option>';
+                        select.innerHTML = '<option value="">请选择流程（Process）</option>';
                         data.data.forEach(process => {
                             const option = document.createElement('option');
                             option.value = process.id;
-                            option.textContent = process.process_id || process.name || `流程 #${process.id}`;
+                            
+                            // 构建更清晰的显示文本
+                            let displayText = '';
+                            
+                            // 流程代码（必须）
+                            const processName = process.process_name || process.process_id || `流程 #${process.id}`;
+                            displayText = processName;
+                            
+                            // 添加描述（如果有）
+                            if (process.description && process.description.trim()) {
+                                displayText += ' - ' + process.description;
+                            }
+                            
+                            // 添加币别（如果有）
+                            if (process.currency && process.currency.trim()) {
+                                displayText += ' [' + process.currency + ']';
+                            }
+                            
+                            // 添加状态标识（如果是非激活状态）
+                            if (process.status && process.status.toLowerCase() !== 'active') {
+                                displayText += ' (停用)';
+                            }
+                            
+                            option.textContent = displayText;
+                            
+                            // 将更多信息存储在data属性中，方便后续使用
+                            option.setAttribute('data-process-name', processName);
+                            if (process.description) {
+                                option.setAttribute('data-description', process.description);
+                            }
+                            if (process.currency) {
+                                option.setAttribute('data-currency', process.currency);
+                            }
+                            
                             select.appendChild(option);
                         });
                     }
                 })
                 .catch(error => {
                     console.error('加载流程列表失败:', error);
+                    showNotification('加载流程列表失败: ' + (error.message || '未知错误'), 'error');
                 });
         }
         
