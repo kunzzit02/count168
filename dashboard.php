@@ -290,6 +290,7 @@ if (isset($_GET['logout'])) {
 
         .dashboard-chart-buttons {
             display: flex;
+            justify-content: center;
             gap: 8px;
             margin-bottom: clamp(16px, 1.35vw, 26px);
             flex-wrap: wrap;
