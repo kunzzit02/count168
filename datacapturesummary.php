@@ -1608,25 +1608,50 @@ function getCurrentProcessId() {
                 </div>
             `;
             
+            // Calculate scale BEFORE rendering to prevent flash
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.1302));
+            const topMargin = Math.max(103, Math.min(115, viewportWidth * 0.06));
+            const topPadding = Math.max(20, Math.min(80, viewportHeight * 0.08));
+            const availableWidth = viewportWidth - sidebarWidth - 40;
+            const availableHeight = viewportHeight - topMargin - topPadding - 40;
+            const baseWidth = 1400;
+            const estimatedHeight = 800; // Estimated height before rendering
+            const widthScale = availableWidth / baseWidth;
+            const heightScale = availableHeight / estimatedHeight;
+            const initialScale = Math.max(0.4, Math.min(widthScale, heightScale, 1));
+            
+            // Pre-apply scale and styles BEFORE rendering content
+            modalContent.style.transform = `scale(${initialScale})`;
+            modalContent.style.transformOrigin = 'center top';
+            modalContent.style.maxWidth = `${baseWidth}px`;
+            modalContent.style.width = `${baseWidth}px`;
+            modalContent.style.transition = 'none';
+            
             // Render into modal
             modalContent.innerHTML = formHTML;
             
-            // Set modal to be invisible but rendered (for accurate measurement)
+            // Show modal immediately with pre-calculated scale
             modal.style.display = 'flex';
-            modal.style.visibility = 'hidden';
-            modal.style.opacity = '0';
             document.body.style.overflow = 'hidden';
             
-            // Wait for DOM to render, then calculate accurate scale
+            // Fine-tune scale after DOM renders (silently, no transition)
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    // Now calculate accurate scale with real DOM dimensions
-                    adjustEditFormulaModalScale();
-                    
-                    // Show modal with correct scale (fade in)
-                    modal.style.visibility = 'visible';
-                    modal.style.opacity = '1';
-                    modal.style.transition = 'opacity 0.1s ease';
+                    // Recalculate with actual DOM dimensions
+                    const formContainer = modalContent.querySelector('.edit-formula-form-container');
+                    if (formContainer) {
+                        const actualHeight = formContainer.offsetHeight || formContainer.scrollHeight || estimatedHeight;
+                        const actualHeightScale = availableHeight / actualHeight;
+                        const finalScale = Math.max(0.4, Math.min(widthScale, actualHeightScale, 1));
+                        
+                        // Only update if significantly different
+                        if (Math.abs(finalScale - initialScale) > 0.01) {
+                            modalContent.style.transition = 'none';
+                            modalContent.style.transform = `scale(${finalScale})`;
+                        }
+                    }
                     
                     // Add resize listener to adjust scale when window is resized
                     if (!editFormulaModalResizeHandler) {
@@ -16399,11 +16424,16 @@ function formatPercentValue(value) {
             justify-content: center; /* keep horizontal centering within content area */
             /* Allow clicks to pass through background to reach table cells */
             pointer-events: none;
+            /* Disable fadeIn animation to prevent flash */
+            animation: none !important;
         }
         
         /* Make modal content clickable while allowing background clicks to pass through */
         #editFormulaModal .summary-confirm-modal-content {
             pointer-events: auto;
+            /* Disable slideDown animation to prevent flash */
+            animation: none !important;
+            transition: none !important;
         }
 
         /* Center Confirm Delete modal within right content area (exclude sidebar) */
@@ -16469,7 +16499,8 @@ function formatPercentValue(value) {
             max-width: 95%;
             /* Enable scaling for smaller screens */
             transform-origin: center top;
-            transition: transform 0.2s ease;
+            /* No transition to prevent flash - transition is controlled by JavaScript */
+            transition: none;
         }
 
         @keyframes slideDown {
