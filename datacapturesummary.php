@@ -2276,15 +2276,10 @@ function getCurrentProcessId() {
 
         // Add selected row data (from second select) into Formula, same behavior as clicking table cell
         function addSelectedDataToFormula() {
-            console.log('addSelectedDataToFormula called');
             const descriptionSelect2 = document.getElementById('descriptionSelect2');
-            if (!descriptionSelect2) {
-                console.warn('descriptionSelect2 not found');
-                return;
-            }
+            if (!descriptionSelect2) return;
 
             const selectedValue = descriptionSelect2.value;
-            console.log('Selected value:', selectedValue);
             if (!selectedValue) {
                 showNotification('Info', 'Please select row data first.', 'info');
                 return;
@@ -2298,7 +2293,6 @@ function getCurrentProcessId() {
 
             const rowIndex = parseInt(parts[0], 10);
             const columnIndex = parts[1];
-            console.log('Parsed rowIndex:', rowIndex, 'columnIndex:', columnIndex);
             if (isNaN(rowIndex)) {
                 console.warn('Invalid row index in selected value for descriptionSelect2:', selectedValue);
                 return;
@@ -2311,46 +2305,29 @@ function getCurrentProcessId() {
             }
 
             const rows = capturedTableBody.querySelectorAll('tr');
-            console.log('Total rows found:', rows.length);
             const targetRow = rows[rowIndex];
             if (!targetRow) {
-                console.warn('Row not found for index:', rowIndex, 'Total rows:', rows.length);
+                console.warn('Row not found for index:', rowIndex);
                 return;
             }
 
             // Find the cell with matching data-column-index
             const cells = targetRow.querySelectorAll('td');
-            console.log('Cells in target row:', cells.length);
             let targetCell = null;
-            cells.forEach((cell, index) => {
+            cells.forEach(cell => {
                 const colIdx = cell.getAttribute('data-column-index');
-                console.log(`Cell ${index}: data-column-index="${colIdx}", looking for "${columnIndex}"`);
                 if (colIdx === columnIndex) {
                     targetCell = cell;
-                    console.log('Found target cell at index:', index);
                 }
             });
 
             if (!targetCell) {
                 console.warn('Cell not found for column index:', columnIndex, 'in row index:', rowIndex);
-                // Try to find by position instead
-                const cellByPosition = cells[parseInt(columnIndex)];
-                if (cellByPosition) {
-                    console.log('Found cell by position instead');
-                    targetCell = cellByPosition;
-                } else {
-                    return;
-                }
+                return;
             }
 
-            console.log('Calling insertCellValueToFormula with targetCell');
             // Reuse existing logic: behave exactly like clicking the cell
-            try {
-                insertCellValueToFormula(targetCell);
-            } catch (error) {
-                console.error('Error in insertCellValueToFormula:', error);
-                showNotification('Error', 'Failed to add data to formula: ' + error.message, 'danger');
-            }
+            insertCellValueToFormula(targetCell);
         }
 
         // Load all id products from table into first select box
@@ -4812,23 +4789,19 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Get row label from cell or row (moved outside if block so it's available for valueToInsert)
-            let rowLabel = null;
-            if (row) {
-                rowLabel = cell.getAttribute('data-row-label');
-                if (!rowLabel) {
+            // Store id_product:column_index reference (new format)
+            // IMPORTANT: Include row_label to distinguish between multiple rows with same id_product
+            // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
+            if (idProduct && dataColumnIndex !== null) {
+                // Get row label from cell or row
+                let rowLabel = cell.getAttribute('data-row-label');
+                if (!rowLabel && row) {
                     const rowHeaderCell = row.querySelector('.row-header');
                     if (rowHeaderCell) {
                         rowLabel = rowHeaderCell.textContent.trim();
                         cell.setAttribute('data-row-label', rowLabel);
                     }
                 }
-            }
-            
-            // Store id_product:column_index reference (new format)
-            // IMPORTANT: Include row_label to distinguish between multiple rows with same id_product
-            // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
-            if (idProduct && dataColumnIndex !== null) {
                 
                 // Build cell reference with row label if available
                 let cellReference;
@@ -4875,47 +4848,19 @@ function getCurrentProcessId() {
             // Get cursor position
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
-            // Insert column reference with id_product format: [id_product (row_label) ]$columnNumber
+            // Insert column reference ($columnNumber) instead of value at cursor position
             // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
             let valueToInsert;
-            
-            // Debug: Log all variables to help diagnose issues
-            console.log('insertCellValueToFormula - Debug info:', {
-                idProduct: idProduct,
-                rowLabel: rowLabel,
-                displayColumnIndex: displayColumnIndex,
-                dataColumnIndex: dataColumnIndex,
-                columnIndex: columnIndex,
-                row: row ? 'exists' : 'null'
-            });
-            
             if (displayColumnIndex !== null && displayColumnIndex > 0) {
-                // Build the full format: [id_product (row_label) ]$columnNumber
-                // If rowLabel exists, format: [M99M06 (B) ]$4
-                // If no rowLabel, format: [M99M06 ]$4
-                let idProductPart = '';
-                if (idProduct && idProduct.trim() !== '') {
-                    if (rowLabel && rowLabel.trim() !== '') {
-                        idProductPart = `[${idProduct} (${rowLabel}) ]`;
-                    } else {
-                        idProductPart = `[${idProduct} ]`;
-                    }
-                }
-                valueToInsert = `${idProductPart}$${displayColumnIndex}`;
-                console.log('Inserting column reference with id_product:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex, 'idProduct:', idProduct, 'rowLabel:', rowLabel);
+                // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
+                // displayColumnIndex 就是 data-column-index 的值，直接使用
+                valueToInsert = `$${displayColumnIndex}`;
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
             } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
-                let idProductPart = '';
-                if (idProduct && idProduct.trim() !== '') {
-                    if (rowLabel && rowLabel.trim() !== '') {
-                        idProductPart = `[${idProduct} (${rowLabel}) ]`;
-                    } else {
-                        idProductPart = `[${idProduct} ]`;
-                    }
-                }
-                valueToInsert = `${idProductPart}$${dataColumnIndex + 1}`;
-                console.log('Inserting column reference with id_product (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct, 'rowLabel:', rowLabel);
+                valueToInsert = `$${dataColumnIndex + 1}`;
+                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex);
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
                 valueToInsert = numValue;
