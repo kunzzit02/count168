@@ -1668,75 +1668,6 @@ function getCurrentProcessId() {
             
             // Initialize calculator keypad
             initializeCalculatorKeypad();
-            
-            // Calculate and apply dynamic scale after a short delay to ensure DOM is rendered
-            setTimeout(() => {
-                calculateAndApplyModalScale();
-            }, 50);
-            
-            // Add resize event listener to recalculate scale on window resize
-            // Store handler reference for cleanup
-            modalResizeHandler = () => {
-                calculateAndApplyModalScale();
-            };
-            window.addEventListener('resize', modalResizeHandler);
-        }
-        
-        // Function to calculate and apply dynamic scale for Edit Formula modal
-        function calculateAndApplyModalScale() {
-            const modalContent = document.getElementById('editFormulaModalContent');
-            const modal = document.getElementById('editFormulaModal');
-            if (!modalContent || !modal || modal.style.display === 'none' || modal.style.display === '') return;
-            
-            // Modal base width (fixed)
-            const modalBaseWidth = 1400;
-            
-            // Get viewport dimensions
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            
-            // Get actual sidebar width if possible, otherwise estimate
-            const sidebar = document.querySelector('.sidebar, #sidebar, [class*="sidebar"]');
-            let sidebarWidth = 250; // Default estimate
-            if (sidebar) {
-                const sidebarRect = sidebar.getBoundingClientRect();
-                sidebarWidth = sidebarRect.width || 250;
-            } else {
-                // Estimate based on viewport width (clamp between 150-250px)
-                sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.13));
-            }
-            
-            // Calculate available width (viewport - sidebar - modal padding)
-            // Modal has padding-left: clamp(150px, 13.02vw, 250px) and padding-right: 20px
-            const modalPaddingLeft = Math.max(150, Math.min(250, viewportWidth * 0.1302));
-            const modalPaddingRight = 20;
-            const availableWidth = viewportWidth - sidebarWidth - modalPaddingLeft - modalPaddingRight;
-            
-            // Calculate available height (viewport - top padding - bottom margin)
-            // Modal has padding-top: clamp(20px, 8vh, 80px)
-            const modalPaddingTop = Math.max(20, Math.min(80, viewportHeight * 0.08));
-            const availableHeight = viewportHeight - modalPaddingTop - 50; // 50px for bottom margin
-            
-            // Calculate scale based on width (primary constraint)
-            let scaleX = availableWidth / modalBaseWidth;
-            
-            // Also consider height constraint (modal height is approximately 700-800px at scale 1)
-            const estimatedModalHeight = 750; // Approximate height at scale 1
-            let scaleY = availableHeight / estimatedModalHeight;
-            
-            // Use the smaller scale to ensure both width and height fit
-            let scale = Math.min(scaleX, scaleY, 1); // Never scale up beyond 100%
-            
-            // Set minimum scale to prevent it from becoming too small
-            // Allow smaller scale for very small screens to ensure content is visible
-            scale = Math.max(scale, 0.3);
-            
-            // Round to 2 decimal places for cleaner CSS
-            scale = Math.round(scale * 100) / 100;
-            
-            // Apply the scale
-            modalContent.style.transform = `scale(${scale})`;
-            modalContent.style.transformOrigin = 'center top';
         }
         
         // Store the current selected row for calculator keypad
@@ -5366,9 +5297,6 @@ function getCurrentProcessId() {
         }
 
         // Close Edit Formula Form (modal)
-        // Store resize handler reference for cleanup
-        let modalResizeHandler = null;
-        
         function closeEditFormulaForm() {
             const modal = document.getElementById('editFormulaModal');
             const modalContent = document.getElementById('editFormulaModalContent');
@@ -5379,13 +5307,6 @@ function getCurrentProcessId() {
             if (modalContent) {
                 modalContent.innerHTML = '';
             }
-            
-            // Remove resize event listener
-            if (modalResizeHandler) {
-                window.removeEventListener('resize', modalResizeHandler);
-                modalResizeHandler = null;
-            }
-            
             // Clean up the global references
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
@@ -16374,13 +16295,10 @@ function formatPercentValue(value) {
             /* Shift overlay content area to the right by sidebar width,
                so centering occurs within the main content area */
             padding-left: clamp(150px, 13.02vw, 250px);
-            padding-right: 20px; /* Add right padding to prevent overflow */
             box-sizing: border-box;
             justify-content: center; /* keep horizontal centering within content area */
             /* Allow clicks to pass through background to reach table cells */
             pointer-events: none;
-            overflow: visible; /* Ensure modal can scale without being clipped */
-            /* Override parent overflow:hidden to allow scaled content to be visible */
         }
         
         /* Make modal content clickable while allowing background clicks to pass through */
@@ -16446,30 +16364,20 @@ function formatPercentValue(value) {
             overflow: visible;
             /* Ensure modal content is clickable */
             pointer-events: auto;
-            /* Make Edit Formula modal fixed width to maintain consistent appearance */
-            width: 1400px;
-            /* Use transform scale for smaller screens instead of changing content size */
-            transform-origin: center top;
-            transition: transform 0.2s ease;
+            /* Make Edit Formula modal wider */
+            width: clamp(900px, 75vw, 1400px);
+            max-width: 95%;
         }
-        
-        /* Scale is now calculated dynamically via JavaScript based on viewport size */
-        /* This ensures the modal always fits within the available space without horizontal scrollbars */
 
         @keyframes slideDown {
             from {
-                transform: translateY(-80px);
+                transform: translateY(-80px) scale(0.95);
                 opacity: 0;
             }
             to {
-                transform: translateY(0);
+                transform: translateY(0) scale(1);
                 opacity: 1;
             }
-        }
-        
-        /* Disable slideDown animation for Edit Formula modal to avoid scale conflicts */
-        #editFormulaModal .summary-confirm-modal-content {
-            animation: none;
         }
 
         .summary-confirm-icon-container {
@@ -16658,8 +16566,68 @@ function formatPercentValue(value) {
             color: #495057;
         }
 
-        /* Responsive Design - Removed to maintain consistent content size */
-        /* Modal will scale using transform instead of changing content dimensions */
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1px 20px 20px clamp(180px, 14.06vw, 270px);
+            }
+            
+            .edit-formula-form-container .form-layout {
+                gap: 15px;
+            }
+            
+            .edit-formula-form-container .form-left-column {
+                flex: 1.1;
+                max-width: 340px;
+            }
+            
+            .edit-formula-form-container .form-middle-column {
+                flex: 1.1;
+                max-width: 320px;
+            }
+            
+            .edit-formula-form-container .form-right-column {
+                flex: 0.3;
+                min-width: 160px;
+            }
+            
+            .calculator-keypad {
+                max-width: 200px;
+                min-width: 180px;
+            }
+            
+            .calc-btn {
+                min-width: clamp(24px, 1.88vw, 36px);
+                height: clamp(22px, 1.72vw, 33px);
+                font-size: clamp(9px, 0.70vw, 13px);
+            }
+        }
+        
+        @media (max-width: 1200px) {
+            .edit-formula-form-container .form-layout {
+                gap: 20px;
+            }
+            
+            .edit-formula-form-container .form-left-column {
+                max-width: 480px;
+                min-width: 430px;
+            }
+            
+            .edit-formula-form-container .form-middle-column {
+                max-width: 480px;
+                min-width: 430px;
+            }
+            
+            .edit-formula-form-container .form-right-column {
+                min-width: 190px;
+                max-width: 210px;
+            }
+            
+            .calculator-keypad {
+                max-width: 210px;
+                min-width: 190px;
+            }
+        }
 
 
         /* Empty State Styles */
@@ -16759,7 +16727,7 @@ function formatPercentValue(value) {
 
         .edit-formula-form-container .form-content {
             padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
-            overflow-x: visible;
+            overflow-x: auto;
             overflow-y: visible;
         }
 
@@ -16767,8 +16735,7 @@ function formatPercentValue(value) {
             display: flex;
             gap: 30px;
             flex-wrap: nowrap;
-            overflow-x: visible;
-            overflow-y: visible;
+            overflow-x: auto;
             justify-content: flex-start;
             align-items: flex-start;
         }
