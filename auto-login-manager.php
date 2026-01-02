@@ -1040,10 +1040,36 @@ if (!$company_id) {
                     showNotification('执行成功: ' + (data.message || ''), 'success');
                     if (data.import && data.import.success) {
                         showNotification('已自动导入 ' + (data.import.rows_imported || 0) + ' 行数据', 'success');
+                    } else if (data.message && (data.message.includes('无法从网页数据中提取账号信息') || data.message.includes('无法匹配任何账号'))) {
+                        // 自动提取失败，提示使用手动粘贴
+                        showNotification('自动提取失败：无法从网页提取数据', 'warning', 8000);
+                        loadCredentials();
+                        
+                        setTimeout(() => {
+                            if (confirm('自动提取失败。数据可能是JavaScript动态加载的，cURL无法获取。\n\n是否要使用"手动粘贴"功能？\n\n点击"确定"打开粘贴对话框，然后：\n1. 从网页上选中并复制表格数据（Ctrl+C）\n2. 粘贴到对话框中\n3. 系统会自动解析并导入')) {
+                                manualPasteData(id);
+                            }
+                        }, 1500);
+                    } else {
+                        loadCredentials();
                     }
-                    loadCredentials();
                 } else {
-                    showNotification(data.error || '执行失败', 'error');
+                    showNotification('执行失败: ' + (data.error || '未知错误'), 'error', 5000);
+                    // 如果是因为无法提取数据，提示使用手动粘贴
+                    if (data.error && (data.error.includes('无法从网页数据中提取') || data.error.includes('无法匹配任何账号'))) {
+                        setTimeout(() => {
+                            if (confirm('自动提取失败。是否要使用"手动粘贴"功能？\n\n点击"确定"打开粘贴对话框，然后从网页复制表格数据并粘贴进去。')) {
+                                manualPasteData(id);
+                            }
+                        }, 1500);
+                    }
+                    if (data.error && (data.error.includes('无法从网页数据中提取') || data.error.includes('无法匹配任何账号'))) {
+                        setTimeout(() => {
+                            if (confirm('自动提取失败。是否要使用"手动粘贴"功能？\n\n点击"确定"打开粘贴对话框，然后从网页复制表格数据并粘贴进去。')) {
+                                manualPasteData(id);
+                            }
+                        }, 1000);
+                    }
                 }
             })
             .catch(error => {
@@ -1181,7 +1207,7 @@ if (!$company_id) {
             return date.toLocaleString('zh-CN');
         }
 
-        function showNotification(message, type) {
+        function showNotification(message, type, duration = 3000) {
             const notification = document.getElementById('notification');
             notification.textContent = message;
             notification.className = `notification ${type}`;
@@ -1189,7 +1215,7 @@ if (!$company_id) {
             
             setTimeout(() => {
                 notification.classList.remove('show');
-            }, 3000);
+            }, duration);
         }
 
         // 页面加载时获取列表
