@@ -167,6 +167,30 @@ function convertWebDataToDataCaptureFormat(array $webData, array $mapping): arra
     ];
     
     foreach ($webData as $rowIndex => $row) {
+        // 跳过表头行：如果第一列（col_0）为空，且其他列包含常见的表头关键词
+        $firstColValue = '';
+        $hasHeaderKeywords = false;
+        foreach ($row as $key => $value) {
+            if ($key === '_raw') continue;
+            if (preg_match('/^col_0$|^0$/', $key)) {
+                $firstColValue = trim((string)$value);
+            } else {
+                $valueStr = strtolower(trim((string)$value));
+                $headerKeywords = ['transfer in', 'transfer out', 'total bet', 'total win', 'net gaming', 'lottery', 'account', 'amount', 'balance'];
+                foreach ($headerKeywords as $keyword) {
+                    if (stripos($valueStr, $keyword) !== false) {
+                        $hasHeaderKeywords = true;
+                        break 2;
+                    }
+                }
+            }
+        }
+        
+        // 如果第一列为空且包含表头关键词，跳过（这是表头行）
+        if (empty($firstColValue) && $hasHeaderKeywords) {
+            continue;
+        }
+        
         // 提取账号
         $account = findMappedValue($row, $mapping['account'] ?? []);
         
@@ -416,7 +440,8 @@ function autoDetectFieldMapping(array $sampleRows): array {
         'account', 'player', 'username', 'user', 'member', '账号', '用户名',
         'amount', 'balance', 'total', '金额', '余额', '总计',
         'currency', 'curr', '币别', '货币',
-        'description', 'name', '描述', '名称'
+        'description', 'name', '描述', '名称',
+        'transfer in', 'transfer out', 'total bet', 'total win', 'net gaming', 'lottery'
     ];
     
     // 如果只传入一行，转换为数组
@@ -426,49 +451,138 @@ function autoDetectFieldMapping(array $sampleRows): array {
     
     // 找到第一个真正的数据行（不是表头，不是汇总行）
     $dataRow = null;
-    foreach ($sampleRows as $row) {
+    $dataRowIndex = -1;
+    
+    foreach ($sampleRows as $index => $row) {
         if (!is_array($row) || isset($row['_raw'])) {
             continue;
+        }
+        
+        // 检查第一列是否为空（通常是表头行的特征）
+        $firstColValue = '';
+        foreach ($row as $key => $value) {
+            if ($key === '_raw') continue;
+            if (preg_match('/^col_0$|^0$/', $key)) {
+                $firstColValue = trim((string)$value);
+                break;
+            }
+        }
+        
+        // 如果第一列为空，且其他列包含表头关键词，很可能是表头行
+        $isLikelyHeader = empty($firstColValue);
+        if ($isLikelyHeader) {
+            $hasHeaderKeywords = false;
+            foreach ($row as $key => $value) {
+                if ($key === '_raw') continue;
+                $valueStr = strtolower(trim((string)$value));
+                foreach ($headerKeywords as $keyword) {
+                    if (stripos($valueStr, $keyword) !== false) {
+                        $hasHeaderKeywords = true;
+                        break 2;
+                    }
+                }
+            }
+            if ($hasHeaderKeywords) {
+                continue; // 跳过表头行
+            }
         }
         
         // 检查是否是表头行：如果所有值都是关键词或很短的文本，可能是表头
         $isHeader = true;
         $hasNumericValue = false;
+        $emptyColumns = 0;
+        $nonEmptyColumns = 0;
+        
         foreach ($row as $key => $value) {
             if ($key === '_raw') continue;
-            $valueStr = strtolower(trim((string)$value));
-            if (!empty($valueStr) && strlen($valueStr) > 3 && !in_array($valueStr, $headerKeywords)) {
+            $valueStr = trim((string)$value);
+            
+            if (empty($valueStr)) {
+                $emptyColumns++;
+            } else {
+                $nonEmptyColumns++;
+            }
+            
+            $valueLower = strtolower($valueStr);
+            if (!empty($valueStr) && strlen($valueStr) > 3 && !in_array($valueLower, $headerKeywords)) {
                 $isHeader = false;
             }
-            if (is_numeric($value) || preg_match('/^[0-9,]+\.?[0-9]*$/', (string)$value)) {
+            if (is_numeric($valueStr) || preg_match('/^[0-9,]+\.?[0-9]*$/', $valueStr)) {
                 $hasNumericValue = true;
+            }
+        }
+        
+        // 如果第一列为空，且大部分列都是表头关键词，很可能是表头行
+        if (empty($firstColValue) && $nonEmptyColumns > 0) {
+            $headerKeywordCount = 0;
+            foreach ($row as $key => $value) {
+                if ($key === '_raw') continue;
+                $valueStr = strtolower(trim((string)$value));
+                foreach ($headerKeywords as $keyword) {
+                    if (stripos($valueStr, $keyword) !== false) {
+                        $headerKeywordCount++;
+                        break;
+                    }
+                }
+            }
+            // 如果超过一半的非空列是表头关键词，认为是表头行
+            if ($headerKeywordCount > ($nonEmptyColumns / 2)) {
+                continue; // 跳过表头行
             }
         }
         
         // 如果有数字值，且不是明显的表头，就认为是数据行
         if ($hasNumericValue && !$isHeader) {
             $dataRow = $row;
+            $dataRowIndex = $index;
             break;
         }
         
-        // 如果值不是表头关键词，且不是汇总行关键词，也认为是数据行
-        if (!$isHeader) {
-            $valueLower = strtolower(implode(' ', array_values($row)));
+        // 如果第一列不为空，且值不是表头关键词，也认为是数据行
+        if (!empty($firstColValue) && !$isHeader) {
+            $valueLower = strtolower($firstColValue);
             $isSummary = (
                 stripos($valueLower, 'total') !== false ||
                 stripos($valueLower, 'subtotal') !== false ||
-                stripos($valueLower, 'sum') !== false
+                stripos($valueLower, 'sum') !== false ||
+                stripos($valueLower, '合计') !== false ||
+                stripos($valueLower, '总计') !== false
             );
             if (!$isSummary) {
                 $dataRow = $row;
+                $dataRowIndex = $index;
                 break;
             }
         }
     }
     
-    // 如果找不到数据行，使用第一行
+    // 如果找不到数据行，尝试使用第一列不为空的行
+    if (!$dataRow && !empty($sampleRows)) {
+        foreach ($sampleRows as $index => $row) {
+            if (!is_array($row) || isset($row['_raw'])) {
+                continue;
+            }
+            foreach ($row as $key => $value) {
+                if ($key === '_raw') continue;
+                if (preg_match('/^col_0$|^0$/', $key) && !empty(trim((string)$value))) {
+                    $valueStr = strtolower(trim((string)$value));
+                    // 排除汇总行
+                    if (stripos($valueStr, 'total') === false && 
+                        stripos($valueStr, 'subtotal') === false &&
+                        stripos($valueStr, 'sum') === false) {
+                        $dataRow = $row;
+                        $dataRowIndex = $index;
+                        break 2;
+                    }
+                }
+            }
+        }
+    }
+    
+    // 如果还是找不到，使用第一行
     if (!$dataRow && !empty($sampleRows)) {
         $dataRow = $sampleRows[0];
+        $dataRowIndex = 0;
     }
     
     if (!$dataRow) {
