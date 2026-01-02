@@ -16642,67 +16642,73 @@ function formatPercentValue(value) {
         
         @media (max-width: 1200px) {
             .edit-formula-form-container .form-layout {
-                gap: 15px;
+                gap: 12px;
             }
             
             .edit-formula-form-container .form-left-column {
-                max-width: 380px;
-                min-width: 320px;
+                max-width: none;
+                min-width: 0;
+                flex: 1 1 0;
             }
             
             .edit-formula-form-container .form-middle-column {
-                max-width: 380px;
-                min-width: 320px;
+                max-width: none;
+                min-width: 0;
+                flex: 1 1 0;
             }
             
             .edit-formula-form-container .form-right-column {
-                min-width: 180px;
-                max-width: 180px;
+                min-width: 0;
+                max-width: 160px;
+                flex: 0 0 auto;
             }
             
             .calculator-keypad {
-                max-width: 180px;
-                min-width: 180px;
+                max-width: 160px;
+                min-width: 0;
             }
             
             .edit-formula-form-container .form-left-column .form-row.formula-row-full-width {
-                width: calc(320px + 15px + 320px);
-                max-width: calc(320px + 15px + 320px);
+                width: 100%;
+                max-width: 100%;
             }
         }
         
         @media (max-width: 1024px) {
             .edit-formula-form-container .form-content {
-                padding: clamp(8px, 1.04vw, 15px) clamp(10px, 1.67vw, 18px);
+                padding: clamp(8px, 1.04vw, 15px) clamp(8px, 1.67vw, 16px);
             }
             
             .edit-formula-form-container .form-layout {
-                gap: 12px;
+                gap: 10px;
             }
             
             .edit-formula-form-container .form-left-column {
-                max-width: 320px;
-                min-width: 240px;
+                max-width: none;
+                min-width: 0;
+                flex: 1 1 0;
             }
             
             .edit-formula-form-container .form-middle-column {
-                max-width: 320px;
-                min-width: 240px;
+                max-width: none;
+                min-width: 0;
+                flex: 1 1 0;
             }
             
             .edit-formula-form-container .form-right-column {
-                min-width: 150px;
-                max-width: 150px;
+                min-width: 0;
+                max-width: 140px;
+                flex: 0 0 auto;
             }
             
             .calculator-keypad {
-                max-width: 150px;
-                min-width: 150px;
+                max-width: 140px;
+                min-width: 0;
             }
             
             .edit-formula-form-container .form-left-column .form-row.formula-row-full-width {
-                width: calc(240px + 12px + 240px);
-                max-width: calc(240px + 12px + 240px);
+                width: 100%;
+                max-width: 100%;
             }
         }
         
@@ -16712,31 +16718,34 @@ function formatPercentValue(value) {
             }
             
             .edit-formula-form-container .form-content {
-                padding: clamp(6px, 1.04vw, 12px) clamp(8px, 1.67vw, 14px);
+                padding: clamp(6px, 1.04vw, 12px) clamp(6px, 1.67vw, 12px);
             }
             
             .edit-formula-form-container .form-layout {
-                gap: 10px;
+                gap: 8px;
             }
             
             .edit-formula-form-container .form-left-column {
-                max-width: 280px;
-                min-width: 200px;
+                max-width: none;
+                min-width: 0;
+                flex: 1 1 0;
             }
             
             .edit-formula-form-container .form-middle-column {
-                max-width: 280px;
-                min-width: 200px;
+                max-width: none;
+                min-width: 0;
+                flex: 1 1 0;
             }
             
             .edit-formula-form-container .form-right-column {
-                min-width: 130px;
-                max-width: 130px;
+                min-width: 0;
+                max-width: 120px;
+                flex: 0 0 auto;
             }
             
             .calculator-keypad {
-                max-width: 130px;
-                min-width: 130px;
+                max-width: 120px;
+                min-width: 0;
             }
             
             .calc-btn {
@@ -16746,8 +16755,8 @@ function formatPercentValue(value) {
             }
             
             .edit-formula-form-container .form-left-column .form-row.formula-row-full-width {
-                width: calc(200px + 10px + 200px);
-                max-width: calc(200px + 10px + 200px);
+                width: 100%;
+                max-width: 100%;
             }
         }
 
