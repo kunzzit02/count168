@@ -63,6 +63,20 @@ try {
     // 解密密码
     $password = decrypt_password($credential['encrypted_password']);
     
+    // 解密2FA代码（如果启用）
+    $two_fa_code = null;
+    if (!empty($credential['has_2fa']) && $credential['has_2fa'] == 1) {
+        if (!empty($credential['encrypted_2fa_code'])) {
+            try {
+                $two_fa_code = decrypt_password($credential['encrypted_2fa_code']);
+            } catch (Exception $e) {
+                throw new Exception('解密2FA代码失败: ' . $e->getMessage());
+            }
+        } else {
+            throw new Exception('已启用二重认证但未找到认证码');
+        }
+    }
+    
     // 更新最后执行时间（先更新，如果失败可以手动修改）
     $stmt = $pdo->prepare("
         UPDATE auto_login_credentials 
@@ -104,10 +118,18 @@ try {
         'credential_info' => [
             'name' => $credential['name'],
             'website_url' => $credential['website_url'],
-            'username' => $credential['username']
-            // 不返回密码
+            'username' => $credential['username'],
+            'has_2fa' => !empty($credential['has_2fa']) && $credential['has_2fa'] == 1,
+            'two_fa_type' => $credential['two_fa_type'] ?? null
+            // 不返回密码和2FA代码
         ]
     ];
+    
+    // 注意：在实际实现中，可以使用 $password 和 $two_fa_code 进行登录
+    // 例如：
+    // - 对于静态码：直接在登录表单中填写 $two_fa_code
+    // - 对于TOTP：使用TOTP库（如PHPOTP）根据密钥生成当前时间的验证码
+    // - 对于SMS/Email：可能需要手动输入或使用其他服务获取验证码
     
     // 更新执行结果
     $stmt = $pdo->prepare("

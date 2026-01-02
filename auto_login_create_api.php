@@ -25,6 +25,10 @@ try {
     $website_url = isset($input['website_url']) ? trim($input['website_url']) : '';
     $username = isset($input['username']) ? trim($input['username']) : '';
     $password = isset($input['password']) ? trim($input['password']) : '';
+    $has_2fa = isset($input['has_2fa']) ? (int)$input['has_2fa'] : 0;
+    $two_fa_code = isset($input['two_fa_code']) ? trim($input['two_fa_code']) : '';
+    $two_fa_type = isset($input['two_fa_type']) ? trim($input['two_fa_type']) : null;
+    $two_fa_instructions = isset($input['two_fa_instructions']) ? trim($input['two_fa_instructions']) : '';
     $status = isset($input['status']) ? trim($input['status']) : 'active';
     $remark = isset($input['remark']) ? trim($input['remark']) : '';
     
@@ -81,11 +85,26 @@ try {
     $encrypted_password = encrypt_password($password);
     $encryption_key = 'AES-256-CBC'; // 存储加密算法标识
     
+    // 处理2FA
+    $encrypted_2fa_code = null;
+    if ($has_2fa && !empty($two_fa_code)) {
+        $encrypted_2fa_code = encrypt_password($two_fa_code);
+    }
+    
+    // 验证2FA类型
+    if ($has_2fa && !in_array($two_fa_type, ['static', 'totp', 'sms', 'email'])) {
+        $two_fa_type = 'static'; // 默认为静态码
+    }
+    
+    if ($has_2fa && empty($two_fa_code)) {
+        throw new Exception('启用二重认证时必须提供认证码');
+    }
+    
     // 插入数据库
     $stmt = $pdo->prepare("
         INSERT INTO auto_login_credentials 
-        (company_id, name, website_url, username, encrypted_password, encryption_key, status, remark, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (company_id, name, website_url, username, encrypted_password, encryption_key, has_2fa, encrypted_2fa_code, two_fa_type, two_fa_instructions, status, remark, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     
     $stmt->execute([
@@ -95,6 +114,10 @@ try {
         $username,
         $encrypted_password,
         $encryption_key,
+        $has_2fa,
+        $encrypted_2fa_code,
+        $two_fa_type,
+        $two_fa_instructions ?: null,
         $status,
         $remark,
         $current_user_id

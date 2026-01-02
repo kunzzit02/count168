@@ -59,6 +59,10 @@ try {
     $name = isset($input['name']) ? trim($input['name']) : $existing['name'];
     $website_url = isset($input['website_url']) ? trim($input['website_url']) : $existing['website_url'];
     $username = isset($input['username']) ? trim($input['username']) : $existing['username'];
+    $has_2fa = isset($input['has_2fa']) ? (int)$input['has_2fa'] : ($existing['has_2fa'] ?? 0);
+    $two_fa_code = isset($input['two_fa_code']) ? trim($input['two_fa_code']) : '';
+    $two_fa_type = isset($input['two_fa_type']) ? trim($input['two_fa_type']) : ($existing['two_fa_type'] ?? null);
+    $two_fa_instructions = isset($input['two_fa_instructions']) ? trim($input['two_fa_instructions']) : ($existing['two_fa_instructions'] ?? '');
     $status = isset($input['status']) ? trim($input['status']) : $existing['status'];
     $remark = isset($input['remark']) ? trim($input['remark']) : $existing['remark'];
     
@@ -88,13 +92,39 @@ try {
     $updatePassword = isset($input['password']) && !empty(trim($input['password']));
     $updateSql = "
         UPDATE auto_login_credentials 
-        SET name = ?, website_url = ?, username = ?, status = ?, remark = ?";
-    $updateParams = [$name, $website_url, $username, $status, $remark];
+        SET name = ?, website_url = ?, username = ?, has_2fa = ?, status = ?, remark = ?";
+    $updateParams = [$name, $website_url, $username, $has_2fa, $status, $remark];
     
     if ($updatePassword) {
         $encrypted_password = encrypt_password(trim($input['password']));
         $updateSql .= ", encrypted_password = ?";
         $updateParams[] = $encrypted_password;
+    }
+    
+    // 处理2FA
+    if ($has_2fa) {
+        if (!empty($two_fa_code)) {
+            // 如果提供了新的2FA码，加密并更新
+            $encrypted_2fa_code = encrypt_password($two_fa_code);
+            $updateSql .= ", encrypted_2fa_code = ?";
+            $updateParams[] = $encrypted_2fa_code;
+        } elseif (empty($existing['encrypted_2fa_code'])) {
+            // 如果启用2FA但没有提供新码且现有记录也没有码，则报错
+            throw new Exception('启用二重认证时必须提供认证码');
+        }
+        
+        // 验证并更新2FA类型
+        if (!in_array($two_fa_type, ['static', 'totp', 'sms', 'email'])) {
+            $two_fa_type = 'static';
+        }
+        $updateSql .= ", two_fa_type = ?";
+        $updateParams[] = $two_fa_type;
+        
+        $updateSql .= ", two_fa_instructions = ?";
+        $updateParams[] = $two_fa_instructions ?: null;
+    } else {
+        // 如果禁用2FA，清空相关字段
+        $updateSql .= ", encrypted_2fa_code = NULL, two_fa_type = NULL, two_fa_instructions = NULL";
     }
     
     $updateSql .= " WHERE id = ?";

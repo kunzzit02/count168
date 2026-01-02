@@ -480,6 +480,36 @@ if (!$company_id) {
                     </div>
                     
                     <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="has_2fa" name="has_2fa" value="1" onchange="toggle2FAFields()">
+                            启用二重认证/认证码
+                        </label>
+                    </div>
+                    
+                    <div id="2fa_fields" style="display: none;">
+                        <div class="form-group">
+                            <label for="two_fa_type">认证码类型</label>
+                            <select id="two_fa_type" name="two_fa_type">
+                                <option value="static">静态认证码</option>
+                                <option value="totp">TOTP（时间基础一次性密码，如Google Authenticator）</option>
+                                <option value="sms">短信验证码</option>
+                                <option value="email">邮箱验证码</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="two_fa_code">认证码/密钥 *</label>
+                            <input type="password" id="two_fa_code" name="two_fa_code" placeholder="输入静态认证码或TOTP密钥">
+                            <small style="color: #6b7280; font-size: 11px;">静态码：直接输入；TOTP：输入密钥（base32格式）</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="two_fa_instructions">认证码获取说明</label>
+                            <textarea id="two_fa_instructions" name="two_fa_instructions" placeholder="例如：认证码会发送到注册手机号或邮箱..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="status">状态</label>
                         <select id="status" name="status">
                             <option value="active">启用</option>
@@ -533,6 +563,22 @@ if (!$company_id) {
             window.location.href = `auto-login-manager.php?company_id=${companyId}`;
         }
 
+        // 切换2FA字段显示
+        function toggle2FAFields() {
+            const has2FA = document.getElementById('has_2fa').checked;
+            const fieldsDiv = document.getElementById('2fa_fields');
+            const codeInput = document.getElementById('two_fa_code');
+            
+            if (has2FA) {
+                fieldsDiv.style.display = 'block';
+                codeInput.required = true;
+            } else {
+                fieldsDiv.style.display = 'none';
+                codeInput.required = false;
+                codeInput.value = '';
+            }
+        }
+
         // 加载列表
         function loadCredentials() {
             const search = document.getElementById('searchInput').value;
@@ -581,6 +627,8 @@ if (!$company_id) {
                     <div class="credential-info">
                         <strong>网址:</strong> <a href="${escapeHtml(cred.website_url)}" target="_blank">${escapeHtml(cred.website_url)}</a><br>
                         <strong>用户名:</strong> ${escapeHtml(cred.username)}<br>
+                        ${cred.has_2fa ? `<strong>二重认证:</strong> <span style="color: #10b981;">已启用</span> (${get2FATypeName(cred.two_fa_type)})<br>` : ''}
+                        ${cred.two_fa_instructions ? `<strong>认证说明:</strong> ${escapeHtml(cred.two_fa_instructions)}<br>` : ''}
                         ${cred.remark ? `<strong>备注:</strong> ${escapeHtml(cred.remark)}<br>` : ''}
                         <span class="status-badge status-${cred.status}">${cred.status === 'active' ? '启用' : '停用'}</span>
                     </div>
@@ -608,6 +656,18 @@ if (!$company_id) {
                             document.getElementById('remark').value = cred.remark || '';
                             document.getElementById('password').value = ''; // 不显示密码
                             document.getElementById('password').required = false; // 编辑时密码可选
+                            
+                            // 设置2FA字段
+                            const has2FA = cred.has_2fa == 1 || cred.has_2fa === true;
+                            document.getElementById('has_2fa').checked = has2FA;
+                            if (has2FA) {
+                                document.getElementById('two_fa_type').value = cred.two_fa_type || 'static';
+                                document.getElementById('two_fa_instructions').value = cred.two_fa_instructions || '';
+                                document.getElementById('two_fa_code').value = ''; // 不显示已加密的认证码
+                                document.getElementById('two_fa_code').required = false; // 编辑时可选
+                            }
+                            toggle2FAFields(); // 更新字段显示状态
+                            
                             document.getElementById('submitBtn').textContent = '更新';
                             editingId = id;
                             
@@ -691,15 +751,25 @@ if (!$company_id) {
         document.getElementById('credentialForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            const has2FA = document.getElementById('has_2fa').checked;
+            
             const formData = {
                 company_id: currentCompanyId,
                 name: document.getElementById('name').value.trim(),
                 website_url: document.getElementById('website_url').value.trim(),
                 username: document.getElementById('username').value.trim(),
                 password: document.getElementById('password').value,
+                has_2fa: has2FA ? 1 : 0,
                 status: document.getElementById('status').value,
                 remark: document.getElementById('remark').value.trim()
             };
+            
+            // 如果启用2FA，添加相关字段
+            if (has2FA) {
+                formData.two_fa_type = document.getElementById('two_fa_type').value;
+                formData.two_fa_code = document.getElementById('two_fa_code').value.trim();
+                formData.two_fa_instructions = document.getElementById('two_fa_instructions').value.trim();
+            }
             
             const id = document.getElementById('credential_id').value;
             const url = id ? 'auto_login_update_api.php' : 'auto_login_create_api.php';
@@ -710,6 +780,10 @@ if (!$company_id) {
                 // 如果密码为空，则不更新密码
                 if (!formData.password) {
                     delete formData.password;
+                }
+                // 编辑时，如果没有提供新的2FA码，则不更新
+                if (has2FA && !formData.two_fa_code) {
+                    delete formData.two_fa_code;
                 }
             }
             
@@ -742,7 +816,20 @@ if (!$company_id) {
             document.getElementById('credential_id').value = '';
             document.getElementById('password').required = true;
             document.getElementById('submitBtn').textContent = '添加';
+            document.getElementById('2fa_fields').style.display = 'none';
+            document.getElementById('two_fa_code').required = false;
             editingId = null;
+        }
+
+        // 获取2FA类型名称
+        function get2FATypeName(type) {
+            const types = {
+                'static': '静态码',
+                'totp': 'TOTP',
+                'sms': '短信',
+                'email': '邮箱'
+            };
+            return types[type] || type || '未知';
         }
 
         // 搜索
@@ -776,6 +863,8 @@ if (!$company_id) {
         // 页面加载时获取列表
         document.addEventListener('DOMContentLoaded', function() {
             loadCredentials();
+            // 初始化2FA字段状态
+            toggle2FAFields();
         });
     </script>
 </body>
