@@ -1179,8 +1179,8 @@ if ($companyId) {
     }
 
     .expiration-icon {
-        width: clamp(12px, 0.83vw, 15px);
-        height: clamp(12px, 0.83vw, 15px);
+        width: clamp(10px, 0.83vw, 15px);
+        height: clamp(10px, 0.83vw, 15px);
         flex-shrink: 0;
         color: white;
     }
@@ -1206,7 +1206,7 @@ if ($companyId) {
     }
 
     .expiration-label {
-        font-size: clamp(8px, 0.625vw, 10px);
+        font-size: clamp(6px, 0.625vw, 10px);
         font-weight: 700;
         color: #ffffff;
         margin: 0;
@@ -1215,7 +1215,7 @@ if ($companyId) {
     }
 
     .expiration-countdown-text {
-        font-size: clamp(8px, 0.625vw, 10px);
+        font-size: clamp(6px, 0.625vw, 10px);
         font-weight: 600;
         color: #ffffff;
         margin: 0;
