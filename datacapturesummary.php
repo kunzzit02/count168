@@ -16295,10 +16295,13 @@ function formatPercentValue(value) {
             /* Shift overlay content area to the right by sidebar width,
                so centering occurs within the main content area */
             padding-left: clamp(150px, 13.02vw, 250px);
+            padding-right: 20px; /* Add right padding to prevent overflow */
             box-sizing: border-box;
             justify-content: center; /* keep horizontal centering within content area */
             /* Allow clicks to pass through background to reach table cells */
             pointer-events: none;
+            overflow: visible; /* Ensure modal can scale without being clipped */
+            /* Override parent overflow:hidden to allow scaled content to be visible */
         }
         
         /* Make modal content clickable while allowing background clicks to pass through */
@@ -16364,9 +16367,49 @@ function formatPercentValue(value) {
             overflow: visible;
             /* Ensure modal content is clickable */
             pointer-events: auto;
-            /* Make Edit Formula modal wider */
-            width: clamp(900px, 75vw, 1400px);
-            max-width: 95%;
+            /* Make Edit Formula modal fixed width to maintain consistent appearance */
+            width: 1400px;
+            /* Use transform scale for smaller screens instead of changing content size */
+            transform-origin: center top;
+            transition: transform 0.2s ease;
+        }
+        
+        /* Scale down modal on smaller screens while maintaining content size */
+        /* Calculate scale based on available width (viewport - sidebar - padding) */
+        @media (min-width: 1920px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                transform: scale(1);
+            }
+        }
+        
+        @media (max-width: 1919px) and (min-width: 1600px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                transform: scale(0.95);
+            }
+        }
+        
+        @media (max-width: 1599px) and (min-width: 1400px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                transform: scale(0.85);
+            }
+        }
+        
+        @media (max-width: 1399px) and (min-width: 1200px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                transform: scale(0.75);
+            }
+        }
+        
+        @media (max-width: 1199px) and (min-width: 1000px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                transform: scale(0.65);
+            }
+        }
+        
+        @media (max-width: 999px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                transform: scale(0.55);
+            }
         }
 
         @keyframes slideDown {
@@ -16566,68 +16609,8 @@ function formatPercentValue(value) {
             color: #495057;
         }
 
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .container {
-                padding: 1px 20px 20px clamp(180px, 14.06vw, 270px);
-            }
-            
-            .edit-formula-form-container .form-layout {
-                gap: 15px;
-            }
-            
-            .edit-formula-form-container .form-left-column {
-                flex: 1.1;
-                max-width: 340px;
-            }
-            
-            .edit-formula-form-container .form-middle-column {
-                flex: 1.1;
-                max-width: 320px;
-            }
-            
-            .edit-formula-form-container .form-right-column {
-                flex: 0.3;
-                min-width: 160px;
-            }
-            
-            .calculator-keypad {
-                max-width: 200px;
-                min-width: 180px;
-            }
-            
-            .calc-btn {
-                min-width: clamp(24px, 1.88vw, 36px);
-                height: clamp(22px, 1.72vw, 33px);
-                font-size: clamp(9px, 0.70vw, 13px);
-            }
-        }
-        
-        @media (max-width: 1200px) {
-            .edit-formula-form-container .form-layout {
-                gap: 20px;
-            }
-            
-            .edit-formula-form-container .form-left-column {
-                max-width: 480px;
-                min-width: 430px;
-            }
-            
-            .edit-formula-form-container .form-middle-column {
-                max-width: 480px;
-                min-width: 430px;
-            }
-            
-            .edit-formula-form-container .form-right-column {
-                min-width: 190px;
-                max-width: 210px;
-            }
-            
-            .calculator-keypad {
-                max-width: 210px;
-                min-width: 190px;
-            }
-        }
+        /* Responsive Design - Removed to maintain consistent content size */
+        /* Modal will scale using transform instead of changing content dimensions */
 
 
         /* Empty State Styles */
@@ -16727,7 +16710,7 @@ function formatPercentValue(value) {
 
         .edit-formula-form-container .form-content {
             padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
-            overflow-x: auto;
+            overflow-x: visible;
             overflow-y: visible;
         }
 
@@ -16735,7 +16718,8 @@ function formatPercentValue(value) {
             display: flex;
             gap: 30px;
             flex-wrap: nowrap;
-            overflow-x: auto;
+            overflow-x: visible;
+            overflow-y: visible;
             justify-content: flex-start;
             align-items: flex-start;
         }
