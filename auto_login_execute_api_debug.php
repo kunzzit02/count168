@@ -4,13 +4,50 @@
  * 用于诊断500错误
  */
 
-// 开启所有错误显示
+// 开启所有错误报告，但不显示（避免HTML输出）
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
-// 输出缓冲
+// 输出缓冲（必须在任何输出之前）
 ob_start();
+
+// 设置错误处理器，捕获所有错误
+set_error_handler(function($severity, $message, $file, $line) {
+    // 记录错误
+    error_log("PHP Error [$severity]: $message in $file:$line");
+    
+    // 对于致命错误，立即返回JSON
+    if ($severity & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR | E_USER_ERROR)) {
+        ob_clean();
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'error' => 'PHP Error: ' . $message,
+            'file' => basename($file),
+            'line' => $line,
+            'severity' => $severity
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    return false; // 继续执行默认错误处理
+});
+
+// 设置异常处理器
+set_exception_handler(function($exception) {
+    ob_clean();
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'success' => false,
+        'error' => 'Uncaught Exception: ' . $exception->getMessage(),
+        'file' => basename($exception->getFile()),
+        'line' => $exception->getLine(),
+        'trace' => $exception->getTraceAsString()
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+});
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -150,27 +187,46 @@ try {
             'website_url' => $credential['website_url']
         ]
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    exit;
     
 } catch (Exception $e) {
     ob_clean();
     http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage(),
         'debug' => $debug,
-        'file' => $e->getFile(),
+        'file' => basename($e->getFile()),
         'line' => $e->getLine(),
-        'trace' => $e->getTraceAsString()
+        'trace' => explode("\n", $e->getTraceAsString())
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    exit;
 } catch (Error $e) {
     ob_clean();
     http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'success' => false,
         'error' => 'Fatal Error: ' . $e->getMessage(),
         'debug' => $debug,
-        'file' => $e->getFile(),
-        'line' => $e->getLine()
+        'file' => basename($e->getFile()),
+        'line' => $e->getLine(),
+        'type' => get_class($e)
     ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    exit;
+} catch (Throwable $e) {
+    ob_clean();
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'success' => false,
+        'error' => 'Throwable: ' . $e->getMessage(),
+        'debug' => $debug,
+        'file' => basename($e->getFile()),
+        'line' => $e->getLine(),
+        'type' => get_class($e)
+    ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    exit;
 }
 
