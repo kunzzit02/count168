@@ -738,6 +738,7 @@ if (!$company_id) {
                         <h3 class="credential-name">${escapeHtml(cred.name)}</h3>
                         <div class="credential-actions">
                             <button class="btn btn-execute" onclick="executeCredential(${cred.id})">执行</button>
+                            <button class="btn btn-paste" onclick="manualPasteData(${cred.id})" style="background: #10b981; color: white;">手动粘贴</button>
                             <button class="btn btn-edit" onclick="editCredential(${cred.id})">编辑</button>
                             <button class="btn btn-delete" onclick="deleteCredential(${cred.id})">删除</button>
                         </div>
@@ -859,6 +860,132 @@ if (!$company_id) {
             .catch(error => {
                 console.error('Error:', error);
                 showNotification('删除失败', 'error');
+            });
+        }
+
+        // 手动粘贴数据
+        function manualPasteData(id) {
+            // 检查是否启用了自动导入
+            fetch(`auto_login_list_api.php?company_id=${currentCompanyId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const cred = data.data.find(c => c.id === id);
+                        if (!cred) {
+                            showNotification('找不到凭证信息', 'error');
+                            return;
+                        }
+                        
+                        if (!cred.auto_import_enabled || !cred.import_process_id) {
+                            showNotification('请先启用自动导入并选择流程', 'error');
+                            return;
+                        }
+                        
+                        // 显示粘贴对话框
+                        showPasteDialog(id, cred);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('加载凭证信息失败', 'error');
+                });
+        }
+        
+        // 显示粘贴对话框
+        function showPasteDialog(id, cred) {
+            const dialog = document.createElement('div');
+            dialog.id = 'pasteDialog';
+            dialog.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.5);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+            
+            dialog.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 8px; max-width: 800px; width: 90%; max-height: 80vh; overflow-y: auto;">
+                    <h2 style="margin-top: 0;">手动粘贴表格数据</h2>
+                    <p style="color: #6b7280; margin-bottom: 20px;">
+                        请从网页上复制表格数据（Ctrl+C），然后粘贴到下面的文本框中。<br>
+                        支持格式：Tab分隔的表格数据（从Excel或网页表格复制）
+                    </p>
+                    <textarea id="pasteDataInput" 
+                              placeholder="请粘贴表格数据（从Excel或网页表格复制）&#10;例如：&#10;账号1&#9;100&#9;USD&#10;账号2&#9;200&#9;USD" 
+                              style="width: 100%; height: 300px; padding: 10px; font-family: monospace; font-size: 12px; border: 1px solid #d1d5db; border-radius: 4px;"
+                              onpaste="setTimeout(() => this.select(), 0)"></textarea>
+                    <div style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
+                        <button onclick="document.getElementById('pasteDialog').remove()" 
+                                style="padding: 8px 20px; background: #6b7280; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            取消
+                        </button>
+                        <button onclick="submitPastedData(${id})" 
+                                style="padding: 8px 20px; background: #0D60FF; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            导入数据
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(dialog);
+            
+            // 聚焦到文本框
+            setTimeout(() => {
+                const textarea = document.getElementById('pasteDataInput');
+                if (textarea) {
+                    textarea.focus();
+                }
+            }, 100);
+            
+            // 点击背景关闭
+            dialog.addEventListener('click', function(e) {
+                if (e.target === dialog) {
+                    dialog.remove();
+                }
+            });
+        }
+        
+        // 提交粘贴的数据
+        function submitPastedData(id) {
+            const textarea = document.getElementById('pasteDataInput');
+            const pastedData = textarea.value.trim();
+            
+            if (!pastedData) {
+                showNotification('请先粘贴数据', 'error');
+                return;
+            }
+            
+            // 发送到API处理
+            fetch('auto_login_manual_paste_api.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: id,
+                    pasted_data: pastedData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('pasteDialog').remove();
+                
+                if (data.success) {
+                    showNotification('成功导入 ' + (data.rows_imported || 0) + ' 行数据', 'success');
+                    loadCredentials();
+                } else {
+                    showNotification('导入失败: ' + (data.error || '未知错误'), 'error');
+                }
+            })
+            .catch(error => {
+                document.getElementById('pasteDialog').remove();
+                console.error('Error:', error);
+                showNotification('导入失败: ' + (error.message || '未知错误'), 'error');
             });
         }
 
