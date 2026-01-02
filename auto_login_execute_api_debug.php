@@ -87,18 +87,34 @@ try {
     $debug[] = "步骤5: PDO已初始化";
     
     // 3. 获取POST数据
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        throw new Exception('无效的请求方法: ' . $_SERVER['REQUEST_METHOD']);
-    }
-    $debug[] = "步骤6: 请求方法正确 (POST)";
+    $requestMethod = $_SERVER['REQUEST_METHOD'] ?? 'UNKNOWN';
+    $debug[] = "步骤6: 请求方法: " . $requestMethod;
     
-    $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-    if (strpos($contentType, 'application/json') !== false) {
-        $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    if ($requestMethod !== 'POST') {
+        // 如果是GET，可能是直接访问，尝试从GET参数获取（仅用于测试）
+        if ($requestMethod === 'GET' && isset($_GET['id'])) {
+            $input = ['id' => (int)$_GET['id']];
+            $debug[] = "步骤6.1: 使用GET参数（测试模式）";
+        } else {
+            throw new Exception('无效的请求方法: ' . $requestMethod . '。请使用POST请求。');
+        }
     } else {
-        $input = $_POST;
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        $debug[] = "步骤6.1: Content-Type: " . $contentType;
+        
+        if (strpos($contentType, 'application/json') !== false) {
+            $rawInput = file_get_contents('php://input');
+            $debug[] = "步骤6.2: 原始输入长度: " . strlen($rawInput);
+            $input = json_decode($rawInput, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new Exception('JSON解析失败: ' . json_last_error_msg());
+            }
+            $input = $input ?: [];
+        } else {
+            $input = $_POST;
+        }
+        $debug[] = "步骤7: POST数据已解析";
     }
-    $debug[] = "步骤7: POST数据已解析";
     
     if (empty($input['id'])) {
         throw new Exception('缺少ID参数');
