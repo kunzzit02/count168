@@ -1432,10 +1432,6 @@ function getCurrentProcessId() {
                 modalContent = document.getElementById('editFormulaModalContent');
             }
             
-            // Immediately disable animations to prevent flash (will re-enable for normal size later)
-            modal.classList.add('scaled');
-            modalContent.classList.add('scaled');
-            
             // Find and store the current row for calculator keypad
             if (productValue) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
@@ -1612,82 +1608,10 @@ function getCurrentProcessId() {
                 </div>
             `;
             
-            // Calculate scale BEFORE rendering to prevent flash
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            const sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.1302));
-            const topMargin = Math.max(103, Math.min(115, viewportWidth * 0.06));
-            const topPadding = Math.max(20, Math.min(80, viewportHeight * 0.08));
-            const availableWidth = viewportWidth - sidebarWidth - 40;
-            const availableHeight = viewportHeight - topMargin - topPadding - 40;
-            const baseWidth = 1400;
-            const estimatedHeight = 800; // Estimated height before rendering
-            const widthScale = availableWidth / baseWidth;
-            const heightScale = availableHeight / estimatedHeight;
-            const initialScale = Math.max(0.4, Math.min(widthScale, heightScale, 1));
-            
-            // Determine if we need to scale (scale < 1)
-            const needsScaling = initialScale < 0.99; // Use 0.99 to account for floating point precision
-            
-            // Pre-apply all styles BEFORE rendering to prevent flash
-            modalContent.style.maxWidth = `${baseWidth}px`;
-            modalContent.style.width = `${baseWidth}px`;
-            modalContent.style.transformOrigin = 'center top';
-            modalContent.style.transition = 'none'; // Disable all transitions initially
-            
-            if (needsScaling) {
-                // Pre-apply scale BEFORE rendering
-                modalContent.style.transform = `scale(${initialScale})`;
-            }
-            
-            // Render into modal
+            // Render into modal and open
             modalContent.innerHTML = formHTML;
-            
-            // Show modal but keep it invisible initially (force reflow)
             modal.style.display = 'flex';
-            modal.style.opacity = '0';
-            modal.style.visibility = 'hidden';
             document.body.style.overflow = 'hidden';
-            
-            // Force a reflow to ensure styles are applied
-            void modal.offsetHeight;
-            
-            // Wait for browser to apply styles, then show
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    if (needsScaling) {
-                        // Recalculate with actual DOM dimensions
-                        const formContainer = modalContent.querySelector('.edit-formula-form-container');
-                        if (formContainer) {
-                            const actualHeight = formContainer.offsetHeight || formContainer.scrollHeight || estimatedHeight;
-                            const actualHeightScale = availableHeight / actualHeight;
-                            const finalScale = Math.max(0.4, Math.min(widthScale, actualHeightScale, 1));
-                            
-                            // Only update if significantly different
-                            if (Math.abs(finalScale - initialScale) > 0.01) {
-                                modalContent.style.transform = `scale(${finalScale})`;
-                            }
-                        }
-                        // Keep scaled class for scaled version
-                    } else {
-                        // Normal size - remove scaled class to enable animations
-                        modal.classList.remove('scaled');
-                        modalContent.classList.remove('scaled');
-                        modalContent.style.transition = ''; // Restore default transition
-                    }
-                    
-                    // Now show the modal (fade in)
-                    modal.style.visibility = 'visible';
-                    modal.style.opacity = '1';
-                    modal.style.transition = 'opacity 0.2s ease';
-                    
-                    // Add resize listener to adjust scale when window is resized
-                    if (!editFormulaModalResizeHandler) {
-                        editFormulaModalResizeHandler = adjustEditFormulaModalScale;
-                        window.addEventListener('resize', editFormulaModalResizeHandler);
-                    }
-                });
-            });
             
             // Clear clicked columns when opening new form (unless editing)
             setTimeout(() => {
@@ -1706,14 +1630,6 @@ function getCurrentProcessId() {
                     // Even if no prePopulatedData, set default currency from capturedProcessData
                     populateFormWithData({});
                 }
-                // Recalculate scale after data is loaded (silently, no transition)
-                setTimeout(() => {
-                    const modalContent = document.getElementById('editFormulaModalContent');
-                    if (modalContent) {
-                        modalContent.style.transition = 'none';
-                        adjustEditFormulaModalScale();
-                    }
-                }, 50);
             });
             
             // Load id product list into first select box
@@ -1722,14 +1638,6 @@ function getCurrentProcessId() {
             // Update formula data grid for current editing id product
             setTimeout(() => {
                 updateFormulaDataGrid();
-                // Recalculate scale after grid is updated (silently, no transition)
-                setTimeout(() => {
-                    const modalContent = document.getElementById('editFormulaModalContent');
-                    if (modalContent) {
-                        modalContent.style.transition = 'none';
-                        adjustEditFormulaModalScale();
-                    }
-                }, 50);
             }, 100);
             
             // Add event listener for first select box change
@@ -5388,93 +5296,16 @@ function getCurrentProcessId() {
             }, 100);
         }
 
-        // Adjust Edit Formula Modal scale based on viewport size
-        function adjustEditFormulaModalScale() {
-            const modal = document.getElementById('editFormulaModal');
-            const modalContent = document.getElementById('editFormulaModalContent');
-            if (!modalContent || !modal) return;
-            
-            const formContainer = modalContent.querySelector('.edit-formula-form-container');
-            if (!formContainer) return;
-            
-            // Get viewport dimensions (excluding sidebar)
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            const sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.1302)); // Same calculation as padding-left
-            const topMargin = Math.max(103, Math.min(115, viewportWidth * 0.06)); // Same as margin-top
-            const topPadding = Math.max(20, Math.min(80, viewportHeight * 0.08)); // Same as padding-top
-            
-            // Available space
-            const availableWidth = viewportWidth - sidebarWidth - 40; // 40px for padding/margins
-            const availableHeight = viewportHeight - topMargin - topPadding - 40; // 40px for bottom margin
-            
-            // Base dimensions for 1920x1080
-            const baseWidth = 1400;
-            // Get actual height from rendered DOM
-            const baseHeight = formContainer.offsetHeight || formContainer.scrollHeight || 800;
-            
-            // Calculate scale factors for width and height
-            const widthScale = availableWidth / baseWidth;
-            const heightScale = availableHeight / baseHeight;
-            
-            // Use the smaller scale to ensure content fits both dimensions
-            let scale = Math.min(widthScale, heightScale, 1); // Never scale up beyond 1
-            
-            // Minimum scale to prevent content from being too small
-            scale = Math.max(0.4, scale);
-            
-            const needsScaling = scale < 0.99;
-            
-            // Apply scale transform
-            if (needsScaling) {
-                modalContent.style.transform = `scale(${scale})`;
-                modalContent.style.transition = 'none'; // Disable transition when scaling
-                modal.classList.add('scaled');
-                modalContent.classList.add('scaled');
-            } else {
-                // Normal size - remove transform and restore animations
-                modalContent.style.transform = '';
-                modalContent.style.transition = '';
-                modal.classList.remove('scaled');
-                modalContent.classList.remove('scaled');
-            }
-            
-            modalContent.style.transformOrigin = 'center top';
-            
-            // Ensure modal content doesn't overflow
-            modalContent.style.maxWidth = `${baseWidth}px`;
-            modalContent.style.width = `${baseWidth}px`;
-        }
-        
-        // Store resize handler reference for cleanup
-        let editFormulaModalResizeHandler = null;
-
         // Close Edit Formula Form (modal)
         function closeEditFormulaForm() {
             const modal = document.getElementById('editFormulaModal');
             const modalContent = document.getElementById('editFormulaModalContent');
             if (modal) {
                 modal.style.display = 'none';
-                modal.style.visibility = '';
-                modal.style.opacity = '';
-                modal.style.transition = '';
-                modal.classList.remove('scaled');
                 document.body.style.overflow = '';
             }
             if (modalContent) {
                 modalContent.innerHTML = '';
-                // Reset transform and styles
-                modalContent.style.transform = '';
-                modalContent.style.height = '';
-                modalContent.style.transition = '';
-                modalContent.style.maxWidth = '';
-                modalContent.style.width = '';
-                modalContent.classList.remove('scaled');
-            }
-            // Remove resize listener
-            if (editFormulaModalResizeHandler) {
-                window.removeEventListener('resize', editFormulaModalResizeHandler);
-                editFormulaModalResizeHandler = null;
             }
             // Clean up the global references
             window.currentAddAccountButton = null;
@@ -16468,23 +16299,11 @@ function formatPercentValue(value) {
             justify-content: center; /* keep horizontal centering within content area */
             /* Allow clicks to pass through background to reach table cells */
             pointer-events: none;
-            /* Keep original fadeIn animation for normal size */
         }
         
         /* Make modal content clickable while allowing background clicks to pass through */
         #editFormulaModal .summary-confirm-modal-content {
             pointer-events: auto;
-            /* Keep original slideDown animation for normal size */
-        }
-        
-        /* Only disable animations when scaled (scale < 1) */
-        #editFormulaModal.summary-modal.scaled {
-            animation: none !important;
-        }
-        
-        #editFormulaModal .summary-confirm-modal-content.scaled {
-            animation: none !important;
-            transition: none !important;
         }
 
         /* Center Confirm Delete modal within right content area (exclude sidebar) */
@@ -16545,13 +16364,9 @@ function formatPercentValue(value) {
             overflow: visible;
             /* Ensure modal content is clickable */
             pointer-events: auto;
-            /* Make Edit Formula modal wider - fixed width for 1920x1080 */
-            width: 1400px;
+            /* Make Edit Formula modal wider */
+            width: clamp(900px, 75vw, 1400px);
             max-width: 95%;
-            /* Enable scaling for smaller screens */
-            transform-origin: center top;
-            /* Keep transition for normal size animations */
-            transition: transform 0.2s ease;
         }
 
         @keyframes slideDown {
@@ -16912,7 +16727,7 @@ function formatPercentValue(value) {
 
         .edit-formula-form-container .form-content {
             padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
-            overflow-x: hidden;
+            overflow-x: auto;
             overflow-y: visible;
         }
 
@@ -16920,7 +16735,7 @@ function formatPercentValue(value) {
             display: flex;
             gap: 30px;
             flex-wrap: nowrap;
-            overflow-x: hidden;
+            overflow-x: auto;
             justify-content: flex-start;
             align-items: flex-start;
         }
