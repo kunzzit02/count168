@@ -37,8 +37,20 @@ function extractReportFromWebPage(string $html, string $baseUrl, array $config =
         
         $xpath = new DOMXPath($dom);
         
-        // 查找表格
+        // 查找表格（尝试多种方式）
         $tables = $xpath->query("//table");
+        
+        // 如果找不到标准table标签，尝试查找div表格
+        if ($tables->length == 0) {
+            // 尝试查找使用CSS类名或ID的表格结构
+            $tableClasses = ['table', 'data-table', 'report-table', 'grid'];
+            foreach ($tableClasses as $class) {
+                $tables = $xpath->query("//div[contains(@class, '$class')]");
+                if ($tables->length > 0) {
+                    break;
+                }
+            }
+        }
         
         if ($tables->length > 0) {
             // 默认使用第一个表格，或者根据配置选择
@@ -308,7 +320,21 @@ function getReportFromWebPage(string $reportPageUrl, string $cookieFile, array $
     $reportData = extractReportFromWebPage($html, $reportPageUrl, $extractionConfig);
     
     if (empty($reportData)) {
-        throw new Exception('从网页中未找到表格数据，请检查报告页面URL或页面结构');
+        // 提供更多调试信息
+        $debugInfo = [];
+        $debugInfo['html_length'] = strlen($html);
+        $debugInfo['has_table_tag'] = (stripos($html, '<table') !== false);
+        $debugInfo['has_table_count'] = substr_count(strtolower($html), '<table');
+        
+        // 尝试检测是否有其他数据格式
+        $debugInfo['has_div_table'] = (stripos($html, 'class="table') !== false || stripos($html, 'id="table') !== false);
+        $debugInfo['has_pre_tag'] = (stripos($html, '<pre') !== false);
+        
+        $errorMsg = '从网页中未找到表格数据。';
+        $errorMsg .= ' 提示：请检查报告页面URL是否正确，或页面是否包含HTML表格（<table>标签）。';
+        $errorMsg .= ' 调试信息：' . json_encode($debugInfo, JSON_UNESCAPED_UNICODE);
+        
+        throw new Exception($errorMsg);
     }
     
     return $reportData;
