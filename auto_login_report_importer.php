@@ -404,36 +404,6 @@ function saveToDataCaptureDirectly(PDO $pdo, int $companyId, array $submitData):
 }
 
 /**
- * 解析账号ID（可能是账号代码或ID）
- */
-function resolveAccountId(PDO $pdo, int $companyId, $accountIdentifier): ?int {
-    // 如果是数字，直接作为ID使用
-    if (is_numeric($accountIdentifier)) {
-        $stmt = $pdo->prepare("
-            SELECT a.id FROM account a
-            INNER JOIN account_company ac ON a.id = ac.account_id
-            WHERE ac.company_id = ? AND a.id = ?
-        ");
-        $stmt->execute([$companyId, (int)$accountIdentifier]);
-        $result = $stmt->fetchColumn();
-        if ($result) {
-            return (int)$result;
-        }
-    }
-    
-    // 尝试通过account_id匹配
-    $stmt = $pdo->prepare("
-        SELECT a.id FROM account a
-        INNER JOIN account_company ac ON a.id = ac.account_id
-        WHERE ac.company_id = ? AND UPPER(a.account_id) = UPPER(?)
-    ");
-    $stmt->execute([$companyId, (string)$accountIdentifier]);
-    $result = $stmt->fetchColumn();
-    
-    return $result ? (int)$result : null;
-}
-
-/**
  * 保存数据到data capture
  */
 function saveToDataCapture(PDO $pdo, int $companyId, array $submitData): array {

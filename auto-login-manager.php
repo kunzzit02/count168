@@ -720,8 +720,8 @@ if (!$company_id) {
             btn.disabled = true;
             btn.textContent = '执行中...';
             
-            // 使用安全版本的文件加载测试
-            fetch('test_load_files_safe.php', {
+            // 使用完整的执行API
+            fetch('auto_login_execute_api.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
