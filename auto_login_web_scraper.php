@@ -194,6 +194,18 @@ function convertWebDataToDataCaptureFormat(array $webData, array $mapping): arra
         // 提取账号
         $account = findMappedValue($row, $mapping['account'] ?? []);
         
+        // 调试：记录每行的账号提取情况
+        if ($rowIndex < 3) {
+            $accountKeys = $mapping['account'] ?? [];
+            $attemptedValues = [];
+            foreach ($accountKeys as $key) {
+                if (isset($row[$key])) {
+                    $attemptedValues[$key] = (string)$row[$key];
+                }
+            }
+            error_log("转换行 #$rowIndex - 账号映射键: " . json_encode($accountKeys) . ", 尝试的值: " . json_encode($attemptedValues) . ", 结果: '$account'");
+        }
+        
         // 如果找不到账号，跳过
         if (empty($account)) {
             continue;

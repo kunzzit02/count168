@@ -348,10 +348,27 @@ try {
                 error_log("字段映射配置: " . json_encode($mapping, JSON_UNESCAPED_UNICODE));
                 error_log("原始数据行数: " . count($webData));
                 
-                // 显示原始数据的前3行样本（用于调试）
+                // 显示原始数据的前5行样本（用于调试）
                 if (!empty($webData)) {
-                    $sampleRawData = array_slice($webData, 0, min(3, count($webData)));
-                    error_log("原始数据样本: " . json_encode($sampleRawData, JSON_UNESCAPED_UNICODE));
+                    $sampleRawData = array_slice($webData, 0, min(5, count($webData)));
+                    foreach ($sampleRawData as $idx => $row) {
+                        $col0 = '';
+                        foreach ($row as $key => $value) {
+                            if (preg_match('/^col_0$|^0$/', $key)) {
+                                $col0 = (string)$value;
+                                break;
+                            }
+                        }
+                        error_log("原始数据行 #$idx - col_0: '$col0', 所有键: " . implode(', ', array_keys($row)));
+                        // 只显示前3列的值，避免日志过长
+                        $sampleCols = [];
+                        foreach (['col_0', 'col_1', 'col_2'] as $col) {
+                            if (isset($row[$col])) {
+                                $sampleCols[$col] = substr((string)$row[$col], 0, 50);
+                            }
+                        }
+                        error_log("  样本列值: " . json_encode($sampleCols, JSON_UNESCAPED_UNICODE));
+                    }
                 }
                 
                 $summaryRows = convertWebDataToDataCaptureFormat($webData, $mapping);
