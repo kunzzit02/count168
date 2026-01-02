@@ -631,63 +631,67 @@ if (!$company_id) {
             }
         }
         
-        // 加载流程列表
+        // 加载流程列表（返回Promise）
         function loadProcesses() {
             const params = new URLSearchParams({
                 company_id: currentCompanyId
             });
             
-            fetch(`processlistapi.php?${params}`)
+            return fetch(`processlistapi.php?${params}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.data) {
                         processesList = data.data;
                         const select = document.getElementById('import_process_id');
-                        select.innerHTML = '<option value="">请选择流程（Process）</option>';
-                        data.data.forEach(process => {
-                            const option = document.createElement('option');
-                            option.value = process.id;
-                            
-                            // 构建更清晰的显示文本
-                            let displayText = '';
-                            
-                            // 流程代码（必须）
-                            const processName = process.process_name || process.process_id || `流程 #${process.id}`;
-                            displayText = processName;
-                            
-                            // 添加描述（如果有）
-                            if (process.description && process.description.trim()) {
-                                displayText += ' - ' + process.description;
-                            }
-                            
-                            // 添加币别（如果有）
-                            if (process.currency && process.currency.trim()) {
-                                displayText += ' [' + process.currency + ']';
-                            }
-                            
-                            // 添加状态标识（如果是非激活状态）
-                            if (process.status && process.status.toLowerCase() !== 'active') {
-                                displayText += ' (停用)';
-                            }
-                            
-                            option.textContent = displayText;
-                            
-                            // 将更多信息存储在data属性中，方便后续使用
-                            option.setAttribute('data-process-name', processName);
-                            if (process.description) {
-                                option.setAttribute('data-description', process.description);
-                            }
-                            if (process.currency) {
-                                option.setAttribute('data-currency', process.currency);
-                            }
-                            
-                            select.appendChild(option);
-                        });
+                        if (select) {
+                            select.innerHTML = '<option value="">请选择流程（Process）</option>';
+                            data.data.forEach(process => {
+                                const option = document.createElement('option');
+                                option.value = process.id;
+                                
+                                // 构建更清晰的显示文本
+                                let displayText = '';
+                                
+                                // 流程代码（必须）
+                                const processName = process.process_name || process.process_id || `流程 #${process.id}`;
+                                displayText = processName;
+                                
+                                // 添加描述（如果有）
+                                if (process.description && process.description.trim()) {
+                                    displayText += ' - ' + process.description;
+                                }
+                                
+                                // 添加币别（如果有）
+                                if (process.currency && process.currency.trim()) {
+                                    displayText += ' [' + process.currency + ']';
+                                }
+                                
+                                // 添加状态标识（如果是非激活状态）
+                                if (process.status && process.status.toLowerCase() !== 'active') {
+                                    displayText += ' (停用)';
+                                }
+                                
+                                option.textContent = displayText;
+                                
+                                // 将更多信息存储在data属性中，方便后续使用
+                                option.setAttribute('data-process-name', processName);
+                                if (process.description) {
+                                    option.setAttribute('data-description', process.description);
+                                }
+                                if (process.currency) {
+                                    option.setAttribute('data-currency', process.currency);
+                                }
+                                
+                                select.appendChild(option);
+                            });
+                        }
                     }
+                    return data; // 返回数据，以便链式调用
                 })
                 .catch(error => {
                     console.error('加载流程列表失败:', error);
                     showNotification('加载流程列表失败: ' + (error.message || '未知错误'), 'error');
+                    throw error; // 重新抛出错误，以便链式调用可以捕获
                 });
         }
         

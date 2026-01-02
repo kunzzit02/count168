@@ -330,15 +330,21 @@ try {
                 
                 // 解析账号ID
                 $unmatchedAccounts = [];
+                $allAccountSamples = []; // 保存所有账号样本用于调试
                 foreach ($summaryRows as &$row) {
                     $originalAccount = $row['account'] ?? '';
+                    if (!empty($originalAccount)) {
+                        $allAccountSamples[] = $originalAccount;
+                    }
                     $accountId = resolveAccountId($pdo, $company_id, $originalAccount);
                     if ($accountId) {
                         $row['accountId'] = $accountId;
                     } else {
                         // 如果找不到账号，标记为需要手动处理
                         $row['accountId'] = null;
-                        $unmatchedAccounts[] = $originalAccount;
+                        if (!empty($originalAccount)) {
+                            $unmatchedAccounts[] = $originalAccount;
+                        }
                     }
                     unset($row['account']); // 移除原始账号字段
                 }
@@ -350,14 +356,48 @@ try {
                 
                 if (empty($validRows)) {
                     $errorMsg = '无法匹配任何账号。';
+                    
+                    // 提供详细的调试信息
+                    if (!empty($allAccountSamples)) {
+                        $uniqueSamples = array_unique($allAccountSamples);
+                        $errorMsg .= "\n提取到的账号样本（前10个）: " . implode(', ', array_slice($uniqueSamples, 0, 10));
+                        if (count($uniqueSamples) > 10) {
+                            $errorMsg .= ' ... (共' . count($uniqueSamples) . '个)';
+                        }
+                    }
+                    
                     if (!empty($unmatchedAccounts)) {
                         $uniqueUnmatched = array_unique(array_slice($unmatchedAccounts, 0, 10));
-                        $errorMsg .= ' 无法匹配的账号示例: ' . implode(', ', $uniqueUnmatched);
+                        $errorMsg .= "\n无法匹配的账号: " . implode(', ', $uniqueUnmatched);
                         if (count($unmatchedAccounts) > 10) {
                             $errorMsg .= ' ... (共' . count($unmatchedAccounts) . '个)';
                         }
                     }
-                    $errorMsg .= ' 请检查账号映射配置或确保账号已存在于系统中。';
+                    
+                    // 查询数据库中存在的账号，提供参考
+                    try {
+                        $stmt = $pdo->prepare("
+                            SELECT a.account_id, a.name 
+                            FROM account a
+                            INNER JOIN account_company ac ON a.id = ac.account_id
+                            WHERE ac.company_id = ? AND a.status = 'active'
+                            ORDER BY a.account_id ASC
+                            LIMIT 5
+                        ");
+                        $stmt->execute([$company_id]);
+                        $existingAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        if (!empty($existingAccounts)) {
+                            $accountList = array_map(function($acc) {
+                                return ($acc['account_id'] ?? '') . ($acc['name'] ? ' (' . $acc['name'] . ')' : '');
+                            }, $existingAccounts);
+                            $errorMsg .= "\n系统现有账号示例: " . implode(', ', $accountList) . ' ...';
+                        }
+                    } catch (Exception $e) {
+                        // 忽略查询错误
+                    }
+                    
+                    $errorMsg .= "\n请检查：1) 账号映射配置是否正确 2) 账号是否已存在于系统中 3) 账号格式是否匹配";
+                    
                     throw new Exception($errorMsg);
                 }
                 
