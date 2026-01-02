@@ -64,20 +64,29 @@ require_once 'auto_login_report_importer.php';
 
 try {
     // 获取POST数据
-    $input = json_decode(file_get_contents('php://input'), true);
+    $rawInput = file_get_contents('php://input');
+    error_log("手动粘贴API收到原始数据长度: " . strlen($rawInput));
+    
+    $input = json_decode($rawInput, true);
     if (!$input) {
-        throw new Exception('无效的请求数据');
+        $jsonError = json_last_error_msg();
+        error_log("JSON解析失败: " . $jsonError . " | 原始数据: " . substr($rawInput, 0, 500));
+        throw new Exception('无效的请求数据（JSON解析失败: ' . $jsonError . '）');
     }
+    
+    error_log("JSON解析成功，收到的字段: " . implode(', ', array_keys($input)));
     
     $id = isset($input['id']) ? (int)$input['id'] : 0;
     $pastedData = isset($input['pasted_data']) ? trim($input['pasted_data']) : '';
     
+    error_log("解析后的数据 - ID: $id, 粘贴数据长度: " . strlen($pastedData));
+    
     if (!$id) {
-        throw new Exception('缺少凭证ID');
+        throw new Exception('缺少凭证ID（收到的ID值为: ' . var_export($input['id'] ?? '未设置', true) . '）');
     }
     
     if (empty($pastedData)) {
-        throw new Exception('粘贴的数据为空');
+        throw new Exception('粘贴的数据为空（请确保已粘贴表格数据）');
     }
     
     $company_id = $_SESSION['company_id'] ?? null;
@@ -98,12 +107,14 @@ try {
     }
     
     // 检查是否启用自动导入
+    error_log("凭证配置检查 - auto_import_enabled: " . var_export($credential['auto_import_enabled'] ?? null, true) . ", import_process_id: " . var_export($credential['import_process_id'] ?? null, true));
+    
     if (empty($credential['auto_import_enabled']) || $credential['auto_import_enabled'] != 1) {
-        throw new Exception('未启用自动导入，请先配置自动导入设置');
+        throw new Exception('未启用自动导入。请先编辑凭证，在"自动导入"设置中启用"自动导入"并选择"流程"。');
     }
     
     if (empty($credential['import_process_id'])) {
-        throw new Exception('未配置导入流程，请先选择流程');
+        throw new Exception('未配置导入流程。请先编辑凭证，在"自动导入"设置中选择一个"流程"。');
     }
     
     // 解析粘贴的数据（Tab分隔或换行分隔）

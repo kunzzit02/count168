@@ -960,6 +960,12 @@ if (!$company_id) {
                 return;
             }
             
+            console.log('准备提交手动粘贴数据:', {
+                id: id,
+                pasted_data_length: pastedData.length,
+                pasted_data_preview: pastedData.substring(0, 200)
+            });
+            
             // 发送到API处理
             fetch('auto_login_manual_paste_api.php', {
                 method: 'POST',
