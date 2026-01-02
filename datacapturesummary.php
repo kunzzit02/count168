@@ -3568,64 +3568,25 @@ function getCurrentProcessId() {
                     // 这些引用包含了正确的 id_product，可能来自其他 id product 的数据
                     const refs = clickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
                     
-                    // 匹配所有 $数字 模式，包括 [id_product (row_label) ]$数字 格式
-                    // 先匹配完整格式：[id_product (row_label) ]$数字 或 [id_product ]$数字
-                    const fullFormatPattern = /\[([^\]]+)\s*\(([^)]+)\)\s*\]\$(\d+)(?!\d)|\[([^\]]+)\s*\]\$(\d+)(?!\d)|\$(\d+)(?!\d)/g;
+                    // 匹配所有 $数字 模式，收集所有匹配项
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
                     let match;
-                    fullFormatPattern.lastIndex = 0;
+                    dollarPattern.lastIndex = 0;
                     
                     // 先收集所有匹配项及其位置，保持它们在公式中出现的顺序
                     const allMatches = [];
-                    while ((match = fullFormatPattern.exec(formulaValue)) !== null) {
+                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
                         const fullMatch = match[0];
+                        const columnNumber = parseInt(match[1]);
                         const matchIndex = match.index;
                         
-                        // 检查是哪种格式
-                        if (match[1] && match[2] && match[3]) {
-                            // 格式：[id_product (row_label) ]$数字
-                            const idProduct = match[1].trim();
-                            const rowLabel = match[2].trim();
-                            const columnNumber = parseInt(match[3]);
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                allMatches.push({
-                                    fullMatch: fullMatch,
-                                    columnNumber: columnNumber,
-                                    index: matchIndex,
-                                    order: allMatches.length,
-                                    idProduct: idProduct,
-                                    rowLabel: rowLabel,
-                                    hasPrefix: true
-                                });
-                            }
-                        } else if (match[4] && match[5]) {
-                            // 格式：[id_product ]$数字
-                            const idProduct = match[4].trim();
-                            const columnNumber = parseInt(match[5]);
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                allMatches.push({
-                                    fullMatch: fullMatch,
-                                    columnNumber: columnNumber,
-                                    index: matchIndex,
-                                    order: allMatches.length,
-                                    idProduct: idProduct,
-                                    rowLabel: null,
-                                    hasPrefix: true
-                                });
-                            }
-                        } else if (match[6]) {
-                            // 格式：$数字（没有前缀）
-                            const columnNumber = parseInt(match[6]);
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                allMatches.push({
-                                    fullMatch: fullMatch,
-                                    columnNumber: columnNumber,
-                                    index: matchIndex,
-                                    order: allMatches.length,
-                                    idProduct: null,
-                                    rowLabel: null,
-                                    hasPrefix: false
-                                });
-                            }
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            allMatches.push({
+                                fullMatch: fullMatch,
+                                columnNumber: columnNumber,
+                                index: matchIndex,
+                                order: allMatches.length // 记录在公式中出现的顺序（第一个、第二个、第三个...）
+                            });
                         }
                     }
                     
@@ -3647,49 +3608,42 @@ function getCurrentProcessId() {
                         const match = allMatches[i];
                         let columnValue = null;
                         
-                        // 如果匹配项有前缀（[id_product (row_label) ]$数字 或 [id_product ]$数字），使用前缀中的信息
-                        if (match.hasPrefix && match.idProduct) {
-                            const dataColumnIndex = match.columnNumber - 1;
-                            columnValue = getCellValueByIdProductAndColumn(match.idProduct, dataColumnIndex, match.rowLabel);
-                            console.log('updateFormulaDisplay: Using prefix info for [' + match.idProduct + (match.rowLabel ? ' (' + match.rowLabel + ')' : '') + ' ]$' + match.columnNumber + ', value:', columnValue);
-                        } else {
-                            // CRITICAL: 严格按顺序匹配，不管列号是否相同
-                            // 第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用，以此类推
-                            if (refIndex < refs.length) {
-                                const ref = refs[refIndex];
-                                // 解析引用：id_product:row_label:column_index 或 id_product:column_index
-                                const parts = ref.split(':');
-                                if (parts.length >= 2) {
-                                    const refIdProduct = parts[0];
-                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                    const refRowLabel = parts.length === 3 ? parts[1] : null;
-                                    
-                                    // 直接使用这个引用，不管列号是否匹配
-                                    // 因为引用是按点击顺序存储的，$数字也是按插入顺序出现的
-                                    if (!isNaN(refDataColumnIndex)) {
-                                        columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                        console.log('updateFormulaDisplay: Matched $' + match.columnNumber + ' (order ' + i + ', position ' + match.index + ') to ref[' + refIndex + ']:', ref, 'value:', columnValue);
-                                        refIndex++; // 更新已使用的引用索引，移动到下一个引用
-                                    } else {
-                                        console.warn('updateFormulaDisplay: Invalid refDataColumnIndex in ref:', ref);
-                                    }
+                        // CRITICAL: 严格按顺序匹配，不管列号是否相同
+                        // 第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用，以此类推
+                        if (refIndex < refs.length) {
+                            const ref = refs[refIndex];
+                            // 解析引用：id_product:row_label:column_index 或 id_product:column_index
+                            const parts = ref.split(':');
+                            if (parts.length >= 2) {
+                                const refIdProduct = parts[0];
+                                const refDataColumnIndex = parseInt(parts[parts.length - 1]);
+                                const refRowLabel = parts.length === 3 ? parts[1] : null;
+                                
+                                // 直接使用这个引用，不管列号是否匹配
+                                // 因为引用是按点击顺序存储的，$数字也是按插入顺序出现的
+                                if (!isNaN(refDataColumnIndex)) {
+                                    columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
+                                    console.log('updateFormulaDisplay: Matched $' + match.columnNumber + ' (order ' + i + ', position ' + match.index + ') to ref[' + refIndex + ']:', ref, 'value:', columnValue);
+                                    refIndex++; // 更新已使用的引用索引，移动到下一个引用
                                 } else {
-                                    console.warn('updateFormulaDisplay: Invalid ref format:', ref);
+                                    console.warn('updateFormulaDisplay: Invalid refDataColumnIndex in ref:', ref);
                                 }
                             } else {
-                                console.warn('updateFormulaDisplay: Not enough references! $' + match.columnNumber + ' (order ' + i + ') has no matching ref (refIndex:', refIndex, ', refs.length:', refs.length + ')');
+                                console.warn('updateFormulaDisplay: Invalid ref format:', ref);
                             }
-                            
-                            // 如果从引用中找不到值，回退到使用当前编辑的 id_product
-                            if (columnValue === null) {
-                                const rowLabel = getRowLabelFromProcessValue(processValue);
-                                if (rowLabel) {
-                                    const columnReference = rowLabel + match.columnNumber;
-                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                    console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
-                                } else {
-                                    console.warn('updateFormulaDisplay: Cannot get rowLabel for processValue:', processValue);
-                                }
+                        } else {
+                            console.warn('updateFormulaDisplay: Not enough references! $' + match.columnNumber + ' (order ' + i + ') has no matching ref (refIndex:', refIndex, ', refs.length:', refs.length + ')');
+                        }
+                        
+                        // 如果从引用中找不到值，回退到使用当前编辑的 id_product
+                        if (columnValue === null) {
+                            const rowLabel = getRowLabelFromProcessValue(processValue);
+                            if (rowLabel) {
+                                const columnReference = rowLabel + match.columnNumber;
+                                columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
+                            } else {
+                                console.warn('updateFormulaDisplay: Cannot get rowLabel for processValue:', processValue);
                             }
                         }
                         
@@ -3707,29 +3661,10 @@ function getCurrentProcessId() {
                         const match = matchValue.match;
                         const value = matchValue.value;
                         
-                        // 如果有前缀，只替换 $数字 部分，保留前缀
-                        if (match.hasPrefix) {
-                            // 找到 $数字 在 fullMatch 中的位置
-                            const dollarIndex = match.fullMatch.indexOf('$');
-                            if (dollarIndex >= 0) {
-                                const prefix = match.fullMatch.substring(0, dollarIndex);
-                                const dollarPart = match.fullMatch.substring(dollarIndex);
-                                // 替换为：前缀 + 实际值
-                                displayFormula = displayFormula.substring(0, match.index) + 
-                                                prefix + value + 
-                                                displayFormula.substring(match.index + match.fullMatch.length);
-                            } else {
-                                // 如果找不到 $，直接替换整个匹配项
-                                displayFormula = displayFormula.substring(0, match.index) + 
-                                                value + 
-                                                displayFormula.substring(match.index + match.fullMatch.length);
-                            }
-                        } else {
-                            // 没有前缀，直接替换 $数字 为实际值
-                            displayFormula = displayFormula.substring(0, match.index) + 
-                                            value + 
-                                            displayFormula.substring(match.index + match.fullMatch.length);
-                        }
+                        // 替换 $数字 为实际值
+                        displayFormula = displayFormula.substring(0, match.index) + 
+                                        value + 
+                                        displayFormula.substring(match.index + match.fullMatch.length);
                     }
                 } else {
                     // 如果没有 data-clicked-cell-refs，使用原来的逻辑（使用当前编辑的 id_product）
@@ -3740,60 +3675,24 @@ function getCurrentProcessId() {
                         return;
                     }
                     
-                    // 匹配所有 $数字 模式，包括 [id_product (row_label) ]$数字 格式
-                    const fullFormatPattern = /\[([^\]]+)\s*\(([^)]+)\)\s*\]\$(\d+)(?!\d)|\[([^\]]+)\s*\]\$(\d+)(?!\d)|\$(\d+)(?!\d)/g;
+                    // 匹配所有 $数字 模式，从后往前处理以避免位置偏移
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
                     let match;
-                    fullFormatPattern.lastIndex = 0;
+                    dollarPattern.lastIndex = 0;
                     
                     // 先收集所有匹配项，按位置排序
                     const allMatches = [];
-                    while ((match = fullFormatPattern.exec(formulaValue)) !== null) {
-                        const fullMatch = match[0];
+                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
+                        const fullMatch = match[0]; // 例如 "$5" 或 "$10"
+                        const columnNumber = parseInt(match[1]); // 例如 5 或 10
                         const matchIndex = match.index;
                         
-                        // 检查是哪种格式
-                        if (match[1] && match[2] && match[3]) {
-                            // 格式：[id_product (row_label) ]$数字
-                            const idProduct = match[1].trim();
-                            const rowLabelFromMatch = match[2].trim();
-                            const columnNumber = parseInt(match[3]);
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                allMatches.push({
-                                    fullMatch: fullMatch,
-                                    columnNumber: columnNumber,
-                                    index: matchIndex,
-                                    idProduct: idProduct,
-                                    rowLabel: rowLabelFromMatch,
-                                    hasPrefix: true
-                                });
-                            }
-                        } else if (match[4] && match[5]) {
-                            // 格式：[id_product ]$数字
-                            const idProduct = match[4].trim();
-                            const columnNumber = parseInt(match[5]);
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                allMatches.push({
-                                    fullMatch: fullMatch,
-                                    columnNumber: columnNumber,
-                                    index: matchIndex,
-                                    idProduct: idProduct,
-                                    rowLabel: null,
-                                    hasPrefix: true
-                                });
-                            }
-                        } else if (match[6]) {
-                            // 格式：$数字（没有前缀）
-                            const columnNumber = parseInt(match[6]);
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                allMatches.push({
-                                    fullMatch: fullMatch,
-                                    columnNumber: columnNumber,
-                                    index: matchIndex,
-                                    idProduct: null,
-                                    rowLabel: null,
-                                    hasPrefix: false
-                                });
-                            }
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            allMatches.push({
+                                fullMatch: fullMatch,
+                                columnNumber: columnNumber,
+                                index: matchIndex
+                            });
                         }
                     }
                     
@@ -3802,57 +3701,20 @@ function getCurrentProcessId() {
                     
                     for (let i = 0; i < allMatches.length; i++) {
                         const match = allMatches[i];
-                        let columnValue = null;
-                        
-                        // 如果匹配项有前缀，使用前缀中的信息
-                        if (match.hasPrefix && match.idProduct) {
-                            const dataColumnIndex = match.columnNumber - 1;
-                            columnValue = getCellValueByIdProductAndColumn(match.idProduct, dataColumnIndex, match.rowLabel);
-                        } else {
-                            // 获取列的实际值
-                            const columnReference = rowLabel + match.columnNumber;
-                            columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                        }
+                        // 获取列的实际值
+                        const columnReference = rowLabel + match.columnNumber;
+                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
                         
                         if (columnValue !== null) {
-                            // 如果有前缀，只替换 $数字 部分，保留前缀
-                            if (match.hasPrefix) {
-                                const dollarIndex = match.fullMatch.indexOf('$');
-                                if (dollarIndex >= 0) {
-                                    const prefix = match.fullMatch.substring(0, dollarIndex);
-                                    displayFormula = displayFormula.substring(0, match.index) + 
-                                                    prefix + columnValue + 
-                                                    displayFormula.substring(match.index + match.fullMatch.length);
-                                } else {
-                                    displayFormula = displayFormula.substring(0, match.index) + 
-                                                    columnValue + 
-                                                    displayFormula.substring(match.index + match.fullMatch.length);
-                                }
-                            } else {
-                                // 替换 $数字 为实际值
-                                displayFormula = displayFormula.substring(0, match.index) + 
-                                                columnValue + 
-                                                displayFormula.substring(match.index + match.fullMatch.length);
-                            }
+                            // 替换 $数字 为实际值
+                            displayFormula = displayFormula.substring(0, match.index) + 
+                                            columnValue + 
+                                            displayFormula.substring(match.index + match.fullMatch.length);
                         } else {
                             // 如果找不到值，替换为 0
-                            if (match.hasPrefix) {
-                                const dollarIndex = match.fullMatch.indexOf('$');
-                                if (dollarIndex >= 0) {
-                                    const prefix = match.fullMatch.substring(0, dollarIndex);
-                                    displayFormula = displayFormula.substring(0, match.index) + 
-                                                    prefix + '0' + 
-                                                    displayFormula.substring(match.index + match.fullMatch.length);
-                                } else {
-                                    displayFormula = displayFormula.substring(0, match.index) + 
-                                                    '0' + 
-                                                    displayFormula.substring(match.index + match.fullMatch.length);
-                                }
-                            } else {
-                                displayFormula = displayFormula.substring(0, match.index) + 
-                                                '0' + 
-                                                displayFormula.substring(match.index + match.fullMatch.length);
-                            }
+                            displayFormula = displayFormula.substring(0, match.index) + 
+                                            '0' + 
+                                            displayFormula.substring(match.index + match.fullMatch.length);
                         }
                     }
                 }
@@ -4927,20 +4789,19 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Get row label from cell or row (needed for both reference storage and display format)
-            let rowLabel = cell.getAttribute('data-row-label');
-            if (!rowLabel && row) {
-                const rowHeaderCell = row.querySelector('.row-header');
-                if (rowHeaderCell) {
-                    rowLabel = rowHeaderCell.textContent.trim();
-                    cell.setAttribute('data-row-label', rowLabel);
-                }
-            }
-            
             // Store id_product:column_index reference (new format)
             // IMPORTANT: Include row_label to distinguish between multiple rows with same id_product
             // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
             if (idProduct && dataColumnIndex !== null) {
+                // Get row label from cell or row
+                let rowLabel = cell.getAttribute('data-row-label');
+                if (!rowLabel && row) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    if (rowHeaderCell) {
+                        rowLabel = rowHeaderCell.textContent.trim();
+                        cell.setAttribute('data-row-label', rowLabel);
+                    }
+                }
                 
                 // Build cell reference with row label if available
                 let cellReference;
@@ -4989,37 +4850,16 @@ function getCurrentProcessId() {
             
             // Insert column reference ($columnNumber) instead of value at cursor position
             // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
-            // 格式: [id_product (row_label) ]$columnNumber 或 [id_product ]$columnNumber
             let valueToInsert;
             if (displayColumnIndex !== null && displayColumnIndex > 0) {
-                // Build the full format: [id_product (row_label) ]$columnNumber
-                let columnRef = `$${displayColumnIndex}`;
-                if (idProduct) {
-                    if (rowLabel) {
-                        // Format: [M99M06 (B) ]$4
-                        valueToInsert = `[${idProduct} (${rowLabel}) ]${columnRef}`;
-                    } else {
-                        // Format: [M99M06 ]$4
-                        valueToInsert = `[${idProduct} ]${columnRef}`;
-                    }
-                } else {
-                    // Fallback: if idProduct not available, just use column reference
-                    valueToInsert = columnRef;
-                }
-                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex, 'idProduct:', idProduct, 'rowLabel:', rowLabel);
+                // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
+                // displayColumnIndex 就是 data-column-index 的值，直接使用
+                valueToInsert = `$${displayColumnIndex}`;
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
             } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
-                let columnRef = `$${dataColumnIndex + 1}`;
-                if (idProduct) {
-                    if (rowLabel) {
-                        valueToInsert = `[${idProduct} (${rowLabel}) ]${columnRef}`;
-                    } else {
-                        valueToInsert = `[${idProduct} ]${columnRef}`;
-                    }
-                } else {
-                    valueToInsert = columnRef;
-                }
+                valueToInsert = `$${dataColumnIndex + 1}`;
                 console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex);
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
@@ -6735,63 +6575,27 @@ function getCurrentProcessId() {
                 const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
                 
                 if (processValue) {
-                    // Match $ followed by digits, including [id_product (row_label) ]$数字 format
-                    // 先匹配完整格式：[id_product (row_label) ]$数字 或 [id_product ]$数字
-                    const fullFormatPattern = /\[([^\]]+)\s*\(([^)]+)\)\s*\]\$(\d+)(?!\d)|\[([^\]]+)\s*\]\$(\d+)(?!\d)|\$(\d+)(?!\d)/g;
+                    // Match $ followed by digits (e.g., $2, $10, $123)
+                    // Use negative lookahead to ensure we match complete numbers (e.g., $10 not $1 and $0)
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
                     const dollarMatches = [];
                     let match;
                     
                     // Reset regex lastIndex
-                    fullFormatPattern.lastIndex = 0;
+                    dollarPattern.lastIndex = 0;
                     
                     // Collect all matches
-                    while ((match = fullFormatPattern.exec(formula)) !== null) {
-                        const fullMatch = match[0];
+                    while ((match = dollarPattern.exec(formula)) !== null) {
+                        const fullMatch = match[0]; // e.g., "$2"
+                        const columnNumber = parseInt(match[1]); // e.g., 2
                         const matchIndex = match.index;
                         
-                        // 检查是哪种格式
-                        if (match[1] && match[2] && match[3]) {
-                            // 格式：[id_product (row_label) ]$数字
-                            const idProduct = match[1].trim();
-                            const rowLabel = match[2].trim();
-                            const columnNumber = parseInt(match[3]);
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                dollarMatches.push({
-                                    fullMatch: fullMatch,
-                                    columnNumber: columnNumber,
-                                    index: matchIndex,
-                                    idProduct: idProduct,
-                                    rowLabel: rowLabel,
-                                    hasPrefix: true
-                                });
-                            }
-                        } else if (match[4] && match[5]) {
-                            // 格式：[id_product ]$数字
-                            const idProduct = match[4].trim();
-                            const columnNumber = parseInt(match[5]);
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                dollarMatches.push({
-                                    fullMatch: fullMatch,
-                                    columnNumber: columnNumber,
-                                    index: matchIndex,
-                                    idProduct: idProduct,
-                                    rowLabel: null,
-                                    hasPrefix: true
-                                });
-                            }
-                        } else if (match[6]) {
-                            // 格式：$数字（没有前缀）
-                            const columnNumber = parseInt(match[6]);
-                            if (!isNaN(columnNumber) && columnNumber > 0) {
-                                dollarMatches.push({
-                                    fullMatch: fullMatch,
-                                    columnNumber: columnNumber,
-                                    index: matchIndex,
-                                    idProduct: null,
-                                    rowLabel: null,
-                                    hasPrefix: false
-                                });
-                            }
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            dollarMatches.push({
+                                fullMatch: fullMatch,
+                                columnNumber: columnNumber,
+                                index: matchIndex
+                            });
                         }
                     }
                     
@@ -6810,78 +6614,44 @@ function getCurrentProcessId() {
                             let columnValue = null;
                             const dataColumnIndex = dollarMatch.columnNumber - 1;
                             
-                            // 如果匹配项有前缀（[id_product (row_label) ]$数字 或 [id_product ]$数字），使用前缀中的信息
-                            if (dollarMatch.hasPrefix && dollarMatch.idProduct) {
-                                columnValue = getCellValueByIdProductAndColumn(dollarMatch.idProduct, dataColumnIndex, dollarMatch.rowLabel);
-                            } else {
-                                // 按顺序查找匹配的引用（从 refIndex 开始，避免重复使用）
-                                for (let j = refIndex; j < refs.length; j++) {
-                                    const ref = refs[j];
-                                    const parts = ref.split(':');
-                                    if (parts.length >= 2) {
-                                        const refIdProduct = parts[0];
-                                        const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                        const refRowLabel = parts.length === 3 ? parts[1] : null;
-                                        
-                                        // 如果 dataColumnIndex 匹配，使用这个引用
-                                        if (!isNaN(refDataColumnIndex) && refDataColumnIndex === dataColumnIndex) {
-                                            columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                            refIndex = j + 1; // 更新已使用的引用索引
-                                            break;
-                                        }
-                                    }
-                                }
-                                
-                                // 如果从引用中找不到值，回退到使用当前编辑的 id_product
-                                if (columnValue === null) {
-                                    const rowLabel = getRowLabelFromProcessValue(processValue);
-                                    if (rowLabel) {
-                                        const columnReference = rowLabel + dollarMatch.columnNumber;
-                                        columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                            // 按顺序查找匹配的引用（从 refIndex 开始，避免重复使用）
+                            for (let j = refIndex; j < refs.length; j++) {
+                                const ref = refs[j];
+                                const parts = ref.split(':');
+                                if (parts.length >= 2) {
+                                    const refIdProduct = parts[0];
+                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
+                                    const refRowLabel = parts.length === 3 ? parts[1] : null;
+                                    
+                                    // 如果 dataColumnIndex 匹配，使用这个引用
+                                    if (!isNaN(refDataColumnIndex) && refDataColumnIndex === dataColumnIndex) {
+                                        columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
+                                        refIndex = j + 1; // 更新已使用的引用索引
+                                        break;
                                     }
                                 }
                             }
                             
-                            if (columnValue !== null) {
-                                // 如果有前缀，只替换 $数字 部分，保留前缀
-                                if (dollarMatch.hasPrefix) {
-                                    const dollarIndex = dollarMatch.fullMatch.indexOf('$');
-                                    if (dollarIndex >= 0) {
-                                        const prefix = dollarMatch.fullMatch.substring(0, dollarIndex);
-                                        parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                       prefix + columnValue + 
-                                                       parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                    } else {
-                                        parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                       columnValue + 
-                                                       parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                    }
-                                } else {
-                                    // Replace $数字 with actual value
-                                    parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                   columnValue + 
-                                                   parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
+                            // 如果从引用中找不到值，回退到使用当前编辑的 id_product
+                            if (columnValue === null) {
+                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                if (rowLabel) {
+                                    const columnReference = rowLabel + dollarMatch.columnNumber;
+                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
                                 }
+                            }
+                            
+                            if (columnValue !== null) {
+                                // Replace $数字 with actual value
+                                parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
+                                               columnValue + 
+                                               parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
                             } else {
                                 // If value not found, replace with 0
                                 console.warn(`Cell value not found for $${dollarMatch.columnNumber}`);
-                                if (dollarMatch.hasPrefix) {
-                                    const dollarIndex = dollarMatch.fullMatch.indexOf('$');
-                                    if (dollarIndex >= 0) {
-                                        const prefix = dollarMatch.fullMatch.substring(0, dollarIndex);
-                                        parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                       prefix + '0' + 
-                                                       parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                    } else {
-                                        parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                       '0' + 
-                                                       parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                    }
-                                } else {
-                                    parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                   '0' + 
-                                                   parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                }
+                                parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
+                                               '0' + 
+                                               parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
                             }
                         }
                     } else {
@@ -6890,58 +6660,21 @@ function getCurrentProcessId() {
                         if (rowLabel) {
                             for (let i = 0; i < dollarMatches.length; i++) {
                                 const dollarMatch = dollarMatches[i];
-                                let columnValue = null;
-                                
-                                // 如果匹配项有前缀，使用前缀中的信息
-                                if (dollarMatch.hasPrefix && dollarMatch.idProduct) {
-                                    const dataColumnIndex = dollarMatch.columnNumber - 1;
-                                    columnValue = getCellValueByIdProductAndColumn(dollarMatch.idProduct, dataColumnIndex, dollarMatch.rowLabel);
-                                } else {
-                                    // Convert $数字 to cell reference (e.g., $2 -> A2)
-                                    const columnReference = rowLabel + dollarMatch.columnNumber;
-                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                }
+                                // Convert $数字 to cell reference (e.g., $2 -> A2)
+                                const columnReference = rowLabel + dollarMatch.columnNumber;
+                                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
                                 
                                 if (columnValue !== null) {
-                                    // 如果有前缀，只替换 $数字 部分，保留前缀
-                                    if (dollarMatch.hasPrefix) {
-                                        const dollarIndex = dollarMatch.fullMatch.indexOf('$');
-                                        if (dollarIndex >= 0) {
-                                            const prefix = dollarMatch.fullMatch.substring(0, dollarIndex);
-                                            parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                           prefix + columnValue + 
-                                                           parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                        } else {
-                                            parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                           columnValue + 
-                                                           parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                        }
-                                    } else {
-                                        // Replace $数字 with actual value
-                                        parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                       columnValue + 
-                                                       parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                    }
+                                    // Replace $数字 with actual value
+                                    parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
+                                                   columnValue + 
+                                                   parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
                                 } else {
                                     // If value not found, replace with 0
-                                    console.warn(`Cell value not found for $${dollarMatch.columnNumber}`);
-                                    if (dollarMatch.hasPrefix) {
-                                        const dollarIndex = dollarMatch.fullMatch.indexOf('$');
-                                        if (dollarIndex >= 0) {
-                                            const prefix = dollarMatch.fullMatch.substring(0, dollarIndex);
-                                            parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                           prefix + '0' + 
-                                                           parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                        } else {
-                                            parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                           '0' + 
-                                                           parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                        }
-                                    } else {
-                                        parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                       '0' + 
-                                                       parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                    }
+                                    console.warn(`Cell value not found for $${dollarMatch.columnNumber} (${columnReference})`);
+                                    parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
+                                                   '0' + 
+                                                   parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
                                 }
                             }
                         }
