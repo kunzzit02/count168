@@ -3568,24 +3568,66 @@ function getCurrentProcessId() {
                     // 这些引用包含了正确的 id_product，可能来自其他 id product 的数据
                     const refs = clickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
                     
-                    // 匹配所有 $数字 模式，收集所有匹配项
-                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                    // 匹配所有 $数字 模式，支持新格式 [id_product]$数字 和旧格式 $数字
+                    // 新格式：\[([^\]]+)\]\$(\d+) 匹配 [M99M06 (B) ]$4
+                    // 旧格式：\$(\d+) 匹配 $4
+                    const newFormatPattern = /\[([^\]]+)\]\$(\d+)(?!\d)/g; // 匹配 [id_product]$数字
+                    const oldFormatPattern = /\$(\d+)(?!\d)/g; // 匹配 $数字（但排除已经被新格式匹配的）
                     let match;
-                    dollarPattern.lastIndex = 0;
-                    
-                    // 先收集所有匹配项及其位置，保持它们在公式中出现的顺序
                     const allMatches = [];
-                    while ((match = dollarPattern.exec(formulaValue)) !== null) {
-                        const fullMatch = match[0];
-                        const columnNumber = parseInt(match[1]);
+                    const matchedPositions = new Set(); // 记录已匹配的位置，避免重复匹配
+                    
+                    // 先匹配新格式 [id_product]$数字
+                    newFormatPattern.lastIndex = 0;
+                    while ((match = newFormatPattern.exec(formulaValue)) !== null) {
+                        const fullMatch = match[0]; // 例如 "[M99M06 (B) ]$4"
+                        const idProductPart = match[1]; // 例如 "M99M06 (B) "
+                        const columnNumber = parseInt(match[2]); // 例如 4
                         const matchIndex = match.index;
+                        
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            // 提取 id_product（去除可能的 row_label 部分）
+                            let idProduct = idProductPart.trim();
+                            // 如果包含 (row_label) 格式，提取 id_product 部分
+                            const rowLabelMatch = idProduct.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+                            if (rowLabelMatch) {
+                                idProduct = rowLabelMatch[1].trim();
+                            }
+                            
+                            allMatches.push({
+                                fullMatch: fullMatch,
+                                columnNumber: columnNumber,
+                                index: matchIndex,
+                                order: allMatches.length,
+                                idProduct: idProduct, // 从显示格式中提取的 id_product
+                                fromNewFormat: true
+                            });
+                            // 记录匹配的位置范围，避免旧格式重复匹配
+                            for (let i = matchIndex; i < matchIndex + fullMatch.length; i++) {
+                                matchedPositions.add(i);
+                            }
+                        }
+                    }
+                    
+                    // 再匹配旧格式 $数字（排除已经被新格式匹配的位置）
+                    oldFormatPattern.lastIndex = 0;
+                    while ((match = oldFormatPattern.exec(formulaValue)) !== null) {
+                        const matchIndex = match.index;
+                        // 检查这个位置是否已经被新格式匹配
+                        if (matchedPositions.has(matchIndex)) {
+                            continue; // 跳过已经被新格式匹配的位置
+                        }
+                        
+                        const fullMatch = match[0]; // 例如 "$4"
+                        const columnNumber = parseInt(match[1]); // 例如 4
                         
                         if (!isNaN(columnNumber) && columnNumber > 0) {
                             allMatches.push({
                                 fullMatch: fullMatch,
                                 columnNumber: columnNumber,
                                 index: matchIndex,
-                                order: allMatches.length // 记录在公式中出现的顺序（第一个、第二个、第三个...）
+                                order: allMatches.length,
+                                fromNewFormat: false
                             });
                         }
                     }
@@ -3635,15 +3677,30 @@ function getCurrentProcessId() {
                             console.warn('updateFormulaDisplay: Not enough references! $' + match.columnNumber + ' (order ' + i + ') has no matching ref (refIndex:', refIndex, ', refs.length:', refs.length + ')');
                         }
                         
-                        // 如果从引用中找不到值，回退到使用当前编辑的 id_product
+                        // 如果从引用中找不到值，尝试使用从新格式中提取的 id_product
                         if (columnValue === null) {
-                            const rowLabel = getRowLabelFromProcessValue(processValue);
-                            if (rowLabel) {
-                                const columnReference = rowLabel + match.columnNumber;
-                                columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
-                            } else {
-                                console.warn('updateFormulaDisplay: Cannot get rowLabel for processValue:', processValue);
+                            // 如果是从新格式中提取的 id_product，尝试使用它
+                            if (match.fromNewFormat && match.idProduct) {
+                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                // 尝试使用提取的 id_product 和列号来获取值
+                                // 计算 dataColumnIndex（displayColumnIndex - 1）
+                                const dataColumnIndex = match.columnNumber - 1;
+                                if (dataColumnIndex > 0) {
+                                    columnValue = getCellValueByIdProductAndColumn(match.idProduct, dataColumnIndex, rowLabel);
+                                    console.log('updateFormulaDisplay: Using extracted id_product from new format:', match.idProduct, 'for $' + match.columnNumber + ', value:', columnValue);
+                                }
+                            }
+                            
+                            // 如果仍然找不到值，回退到使用当前编辑的 id_product
+                            if (columnValue === null) {
+                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                if (rowLabel) {
+                                    const columnReference = rowLabel + match.columnNumber;
+                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                    console.log('updateFormulaDisplay: Fallback to current row for $' + match.columnNumber + ', value:', columnValue);
+                                } else {
+                                    console.warn('updateFormulaDisplay: Cannot get rowLabel for processValue:', processValue);
+                                }
                             }
                         }
                         
