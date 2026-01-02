@@ -145,12 +145,18 @@ try {
         'auto_login_web_scraper.php'
     ];
     
-    foreach ($files as $file) {
+    foreach ($files as $index => $file) {
         if (!file_exists($file)) {
             throw new Exception($file . ' 文件不存在');
         }
-        require_once $file;
-        $debug[] = "步骤" . (11 + array_search($file, $files)) . ": " . $file . " 已加载";
+        
+        // 尝试加载文件，捕获任何错误
+        try {
+            require_once $file;
+            $debug[] = "步骤" . (11 + $index) . ": " . $file . " 已加载";
+        } catch (Throwable $loadError) {
+            throw new Exception("加载文件失败: $file - " . $loadError->getMessage());
+        }
     }
     
     // 7. 检查函数是否存在
