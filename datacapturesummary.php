@@ -4850,16 +4850,26 @@ function getCurrentProcessId() {
             
             // Insert column reference ($columnNumber) instead of value at cursor position
             // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
+            // 格式：[id_product]$columnNumber (e.g., [M99M06 (B)]$4)
             let valueToInsert;
             if (displayColumnIndex !== null && displayColumnIndex > 0) {
-                // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
-                // displayColumnIndex 就是 data-column-index 的值，直接使用
-                valueToInsert = `$${displayColumnIndex}`;
-                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
+                // Get id_product display format (with row_label if available)
+                let idProductDisplay = idProduct || '';
+                if (idProduct && rowLabel) {
+                    // Format: [id_product (row_label)]$columnNumber (e.g., [M99M06 (B)]$4)
+                    idProductDisplay = `${idProduct} (${rowLabel})`;
+                }
+                // Insert column reference format: [id_product]$columnNumber (e.g., [M99M06 (B)]$4)
+                valueToInsert = idProductDisplay ? `[${idProductDisplay}]$${displayColumnIndex}` : `$${displayColumnIndex}`;
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex, 'idProduct:', idProduct, 'rowLabel:', rowLabel);
             } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
-                valueToInsert = `$${dataColumnIndex + 1}`;
+                let idProductDisplay = idProduct || '';
+                if (idProduct && rowLabel) {
+                    idProductDisplay = `${idProduct} (${rowLabel})`;
+                }
+                valueToInsert = idProductDisplay ? `[${idProductDisplay}]$${dataColumnIndex + 1}` : `$${dataColumnIndex + 1}`;
                 console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex);
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
@@ -5034,10 +5044,54 @@ function getCurrentProcessId() {
                     const formulaInput = document.getElementById('formula');
                     if (formulaInput) {
                         console.log('populateFormWithData - Setting formula value:', data.formula);
-                        formulaInput.value = data.formula || '';
+                        let formulaValue = data.formula || '';
+                        
+                        // Convert $数字 format to [id_product]$数字 format for display
+                        // Build a map of column numbers to id_product from clickedColumns
+                        const columnToIdProductMap = new Map();
+                        if (data.clickedColumns) {
+                            const isNewFormat = isNewIdProductColumnFormat(data.clickedColumns);
+                            if (isNewFormat) {
+                                const parts = data.clickedColumns.split(/\s+/).filter(c => c.trim() !== '');
+                                parts.forEach(part => {
+                                    // Try format with row label: "id_product:row_label:displayColumnIndex"
+                                    let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
+                                    if (match) {
+                                        const idProduct = match[1];
+                                        const rowLabel = match[2];
+                                        const displayColumnIndex = parseInt(match[3]);
+                                        const idProductDisplay = `${idProduct} (${rowLabel})`;
+                                        columnToIdProductMap.set(displayColumnIndex, idProductDisplay);
+                                    } else {
+                                        // Try format without row label: "id_product:displayColumnIndex"
+                                        match = part.match(/^([^:]+):(\d+)$/);
+                                        if (match) {
+                                            const idProduct = match[1];
+                                            const displayColumnIndex = parseInt(match[2]);
+                                            columnToIdProductMap.set(displayColumnIndex, idProduct);
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                        
+                        // Replace $数字 with [id_product]$数字 format
+                        if (columnToIdProductMap.size > 0) {
+                            formulaValue = formulaValue.replace(/\$(\d+)(?!\d)/g, (match, columnNum) => {
+                                const columnNumber = parseInt(columnNum);
+                                const idProductDisplay = columnToIdProductMap.get(columnNumber);
+                                if (idProductDisplay) {
+                                    return `[${idProductDisplay}]$${columnNumber}`;
+                                }
+                                return match; // Keep original if no mapping found
+                            });
+                            console.log('populateFormWithData - Converted formula to display format:', formulaValue);
+                        }
+                        
+                        formulaInput.value = formulaValue;
                         // 更新显示框
                         const processValue = document.getElementById('process')?.value;
-                        updateFormulaDisplay(data.formula || '', processValue);
+                        updateFormulaDisplay(formulaValue, processValue);
                         // Restore clicked columns if provided
                         if (data.clickedColumns) {
                             // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
@@ -5693,6 +5747,9 @@ function getCurrentProcessId() {
             if (formulaInput) {
                 // 强制重新读取值，确保获取最新状态
                 formulaValue = String(formulaInput.value || '');
+                // Convert [id_product]$数字 format back to $数字 format for saving
+                // Remove [id_product] prefix from [id_product]$数字 or [id_product (row_label)]$数字
+                formulaValue = formulaValue.replace(/\[[^\]]+\]\$(\d+)(?!\d)/g, '$$$1');
                 console.log('saveFormula - Formula value read from input:', formulaValue, 'Type:', typeof formulaValue);
             }
             const descriptionValue = document.getElementById('description').value;
