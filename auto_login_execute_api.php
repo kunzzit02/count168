@@ -438,9 +438,56 @@ try {
                     
                     // 如果还是空的，提供详细错误信息
                     if (empty($summaryRows)) {
+                        // 检查所有行的统计信息
+                        $totalRows = count($webData);
+                        $headerRows = 0;
+                        $summaryRows = 0;
+                        $emptyCol0Rows = 0;
+                        $dataRows = 0;
+                        $col0Values = [];
+                        
+                        foreach ($webData as $idx => $row) {
+                            $col0 = isset($row['col_0']) ? trim((string)$row['col_0']) : '';
+                            
+                            if (empty($col0)) {
+                                // 检查是否是表头行
+                                $hasHeaderKeywords = false;
+                                foreach ($row as $key => $value) {
+                                    if ($key === '_raw' || $key === 'col_0') continue;
+                                    $valLower = strtolower(trim((string)$value));
+                                    if (in_array($valLower, ['transfer in', 'transfer out', 'total bet', 'total win', 'net gaming', 'lottery'])) {
+                                        $hasHeaderKeywords = true;
+                                        break;
+                                    }
+                                }
+                                if ($hasHeaderKeywords) {
+                                    $headerRows++;
+                                } else {
+                                    $emptyCol0Rows++;
+                                }
+                            } elseif (stripos($col0, 'total') !== false || stripos($col0, 'subtotal') !== false) {
+                                $summaryRows++;
+                            } else {
+                                $dataRows++;
+                                $col0Values[] = $col0;
+                            }
+                        }
+                        
                         $errorMsg = '无法从网页数据中提取账号信息。';
-                        $errorMsg .= "\n可能原因：1) 所有行都被过滤（可能是汇总行） 2) 字段映射未识别到账号列";
-                        $errorMsg .= "\n字段映射配置: " . json_encode($mapping, JSON_UNESCAPED_UNICODE);
+                        $errorMsg .= " 数据统计：总行数=$totalRows, 表头行=$headerRows, 汇总行=$summaryRows, col_0为空=$emptyCol0Rows, 数据行=$dataRows";
+                        
+                        if (!empty($col0Values)) {
+                            $errorMsg .= ". col_0值样本: " . implode(', ', array_slice(array_unique($col0Values), 0, 5));
+                        } else {
+                            $errorMsg .= ". 警告：所有行的col_0都是空的或者是汇总行！";
+                            // 查找其他列是否有账号
+                            if (!empty($potentialAccountCols)) {
+                                $topCols = array_slice(array_keys($potentialAccountCols), 0, 3);
+                                $errorMsg .= " 建议：尝试使用列 " . implode(' 或 ', $topCols) . " 作为账号列";
+                            }
+                        }
+                        
+                        $errorMsg .= " 字段映射: " . json_encode($mapping, JSON_UNESCAPED_UNICODE);
                         
                         if ($allCol0Empty) {
                             $errorMsg .= "\n检测结果：所有行的 col_0 都是空的";
