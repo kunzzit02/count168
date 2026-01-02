@@ -7,6 +7,72 @@
 require_once 'auto_login_encrypt.php';
 
 /**
+ * 只执行登录（不下载文件，用于网页抓取）
+ */
+function executeLoginOnly(array $credential, string $password, ?string $two_fa_code = null): array {
+    $websiteUrl = $credential['website_url'];
+    $username = $credential['username'];
+    
+    // 创建临时目录存储Cookie
+    $tempDir = sys_get_temp_dir() . '/auto_login_' . $credential['id'] . '_' . time();
+    if (!is_dir($tempDir)) {
+        @mkdir($tempDir, 0755, true);
+    }
+    
+    // Cookie文件路径
+    $cookieFile = $tempDir . '/cookies.txt';
+    
+    try {
+        // 步骤1: 获取登录页面
+        $loginPageHtml = fetchLoginPage($websiteUrl, $cookieFile);
+        
+        if (empty($loginPageHtml)) {
+            throw new Exception('无法获取登录页面');
+        }
+        
+        // 步骤2: 解析登录表单
+        $loginForm = parseLoginForm($loginPageHtml, $websiteUrl);
+        
+        // 步骤3: 处理2FA（如果需要）
+        if (!empty($credential['has_2fa']) && $credential['has_2fa'] == 1) {
+            $two_fa_code = process2FA($two_fa_code, $credential['two_fa_type'] ?? 'static');
+        }
+        
+        // 步骤4: 提交登录表单
+        $loginResult = submitLoginForm($loginForm, $username, $password, $two_fa_code, $cookieFile);
+        
+        if (!$loginResult['success']) {
+            throw new Exception('登录失败: ' . ($loginResult['error'] ?? '未知错误'));
+        }
+        
+        return [
+            'success' => true,
+            'cookie_file' => $cookieFile,
+            'temp_dir' => $tempDir,
+            'message' => '登录成功'
+        ];
+        
+    } catch (Exception $e) {
+        // 清理临时文件
+        if (file_exists($cookieFile)) {
+            @unlink($cookieFile);
+        }
+        if (is_dir($tempDir)) {
+            @array_map('unlink', glob($tempDir . '/*'));
+            @rmdir($tempDir);
+        }
+        
+        return [
+            'success' => false,
+            'cookie_file' => null,
+            'temp_dir' => null,
+            'message' => '登录失败',
+            'error' => $e->getMessage()
+        ];
+    }
+}
+
+/**
  * 执行自动登录并下载报告
  * 
  * @param array $credential 凭证信息

@@ -48,6 +48,7 @@ try {
                 alc.two_fa_type,
                 alc.two_fa_instructions,
                 alc.auto_import_enabled,
+                alc.report_page_url,
                 alc.import_process_id,
                 alc.import_capture_date,
                 alc.import_currency_id,

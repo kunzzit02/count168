@@ -64,6 +64,7 @@ try {
     $two_fa_type = isset($input['two_fa_type']) ? trim($input['two_fa_type']) : ($existing['two_fa_type'] ?? null);
     $two_fa_instructions = isset($input['two_fa_instructions']) ? trim($input['two_fa_instructions']) : ($existing['two_fa_instructions'] ?? '');
     $auto_import_enabled = isset($input['auto_import_enabled']) ? (int)$input['auto_import_enabled'] : ($existing['auto_import_enabled'] ?? 0);
+    $report_page_url = isset($input['report_page_url']) ? trim($input['report_page_url']) : ($existing['report_page_url'] ?? null);
     $import_process_id = isset($input['import_process_id']) && $input['import_process_id'] !== '' ? (int)$input['import_process_id'] : ($existing['import_process_id'] ?? null);
     $import_capture_date = isset($input['import_capture_date']) ? trim($input['import_capture_date']) : ($existing['import_capture_date'] ?? 'today');
     $import_currency_id = isset($input['import_currency_id']) && $input['import_currency_id'] !== '' ? (int)$input['import_currency_id'] : ($existing['import_currency_id'] ?? null);
@@ -97,8 +98,8 @@ try {
     $updatePassword = isset($input['password']) && !empty(trim($input['password']));
     $updateSql = "
         UPDATE auto_login_credentials 
-        SET name = ?, website_url = ?, username = ?, has_2fa = ?, auto_import_enabled = ?, import_process_id = ?, import_capture_date = ?, import_currency_id = ?, import_field_mapping = ?, status = ?, remark = ?";
-    $updateParams = [$name, $website_url, $username, $has_2fa, $auto_import_enabled, $import_process_id, $import_capture_date ?: 'today', $import_currency_id, $import_field_mapping, $status, $remark];
+        SET name = ?, website_url = ?, username = ?, has_2fa = ?, auto_import_enabled = ?, report_page_url = ?, import_process_id = ?, import_capture_date = ?, import_currency_id = ?, import_field_mapping = ?, status = ?, remark = ?";
+    $updateParams = [$name, $website_url, $username, $has_2fa, $auto_import_enabled, $report_page_url, $import_process_id, $import_capture_date ?: 'today', $import_currency_id, $import_field_mapping, $status, $remark];
     
     if ($updatePassword) {
         $encrypted_password = encrypt_password(trim($input['password']));

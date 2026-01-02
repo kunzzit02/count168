@@ -9,6 +9,7 @@ require_once 'config.php';
 require_once 'auto_login_encrypt.php';
 require_once 'auto_login_report_importer.php';
 require_once 'auto_login_executor.php';
+require_once 'auto_login_web_scraper.php';
 
 try {
     // 获取POST数据
@@ -87,16 +88,90 @@ try {
     ");
     $stmt->execute([$id]);
     
-    // 执行自动登录并下载报告
-    $executionResult = executeAutoLogin($credential, $password, $two_fa_code);
+    // 检查是否使用网页抓取模式（从网页直接提取数据，不下载文件）
+    $useWebScraping = isset($input['use_web_scraping']) ? (bool)$input['use_web_scraping'] : true; // 默认使用网页抓取
+    $reportPageUrl = isset($input['report_page_url']) ? trim($input['report_page_url']) : ($credential['website_url'] ?? '');
     
-    $downloadedReportPath = $executionResult['file_path'] ?? null;
-    $tempDir = $executionResult['temp_dir'] ?? null;
+    $webData = null;
+    $downloadedReportPath = null;
+    $tempDir = null;
+    
+    if ($useWebScraping) {
+        // 方式1: 从网页直接提取数据
+        try {
+            // 执行登录
+            $loginResult = executeLoginOnly($credential, $password, $two_fa_code);
+            
+            if (!$loginResult['success']) {
+                throw new Exception('登录失败: ' . ($loginResult['error'] ?? '未知错误'));
+            }
+            
+            // 从网页提取报告数据
+            $extractionConfig = !empty($credential['import_field_mapping']) 
+                ? json_decode($credential['import_field_mapping'], true) 
+                : [];
+            
+            $webData = getReportFromWebPage($reportPageUrl, $loginResult['cookie_file'], $extractionConfig);
+            
+            if (empty($webData)) {
+                throw new Exception('无法从网页中提取报告数据，请检查报告页面URL或配置');
+            }
+            
+        } catch (Exception $e) {
+            $result = [
+                'success' => false,
+                'message' => '网页抓取失败',
+                'error' => $e->getMessage(),
+                'credential_info' => [
+                    'name' => $credential['name'],
+                    'website_url' => $credential['website_url'],
+                    'username' => $credential['username']
+                ]
+            ];
+            
+            $stmt = $pdo->prepare("
+                UPDATE auto_login_credentials 
+                SET last_result = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([json_encode($result, JSON_UNESCAPED_UNICODE), $id]);
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    } else {
+        // 方式2: 下载文件后解析（原有方式）
+        $executionResult = executeAutoLogin($credential, $password, $two_fa_code);
+        
+        $downloadedReportPath = $executionResult['file_path'] ?? null;
+        $tempDir = $executionResult['temp_dir'] ?? null;
+        
+        if (!$executionResult['success']) {
+            $result = [
+                'success' => false,
+                'message' => '下载失败',
+                'error' => $executionResult['error'],
+                'credential_info' => [
+                    'name' => $credential['name'],
+                    'website_url' => $credential['website_url'],
+                    'username' => $credential['username']
+                ]
+            ];
+            
+            $stmt = $pdo->prepare("
+                UPDATE auto_login_credentials 
+                SET last_result = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([json_encode($result, JSON_UNESCAPED_UNICODE), $id]);
+            echo json_encode($result, JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
     
     // 初始化结果
     $result = [
-        'success' => $executionResult['success'],
-        'message' => $executionResult['success'] ? '执行完成' : $executionResult['error'],
+        'success' => true,
+        'message' => $useWebScraping ? '成功从网页提取报告数据' : '成功下载报告',
         'credential_info' => [
             'name' => $credential['name'],
             'website_url' => $credential['website_url'],
@@ -106,23 +181,10 @@ try {
         ]
     ];
     
-    if (!$executionResult['success']) {
-        // 如果登录/下载失败，直接返回错误
-        $result['error'] = $executionResult['error'];
-        $stmt = $pdo->prepare("
-            UPDATE auto_login_credentials 
-            SET last_result = ?
-            WHERE id = ?
-        ");
-        $stmt->execute([json_encode($result, JSON_UNESCAPED_UNICODE), $id]);
-        echo json_encode($result, JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-    
     $importResult = null;
     
-    // 如果启用自动导入且下载成功，自动导入到data capture
-    if (!empty($credential['auto_import_enabled']) && $credential['auto_import_enabled'] == 1 && $downloadedReportPath && file_exists($downloadedReportPath)) {
+    // 如果启用自动导入，自动导入到data capture
+    if (!empty($credential['auto_import_enabled']) && $credential['auto_import_enabled'] == 1) {
         try {
             // 准备导入配置
             $importConfig = [
@@ -137,7 +199,56 @@ try {
             }
             
             // 导入报告
-            $importResult = importReportToDataCapture($pdo, $company_id, $id, $downloadedReportPath, $importConfig);
+            if ($useWebScraping && !empty($webData)) {
+                // 方式1: 从网页数据直接导入
+                $mapping = $importConfig['field_mapping'] ?? [
+                    'account' => ['account', 'account_id', 'accountId', 'account_code', 'col_0', 'Account'],
+                    'id_product_main' => ['product', 'product_id', 'idProductMain', 'product_code', 'col_1', 'Product'],
+                    'description_main' => ['description', 'product_name', 'descriptionMain', 'col_2', 'Description'],
+                    'amount' => ['amount', 'value', 'total', 'processed_amount', 'col_3', 'Amount'],
+                    'currency' => ['currency', 'currency_code', 'col_4', 'Currency'],
+                    'columns' => ['columns', 'columns_value'],
+                    'source' => ['source', 'source_value']
+                ];
+                
+                $summaryRows = convertWebDataToDataCaptureFormat($webData, $mapping);
+                
+                // 解析账号ID
+                foreach ($summaryRows as &$row) {
+                    $accountId = resolveAccountIdFromReport($pdo, $company_id, $row['account']);
+                    if ($accountId) {
+                        $row['accountId'] = $accountId;
+                    } else {
+                        // 如果找不到账号，标记为需要手动处理
+                        $row['accountId'] = null;
+                        $row['_account_not_found'] = $row['account'];
+                    }
+                    unset($row['account']); // 移除原始账号字段
+                }
+                
+                // 过滤掉找不到账号的行
+                $summaryRows = array_filter($summaryRows, function($row) {
+                    return !empty($row['accountId']);
+                });
+                
+                if (empty($summaryRows)) {
+                    throw new Exception('无法匹配任何账号，请检查账号映射配置');
+                }
+                
+                // 准备提交数据
+                $submitData = [
+                    'captureDate' => $importConfig['capture_date'],
+                    'processId' => $importConfig['process_id'],
+                    'currencyId' => $importConfig['currency_id'],
+                    'summaryRows' => array_values($summaryRows),
+                    'remark' => '自动导入 - 凭证ID: ' . $id . ' - ' . date('Y-m-d H:i:s')
+                ];
+                
+                // 直接调用保存函数
+                $importResult = saveToDataCaptureDirectly($pdo, $company_id, $submitData);
+            } elseif ($downloadedReportPath && file_exists($downloadedReportPath)) {
+                // 方式2: 从文件导入（原有方式）
+                $importResult = importReportToDataCapture($pdo, $company_id, $id, $downloadedReportPath, $importConfig);
             
             // 清理临时文件和目录
             if ($downloadedReportPath && file_exists($downloadedReportPath)) {
@@ -206,6 +317,50 @@ try {
         'success' => false,
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
+}
+
+/**
+ * 解析账号ID（从报告数据）
+ */
+function resolveAccountIdFromReport(PDO $pdo, int $companyId, $accountIdentifier): ?int {
+    // 如果是数字，直接作为ID使用
+    if (is_numeric($accountIdentifier)) {
+        $stmt = $pdo->prepare("
+            SELECT a.id FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id
+            WHERE ac.company_id = ? AND a.id = ?
+        ");
+        $stmt->execute([$companyId, (int)$accountIdentifier]);
+        $result = $stmt->fetchColumn();
+        if ($result) {
+            return (int)$result;
+        }
+    }
+    
+    // 尝试通过account_id匹配
+    $stmt = $pdo->prepare("
+        SELECT a.id FROM account a
+        INNER JOIN account_company ac ON a.id = ac.account_id
+        WHERE ac.company_id = ? AND UPPER(a.account_id) = UPPER(?)
+    ");
+    $stmt->execute([$companyId, (string)$accountIdentifier]);
+    $result = $stmt->fetchColumn();
+    
+    return $result ? (int)$result : null;
+}
+
+/**
+ * 解析币别ID（从币别代码）
+ */
+function resolveCurrencyIdFromCode(PDO $pdo, int $companyId, string $currencyCode): ?int {
+    $stmt = $pdo->prepare("
+        SELECT id FROM currency 
+        WHERE company_id = ? AND UPPER(code) = UPPER(?)
+    ");
+    $stmt->execute([$companyId, $currencyCode]);
+    $result = $stmt->fetchColumn();
+    
+    return $result ? (int)$result : null;
 }
 
 /**
