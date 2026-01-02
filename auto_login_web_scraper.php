@@ -206,8 +206,19 @@ function convertWebDataToDataCaptureFormat(array $webData, array $mapping): arra
             error_log("转换行 #$rowIndex - 账号映射键: " . json_encode($accountKeys) . ", 尝试的值: " . json_encode($attemptedValues) . ", 结果: '$account'");
         }
         
-        // 如果找不到账号，跳过
+        // 如果找不到账号，跳过（但先记录调试信息）
         if (empty($account)) {
+            // 记录前几行的情况用于调试
+            if ($rowIndex < 5) {
+                $accountKeys = $mapping['account'] ?? [];
+                $attemptedValues = [];
+                foreach ($accountKeys as $key) {
+                    if (isset($row[$key])) {
+                        $attemptedValues[$key] = (string)$row[$key];
+                    }
+                }
+                error_log("转换行 #$rowIndex - 账号为空，尝试的键: " . json_encode($attemptedValues));
+            }
             continue;
         }
         
@@ -217,6 +228,9 @@ function convertWebDataToDataCaptureFormat(array $webData, array $mapping): arra
         foreach ($summaryKeywords as $keyword) {
             if (stripos($accountLower, $keyword) !== false) {
                 $isSummaryRow = true;
+                if ($rowIndex < 5) {
+                    error_log("转换行 #$rowIndex - 被识别为汇总行 (账号: '$account', 关键词: '$keyword')");
+                }
                 break;
             }
         }
