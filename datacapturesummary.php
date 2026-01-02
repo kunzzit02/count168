@@ -4789,19 +4789,20 @@ function getCurrentProcessId() {
                 }
             }
             
+            // Get row label from cell or row (needed for both reference storage and display format)
+            let rowLabel = cell.getAttribute('data-row-label');
+            if (!rowLabel && row) {
+                const rowHeaderCell = row.querySelector('.row-header');
+                if (rowHeaderCell) {
+                    rowLabel = rowHeaderCell.textContent.trim();
+                    cell.setAttribute('data-row-label', rowLabel);
+                }
+            }
+            
             // Store id_product:column_index reference (new format)
             // IMPORTANT: Include row_label to distinguish between multiple rows with same id_product
             // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
             if (idProduct && dataColumnIndex !== null) {
-                // Get row label from cell or row
-                let rowLabel = cell.getAttribute('data-row-label');
-                if (!rowLabel && row) {
-                    const rowHeaderCell = row.querySelector('.row-header');
-                    if (rowHeaderCell) {
-                        rowLabel = rowHeaderCell.textContent.trim();
-                        cell.setAttribute('data-row-label', rowLabel);
-                    }
-                }
                 
                 // Build cell reference with row label if available
                 let cellReference;
@@ -4850,16 +4851,37 @@ function getCurrentProcessId() {
             
             // Insert column reference ($columnNumber) instead of value at cursor position
             // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
+            // 格式: [id_product (row_label) ]$columnNumber 或 [id_product ]$columnNumber
             let valueToInsert;
             if (displayColumnIndex !== null && displayColumnIndex > 0) {
-                // Insert column reference format: $columnNumber (e.g., $2, $3, $4)
-                // displayColumnIndex 就是 data-column-index 的值，直接使用
-                valueToInsert = `$${displayColumnIndex}`;
-                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex);
+                // Build the full format: [id_product (row_label) ]$columnNumber
+                let columnRef = `$${displayColumnIndex}`;
+                if (idProduct) {
+                    if (rowLabel) {
+                        // Format: [M99M06 (B) ]$4
+                        valueToInsert = `[${idProduct} (${rowLabel}) ]${columnRef}`;
+                    } else {
+                        // Format: [M99M06 ]$4
+                        valueToInsert = `[${idProduct} ]${columnRef}`;
+                    }
+                } else {
+                    // Fallback: if idProduct not available, just use column reference
+                    valueToInsert = columnRef;
+                }
+                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex, 'idProduct:', idProduct, 'rowLabel:', rowLabel);
             } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
                 // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
                 // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
-                valueToInsert = `$${dataColumnIndex + 1}`;
+                let columnRef = `$${dataColumnIndex + 1}`;
+                if (idProduct) {
+                    if (rowLabel) {
+                        valueToInsert = `[${idProduct} (${rowLabel}) ]${columnRef}`;
+                    } else {
+                        valueToInsert = `[${idProduct} ]${columnRef}`;
+                    }
+                } else {
+                    valueToInsert = columnRef;
+                }
                 console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex);
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
