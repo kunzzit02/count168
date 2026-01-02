@@ -16367,15 +16367,8 @@ function formatPercentValue(value) {
             /* Ensure modal content is clickable */
             pointer-events: auto;
             /* Make Edit Formula modal wider - ensure it fits within viewport */
-            width: clamp(800px, 70vw, 1400px);
+            width: clamp(900px, 75vw, 1400px);
             max-width: calc(100vw - clamp(150px, 13.02vw, 250px) - 40px); /* Account for sidebar and padding */
-        }
-        
-        /* Reduce modal width on medium-large screens */
-        @media (max-width: 1600px) {
-            #editFormulaModal .summary-confirm-modal-content {
-                width: clamp(800px, 68vw, 1300px);
-            }
         }
 
         @keyframes slideDown {
@@ -16615,9 +16608,8 @@ function formatPercentValue(value) {
                 font-size: clamp(9px, 0.70vw, 13px);
             }
             
-            /* Ensure modal fits on small screens - make it narrower */
+            /* Ensure modal fits on small screens */
             #editFormulaModal .summary-confirm-modal-content {
-                width: clamp(700px, 60vw, 1000px);
                 max-width: calc(100vw - clamp(150px, 13.02vw, 250px) - 20px);
                 padding-left: clamp(4px, 0.5vw, 8px);
                 padding-right: clamp(4px, 0.5vw, 8px);
@@ -16625,23 +16617,18 @@ function formatPercentValue(value) {
         }
         
         @media (max-width: 1200px) {
-            /* Reduce modal width on medium screens */
-            #editFormulaModal .summary-confirm-modal-content {
-                width: clamp(750px, 65vw, 1200px);
-            }
-            
             .edit-formula-form-container .form-layout {
                 gap: 20px;
             }
             
             .edit-formula-form-container .form-left-column {
-                max-width: 420px;
+                max-width: 480px;
                 min-width: 0;
                 flex-shrink: 1;
             }
             
             .edit-formula-form-container .form-middle-column {
-                max-width: 420px;
+                max-width: 480px;
                 min-width: 0;
                 flex-shrink: 1;
             }
