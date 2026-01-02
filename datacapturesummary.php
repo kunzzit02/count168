@@ -5979,8 +5979,8 @@ function getCurrentProcessId() {
                 columnsDisplay = sourceColumns || clickedColumnsDisplay || extractNumbersFromFormula(formulaValue);
             }
             
-            // 优先使用 formulaDisplay 输入框的值（转换后的值，如 "9+7*0.7/5"）
-            // 如果 formulaDisplay 输入框为空，则从 formulaValue 转换
+            // 直接使用 formulaValue（公式输入框中的原始值，包含 [id_product]$数字 格式）
+            // 不再转换为实际值，保持 [id_product]$数字 格式以便用户识别
             const formulaDisplayInput = document.getElementById('formulaDisplay');
             let formulaDisplay = '';
             
@@ -5990,27 +5990,11 @@ function getCurrentProcessId() {
                 sourceColumns = ''; // Clear sourceColumns when formula is empty
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
             } else {
-                // 优先使用 formulaDisplay 输入框的值（已经转换好的值）
-                if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
-                    const convertedFormula = formulaDisplayInput.value.trim();
-                    // 添加 Source Percent 部分（如果需要）
-                    formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
-                    console.log('saveFormula - Using formulaDisplay input value:', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
-                } else {
-                    // 如果 formulaDisplay 输入框为空，从 formulaValue 转换
-                    const trimmedFormula = formulaValue.trim();
-                    // 先将 $数字 转换为实际值
-                    const processValueForDisplay = processValue;
-                    // 临时更新显示框以获取转换后的值
-                    updateFormulaDisplay(trimmedFormula, processValueForDisplay);
-                    const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
-                    if (convertedFormula && convertedFormula !== '') {
-                        formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
-                    } else {
-                        formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                    }
-                    console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
-                }
+                // 直接使用 formulaValue，保持 [id_product]$数字 格式
+                // 添加 Source Percent 部分（如果需要）
+                const trimmedFormula = formulaValue.trim();
+                formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
+                console.log('saveFormula - Using formulaValue directly (preserving [id_product]$number format):', trimmedFormula, 'Final formulaDisplay:', formulaDisplay);
             }
             
             // Calculate processed amount
@@ -6660,8 +6644,9 @@ function getCurrentProcessId() {
                 
                 if (processValue) {
                     // Match $ followed by digits (e.g., $2, $10, $123)
+                    // Also match [id_product]$数字 format (e.g., [M99M06 (B) ]$4, [id_product]$2)
                     // Use negative lookahead to ensure we match complete numbers (e.g., $10 not $1 and $0)
-                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                    const dollarPattern = /(?:\[[^\]]+\])?\$(\d+)(?!\d)/g;
                     const dollarMatches = [];
                     let match;
                     
@@ -6670,8 +6655,8 @@ function getCurrentProcessId() {
                     
                     // Collect all matches
                     while ((match = dollarPattern.exec(formula)) !== null) {
-                        const fullMatch = match[0]; // e.g., "$2"
-                        const columnNumber = parseInt(match[1]); // e.g., 2
+                        const fullMatch = match[0]; // e.g., "$2" or "[M99M06 (B) ]$4"
+                        const columnNumber = parseInt(match[1]); // e.g., 2 or 4
                         const matchIndex = match.index;
                         
                         if (!isNaN(columnNumber) && columnNumber > 0) {
