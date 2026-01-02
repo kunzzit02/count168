@@ -522,6 +522,49 @@ if (!$company_id) {
                         <textarea id="remark" name="remark"></textarea>
                     </div>
                     
+                    <div class="form-group" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+                        <h3 style="margin: 0 0 15px 0; color: #002C49; font-size: 16px;">自动导入配置</h3>
+                        
+                        <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
+                            <input type="checkbox" id="auto_import_enabled" name="auto_import_enabled" value="1" onchange="toggleImportFields()">
+                            <span style="font-weight: 700;">启用自动导入到 Data Capture</span>
+                        </label>
+                        
+                        <div id="import_fields" style="display: none;">
+                            <div class="form-group">
+                                <label for="report_page_url">报告页面URL</label>
+                                <input type="url" id="report_page_url" name="report_page_url" placeholder="https://example.com/report（如果与登录URL不同）">
+                                <small style="color: #6b7280; font-size: 11px;">如果报告页面与登录页面不同，请填写报告页面的完整URL</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="import_process_id">导入流程 *</label>
+                                <select id="import_process_id" name="import_process_id" required>
+                                    <option value="">请选择流程</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="import_capture_date">导入日期</label>
+                                <input type="text" id="import_capture_date" name="import_capture_date" placeholder="today" value="today">
+                                <small style="color: #6b7280; font-size: 11px;">today=今天，yesterday=昨天，或具体日期如 2024-01-01</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="import_currency_id">默认币别</label>
+                                <select id="import_currency_id" name="import_currency_id">
+                                    <option value="">请选择币别</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="import_field_mapping">字段映射配置（JSON格式，可选）</label>
+                                <textarea id="import_field_mapping" name="import_field_mapping" rows="6" placeholder='{"account": ["账号", "Account"], "amount": ["金额", "Amount"]}'></textarea>
+                                <small style="color: #6b7280; font-size: 11px;">用于映射网页表格列名到系统字段。如果不填写，系统将尝试自动匹配。</small>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <button type="submit" class="submit-btn" id="submitBtn"><?php echo isset($_GET['edit']) ? '更新' : '添加'; ?></button>
                     <button type="button" class="submit-btn" onclick="resetForm()" style="background: #6b7280; margin-top: 10px;">重置</button>
                 </form>
@@ -577,6 +620,73 @@ if (!$company_id) {
                 codeInput.required = false;
                 codeInput.value = '';
             }
+        }
+        
+        // 切换自动导入字段显示
+        function toggleImportFields() {
+            const enabled = document.getElementById('auto_import_enabled').checked;
+            const fieldsDiv = document.getElementById('import_fields');
+            const processSelect = document.getElementById('import_process_id');
+            
+            if (enabled) {
+                fieldsDiv.style.display = 'block';
+                processSelect.required = true;
+            } else {
+                fieldsDiv.style.display = 'none';
+                processSelect.required = false;
+            }
+        }
+        
+        // 加载流程列表
+        function loadProcesses() {
+            const params = new URLSearchParams({
+                company_id: currentCompanyId
+            });
+            
+            fetch(`processlistapi.php?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        processesList = data.data;
+                        const select = document.getElementById('import_process_id');
+                        select.innerHTML = '<option value="">请选择流程</option>';
+                        data.data.forEach(process => {
+                            const option = document.createElement('option');
+                            option.value = process.id;
+                            option.textContent = process.process_id || process.name || `流程 #${process.id}`;
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载流程列表失败:', error);
+                });
+        }
+        
+        // 加载币别列表
+        function loadCurrencies() {
+            const params = new URLSearchParams({
+                company_id: currentCompanyId
+            });
+            
+            fetch(`currencyapi.php?${params}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data) {
+                        currenciesList = data.data;
+                        const select = document.getElementById('import_currency_id');
+                        select.innerHTML = '<option value="">请选择币别</option>';
+                        data.data.forEach(currency => {
+                            const option = document.createElement('option');
+                            option.value = currency.id;
+                            option.textContent = currency.code || `币别 #${currency.id}`;
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载币别列表失败:', error);
+                });
         }
 
         // 加载列表
@@ -667,6 +777,41 @@ if (!$company_id) {
                                 document.getElementById('two_fa_code').required = false; // 编辑时可选
                             }
                             toggle2FAFields(); // 更新字段显示状态
+                            
+                            // 设置自动导入字段
+                            // 先加载下拉选项，然后再设置值（确保选项已存在）
+                            Promise.all([loadProcesses(), loadCurrencies()]).then(() => {
+                                const autoImportEnabled = cred.auto_import_enabled == 1 || cred.auto_import_enabled === true;
+                                document.getElementById('auto_import_enabled').checked = autoImportEnabled;
+                                if (autoImportEnabled) {
+                                    document.getElementById('report_page_url').value = cred.report_page_url || '';
+                                    
+                                    // 设置流程ID
+                                    if (cred.import_process_id) {
+                                        document.getElementById('import_process_id').value = cred.import_process_id;
+                                    }
+                                    
+                                    document.getElementById('import_capture_date').value = cred.import_capture_date || 'today';
+                                    
+                                    // 设置币别ID
+                                    if (cred.import_currency_id) {
+                                        document.getElementById('import_currency_id').value = cred.import_currency_id;
+                                    }
+                                    
+                                    // 解析字段映射JSON
+                                    if (cred.import_field_mapping) {
+                                        try {
+                                            const mapping = typeof cred.import_field_mapping === 'string' 
+                                                ? JSON.parse(cred.import_field_mapping) 
+                                                : cred.import_field_mapping;
+                                            document.getElementById('import_field_mapping').value = JSON.stringify(mapping, null, 2);
+                                        } catch (e) {
+                                            document.getElementById('import_field_mapping').value = cred.import_field_mapping || '';
+                                        }
+                                    }
+                                }
+                                toggleImportFields(); // 更新字段显示状态
+                            });
                             
                             document.getElementById('submitBtn').textContent = '更新';
                             editingId = id;
@@ -798,6 +943,27 @@ if (!$company_id) {
                 formData.two_fa_instructions = document.getElementById('two_fa_instructions').value.trim();
             }
             
+            // 如果启用自动导入，添加相关字段
+            const autoImportEnabled = document.getElementById('auto_import_enabled').checked;
+            formData.auto_import_enabled = autoImportEnabled ? 1 : 0;
+            if (autoImportEnabled) {
+                formData.report_page_url = document.getElementById('report_page_url').value.trim();
+                formData.import_process_id = document.getElementById('import_process_id').value;
+                formData.import_capture_date = document.getElementById('import_capture_date').value.trim() || 'today';
+                formData.import_currency_id = document.getElementById('import_currency_id').value || null;
+                
+                // 解析字段映射JSON（如果提供）
+                const fieldMapping = document.getElementById('import_field_mapping').value.trim();
+                if (fieldMapping) {
+                    try {
+                        formData.import_field_mapping = JSON.parse(fieldMapping);
+                    } catch (e) {
+                        showNotification('字段映射配置格式错误，请检查JSON格式', 'error');
+                        return;
+                    }
+                }
+            }
+            
             const id = document.getElementById('credential_id').value;
             const url = id ? 'auto_login_update_api.php' : 'auto_login_create_api.php';
             const method = id ? 'POST' : 'POST';
@@ -845,6 +1011,8 @@ if (!$company_id) {
             document.getElementById('submitBtn').textContent = '添加';
             document.getElementById('2fa_fields').style.display = 'none';
             document.getElementById('two_fa_code').required = false;
+            document.getElementById('import_fields').style.display = 'none';
+            document.getElementById('import_process_id').required = false;
             editingId = null;
         }
 
@@ -890,8 +1058,12 @@ if (!$company_id) {
         // 页面加载时获取列表
         document.addEventListener('DOMContentLoaded', function() {
             loadCredentials();
-            // 初始化2FA字段状态
+            // 初始化字段状态
             toggle2FAFields();
+            toggleImportFields();
+            // 加载下拉选项
+            loadProcesses();
+            loadCurrencies();
         });
     </script>
 </body>

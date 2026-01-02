@@ -52,6 +52,7 @@ try {
                 alc.import_process_id,
                 alc.import_capture_date,
                 alc.import_currency_id,
+                alc.import_field_mapping,
                 alc.status,
                 alc.remark,
                 alc.last_executed,
