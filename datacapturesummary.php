@@ -1608,54 +1608,21 @@ function getCurrentProcessId() {
                 </div>
             `;
             
-            // Render into modal (but don't show yet)
+            // Render into modal and open
             modalContent.innerHTML = formHTML;
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
-            // Calculate and apply initial scale immediately to prevent flash
-            // Use requestAnimationFrame to ensure DOM is ready
-            requestAnimationFrame(() => {
-                // Calculate initial scale based on viewport
-                const viewportWidth = window.innerWidth;
-                const viewportHeight = window.innerHeight;
-                const sidebarWidth = Math.max(150, Math.min(250, viewportWidth * 0.1302));
-                const topMargin = Math.max(103, Math.min(115, viewportWidth * 0.06));
-                const topPadding = Math.max(20, Math.min(80, viewportHeight * 0.08));
+            // Adjust modal scale based on viewport size (wait for DOM to render)
+            setTimeout(() => {
+                adjustEditFormulaModalScale();
                 
-                const availableWidth = viewportWidth - sidebarWidth - 40;
-                const availableHeight = viewportHeight - topMargin - topPadding - 40;
-                
-                const baseWidth = 1400;
-                const baseHeight = 800; // Estimated initial height
-                
-                const widthScale = availableWidth / baseWidth;
-                const heightScale = availableHeight / baseHeight;
-                let scale = Math.min(widthScale, heightScale, 1);
-                scale = Math.max(0.4, scale);
-                
-                // Apply scale immediately
-                modalContent.style.transform = `scale(${scale})`;
-                modalContent.style.transformOrigin = 'center top';
-                modalContent.style.maxWidth = `${baseWidth}px`;
-                modalContent.style.width = `${baseWidth}px`;
-                
-                // Show modal content with fade-in
-                requestAnimationFrame(() => {
-                    modalContent.classList.add('scale-ready');
-                });
-                
-                // Fine-tune scale after content is fully rendered
-                setTimeout(() => {
-                    adjustEditFormulaModalScale();
-                    
-                    // Add resize listener to adjust scale when window is resized
-                    if (!editFormulaModalResizeHandler) {
-                        editFormulaModalResizeHandler = adjustEditFormulaModalScale;
-                        window.addEventListener('resize', editFormulaModalResizeHandler);
-                    }
-                }, 100);
-            });
+                // Add resize listener to adjust scale when window is resized
+                if (!editFormulaModalResizeHandler) {
+                    editFormulaModalResizeHandler = adjustEditFormulaModalScale;
+                    window.addEventListener('resize', editFormulaModalResizeHandler);
+                }
+            }, 100);
             
             // Clear clicked columns when opening new form (unless editing)
             setTimeout(() => {
@@ -5403,10 +5370,9 @@ function getCurrentProcessId() {
             }
             if (modalContent) {
                 modalContent.innerHTML = '';
-                // Reset transform and classes
+                // Reset transform
                 modalContent.style.transform = '';
                 modalContent.style.height = '';
-                modalContent.classList.remove('scale-ready');
             }
             // Remove resize listener
             if (editFormulaModalResizeHandler) {
@@ -16475,16 +16441,7 @@ function formatPercentValue(value) {
             max-width: 95%;
             /* Enable scaling for smaller screens */
             transform-origin: center top;
-            /* Remove transition to prevent flash - apply scale immediately */
-            transition: none;
-            /* Initially hidden until scale is calculated */
-            opacity: 0;
-        }
-        
-        /* Show modal after scale is applied */
-        #editFormulaModal .summary-confirm-modal-content.scale-ready {
-            opacity: 1;
-            transition: opacity 0.1s ease;
+            transition: transform 0.2s ease;
         }
 
         @keyframes slideDown {
