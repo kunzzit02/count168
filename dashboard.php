@@ -231,32 +231,32 @@ if (isset($_GET['logout'])) {
             border: 1px solid #e5e7eb;
             border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            padding: clamp(16px, 1.35vw, 26px);
+            padding: clamp(10px, 0.9vw, 16px);
             display: flex;
             flex-direction: column;
-            gap: clamp(8px, 0.63vw, 12px);
+            gap: clamp(4px, 0.4vw, 8px);
         }
         
         .dashboard-kpi-card .icon {
-            width: 40px;
-            height: 40px;
-            font-size: clamp(20px, 1.56vw, 30px);
+            width: 32px;
+            height: 32px;
+            font-size: clamp(16px, 1.2vw, 24px);
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: clamp(4px, 0.31vw, 6px);
+            margin-bottom: clamp(2px, 0.2vw, 4px);
         }
 
         .dashboard-kpi-card .kpi-label {
-            font-size: clamp(12px, 0.94vw, 18px);
+            font-size: clamp(10px, 0.75vw, 14px);
             color: #6b7280;
             font-weight: 600;
-            margin-bottom: clamp(4px, 0.31vw, 6px);
+            margin-bottom: clamp(2px, 0.2vw, 4px);
             font-family: 'Amaranth', sans-serif;
         }
 
         .dashboard-kpi-card .kpi-value {
-            font-size: clamp(20px, 1.56vw, 30px);
+            font-size: clamp(16px, 1.2vw, 24px);
             font-weight: bold;
             color: #111827;
             font-family: 'Amaranth', sans-serif;
