@@ -727,13 +727,32 @@ if (!$company_id) {
                 },
                 body: JSON.stringify({ id: id })
             })
-            .then(response => response.json())
+            .then(response => {
+                // 检查响应状态
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        try {
+                            const json = JSON.parse(text);
+                            throw new Error(json.error || '服务器错误: ' + response.status);
+                        } catch (e) {
+                            if (e instanceof Error && e.message.includes('服务器错误')) {
+                                throw e;
+                            }
+                            throw new Error('服务器错误 (' + response.status + '): ' + text.substring(0, 100));
+                        }
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
                 btn.disabled = false;
                 btn.textContent = originalText;
                 
                 if (data.success) {
                     showNotification('执行成功: ' + (data.message || ''), 'success');
+                    if (data.import && data.import.success) {
+                        showNotification('已自动导入 ' + (data.import.rows_imported || 0) + ' 行数据', 'success');
+                    }
                     loadCredentials();
                 } else {
                     showNotification(data.error || '执行失败', 'error');
@@ -743,7 +762,7 @@ if (!$company_id) {
                 console.error('Error:', error);
                 btn.disabled = false;
                 btn.textContent = originalText;
-                showNotification('执行失败', 'error');
+                showNotification('执行失败: ' + (error.message || '未知错误'), 'error');
             });
         }
 
