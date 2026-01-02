@@ -16369,84 +16369,107 @@ function formatPercentValue(value) {
             max-width: 95%;
             /* Enable scaling for smaller screens using CSS only */
             transform-origin: center top;
-            transform: scale(1); /* Default: no scaling at 1920x1080 */
+            /* Default: no scaling at 1920x1080 and above */
+            transform: scale(1);
         }
         
-        /* Responsive scaling for Edit Formula modal using media queries */
-        /* Calculate available width: viewport - sidebar(250px) - margins(40px) = base(1400px) */
-        /* Scale = available / 1400 */
+        /* Responsive scaling using CSS - calculate scale based on available width */
+        /* Formula: scale = (available width) / 1400, where available = 100vw - sidebar - margins */
+        /* Use clamp to ensure scale is between 0.4 and 1 */
         
-        /* For screens smaller than 1920px, scale based on available width */
+        /* For screens smaller than 1920px, calculate scale dynamically */
         @media (max-width: 1920px) {
             #editFormulaModal .summary-confirm-modal-content {
-                /* Available width calculation: 100vw - 250px(sidebar) - 40px(margins) */
-                transform: scale(calc((100vw - 250px - 40px) / 1400));
+                /* Available width = 100vw - 250px(sidebar) - 40px(margins) */
+                /* Scale = available / 1400, clamped between 0.4 and 1 */
+                transform: scale(clamp(0.4, calc((100vw - 250px - 40px) / 1400), 1)) !important;
             }
         }
         
-        @media (max-width: 1600px) {
-            #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(calc((100vw - 250px - 40px) / 1400));
-            }
-        }
-        
+        /* Adjust for smaller sidebar on smaller screens */
         @media (max-width: 1400px) {
             #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(calc((100vw - 200px - 40px) / 1400));
+                transform: scale(clamp(0.4, calc((100vw - 200px - 40px) / 1400), 1)) !important;
             }
         }
         
         @media (max-width: 1200px) {
             #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(calc((100vw - 180px - 40px) / 1400));
+                transform: scale(clamp(0.4, calc((100vw - 180px - 40px) / 1400), 1)) !important;
             }
         }
         
         @media (max-width: 1000px) {
             #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(calc((100vw - 150px - 40px) / 1400));
+                transform: scale(clamp(0.4, calc((100vw - 150px - 40px) / 1400), 1)) !important;
             }
         }
         
         @media (max-width: 800px) {
             #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(max(0.4, calc((100vw - 150px - 40px) / 1400)));
+                transform: scale(clamp(0.35, calc((100vw - 150px - 40px) / 1400), 1)) !important;
             }
         }
         
         @media (max-width: 600px) {
             #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(max(0.35, calc((100vw - 150px - 40px) / 1400)));
+                transform: scale(clamp(0.3, calc((100vw - 150px - 40px) / 1400), 1)) !important;
             }
         }
         
         /* Also consider height for very short screens */
+        /* When height is more restrictive, use height-based scale */
         @media (max-height: 900px) {
             #editFormulaModal .summary-confirm-modal-content {
-                /* Available height: 100vh - top margin(115px) - top padding(80px) - bottom margin(40px) */
-                transform: scale(min(1, calc((100vh - 115px - 80px - 40px) / 800)));
+                /* Available height: 100vh - 115px(margin) - 80px(padding) - 40px(margin) */
+                /* Base height: 800px */
+                transform: scale(clamp(0.4, calc((100vh - 115px - 80px - 40px) / 800), 1)) !important;
             }
         }
         
         @media (max-height: 700px) {
             #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(max(0.4, calc((100vh - 115px - 80px - 40px) / 800)));
+                transform: scale(clamp(0.35, calc((100vh - 115px - 80px - 40px) / 800), 1)) !important;
             }
         }
         
         @media (max-height: 600px) {
             #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(max(0.35, calc((100vh - 115px - 80px - 40px) / 800)));
+                transform: scale(clamp(0.3, calc((100vh - 115px - 80px - 40px) / 800), 1)) !important;
             }
         }
         
-        /* Combine width and height constraints - use the smaller scale */
-        @media (max-width: 1920px) and (max-height: 900px) {
+        /* For screens that are both narrow and short, use the more restrictive scale */
+        /* Calculate both and use the smaller one */
+        @media (max-width: 1400px) and (max-height: 900px) {
             #editFormulaModal .summary-confirm-modal-content {
-                transform: scale(min(
-                    calc((100vw - 250px - 40px) / 1400),
-                    calc((100vh - 115px - 80px - 40px) / 800)
-                ));
+                /* Calculate both scales and use the smaller */
+                --width-scale: calc((100vw - 200px - 40px) / 1400);
+                --height-scale: calc((100vh - 115px - 80px - 40px) / 800);
+                /* Use width scale if it's smaller, otherwise use height scale */
+                transform: scale(clamp(0.4, var(--width-scale), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 1400px) and (max-height: 700px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                --height-scale: calc((100vh - 115px - 80px - 40px) / 800);
+                transform: scale(clamp(0.35, var(--height-scale), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 1000px) and (max-height: 700px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                --width-scale: calc((100vw - 150px - 40px) / 1400);
+                --height-scale: calc((100vh - 115px - 80px - 40px) / 800);
+                transform: scale(clamp(0.35, var(--width-scale), 1)) !important;
+            }
+        }
+        
+        @media (max-width: 1000px) and (max-height: 600px) {
+            #editFormulaModal .summary-confirm-modal-content {
+                --height-scale: calc((100vh - 115px - 80px - 40px) / 800);
+                transform: scale(clamp(0.3, var(--height-scale), 1)) !important;
             }
         }
 
