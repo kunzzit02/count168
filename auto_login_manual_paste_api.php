@@ -281,10 +281,30 @@ try {
     
 } catch (Exception $e) {
     ob_clean();
+    $errorMsg = $e->getMessage();
+    
+    // 提供更友好的错误信息
+    if (strpos($errorMsg, '未启用自动导入') !== false) {
+        $errorMsg .= '。请先编辑凭证，启用"自动导入"并选择"流程"。';
+    } else if (strpos($errorMsg, '未配置导入流程') !== false) {
+        $errorMsg .= '。请先编辑凭证，在"自动导入"设置中选择"流程"。';
+    } else if (strpos($errorMsg, '粘贴的数据为空') !== false) {
+        $errorMsg .= '。请确保已粘贴表格数据。';
+    } else if (strpos($errorMsg, '无法解析粘贴的数据') !== false) {
+        $errorMsg .= '。请尝试：1) 确保复制了整个表格（包括表头） 2) 使用Tab分隔的数据格式';
+    } else if (strpos($errorMsg, '无法匹配任何账号') !== false) {
+        $errorMsg .= '。请检查：1) 账号是否存在于系统中 2) 账号名称是否匹配';
+    }
+    
     http_response_code(400);
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => $errorMsg,
+        'debug' => [
+            'input_received' => isset($input) ? ['has_id' => isset($input['id']), 'has_pasted_data' => isset($input['pasted_data']), 'pasted_data_length' => isset($input['pasted_data']) ? strlen($input['pasted_data']) : 0] : 'no_input',
+            'credential_check' => isset($credential) ? ['id' => $credential['id'] ?? null, 'auto_import_enabled' => $credential['auto_import_enabled'] ?? null, 'import_process_id' => $credential['import_process_id'] ?? null] : 'no_credential',
+            'company_id' => $_SESSION['company_id'] ?? null
+        ]
     ], JSON_UNESCAPED_UNICODE);
 }
 ?>

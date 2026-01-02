@@ -971,7 +971,24 @@ if (!$company_id) {
                     pasted_data: pastedData
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('服务器响应状态:', response.status);
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        console.log('服务器响应内容:', text);
+                        try {
+                            const data = JSON.parse(text);
+                            throw new Error(data.error || '服务器错误 (' + response.status + ')');
+                        } catch (e) {
+                            if (e instanceof Error && e.message.includes('服务器错误')) {
+                                throw e;
+                            }
+                            throw new Error('服务器错误 (' + response.status + '): ' + text.substring(0, 200));
+                        }
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
                 document.getElementById('pasteDialog').remove();
                 
@@ -979,13 +996,16 @@ if (!$company_id) {
                     showNotification('成功导入 ' + (data.rows_imported || 0) + ' 行数据', 'success');
                     loadCredentials();
                 } else {
-                    showNotification('导入失败: ' + (data.error || '未知错误'), 'error');
+                    showNotification('导入失败: ' + (data.error || '未知错误'), 'error', 8000);
                 }
             })
             .catch(error => {
-                document.getElementById('pasteDialog').remove();
+                const dialog = document.getElementById('pasteDialog');
+                if (dialog) {
+                    dialog.remove();
+                }
                 console.error('Error:', error);
-                showNotification('导入失败: ' + (error.message || '未知错误'), 'error');
+                showNotification('导入失败: ' + (error.message || '未知错误'), 'error', 8000);
             });
         }
 
