@@ -6097,9 +6097,31 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                     
-                    // 检查是否是标识符行
+                    // 检查是否是标识符行，且后续有名称行和数据行的模式
+                    // 模式：标识符行（如"SB9965A"）+ 名称行（如"Pelepas"）+ 数据行（如"-367.03\t476.67\t..."）
                     const isIdentifierRow = identifierPattern.test(trimmed) || 
                                           (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0]));
+                    if (isIdentifierRow && isSingleValueRow && !nextRowIsDataRow && i + 2 < rows.length) {
+                        // 当前行是标识符单值行，下一行不是数据行，检查是否有名称行+数据行的模式
+                        const nextRow = rows[i + 1].trim();
+                        const nextNextRow = rows[i + 2].trim();
+                        const nextRowIsSingleValue = nextRow !== '' && !nextRow.includes('\t');
+                        const nextNextRowIsDataRow = nextNextRow !== '' && (nextNextRow.includes('\t') || /^-?\d/.test(nextNextRow));
+                        const nextRowIsIdentifier = identifierPattern.test(nextRow);
+                        
+                        // 如果下一行是单值非标识符行，且再下一行是数据行，则合并三行
+                        if (nextRowIsSingleValue && !nextRowIsIdentifier && nextNextRowIsDataRow) {
+                            // 获取标识符（去除可能的制表符）
+                            const identifier = trimmed.includes('\t') ? trimmed.split('\t')[0] : trimmed;
+                            let mergedRow = identifier + '\t' + nextRow + '\t' + nextNextRow;
+                            processedRows.push(mergedRow);
+                            i += 2; // 跳过名称行和数据行
+                            console.log(`✓ Merged identifier row "${identifier}" + name row "${nextRow}" + data row`);
+                            continue;
+                        }
+                    }
+                    
+                    // 检查是否是标识符行（用于其他标识符行处理逻辑）
                     
                     if (isIdentifierRow) {
                         // 这是一个标识符行，检查后续行
