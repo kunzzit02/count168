@@ -12340,40 +12340,19 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 2: Match by account_id + formula_variant (most reliable for data matching)
-        // This ensures that templates are matched to the correct id_product based on account and formula,
-        // regardless of row position changes (e.g., when new rows are inserted)
-        if (!targetRow && templateAccountId && templateFormulaVariant) {
-            for (const candidate of candidateRows) {
-                if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
-                    break;
-                }
-            }
-        }
-
-        // Priority 3: Match by account_id only (if formula_variant not available)
-        if (!targetRow && templateAccountId) {
-            for (const candidate of candidateRows) {
-                if (candidate.accountId === templateAccountId) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id:', templateAccountId);
-                    break;
-                }
-            }
-        }
-
-        // Priority 4: Match by row_index (only as fallback when account_id/formula_variant not available)
-        // NOTE: row_index is not reliable when rows are inserted/deleted, so it's only used as last resort
-        // This ensures that templates are matched primarily by id_product + account_id + formula_variant,
-        // which remain stable even when row positions change
+        // Priority 2: Match by row_index (exact match) - this is the most reliable way to match rows
+        // IMPORTANT: When row_index matches, we should use that row regardless of account_id/formula_variant
+        // This ensures that templates are applied to the correct row position even if account_id changes
+        // CRITICAL: If exact row_index match fails (e.g., row was moved due to new rows inserted in Data Capture Table),
+        // find the next matching row with same id_product at or after the desired row_index
+        // This handles the case: A=BB, B=BB, C=BB -> A=BB, B=BB, C=TT, D=BB
+        // Template saved with row_index=2 (C=BB) should match to D=BB (row_index=3)
         if (!targetRow && templateRowIndex !== null) {
             // First, try exact match
             for (const candidate of candidateRows) {
                 if (candidate.rowIndex === templateRowIndex) {
                     targetRow = candidate.row;
-                    console.log('Matched row by row_index (exact match, fallback):', templateRowIndex);
+                    console.log('Matched row by row_index (exact match):', templateRowIndex, 'template account_id:', templateAccountId, 'candidate account_id:', candidate.accountId);
                     break;
                 }
             }
@@ -12394,7 +12373,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 // If found a row at or after desired position, use it
                 if (nextCandidate) {
                     targetRow = nextCandidate.row;
-                    console.log('Matched row by row_index (next match after, fallback):', templateRowIndex, 'found at row_index:', nextCandidate.rowIndex, 'id_product:', idProduct);
+                    console.log('Matched row by row_index (next match after):', templateRowIndex, 'found at row_index:', nextCandidate.rowIndex, 'id_product:', idProduct);
                 } else {
                     // If no row found at or after, find the closest row before (fallback)
                     let closestCandidate = null;
@@ -12410,8 +12389,41 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     
                     if (closestCandidate) {
                         targetRow = closestCandidate.row;
-                        console.log('Matched row by row_index (closest before, fallback):', templateRowIndex, 'found at row_index:', closestCandidate.rowIndex, 'id_product:', idProduct);
+                        console.log('Matched row by row_index (closest before):', templateRowIndex, 'found at row_index:', closestCandidate.rowIndex, 'id_product:', idProduct);
                     }
+                }
+            }
+        }
+
+        // Priority 3: Match by account_id + formula_variant (if row_index not available)
+        if (!targetRow && templateAccountId && templateFormulaVariant) {
+            for (const candidate of candidateRows) {
+                if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
+                    break;
+                }
+            }
+        }
+
+        // Priority 4: Match by account_id only (if formula_variant not available)
+        if (!targetRow && templateAccountId) {
+            for (const candidate of candidateRows) {
+                if (candidate.accountId === templateAccountId) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by account_id:', templateAccountId);
+                    break;
+                }
+            }
+        }
+
+        // Priority 5: Match by row_index only (if account_id not available)
+        if (!targetRow && templateRowIndex !== null) {
+            for (const candidate of candidateRows) {
+                if (candidate.rowIndex === templateRowIndex) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by row_index:', templateRowIndex);
+                    break;
                 }
             }
         }
