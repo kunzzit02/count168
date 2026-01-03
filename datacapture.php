@@ -6484,10 +6484,45 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             // 检测是否为特殊格式（每个单元格占一行的行优先格式）
-            const isSpecialRowMajorFormat = rowsWithTabsRatio < 0.3 && rows.length > 10;
+            // 重要：如果数据量很大（超过100个单元格）且包含制表符，不应该识别为特殊格式
+            // 因为标准表格格式（多行多列）在复制时可能每行都有制表符，不应该被误判为特殊格式
+            let isSpecialRowMajorFormat = rowsWithTabsRatio < 0.3 && rows.length > 10;
+            
+            // 如果数据量很大且包含制表符，更可能是标准表格格式，而不是特殊格式
+            if (isSpecialRowMajorFormat && allCells.length > 100 && rowsWithTabs > 0) {
+                // 检查是否有多个行包含制表符，且这些行的列数相似
+                let consistentColumnCount = true;
+                let firstRowColCount = 0;
+                let rowsWithConsistentCols = 0;
+                
+                for (let row of rows) {
+                    const trimmed = row.trim();
+                    if (trimmed.includes('\t')) {
+                        const colCount = trimmed.split('\t').length;
+                        if (firstRowColCount === 0) {
+                            firstRowColCount = colCount;
+                        } else if (Math.abs(colCount - firstRowColCount) > 2) {
+                            // 列数差异太大，可能不是标准表格格式
+                            consistentColumnCount = false;
+                            break;
+                        }
+                        if (colCount >= 5) { // 至少5列才认为是标准表格
+                            rowsWithConsistentCols++;
+                        }
+                    }
+                }
+                
+                // 如果有多个行包含制表符且列数一致，更可能是标准表格格式
+                if (rowsWithConsistentCols >= 3 && consistentColumnCount && firstRowColCount >= 5) {
+                    isSpecialRowMajorFormat = false;
+                    console.log('Large dataset with consistent tab-separated rows detected, treating as standard ROW-MAJOR format instead of special format');
+                    console.log(`  Rows with tabs: ${rowsWithConsistentCols}, consistent column count: ${firstRowColCount}`);
+                }
+            }
             
             // 特殊检查：如果第一行包含制表符，且只有一个行标识符，应该将所有数据合并成一行
             // 这种情况通常是：第一行是制表符分隔的多个值，后面每行都是单个值，但实际应该是一行数据
+            // 但只有当数据量较小时才适用（避免误判大量数据）
             let shouldTreatAsSingleRow = false;
             if (isSpecialRowMajorFormat && rowIdentifierIndices.length === 1 && allCells.length > 0 && allCells.length <= 30) {
                 // 检查第一行是否包含制表符
@@ -6779,6 +6814,46 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 estimatedColumns = detectedColumns;
                 const totalCells = allCells.length;
+                
+                // 安全检查：如果检测到的列数接近总单元格数（意味着所有数据会被放在一行），
+                // 且数据量很大，这可能是误判，应该回退到标准ROW-MAJOR解析
+                if (isSpecialRowMajorFormat && estimatedColumns > 0 && totalCells > 100) {
+                    const estimatedRows = Math.ceil(totalCells / estimatedColumns);
+                    const columnRatio = estimatedColumns / totalCells;
+                    
+                    // 如果检测到的列数超过总单元格数的80%，或者估计的行数只有1行，可能是误判
+                    if (columnRatio > 0.8 || estimatedRows <= 1) {
+                        // 检查原始数据是否包含制表符分隔的多行
+                        let hasMultipleTabRows = false;
+                        let tabRowCount = 0;
+                        let avgColsPerTabRow = 0;
+                        
+                        for (let row of rows) {
+                            const trimmed = row.trim();
+                            if (trimmed.includes('\t')) {
+                                tabRowCount++;
+                                const colCount = trimmed.split('\t').length;
+                                avgColsPerTabRow += colCount;
+                            }
+                        }
+                        
+                        if (tabRowCount > 0) {
+                            avgColsPerTabRow = Math.round(avgColsPerTabRow / tabRowCount);
+                        }
+                        
+                        // 如果有多个包含制表符的行，且平均列数合理（5-200列），更可能是标准表格格式
+                        if (tabRowCount >= 2 && avgColsPerTabRow >= 5 && avgColsPerTabRow <= 200) {
+                            console.warn(`WARNING: Detected column count (${estimatedColumns}) is too close to total cells (${totalCells}), which would result in only ${estimatedRows} row(s).`);
+                            console.warn(`  Found ${tabRowCount} rows with tabs, average ${avgColsPerTabRow} columns per row.`);
+                            console.warn(`  This looks like standard ROW-MAJOR format, not special format. Switching to standard parsing.`);
+                            
+                            // 回退到标准ROW-MAJOR解析
+                            isSpecialRowMajorFormat = false;
+                            // 重新构建dataMatrix，使用标准ROW-MAJOR解析
+                            // 这将在后面的else分支中处理
+                        }
+                    }
+                }
                 
                 // 根据格式类型处理（单行格式已在前面处理，这里只处理需要分组的情况）
                 if (isSpecialRowMajorFormat) {
