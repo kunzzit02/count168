@@ -6022,6 +6022,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     const nonEmptyCells = cells.filter(c => c !== '');
                     const isSingleValueRow = !hasTabSeparator || nonEmptyCells.length === 1;
                     
+                    // 检查是否是标识符行
+                    const isIdentifierRow = identifierPattern.test(trimmed) || 
+                                          (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0]));
+                    
                     // 检查下一行是否是数据行（包含制表符分隔的多个值）
                     let nextRowIsDataRow = false;
                     if (i + 1 < rows.length) {
@@ -6030,6 +6034,28 @@ if ($current_user_id && count($user_companies) > 0) {
                         const nextRowCells = nextRow.split('\t').map(c => c.trim());
                         const nextRowNonEmpty = nextRowCells.filter(c => c !== '');
                         nextRowIsDataRow = nextRowHasTabs && nextRowNonEmpty.length > 1;
+                    }
+                    
+                    // 如果当前行是标识符行，且下一行是单值行（名称行），再下一行是数据行，则优先合并三行
+                    if (isIdentifierRow && isSingleValueRow && i + 2 < rows.length) {
+                        const nextRow = rows[i + 1].trim();
+                        const nextNextRow = rows[i + 2].trim();
+                        const nextRowIsSingleValue = nextRow !== '' && !nextRow.includes('\t');
+                        const nextRowIsIdentifier = identifierPattern.test(nextRow);
+                        const nextNextRowHasTabs = nextNextRow.includes('\t');
+                        const nextNextRowCells = nextNextRowHasTabs ? nextNextRow.split('\t').map(c => c.trim()) : [];
+                        const nextNextRowNonEmpty = nextNextRowCells.filter(c => c !== '');
+                        const nextNextRowIsDataRow = nextNextRow !== '' && nextNextRowHasTabs && nextNextRowNonEmpty.length > 1;
+                        
+                        // 如果下一行是单值非标识符行（名称行），且再下一行是数据行，则合并三行
+                        if (nextRowIsSingleValue && !nextRowIsIdentifier && nextNextRowIsDataRow) {
+                            const identifier = trimmed.includes('\t') ? trimmed.split('\t')[0] : trimmed;
+                            let mergedRow = identifier + '\t' + nextRow + '\t' + nextNextRow;
+                            processedRows.push(mergedRow);
+                            i += 2; // 跳过名称行和数据行
+                            console.log(`✓ Merged identifier row "${identifier}" + name row "${nextRow}" + data row`);
+                            continue;
+                        }
                     }
                     
                     // 如果当前行是单值行，且下一行是数据行，则合并它们
@@ -6097,10 +6123,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                     
-                    // 检查是否是标识符行
-                    const isIdentifierRow = identifierPattern.test(trimmed) || 
-                                          (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0]));
-                    
                     if (isIdentifierRow) {
                         // 这是一个标识符行，检查后续行
                         let mergedRow = trimmed;
@@ -6137,6 +6159,17 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 下一行直接是数据行（没有名称行）
                                 mergedRow += '\t' + nextRow;
                                 skipCount++;
+                            } else if (nextRow !== '' && !nextRowIsIdentifier && !nextRow.includes('\t')) {
+                                // 下一行是单值行但不是标识符（可能是名称行），检查再下一行是否是数据行
+                                // 即使再下一行也是单值行，如果第三行是数据行，也要合并名称行
+                                if (i + 2 < rows.length) {
+                                    const thirdRow = rows[i + 2].trim();
+                                    if (thirdRow !== '' && (thirdRow.includes('\t') || /^-?\d/.test(thirdRow))) {
+                                        // 第三行是数据行，合并名称行和数据行
+                                        mergedRow += '\t' + nextRow + '\t' + thirdRow;
+                                        skipCount += 2;
+                                    }
+                                }
                             }
                         }
                         
