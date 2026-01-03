@@ -6097,7 +6097,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                     
-                    // 检查是否是标识符行（只有标识符，没有其他数据）
+                    // 检查是否是标识符行
                     const isIdentifierRow = identifierPattern.test(trimmed) || 
                                           (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0]));
                     
@@ -6125,21 +6125,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                 skipCount++;
                                 
                                 // 检查再下一行是否是数据行（包含制表符或数值）
-                                let checkIndex = i + skipCount + 1;
-                                while (checkIndex < rows.length) {
-                                    const dataRow = rows[checkIndex].trim();
-                                    if (dataRow === '') {
-                                        checkIndex++;
-                                        continue;
-                                    }
+                                if (i + 2 < rows.length) {
+                                    const dataRow = rows[i + 2].trim();
                                     if (dataRow !== '' && (dataRow.includes('\t') || /^-?\d/.test(dataRow))) {
                                         // 这是数据行，合并它
                                         mergedRow += '\t' + dataRow;
-                                        skipCount = checkIndex - i;
-                                        break;
-                                    } else {
-                                        // 不是数据行，停止检查
-                                        break;
+                                        skipCount++;
                                     }
                                 }
                             } else if (nextRow !== '' && (nextRow.includes('\t') || /^-?\d/.test(nextRow))) {
