@@ -5458,37 +5458,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 首先检查是否所有制表符分隔的行都是标准表格行（每行至少有3个非空单元格）
-                // 如果是标准表格格式，不应该合并
-                let allTabRowsAreStandardTableRows = false;
-                if (hasTabSeparatedRow && tabSeparatedRows.length >= 2) {
-                    // 检查所有制表符分隔的行是否都是标准表格行
-                    let allTabRowsHaveMultipleCells = true;
-                    let minCellsPerRow = Infinity;
-                    let maxCellsPerRow = 0;
-                    for (let tabRow of tabSeparatedRows) {
-                        const cells = tabRow.row.split('\t').map(c => c.trim());
-                        const nonEmptyCells = cells.filter(c => c !== '');
-                        const cellCount = nonEmptyCells.length;
-                        minCellsPerRow = Math.min(minCellsPerRow, cellCount);
-                        maxCellsPerRow = Math.max(maxCellsPerRow, cellCount);
-                        // 标准表格行应该有至少3个非空单元格
-                        if (cellCount < 3) {
-                            allTabRowsHaveMultipleCells = false;
-                            break;
-                        }
-                    }
-                    // 如果所有制表符行都有至少3个单元格，且列数差异不太大（不超过50%差异），认为是标准表格
-                    if (allTabRowsHaveMultipleCells && minCellsPerRow >= 3 && 
-                        (maxCellsPerRow === 0 || minCellsPerRow / maxCellsPerRow >= 0.5)) {
-                        allTabRowsAreStandardTableRows = true;
-                    }
-                }
-                
                 // 如果存在包含制表符的行，且有很多单值行，可能是同一行数据被分割了
                 // 或者只有少量行（2-10行），且大部分是单值行，可能是同一行数据
-                // 但如果所有制表符行都是标准表格行，则不合并（保持原始多行格式）
-                if (hasTabSeparatedRow && singleValueRows.length > 0 && !allTabRowsAreStandardTableRows) {
+                if (hasTabSeparatedRow && singleValueRows.length > 0) {
                     // 检查单值行是否看起来像是数值或标识符（而不是独立的行）
                     const allSingleValuesAreData = singleValueRows.every(item => {
                         const val = item.value;
@@ -6022,10 +5994,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     const nonEmptyCells = cells.filter(c => c !== '');
                     const isSingleValueRow = !hasTabSeparator || nonEmptyCells.length === 1;
                     
-                    // 检查是否是标识符行
-                    const isIdentifierRow = identifierPattern.test(trimmed) || 
-                                          (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0]));
-                    
                     // 检查下一行是否是数据行（包含制表符分隔的多个值）
                     let nextRowIsDataRow = false;
                     if (i + 1 < rows.length) {
@@ -6034,28 +6002,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         const nextRowCells = nextRow.split('\t').map(c => c.trim());
                         const nextRowNonEmpty = nextRowCells.filter(c => c !== '');
                         nextRowIsDataRow = nextRowHasTabs && nextRowNonEmpty.length > 1;
-                    }
-                    
-                    // 如果当前行是标识符行，且下一行是单值行（名称行），再下一行是数据行，则优先合并三行
-                    if (isIdentifierRow && isSingleValueRow && i + 2 < rows.length) {
-                        const nextRow = rows[i + 1].trim();
-                        const nextNextRow = rows[i + 2].trim();
-                        const nextRowIsSingleValue = nextRow !== '' && !nextRow.includes('\t');
-                        const nextRowIsIdentifier = identifierPattern.test(nextRow);
-                        const nextNextRowHasTabs = nextNextRow.includes('\t');
-                        const nextNextRowCells = nextNextRowHasTabs ? nextNextRow.split('\t').map(c => c.trim()) : [];
-                        const nextNextRowNonEmpty = nextNextRowCells.filter(c => c !== '');
-                        const nextNextRowIsDataRow = nextNextRow !== '' && nextNextRowHasTabs && nextNextRowNonEmpty.length > 1;
-                        
-                        // 如果下一行是单值非标识符行（名称行），且再下一行是数据行，则合并三行
-                        if (nextRowIsSingleValue && !nextRowIsIdentifier && nextNextRowIsDataRow) {
-                            const identifier = trimmed.includes('\t') ? trimmed.split('\t')[0] : trimmed;
-                            let mergedRow = identifier + '\t' + nextRow + '\t' + nextNextRow;
-                            processedRows.push(mergedRow);
-                            i += 2; // 跳过名称行和数据行
-                            console.log(`✓ Merged identifier row "${identifier}" + name row "${nextRow}" + data row`);
-                            continue;
-                        }
                     }
                     
                     // 如果当前行是单值行，且下一行是数据行，则合并它们
@@ -6123,6 +6069,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                     
+                    // 检查是否是标识符行
+                    const isIdentifierRow = identifierPattern.test(trimmed) || 
+                                          (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0]));
+                    
                     if (isIdentifierRow) {
                         // 这是一个标识符行，检查后续行
                         let mergedRow = trimmed;
@@ -6159,17 +6109,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 下一行直接是数据行（没有名称行）
                                 mergedRow += '\t' + nextRow;
                                 skipCount++;
-                            } else if (nextRow !== '' && !nextRowIsIdentifier && !nextRow.includes('\t')) {
-                                // 下一行是单值行但不是标识符（可能是名称行），检查再下一行是否是数据行
-                                // 即使再下一行也是单值行，如果第三行是数据行，也要合并名称行
-                                if (i + 2 < rows.length) {
-                                    const thirdRow = rows[i + 2].trim();
-                                    if (thirdRow !== '' && (thirdRow.includes('\t') || /^-?\d/.test(thirdRow))) {
-                                        // 第三行是数据行，合并名称行和数据行
-                                        mergedRow += '\t' + nextRow + '\t' + thirdRow;
-                                        skipCount += 2;
-                                    }
-                                }
                             }
                         }
                         
