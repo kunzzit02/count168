@@ -5439,7 +5439,23 @@ if ($current_user_id && count($user_companies) > 0) {
             // ===== 特殊处理：合并单行表格数据（即使有换行符也保持在同一行） =====
             // 检测是否是单行表格数据被换行符分割的情况
             // 例如：allbet95sgd\t\r\n901\r\n374.40\t374.40\t... 应该合并成一行
+            // 但是：如果包含"Grand Total"行，应该保持为两行（第一行数据 + Grand Total行）
             if (rows.length > 1) {
+                // 首先检查是否包含"Grand Total"行（作为分隔点）
+                let grandTotalIndex = -1;
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i].trim();
+                    if (row === '') continue;
+                    
+                    // 检查是否包含"Grand Total"（不区分大小写）
+                    const rowUpper = row.toUpperCase();
+                    const cells = row.split('\t').map(c => c.trim().toUpperCase());
+                    if (rowUpper.includes('GRAND TOTAL') || cells.some(c => c === 'GRAND TOTAL' || c.includes('GRAND TOTAL'))) {
+                        grandTotalIndex = i;
+                        break;
+                    }
+                }
+                
                 let hasTabSeparatedRow = false;
                 let singleValueRows = [];
                 let tabSeparatedRows = [];
@@ -5458,96 +5474,171 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 如果存在包含制表符的行，且有很多单值行，可能是同一行数据被分割了
-                // 或者只有少量行（2-10行），且大部分是单值行，可能是同一行数据
-                if (hasTabSeparatedRow && singleValueRows.length > 0) {
-                    // 检查单值行是否看起来像是数值或标识符（而不是独立的行）
-                    const allSingleValuesAreData = singleValueRows.every(item => {
-                        const val = item.value;
-                        // 检查是否是数值、标识符（如allbet95sgd）或其他数据格式
-                        return /^[\d.]+$/.test(val) || // 纯数字
-                               /^[a-z0-9]+$/i.test(val) || // 字母数字组合（如allbet95sgd）
-                               /^-?\d[\d,.-]*$/.test(val); // 带符号的数字
-                    });
+                // 如果检测到"Grand Total"行，需要特殊处理：保持两行格式
+                if (grandTotalIndex >= 0) {
+                    // 将数据分成两部分：
+                    // 1. 从开始到Grand Total行之前的所有行（合并成第一行）
+                    // 2. Grand Total行及其后面的数据（保持为第二行）
                     
-                    // 如果所有单值行都像是数据，且总行数不多（可能是单行数据被分割），则合并
-                    const totalDataRows = tabSeparatedRows.length + singleValueRows.length;
-                    if (allSingleValuesAreData && totalDataRows <= 10) {
-                        // 收集所有需要合并的值（按原始顺序）
-                        const allValues = [];
-                        const allIndices = [];
+                    const beforeGrandTotal = [];
+                    const grandTotalAndAfter = [];
+                    
+                    for (let i = 0; i < rows.length; i++) {
+                        const row = rows[i].trim();
+                        if (row === '') continue;
                         
-                        // 收集所有非空行的索引和值（按原始顺序）
-                        for (let i = 0; i < rows.length; i++) {
-                            const row = rows[i];
-                            const trimmed = row.trim();
-                            if (trimmed === '') continue;
-                            
+                        if (i < grandTotalIndex) {
+                            // Grand Total行之前的数据
                             if (row.includes('\t')) {
-                                // 制表符分隔的行，分割成多个值（保留空单元格）
                                 const cells = row.split('\t').map(c => c.trim());
-                                // 过滤掉末尾的空单元格（但保留中间的空单元格）
-                                let filteredCells = [];
-                                let foundNonEmpty = false;
-                                for (let j = cells.length - 1; j >= 0; j--) {
-                                    if (cells[j] !== '' || foundNonEmpty) {
-                                        foundNonEmpty = true;
-                                        filteredCells.unshift(cells[j]);
-                                    }
-                                }
-                                allValues.push(...filteredCells);
-                                allIndices.push(i);
+                                beforeGrandTotal.push(...cells);
                             } else {
-                                // 单值行
-                                allValues.push(trimmed);
-                                allIndices.push(i);
+                                beforeGrandTotal.push(row);
+                            }
+                        } else {
+                            // Grand Total行及其后面的数据
+                            if (row.includes('\t')) {
+                                const cells = row.split('\t').map(c => c.trim());
+                                grandTotalAndAfter.push(...cells);
+                            } else {
+                                grandTotalAndAfter.push(row);
+                            }
+                        }
+                    }
+                    
+                    // 如果两部分都有数据，创建两行
+                    if (beforeGrandTotal.length > 0 && grandTotalAndAfter.length > 0) {
+                        // 找到第一个非空行的索引
+                        let firstRowIndex = -1;
+                        for (let i = 0; i < rows.length; i++) {
+                            if (rows[i].trim() !== '') {
+                                firstRowIndex = i;
+                                break;
                             }
                         }
                         
-                        // 如果收集到的值看起来像是一行表格数据（至少3个值），则合并
-                        if (allValues.length >= 3) {
-                            // 创建合并后的行（用制表符连接所有值）
+                        if (firstRowIndex >= 0) {
+                            // 创建第一行（合并Grand Total之前的所有数据）
+                            const firstRow = beforeGrandTotal.join('\t');
+                            rows[firstRowIndex] = firstRow;
+                            
+                            // 创建第二行（Grand Total及其后面的数据）
+                            const secondRow = grandTotalAndAfter.join('\t');
+                            
+                            // 删除中间的所有行，然后插入第二行
+                            const indicesToRemove = [];
+                            for (let i = firstRowIndex + 1; i < rows.length; i++) {
+                                if (rows[i].trim() !== '') {
+                                    indicesToRemove.push(i);
+                                }
+                            }
+                            
+                            // 从后往前删除，避免索引变化
+                            for (let idx of indicesToRemove.sort((a, b) => b - a)) {
+                                rows.splice(idx, 1);
+                            }
+                            
+                            // 插入第二行（在第一行之后）
+                            rows.splice(firstRowIndex + 1, 0, secondRow);
+                            
+                            console.log('Detected Grand Total row, kept 2 rows format');
+                            console.log('First row:', firstRow);
+                            console.log('Second row:', secondRow);
+                        }
+                    }
+                } else {
+                    // 没有Grand Total行，使用原来的合并逻辑
+                    // 如果存在包含制表符的行，且有很多单值行，可能是同一行数据被分割了
+                    // 或者只有少量行（2-10行），且大部分是单值行，可能是同一行数据
+                    if (hasTabSeparatedRow && singleValueRows.length > 0) {
+                        // 检查单值行是否看起来像是数值或标识符（而不是独立的行）
+                        const allSingleValuesAreData = singleValueRows.every(item => {
+                            const val = item.value;
+                            // 检查是否是数值、标识符（如allbet95sgd）或其他数据格式
+                            return /^[\d.]+$/.test(val) || // 纯数字
+                                   /^[a-z0-9]+$/i.test(val) || // 字母数字组合（如allbet95sgd）
+                                   /^-?\d[\d,.-]*$/.test(val); // 带符号的数字
+                        });
+                        
+                        // 如果所有单值行都像是数据，且总行数不多（可能是单行数据被分割），则合并
+                        const totalDataRows = tabSeparatedRows.length + singleValueRows.length;
+                        if (allSingleValuesAreData && totalDataRows <= 10) {
+                            // 收集所有需要合并的值（按原始顺序）
+                            const allValues = [];
+                            const allIndices = [];
+                            
+                            // 收集所有非空行的索引和值（按原始顺序）
+                            for (let i = 0; i < rows.length; i++) {
+                                const row = rows[i];
+                                const trimmed = row.trim();
+                                if (trimmed === '') continue;
+                                
+                                if (row.includes('\t')) {
+                                    // 制表符分隔的行，分割成多个值（保留空单元格）
+                                    const cells = row.split('\t').map(c => c.trim());
+                                    // 过滤掉末尾的空单元格（但保留中间的空单元格）
+                                    let filteredCells = [];
+                                    let foundNonEmpty = false;
+                                    for (let j = cells.length - 1; j >= 0; j--) {
+                                        if (cells[j] !== '' || foundNonEmpty) {
+                                            foundNonEmpty = true;
+                                            filteredCells.unshift(cells[j]);
+                                        }
+                                    }
+                                    allValues.push(...filteredCells);
+                                    allIndices.push(i);
+                                } else {
+                                    // 单值行
+                                    allValues.push(trimmed);
+                                    allIndices.push(i);
+                                }
+                            }
+                            
+                            // 如果收集到的值看起来像是一行表格数据（至少3个值），则合并
+                            if (allValues.length >= 3) {
+                                // 创建合并后的行（用制表符连接所有值）
+                                const mergedRow = allValues.join('\t');
+                                
+                                // 替换第一行，删除其他行
+                                const firstDataRowIndex = allIndices[0];
+                                rows[firstDataRowIndex] = mergedRow;
+                                
+                                // 删除其他数据行（从后往前删除，避免索引变化）
+                                const indicesToRemove = allIndices.slice(1).sort((a, b) => b - a);
+                                for (let idx of indicesToRemove) {
+                                    rows.splice(idx, 1);
+                                }
+                                
+                                console.log('Merged single-row table data: combined', totalDataRows, 'rows into 1 row');
+                                console.log('Merged row:', mergedRow);
+                                console.log('Total cells in merged row:', allValues.length);
+                            }
+                        }
+                    } else if (!hasTabSeparatedRow && singleValueRows.length > 0 && singleValueRows.length <= 15) {
+                        // 如果没有制表符行，但有很多单值行（可能是单行数据被完全分割）
+                        // 检查是否所有值都像是数据
+                        const allValuesAreData = singleValueRows.every(item => {
+                            const val = item.value;
+                            return /^[\d.]+$/.test(val) || 
+                                   /^[a-z0-9]+$/i.test(val) || 
+                                   /^-?\d[\d,.-]*$/.test(val);
+                        });
+                        
+                        if (allValuesAreData && singleValueRows.length >= 3) {
+                            // 合并所有单值行成一行
+                            const allValues = singleValueRows.map(item => item.value);
                             const mergedRow = allValues.join('\t');
                             
                             // 替换第一行，删除其他行
-                            const firstDataRowIndex = allIndices[0];
-                            rows[firstDataRowIndex] = mergedRow;
-                            
-                            // 删除其他数据行（从后往前删除，避免索引变化）
-                            const indicesToRemove = allIndices.slice(1).sort((a, b) => b - a);
+                            rows[singleValueRows[0].index] = mergedRow;
+                            const indicesToRemove = singleValueRows.slice(1).map(item => item.index).sort((a, b) => b - a);
                             for (let idx of indicesToRemove) {
                                 rows.splice(idx, 1);
                             }
                             
-                            console.log('Merged single-row table data: combined', totalDataRows, 'rows into 1 row');
+                            console.log('Merged single-row table data (no tabs): combined', singleValueRows.length, 'rows into 1 row');
                             console.log('Merged row:', mergedRow);
-                            console.log('Total cells in merged row:', allValues.length);
                         }
-                    }
-                } else if (!hasTabSeparatedRow && singleValueRows.length > 0 && singleValueRows.length <= 15) {
-                    // 如果没有制表符行，但有很多单值行（可能是单行数据被完全分割）
-                    // 检查是否所有值都像是数据
-                    const allValuesAreData = singleValueRows.every(item => {
-                        const val = item.value;
-                        return /^[\d.]+$/.test(val) || 
-                               /^[a-z0-9]+$/i.test(val) || 
-                               /^-?\d[\d,.-]*$/.test(val);
-                    });
-                    
-                    if (allValuesAreData && singleValueRows.length >= 3) {
-                        // 合并所有单值行成一行
-                        const allValues = singleValueRows.map(item => item.value);
-                        const mergedRow = allValues.join('\t');
-                        
-                        // 替换第一行，删除其他行
-                        rows[singleValueRows[0].index] = mergedRow;
-                        const indicesToRemove = singleValueRows.slice(1).map(item => item.index).sort((a, b) => b - a);
-                        for (let idx of indicesToRemove) {
-                            rows.splice(idx, 1);
-                        }
-                        
-                        console.log('Merged single-row table data (no tabs): combined', singleValueRows.length, 'rows into 1 row');
-                        console.log('Merged row:', mergedRow);
                     }
                 }
             }
