@@ -6486,17 +6486,45 @@ if ($current_user_id && count($user_companies) > 0) {
             // 检测是否为特殊格式（每个单元格占一行的行优先格式）
             const isSpecialRowMajorFormat = rowsWithTabsRatio < 0.3 && rows.length > 10;
             
-            if (isSpecialRowMajorFormat) {
+            // 特殊检查：如果第一行包含制表符，且只有一个行标识符，应该将所有数据合并成一行
+            // 这种情况通常是：第一行是制表符分隔的多个值，后面每行都是单个值，但实际应该是一行数据
+            let shouldTreatAsSingleRow = false;
+            if (isSpecialRowMajorFormat && rowIdentifierIndices.length === 1 && allCells.length > 0 && allCells.length <= 30) {
+                // 检查第一行是否包含制表符
+                const firstRow = rows[0] || '';
+                if (firstRow.includes('\t')) {
+                    // 第一行包含制表符，且只有一个行标识符，应该将所有数据合并成一行
+                    shouldTreatAsSingleRow = true;
+                    console.log('Detected single-row format: First row has tabs, only one row identifier found, treating all data as single row');
+                }
+            }
+            
+            if (isSpecialRowMajorFormat && !shouldTreatAsSingleRow) {
                 // 特殊格式：每个单元格占一行，顺序是行优先的（第一行所有列，第二行所有列...）
                 // 直接按列数分组，每N个单元格组成一行
                 console.log('Processing as ROW-MAJOR special format (one cell per line)');
+            } else if (isSpecialRowMajorFormat && shouldTreatAsSingleRow) {
+                // 单行格式：将所有数据合并成一行
+                console.log('Processing as SINGLE-ROW format (first row has tabs, merging all into one row)');
             } else if (isColumnMajor) {
                 // 标准列优先格式：数据是垂直排列的（列1的所有值，然后是列2的所有值，等等）
                 console.log('Processing as COLUMN-MAJOR format');
             }
             
-            // 两种特殊格式都需要检测列数
-            if (isSpecialRowMajorFormat || isColumnMajor) {
+            // 处理单行格式：如果检测到单行格式，直接处理并跳过后续的列数检测和分组逻辑
+            if (isSpecialRowMajorFormat && shouldTreatAsSingleRow) {
+                // 单行格式：将所有数据合并成一行
+                console.log('Processing single-row format: All data in one row');
+                console.log('  Total cells:', allCells.length);
+                
+                dataMatrix = [allCells]; // 直接将所有单元格放在一行
+                estimatedColumns = allCells.length; // 列数等于单元格数
+                
+                console.log('Single-row matrix:', dataMatrix.length, 'x', estimatedColumns);
+                console.log('First row (all cells):', dataMatrix[0]);
+            }
+            // 两种特殊格式都需要检测列数（除非是单行格式）
+            else if ((isSpecialRowMajorFormat && !shouldTreatAsSingleRow) || isColumnMajor) {
                 // 智能检测列数
                 // 方法1：查找模式 - 如果数据是列优先的，可能包含重复模式或分组标记
                 // 方法2：查找空单元格或特殊值作为列分隔符
@@ -6752,7 +6780,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 estimatedColumns = detectedColumns;
                 const totalCells = allCells.length;
                 
-                // 根据格式类型处理
+                // 根据格式类型处理（单行格式已在前面处理，这里只处理需要分组的情况）
                 if (isSpecialRowMajorFormat) {
                     // 特殊格式：行优先（每个单元格占一行）
                     // 数据顺序是：第一行的所有列，第二行的所有列，...
@@ -6972,8 +7000,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-            } else {
+            } else if (!(isSpecialRowMajorFormat && shouldTreatAsSingleRow)) {
                 // 行优先格式（标准格式）：每行是完整的行数据
+                // 注意：单行格式已在前面处理，这里跳过
                 console.log('Using ROW-MAJOR parsing');
                 
                 // 检测分隔符类型
