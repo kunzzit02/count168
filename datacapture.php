@@ -6106,37 +6106,50 @@ if ($current_user_id && count($user_companies) > 0) {
                         let mergedRow = trimmed;
                         let skipCount = 0;
                         
-                        // 检查下一行是否是名称行（不包含制表符，且不是标识符）
+                        // 检查下一行是否是数据行（包含制表符分隔的多个值）
                         if (i + 1 < rows.length) {
                             const nextRow = rows[i + 1].trim();
-                            const nextRowIsIdentifier = identifierPattern.test(nextRow);
-                            const potentialDataRow = i + 2 < rows.length ? rows[i + 2].trim() : '';
-                            const nextRowLooksLikeDataFollows = potentialDataRow !== '' && (potentialDataRow.includes('\t') || /^-?\d/.test(potentialDataRow));
-                            const treatNextAsName = nextRow !== '' 
-                                && !nextRow.includes('\t') 
-                                && (
-                                    !nextRowIsIdentifier 
-                                    || nextRow.toUpperCase() === trimmed.toUpperCase()
-                                    || nextRowLooksLikeDataFollows
-                                );
-                            if (treatNextAsName) {
-                                // 下一行是名称行，合并它
-                                mergedRow += '\t' + nextRow;
-                                skipCount++;
-                                
-                                // 检查再下一行是否是数据行（包含制表符或数值）
-                                if (i + 2 < rows.length) {
-                                    const dataRow = rows[i + 2].trim();
-                                    if (dataRow !== '' && (dataRow.includes('\t') || /^-?\d/.test(dataRow))) {
-                                        // 这是数据行，合并它
-                                        mergedRow += '\t' + dataRow;
-                                        skipCount++;
+                            const nextRowHasTabs = nextRow.includes('\t');
+                            const nextRowCells = nextRow.split('\t').map(c => c.trim());
+                            const nextRowNonEmpty = nextRowCells.filter(c => c !== '');
+                            const nextRowIsDataRow = nextRowHasTabs && nextRowNonEmpty.length > 1;
+                            
+                            // 如果下一行是数据行，直接合并（这是标准表格格式，标识符和名称应该在同一行）
+                            if (nextRowIsDataRow) {
+                                // 将标识符添加到数据行的开头
+                                mergedRow = trimmed + '\t' + rows[i + 1];
+                                skipCount = 1;
+                            } else {
+                                // 检查下一行是否是名称行（不包含制表符，且不是标识符）
+                                const nextRowIsIdentifier = identifierPattern.test(nextRow);
+                                const potentialDataRow = i + 2 < rows.length ? rows[i + 2].trim() : '';
+                                const nextRowLooksLikeDataFollows = potentialDataRow !== '' && (potentialDataRow.includes('\t') || /^-?\d/.test(potentialDataRow));
+                                const treatNextAsName = nextRow !== '' 
+                                    && !nextRow.includes('\t') 
+                                    && (
+                                        !nextRowIsIdentifier 
+                                        || nextRow.toUpperCase() === trimmed.toUpperCase()
+                                        || nextRowLooksLikeDataFollows
+                                    );
+                                if (treatNextAsName) {
+                                    // 下一行是名称行，合并它
+                                    mergedRow += '\t' + nextRow;
+                                    skipCount++;
+                                    
+                                    // 检查再下一行是否是数据行（包含制表符或数值）
+                                    if (i + 2 < rows.length) {
+                                        const dataRow = rows[i + 2].trim();
+                                        if (dataRow !== '' && (dataRow.includes('\t') || /^-?\d/.test(dataRow))) {
+                                            // 这是数据行，合并它
+                                            mergedRow += '\t' + dataRow;
+                                            skipCount++;
+                                        }
                                     }
+                                } else if (nextRow !== '' && (nextRow.includes('\t') || /^-?\d/.test(nextRow))) {
+                                    // 下一行直接是数据行（没有名称行）
+                                    mergedRow += '\t' + nextRow;
+                                    skipCount++;
                                 }
-                            } else if (nextRow !== '' && (nextRow.includes('\t') || /^-?\d/.test(nextRow))) {
-                                // 下一行直接是数据行（没有名称行）
-                                mergedRow += '\t' + nextRow;
-                                skipCount++;
                             }
                         }
                         
