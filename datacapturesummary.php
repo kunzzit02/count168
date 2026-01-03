@@ -1202,11 +1202,68 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // If row_label not provided or not found, fallback to original behavior
+                // If row_label not provided or not found, try to find it from data capture table
+                // This ensures we get the correct row even when rows are inserted in the middle
+                // CRITICAL: When multiple rows have the same id_product, we need to find the correct one
+                // by matching both id_product and ensuring we get the row that corresponds to the original order
+                if (!processRow && !rowLabel) {
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const capturedRows = capturedTableBody.querySelectorAll('tr');
+                        const normalizedIdProduct = normalizeIdProductText(idProduct);
+                        
+                        // Find all rows that match the id_product
+                        const matchingRows = [];
+                        for (let i = 0; i < capturedRows.length; i++) {
+                            const row = capturedRows[i];
+                            const cells = row.querySelectorAll('td');
+                            if (cells.length > 1) {
+                                // Get id_product from second cell (index 1, first data cell)
+                                const idProductCell = cells[1];
+                                if (idProductCell) {
+                                    const cellText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                    const cellIdProduct = normalizeIdProductText(cellText);
+                                    
+                                    if (cellIdProduct === normalizedIdProduct) {
+                                        // Found matching row, get its row_label
+                                        const rowHeaderCell = row.querySelector('.row-header');
+                                        if (rowHeaderCell) {
+                                            const foundRowLabel = rowHeaderCell.textContent.trim();
+                                            matchingRows.push({
+                                                rowIndex: i,
+                                                rowLabel: foundRowLabel,
+                                                row: row
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // If we found exactly one matching row, use it
+                        // If we found multiple, prefer the one that matches the original order
+                        // (i.e., the first one that appears in the data capture table)
+                        if (matchingRows.length > 0) {
+                            // Use the first matching row (which should be the original one)
+                            const matchedRow = matchingRows[0];
+                            rowLabel = matchedRow.rowLabel;
+                            rowIndex = matchedRow.rowIndex;
+                            console.log('getCellValueByIdProductAndColumn: Found', matchingRows.length, 'matching row(s) for id_product:', idProduct, 'using first match with row_label:', rowLabel, 'rowIndex:', rowIndex);
+                            processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
+                            if (processRow) {
+                                console.log('getCellValueByIdProductAndColumn: Successfully found row using row_label from data capture table');
+                            }
+                        }
+                    }
+                }
+                
+                // If still not found, fallback to original behavior
                 if (!processRow) {
                     processRow = findProcessRow(parsedTableData, idProduct);
                     if (rowLabel) {
                         console.warn('Row not found by row_label:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
+                    } else {
+                        console.warn('Row not found for id_product:', idProduct, 'falling back to first matching row');
                     }
                 }
                 
