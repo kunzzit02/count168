@@ -6768,27 +6768,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 确保列数在合理范围内（但如果已经检测到单行Total数据，允许更大的列数）
-                // 重要：防止列数过大导致所有数据被放在一行
                 if (detectedColumns > 25 && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     detectedColumns = 18; // 限制最大列数
                     console.log('Column count too large, using default:', detectedColumns);
-                }
-                
-                // 额外保护：如果检测到的列数大于等于总单元格数，强制使用合理的列数
-                // 这可以防止当数据量很大时，所有数据被错误地放在一行
-                if (detectedColumns >= allCells.length && allCells.length > 30) {
-                    // 如果总单元格数很大，尝试使用常见的列数（18-25列）
-                    const reasonableCols = [18, 20, 19, 21, 22, 23, 24, 25];
-                    let bestCol = 18; // 默认18列
-                    for (let cols of reasonableCols) {
-                        const rows = Math.ceil(allCells.length / cols);
-                        if (rows >= 2 && rows <= 50) {
-                            bestCol = cols;
-                            break;
-                        }
-                    }
-                    detectedColumns = bestCol;
-                    console.log(`Prevented single-row paste: detectedColumns (${detectedColumns}) >= allCells.length (${allCells.length}), using ${bestCol} columns instead`);
                 }
                 
                 } // 结束 else 块（如果已经检测到单行Total数据，跳过常见列数检测）
@@ -6797,23 +6779,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 estimatedColumns = detectedColumns;
                 const totalCells = allCells.length;
-                
-                // 最终保护：确保不会将所有数据放在一行（除非是明确标记的单行格式）
-                // 如果 estimatedColumns 太大，会导致所有数据被放在一行
-                if (!shouldTreatAsSingleRow && estimatedColumns >= totalCells && totalCells > 30) {
-                    // 强制使用合理的列数，确保数据被分成多行
-                    const reasonableCols = [18, 20, 19, 21, 22, 23, 24, 25];
-                    let bestCol = 18; // 默认18列
-                    for (let cols of reasonableCols) {
-                        const rows = Math.ceil(totalCells / cols);
-                        if (rows >= 2 && rows <= 50) {
-                            bestCol = cols;
-                            break;
-                        }
-                    }
-                    estimatedColumns = bestCol;
-                    console.log(`Final protection: estimatedColumns (${estimatedColumns}) >= totalCells (${totalCells}), forcing ${bestCol} columns to ensure multi-row layout`);
-                }
                 
                 // 根据格式类型处理（单行格式已在前面处理，这里只处理需要分组的情况）
                 if (isSpecialRowMajorFormat) {
