@@ -5458,9 +5458,37 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
+                // 首先检查是否所有制表符分隔的行都是标准表格行（每行至少有3个非空单元格）
+                // 如果是标准表格格式，不应该合并
+                let allTabRowsAreStandardTableRows = false;
+                if (hasTabSeparatedRow && tabSeparatedRows.length >= 2) {
+                    // 检查所有制表符分隔的行是否都是标准表格行
+                    let allTabRowsHaveMultipleCells = true;
+                    let minCellsPerRow = Infinity;
+                    let maxCellsPerRow = 0;
+                    for (let tabRow of tabSeparatedRows) {
+                        const cells = tabRow.row.split('\t').map(c => c.trim());
+                        const nonEmptyCells = cells.filter(c => c !== '');
+                        const cellCount = nonEmptyCells.length;
+                        minCellsPerRow = Math.min(minCellsPerRow, cellCount);
+                        maxCellsPerRow = Math.max(maxCellsPerRow, cellCount);
+                        // 标准表格行应该有至少3个非空单元格
+                        if (cellCount < 3) {
+                            allTabRowsHaveMultipleCells = false;
+                            break;
+                        }
+                    }
+                    // 如果所有制表符行都有至少3个单元格，且列数差异不太大（不超过50%差异），认为是标准表格
+                    if (allTabRowsHaveMultipleCells && minCellsPerRow >= 3 && 
+                        (maxCellsPerRow === 0 || minCellsPerRow / maxCellsPerRow >= 0.5)) {
+                        allTabRowsAreStandardTableRows = true;
+                    }
+                }
+                
                 // 如果存在包含制表符的行，且有很多单值行，可能是同一行数据被分割了
                 // 或者只有少量行（2-10行），且大部分是单值行，可能是同一行数据
-                if (hasTabSeparatedRow && singleValueRows.length > 0) {
+                // 但如果所有制表符行都是标准表格行，则不合并（保持原始多行格式）
+                if (hasTabSeparatedRow && singleValueRows.length > 0 && !allTabRowsAreStandardTableRows) {
                     // 检查单值行是否看起来像是数值或标识符（而不是独立的行）
                     const allSingleValuesAreData = singleValueRows.every(item => {
                         const val = item.value;
