@@ -17442,9 +17442,9 @@ function formatPercentValue(value) {
 
         .formula-data-grid-row {
             display: flex;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
             gap: 4px;
-            overflow-x: auto;
+            overflow-x: hidden;
             overflow-y: visible;
             padding-bottom: 2px;
         }
