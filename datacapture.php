@@ -6032,36 +6032,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         nextRowIsDataRow = nextRowHasTabs && nextRowNonEmpty.length > 1;
                     }
                     
-                    // 检查是否是标识符行
-                    const isIdentifierRow = identifierPattern.test(trimmed) || 
-                                          (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0]));
-                    
-                    // 优先检查：标识符行+名称行+数据行的模式（如"SB9965A" + "Pelepas" + 数据行）
-                    // 模式：标识符行（如"SB9965A"）+ 名称行（如"Pelepas"）+ 数据行（如"-367.03\t476.67\t..."）
-                    if (isIdentifierRow && isSingleValueRow && !nextRowIsDataRow && i + 2 < rows.length) {
-                        // 当前行是标识符单值行，下一行不是数据行，检查是否有名称行+数据行的模式
-                        const nextRow = rows[i + 1].trim();
-                        const nextNextRow = rows[i + 2].trim();
-                        const nextRowIsSingleValue = nextRow !== '' && !nextRow.includes('\t');
-                        // 数据行应该包含制表符且有多个列，或者以数字开头且包含制表符
-                        const nextNextRowHasTabs = nextNextRow.includes('\t');
-                        const nextNextRowCells = nextNextRowHasTabs ? nextNextRow.split('\t').map(c => c.trim()) : [];
-                        const nextNextRowNonEmpty = nextNextRowCells.filter(c => c !== '');
-                        const nextNextRowIsDataRow = nextNextRow !== '' && nextNextRowHasTabs && nextNextRowNonEmpty.length > 1;
-                        const nextRowIsIdentifier = identifierPattern.test(nextRow);
-                        
-                        // 如果下一行是单值非标识符行，且再下一行是数据行，则合并三行
-                        if (nextRowIsSingleValue && !nextRowIsIdentifier && nextNextRowIsDataRow) {
-                            // 获取标识符（去除可能的制表符）
-                            const identifier = trimmed.includes('\t') ? trimmed.split('\t')[0] : trimmed;
-                            let mergedRow = identifier + '\t' + nextRow + '\t' + nextNextRow;
-                            processedRows.push(mergedRow);
-                            i += 2; // 跳过名称行和数据行
-                            console.log(`✓ Merged identifier row "${identifier}" + name row "${nextRow}" + data row`);
-                            continue;
-                        }
-                    }
-                    
                     // 如果当前行是单值行，且下一行是数据行，则合并它们
                     if (isSingleValueRow && nextRowIsDataRow) {
                         const currentValue = trimmed;
@@ -6127,7 +6097,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                     
-                    // 检查是否是标识符行（用于其他标识符行处理逻辑）
+                    // 检查是否是标识符行
+                    const isIdentifierRow = identifierPattern.test(trimmed) || 
+                                          (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0]));
+                    
                     if (isIdentifierRow) {
                         // 这是一个标识符行，检查后续行
                         let mergedRow = trimmed;
