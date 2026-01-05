@@ -8705,16 +8705,22 @@ function getCurrentProcessId() {
         function attachRateValueEditListener(cell, row) {
             let isEditing = false;
             cell.addEventListener('click', function(e) {
+                // Prevent event if clicking on input element itself
+                if (e.target.tagName === 'INPUT') {
+                    return;
+                }
+                
                 if (isEditing) return;
                 isEditing = true;
                 
+                // Get original value from cell text content
                 const originalValue = this.textContent.trim();
                 const cellElement = this;
                 
                 // Create input element
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.value = originalValue;
+                input.value = originalValue; // Set input value to original value
                 input.style.width = '100%';
                 input.style.textAlign = 'center';
                 input.style.border = '1px solid #0D60FF';
@@ -8727,62 +8733,78 @@ function getCurrentProcessId() {
                 cellElement.innerHTML = '';
                 cellElement.appendChild(input);
                 input.focus();
-                input.select();
+                // Only select text if there's a value, otherwise just focus
+                if (originalValue) {
+                    input.select();
+                }
                 
-                // Handle input changes
-                const handleInput = () => {
+                // Handle input changes - only update if value actually changed
+                const handleInput = (saveChanges = true) => {
                     const newValue = input.value.trim();
                     const cells = row.querySelectorAll('td');
-                    const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                     
-                    // When Rate Value has value, uncheck checkbox
-                    if (newValue && rateCheckbox) {
-                        rateCheckbox.checked = false;
-                    }
-                    
-                    // Update cell content
-                    cellElement.textContent = newValue;
-                    isEditing = false;
-                    
-                    // Recalculate processed amount when Rate Value changes
-                    let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
-                    
-                    // If base amount is not stored or is 0, try to recalculate from formula
-                    if (!baseAmount || isNaN(baseAmount)) {
-                        const sourcePercentCell = cells[5];
-                        const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                        const inputMethod = row.getAttribute('data-input-method') || '';
-                        const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
-                        const formulaCell = cells[4];
-                        const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
-                        baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                        // Store it for future use
-                        if (baseAmount && !isNaN(baseAmount)) {
-                            row.setAttribute('data-base-processed-amount', baseAmount.toString());
+                    // Always restore cell content first
+                    if (!saveChanges) {
+                        // Cancel: restore original value
+                        cellElement.textContent = originalValue;
+                    } else if (newValue !== originalValue) {
+                        // Value changed: update and recalculate
+                        const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
+                        
+                        // When Rate Value has value, uncheck checkbox
+                        if (newValue && rateCheckbox) {
+                            rateCheckbox.checked = false;
                         }
+                        
+                        // Update cell content
+                        cellElement.textContent = newValue;
+                        
+                        // Recalculate processed amount when Rate Value changes
+                        let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
+                        
+                        // If base amount is not stored or is 0, try to recalculate from formula
+                        if (!baseAmount || isNaN(baseAmount)) {
+                            const sourcePercentCell = cells[5];
+                            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
+                            const inputMethod = row.getAttribute('data-input-method') || '';
+                            const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
+                            const formulaCell = cells[4];
+                            const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                            baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                            // Store it for future use
+                            if (baseAmount && !isNaN(baseAmount)) {
+                                row.setAttribute('data-base-processed-amount', baseAmount.toString());
+                            }
+                        }
+                        
+                        const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+                        if (cells[8]) {
+                            const val = Number(finalAmount);
+                            cells[8].textContent = formatNumberWithThousands(val);
+                            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                            updateProcessedAmountTotal();
+                        }
+                    } else {
+                        // No change: just restore the display with original value
+                        cellElement.textContent = originalValue;
                     }
                     
-                    const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                    if (cells[8]) {
-                        const val = Number(finalAmount);
-                        cells[8].textContent = formatNumberWithThousands(val);
-                        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                        updateProcessedAmountTotal();
-                    }
+                    isEditing = false;
                 };
                 
-                // Handle blur (when input loses focus)
-                input.addEventListener('blur', handleInput);
+                // Handle blur (when input loses focus) - save changes
+                input.addEventListener('blur', function() {
+                    handleInput(true);
+                });
                 
-                // Handle Enter key
+                // Handle Enter key - save changes
                 input.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        handleInput();
+                        handleInput(true);
                     } else if (e.key === 'Escape') {
                         e.preventDefault();
-                        cellElement.textContent = originalValue;
-                        isEditing = false;
+                        handleInput(false); // Cancel: restore original value
                     }
                 });
             });
