@@ -16362,17 +16362,17 @@ function formatPercentValue(value) {
         
         #summaryTable th:nth-child(5), /* Columns */
         #summaryTable td:nth-child(5) {
-            width: 20%;
+            width: 22%;
         }
         
         #summaryTable th:nth-child(6), /* Batch Selection */
         #summaryTable td:nth-child(6) {
-            width: 3%;
+            width: 2%;
         }
         
         #summaryTable th:nth-child(7), /* Source */
         #summaryTable td:nth-child(7) {
-            width: 3%;
+            width: 2%;
         }
         
         #summaryTable th:nth-child(8), /* Formula */
