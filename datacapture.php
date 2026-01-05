@@ -9840,7 +9840,6 @@ if ($current_user_id && count($user_companies) > 0) {
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
-            table-layout: fixed; /* 固定表格布局以确保列宽生效 */
         }
 
         .excel-table th,
@@ -9850,12 +9849,7 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: clamp(2px, 0.31vw, 6px) 0px;
             text-align: center;
             min-width: 40px;
-            width: 40px; /* 固定列宽 */
-            max-width: 40px; /* 限制最大宽度，防止列过宽 */
             position: relative;
-            box-sizing: border-box;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .excel-table th {
@@ -9884,9 +9878,6 @@ if ($current_user_id && count($user_companies) > 0) {
             font-weight: bold;
             color: #24292f;
             min-width: 30px;
-            width: 30px; /* 固定行标题宽度 */
-            max-width: 30px; /* 限制最大宽度 */
-            box-sizing: border-box;
         }
 
         .excel-table td[contenteditable="true"]:hover {
