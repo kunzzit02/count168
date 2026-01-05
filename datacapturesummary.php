@@ -9517,34 +9517,12 @@ function getCurrentProcessId() {
         // Convert old format [id_product]$number to new format
         // Old format: [id_product]$number or [id_product (row_label) ]$number
         // New format: $number (if current row) or [id_product, cell_number] (if other row)
-        function convertOldFormatToNewFormat(formula, currentProcessValue, sourceColumnsValue, clickedCellRefs = '') {
+        function convertOldFormatToNewFormat(formula, currentProcessValue, sourceColumnsValue) {
             if (!formula || !formula.trim()) {
                 return formula;
             }
             
-            console.log('convertOldFormatToNewFormat - Input:', formula, 'currentProcessValue:', currentProcessValue, 'sourceColumnsValue:', sourceColumnsValue, 'clickedCellRefs:', clickedCellRefs);
-            
             let convertedFormula = formula;
-            
-            // Parse clickedCellRefs to build a map of columnNumber -> idProduct
-            // Format: "id_product:row_label:dataColumnIndex" or "id_product:dataColumnIndex"
-            const columnToIdProductMap = {};
-            if (clickedCellRefs && clickedCellRefs.trim()) {
-                const refs = clickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
-                for (let ref of refs) {
-                    const parts = ref.split(':');
-                    if (parts.length >= 2) {
-                        const refIdProduct = parts[0];
-                        const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                        // Convert dataColumnIndex to displayColumnIndex (displayColumnIndex = dataColumnIndex + 1)
-                        const refDisplayColumnIndex = refDataColumnIndex + 1;
-                        if (!isNaN(refDisplayColumnIndex)) {
-                            columnToIdProductMap[refDisplayColumnIndex] = refIdProduct;
-                        }
-                    }
-                }
-            }
-            console.log('convertOldFormatToNewFormat - columnToIdProductMap:', columnToIdProductMap);
             
             // Match old format: [id_product]$number or [id_product (row_label) ]$number
             // Pattern: \[([^\]]+)\]\$(\d+)
@@ -9561,30 +9539,12 @@ function getCurrentProcessId() {
                 const matchIndex = match.index;
                 
                 // Extract id_product from idProductPart (remove row_label if present)
-                // Handle formats like: "YONG", "(RM)) (F) ", "RM (F) ", etc.
-                let idProduct = idProductPart.trim();
-                
-                // Remove trailing parentheses and row labels
-                // Pattern: match (row_label) at the end, possibly multiple times
-                // Examples: "(RM)) (F) " -> extract what's before first (
-                //          "RM (F) " -> extract "RM"
-                //          "YONG" -> keep "YONG"
-                
-                // First, try to extract id_product before any parentheses
-                const beforeFirstParen = idProduct.split('(')[0].trim();
-                if (beforeFirstParen) {
-                    idProduct = beforeFirstParen;
-                } else {
-                    // If idProduct starts with (, it might be a special case
-                    // Try to extract from pattern like "(RM))" -> "RM"
-                    const parenMatch = idProduct.match(/^\(([^)]+)\)/);
-                    if (parenMatch) {
-                        idProduct = parenMatch[1].trim();
-                    }
+                let idProduct = idProductPart;
+                // Remove row_label pattern: (row_label) at the end
+                const rowLabelMatch = idProductPart.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+                if (rowLabelMatch) {
+                    idProduct = rowLabelMatch[1].trim();
                 }
-                
-                // Clean up any trailing colons or spaces
-                idProduct = idProduct.replace(/[: ]+$/, '').trim();
                 
                 matches.push({
                     fullMatch: fullMatch,
@@ -9601,36 +9561,14 @@ function getCurrentProcessId() {
                 const match = matches[i];
                 let newFormat = '';
                 
-                // Try to get id_product from clickedCellRefs map first (more accurate)
-                let actualIdProduct = idProduct;
-                if (columnToIdProductMap[match.columnNumber]) {
-                    actualIdProduct = columnToIdProductMap[match.columnNumber];
-                    console.log('convertOldFormatToNewFormat - Found id_product from clickedCellRefs:', actualIdProduct, 'for column:', match.columnNumber);
-                }
-                
                 // Check if id_product matches current process value
-                // Also check if idProduct is empty or just contains parentheses (might be current row)
-                const normalizedIdProduct = actualIdProduct ? normalizeIdProductText(actualIdProduct) : '';
-                const normalizedCurrentProcess = currentProcessValue ? normalizeIdProductText(currentProcessValue) : '';
-                
-                const isCurrentRow = (normalizedIdProduct && normalizedCurrentProcess && normalizedIdProduct === normalizedCurrentProcess) ||
-                                    (!actualIdProduct || actualIdProduct.trim() === '' || /^[()\s]+$/.test(actualIdProduct));
-                
-                console.log('convertOldFormatToNewFormat - Match:', {
-                    fullMatch: match.fullMatch,
-                    idProduct: idProduct,
-                    actualIdProduct: actualIdProduct,
-                    normalizedIdProduct: normalizedIdProduct,
-                    currentProcessValue: currentProcessValue,
-                    normalizedCurrentProcess: normalizedCurrentProcess,
-                    isCurrentRow: isCurrentRow,
-                    columnNumber: match.columnNumber
-                });
+                const isCurrentRow = currentProcessValue && idProduct && 
+                                    (idProduct === currentProcessValue || 
+                                     normalizeIdProductText(idProduct) === normalizeIdProductText(currentProcessValue));
                 
                 if (isCurrentRow) {
                     // Current row: use $number format
                     newFormat = `$${match.columnNumber}`;
-                    console.log('convertOldFormatToNewFormat - Current row, converting to:', newFormat);
                 } else {
                     // Other row: need to find cell_number from sourceColumns
                     // sourceColumns format: "id_product:row_label:displayColumnIndex" or "id_product:displayColumnIndex"
@@ -9640,25 +9578,21 @@ function getCurrentProcessId() {
                     
                     if (sourceColumnsValue && sourceColumnsValue.trim()) {
                         const refs = sourceColumnsValue.trim().split(/\s+/).filter(r => r.trim() !== '');
-                        console.log('convertOldFormatToNewFormat - Searching in sourceColumns:', refs);
                         for (let ref of refs) {
                             const parts = ref.split(':');
                             if (parts.length >= 2) {
                                 const refIdProduct = parts[0];
                                 const refDisplayColumnIndex = parseInt(parts[parts.length - 1]); // This is displayColumnIndex
                                 
-                                const normalizedRefIdProduct = normalizeIdProductText(refIdProduct);
-                                
                                 // Check if this ref matches our id_product and columnNumber (displayColumnIndex)
                                 if ((refIdProduct === match.idProduct || 
-                                     normalizedRefIdProduct === normalizedIdProduct) &&
+                                     normalizeIdProductText(refIdProduct) === normalizeIdProductText(match.idProduct)) &&
                                     refDisplayColumnIndex === match.columnNumber) {
                                     // Found matching ref
                                     // displayColumnIndex to dataColumnIndex: dataColumnIndex = displayColumnIndex - 1
                                     // But cell_number (第几格) is dataColumnIndex, which starts from 1
                                     // So: cell_number = displayColumnIndex - 1
                                     cellNumber = refDisplayColumnIndex - 1;
-                                    console.log('convertOldFormatToNewFormat - Found matching ref:', ref, 'cellNumber:', cellNumber);
                                     break;
                                 }
                             }
@@ -9673,14 +9607,10 @@ function getCurrentProcessId() {
                         if (cellNumber < 1) {
                             cellNumber = 1;
                         }
-                        console.log('convertOldFormatToNewFormat - Using fallback cellNumber:', cellNumber);
                     }
                     
                     // Use [id_product, cell_number] format
-                    // Use actualIdProduct if available, otherwise use match.idProduct
-                    const finalIdProduct = actualIdProduct && actualIdProduct.trim() ? actualIdProduct : match.idProduct;
-                    newFormat = `[${finalIdProduct},${cellNumber}]`;
-                    console.log('convertOldFormatToNewFormat - Other row, converting to:', newFormat);
+                    newFormat = `[${match.idProduct},${cellNumber}]`;
                 }
                 
                 // Replace old format with new format
@@ -9774,16 +9704,12 @@ function getCurrentProcessId() {
             } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '') {
                 // 优先使用 data-formula-operators（原始值，包含 $数字）
                 // 将旧格式 [id_product]$数字 转换为新格式
-                // Also get clicked-cell-refs for better id_product matching
-                const clickedCellRefs = row.getAttribute('data-clicked-cell-refs') || '';
-                console.log('editRowFormula - Before conversion:', storedFormulaOperators, 'processValue:', processValue, 'sourceColumnsValue:', sourceColumnsValue, 'clickedCellRefs:', clickedCellRefs);
-                formulaValue = convertOldFormatToNewFormat(storedFormulaOperators, processValue, sourceColumnsValue, clickedCellRefs);
-                console.log('editRowFormula - After conversion:', formulaValue);
+                formulaValue = convertOldFormatToNewFormat(storedFormulaOperators, processValue, sourceColumnsValue);
+                console.log('editRowFormula - Using data-formula-operators (converted to new format):', formulaValue);
             } else if (isReferenceFormat) {
                 // Use reference format directly from data attribute
                 // Also convert old format [id_product]$number if present
-                const clickedCellRefs = row.getAttribute('data-clicked-cell-refs') || '';
-                formulaValue = convertOldFormatToNewFormat(storedFormulaOperators, processValue, sourceColumnsValue, clickedCellRefs);
+                formulaValue = convertOldFormatToNewFormat(storedFormulaOperators, processValue, sourceColumnsValue);
                 console.log('editRowFormula - Using reference format from data-formula-operators (converted):', formulaValue);
             } else {
                 if (cells[4]) {
@@ -9886,9 +9812,8 @@ function getCurrentProcessId() {
             // IMPORTANT: If formula is empty in the UI, don't use data-formula-operators as fallback
             if (!isFormulaEmpty && (!formulaValue || formulaValue.trim() === '' || formulaValue === 'Formula')) {
                 const fallbackFormula = row.getAttribute('data-formula-operators') || '';
-                const clickedCellRefs = row.getAttribute('data-clicked-cell-refs') || '';
                 // Convert old format to new format
-                formulaValue = convertOldFormatToNewFormat(fallbackFormula, processValue, sourceColumnsValue, clickedCellRefs);
+                formulaValue = convertOldFormatToNewFormat(fallbackFormula, processValue, sourceColumnsValue);
             }
             
             // Set sourceValue to formulaValue (Source column removed)
