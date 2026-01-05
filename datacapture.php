@@ -9831,13 +9831,13 @@ if ($current_user_id && count($user_companies) > 0) {
             overflow: auto;
             background: white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            max-width: 100%;
+            width: 100%;
+            max-width: 650px; /* 限制宽度以显示约15列，剩余列需滚动查看 */
             height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
         }
 
         .excel-table {
             width: auto;
-            min-width: 100%;
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
