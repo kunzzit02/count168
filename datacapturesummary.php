@@ -8704,17 +8704,27 @@ function getCurrentProcessId() {
         // Attach edit listener to Rate Value cell
         function attachRateValueEditListener(cell, row) {
             let isEditing = false;
+            let currentInput = null;
+            
             cell.addEventListener('click', function(e) {
+                // Prevent editing if already editing
                 if (isEditing) return;
+                
+                // If clicking on input element itself, don't do anything
+                if (e.target.tagName === 'INPUT') {
+                    return;
+                }
+                
                 isEditing = true;
                 
+                // Get original value from cell text content
                 const originalValue = this.textContent.trim();
                 const cellElement = this;
                 
                 // Create input element
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.value = originalValue;
+                input.value = originalValue; // Set input value to original value
                 input.style.width = '100%';
                 input.style.textAlign = 'center';
                 input.style.border = '1px solid #0D60FF';
@@ -8723,66 +8733,92 @@ function getCurrentProcessId() {
                 input.style.fontSize = 'inherit';
                 input.style.fontFamily = 'inherit';
                 
+                // Store reference to current input
+                currentInput = input;
+                
                 // Replace cell content with input
                 cellElement.innerHTML = '';
                 cellElement.appendChild(input);
                 input.focus();
-                input.select();
+                // Only select text if there's a value, otherwise just focus
+                if (originalValue) {
+                    input.select();
+                }
                 
-                // Handle input changes
-                const handleInput = () => {
-                    const newValue = input.value.trim();
+                // Handle input changes - save the value
+                const handleInput = (saveChanges = true) => {
+                    // Make sure we're using the current input element
+                    const activeInput = currentInput || input;
+                    if (!activeInput || !activeInput.parentElement) {
+                        isEditing = false;
+                        return;
+                    }
+                    
+                    const newValue = activeInput.value.trim();
                     const cells = row.querySelectorAll('td');
                     const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                     
-                    // When Rate Value has value, uncheck checkbox
-                    if (newValue && rateCheckbox) {
-                        rateCheckbox.checked = false;
-                    }
-                    
-                    // Update cell content
-                    cellElement.textContent = newValue;
-                    isEditing = false;
-                    
-                    // Recalculate processed amount when Rate Value changes
-                    let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
-                    
-                    // If base amount is not stored or is 0, try to recalculate from formula
-                    if (!baseAmount || isNaN(baseAmount)) {
-                        const sourcePercentCell = cells[5];
-                        const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                        const inputMethod = row.getAttribute('data-input-method') || '';
-                        const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
-                        const formulaCell = cells[4];
-                        const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
-                        baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                        // Store it for future use
-                        if (baseAmount && !isNaN(baseAmount)) {
-                            row.setAttribute('data-base-processed-amount', baseAmount.toString());
+                    if (saveChanges) {
+                        // When Rate Value has value, uncheck checkbox
+                        if (newValue && rateCheckbox) {
+                            rateCheckbox.checked = false;
                         }
+                        
+                        // Update cell content with new value (even if empty, user intentionally cleared it)
+                        cellElement.textContent = newValue;
+                        
+                        // Recalculate processed amount when Rate Value changes
+                        let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
+                        
+                        // If base amount is not stored or is 0, try to recalculate from formula
+                        if (!baseAmount || isNaN(baseAmount)) {
+                            const sourcePercentCell = cells[5];
+                            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
+                            const inputMethod = row.getAttribute('data-input-method') || '';
+                            const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
+                            const formulaCell = cells[4];
+                            const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                            baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                            // Store it for future use
+                            if (baseAmount && !isNaN(baseAmount)) {
+                                row.setAttribute('data-base-processed-amount', baseAmount.toString());
+                            }
+                        }
+                        
+                        const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+                        if (cells[8]) {
+                            const val = Number(finalAmount);
+                            cells[8].textContent = formatNumberWithThousands(val);
+                            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                            updateProcessedAmountTotal();
+                        }
+                    } else {
+                        // Cancel: restore original value
+                        cellElement.textContent = originalValue;
                     }
                     
-                    const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                    if (cells[8]) {
-                        const val = Number(finalAmount);
-                        cells[8].textContent = formatNumberWithThousands(val);
-                        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                        updateProcessedAmountTotal();
-                    }
+                    isEditing = false;
+                    currentInput = null;
                 };
                 
-                // Handle blur (when input loses focus)
-                input.addEventListener('blur', handleInput);
+                // Handle blur (when input loses focus) - always save changes
+                input.addEventListener('blur', function(e) {
+                    // Use setTimeout to ensure input.value is still accessible
+                    setTimeout(() => {
+                        if (isEditing && currentInput === input) {
+                            handleInput(true);
+                        }
+                    }, 100);
+                });
                 
-                // Handle Enter key
+                // Handle Enter key - save changes
                 input.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        handleInput();
+                        handleInput(true);
                     } else if (e.key === 'Escape') {
                         e.preventDefault();
-                        cellElement.textContent = originalValue;
-                        isEditing = false;
+                        handleInput(false); // Cancel: restore original value
                     }
                 });
             });
