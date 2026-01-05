@@ -5302,8 +5302,11 @@ function getCurrentProcessId() {
                                 
                                 // 将 formula 中的旧格式转换为新格式：[id_product, 数字] 或 $数字
                                 let currentFormula = formulaInput.value || '';
+                                console.log('populateFormWithData - Converting formula:', currentFormula, 'with clickedColumns:', data.clickedColumns);
+                                
                                 if (currentFormula && currentFormula.trim() !== '') {
                                     const processValue = document.getElementById('process')?.value?.trim() || '';
+                                    console.log('populateFormWithData - Current processValue:', processValue);
                                     
                                     // 先处理已存在的 [id_product (row_label) ]$数字 或 [id_product ]$数字 格式
                                     const oldFormatPattern = /\[([^\]]+)\]\$(\d+)(?!\d)/g;
@@ -5374,9 +5377,14 @@ function getCurrentProcessId() {
                                             // 使用已处理的替换数量作为引用索引（按顺序匹配）
                                             const refIndexToUse = replacements.length;
                                             
+                                            console.log('populateFormWithData - Matching $' + displayColumnIndex + ' (match index ' + matchIndex + ') with ref[' + refIndexToUse + '] from convertedRefs (length: ' + convertedRefs.length + ')');
+                                            
                                             let matchedRef = null;
                                             if (refIndexToUse < convertedRefs.length) {
                                                 matchedRef = convertedRefs[refIndexToUse];
+                                                console.log('populateFormWithData - Found ref:', matchedRef);
+                                            } else {
+                                                console.warn('populateFormWithData - refIndexToUse (' + refIndexToUse + ') >= convertedRefs.length (' + convertedRefs.length + ')');
                                             }
                                             
                                             if (matchedRef) {
@@ -5385,6 +5393,7 @@ function getCurrentProcessId() {
                                                 
                                                 // 判断是否是自己的row
                                                 const isOwnRow = processValue && idProduct && processValue.toUpperCase() === idProduct.toUpperCase();
+                                                console.log('populateFormWithData - idProduct:', idProduct, 'processValue:', processValue, 'isOwnRow:', isOwnRow);
                                                 
                                                 // 构建新格式：[id_product, 数字] 或 $数字
                                                 let newFormat = '';
@@ -5393,6 +5402,8 @@ function getCurrentProcessId() {
                                                 } else {
                                                     newFormat = `[${idProduct},${displayColumnIndex}]`;
                                                 }
+                                                
+                                                console.log('populateFormWithData - Converting', match[0], 'to', newFormat);
                                                 
                                                 replacements.push({
                                                     from: match[0], // 例如 "$4"
