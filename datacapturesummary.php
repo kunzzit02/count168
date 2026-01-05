@@ -11191,6 +11191,16 @@ function getCurrentProcessId() {
             rateCell.appendChild(rateCheckbox);
             row.appendChild(rateCell);
             
+            // Rate Value column (new column for individual rate input)
+            const rateValueCell = document.createElement('td');
+            rateValueCell.style.textAlign = 'center';
+            rateValueCell.classList.add('editable-cell');
+            rateValueCell.style.cursor = 'text';
+            rateValueCell.textContent = '';
+            // Make cell editable on click
+            attachRateValueEditListener(rateValueCell, row);
+            row.appendChild(rateValueCell);
+            
             // Processed Amount column
             const processedAmountCell = document.createElement('td');
             processedAmountCell.textContent = '';
@@ -11471,12 +11481,37 @@ function getCurrentProcessId() {
                 if (data.accountDbId) {
                     cells[1].setAttribute('data-account-id', data.accountDbId);
                 }
-
-                const checkbox = row.querySelector('.summary-row-checkbox');
-                if (checkbox) {
-                    checkbox.disabled = false;
-                    checkbox.title = 'Select for deletion';
+            }
+            
+            // Delete checkbox column (last column)
+            // Ensure delete checkbox exists and is enabled for sub rows with data
+            let checkbox = row.querySelector('.summary-row-checkbox');
+            if (!checkbox) {
+                // Checkbox doesn't exist, create it
+                const lastCellIndex = cells.length - 1;
+                let checkboxCell = cells[lastCellIndex];
+                
+                // If last cell doesn't exist or is not the delete column, create it
+                if (!checkboxCell || !checkboxCell.querySelector('.summary-row-checkbox')) {
+                    // Create delete checkbox cell
+                    checkboxCell = document.createElement('td');
+                    checkboxCell.style.textAlign = 'center';
+                    row.appendChild(checkboxCell);
                 }
+                
+                // Create checkbox
+                checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'summary-row-checkbox';
+                checkbox.setAttribute('data-value', processValue);
+                checkbox.addEventListener('change', updateDeleteButton);
+                checkboxCell.appendChild(checkbox);
+            }
+            
+            // Enable checkbox for sub rows with data
+            if (checkbox) {
+                checkbox.disabled = false;
+                checkbox.title = 'Select for deletion';
             }
 
             // Currency column (index 3)
