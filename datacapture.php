@@ -601,6 +601,34 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
+        // Select entire row
+        function selectRow(rowIndex) {
+            // Activate table when row is selected
+            tableActive = true;
+            
+            clearAllSelections();
+            
+            // Highlight row header
+            const tableBody = document.getElementById('tableBody');
+            const row = tableBody.children[rowIndex];
+            if (row) {
+                const rowHeader = row.querySelector('.row-header');
+                if (rowHeader) {
+                    rowHeader.classList.add('row-selected');
+                }
+            }
+            
+            // Select all cells in this row
+            if (row) {
+                Array.from(row.children).forEach(cell => {
+                    if (cell && cell.contentEditable === 'true') {
+                        selectedCells.add(cell);
+                        cell.classList.add('multi-selected');
+                    }
+                });
+            }
+        }
+
         // Clear all selections
         function clearAllSelections() {
             // Clear cell selections
@@ -612,6 +640,11 @@ if ($current_user_id && count($user_companies) > 0) {
             // Clear column header selections
             document.querySelectorAll('#dataTable th').forEach(header => {
                 header.classList.remove('column-selected');
+            });
+            
+            // Clear row header selections
+            document.querySelectorAll('.row-header').forEach(header => {
+                header.classList.remove('row-selected');
             });
         }
 
@@ -2170,6 +2203,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 const rowHeader = document.createElement('td');
                 rowHeader.className = 'row-header';
                 rowHeader.textContent = getColumnLabel(i - 1); // A, B, C, ..., Z, AA, AB, ...
+                rowHeader.addEventListener('click', () => {
+                    tableActive = true;
+                    selectRow(i - 1);
+                });
+                rowHeader.style.cursor = 'pointer';
                 row.appendChild(rowHeader);
                 
                 // Data cells
@@ -2274,6 +2312,11 @@ if ($current_user_id && count($user_companies) > 0) {
             const rowHeader = document.createElement('td');
             rowHeader.className = 'row-header';
             rowHeader.textContent = getColumnLabel(currentRows); // A, B, C, ..., Z, AA, AB, ...
+            rowHeader.addEventListener('click', () => {
+                tableActive = true;
+                selectRow(currentRows);
+            });
+            rowHeader.style.cursor = 'pointer';
             row.appendChild(rowHeader);
             
             // Data cells
@@ -9936,6 +9979,11 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         .excel-table th.column-selected {
+            background-color: #e3f2fd !important;
+            color: #1976d2 !important;
+        }
+
+        .excel-table td.row-header.row-selected {
             background-color: #e3f2fd !important;
             color: #1976d2 !important;
         }
