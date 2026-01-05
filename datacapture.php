@@ -2220,11 +2220,12 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // Set table width based on actual columns to enable horizontal scrolling
             // Row header (30px) + columns (cols * 40px) + borders/padding
+            // For 20 columns: 30 + 20*40 + 20 = 850px (container is 670px, so scrollbar appears)
             const tableWidth = 30 + (cols * 40) + 20;
             const excelTable = document.getElementById('dataTable');
             if (excelTable) {
-                excelTable.style.width = tableWidth + 'px';
-                excelTable.style.minWidth = tableWidth + 'px';
+                excelTable.style.setProperty('width', tableWidth + 'px', 'important');
+                excelTable.style.setProperty('min-width', tableWidth + 'px', 'important');
             }
             
             // Add mouse release event
@@ -9852,12 +9853,11 @@ if ($current_user_id && count($user_companies) > 0) {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             max-width: 100%;
             width: 670px; /* 只显示15列: 30px(行头) + 15*40px(列) + 边框和padding */
-            height: clamp(500px, 35vw, 650px); /* ~26 rows (A-Z) incl. header */
+            height: 400px; /* 固定高度，显示部分行，需要滚动查看26行 */
         }
 
         .excel-table {
             width: auto;
-            min-width: 100%;
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
