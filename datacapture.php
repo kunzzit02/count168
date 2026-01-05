@@ -587,6 +587,46 @@ if ($current_user_id && count($user_companies) > 0) {
             startRowIndex = null;
         }
 
+        // Handle column header click (both left and right click)
+        function handleColumnHeaderClick(e, colIndex) {
+            e.preventDefault();
+            tableActive = true;
+            const isCtrlPressed = e.ctrlKey || e.metaKey;
+            
+            // If Ctrl is pressed, toggle this column selection
+            if (isCtrlPressed) {
+                const headers = document.querySelectorAll('#dataTable th');
+                const isSelected = headers[colIndex + 1] && headers[colIndex + 1].classList.contains('column-selected');
+                toggleColumnSelection(colIndex, !isSelected);
+            } else {
+                // Normal selection or drag selection
+                isSelectingColumns = true;
+                startColumnIndex = colIndex;
+                selectColumn(colIndex, null, false);
+            }
+        }
+
+        // Handle row header click (both left and right click)
+        function handleRowHeaderClick(e, rowIndex) {
+            e.preventDefault();
+            tableActive = true;
+            const isCtrlPressed = e.ctrlKey || e.metaKey;
+            
+            // If Ctrl is pressed, toggle this row selection
+            if (isCtrlPressed) {
+                const tableBody = document.getElementById('tableBody');
+                const row = tableBody.children[rowIndex];
+                const rowHeaderEl = row ? row.querySelector('.row-header') : null;
+                const isSelected = rowHeaderEl && rowHeaderEl.classList.contains('row-selected');
+                toggleRowSelection(rowIndex, !isSelected);
+            } else {
+                // Normal selection or drag selection
+                isSelectingRows = true;
+                startRowIndex = rowIndex;
+                selectRow(rowIndex, null, false);
+            }
+        }
+
         // Handle column header mouse over (for drag selection)
         function handleColumnHeaderMouseOver(e, colIndex) {
             if (isSelectingColumns && startColumnIndex !== null) {
@@ -2317,22 +2357,13 @@ if ($current_user_id && count($user_companies) > 0) {
             for (let j = 0; j < cols; j++) {
                 const header = document.createElement('th');
                 header.textContent = j + 1; // 1, 2, 3, ...
+                // Handle left click (mousedown)
                 header.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    tableActive = true;
-                    const isCtrlPressed = e.ctrlKey || e.metaKey;
-                    
-                    // If Ctrl is pressed, toggle this column selection
-                    if (isCtrlPressed) {
-                        const headers = document.querySelectorAll('#dataTable th');
-                        const isSelected = headers[j + 1] && headers[j + 1].classList.contains('column-selected');
-                        toggleColumnSelection(j, !isSelected);
-                    } else {
-                        // Normal selection or drag selection
-                        isSelectingColumns = true;
-                        startColumnIndex = j;
-                        selectColumn(j, null, false);
-                    }
+                    handleColumnHeaderClick(e, j);
+                });
+                // Handle right click (contextmenu) - same as left click
+                header.addEventListener('contextmenu', (e) => {
+                    handleColumnHeaderClick(e, j);
                 });
                 header.addEventListener('mouseover', (e) => {
                     // Only handle drag selection if not using Ctrl
@@ -2352,24 +2383,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 const rowHeader = document.createElement('td');
                 rowHeader.className = 'row-header';
                 rowHeader.textContent = getColumnLabel(i - 1); // A, B, C, ..., Z, AA, AB, ...
+                // Handle left click (mousedown)
                 rowHeader.addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    tableActive = true;
-                    const isCtrlPressed = e.ctrlKey || e.metaKey;
-                    
-                    // If Ctrl is pressed, toggle this row selection
-                    if (isCtrlPressed) {
-                        const tableBody = document.getElementById('tableBody');
-                        const row = tableBody.children[i - 1];
-                        const rowHeaderEl = row ? row.querySelector('.row-header') : null;
-                        const isSelected = rowHeaderEl && rowHeaderEl.classList.contains('row-selected');
-                        toggleRowSelection(i - 1, !isSelected);
-                    } else {
-                        // Normal selection or drag selection
-                        isSelectingRows = true;
-                        startRowIndex = i - 1;
-                        selectRow(i - 1, null, false);
-                    }
+                    handleRowHeaderClick(e, i - 1);
+                });
+                // Handle right click (contextmenu) - same as left click
+                rowHeader.addEventListener('contextmenu', (e) => {
+                    handleRowHeaderClick(e, i - 1);
                 });
                 rowHeader.addEventListener('mouseover', (e) => {
                     // Only handle drag selection if not using Ctrl
@@ -2482,24 +2502,13 @@ if ($current_user_id && count($user_companies) > 0) {
             const rowHeader = document.createElement('td');
             rowHeader.className = 'row-header';
             rowHeader.textContent = getColumnLabel(currentRows); // A, B, C, ..., Z, AA, AB, ...
+            // Handle left click (mousedown)
             rowHeader.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                tableActive = true;
-                const isCtrlPressed = e.ctrlKey || e.metaKey;
-                
-                // If Ctrl is pressed, toggle this row selection
-                if (isCtrlPressed) {
-                    const tableBody = document.getElementById('tableBody');
-                    const row = tableBody.children[currentRows];
-                    const rowHeaderEl = row ? row.querySelector('.row-header') : null;
-                    const isSelected = rowHeaderEl && rowHeaderEl.classList.contains('row-selected');
-                    toggleRowSelection(currentRows, !isSelected);
-                } else {
-                    // Normal selection or drag selection
-                    isSelectingRows = true;
-                    startRowIndex = currentRows;
-                    selectRow(currentRows, null, false);
-                }
+                handleRowHeaderClick(e, currentRows);
+            });
+            // Handle right click (contextmenu) - same as left click
+            rowHeader.addEventListener('contextmenu', (e) => {
+                handleRowHeaderClick(e, currentRows);
             });
             rowHeader.addEventListener('mouseover', (e) => {
                 // Only handle drag selection if not using Ctrl
@@ -2579,22 +2588,13 @@ if ($current_user_id && count($user_companies) > 0) {
             // Create new column header
             const newHeader = document.createElement('th');
             newHeader.textContent = newColIndex + 1; // 1, 2, 3, ...
+            // Handle left click (mousedown)
             newHeader.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                tableActive = true;
-                const isCtrlPressed = e.ctrlKey || e.metaKey;
-                
-                // If Ctrl is pressed, toggle this column selection
-                if (isCtrlPressed) {
-                    const headers = document.querySelectorAll('#dataTable th');
-                    const isSelected = headers[newColIndex + 1] && headers[newColIndex + 1].classList.contains('column-selected');
-                    toggleColumnSelection(newColIndex, !isSelected);
-                } else {
-                    // Normal selection or drag selection
-                    isSelectingColumns = true;
-                    startColumnIndex = newColIndex;
-                    selectColumn(newColIndex, null, false);
-                }
+                handleColumnHeaderClick(e, newColIndex);
+            });
+            // Handle right click (contextmenu) - same as left click
+            newHeader.addEventListener('contextmenu', (e) => {
+                handleColumnHeaderClick(e, newColIndex);
             });
             newHeader.addEventListener('mouseover', (e) => {
                 // Only handle drag selection if not using Ctrl
