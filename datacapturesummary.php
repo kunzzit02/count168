@@ -818,65 +818,13 @@ function getCurrentProcessId() {
                         row.appendChild(cell);
                     });
                     
-                    // Rate column (with checkbox and input)
+                    // Rate column (with checkbox directly displayed)
                     const rateCell = document.createElement('td');
                     rateCell.style.textAlign = 'center';
-                    rateCell.style.display = 'flex';
-                    rateCell.style.alignItems = 'center';
-                    rateCell.style.justifyContent = 'center';
-                    rateCell.style.gap = '5px';
-                    
-                    const rateContainer = document.createElement('div');
-                    rateContainer.style.display = 'flex';
-                    rateContainer.style.alignItems = 'center';
-                    rateContainer.style.gap = '5px';
-                    
                     const rateCheckbox = document.createElement('input');
                     rateCheckbox.type = 'checkbox';
                     rateCheckbox.className = 'rate-checkbox';
-                    
-                    const rowRateInput = document.createElement('input');
-                    rowRateInput.type = 'text';
-                    rowRateInput.className = 'rate-row-input';
-                    rowRateInput.placeholder = 'e.g. *3';
-                    rowRateInput.style.width = '60px';
-                    rowRateInput.style.padding = '2px 4px';
-                    rowRateInput.style.fontSize = '12px';
-                    rowRateInput.style.border = '1px solid #ddd';
-                    rowRateInput.style.borderRadius = '3px';
-                    
-                    // Add event listeners
-                    const recalculateRowAmount = function() {
-                        const cells = row.querySelectorAll('td');
-                        let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
-                        if (!baseAmount || isNaN(baseAmount)) {
-                            const sourcePercentCell = cells[5];
-                            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                            const inputMethod = row.getAttribute('data-input-method') || '';
-                            const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
-                            const formulaCell = cells[4];
-                            const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
-                            baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                            if (baseAmount && !isNaN(baseAmount)) {
-                                row.setAttribute('data-base-processed-amount', baseAmount.toString());
-                            }
-                        }
-                        const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                        if (cells[7]) {
-                            const val = Number(finalAmount);
-                            cells[7].textContent = formatNumberWithThousands(val);
-                            cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                            updateProcessedAmountTotal();
-                        }
-                    };
-                    
-                    rateCheckbox.addEventListener('change', recalculateRowAmount);
-                    rowRateInput.addEventListener('input', recalculateRowAmount);
-                    rowRateInput.addEventListener('blur', recalculateRowAmount);
-                    
-                    rateContainer.appendChild(rateCheckbox);
-                    rateContainer.appendChild(rowRateInput);
-                    rateCell.appendChild(rateContainer);
+                    rateCell.appendChild(rateCheckbox);
                     row.appendChild(rateCell);
                     
                     // Processed Amount column
@@ -1923,11 +1871,9 @@ function getCurrentProcessId() {
         }
         
         // Recalculate all rows with rate checkbox checked when rateInput changes
-        // This function is called when global rateInput changes, and will recalculate rows
-        // that have checkbox checked but no row-specific input value
         function recalculateAllRowsWithRate() {
-            const globalRateInput = document.getElementById('rateInput');
-            if (!globalRateInput) return;
+            const rateInput = document.getElementById('rateInput');
+            if (!rateInput) return;
             
             const summaryTableBody = document.getElementById('summaryTableBody');
             if (!summaryTableBody) return;
@@ -1939,29 +1885,22 @@ function getCurrentProcessId() {
                 
                 const cells = row.querySelectorAll('td');
                 const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
-                const rowRateInput = cells[6] ? cells[6].querySelector('.rate-row-input') : null;
                 
-                // Only recalculate if checkbox is checked AND row input is empty (use global value)
                 if (rateCheckbox && rateCheckbox.checked) {
-                    const hasRowSpecificValue = rowRateInput && rowRateInput.value && rowRateInput.value.trim() !== '';
+                    // Recalculate processed amount for this row
+                    const sourcePercentCell = cells[5];
+                    const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
+                    const inputMethod = row.getAttribute('data-input-method') || '';
+                    const enableInputMethod = inputMethod ? true : false;
+                    const formulaCell = cells[4];
+                    const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                    const baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                    const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
                     
-                    // Only recalculate if row doesn't have its own value (will use global rateInput)
-                    if (!hasRowSpecificValue) {
-                        // Recalculate processed amount for this row
-                        const sourcePercentCell = cells[5];
-                        const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                        const inputMethod = row.getAttribute('data-input-method') || '';
-                        const enableInputMethod = inputMethod ? true : false;
-                        const formulaCell = cells[4];
-                        const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
-                        const baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                        const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-                        
-                        if (cells[7]) {
-                            const val = Number(finalAmount);
-                            cells[7].textContent = formatNumberWithThousands(val);
-                            cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                        }
+                    if (cells[7]) {
+                        const val = Number(finalAmount);
+                        cells[7].textContent = formatNumberWithThousands(val);
+                        cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                     }
                 }
             });
@@ -8753,7 +8692,6 @@ function getCurrentProcessId() {
 
         // Apply rate multiplication or division to processed amount if rate checkbox is checked
         // Supports "*3" for multiplication and "/3" for division
-        // Priority: row-specific input > global rateInput
         function applyRateToProcessedAmount(row, processedAmount) {
             if (!row) {
                 return processedAmount;
@@ -8763,38 +8701,21 @@ function getCurrentProcessId() {
             // First try cells[6], but also check the entire row in case checkbox is being created
             const cells = row.querySelectorAll('td');
             let rateCheckbox = null;
-            let rowRateInput = null;
             if (cells[6]) {
                 rateCheckbox = cells[6].querySelector('.rate-checkbox');
-                rowRateInput = cells[6].querySelector('.rate-row-input');
             }
             // Fallback: search the entire row if not found in cells[6]
             if (!rateCheckbox) {
                 rateCheckbox = row.querySelector('.rate-checkbox');
             }
-            if (!rowRateInput) {
-                rowRateInput = row.querySelector('.rate-row-input');
-            }
             
             if (rateCheckbox && rateCheckbox.checked) {
-                let rateInputValue = '';
-                
-                // Priority 1: Use row-specific input if it has a value
-                if (rowRateInput && rowRateInput.value && rowRateInput.value.trim() !== '') {
-                    rateInputValue = rowRateInput.value.trim();
-                }
-                // Priority 2: Fall back to global rateInput if row input is empty
-                else {
-                    const globalRateInput = document.getElementById('rateInput');
-                    if (globalRateInput && globalRateInput.value) {
-                        rateInputValue = globalRateInput.value.trim();
-                    }
-                }
-                
-                // If no rate value found, return original amount
-                if (!rateInputValue) {
+                const rateInput = document.getElementById('rateInput');
+                if (!rateInput || !rateInput.value) {
                     return processedAmount;
                 }
+                
+                const rateInputValue = rateInput.value.trim();
                 
                 // Check if input starts with "*" for multiplication
                 if (rateInputValue.startsWith('*')) {
@@ -9544,53 +9465,32 @@ function getCurrentProcessId() {
                 // Clear the cell first
                 cells[6].innerHTML = '';
                 cells[6].style.textAlign = 'center';
-                cells[6].style.display = 'flex';
-                cells[6].style.alignItems = 'center';
-                cells[6].style.justifyContent = 'center';
-                cells[6].style.gap = '5px';
-                
-                // Create container for checkbox and input
-                const rateContainer = document.createElement('div');
-                rateContainer.style.display = 'flex';
-                rateContainer.style.alignItems = 'center';
-                rateContainer.style.gap = '5px';
                 
                 // Create checkbox
                 const rateCheckbox = document.createElement('input');
                 rateCheckbox.type = 'checkbox';
                 rateCheckbox.className = 'rate-checkbox';
                 
-                // Create row-specific rate input
-                const rowRateInput = document.createElement('input');
-                rowRateInput.type = 'text';
-                rowRateInput.className = 'rate-row-input';
-                rowRateInput.placeholder = 'e.g. *3';
-                rowRateInput.style.width = '60px';
-                rowRateInput.style.padding = '2px 4px';
-                rowRateInput.style.fontSize = '12px';
-                rowRateInput.style.border = '1px solid #ddd';
-                rowRateInput.style.borderRadius = '3px';
-                
                 // Set checkbox state based on data.rate (from database) or rateInput
-                const globalRateInput = document.getElementById('rateInput');
+                const rateInput = document.getElementById('rateInput');
                 // Check if rate value exists in data (from database)
                 const hasRateValue = data.rate !== null && data.rate !== undefined && data.rate !== '';
+                // If rate exists in data, use it; otherwise check rateInput
+                const rateValue = hasRateValue ? data.rate : (rateInput ? rateInput.value : '');
+                // Checkbox is checked if rate value exists (either from data or rateInput)
+                rateCheckbox.checked = hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1;
                 
-                // If rate exists in data, populate row input and check checkbox
-                if (hasRateValue) {
-                    rowRateInput.value = data.rate;
-                    rateCheckbox.checked = true;
-                } else {
-                    // Check if global rateInput has value and checkbox should be checked
-                    const globalRateValue = globalRateInput ? globalRateInput.value : '';
-                    rateCheckbox.checked = globalRateValue !== '' && (globalRateValue === '✓' || globalRateValue === true || globalRateValue === '1' || globalRateValue === 1);
+                // If rate value exists in data, update rateInput to show it
+                if (hasRateValue && rateInput) {
+                    rateInput.value = data.rate;
                 }
                 
-                // Function to recalculate processed amount for this row
-                const recalculateRowAmount = function() {
+                // Add event listener to recalculate when checkbox state changes
+                rateCheckbox.addEventListener('change', function() {
+                    // Recalculate processed amount when rate checkbox is toggled
                     const cells = row.querySelectorAll('td');
                     
-                    // Get the base processed amount from row attribute
+                    // Get the base processed amount from row attribute (stored above)
                     let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
                     
                     // If base amount is not stored or is 0, try to recalculate from formula
@@ -9615,19 +9515,9 @@ function getCurrentProcessId() {
                         cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                         updateProcessedAmountTotal();
                     }
-                };
+                });
                 
-                // Add event listener to checkbox: recalculate when checkbox state changes
-                rateCheckbox.addEventListener('change', recalculateRowAmount);
-                
-                // Add event listener to row input: recalculate when input value changes
-                rowRateInput.addEventListener('input', recalculateRowAmount);
-                rowRateInput.addEventListener('blur', recalculateRowAmount);
-                
-                // Append checkbox and input to container
-                rateContainer.appendChild(rateCheckbox);
-                rateContainer.appendChild(rowRateInput);
-                cells[6].appendChild(rateContainer);
+                cells[6].appendChild(rateCheckbox);
             }
             
             // Update Processed Amount column (index 7)
@@ -10915,65 +10805,13 @@ function getCurrentProcessId() {
                 row.appendChild(cell);
             });
             
-            // Rate column (with checkbox and input)
+            // Rate column (with checkbox directly displayed)
             const rateCell = document.createElement('td');
             rateCell.style.textAlign = 'center';
-            rateCell.style.display = 'flex';
-            rateCell.style.alignItems = 'center';
-            rateCell.style.justifyContent = 'center';
-            rateCell.style.gap = '5px';
-            
-            const rateContainer = document.createElement('div');
-            rateContainer.style.display = 'flex';
-            rateContainer.style.alignItems = 'center';
-            rateContainer.style.gap = '5px';
-            
             const rateCheckbox = document.createElement('input');
             rateCheckbox.type = 'checkbox';
             rateCheckbox.className = 'rate-checkbox';
-            
-            const rowRateInput = document.createElement('input');
-            rowRateInput.type = 'text';
-            rowRateInput.className = 'rate-row-input';
-            rowRateInput.placeholder = 'e.g. *3';
-            rowRateInput.style.width = '60px';
-            rowRateInput.style.padding = '2px 4px';
-            rowRateInput.style.fontSize = '12px';
-            rowRateInput.style.border = '1px solid #ddd';
-            rowRateInput.style.borderRadius = '3px';
-            
-            // Add event listeners
-            const recalculateRowAmount = function() {
-                const cells = row.querySelectorAll('td');
-                let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
-                if (!baseAmount || isNaN(baseAmount)) {
-                    const sourcePercentCell = cells[5];
-                    const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                    const inputMethod = row.getAttribute('data-input-method') || '';
-                    const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
-                    const formulaCell = cells[4];
-                    const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
-                    baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                    if (baseAmount && !isNaN(baseAmount)) {
-                        row.setAttribute('data-base-processed-amount', baseAmount.toString());
-                    }
-                }
-                const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                if (cells[7]) {
-                    const val = Number(finalAmount);
-                    cells[7].textContent = formatNumberWithThousands(val);
-                    cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                    updateProcessedAmountTotal();
-                }
-            };
-            
-            rateCheckbox.addEventListener('change', recalculateRowAmount);
-            rowRateInput.addEventListener('input', recalculateRowAmount);
-            rowRateInput.addEventListener('blur', recalculateRowAmount);
-            
-            rateContainer.appendChild(rateCheckbox);
-            rateContainer.appendChild(rowRateInput);
-            rateCell.appendChild(rateContainer);
+            rateCell.appendChild(rateCheckbox);
             row.appendChild(rateCell);
             
             // Processed Amount column
@@ -11309,50 +11147,29 @@ function getCurrentProcessId() {
                 // Clear the cell first
                 cells[6].innerHTML = '';
                 cells[6].style.textAlign = 'center';
-                cells[6].style.display = 'flex';
-                cells[6].style.alignItems = 'center';
-                cells[6].style.justifyContent = 'center';
-                cells[6].style.gap = '5px';
-                
-                // Create container for checkbox and input
-                const rateContainer = document.createElement('div');
-                rateContainer.style.display = 'flex';
-                rateContainer.style.alignItems = 'center';
-                rateContainer.style.gap = '5px';
                 
                 // Create checkbox
                 const rateCheckbox = document.createElement('input');
                 rateCheckbox.type = 'checkbox';
                 rateCheckbox.className = 'rate-checkbox';
                 
-                // Create row-specific rate input
-                const rowRateInput = document.createElement('input');
-                rowRateInput.type = 'text';
-                rowRateInput.className = 'rate-row-input';
-                rowRateInput.placeholder = 'e.g. *3';
-                rowRateInput.style.width = '60px';
-                rowRateInput.style.padding = '2px 4px';
-                rowRateInput.style.fontSize = '12px';
-                rowRateInput.style.border = '1px solid #ddd';
-                rowRateInput.style.borderRadius = '3px';
-                
-                // Set checkbox state and input value based on data.rate (from database) or rateInput
-                const globalRateInput = document.getElementById('rateInput');
+                // Set checkbox state based on data.rate (from database) or rateInput
+                const rateInput = document.getElementById('rateInput');
                 // Check if rate value exists in data (from database)
                 const hasRateValue = data.rate !== null && data.rate !== undefined && data.rate !== '';
+                // If rate exists in data, use it; otherwise check rateInput
+                const rateValue = hasRateValue ? data.rate : (rateInput ? rateInput.value : '');
+                // Checkbox is checked if rate value exists (either from data or rateInput)
+                rateCheckbox.checked = hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1;
                 
-                // If rate exists in data, populate row input and check checkbox
-                if (hasRateValue) {
-                    rowRateInput.value = data.rate;
-                    rateCheckbox.checked = true;
-                } else {
-                    // Check if global rateInput has value and checkbox should be checked
-                    const globalRateValue = globalRateInput ? globalRateInput.value : '';
-                    rateCheckbox.checked = globalRateValue !== '' && (globalRateValue === '✓' || globalRateValue === true || globalRateValue === '1' || globalRateValue === 1);
+                // If rate value exists in data, update rateInput to show it
+                if (hasRateValue && rateInput) {
+                    rateInput.value = data.rate;
                 }
                 
-                // Function to recalculate processed amount for this row
-                const recalculateRowAmount = function() {
+                // Add event listener to recalculate when checkbox state changes
+                rateCheckbox.addEventListener('change', function() {
+                    // Recalculate processed amount when rate checkbox is toggled
                     const cells = row.querySelectorAll('td');
                     
                     // Get the base processed amount from row attribute (stored when row was updated)
@@ -11380,17 +11197,9 @@ function getCurrentProcessId() {
                         cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                         updateProcessedAmountTotal();
                     }
-                };
+                });
                 
-                // Add event listeners
-                rateCheckbox.addEventListener('change', recalculateRowAmount);
-                rowRateInput.addEventListener('input', recalculateRowAmount);
-                rowRateInput.addEventListener('blur', recalculateRowAmount);
-                
-                // Append checkbox and input to container
-                rateContainer.appendChild(rateCheckbox);
-                rateContainer.appendChild(rowRateInput);
-                cells[6].appendChild(rateContainer);
+                cells[6].appendChild(rateCheckbox);
             }
 
             // Processed Amount column (index 7)
@@ -15364,33 +15173,17 @@ function formatPercentValue(value) {
                     // Get rate checkbox state and rate input value (Rate column is at index 6)
                     const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                     const rateChecked = rateCheckbox ? rateCheckbox.checked : false;
-                    
-                    // Priority: row-specific input > global rateInput
+                    const rateInput = document.getElementById('rateInput');
+                    // Extract numeric value from rate input (remove "*" or "/" prefix for saving)
                     let rateValue = null;
-                    if (rateChecked) {
-                        const rowRateInput = cells[6] ? cells[6].querySelector('.rate-row-input') : null;
-                        const globalRateInput = document.getElementById('rateInput');
-                        
-                        let rateInputValue = '';
-                        
-                        // Priority 1: Use row-specific input if it has a value
-                        if (rowRateInput && rowRateInput.value && rowRateInput.value.trim() !== '') {
-                            rateInputValue = rowRateInput.value.trim();
-                        }
-                        // Priority 2: Fall back to global rateInput if row input is empty
-                        else if (globalRateInput && globalRateInput.value) {
-                            rateInputValue = globalRateInput.value.trim();
-                        }
-                        
-                        // Extract numeric value from rate input (remove "*" or "/" prefix for saving)
-                        if (rateInputValue) {
-                            if (rateInputValue.startsWith('*') || rateInputValue.startsWith('/')) {
-                                // Extract number after "*" or "/"
-                                rateValue = rateInputValue.substring(1);
-                            } else {
-                                // Use value as is (backward compatibility)
-                                rateValue = rateInputValue;
-                            }
+                    if (rateChecked && rateInput && rateInput.value) {
+                        const rateInputValue = rateInput.value.trim();
+                        if (rateInputValue.startsWith('*') || rateInputValue.startsWith('/')) {
+                            // Extract number after "*" or "/"
+                            rateValue = rateInputValue.substring(1);
+                        } else {
+                            // Use value as is (backward compatibility)
+                            rateValue = rateInputValue;
                         }
                     }
                     const templateKeyAttr = row.getAttribute('data-template-key') || '';
@@ -17311,29 +17104,9 @@ function formatPercentValue(value) {
             cursor: pointer;
             accent-color: #007bff;
         }
-        
+
         .rate-checkbox:hover {
             transform: scale(1.1);
-        }
-        
-        .rate-row-input {
-            width: 60px;
-            padding: 2px 4px;
-            font-size: 12px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
-            text-align: center;
-        }
-        
-        .rate-row-input:focus {
-            outline: none;
-            border-color: #007bff;
-            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-        }
-        
-        .rate-row-input::placeholder {
-            color: #999;
-            font-size: 11px;
         }
 
         /* Formula Cell Content Styles */
