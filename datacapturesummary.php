@@ -8705,22 +8705,16 @@ function getCurrentProcessId() {
         function attachRateValueEditListener(cell, row) {
             let isEditing = false;
             cell.addEventListener('click', function(e) {
-                // Prevent event if clicking on input element itself
-                if (e.target.tagName === 'INPUT') {
-                    return;
-                }
-                
                 if (isEditing) return;
                 isEditing = true;
                 
-                // Get original value from cell text content
                 const originalValue = this.textContent.trim();
                 const cellElement = this;
                 
                 // Create input element
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.value = originalValue; // Set input value to original value
+                input.value = originalValue;
                 input.style.width = '100%';
                 input.style.textAlign = 'center';
                 input.style.border = '1px solid #0D60FF';
@@ -8733,15 +8727,11 @@ function getCurrentProcessId() {
                 cellElement.innerHTML = '';
                 cellElement.appendChild(input);
                 input.focus();
-                // Only select text if there's a value, otherwise just focus
-                if (originalValue) {
-                    input.select();
-                }
+                input.select();
                 
-                // Handle input changes - save the value
+                // Handle input changes
                 const handleInput = () => {
-                    // Get the current value from input before it's removed
-                    const newValue = input ? input.value.trim() : '';
+                    const newValue = input.value.trim();
                     const cells = row.querySelectorAll('td');
                     const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                     
@@ -8750,48 +8740,39 @@ function getCurrentProcessId() {
                         rateCheckbox.checked = false;
                     }
                     
-                    // Always update cell content with the value from input (even if same as original)
-                    // This ensures the value persists
+                    // Update cell content
                     cellElement.textContent = newValue;
                     isEditing = false;
                     
-                    // Only recalculate if value actually changed or if there's a value
-                    if (newValue !== originalValue || newValue) {
-                        // Recalculate processed amount when Rate Value changes
-                        let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
-                        
-                        // If base amount is not stored or is 0, try to recalculate from formula
-                        if (!baseAmount || isNaN(baseAmount)) {
-                            const sourcePercentCell = cells[5];
-                            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
-                            const inputMethod = row.getAttribute('data-input-method') || '';
-                            const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
-                            const formulaCell = cells[4];
-                            const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
-                            baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
-                            // Store it for future use
-                            if (baseAmount && !isNaN(baseAmount)) {
-                                row.setAttribute('data-base-processed-amount', baseAmount.toString());
-                            }
+                    // Recalculate processed amount when Rate Value changes
+                    let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
+                    
+                    // If base amount is not stored or is 0, try to recalculate from formula
+                    if (!baseAmount || isNaN(baseAmount)) {
+                        const sourcePercentCell = cells[5];
+                        const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
+                        const inputMethod = row.getAttribute('data-input-method') || '';
+                        const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
+                        const formulaCell = cells[4];
+                        const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                        baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                        // Store it for future use
+                        if (baseAmount && !isNaN(baseAmount)) {
+                            row.setAttribute('data-base-processed-amount', baseAmount.toString());
                         }
-                        
-                        const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                        if (cells[8]) {
-                            const val = Number(finalAmount);
-                            cells[8].textContent = formatNumberWithThousands(val);
-                            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                            updateProcessedAmountTotal();
-                        }
+                    }
+                    
+                    const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+                    if (cells[8]) {
+                        const val = Number(finalAmount);
+                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                        updateProcessedAmountTotal();
                     }
                 };
                 
-                // Handle blur (when input loses focus) - use setTimeout to ensure value is captured
-                input.addEventListener('blur', function() {
-                    // Use setTimeout to ensure the input value is captured before DOM changes
-                    setTimeout(() => {
-                        handleInput();
-                    }, 0);
-                });
+                // Handle blur (when input loses focus)
+                input.addEventListener('blur', handleInput);
                 
                 // Handle Enter key
                 input.addEventListener('keydown', function(e) {
@@ -8800,7 +8781,6 @@ function getCurrentProcessId() {
                         handleInput();
                     } else if (e.key === 'Escape') {
                         e.preventDefault();
-                        // Cancel: restore original value
                         cellElement.textContent = originalValue;
                         isEditing = false;
                     }
