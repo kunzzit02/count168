@@ -5202,63 +5202,10 @@ function getCurrentProcessId() {
                                 formulaInput.setAttribute('data-clicked-cell-refs', convertedClickedCellRefs);
                                 console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs (converted displayColumnIndex to dataColumnIndex):', convertedClickedCellRefs, 'from:', data.clickedColumns);
                                 
-                                // 将 formula 中的格式转换为新格式：
-                                // 1. 旧格式 [id_product]$数字 -> 根据是否自己row转换为 $数字 或 [id_product,数字]
-                                // 2. 旧格式 $数字 -> 根据是否自己row保持 $数字 或转换为 [id_product,数字]
+                                // 将 formula 中的旧格式 $数字 转换为新格式 [id_product]$数字
                                 let currentFormula = formulaInput.value || '';
                                 if (currentFormula && currentFormula.trim() !== '') {
-                                    const processInput = document.getElementById('process');
-                                    const currentEditIdProduct = processInput ? processInput.value.trim() : null;
-                                    
-                                    // 先处理旧格式 [id_product]$数字
-                                    const oldFormatPattern = /\[([^\]]+)\]\$(\d+)(?!\d)/g;
-                                    let oldFormatMatch;
-                                    const oldFormatReplacements = [];
-                                    
-                                    while ((oldFormatMatch = oldFormatPattern.exec(currentFormula)) !== null) {
-                                        const fullMatch = oldFormatMatch[0]; // 例如 "[(RM)) (F) ]$11"
-                                        const idProductPart = oldFormatMatch[1].trim(); // 例如 "(RM)) (F) "
-                                        const displayColumnIndex = parseInt(oldFormatMatch[2]); // 例如 11
-                                        const matchIndex = oldFormatMatch.index;
-                                        
-                                        // 提取 id_product（去除可能的 row_label 部分）
-                                        let idProduct = idProductPart;
-                                        const rowLabelMatch = idProductPart.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-                                        if (rowLabelMatch) {
-                                            idProduct = rowLabelMatch[1].trim();
-                                        }
-                                        
-                                        // 判断是否是当前编辑的 id_product（自己row）
-                                        const isSameRow = currentEditIdProduct && idProduct && 
-                                                         currentEditIdProduct.toUpperCase() === idProduct.toUpperCase();
-                                        
-                                        let newFormat = '';
-                                        if (isSameRow) {
-                                            // 自己row: 转换为 $数字 格式（例如：$11）
-                                            newFormat = `$${displayColumnIndex}`;
-                                        } else {
-                                            // 其他row: 转换为 [id_product,数字] 格式（例如：[YONG,4]）
-                                            newFormat = `[${idProduct},${displayColumnIndex}]`;
-                                        }
-                                        
-                                        oldFormatReplacements.push({
-                                            from: fullMatch,
-                                            to: newFormat,
-                                            index: matchIndex
-                                        });
-                                    }
-                                    
-                                    // 从后往前替换旧格式，避免位置偏移
-                                    if (oldFormatReplacements.length > 0) {
-                                        oldFormatReplacements.sort((a, b) => b.index - a.index);
-                                        for (const replacement of oldFormatReplacements) {
-                                            currentFormula = currentFormula.substring(0, replacement.index) + 
-                                                           replacement.to + 
-                                                           currentFormula.substring(replacement.index + replacement.from.length);
-                                        }
-                                    }
-                                    
-                                    // 再处理 $数字 格式（排除已经被旧格式处理过的）
+                                    // 匹配所有 $数字
                                     const dollarPattern = /\$(\d+)(?!\d)/g;
                                     let match;
                                     const replacements = [];
@@ -5293,24 +5240,17 @@ function getCurrentProcessId() {
                                                 const idProduct = parts[0];
                                                 const rowLabel = parts.length === 3 ? parts[1] : null;
                                                 
-                                                // 判断是否是当前编辑的 id_product（自己row）
-                                                const processInput = document.getElementById('process');
-                                                const currentEditIdProduct = processInput ? processInput.value.trim() : null;
-                                                const isSameRow = currentEditIdProduct && idProduct && 
-                                                                 currentEditIdProduct.toUpperCase() === idProduct.toUpperCase();
-                                                
+                                                // 构建新格式：[id_product (row_label) ]$数字 或 [id_product ]$数字
                                                 let newFormat = '';
-                                                if (isSameRow) {
-                                                    // 自己row: 保持 $数字 格式（例如：$11）
-                                                    newFormat = `$${displayColumnIndex}`;
+                                                if (rowLabel) {
+                                                    newFormat = `[${idProduct} (${rowLabel}) ]$${displayColumnIndex}`;
                                                 } else {
-                                                    // 其他row: 使用 [id_product,数字] 格式（例如：[YONG,4]）
-                                                    newFormat = `[${idProduct},${displayColumnIndex}]`;
+                                                    newFormat = `[${idProduct} ]$${displayColumnIndex}`;
                                                 }
                                                 
                                                 replacements.push({
                                                     from: match[0], // 例如 "$4"
-                                                    to: newFormat, // 例如 "$4" 或 "[YONG,4]"
+                                                    to: newFormat, // 例如 "[M99M06 (B) ]$4"
                                                     index: matchIndex
                                                 });
                                             }
