@@ -5127,14 +5127,20 @@ function getCurrentProcessId() {
                         let formulaValueToSet = data.formula || '';
                         console.log('populateFormWithData - Setting formula value (before conversion):', formulaValueToSet);
                         
-                        // 如果 formula 是旧格式（$数字），需要转换为新格式 [id_product]$数字
-                        // 转换需要从 data-clicked-cell-refs 或 data-source-columns 中获取 id_product 信息
-                        // 但此时 data-clicked-cell-refs 可能还没有设置，所以先设置 formula，然后在设置 data-clicked-cell-refs 后再转换
+                        // 检查公式是否已经包含新格式 [id_product,数字]
+                        const hasNewFormat = /\[[^,\]]+,\d+\]/.test(formulaValueToSet);
+                        
+                        // 先设置公式值
                         formulaInput.value = formulaValueToSet;
                         
+                        // 如果公式已经包含新格式，直接使用，不需要转换
                         // 更新显示框
                         const processValue = document.getElementById('process')?.value;
-                        updateFormulaDisplay(formulaValueToSet || '', processValue);
+                        if (hasNewFormat) {
+                            // 公式已经是新格式，直接更新显示框
+                            updateFormulaDisplay(formulaValueToSet || '', processValue);
+                        }
+                        
                         // Restore clicked columns if provided
                         if (data.clickedColumns) {
                             // CRITICAL FIX: Check if clickedColumns is in new format (id_product:column_index)
@@ -5175,20 +5181,17 @@ function getCurrentProcessId() {
                                 // 将 formula 中的旧格式 $数字 转换为新格式
                                 // 当前row: 保持 $数字
                                 // 其他row: 转换为 [id_product,数字]
+                                // 注意：如果公式已经包含新格式 [id_product,数字]，不需要转换
                                 let currentFormula = formulaInput.value || '';
-                                if (currentFormula && currentFormula.trim() !== '') {
+                                if (currentFormula && currentFormula.trim() !== '' && !hasNewFormat) {
                                     // 获取当前编辑的id_product
                                     const processInput = document.getElementById('process');
                                     const currentIdProduct = processInput ? processInput.value.trim() : null;
                                     
-                                    // 匹配所有 $数字 和 [id_product,数字] 格式（兼容旧格式）
+                                    // 匹配所有 $数字 格式
                                     const dollarPattern = /\$(\d+)(?!\d)/g;
-                                    const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
                                     let match;
                                     const replacements = [];
-                                    
-                                    // 先处理已存在的 [id_product,数字] 格式（不需要转换）
-                                    // 然后处理 $数字 格式
                                     
                                     // 收集所有需要替换的 $数字
                                     dollarPattern.lastIndex = 0;
@@ -5257,7 +5260,14 @@ function getCurrentProcessId() {
                                         // 更新显示框
                                         const processValue = document.getElementById('process')?.value;
                                         updateFormulaDisplay(newFormula, processValue);
+                                    } else {
+                                        // 如果没有需要替换的内容，也要更新显示框
+                                        const processValue = document.getElementById('process')?.value;
+                                        updateFormulaDisplay(currentFormula, processValue);
                                     }
+                                } else if (hasNewFormat) {
+                                    // 公式已经是新格式，确保显示框已更新（上面已经更新过了）
+                                    console.log('populateFormWithData - Formula already in new format, no conversion needed');
                                 }
                             } else {
                                 // Old format: restore to data-clicked-columns (backward compatibility)
