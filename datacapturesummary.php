@@ -5202,9 +5202,15 @@ function getCurrentProcessId() {
                                 formulaInput.setAttribute('data-clicked-cell-refs', convertedClickedCellRefs);
                                 console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs (converted displayColumnIndex to dataColumnIndex):', convertedClickedCellRefs, 'from:', data.clickedColumns);
                                 
-                                // 将 formula 中的旧格式 $数字 转换为新格式 [id_product]$数字
+                                // 将 formula 中的旧格式 $数字 转换为新格式：
+                                // - 如果是自己row：保持 $数字 格式（例如：$11）
+                                // - 如果是其他row：转换为 [id_product,数字] 格式（例如：[YONG,4]）
                                 let currentFormula = formulaInput.value || '';
                                 if (currentFormula && currentFormula.trim() !== '') {
+                                    // 获取当前编辑的 id_product
+                                    const processInput = document.getElementById('process');
+                                    const currentEditIdProduct = processInput ? processInput.value.trim() : null;
+                                    
                                     // 匹配所有 $数字
                                     const dollarPattern = /\$(\d+)(?!\d)/g;
                                     let match;
@@ -5238,19 +5244,31 @@ function getCurrentProcessId() {
                                             if (matchedRef) {
                                                 const parts = matchedRef.split(':');
                                                 const idProduct = parts[0];
-                                                const rowLabel = parts.length === 3 ? parts[1] : null;
                                                 
-                                                // 构建新格式：[id_product (row_label) ]$数字 或 [id_product ]$数字
+                                                // 判断是否是当前编辑的 id_product（自己row）
+                                                const isSameRow = currentEditIdProduct && idProduct && 
+                                                                 currentEditIdProduct.toUpperCase() === idProduct.toUpperCase();
+                                                
                                                 let newFormat = '';
-                                                if (rowLabel) {
-                                                    newFormat = `[${idProduct} (${rowLabel}) ]$${displayColumnIndex}`;
+                                                if (isSameRow) {
+                                                    // 自己row: 保持 $数字 格式（例如：$11）
+                                                    newFormat = `$${displayColumnIndex}`;
                                                 } else {
-                                                    newFormat = `[${idProduct} ]$${displayColumnIndex}`;
+                                                    // 其他row: 转换为 [id_product,数字] 格式（例如：[YONG,4]）
+                                                    newFormat = `[${idProduct},${displayColumnIndex}]`;
                                                 }
                                                 
                                                 replacements.push({
-                                                    from: match[0], // 例如 "$4"
-                                                    to: newFormat, // 例如 "[M99M06 (B) ]$4"
+                                                    from: match[0], // 例如 "$11" 或 "$4"
+                                                    to: newFormat, // 例如 "$11" 或 "[YONG,4]"
+                                                    index: matchIndex
+                                                });
+                                            } else {
+                                                // 如果没有找到匹配的引用，假设是当前编辑的 id_product 的数据（自己row）
+                                                // 保持 $数字 格式（例如：$11）
+                                                replacements.push({
+                                                    from: match[0], // 例如 "$11"
+                                                    to: match[0], // 保持原样 "$11"
                                                     index: matchIndex
                                                 });
                                             }
