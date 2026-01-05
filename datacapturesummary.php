@@ -4943,9 +4943,49 @@ function getCurrentProcessId() {
             const processInput = document.getElementById('process');
             const currentIdProduct = processInput ? processInput.value.trim() : null;
             
+            // Get current editing row_label (to distinguish between rows with same id_product)
+            const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+            
+            // Get clicked cell's row_label
+            let clickedRowLabel = cell.getAttribute('data-row-label');
+            if (!clickedRowLabel && row) {
+                const rowHeaderCell = row.querySelector('.row-header');
+                if (rowHeaderCell) {
+                    clickedRowLabel = rowHeaderCell.textContent.trim();
+                    cell.setAttribute('data-row-label', clickedRowLabel);
+                }
+            }
+            
             // Determine if clicked cell belongs to current row
-            const isCurrentRow = currentIdProduct && idProduct && 
-                                 normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct);
+            // Must match both id_product AND row_label to be considered current row
+            // This ensures we can distinguish between multiple rows with same id_product
+            const idProductMatches = currentIdProduct && idProduct && 
+                                     normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct);
+            
+            // If both row_labels exist, they must match
+            // If one or both are missing, only check id_product (backward compatibility)
+            let rowLabelMatches = true; // Default to true if row_label comparison is not applicable
+            if (currentRowLabel && clickedRowLabel) {
+                // Both exist, must match
+                rowLabelMatches = currentRowLabel === clickedRowLabel;
+            } else if (currentRowLabel || clickedRowLabel) {
+                // Only one exists, cannot match - treat as different row
+                rowLabelMatches = false;
+            }
+            // If both are null/empty, rowLabelMatches stays true (backward compatibility)
+            
+            // Only consider it current row if both id_product and row_label match
+            const isCurrentRow = idProductMatches && rowLabelMatches;
+            
+            console.log('insertCellValueToFormula - Row comparison:', {
+                currentIdProduct,
+                clickedIdProduct: idProduct,
+                idProductMatches,
+                currentRowLabel,
+                clickedRowLabel,
+                rowLabelMatches,
+                isCurrentRow
+            });
             
             // Insert column reference format based on whether it's current row or other row
             // 当前row: $数字 (e.g., $4)
@@ -5242,10 +5282,25 @@ function getCurrentProcessId() {
                                             if (matchedRef) {
                                                 const parts = matchedRef.split(':');
                                                 const idProduct = parts[0];
+                                                const refRowLabel = parts.length === 3 ? parts[1] : null;
                                                 
-                                                // 判断是否是当前row
-                                                const isCurrentRow = currentIdProduct && idProduct && 
-                                                                     normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct);
+                                                // 获取当前编辑row的row_label
+                                                const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+                                                
+                                                // 判断是否是当前row：必须同时匹配id_product和row_label
+                                                const idProductMatches = currentIdProduct && idProduct && 
+                                                                         normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct);
+                                                
+                                                // 如果两个row_label都存在，必须匹配
+                                                // 如果只有一个存在，不能匹配（视为不同row）
+                                                let rowLabelMatches = true;
+                                                if (currentRowLabel && refRowLabel) {
+                                                    rowLabelMatches = currentRowLabel === refRowLabel;
+                                                } else if (currentRowLabel || refRowLabel) {
+                                                    rowLabelMatches = false;
+                                                }
+                                                
+                                                const isCurrentRow = idProductMatches && rowLabelMatches;
                                                 
                                                 let newFormat = '';
                                                 if (isCurrentRow) {
