@@ -2128,7 +2128,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Generate table rows
-        function initializeTable(rows = 10, cols = 15) {
+        function initializeTable(rows = 26, cols = 15) {
             console.log('Initializing table with', rows, 'rows and', cols, 'columns');
             
             const tableBody = document.getElementById('tableBody');
@@ -8912,8 +8912,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!shouldRestore) {
                 // Load submitted processes filtered by capture_date from form
                 loadSubmittedProcesses();
-                // Initialize table with default 10 rows and 15 columns
-                initializeTable(10, 15);
+                // Initialize table with default 26 rows (A-Z) and 15 columns
+                initializeTable(26, 15);
             }
             
             // Test table functionality after a short delay
