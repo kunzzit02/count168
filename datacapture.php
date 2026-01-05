@@ -10692,7 +10692,7 @@ if ($current_user_id && count($user_companies) > 0) {
         .excel-table td {
             border: 1px solid #d0d7de;
             font-size: clamp(10px, 0.63vw, 12px);
-            padding: clamp(2px, 0.31vw, 6px) 0px;
+            padding: clamp(2px, 0.31vw, 6px) clamp(4px, 0.42vw, 8px);
             text-align: center;
             min-width: 40px;
             position: relative;
