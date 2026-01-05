@@ -10677,13 +10677,13 @@ if ($current_user_id && count($user_companies) > 0) {
             overflow: auto;
             background: white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            max-width: calc(30px + 15 * 100px); /* 行标题列(30px) + 15列(100px each) */
+            width: 100%;
             height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
         }
 
         .excel-table {
-            width: auto;
-            min-width: calc(30px + 20 * 100px); /* 行标题列(30px) + 20列(100px each) */
+            width: calc(30px + 20 * 100px); /* 行标题列(30px) + 20列(100px each) - 完整表格宽度 */
+            min-width: calc(30px + 20 * 100px);
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
