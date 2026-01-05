@@ -5270,8 +5270,10 @@ function getCurrentProcessId() {
                                     const dollarPattern = /\$(\d+)(?!\d)/g;
                                     let match;
                                     const replacements = [];
+                                    const dollarMatches = []; // 收集所有 $数字 匹配
                                     
-                                    // 收集所有需要替换的位置和内容
+                                    // 先收集所有 $数字 匹配（排除已经被旧格式处理过的）
+                                    dollarPattern.lastIndex = 0;
                                     while ((match = dollarPattern.exec(currentFormula)) !== null) {
                                         const matchIndex = match.index;
                                         // 检查这个位置是否已经被旧格式匹配
@@ -5280,50 +5282,74 @@ function getCurrentProcessId() {
                                         }
                                         
                                         const columnNumber = parseInt(match[1]);
-                                        
                                         if (!isNaN(columnNumber) && columnNumber > 0) {
-                                            // 从 data-clicked-cell-refs 中找到对应的 id_product
-                                            // 按顺序匹配：第一个 $数字 匹配第一个引用
-                                            const displayColumnIndex = columnNumber;
-                                            const dataColumnIndex = displayColumnIndex - 1;
-                                            
-                                            // 在 convertedRefs 中查找匹配的引用（按顺序）
-                                            let matchedRef = null;
-                                            for (let i = 0; i < convertedRefs.length; i++) {
-                                                const ref = convertedRefs[i];
-                                                const parts = ref.split(':');
-                                                if (parts.length >= 2) {
-                                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                                    if (refDataColumnIndex === dataColumnIndex) {
-                                                        matchedRef = ref;
-                                                        break;
-                                                    }
+                                            dollarMatches.push({
+                                                fullMatch: match[0],
+                                                displayColumnIndex: columnNumber,
+                                                dataColumnIndex: columnNumber - 1,
+                                                index: matchIndex
+                                            });
+                                        }
+                                    }
+                                    
+                                    // 按顺序匹配：第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用
+                                    // 使用 refIndex 来跟踪已使用的引用索引
+                                    let refIndex = 0;
+                                    for (let i = 0; i < dollarMatches.length; i++) {
+                                        const dollarMatch = dollarMatches[i];
+                                        let matchedRef = null;
+                                        
+                                        // 优先尝试按 dataColumnIndex 匹配（精确匹配）
+                                        for (let j = refIndex; j < convertedRefs.length; j++) {
+                                            const ref = convertedRefs[j];
+                                            const parts = ref.split(':');
+                                            if (parts.length >= 2) {
+                                                const refDataColumnIndex = parseInt(parts[parts.length - 1]);
+                                                if (refDataColumnIndex === dollarMatch.dataColumnIndex) {
+                                                    matchedRef = ref;
+                                                    refIndex = j + 1; // 更新已使用的引用索引
+                                                    break;
                                                 }
                                             }
+                                        }
+                                        
+                                        // 如果精确匹配失败，按顺序匹配（用于处理重复列号的情况）
+                                        if (!matchedRef && refIndex < convertedRefs.length) {
+                                            matchedRef = convertedRefs[refIndex];
+                                            refIndex++;
+                                        }
+                                        
+                                        if (matchedRef) {
+                                            const parts = matchedRef.split(':');
+                                            const idProduct = parts[0];
                                             
-                                            if (matchedRef) {
-                                                const parts = matchedRef.split(':');
-                                                const idProduct = parts[0];
-                                                
-                                                // 判断是否是当前编辑的 id_product（自己row）
-                                                const isSameRow = currentEditIdProduct && idProduct && 
-                                                                 currentEditIdProduct.toUpperCase() === idProduct.toUpperCase();
-                                                
-                                                let newFormat = '';
-                                                if (isSameRow) {
-                                                    // 自己row: 保持 $数字 格式（例如：$11）
-                                                    newFormat = `$${displayColumnIndex}`;
-                                                } else {
-                                                    // 其他row: 转换为 [id_product,数字] 格式（例如：[YONG,4]）
-                                                    newFormat = `[${idProduct},${displayColumnIndex}]`;
-                                                }
-                                                
-                                                replacements.push({
-                                                    from: match[0], // 例如 "$11"
-                                                    to: newFormat, // 例如 "$11" 或 "[YONG,4]"
-                                                    index: matchIndex
-                                                });
+                                            // 判断是否是当前编辑的 id_product（自己row）
+                                            const isSameRow = currentEditIdProduct && idProduct && 
+                                                             currentEditIdProduct.toUpperCase() === idProduct.toUpperCase();
+                                            
+                                            let newFormat = '';
+                                            if (isSameRow) {
+                                                // 自己row: 保持 $数字 格式（例如：$11）
+                                                newFormat = `$${dollarMatch.displayColumnIndex}`;
+                                            } else {
+                                                // 其他row: 转换为 [id_product,数字] 格式（例如：[YONG,4]）
+                                                newFormat = `[${idProduct},${dollarMatch.displayColumnIndex}]`;
                                             }
+                                            
+                                            replacements.push({
+                                                from: dollarMatch.fullMatch, // 例如 "$11"
+                                                to: newFormat, // 例如 "$11" 或 "[YONG,4]"
+                                                index: dollarMatch.index
+                                            });
+                                        } else {
+                                            // 如果没有找到匹配的引用，假设是当前编辑的 id_product 的数据
+                                            // 保持 $数字 格式（例如：$11）
+                                            console.log('populateFormWithData - No matched ref for $' + dollarMatch.displayColumnIndex + ', assuming same row, keeping format');
+                                            replacements.push({
+                                                from: dollarMatch.fullMatch, // 例如 "$11"
+                                                to: dollarMatch.fullMatch, // 保持原样 "$11"
+                                                index: dollarMatch.index
+                                            });
                                         }
                                     }
                                     
@@ -5339,12 +5365,26 @@ function getCurrentProcessId() {
                                     
                                     // 如果有任何转换，更新公式
                                     if (oldFormatReplacements.length > 0 || replacements.length > 0) {
+                                        const originalFormula = formulaInput.value;
                                         formulaInput.value = currentFormula;
-                                        console.log('populateFormWithData - Converted formula from old format to new format:', formulaInput.value, '->', currentFormula);
+                                        console.log('populateFormWithData - Converted formula:', {
+                                            original: originalFormula,
+                                            converted: currentFormula,
+                                            oldFormatReplacements: oldFormatReplacements.length,
+                                            replacements: replacements.length,
+                                            currentEditIdProduct: currentEditIdProduct,
+                                            convertedRefs: convertedRefs
+                                        });
                                         
                                         // 更新显示框
                                         const processValue = document.getElementById('process')?.value;
                                         updateFormulaDisplay(currentFormula, processValue);
+                                    } else {
+                                        console.log('populateFormWithData - No conversion needed:', {
+                                            currentFormula: currentFormula,
+                                            currentEditIdProduct: currentEditIdProduct,
+                                            convertedRefs: convertedRefs
+                                        });
                                     }
                                 }
                             } else {
