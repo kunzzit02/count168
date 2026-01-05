@@ -2128,7 +2128,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Generate table rows
-        function initializeTable(rows = 26, cols = 20) {
+        function initializeTable(rows = 10, cols = 15) {
             console.log('Initializing table with', rows, 'rows and', cols, 'columns');
             
             const tableBody = document.getElementById('tableBody');
@@ -2217,16 +2217,6 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             console.log('Table initialized successfully. Created', rows, 'rows with', cols, 'columns each.');
-            
-            // Set table width based on actual columns to enable horizontal scrolling
-            // Row header (30px) + columns (cols * 40px) + borders/padding
-            // For 20 columns: 30 + 20*40 + 20 = 850px (container is 670px, so scrollbar appears)
-            const tableWidth = 30 + (cols * 40) + 20;
-            const excelTable = document.getElementById('dataTable');
-            if (excelTable) {
-                excelTable.style.setProperty('width', tableWidth + 'px', 'important');
-                excelTable.style.setProperty('min-width', tableWidth + 'px', 'important');
-            }
             
             // Add mouse release event
             document.addEventListener('mouseup', handleMouseUp);
@@ -2400,16 +2390,6 @@ if ($current_user_id && count($user_companies) > 0) {
             });
             
             console.log('Added new column with index', newColIndex, 'label', getColumnLabel(newColIndex));
-            
-            // Update table width after adding new column
-            const totalCols = headerRow.children.length - 1;
-            const tableWidth = 30 + (totalCols * 40) + 20;
-            const excelTable = document.getElementById('dataTable');
-            if (excelTable) {
-                excelTable.style.width = tableWidth + 'px';
-                excelTable.style.minWidth = tableWidth + 'px';
-            }
-            
             return newColIndex;
         }
 
@@ -8932,8 +8912,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!shouldRestore) {
                 // Load submitted processes filtered by capture_date from form
                 loadSubmittedProcesses();
-                // Initialize table with default 26 rows (A-Z) and 20 columns
-                initializeTable(26, 20);
+                // Initialize table with default 10 rows and 15 columns
+                initializeTable(10, 15);
             }
             
             // Test table functionality after a short delay
@@ -9852,12 +9832,11 @@ if ($current_user_id && count($user_companies) > 0) {
             background: white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             max-width: 100%;
-            width: 670px; /* 只显示15列: 30px(行头) + 15*40px(列) + 边框和padding */
-            height: 400px; /* 固定高度，显示部分行，需要滚动查看26行 */
+            height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
         }
 
         .excel-table {
-            width: auto;
+            width: 100%;
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
