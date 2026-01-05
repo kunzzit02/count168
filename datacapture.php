@@ -10682,7 +10682,8 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         .excel-table {
-            width: 100%;
+            width: auto;
+            min-width: calc(30px + 15 * 80px); /* row header (30px) + 15 columns (80px each) = 1230px */
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
@@ -10694,7 +10695,7 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(10px, 0.63vw, 12px);
             padding: clamp(2px, 0.31vw, 6px) clamp(8px, 0.83vw, 16px);
             text-align: center;
-            min-width: 40px;
+            min-width: 80px;
             position: relative;
         }
 
