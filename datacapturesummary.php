@@ -9514,6 +9514,114 @@ function getCurrentProcessId() {
 
 
         // Edit Row Formula function - shows edit formula form with pre-populated data
+        // Convert old format [id_product]$number to new format
+        // Old format: [id_product]$number or [id_product (row_label) ]$number
+        // New format: $number (if current row) or [id_product, cell_number] (if other row)
+        function convertOldFormatToNewFormat(formula, currentProcessValue, sourceColumnsValue) {
+            if (!formula || !formula.trim()) {
+                return formula;
+            }
+            
+            let convertedFormula = formula;
+            
+            // Match old format: [id_product]$number or [id_product (row_label) ]$number
+            // Pattern: \[([^\]]+)\]\$(\d+)
+            const oldFormatPattern = /\[([^\]]+)\]\$(\d+)(?!\d)/g;
+            const matches = [];
+            let match;
+            
+            // Collect all matches
+            oldFormatPattern.lastIndex = 0;
+            while ((match = oldFormatPattern.exec(formula)) !== null) {
+                const fullMatch = match[0]; // e.g., "[YONG]$11" or "[(RM)) (F) ]$11"
+                const idProductPart = match[1].trim(); // e.g., "YONG" or "(RM)) (F) "
+                const columnNumber = parseInt(match[2]); // e.g., 11
+                const matchIndex = match.index;
+                
+                // Extract id_product from idProductPart (remove row_label if present)
+                let idProduct = idProductPart;
+                // Remove row_label pattern: (row_label) at the end
+                const rowLabelMatch = idProductPart.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+                if (rowLabelMatch) {
+                    idProduct = rowLabelMatch[1].trim();
+                }
+                
+                matches.push({
+                    fullMatch: fullMatch,
+                    idProduct: idProduct,
+                    columnNumber: columnNumber,
+                    index: matchIndex
+                });
+            }
+            
+            // Replace from end to start to preserve indices
+            matches.sort((a, b) => b.index - a.index);
+            
+            for (let i = 0; i < matches.length; i++) {
+                const match = matches[i];
+                let newFormat = '';
+                
+                // Check if id_product matches current process value
+                const isCurrentRow = currentProcessValue && idProduct && 
+                                    (idProduct === currentProcessValue || 
+                                     normalizeIdProductText(idProduct) === normalizeIdProductText(currentProcessValue));
+                
+                if (isCurrentRow) {
+                    // Current row: use $number format
+                    newFormat = `$${match.columnNumber}`;
+                } else {
+                    // Other row: need to find cell_number from sourceColumns
+                    // sourceColumns format: "id_product:row_label:displayColumnIndex" or "id_product:displayColumnIndex"
+                    // displayColumnIndex in sourceColumns corresponds to the $number in old format
+                    // We need to convert displayColumnIndex to dataColumnIndex (cell_number/第几格)
+                    let cellNumber = null;
+                    
+                    if (sourceColumnsValue && sourceColumnsValue.trim()) {
+                        const refs = sourceColumnsValue.trim().split(/\s+/).filter(r => r.trim() !== '');
+                        for (let ref of refs) {
+                            const parts = ref.split(':');
+                            if (parts.length >= 2) {
+                                const refIdProduct = parts[0];
+                                const refDisplayColumnIndex = parseInt(parts[parts.length - 1]); // This is displayColumnIndex
+                                
+                                // Check if this ref matches our id_product and columnNumber (displayColumnIndex)
+                                if ((refIdProduct === match.idProduct || 
+                                     normalizeIdProductText(refIdProduct) === normalizeIdProductText(match.idProduct)) &&
+                                    refDisplayColumnIndex === match.columnNumber) {
+                                    // Found matching ref
+                                    // displayColumnIndex to dataColumnIndex: dataColumnIndex = displayColumnIndex - 1
+                                    // But cell_number (第几格) is dataColumnIndex, which starts from 1
+                                    // So: cell_number = displayColumnIndex - 1
+                                    cellNumber = refDisplayColumnIndex - 1;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If cellNumber not found, try to use columnNumber - 1 as fallback
+                    // This assumes columnNumber is displayColumnIndex
+                    if (cellNumber === null || cellNumber < 1) {
+                        cellNumber = match.columnNumber - 1;
+                        // Ensure cellNumber is at least 1 (第几格 starts from 1)
+                        if (cellNumber < 1) {
+                            cellNumber = 1;
+                        }
+                    }
+                    
+                    // Use [id_product, cell_number] format
+                    newFormat = `[${match.idProduct},${cellNumber}]`;
+                }
+                
+                // Replace old format with new format
+                convertedFormula = convertedFormula.substring(0, match.index) + 
+                                 newFormat + 
+                                 convertedFormula.substring(match.index + match.fullMatch.length);
+            }
+            
+            return convertedFormula;
+        }
+        
         function editRowFormula(button) {
             const row = button.closest('tr');
             const cells = row.querySelectorAll('td');
@@ -9595,12 +9703,14 @@ function getCurrentProcessId() {
                 console.log('editRowFormula - Formula is empty, setting formulaValue to empty string');
             } else if (storedFormulaOperators && storedFormulaOperators.trim() !== '') {
                 // 优先使用 data-formula-operators（原始值，包含 $数字）
-                formulaValue = storedFormulaOperators;
-                console.log('editRowFormula - Using data-formula-operators (original value with $):', formulaValue);
+                // 将旧格式 [id_product]$数字 转换为新格式
+                formulaValue = convertOldFormatToNewFormat(storedFormulaOperators, processValue, sourceColumnsValue);
+                console.log('editRowFormula - Using data-formula-operators (converted to new format):', formulaValue);
             } else if (isReferenceFormat) {
                 // Use reference format directly from data attribute
-                formulaValue = storedFormulaOperators;
-                console.log('editRowFormula - Using reference format from data-formula-operators:', formulaValue);
+                // Also convert old format [id_product]$number if present
+                formulaValue = convertOldFormatToNewFormat(storedFormulaOperators, processValue, sourceColumnsValue);
+                console.log('editRowFormula - Using reference format from data-formula-operators (converted):', formulaValue);
             } else {
                 if (cells[4]) {
                     let formulaText = cells[4].querySelector('.formula-text')?.textContent.trim() || cells[4].textContent.trim();
@@ -9701,7 +9811,9 @@ function getCurrentProcessId() {
             // Last fallback to data attribute (only if formula is not explicitly empty)
             // IMPORTANT: If formula is empty in the UI, don't use data-formula-operators as fallback
             if (!isFormulaEmpty && (!formulaValue || formulaValue.trim() === '' || formulaValue === 'Formula')) {
-                formulaValue = row.getAttribute('data-formula-operators') || '';
+                const fallbackFormula = row.getAttribute('data-formula-operators') || '';
+                // Convert old format to new format
+                formulaValue = convertOldFormatToNewFormat(fallbackFormula, processValue, sourceColumnsValue);
             }
             
             // Set sourceValue to formulaValue (Source column removed)
