@@ -2128,7 +2128,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Generate table rows
-        function initializeTable(rows = 10, cols = 15) {
+        function initializeTable(rows = 26, cols = 20) {
             console.log('Initializing table with', rows, 'rows and', cols, 'columns');
             
             const tableBody = document.getElementById('tableBody');
@@ -8912,8 +8912,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!shouldRestore) {
                 // Load submitted processes filtered by capture_date from form
                 loadSubmittedProcesses();
-                // Initialize table with default 10 rows and 15 columns
-                initializeTable(10, 15);
+                // Initialize table with default 26 rows (A-Z) and 20 columns
+                initializeTable(26, 20);
             }
             
             // Test table functionality after a short delay
@@ -9831,12 +9831,14 @@ if ($current_user_id && count($user_companies) > 0) {
             overflow: auto;
             background: white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            width: calc(50px + 15 * 50px); /* Row header (50px) + 15 columns (50px each) */
             max-width: 100%;
-            height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
+            height: clamp(400px, 30vw, 650px); /* ~26 rows (A-Z) incl. header */
         }
 
         .excel-table {
-            width: 100%;
+            width: auto;
+            min-width: calc(50px + 20 * 50px); /* Row header + 20 columns */
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
