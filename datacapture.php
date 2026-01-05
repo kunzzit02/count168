@@ -2916,7 +2916,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Generate table rows
-        function initializeTable(rows = 26, cols = 20) {
+        function initializeTable(rows = 26, cols = 15) {
             console.log('Initializing table with', rows, 'rows and', cols, 'columns');
             
             const tableBody = document.getElementById('tableBody');
@@ -3034,23 +3034,6 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             console.log('Table initialized successfully. Created', rows, 'rows with', cols, 'columns each.');
-            
-            // Set container width to show only first 15 columns initially
-            setTimeout(() => {
-                const container = document.querySelector('.excel-table-container');
-                const table = document.getElementById('dataTable');
-                if (container && table && cols >= 15) {
-                    // Get the first data column (skip row header)
-                    const firstDataCol = table.querySelector('th:nth-child(2)');
-                    const rowHeader = table.querySelector('.row-header');
-                    if (firstDataCol && rowHeader) {
-                        const rowHeaderWidth = rowHeader.offsetWidth || 30;
-                        const colWidth = firstDataCol.offsetWidth || 80;
-                        // Set container width to show 15 columns + row header
-                        container.style.width = (rowHeaderWidth + colWidth * 15) + 'px';
-                    }
-                }
-            }, 100);
             
             // Add mouse release event
             document.addEventListener('mouseup', handleMouseUp);
@@ -9775,8 +9758,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!shouldRestore) {
                 // Load submitted processes filtered by capture_date from form
                 loadSubmittedProcesses();
-                // Initialize table with default 26 rows (A-Z) and 20 columns
-                initializeTable(26, 20);
+                // Initialize table with default 26 rows (A-Z) and 15 columns
+                initializeTable(26, 15);
             }
             
             // Test table functionality after a short delay
@@ -10699,6 +10682,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         .excel-table {
+            width: 100%;
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
@@ -10740,7 +10724,6 @@ if ($current_user_id && count($user_companies) > 0) {
             font-weight: bold;
             color: #24292f;
             min-width: 30px;
-            width: 30px;
         }
 
         .excel-table td[contenteditable="true"]:hover {
