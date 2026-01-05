@@ -3563,8 +3563,9 @@ function getCurrentProcessId() {
                 
                 let displayFormula = formulaValue;
                 
-                // First, parse new format: [id_product,第几格] (e.g., [BBB,1])
-                // 第几格 is dataColumnIndex (1-based data column index)
+                // First, parse new format: [id_product,第几格] (e.g., [BBB,11])
+                // 第几格 is displayColumnIndex (表格显示的列号)
+                // 需要转换为 dataColumnIndex (displayColumnIndex - 1) 来获取值
                 const newFormatPattern = /\[([^,\]]+),(\d+)\]/g;
                 const newFormatMatches = [];
                 let newFormatMatch;
@@ -3572,10 +3573,13 @@ function getCurrentProcessId() {
                 // Collect all new format matches
                 newFormatPattern.lastIndex = 0;
                 while ((newFormatMatch = newFormatPattern.exec(formulaValue)) !== null) {
+                    const displayColumnIndex = parseInt(newFormatMatch[2]); // e.g., 11 (displayColumnIndex)
+                    const dataColumnIndex = displayColumnIndex - 1; // e.g., 10 (dataColumnIndex)
                     newFormatMatches.push({
-                        fullMatch: newFormatMatch[0], // e.g., "[BBB,1]"
+                        fullMatch: newFormatMatch[0], // e.g., "[BBB,11]"
                         idProduct: newFormatMatch[1].trim(), // e.g., "BBB"
-                        dataColumnIndex: parseInt(newFormatMatch[2]), // e.g., 1 (dataColumnIndex)
+                        displayColumnIndex: displayColumnIndex, // e.g., 11
+                        dataColumnIndex: dataColumnIndex, // e.g., 10
                         index: newFormatMatch.index
                     });
                 }
@@ -3591,7 +3595,7 @@ function getCurrentProcessId() {
                                           columnValue + 
                                           displayFormula.substring(match.index + match.fullMatch.length);
                         } else {
-                            console.warn(`updateFormulaDisplay: Column value not found for [${match.idProduct},${match.dataColumnIndex}]`);
+                            console.warn(`updateFormulaDisplay: Column value not found for [${match.idProduct},${match.displayColumnIndex}] (dataColumnIndex: ${match.dataColumnIndex})`);
                             displayFormula = displayFormula.substring(0, match.index) + 
                                           '0' + 
                                           displayFormula.substring(match.index + match.fullMatch.length);
@@ -4950,32 +4954,33 @@ function getCurrentProcessId() {
                              currentEditIdProduct.toUpperCase() === idProduct.toUpperCase();
             
             // Insert column reference with new format:
-            // - 自己row: $第几格 (e.g., $2)
-            // - 其他row: [id_product, 第几格] (e.g., [BBB,1])
+            // - 自己row: $第几格 (e.g., $11) - 使用显示列号（displayColumnIndex）
+            // - 其他row: [id_product, 第几格] (e.g., [BBB,11]) - 使用显示列号（displayColumnIndex）
             let valueToInsert;
             
-            // 第几格使用 dataColumnIndex (从1开始的数据列索引)
-            // dataColumnIndex = 1 表示第一格数据，dataColumnIndex = 2 表示第二格数据，以此类推
-            if (dataColumnIndex !== null && dataColumnIndex > 0) {
+            // 第几格使用 displayColumnIndex (表格显示的列号)
+            // displayColumnIndex = 11 表示第11列，应该显示为 $11 或 [BBB,11]
+            // 注意：在解析时，需要将 displayColumnIndex 转换为 dataColumnIndex (displayColumnIndex - 1) 来获取值
+            if (displayColumnIndex !== null && displayColumnIndex > 0) {
                 if (isSameRow) {
-                    // 自己row: 使用 $第几格 格式
-                    valueToInsert = `$${dataColumnIndex}`;
-                    console.log('Inserting same row reference:', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct);
+                    // 自己row: 使用 $第几格 格式（显示列号）
+                    valueToInsert = `$${displayColumnIndex}`;
+                    console.log('Inserting same row reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct);
                 } else {
-                    // 其他row: 使用 [id_product, 第几格] 格式
-                    valueToInsert = `[${idProduct},${dataColumnIndex}]`;
-                    console.log('Inserting other row reference:', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct, 'currentEditIdProduct:', currentEditIdProduct);
+                    // 其他row: 使用 [id_product, 第几格] 格式（显示列号）
+                    valueToInsert = `[${idProduct},${displayColumnIndex}]`;
+                    console.log('Inserting other row reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct, 'currentEditIdProduct:', currentEditIdProduct);
                 }
-            } else if (displayColumnIndex !== null && displayColumnIndex > 0) {
-                // Fallback: 如果 dataColumnIndex 不可用，使用 displayColumnIndex - 1 作为数据列索引
-                // displayColumnIndex 是表格列索引（colIndex 2 = data column 1），所以需要减1
-                const fallbackDataColumnIndex = displayColumnIndex - 1;
+            } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
+                // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 作为显示列号
+                // dataColumnIndex 是内部数据列索引（dataColumnIndex 1 = displayColumnIndex 2），所以需要加1
+                const fallbackDisplayColumnIndex = dataColumnIndex + 1;
                 if (isSameRow) {
-                    valueToInsert = `$${fallbackDataColumnIndex}`;
-                    console.log('Inserting same row reference (fallback):', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'idProduct:', idProduct);
+                    valueToInsert = `$${fallbackDisplayColumnIndex}`;
+                    console.log('Inserting same row reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct);
                 } else {
-                    valueToInsert = `[${idProduct},${fallbackDataColumnIndex}]`;
-                    console.log('Inserting other row reference (fallback):', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'idProduct:', idProduct, 'currentEditIdProduct:', currentEditIdProduct);
+                    valueToInsert = `[${idProduct},${fallbackDisplayColumnIndex}]`;
+                    console.log('Inserting other row reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct, 'currentEditIdProduct:', currentEditIdProduct);
                 }
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
@@ -5891,21 +5896,22 @@ function getCurrentProcessId() {
                 console.log('saveFormula - Formula value read from input (before conversion):', formulaValue, 'Type:', typeof formulaValue);
                 
                 // 将新格式转换为保存格式
-                // 1. 新格式 [id_product,第几格] -> 如果是自己row，转换为 $第几格；如果是其他row，保持原样
+                // 1. 新格式 [id_product,第几格] -> 如果是自己row，转换为 $第几格（displayColumnIndex）；如果是其他row，保持原样
                 // 2. 旧格式 [id_product]$数字 -> 转换为 $数字
                 const processInput = document.getElementById('process');
                 const currentEditIdProduct = processInput ? processInput.value.trim() : null;
                 
                 // 先处理新格式 [id_product,第几格]
+                // 注意：第几格现在是 displayColumnIndex（表格显示的列号），不是 dataColumnIndex
                 const newCommaFormatPattern = /\[([^,\]]+),(\d+)\]/g;
-                formulaValue = formulaValue.replace(newCommaFormatPattern, (match, idProduct, dataColumnIndex) => {
+                formulaValue = formulaValue.replace(newCommaFormatPattern, (match, idProduct, displayColumnIndex) => {
                     const clickedIdProduct = idProduct.trim();
                     const isSameRow = currentEditIdProduct && clickedIdProduct && 
                                      currentEditIdProduct.toUpperCase() === clickedIdProduct.toUpperCase();
                     
                     if (isSameRow) {
-                        // 自己row: 转换为 $第几格（dataColumnIndex就是第几格）
-                        return `$${dataColumnIndex}`;
+                        // 自己row: 转换为 $第几格（displayColumnIndex就是显示的列号）
+                        return `$${displayColumnIndex}`;
                     } else {
                         // 其他row: 保持原样 [id_product,第几格]
                         return match;
@@ -6954,8 +6960,9 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Parse new format: [id_product,第几格] (e.g., [BBB,1])
-                // 第几格 is dataColumnIndex (1-based data column index)
+                // Parse new format: [id_product,第几格] (e.g., [BBB,11])
+                // 第几格 is displayColumnIndex (表格显示的列号)
+                // 需要转换为 dataColumnIndex (displayColumnIndex - 1) 来获取值
                 const newFormatPattern = /\[([^,\]]+),(\d+)\]/g;
                 const newFormatMatches = [];
                 let newFormatMatch;
@@ -6963,10 +6970,13 @@ function getCurrentProcessId() {
                 // Collect all new format matches
                 newFormatPattern.lastIndex = 0;
                 while ((newFormatMatch = newFormatPattern.exec(parsedFormula)) !== null) {
+                    const displayColumnIndex = parseInt(newFormatMatch[2]); // e.g., 11 (displayColumnIndex)
+                    const dataColumnIndex = displayColumnIndex - 1; // e.g., 10 (dataColumnIndex)
                     newFormatMatches.push({
-                        fullMatch: newFormatMatch[0], // e.g., "[BBB,1]"
+                        fullMatch: newFormatMatch[0], // e.g., "[BBB,11]"
                         idProduct: newFormatMatch[1].trim(), // e.g., "BBB"
-                        dataColumnIndex: parseInt(newFormatMatch[2]), // e.g., 1 (dataColumnIndex)
+                        displayColumnIndex: displayColumnIndex, // e.g., 11
+                        dataColumnIndex: dataColumnIndex, // e.g., 10
                         index: newFormatMatch.index
                     });
                 }
@@ -6982,7 +6992,7 @@ function getCurrentProcessId() {
                                           columnValue + 
                                           parsedFormula.substring(match.index + match.fullMatch.length);
                         } else {
-                            console.warn(`Column value not found for [${match.idProduct},${match.dataColumnIndex}]`);
+                            console.warn(`Column value not found for [${match.idProduct},${match.displayColumnIndex}] (dataColumnIndex: ${match.dataColumnIndex})`);
                             parsedFormula = parsedFormula.substring(0, match.index) + 
                                           '0' + 
                                           parsedFormula.substring(match.index + match.fullMatch.length);
