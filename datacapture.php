@@ -337,6 +337,60 @@ if ($current_user_id && count($user_companies) > 0) {
         // Current data capture type (GENERAL / CITIBET / CITIBET_MAJOR)
         let currentDataCaptureType = 'GENERAL';
 
+        // Highlight column and row headers based on selected cell
+        function highlightHeadersForCell(cell) {
+            if (!cell || cell.contentEditable !== 'true') return;
+            
+            // Get column index from cell
+            const colIndex = parseInt(cell.dataset.col);
+            if (isNaN(colIndex)) return;
+            
+            // Get row index
+            const tableBody = document.getElementById('tableBody');
+            if (!tableBody) return;
+            
+            const row = cell.parentElement;
+            const rowIndex = Array.from(tableBody.children).indexOf(row);
+            if (rowIndex === -1) return;
+            
+            // Clear previous cell-based header highlights (but keep column/row selection highlights)
+            const headers = document.querySelectorAll('#dataTable th');
+            headers.forEach((header, index) => {
+                if (index === 0) return; // Skip first empty header
+                if (index === colIndex + 1) {
+                    // Highlight this column header if not already selected
+                    if (!header.classList.contains('column-selected')) {
+                        header.classList.add('column-active');
+                    }
+                } else {
+                    // Remove cell-based highlight (but keep selection highlight)
+                    if (!header.classList.contains('column-selected')) {
+                        header.classList.remove('column-active');
+                    }
+                }
+            });
+            
+            // Highlight row header
+            const rowHeader = row.querySelector('.row-header');
+            if (rowHeader) {
+                if (!rowHeader.classList.contains('row-selected')) {
+                    // Only add active class if not already selected
+                    rowHeader.classList.add('row-active');
+                }
+            }
+            
+            // Remove active class from other row headers
+            const allRows = Array.from(tableBody.children);
+            allRows.forEach((r, index) => {
+                const rh = r.querySelector('.row-header');
+                if (rh) {
+                    if (index !== rowIndex && !rh.classList.contains('row-selected')) {
+                        rh.classList.remove('row-active');
+                    }
+                }
+            });
+        }
+
         // Internal: Set current active cell highlight and selectedCells, does not control focus
         function setActiveCellCore(cell) {
             if (!cell || cell.contentEditable !== 'true') return;
@@ -361,6 +415,9 @@ if ($current_user_id && count($user_companies) > 0) {
             // Also serves as the current unique "multi-select" cell, convenient for Delete / Copy / Paste logic reuse
             selectedCells.add(cell);
             cell.classList.add('multi-selected');
+            
+            // Highlight corresponding column and row headers
+            highlightHeadersForCell(cell);
         }
 
         // Keyboard navigation / used when direct editing is needed: highlight and focus, show cursor
@@ -807,14 +864,16 @@ if ($current_user_id && count($user_companies) > 0) {
             });
             selectedCells.clear();
             
-            // Clear column header selections
+            // Clear column header selections and active highlights
             document.querySelectorAll('#dataTable th').forEach(header => {
                 header.classList.remove('column-selected');
+                header.classList.remove('column-active');
             });
             
-            // Clear row header selections
+            // Clear row header selections and active highlights
             document.querySelectorAll('.row-header').forEach(header => {
                 header.classList.remove('row-selected');
+                header.classList.remove('row-active');
             });
         }
 
@@ -10193,7 +10252,17 @@ if ($current_user_id && count($user_companies) > 0) {
             color: #1976d2 !important;
         }
 
+        .excel-table th.column-active {
+            background-color: #e3f2fd !important;
+            color: #1976d2 !important;
+        }
+
         .excel-table td.row-header.row-selected {
+            background-color: #e3f2fd !important;
+            color: #1976d2 !important;
+        }
+
+        .excel-table td.row-header.row-active {
             background-color: #e3f2fd !important;
             color: #1976d2 !important;
         }
