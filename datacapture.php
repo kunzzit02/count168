@@ -9838,9 +9838,11 @@ if ($current_user_id && count($user_companies) > 0) {
 
         .excel-table {
             width: auto;
+            min-width: 830px; /* 30px (行标题) + 20列 × 40px = 830px */
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
+            table-layout: fixed; /* 固定表格布局以确保列宽生效 */
         }
 
         .excel-table th,
@@ -9849,9 +9851,9 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(10px, 0.63vw, 12px);
             padding: clamp(2px, 0.31vw, 6px) 0px;
             text-align: center;
-            min-width: 40px;
             width: 40px; /* 固定列宽 */
             position: relative;
+            box-sizing: border-box;
         }
 
         .excel-table th {
