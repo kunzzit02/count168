@@ -16362,7 +16362,7 @@ function formatPercentValue(value) {
         
         #summaryTable th:nth-child(5), /* Columns */
         #summaryTable td:nth-child(5) {
-            width: 16%;
+            width: 20%;
         }
         
         #summaryTable th:nth-child(6), /* Batch Selection */
@@ -16377,12 +16377,12 @@ function formatPercentValue(value) {
         
         #summaryTable th:nth-child(8), /* Formula */
         #summaryTable td:nth-child(8) {
-            width: 5%;
+            width: 3%;
         }
         
         #summaryTable th:nth-child(9), /* Source % - wider */
         #summaryTable td:nth-child(9) {
-            width: 3%;
+            width: 4%;
         }
         
         #summaryTable th:nth-child(10), /* Rate - new */
@@ -16392,7 +16392,7 @@ function formatPercentValue(value) {
         
         #summaryTable th:nth-child(11), /* Processed Amount - narrower */
         #summaryTable td:nth-child(11) {
-            width: 6%;
+            width: 2%;
         }
         
         #summaryTable th:nth-child(12), /* Select column */
