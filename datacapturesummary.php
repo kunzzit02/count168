@@ -4899,13 +4899,24 @@ function getCurrentProcessId() {
             // If id_product not found on cell, try to get from row
             if (!idProduct && row) {
                 idProduct = row.getAttribute('data-id-product');
-                // If still not found, try to get from colIndex 1 (id_product column)
+                // If still not found, try to get from the first cell (id_product column in Data Capture Table)
                 if (!idProduct) {
                     const cells = row.querySelectorAll('td');
-                    if (cells.length > 1 && cells[1]) {
-                        idProduct = cells[1].textContent.trim();
+                    // In Data Capture Table, id_product is typically in the first cell (index 0)
+                    // But it might also be in cells[1] depending on table structure
+                    if (cells.length > 0) {
+                        // Try first cell first
+                        const firstCell = cells[0];
+                        if (firstCell && firstCell.textContent.trim()) {
+                            idProduct = firstCell.textContent.trim();
+                        } else if (cells.length > 1 && cells[1]) {
+                            // Fallback to second cell
+                            idProduct = cells[1].textContent.trim();
+                        }
                         // Store it for future use
-                        row.setAttribute('data-id-product', idProduct);
+                        if (idProduct) {
+                            row.setAttribute('data-id-product', idProduct);
+                        }
                     }
                 }
             }
@@ -5005,15 +5016,42 @@ function getCurrentProcessId() {
             let valueToInsert;
             
             // Check if this is the current row being edited
+            // 需要比较点击单元格所在行的 id_product 和当前编辑行的 id_product
             let isCurrentRow = false;
-            let currentEditIdProduct = null;
-            if (window.currentEditRow) {
-                const currentEditIdProductCell = window.currentEditRow.querySelector('td:first-child');
-                if (currentEditIdProductCell) {
-                    currentEditIdProduct = currentEditIdProductCell.textContent.trim();
-                    // Compare id_product (case-insensitive)
-                    if (idProduct && currentEditIdProduct && idProduct.toUpperCase() === currentEditIdProduct.toUpperCase()) {
+            if (window.currentEditRow && idProduct) {
+                // 获取当前编辑行的 id_product（从 Summary Table）
+                const currentEditIdProduct = getProcessValueFromRow(window.currentEditRow);
+                if (currentEditIdProduct) {
+                    // 标准化比较：提取基础 id_product（去除描述和空格）
+                    const normalizeIdProduct = (str) => {
+                        if (!str) return '';
+                        let normalized = str.trim();
+                        // 提取括号前的部分（base product value）
+                        const parenMatch = normalized.match(/^([^(]+)/);
+                        if (parenMatch) {
+                            normalized = parenMatch[1].trim();
+                        }
+                        // 提取冒号前的部分（如果有冒号分隔）
+                        const colonMatch = normalized.match(/^([^:]+)/);
+                        if (colonMatch) {
+                            normalized = colonMatch[1].trim();
+                        }
+                        // 去除所有空格并转为大写
+                        return normalized.replace(/\s+/g, '').toUpperCase();
+                    };
+                    
+                    const clickedIdProductNormalized = normalizeIdProduct(idProduct);
+                    const currentEditIdProductNormalized = normalizeIdProduct(currentEditIdProduct);
+                    
+                    // 比较标准化后的 id_product
+                    if (clickedIdProductNormalized && currentEditIdProductNormalized && 
+                        clickedIdProductNormalized === currentEditIdProductNormalized) {
                         isCurrentRow = true;
+                        console.log('Matched current row - clicked id_product:', idProduct, '->', clickedIdProductNormalized, 
+                                   'current edit id_product:', currentEditIdProduct, '->', currentEditIdProductNormalized);
+                    } else {
+                        console.log('Different row - clicked id_product:', idProduct, '->', clickedIdProductNormalized, 
+                                  'current edit id_product:', currentEditIdProduct, '->', currentEditIdProductNormalized);
                     }
                 }
             }
