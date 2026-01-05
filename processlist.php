@@ -1500,7 +1500,19 @@ if ($current_user_id && count($user_companies) > 0) {
                     const copyFromSelect = document.getElementById('add_copy_from');
                     copyFromSelect.innerHTML = '<option value="">Select Process to Copy From</option>';
                     if (result.existingProcesses && result.existingProcesses.length > 0) {
-                        result.existingProcesses.forEach(process => {
+                        // 按 A-Z 排序：先按 process_name 排序，如果相同则按 description_name 排序
+                        const sortedProcesses = [...result.existingProcesses].sort((a, b) => {
+                            const aName = (a.process_name || 'Unknown').toUpperCase();
+                            const bName = (b.process_name || 'Unknown').toUpperCase();
+                            if (aName !== bName) {
+                                return aName.localeCompare(bName);
+                            }
+                            const aDesc = (a.description_name || 'No Description').toUpperCase();
+                            const bDesc = (b.description_name || 'No Description').toUpperCase();
+                            return aDesc.localeCompare(bDesc);
+                        });
+                        
+                        sortedProcesses.forEach(process => {
                             const option = document.createElement('option');
                             option.value = process.process_id;
                             option.textContent = `${process.process_name || 'Unknown'} - ${process.description_name || 'No Description'}`;
