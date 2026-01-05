@@ -5202,18 +5202,84 @@ function getCurrentProcessId() {
                                 formulaInput.setAttribute('data-clicked-cell-refs', convertedClickedCellRefs);
                                 console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs (converted displayColumnIndex to dataColumnIndex):', convertedClickedCellRefs, 'from:', data.clickedColumns);
                                 
-                                // 将 formula 中的旧格式 $数字 转换为新格式 [id_product]$数字
+                                // 将 formula 中的旧格式转换为新格式：
+                                // 1. 旧格式 [id_product]$数字 -> 根据是否自己row转换为 $数字 或 [id_product,数字]
+                                // 2. 旧格式 $数字 -> 根据是否自己row保持 $数字 或转换为 [id_product,数字]
                                 let currentFormula = formulaInput.value || '';
                                 if (currentFormula && currentFormula.trim() !== '') {
-                                    // 匹配所有 $数字
+                                    const processInput = document.getElementById('process');
+                                    const currentEditIdProduct = processInput ? processInput.value.trim() : null;
+                                    
+                                    // 先处理旧格式 [id_product]$数字（例如：[(RM)) (F) ]$11）
+                                    const oldFormatPattern = /\[([^\]]+)\]\$(\d+)(?!\d)/g;
+                                    let oldFormatMatch;
+                                    const oldFormatReplacements = [];
+                                    const matchedPositions = new Set(); // 记录已匹配的位置
+                                    
+                                    while ((oldFormatMatch = oldFormatPattern.exec(currentFormula)) !== null) {
+                                        const fullMatch = oldFormatMatch[0]; // 例如 "[(RM)) (F) ]$11"
+                                        const idProductPart = oldFormatMatch[1].trim(); // 例如 "(RM)) (F) "
+                                        const displayColumnIndex = parseInt(oldFormatMatch[2]); // 例如 11
+                                        const matchIndex = oldFormatMatch.index;
+                                        
+                                        if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
+                                            // 提取 id_product（去除可能的 row_label 部分）
+                                            let idProduct = idProductPart;
+                                            const rowLabelMatch = idProductPart.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+                                            if (rowLabelMatch) {
+                                                idProduct = rowLabelMatch[1].trim();
+                                            }
+                                            
+                                            // 判断是否是当前编辑的 id_product（自己row）
+                                            const isSameRow = currentEditIdProduct && idProduct && 
+                                                             currentEditIdProduct.toUpperCase() === idProduct.toUpperCase();
+                                            
+                                            let newFormat = '';
+                                            if (isSameRow) {
+                                                // 自己row: 转换为 $数字 格式（例如：$11）
+                                                newFormat = `$${displayColumnIndex}`;
+                                            } else {
+                                                // 其他row: 转换为 [id_product,数字] 格式（例如：[YONG,4]）
+                                                newFormat = `[${idProduct},${displayColumnIndex}]`;
+                                            }
+                                            
+                                            oldFormatReplacements.push({
+                                                from: fullMatch,
+                                                to: newFormat,
+                                                index: matchIndex
+                                            });
+                                            
+                                            // 记录匹配的位置范围，避免 $数字 格式重复匹配
+                                            for (let i = matchIndex; i < matchIndex + fullMatch.length; i++) {
+                                                matchedPositions.add(i);
+                                            }
+                                        }
+                                    }
+                                    
+                                    // 从后往前替换旧格式，避免位置偏移
+                                    if (oldFormatReplacements.length > 0) {
+                                        oldFormatReplacements.sort((a, b) => b.index - a.index);
+                                        for (const replacement of oldFormatReplacements) {
+                                            currentFormula = currentFormula.substring(0, replacement.index) + 
+                                                          replacement.to + 
+                                                          currentFormula.substring(replacement.index + replacement.from.length);
+                                        }
+                                    }
+                                    
+                                    // 再处理 $数字 格式（排除已经被旧格式处理过的）
                                     const dollarPattern = /\$(\d+)(?!\d)/g;
                                     let match;
                                     const replacements = [];
                                     
                                     // 收集所有需要替换的位置和内容
                                     while ((match = dollarPattern.exec(currentFormula)) !== null) {
-                                        const columnNumber = parseInt(match[1]);
                                         const matchIndex = match.index;
+                                        // 检查这个位置是否已经被旧格式匹配
+                                        if (matchedPositions.has(matchIndex)) {
+                                            continue; // 跳过已经被旧格式匹配的位置
+                                        }
+                                        
+                                        const columnNumber = parseInt(match[1]);
                                         
                                         if (!isNaN(columnNumber) && columnNumber > 0) {
                                             // 从 data-clicked-cell-refs 中找到对应的 id_product
@@ -5238,19 +5304,23 @@ function getCurrentProcessId() {
                                             if (matchedRef) {
                                                 const parts = matchedRef.split(':');
                                                 const idProduct = parts[0];
-                                                const rowLabel = parts.length === 3 ? parts[1] : null;
                                                 
-                                                // 构建新格式：[id_product (row_label) ]$数字 或 [id_product ]$数字
+                                                // 判断是否是当前编辑的 id_product（自己row）
+                                                const isSameRow = currentEditIdProduct && idProduct && 
+                                                                 currentEditIdProduct.toUpperCase() === idProduct.toUpperCase();
+                                                
                                                 let newFormat = '';
-                                                if (rowLabel) {
-                                                    newFormat = `[${idProduct} (${rowLabel}) ]$${displayColumnIndex}`;
+                                                if (isSameRow) {
+                                                    // 自己row: 保持 $数字 格式（例如：$11）
+                                                    newFormat = `$${displayColumnIndex}`;
                                                 } else {
-                                                    newFormat = `[${idProduct} ]$${displayColumnIndex}`;
+                                                    // 其他row: 转换为 [id_product,数字] 格式（例如：[YONG,4]）
+                                                    newFormat = `[${idProduct},${displayColumnIndex}]`;
                                                 }
                                                 
                                                 replacements.push({
-                                                    from: match[0], // 例如 "$4"
-                                                    to: newFormat, // 例如 "[M99M06 (B) ]$4"
+                                                    from: match[0], // 例如 "$11"
+                                                    to: newFormat, // 例如 "$11" 或 "[YONG,4]"
                                                     index: matchIndex
                                                 });
                                             }
@@ -5260,18 +5330,21 @@ function getCurrentProcessId() {
                                     // 从后往前替换，避免位置偏移
                                     if (replacements.length > 0) {
                                         replacements.sort((a, b) => b.index - a.index);
-                                        let newFormula = currentFormula;
                                         for (const replacement of replacements) {
-                                            newFormula = newFormula.substring(0, replacement.index) + 
-                                                        replacement.to + 
-                                                        newFormula.substring(replacement.index + replacement.from.length);
+                                            currentFormula = currentFormula.substring(0, replacement.index) + 
+                                                          replacement.to + 
+                                                          currentFormula.substring(replacement.index + replacement.from.length);
                                         }
-                                        formulaInput.value = newFormula;
-                                        console.log('populateFormWithData - Converted formula from old format to new format:', currentFormula, '->', newFormula);
+                                    }
+                                    
+                                    // 如果有任何转换，更新公式
+                                    if (oldFormatReplacements.length > 0 || replacements.length > 0) {
+                                        formulaInput.value = currentFormula;
+                                        console.log('populateFormWithData - Converted formula from old format to new format:', formulaInput.value, '->', currentFormula);
                                         
                                         // 更新显示框
                                         const processValue = document.getElementById('process')?.value;
-                                        updateFormulaDisplay(newFormula, processValue);
+                                        updateFormulaDisplay(currentFormula, processValue);
                                     }
                                 }
                             } else {
