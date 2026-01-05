@@ -2567,8 +2567,28 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
-                const rowIdProduct = row.getAttribute('data-id-product');
-                if (rowIdProduct && rowIdProduct.trim() === idProduct.trim()) {
+                // Try to get id_product from data-id-product attribute first
+                let rowIdProduct = row.getAttribute('data-id-product');
+                
+                // If not found, try to get from first cell (id_product column)
+                if (!rowIdProduct || rowIdProduct.trim() === '') {
+                    const cells = row.querySelectorAll('td');
+                    // First cell (index 0) is row header, second cell (index 1) is id_product
+                    if (cells.length > 1 && cells[1]) {
+                        const idProductCell = cells[1];
+                        rowIdProduct = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                        // Store it for future use
+                        if (rowIdProduct) {
+                            row.setAttribute('data-id-product', rowIdProduct);
+                        }
+                    }
+                }
+                
+                // Normalize both values for comparison
+                const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
+                const normalizedIdProduct = normalizeIdProductText(idProduct || '');
+                
+                if (normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
                     rowContainer.className = 'formula-data-grid-row';
