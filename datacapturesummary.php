@@ -8745,29 +8745,16 @@ function getCurrentProcessId() {
                     input.select();
                 }
                 
-                // Track if user has made any changes
-                let userHasChanged = false;
-                input.addEventListener('input', function() {
-                    userHasChanged = true;
-                });
-                
                 // Handle input changes - save the value
                 const handleInput = (saveChanges = true) => {
-                    if (!isEditing) return; // Prevent multiple calls
-                    
-                    // Get the value from input - use originalValue if user didn't change anything and input is empty
-                    let newValue = input.value.trim();
-                    
-                    // If user didn't change anything and input is empty, keep original value
-                    if (!userHasChanged && !newValue && originalValue) {
-                        newValue = originalValue;
+                    // Make sure we're using the current input element
+                    const activeInput = currentInput || input;
+                    if (!activeInput || !activeInput.parentElement) {
+                        isEditing = false;
+                        return;
                     }
                     
-                    // Mark as not editing first to prevent re-entry
-                    isEditing = false;
-                    currentInput = null;
-                    userHasChanged = false;
-                    
+                    const newValue = activeInput.value.trim();
                     const cells = row.querySelectorAll('td');
                     const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                     
@@ -8777,7 +8764,7 @@ function getCurrentProcessId() {
                             rateCheckbox.checked = false;
                         }
                         
-                        // Update cell content with new value
+                        // Update cell content with new value (even if empty, user intentionally cleared it)
                         cellElement.textContent = newValue;
                         
                         // Recalculate processed amount when Rate Value changes
@@ -8809,32 +8796,29 @@ function getCurrentProcessId() {
                         // Cancel: restore original value
                         cellElement.textContent = originalValue;
                     }
+                    
+                    isEditing = false;
+                    currentInput = null;
                 };
                 
                 // Handle blur (when input loses focus) - always save changes
-                // Save immediately, don't use setTimeout
                 input.addEventListener('blur', function(e) {
-                    // Prevent default to avoid any interference
-                    e.stopPropagation();
-                    if (isEditing) {
-                        handleInput(true);
-                    }
-                }, { once: true }); // Use once: true to prevent multiple blur events
+                    // Use setTimeout to ensure input.value is still accessible
+                    setTimeout(() => {
+                        if (isEditing && currentInput === input) {
+                            handleInput(true);
+                        }
+                    }, 100);
+                });
                 
                 // Handle Enter key - save changes
                 input.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        e.stopPropagation();
-                        if (isEditing) {
-                            handleInput(true);
-                        }
+                        handleInput(true);
                     } else if (e.key === 'Escape') {
                         e.preventDefault();
-                        e.stopPropagation();
-                        if (isEditing) {
-                            handleInput(false); // Cancel: restore original value
-                        }
+                        handleInput(false); // Cancel: restore original value
                     }
                 });
             });
