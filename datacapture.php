@@ -316,6 +316,38 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
     </div>
 
+    <!-- Column Header Context Menu -->
+    <div id="columnContextMenu" class="context-menu" style="display: none;">
+        <div class="context-menu-item" onclick="insertColumnLeft()">
+            <span>➕ Insert 1 column left</span>
+        </div>
+        <div class="context-menu-item" onclick="insertColumnRight()">
+            <span>➕ Insert 1 column right</span>
+        </div>
+        <div class="context-menu-item" onclick="deleteColumn()">
+            <span>🗑️ Delete column</span>
+        </div>
+        <div class="context-menu-item" onclick="clearColumn()">
+            <span>❌ Clear column</span>
+        </div>
+    </div>
+
+    <!-- Row Header Context Menu -->
+    <div id="rowContextMenu" class="context-menu" style="display: none;">
+        <div class="context-menu-item" onclick="insertRowAbove()">
+            <span>➕ Insert 1 row above</span>
+        </div>
+        <div class="context-menu-item" onclick="insertRowBelow()">
+            <span>➕ Insert 1 row below</span>
+        </div>
+        <div class="context-menu-item" onclick="deleteRow()">
+            <span>🗑️ Delete row</span>
+        </div>
+        <div class="context-menu-item" onclick="clearRow()">
+            <span>❌ Clear row</span>
+        </div>
+    </div>
+
     <script>
         let isSelecting = false;
         let startCell = null;
@@ -329,6 +361,10 @@ if ($current_user_id && count($user_companies) > 0) {
         let isSelectingRows = false;
         let startColumnIndex = null;
         let startRowIndex = null;
+
+        // Track current column/row for context menu
+        let currentColumnIndex = null;
+        let currentRowIndex = null;
 
         // History record for undo functionality
         let pasteHistory = [];
@@ -1251,7 +1287,51 @@ if ($current_user_id && count($user_companies) > 0) {
         // Hide context menu
         function hideContextMenu() {
             const contextMenu = document.getElementById('contextMenu');
-            contextMenu.style.display = 'none';
+            const columnContextMenu = document.getElementById('columnContextMenu');
+            const rowContextMenu = document.getElementById('rowContextMenu');
+            if (contextMenu) contextMenu.style.display = 'none';
+            if (columnContextMenu) columnContextMenu.style.display = 'none';
+            if (rowContextMenu) rowContextMenu.style.display = 'none';
+        }
+
+        // Show column header context menu
+        function showColumnContextMenu(e, colIndex) {
+            e.preventDefault();
+            e.stopPropagation();
+            currentColumnIndex = colIndex;
+            
+            const columnContextMenu = document.getElementById('columnContextMenu');
+            if (!columnContextMenu) return;
+            
+            // Set menu position
+            columnContextMenu.style.left = e.pageX + 'px';
+            columnContextMenu.style.top = e.pageY + 'px';
+            columnContextMenu.style.display = 'block';
+            
+            // Click elsewhere to close menu
+            setTimeout(() => {
+                document.addEventListener('click', hideContextMenu, { once: true });
+            }, 0);
+        }
+
+        // Show row header context menu
+        function showRowContextMenu(e, rowIndex) {
+            e.preventDefault();
+            e.stopPropagation();
+            currentRowIndex = rowIndex;
+            
+            const rowContextMenu = document.getElementById('rowContextMenu');
+            if (!rowContextMenu) return;
+            
+            // Set menu position
+            rowContextMenu.style.left = e.pageX + 'px';
+            rowContextMenu.style.top = e.pageY + 'px';
+            rowContextMenu.style.display = 'block';
+            
+            // Click elsewhere to close menu
+            setTimeout(() => {
+                document.addEventListener('click', hideContextMenu, { once: true });
+            }, 0);
         }
 
         // Clear selected cells
@@ -1262,6 +1342,334 @@ if ($current_user_id && count($user_companies) > 0) {
             hideContextMenu();
             
             // Update submit button state after clearing cells
+            updateSubmitButtonState();
+        }
+
+        // Column context menu functions
+        function insertColumnLeft() {
+            if (currentColumnIndex === null) return;
+            insertColumnAt(currentColumnIndex);
+            hideContextMenu();
+        }
+
+        function insertColumnRight() {
+            if (currentColumnIndex === null) return;
+            insertColumnAt(currentColumnIndex + 1);
+            hideContextMenu();
+        }
+
+        function insertColumnAt(colIndex) {
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+            if (!tableHeader || !tableBody) return;
+
+            const headerRow = tableHeader.querySelector('tr');
+            const currentCols = headerRow.children.length - 1;
+            
+            // Create new column header
+            const newHeader = document.createElement('th');
+            newHeader.textContent = colIndex + 1;
+            // Handle left click
+            newHeader.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                    handleColumnHeaderClick(e, colIndex);
+                }
+            });
+            // Handle right click - show context menu
+            newHeader.addEventListener('contextmenu', (e) => {
+                showColumnContextMenu(e, colIndex);
+            });
+            newHeader.addEventListener('mouseover', (e) => {
+                if (!e.ctrlKey && !e.metaKey) {
+                    handleColumnHeaderMouseOver(e, colIndex);
+                }
+            });
+            newHeader.style.cursor = 'pointer';
+            
+            // Insert header
+            if (colIndex >= currentCols) {
+                headerRow.appendChild(newHeader);
+            } else {
+                headerRow.insertBefore(newHeader, headerRow.children[colIndex + 1]);
+            }
+            
+            // Update column indices and insert cells
+            Array.from(tableBody.children).forEach((row, rowIndex) => {
+                const newCell = document.createElement('td');
+                newCell.contentEditable = true;
+                newCell.dataset.col = colIndex;
+                
+                // Update dataset.col for all cells after this column
+                for (let c = colIndex; c < row.children.length - 1; c++) {
+                    const cell = row.children[c + 1];
+                    if (cell && cell.contentEditable === 'true') {
+                        const oldCol = parseInt(cell.dataset.col);
+                        if (!isNaN(oldCol) && oldCol >= colIndex) {
+                            cell.dataset.col = oldCol + 1;
+                        }
+                    }
+                }
+                
+                // Add event listeners to new cell
+                newCell.addEventListener('mousedown', handleCellMouseDown);
+                newCell.addEventListener('mouseover', handleCellMouseOver);
+                newCell.addEventListener('focus', function() {
+                    this.classList.add('selected');
+                });
+                newCell.addEventListener('blur', function() {
+                    this.classList.remove('selected');
+                });
+                newCell.addEventListener('keydown', handleCellKeydown);
+                newCell.addEventListener('paste', handleCellPaste);
+                newCell.addEventListener('click', function(e) {
+                    tableActive = true;
+                    const hasFocus = document.activeElement === this;
+                    if (hasFocus) {
+                        moveCaretToClickPosition(this, e);
+                    } else if (!this.classList.contains('selected')) {
+                        setActiveCellWithoutFocus(this);
+                    } else {
+                        setActiveCellCore(this);
+                        this.focus();
+                        setTimeout(() => {
+                            moveCaretToClickPosition(this, e);
+                        }, 0);
+                    }
+                });
+                newCell.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    showContextMenu(e, this);
+                });
+                
+                // Insert cell
+                if (colIndex >= row.children.length - 1) {
+                    row.appendChild(newCell);
+                } else {
+                    row.insertBefore(newCell, row.children[colIndex + 1]);
+                }
+            });
+            
+            // Update header numbers
+            const headers = headerRow.querySelectorAll('th');
+            headers.forEach((header, index) => {
+                if (index > 0) {
+                    header.textContent = index;
+                }
+            });
+        }
+
+        function deleteColumn() {
+            if (currentColumnIndex === null) return;
+            
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+            if (!tableHeader || !tableBody) return;
+
+            const headerRow = tableHeader.querySelector('tr');
+            const currentCols = headerRow.children.length - 1;
+            
+            if (currentCols <= 1) {
+                showNotification('Cannot delete the last column', 'danger');
+                hideContextMenu();
+                return;
+            }
+            
+            // Remove column header
+            const headerToRemove = headerRow.children[currentColumnIndex + 1];
+            if (headerToRemove) {
+                headerToRemove.remove();
+            }
+            
+            // Remove cells from each row
+            Array.from(tableBody.children).forEach(row => {
+                const cellToRemove = row.children[currentColumnIndex + 1];
+                if (cellToRemove) {
+                    cellToRemove.remove();
+                }
+                
+                // Update dataset.col for remaining cells
+                for (let c = currentColumnIndex + 1; c < row.children.length - 1; c++) {
+                    const cell = row.children[c];
+                    if (cell && cell.contentEditable === 'true') {
+                        const oldCol = parseInt(cell.dataset.col);
+                        if (!isNaN(oldCol) && oldCol > currentColumnIndex) {
+                            cell.dataset.col = oldCol - 1;
+                        }
+                    }
+                }
+            });
+            
+            // Update header numbers
+            const headers = headerRow.querySelectorAll('th');
+            headers.forEach((header, index) => {
+                if (index > 0) {
+                    header.textContent = index;
+                }
+            });
+            
+            clearAllSelections();
+            hideContextMenu();
+        }
+
+        function clearColumn() {
+            if (currentColumnIndex === null) return;
+            
+            const tableBody = document.getElementById('tableBody');
+            if (!tableBody) return;
+            
+            Array.from(tableBody.children).forEach(row => {
+                const cell = row.children[currentColumnIndex + 1];
+                if (cell && cell.contentEditable === 'true') {
+                    cell.textContent = '';
+                }
+            });
+            
+            hideContextMenu();
+            updateSubmitButtonState();
+        }
+
+        // Row context menu functions
+        function insertRowAbove() {
+            if (currentRowIndex === null) return;
+            insertRowAt(currentRowIndex);
+            hideContextMenu();
+        }
+
+        function insertRowBelow() {
+            if (currentRowIndex === null) return;
+            insertRowAt(currentRowIndex + 1);
+            hideContextMenu();
+        }
+
+        function insertRowAt(rowIndex) {
+            const tableBody = document.getElementById('tableBody');
+            const tableHeader = document.getElementById('tableHeader');
+            if (!tableBody || !tableHeader) return;
+
+            const currentRows = tableBody.children.length;
+            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+            
+            // Create new row
+            const row = document.createElement('tr');
+            
+            // Row header
+            const rowHeader = document.createElement('td');
+            rowHeader.className = 'row-header';
+            rowHeader.textContent = getColumnLabel(rowIndex);
+            rowHeader.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                    handleRowHeaderClick(e, rowIndex);
+                }
+            });
+            rowHeader.addEventListener('contextmenu', (e) => {
+                showRowContextMenu(e, rowIndex);
+            });
+            rowHeader.addEventListener('mouseover', (e) => {
+                if (!e.ctrlKey && !e.metaKey) {
+                    handleRowHeaderMouseOver(e, rowIndex);
+                }
+            });
+            rowHeader.style.cursor = 'pointer';
+            row.appendChild(rowHeader);
+            
+            // Data cells
+            for (let j = 0; j < currentCols; j++) {
+                const cell = document.createElement('td');
+                cell.contentEditable = true;
+                cell.dataset.col = j;
+                cell.addEventListener('mousedown', handleCellMouseDown);
+                cell.addEventListener('mouseover', handleCellMouseOver);
+                cell.addEventListener('focus', function() {
+                    this.classList.add('selected');
+                });
+                cell.addEventListener('blur', function() {
+                    this.classList.remove('selected');
+                });
+                cell.addEventListener('keydown', handleCellKeydown);
+                cell.addEventListener('paste', handleCellPaste);
+                cell.addEventListener('click', function(e) {
+                    tableActive = true;
+                    const hasFocus = document.activeElement === this;
+                    if (hasFocus) {
+                        moveCaretToClickPosition(this, e);
+                    } else if (!this.classList.contains('selected')) {
+                        setActiveCellWithoutFocus(this);
+                    } else {
+                        setActiveCellCore(this);
+                        this.focus();
+                        setTimeout(() => {
+                            moveCaretToClickPosition(this, e);
+                        }, 0);
+                    }
+                });
+                cell.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    showContextMenu(e, this);
+                });
+                row.appendChild(cell);
+            }
+            
+            // Insert row
+            if (rowIndex >= currentRows) {
+                tableBody.appendChild(row);
+            } else {
+                tableBody.insertBefore(row, tableBody.children[rowIndex]);
+            }
+            
+            // Update row header labels
+            Array.from(tableBody.children).forEach((r, index) => {
+                const rh = r.querySelector('.row-header');
+                if (rh) {
+                    rh.textContent = getColumnLabel(index);
+                }
+            });
+        }
+
+        function deleteRow() {
+            if (currentRowIndex === null) return;
+            
+            const tableBody = document.getElementById('tableBody');
+            if (!tableBody) return;
+            
+            if (tableBody.children.length <= 1) {
+                showNotification('Cannot delete the last row', 'danger');
+                hideContextMenu();
+                return;
+            }
+            
+            const rowToRemove = tableBody.children[currentRowIndex];
+            if (rowToRemove) {
+                rowToRemove.remove();
+            }
+            
+            // Update row header labels
+            Array.from(tableBody.children).forEach((row, index) => {
+                const rowHeader = row.querySelector('.row-header');
+                if (rowHeader) {
+                    rowHeader.textContent = getColumnLabel(index);
+                }
+            });
+            
+            clearAllSelections();
+            hideContextMenu();
+        }
+
+        function clearRow() {
+            if (currentRowIndex === null) return;
+            
+            const tableBody = document.getElementById('tableBody');
+            if (!tableBody) return;
+            
+            const row = tableBody.children[currentRowIndex];
+            if (row) {
+                Array.from(row.children).forEach(cell => {
+                    if (cell && cell.contentEditable === 'true') {
+                        cell.textContent = '';
+                    }
+                });
+            }
+            
+            hideContextMenu();
             updateSubmitButtonState();
         }
 
@@ -2418,11 +2826,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 header.textContent = j + 1; // 1, 2, 3, ...
                 // Handle left click (mousedown)
                 header.addEventListener('mousedown', (e) => {
-                    handleColumnHeaderClick(e, j);
+                    if (e.button === 0) { // Left button only
+                        handleColumnHeaderClick(e, j);
+                    }
                 });
-                // Handle right click (contextmenu) - same as left click
+                // Handle right click (contextmenu) - show context menu
                 header.addEventListener('contextmenu', (e) => {
-                    handleColumnHeaderClick(e, j);
+                    showColumnContextMenu(e, j);
                 });
                 header.addEventListener('mouseover', (e) => {
                     // Only handle drag selection if not using Ctrl
@@ -2444,11 +2854,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 rowHeader.textContent = getColumnLabel(i - 1); // A, B, C, ..., Z, AA, AB, ...
                 // Handle left click (mousedown)
                 rowHeader.addEventListener('mousedown', (e) => {
-                    handleRowHeaderClick(e, i - 1);
+                    if (e.button === 0) { // Left button only
+                        handleRowHeaderClick(e, i - 1);
+                    }
                 });
-                // Handle right click (contextmenu) - same as left click
+                // Handle right click (contextmenu) - show context menu
                 rowHeader.addEventListener('contextmenu', (e) => {
-                    handleRowHeaderClick(e, i - 1);
+                    showRowContextMenu(e, i - 1);
                 });
                 rowHeader.addEventListener('mouseover', (e) => {
                     // Only handle drag selection if not using Ctrl
@@ -2563,11 +2975,13 @@ if ($current_user_id && count($user_companies) > 0) {
             rowHeader.textContent = getColumnLabel(currentRows); // A, B, C, ..., Z, AA, AB, ...
             // Handle left click (mousedown)
             rowHeader.addEventListener('mousedown', (e) => {
-                handleRowHeaderClick(e, currentRows);
+                if (e.button === 0) { // Left button only
+                    handleRowHeaderClick(e, currentRows);
+                }
             });
-            // Handle right click (contextmenu) - same as left click
+            // Handle right click (contextmenu) - show context menu
             rowHeader.addEventListener('contextmenu', (e) => {
-                handleRowHeaderClick(e, currentRows);
+                showRowContextMenu(e, currentRows);
             });
             rowHeader.addEventListener('mouseover', (e) => {
                 // Only handle drag selection if not using Ctrl
@@ -2649,11 +3063,13 @@ if ($current_user_id && count($user_companies) > 0) {
             newHeader.textContent = newColIndex + 1; // 1, 2, 3, ...
             // Handle left click (mousedown)
             newHeader.addEventListener('mousedown', (e) => {
-                handleColumnHeaderClick(e, newColIndex);
+                if (e.button === 0) { // Left button only
+                    handleColumnHeaderClick(e, newColIndex);
+                }
             });
-            // Handle right click (contextmenu) - same as left click
+            // Handle right click (contextmenu) - show context menu
             newHeader.addEventListener('contextmenu', (e) => {
-                handleColumnHeaderClick(e, newColIndex);
+                showColumnContextMenu(e, newColIndex);
             });
             newHeader.addEventListener('mouseover', (e) => {
                 // Only handle drag selection if not using Ctrl
