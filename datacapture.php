@@ -615,8 +615,8 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        // Select entire column(s) - supports range selection
-        function selectColumn(colIndex, endColIndex = null) {
+        // Select entire column(s) - supports range selection and Ctrl multi-select
+        function selectColumn(colIndex, endColIndex = null, append = false) {
             // Activate table when column is selected
             tableActive = true;
             
@@ -624,7 +624,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 endColIndex = colIndex;
             }
             
-            clearAllSelections();
+            // If not appending, clear all selections first
+            if (!append) {
+                clearAllSelections();
+            }
             
             // Highlight column headers in range
             const headers = document.querySelectorAll('#dataTable th');
@@ -633,25 +636,58 @@ if ($current_user_id && count($user_companies) > 0) {
             
             for (let i = minCol; i <= maxCol; i++) {
                 if (headers[i + 1]) {
-                    headers[i + 1].classList.add('column-selected');
+                    // If appending and already selected, toggle it off
+                    if (append && headers[i + 1].classList.contains('column-selected')) {
+                        toggleColumnSelection(i, false);
+                    } else {
+                        headers[i + 1].classList.add('column-selected');
+                        // Select all cells in this column
+                        const tableBody = document.getElementById('tableBody');
+                        Array.from(tableBody.children).forEach(row => {
+                            const cell = row.children[i + 1];
+                            if (cell && cell.contentEditable === 'true') {
+                                selectedCells.add(cell);
+                                cell.classList.add('multi-selected');
+                            }
+                        });
+                    }
                 }
             }
-            
-            // Select all cells in these columns
+        }
+
+        // Toggle column selection (add or remove)
+        function toggleColumnSelection(colIndex, add) {
+            const headers = document.querySelectorAll('#dataTable th');
+            const header = headers[colIndex + 1];
             const tableBody = document.getElementById('tableBody');
-            Array.from(tableBody.children).forEach(row => {
-                for (let i = minCol; i <= maxCol; i++) {
-                    const cell = row.children[i + 1];
+            
+            if (add) {
+                if (header) {
+                    header.classList.add('column-selected');
+                }
+                Array.from(tableBody.children).forEach(row => {
+                    const cell = row.children[colIndex + 1];
                     if (cell && cell.contentEditable === 'true') {
                         selectedCells.add(cell);
                         cell.classList.add('multi-selected');
                     }
+                });
+            } else {
+                if (header) {
+                    header.classList.remove('column-selected');
                 }
-            });
+                Array.from(tableBody.children).forEach(row => {
+                    const cell = row.children[colIndex + 1];
+                    if (cell && cell.contentEditable === 'true') {
+                        selectedCells.delete(cell);
+                        cell.classList.remove('multi-selected');
+                    }
+                });
+            }
         }
 
-        // Select entire row(s) - supports range selection
-        function selectRow(rowIndex, endRowIndex = null) {
+        // Select entire row(s) - supports range selection and Ctrl multi-select
+        function selectRow(rowIndex, endRowIndex = null, append = false) {
             // Activate table when row is selected
             tableActive = true;
             
@@ -659,7 +695,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 endRowIndex = rowIndex;
             }
             
-            clearAllSelections();
+            // If not appending, clear all selections first
+            if (!append) {
+                clearAllSelections();
+            }
             
             // Highlight row headers in range
             const tableBody = document.getElementById('tableBody');
@@ -671,19 +710,49 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (row) {
                     const rowHeader = row.querySelector('.row-header');
                     if (rowHeader) {
-                        rowHeader.classList.add('row-selected');
+                        // If appending and already selected, toggle it off
+                        if (append && rowHeader.classList.contains('row-selected')) {
+                            toggleRowSelection(i, false);
+                        } else {
+                            rowHeader.classList.add('row-selected');
+                            // Select all cells in this row
+                            Array.from(row.children).forEach(cell => {
+                                if (cell && cell.contentEditable === 'true') {
+                                    selectedCells.add(cell);
+                                    cell.classList.add('multi-selected');
+                                }
+                            });
+                        }
                     }
                 }
             }
+        }
+
+        // Toggle row selection (add or remove)
+        function toggleRowSelection(rowIndex, add) {
+            const tableBody = document.getElementById('tableBody');
+            const row = tableBody.children[rowIndex];
             
-            // Select all cells in these rows
-            for (let i = minRow; i <= maxRow; i++) {
-                const row = tableBody.children[i];
-                if (row) {
+            if (row) {
+                const rowHeader = row.querySelector('.row-header');
+                if (add) {
+                    if (rowHeader) {
+                        rowHeader.classList.add('row-selected');
+                    }
                     Array.from(row.children).forEach(cell => {
                         if (cell && cell.contentEditable === 'true') {
                             selectedCells.add(cell);
                             cell.classList.add('multi-selected');
+                        }
+                    });
+                } else {
+                    if (rowHeader) {
+                        rowHeader.classList.remove('row-selected');
+                    }
+                    Array.from(row.children).forEach(cell => {
+                        if (cell && cell.contentEditable === 'true') {
+                            selectedCells.delete(cell);
+                            cell.classList.remove('multi-selected');
                         }
                     });
                 }
@@ -2251,12 +2320,25 @@ if ($current_user_id && count($user_companies) > 0) {
                 header.addEventListener('mousedown', (e) => {
                     e.preventDefault();
                     tableActive = true;
-                    isSelectingColumns = true;
-                    startColumnIndex = j;
-                    selectColumn(j);
+                    const isCtrlPressed = e.ctrlKey || e.metaKey;
+                    
+                    // If Ctrl is pressed, toggle this column selection
+                    if (isCtrlPressed) {
+                        const headers = document.querySelectorAll('#dataTable th');
+                        const isSelected = headers[j + 1] && headers[j + 1].classList.contains('column-selected');
+                        toggleColumnSelection(j, !isSelected);
+                    } else {
+                        // Normal selection or drag selection
+                        isSelectingColumns = true;
+                        startColumnIndex = j;
+                        selectColumn(j, null, false);
+                    }
                 });
                 header.addEventListener('mouseover', (e) => {
-                    handleColumnHeaderMouseOver(e, j);
+                    // Only handle drag selection if not using Ctrl
+                    if (!e.ctrlKey && !e.metaKey) {
+                        handleColumnHeaderMouseOver(e, j);
+                    }
                 });
                 header.style.cursor = 'pointer';
                 headerRow.appendChild(header);
@@ -2273,12 +2355,27 @@ if ($current_user_id && count($user_companies) > 0) {
                 rowHeader.addEventListener('mousedown', (e) => {
                     e.preventDefault();
                     tableActive = true;
-                    isSelectingRows = true;
-                    startRowIndex = i - 1;
-                    selectRow(i - 1);
+                    const isCtrlPressed = e.ctrlKey || e.metaKey;
+                    
+                    // If Ctrl is pressed, toggle this row selection
+                    if (isCtrlPressed) {
+                        const tableBody = document.getElementById('tableBody');
+                        const row = tableBody.children[i - 1];
+                        const rowHeaderEl = row ? row.querySelector('.row-header') : null;
+                        const isSelected = rowHeaderEl && rowHeaderEl.classList.contains('row-selected');
+                        toggleRowSelection(i - 1, !isSelected);
+                    } else {
+                        // Normal selection or drag selection
+                        isSelectingRows = true;
+                        startRowIndex = i - 1;
+                        selectRow(i - 1, null, false);
+                    }
                 });
                 rowHeader.addEventListener('mouseover', (e) => {
-                    handleRowHeaderMouseOver(e, i - 1);
+                    // Only handle drag selection if not using Ctrl
+                    if (!e.ctrlKey && !e.metaKey) {
+                        handleRowHeaderMouseOver(e, i - 1);
+                    }
                 });
                 rowHeader.style.cursor = 'pointer';
                 row.appendChild(rowHeader);
@@ -2388,12 +2485,27 @@ if ($current_user_id && count($user_companies) > 0) {
             rowHeader.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 tableActive = true;
-                isSelectingRows = true;
-                startRowIndex = currentRows;
-                selectRow(currentRows);
+                const isCtrlPressed = e.ctrlKey || e.metaKey;
+                
+                // If Ctrl is pressed, toggle this row selection
+                if (isCtrlPressed) {
+                    const tableBody = document.getElementById('tableBody');
+                    const row = tableBody.children[currentRows];
+                    const rowHeaderEl = row ? row.querySelector('.row-header') : null;
+                    const isSelected = rowHeaderEl && rowHeaderEl.classList.contains('row-selected');
+                    toggleRowSelection(currentRows, !isSelected);
+                } else {
+                    // Normal selection or drag selection
+                    isSelectingRows = true;
+                    startRowIndex = currentRows;
+                    selectRow(currentRows, null, false);
+                }
             });
             rowHeader.addEventListener('mouseover', (e) => {
-                handleRowHeaderMouseOver(e, currentRows);
+                // Only handle drag selection if not using Ctrl
+                if (!e.ctrlKey && !e.metaKey) {
+                    handleRowHeaderMouseOver(e, currentRows);
+                }
             });
             rowHeader.style.cursor = 'pointer';
             row.appendChild(rowHeader);
@@ -2470,12 +2582,25 @@ if ($current_user_id && count($user_companies) > 0) {
             newHeader.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 tableActive = true;
-                isSelectingColumns = true;
-                startColumnIndex = newColIndex;
-                selectColumn(newColIndex);
+                const isCtrlPressed = e.ctrlKey || e.metaKey;
+                
+                // If Ctrl is pressed, toggle this column selection
+                if (isCtrlPressed) {
+                    const headers = document.querySelectorAll('#dataTable th');
+                    const isSelected = headers[newColIndex + 1] && headers[newColIndex + 1].classList.contains('column-selected');
+                    toggleColumnSelection(newColIndex, !isSelected);
+                } else {
+                    // Normal selection or drag selection
+                    isSelectingColumns = true;
+                    startColumnIndex = newColIndex;
+                    selectColumn(newColIndex, null, false);
+                }
             });
             newHeader.addEventListener('mouseover', (e) => {
-                handleColumnHeaderMouseOver(e, newColIndex);
+                // Only handle drag selection if not using Ctrl
+                if (!e.ctrlKey && !e.metaKey) {
+                    handleColumnHeaderMouseOver(e, newColIndex);
+                }
             });
             newHeader.style.cursor = 'pointer';
             headerRow.appendChild(newHeader);
