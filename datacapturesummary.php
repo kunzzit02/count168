@@ -9515,7 +9515,7 @@ function getCurrentProcessId() {
 
         // Edit Row Formula function - shows edit formula form with pre-populated data
         // Convert old format [id_product]$number to new format
-        // Old format: [id_product]$number or [id_product (row_label) ]$number
+        // Old format: [id_product]$number or [id_product (row_label) ]$number or [(RM)) (F) ]$number
         // New format: $number (if current row) or [id_product, cell_number] (if other row)
         function convertOldFormatToNewFormat(formula, currentProcessValue, sourceColumnsValue) {
             if (!formula || !formula.trim()) {
@@ -9538,12 +9538,52 @@ function getCurrentProcessId() {
                 const columnNumber = parseInt(match[2]); // e.g., 11
                 const matchIndex = match.index;
                 
-                // Extract id_product from idProductPart (remove row_label if present)
+                // Extract id_product from idProductPart
+                // Handle various formats:
+                // 1. Simple: "YONG" -> "YONG"
+                // 2. With row_label: "YONG (A)" -> "YONG"
+                // 3. Complex: "(RM)) (F) " -> need to extract actual id_product
                 let idProduct = idProductPart;
-                // Remove row_label pattern: (row_label) at the end
-                const rowLabelMatch = idProductPart.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-                if (rowLabelMatch) {
-                    idProduct = rowLabelMatch[1].trim();
+                
+                // First, try to extract id_product using normalizeIdProductText logic
+                // This handles cases like "(RM)) (F) " by extracting the part before the first parenthesis
+                const normalized = normalizeIdProductText(idProductPart);
+                if (normalized && normalized.trim()) {
+                    idProduct = normalized;
+                } else {
+                    // Fallback: remove parentheses and extra spaces
+                    // Try to match pattern: (something) (something) -> extract first part
+                    const complexMatch = idProductPart.match(/^\(([^)]+)\)/);
+                    if (complexMatch) {
+                        idProduct = complexMatch[1].trim();
+                    } else {
+                        // Try to remove row_label pattern: (row_label) at the end
+                        const rowLabelMatch = idProductPart.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+                        if (rowLabelMatch) {
+                            idProduct = rowLabelMatch[1].trim();
+                        } else {
+                            // Just clean up the idProductPart
+                            idProduct = idProductPart.replace(/[()]/g, '').trim();
+                        }
+                    }
+                }
+                
+                // If idProduct is still empty or looks invalid, try to get from sourceColumns
+                if (!idProduct || idProduct.trim() === '') {
+                    // Try to find id_product from sourceColumns by matching columnNumber
+                    if (sourceColumnsValue && sourceColumnsValue.trim()) {
+                        const refs = sourceColumnsValue.trim().split(/\s+/).filter(r => r.trim() !== '');
+                        for (let ref of refs) {
+                            const parts = ref.split(':');
+                            if (parts.length >= 2) {
+                                const refDisplayColumnIndex = parseInt(parts[parts.length - 1]);
+                                if (refDisplayColumnIndex === columnNumber) {
+                                    idProduct = parts[0]; // Use id_product from sourceColumns
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
                 
                 matches.push({
@@ -9562,9 +9602,13 @@ function getCurrentProcessId() {
                 let newFormat = '';
                 
                 // Check if id_product matches current process value
-                const isCurrentRow = currentProcessValue && idProduct && 
-                                    (idProduct === currentProcessValue || 
-                                     normalizeIdProductText(idProduct) === normalizeIdProductText(currentProcessValue));
+                // Use normalizeIdProductText for comparison to handle variations
+                const normalizedMatchId = normalizeIdProductText(match.idProduct);
+                const normalizedCurrentId = currentProcessValue ? normalizeIdProductText(currentProcessValue) : '';
+                const isCurrentRow = normalizedCurrentId && normalizedMatchId && 
+                                    (normalizedMatchId === normalizedCurrentId ||
+                                     match.idProduct === currentProcessValue ||
+                                     normalizedIdProductText(match.idProduct) === normalizedIdProductText(currentProcessValue));
                 
                 if (isCurrentRow) {
                     // Current row: use $number format
@@ -9585,7 +9629,11 @@ function getCurrentProcessId() {
                                 const refDisplayColumnIndex = parseInt(parts[parts.length - 1]); // This is displayColumnIndex
                                 
                                 // Check if this ref matches our id_product and columnNumber (displayColumnIndex)
+                                const normalizedRefId = normalizeIdProductText(refIdProduct);
+                                const normalizedMatchId = normalizeIdProductText(match.idProduct);
+                                
                                 if ((refIdProduct === match.idProduct || 
+                                     normalizedRefId === normalizedMatchId ||
                                      normalizeIdProductText(refIdProduct) === normalizeIdProductText(match.idProduct)) &&
                                     refDisplayColumnIndex === match.columnNumber) {
                                     // Found matching ref
@@ -9610,7 +9658,9 @@ function getCurrentProcessId() {
                     }
                     
                     // Use [id_product, cell_number] format
-                    newFormat = `[${match.idProduct},${cellNumber}]`;
+                    // Use the normalized id_product for consistency
+                    const finalIdProduct = normalizedMatchId || match.idProduct;
+                    newFormat = `[${finalIdProduct},${cellNumber}]`;
                 }
                 
                 // Replace old format with new format
