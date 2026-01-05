@@ -680,22 +680,36 @@ if ($current_user_id && count($user_companies) > 0) {
             startRowIndex = null;
         }
 
+        // Get column index from header element
+        function getColumnIndexFromHeader(header) {
+            const headerRow = document.querySelector('#tableHeader tr');
+            if (!headerRow) return -1;
+            const headers = Array.from(headerRow.children);
+            const index = headers.indexOf(header);
+            return index > 0 ? index - 1 : -1; // -1 because first column is empty
+        }
+
         // Handle column header click (both left and right click)
         function handleColumnHeaderClick(e, colIndex) {
             e.preventDefault();
             tableActive = true;
+            
+            // Get actual column index from DOM position
+            const actualColIndex = getColumnIndexFromHeader(e.target);
+            const finalColIndex = actualColIndex >= 0 ? actualColIndex : colIndex;
+            
             const isCtrlPressed = e.ctrlKey || e.metaKey;
             
             // If Ctrl is pressed, toggle this column selection
             if (isCtrlPressed) {
                 const headers = document.querySelectorAll('#dataTable th');
-                const isSelected = headers[colIndex + 1] && headers[colIndex + 1].classList.contains('column-selected');
-                toggleColumnSelection(colIndex, !isSelected);
+                const isSelected = headers[finalColIndex + 1] && headers[finalColIndex + 1].classList.contains('column-selected');
+                toggleColumnSelection(finalColIndex, !isSelected);
             } else {
                 // Normal selection or drag selection
                 isSelectingColumns = true;
-                startColumnIndex = colIndex;
-                selectColumn(colIndex, null, false);
+                startColumnIndex = finalColIndex;
+                selectColumn(finalColIndex, null, false);
             }
         }
 
@@ -1298,7 +1312,9 @@ if ($current_user_id && count($user_companies) > 0) {
         function showColumnContextMenu(e, colIndex) {
             e.preventDefault();
             e.stopPropagation();
-            currentColumnIndex = colIndex;
+            // Get actual column index from DOM position
+            const actualColIndex = getColumnIndexFromHeader(e.target);
+            currentColumnIndex = actualColIndex >= 0 ? actualColIndex : colIndex;
             
             const columnContextMenu = document.getElementById('columnContextMenu');
             if (!columnContextMenu) return;
@@ -1368,20 +1384,19 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // Create new column header
             const newHeader = document.createElement('th');
-            newHeader.textContent = colIndex + 1;
-            // Handle left click
+            // Handle left click - use dynamic index calculation
             newHeader.addEventListener('mousedown', (e) => {
                 if (e.button === 0) {
-                    handleColumnHeaderClick(e, colIndex);
+                    handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
                 }
             });
             // Handle right click - show context menu
             newHeader.addEventListener('contextmenu', (e) => {
-                showColumnContextMenu(e, colIndex);
+                showColumnContextMenu(e, -1); // -1 means calculate from DOM
             });
             newHeader.addEventListener('mouseover', (e) => {
                 if (!e.ctrlKey && !e.metaKey) {
-                    handleColumnHeaderMouseOver(e, colIndex);
+                    handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
                 }
             });
             newHeader.style.cursor = 'pointer';
@@ -1449,11 +1464,30 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             });
             
-            // Update header numbers
-            const headers = headerRow.querySelectorAll('th');
+            // Update header numbers and rebind event handlers
+            const headers = Array.from(headerRow.querySelectorAll('th'));
             headers.forEach((header, index) => {
                 if (index > 0) {
                     header.textContent = index;
+                    // Remove old event listeners by cloning
+                    const newHeader = header.cloneNode(true);
+                    header.parentNode.replaceChild(newHeader, header);
+                    
+                    // Rebind event handlers with dynamic index calculation
+                    newHeader.addEventListener('mousedown', (e) => {
+                        if (e.button === 0) {
+                            handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
+                        }
+                    });
+                    newHeader.addEventListener('contextmenu', (e) => {
+                        showColumnContextMenu(e, -1); // -1 means calculate from DOM
+                    });
+                    newHeader.addEventListener('mouseover', (e) => {
+                        if (!e.ctrlKey && !e.metaKey) {
+                            handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
+                        }
+                    });
+                    newHeader.style.cursor = 'pointer';
                 }
             });
         }
@@ -1499,11 +1533,30 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             });
             
-            // Update header numbers
-            const headers = headerRow.querySelectorAll('th');
+            // Update header numbers and rebind event handlers
+            const headers = Array.from(headerRow.querySelectorAll('th'));
             headers.forEach((header, index) => {
                 if (index > 0) {
                     header.textContent = index;
+                    // Remove old event listeners by cloning
+                    const newHeader = header.cloneNode(true);
+                    header.parentNode.replaceChild(newHeader, header);
+                    
+                    // Rebind event handlers with dynamic index calculation
+                    newHeader.addEventListener('mousedown', (e) => {
+                        if (e.button === 0) {
+                            handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
+                        }
+                    });
+                    newHeader.addEventListener('contextmenu', (e) => {
+                        showColumnContextMenu(e, -1); // -1 means calculate from DOM
+                    });
+                    newHeader.addEventListener('mouseover', (e) => {
+                        if (!e.ctrlKey && !e.metaKey) {
+                            handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
+                        }
+                    });
+                    newHeader.style.cursor = 'pointer';
                 }
             });
             
@@ -2824,20 +2877,20 @@ if ($current_user_id && count($user_companies) > 0) {
             for (let j = 0; j < cols; j++) {
                 const header = document.createElement('th');
                 header.textContent = j + 1; // 1, 2, 3, ...
-                // Handle left click (mousedown)
+                // Handle left click (mousedown) - use dynamic index calculation
                 header.addEventListener('mousedown', (e) => {
                     if (e.button === 0) { // Left button only
-                        handleColumnHeaderClick(e, j);
+                        handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
                     }
                 });
                 // Handle right click (contextmenu) - show context menu
                 header.addEventListener('contextmenu', (e) => {
-                    showColumnContextMenu(e, j);
+                    showColumnContextMenu(e, -1); // -1 means calculate from DOM
                 });
                 header.addEventListener('mouseover', (e) => {
                     // Only handle drag selection if not using Ctrl
                     if (!e.ctrlKey && !e.metaKey) {
-                        handleColumnHeaderMouseOver(e, j);
+                        handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
                     }
                 });
                 header.style.cursor = 'pointer';
@@ -3061,20 +3114,20 @@ if ($current_user_id && count($user_companies) > 0) {
             // Create new column header
             const newHeader = document.createElement('th');
             newHeader.textContent = newColIndex + 1; // 1, 2, 3, ...
-            // Handle left click (mousedown)
+            // Handle left click (mousedown) - use dynamic index calculation
             newHeader.addEventListener('mousedown', (e) => {
                 if (e.button === 0) { // Left button only
-                    handleColumnHeaderClick(e, newColIndex);
+                    handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
                 }
             });
             // Handle right click (contextmenu) - show context menu
             newHeader.addEventListener('contextmenu', (e) => {
-                showColumnContextMenu(e, newColIndex);
+                showColumnContextMenu(e, -1); // -1 means calculate from DOM
             });
             newHeader.addEventListener('mouseover', (e) => {
                 // Only handle drag selection if not using Ctrl
                 if (!e.ctrlKey && !e.metaKey) {
-                    handleColumnHeaderMouseOver(e, newColIndex);
+                    handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
                 }
             });
             newHeader.style.cursor = 'pointer';
