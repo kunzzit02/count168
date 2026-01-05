@@ -10766,8 +10766,9 @@ function getCurrentProcessId() {
                     
                     showNotification('Success', 'Source % updated successfully!', 'success');
                 } else {
-                    // Restore original display value
-                    sourcePercentCell.textContent = originalContent;
+                    // Restore original display value using formatSourcePercentForDisplay to ensure correct formatting
+                    // Use originalValue (decimal format) instead of originalContent to ensure consistency
+                    sourcePercentCell.textContent = formatSourcePercentForDisplay(originalValue);
                     // Reattach double-click event listener
                     attachInlineEditListeners(row);
                 }
