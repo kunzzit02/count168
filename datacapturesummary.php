@@ -10509,8 +10509,8 @@ function getCurrentProcessId() {
             input.style.boxSizing = 'border-box'; // Include padding and border in width
             input.placeholder = 'e.g. 1 or 2 or 0.5';
             
-            // Store original content BEFORE clearing cell
-            const originalContent = sourcePercentCell.textContent || formatSourcePercentForDisplay(originalValue);
+            // Store original content
+            const originalContent = sourcePercentCell.textContent;
             
             // Clear cell and set up container to prevent overflow
             sourcePercentCell.textContent = '';
@@ -10527,12 +10527,9 @@ function getCurrentProcessId() {
                 // Remove input and restore cell
                 input.remove();
                 
-                // Always update cell display, even if value didn't change
-                // This ensures the cell content is restored after editing
-                sourcePercentCell.textContent = formatSourcePercentForDisplay(newValue);
-                
                 if (newValue !== originalValue) {
-                    // Value changed - update data attribute and recalculate
+                    // Update cell with new value (display as percentage)
+                    sourcePercentCell.textContent = formatSourcePercentForDisplay(newValue);
                     
                     // Update data attribute (store as decimal)
                     row.setAttribute('data-source-percent', newValue);
@@ -10756,25 +10753,24 @@ function getCurrentProcessId() {
                         }
                         
                         updateProcessedAmountTotal();
-                        
-                        // Save to database only if value changed
-                        autoSaveTemplateFromRow(row).catch(error => {
-                            console.error('Error auto-saving template after source percent edit:', error);
-                            showNotification('Error', 'Failed to save source % to database. Please try again.', 'error');
-                        });
-                        
-                        showNotification('Success', 'Source % updated successfully!', 'success');
-                    } else {
-                        // Value didn't change, but cell display is already updated above (line 10532)
-                        // Still save to database to ensure consistency (in case data attribute was out of sync)
-                        row.setAttribute('data-source-percent', newValue);
-                        autoSaveTemplateFromRow(row).catch(error => {
-                            console.error('Error auto-saving template after source percent edit:', error);
-                        });
                     }
                     
                     // Reattach double-click event listener after updating
                     attachInlineEditListeners(row);
+                    
+                    // Save to database
+                    autoSaveTemplateFromRow(row).catch(error => {
+                        console.error('Error auto-saving template after source percent edit:', error);
+                        showNotification('Error', 'Failed to save source % to database. Please try again.', 'error');
+                    });
+                    
+                    showNotification('Success', 'Source % updated successfully!', 'success');
+                } else {
+                    // Restore original display value
+                    sourcePercentCell.textContent = originalContent;
+                    // Reattach double-click event listener
+                    attachInlineEditListeners(row);
+                }
             };
             
             // Cancel function
