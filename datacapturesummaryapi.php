@@ -1597,9 +1597,22 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     $existingId = $existingRecord['id'];
                     error_log("Found duplicate data_capture_details record (ID: $existingId): capture_id=$captureId, product_type=$productType, id_product_main=" . ($row['idProductMain'] ?? 'NULL') . ", id_product_sub=" . ($row['idProductSub'] ?? 'NULL') . ", account_id=" . $row['accountId'] . " - Updating existing record instead of inserting");
                     
-                    // Get rate value: if rateChecked is true, use rateValue, otherwise NULL
+                    // Get rate value: use rateValue if it exists (from Rate Value column or global rateInput)
+                    // Priority: Rate Value column > Global rateInput (if checkbox checked)
                     $rateValue = null;
-                    if (isset($row['rateChecked']) && $row['rateChecked']) {
+                    if (isset($row['rateValue']) && $row['rateValue'] !== '' && $row['rateValue'] !== null) {
+                        // Rate Value column has value, use it
+                        $rateValueStr = (string)$row['rateValue'];
+                        // Handle formats like "*3", "/2", or plain numbers
+                        if (strpos($rateValueStr, '*') === 0) {
+                            $rateValue = (float)substr($rateValueStr, 1);
+                        } else if (strpos($rateValueStr, '/') === 0) {
+                            $rateValue = (float)substr($rateValueStr, 1);
+                        } else {
+                            $rateValue = (float)$rateValueStr;
+                        }
+                    } else if (isset($row['rateChecked']) && $row['rateChecked']) {
+                        // Fallback: if checkbox checked but no Rate Value, use global rateInput (backward compatibility)
                         $rateValue = isset($row['rateValue']) && $row['rateValue'] !== '' && $row['rateValue'] !== null ? (float)$row['rateValue'] : null;
                     }
                     
@@ -1640,9 +1653,22 @@ if ($action === 'submit' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue; // Skip insert, already updated
                 }
                 
-                // Get rate value: if rateChecked is true, use rateValue, otherwise NULL
+                // Get rate value: use rateValue if it exists (from Rate Value column or global rateInput)
+                // Priority: Rate Value column > Global rateInput (if checkbox checked)
                 $rateValue = null;
-                if (isset($row['rateChecked']) && $row['rateChecked']) {
+                if (isset($row['rateValue']) && $row['rateValue'] !== '' && $row['rateValue'] !== null) {
+                    // Rate Value column has value, use it
+                    $rateValueStr = (string)$row['rateValue'];
+                    // Handle formats like "*3", "/2", or plain numbers
+                    if (strpos($rateValueStr, '*') === 0) {
+                        $rateValue = (float)substr($rateValueStr, 1);
+                    } else if (strpos($rateValueStr, '/') === 0) {
+                        $rateValue = (float)substr($rateValueStr, 1);
+                    } else {
+                        $rateValue = (float)$rateValueStr;
+                    }
+                } else if (isset($row['rateChecked']) && $row['rateChecked']) {
+                    // Fallback: if checkbox checked but no Rate Value, use global rateInput (backward compatibility)
                     $rateValue = isset($row['rateValue']) && $row['rateValue'] !== '' && $row['rateValue'] !== null ? (float)$row['rateValue'] : null;
                 }
                 

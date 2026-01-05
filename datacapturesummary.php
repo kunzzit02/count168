@@ -97,6 +97,7 @@ $company_id = $_SESSION['company_id'] ?? null;
                             <th>Formula</th>
                             <th>Source</th>
                             <th>Rate</th>
+                            <th>Rate Value</th>
                             <th>Processed Amount</th>
                             <th>Skip</th>
                             <th>Delete</th>
@@ -107,11 +108,11 @@ $company_id = $_SESSION['company_id'] ?? null;
                     </tbody>
                     <tfoot>
                         <tr id="summaryTotalRow">
-                            <!-- 1-7 列作为标签区域 -->
-                            <td colspan="7" class="summary-total-label"></td>
-                            <!-- 第 8 列（Processed Amount 下方）显示总计 -->
+                            <!-- 1-8 列作为标签区域 -->
+                            <td colspan="8" class="summary-total-label"></td>
+                            <!-- 第 9 列（Processed Amount 下方）显示总计 -->
                             <td id="summaryTotalAmount">0.00</td>
-                            <!-- 第 9、10 列（Skip / Delete 下方）留空 -->
+                            <!-- 第 10、11 列（Skip / Delete 下方）留空 -->
                             <td></td>
                             <td></td>
                         </tr>
@@ -826,6 +827,19 @@ function getCurrentProcessId() {
                     rateCheckbox.className = 'rate-checkbox';
                     rateCell.appendChild(rateCheckbox);
                     row.appendChild(rateCell);
+                    
+                    // Rate Value column (new column for individual rate input)
+                    const rateValueCell = document.createElement('td');
+                    rateValueCell.style.textAlign = 'center';
+                    const rateValueInput = document.createElement('input');
+                    rateValueInput.type = 'text';
+                    rateValueInput.className = 'rate-value-input';
+                    rateValueInput.style.width = '60px';
+                    rateValueInput.style.padding = '2px 4px';
+                    rateValueInput.style.textAlign = 'center';
+                    rateValueInput.placeholder = 'e.g. 3 or *3';
+                    rateValueCell.appendChild(rateValueInput);
+                    row.appendChild(rateValueCell);
                     
                     // Processed Amount column
                     const processedAmountCell = document.createElement('td');
@@ -1897,10 +1911,10 @@ function getCurrentProcessId() {
                     const baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
                     const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
                     
-                    if (cells[7]) {
+                    if (cells[8]) {
                         const val = Number(finalAmount);
-                        cells[7].textContent = formatNumberWithThousands(val);
-                        cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                     }
                 }
             });
@@ -5700,7 +5714,7 @@ function getCurrentProcessId() {
                 formulaValue = sourceExpression;
             }
             
-            const processedAmountCell = cells[7]; // Processed Amount column
+            const processedAmountCell = cells[8]; // Processed Amount column
             let processedAmount = 0;
             if (processedAmountCell) {
                 const numericValue = parseFloat(processedAmountCell.textContent.replace(/,/g, ''));
@@ -8690,16 +8704,45 @@ function getCurrentProcessId() {
             }
         }
 
-        // Apply rate multiplication or division to processed amount if rate checkbox is checked
-        // Supports "*3" for multiplication and "/3" for division
+        // Apply rate multiplication or division to processed amount
+        // Priority: 1) Rate Value column (cells[7]), 2) Global rateInput (if checkbox checked)
+        // Supports "*3" for multiplication and "/3" for division, or plain numbers
         function applyRateToProcessedAmount(row, processedAmount) {
             if (!row) {
                 return processedAmount;
             }
             
-            // Try to find rate checkbox in the row
-            // First try cells[6], but also check the entire row in case checkbox is being created
             const cells = row.querySelectorAll('td');
+            
+            // Priority 1: Check Rate Value column (cells[7]) - if has value, use it
+            const rateValueInput = cells[7] ? cells[7].querySelector('.rate-value-input') : null;
+            if (rateValueInput && rateValueInput.value && rateValueInput.value.trim() !== '') {
+                const rateValueStr = rateValueInput.value.trim();
+                
+                // Check if input starts with "*" for multiplication
+                if (rateValueStr.startsWith('*')) {
+                    const rateValue = parseFloat(rateValueStr.substring(1));
+                    if (!isNaN(rateValue) && rateValue !== 0) {
+                        return processedAmount * rateValue;
+                    }
+                }
+                // Check if input starts with "/" for division
+                else if (rateValueStr.startsWith('/')) {
+                    const rateValue = parseFloat(rateValueStr.substring(1));
+                    if (!isNaN(rateValue) && rateValue !== 0) {
+                        return processedAmount / rateValue;
+                    }
+                }
+                // Default: treat as multiplication (plain number)
+                else {
+                    const rateValue = parseFloat(rateValueStr);
+                    if (!isNaN(rateValue) && rateValue !== 0) {
+                        return processedAmount * rateValue;
+                    }
+                }
+            }
+            
+            // Priority 2: Check global rateInput if checkbox is checked
             let rateCheckbox = null;
             if (cells[6]) {
                 rateCheckbox = cells[6].querySelector('.rate-checkbox');
@@ -8749,10 +8792,10 @@ function getCurrentProcessId() {
             
                 // Only save if not already saved (to preserve the first original state)
             if (!row.getAttribute('data-original-columns-saved')) {
-                // Correct column indices: 0=Id Product, 1=Account, 2=Add, 3=Currency, 4=Formula, 5=Source %, 6=Rate, 7=Processed Amount, 8=Skip, 9=Delete
+                // Correct column indices: 0=Id Product, 1=Account, 2=Add, 3=Currency, 4=Formula, 5=Source %, 6=Rate, 7=Rate Value, 8=Processed Amount, 9=Skip, 10=Delete
                 const originalSourcePercent = cells[5] ? cells[5].textContent.trim() : '';
                 const originalFormula = cells[4] ? (cells[4].querySelector('.formula-text')?.textContent.trim() || cells[4].textContent.trim()) : '';
-                const originalProcessedAmount = cells[7] ? cells[7].textContent.trim().replace(/,/g, '') : '';
+                const originalProcessedAmount = cells[8] ? cells[8].textContent.trim().replace(/,/g, '') : '';
                 
                 // Also save data attributes that are used when building form data
                 const originalSourceColumns = row.getAttribute('data-source-columns') || '';
@@ -8803,16 +8846,16 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Restore Processed Amount column (index 7)
-            if (cells[7] && originalProcessedAmount !== null && originalProcessedAmount !== '') {
+            // Restore Processed Amount column (index 8)
+            if (cells[8] && originalProcessedAmount !== null && originalProcessedAmount !== '') {
                 const val = parseFloat(originalProcessedAmount.replace(/,/g, ''));
                 if (!isNaN(val)) {
                     // Store the base processed amount (without rate) in row attribute
                     row.setAttribute('data-base-processed-amount', val.toString());
-                    // Apply rate multiplication if checkbox is checked
+                    // Apply rate multiplication if checkbox is checked or Rate Value has value
                     const finalAmount = applyRateToProcessedAmount(row, val);
-                    cells[7].textContent = formatNumberWithThousands(finalAmount);
-                    cells[7].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+                    cells[8].textContent = formatNumberWithThousands(finalAmount);
+                    cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
                 }
             }
             
@@ -9155,13 +9198,13 @@ function getCurrentProcessId() {
                 attachInlineEditListeners(row);
             }
             
-            // Update Processed Amount column (index 7)
-            if (cells[7]) {
-                // Apply rate multiplication if checkbox is checked
+            // Update Processed Amount column (index 8)
+            if (cells[8]) {
+                // Apply rate multiplication if checkbox is checked or Rate Value has value
                 processedAmount = applyRateToProcessedAmount(row, processedAmount);
                 const val = Number(processedAmount);
-                cells[7].textContent = formatNumberWithThousands(val);
-                cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                cells[8].textContent = formatNumberWithThousands(val);
+                cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
             }
             
             // Store updated data in row attributes
@@ -9477,20 +9520,27 @@ function getCurrentProcessId() {
                 const hasRateValue = data.rate !== null && data.rate !== undefined && data.rate !== '';
                 // If rate exists in data, use it; otherwise check rateInput
                 const rateValue = hasRateValue ? data.rate : (rateInput ? rateInput.value : '');
-                // Checkbox is checked if rate value exists (either from data or rateInput)
-                rateCheckbox.checked = hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1;
+                // Checkbox is checked if rate value exists (either from data or rateInput) AND Rate Value column is empty
+                const rateValueInput = cells[7] ? cells[7].querySelector('.rate-value-input') : null;
+                const hasRateValueInput = rateValueInput && rateValueInput.value && rateValueInput.value.trim() !== '';
+                rateCheckbox.checked = !hasRateValueInput && (hasRateValue || rateValue === '✓' || rateValue === true || rateValue === '1' || rateValue === 1);
                 
                 // If rate value exists in data, update rateInput to show it
-                if (hasRateValue && rateInput) {
+                if (hasRateValue && rateInput && !hasRateValueInput) {
                     rateInput.value = data.rate;
                 }
                 
                 // Add event listener to recalculate when checkbox state changes
                 rateCheckbox.addEventListener('change', function() {
-                    // Recalculate processed amount when rate checkbox is toggled
                     const cells = row.querySelectorAll('td');
+                    const rateValueInput = cells[7] ? cells[7].querySelector('.rate-value-input') : null;
                     
-                    // Get the base processed amount from row attribute (stored above)
+                    // When checkbox is checked, clear Rate Value input
+                    if (this.checked && rateValueInput) {
+                        rateValueInput.value = '';
+                    }
+                    
+                    // Recalculate processed amount when rate checkbox is toggled
                     let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
                     
                     // If base amount is not stored or is 0, try to recalculate from formula
@@ -9509,10 +9559,10 @@ function getCurrentProcessId() {
                     }
                     
                     const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                    if (cells[7]) {
+                    if (cells[8]) {
                         const val = Number(finalAmount);
-                        cells[7].textContent = formatNumberWithThousands(val);
-                        cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                         updateProcessedAmountTotal();
                     }
                 });
@@ -9520,15 +9570,75 @@ function getCurrentProcessId() {
                 cells[6].appendChild(rateCheckbox);
             }
             
-            // Update Processed Amount column (index 7)
+            // Update Rate Value column (index 7 - new column)
             if (cells[7]) {
-                // Apply rate multiplication if checkbox is checked
-                // Note: checkbox must be appended to DOM before applyRateToProcessedAmount can find it
+                // Clear the cell first
+                cells[7].innerHTML = '';
+                cells[7].style.textAlign = 'center';
+                
+                // Create Rate Value input
+                const rateValueInput = document.createElement('input');
+                rateValueInput.type = 'text';
+                rateValueInput.className = 'rate-value-input';
+                rateValueInput.style.width = '60px';
+                rateValueInput.style.padding = '2px 4px';
+                rateValueInput.style.textAlign = 'center';
+                rateValueInput.placeholder = 'e.g. 3 or *3';
+                
+                // Load Rate Value from data if available (from database)
+                if (data.rateValue !== null && data.rateValue !== undefined && data.rateValue !== '') {
+                    rateValueInput.value = data.rateValue;
+                }
+                
+                // Add event listener to recalculate when Rate Value input changes
+                rateValueInput.addEventListener('input', function() {
+                    const cells = row.querySelectorAll('td');
+                    const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
+                    
+                    // When Rate Value has value, uncheck checkbox
+                    if (this.value && this.value.trim() !== '' && rateCheckbox) {
+                        rateCheckbox.checked = false;
+                    }
+                    
+                    // Recalculate processed amount when Rate Value changes
+                    let baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
+                    
+                    // If base amount is not stored or is 0, try to recalculate from formula
+                    if (!baseAmount || isNaN(baseAmount)) {
+                        const sourcePercentCell = cells[5];
+                        const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
+                        const inputMethod = row.getAttribute('data-input-method') || '';
+                        const enableInputMethod = row.getAttribute('data-enable-input-method') === 'true';
+                        const formulaCell = cells[4];
+                        const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                        baseAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                        // Store it for future use
+                        if (baseAmount && !isNaN(baseAmount)) {
+                            row.setAttribute('data-base-processed-amount', baseAmount.toString());
+                        }
+                    }
+                    
+                    const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+                    if (cells[8]) {
+                        const val = Number(finalAmount);
+                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                        updateProcessedAmountTotal();
+                    }
+                });
+                
+                cells[7].appendChild(rateValueInput);
+            }
+            
+            // Update Processed Amount column (index 8 - changed from 7)
+            if (cells[8]) {
+                // Apply rate multiplication if checkbox is checked or Rate Value has value
+                // Note: checkbox and Rate Value input must be appended to DOM before applyRateToProcessedAmount can find them
                 const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
                 const val = Number(finalAmount);
-                cells[7].textContent = formatNumberWithThousands(val);
-                cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                // cells[7].style.backgroundColor = '#e8f5e8'; // Removed
+                cells[8].textContent = formatNumberWithThousands(val);
+                cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                // cells[8].style.backgroundColor = '#e8f5e8'; // Removed
             }
             
             updateProcessedAmountTotal();
@@ -10121,12 +10231,12 @@ function getCurrentProcessId() {
                     });
                     
                     // Update processed amount cell
-                    if (cells[7]) {
+                    if (cells[8]) {
                         const baseProcessedAmount = processedAmount;
                         row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
                         const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-                        cells[7].textContent = formatNumberWithThousands(finalAmount);
-                        cells[7].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+                        cells[8].textContent = formatNumberWithThousands(finalAmount);
+                        cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
                     }
                     
                     updateProcessedAmountTotal();
@@ -10509,12 +10619,12 @@ function getCurrentProcessId() {
                         const processedAmount = calculateFormulaResultFromExpression(calculationExpression, newValue, inputMethod, enableInputMethod, enableSourcePercent);
                         
                         // Update processed amount cell
-                        if (cells[7]) {
+                        if (cells[8]) {
                             const baseProcessedAmount = processedAmount;
                             row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
                             const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-                            cells[7].textContent = formatNumberWithThousands(finalAmount);
-                            cells[7].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+                            cells[8].textContent = formatNumberWithThousands(finalAmount);
+                            cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
                         }
                         
                         updateProcessedAmountTotal();
@@ -10650,16 +10760,16 @@ function getCurrentProcessId() {
                 
                 // Rate column already exists, no need to recreate
                 
-                // Update Processed Amount column (index 7)
-                if (cells[7]) {
+                // Update Processed Amount column (index 8)
+                if (cells[8]) {
                     let val = Number(processedAmount);
                     // Store the base processed amount (without rate) in row attribute
                     row.setAttribute('data-base-processed-amount', val.toString());
-                    // Apply rate multiplication if checkbox is checked
+                    // Apply rate multiplication if checkbox is checked or Rate Value has value
                     val = applyRateToProcessedAmount(row, val);
-                    cells[7].textContent = formatNumberWithThousands(val);
-                    cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
-                    // cells[7].style.backgroundColor = '#e8f5e8'; // Removed
+                    cells[8].textContent = formatNumberWithThousands(val);
+                    cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                    // cells[8].style.backgroundColor = '#e8f5e8'; // Removed
                 }
             }
             
@@ -11191,10 +11301,10 @@ function getCurrentProcessId() {
                     }
                     
                     const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-                    if (cells[7]) {
+                    if (cells[8]) {
                         const val = Number(finalAmount);
-                        cells[7].textContent = formatNumberWithThousands(val);
-                        cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                         updateProcessedAmountTotal();
                     }
                 });
@@ -11202,15 +11312,15 @@ function getCurrentProcessId() {
                 cells[6].appendChild(rateCheckbox);
             }
 
-            // Processed Amount column (index 7)
-            if (cells[7]) {
+            // Processed Amount column (index 8)
+            if (cells[8]) {
                 let val = Number(data.processedAmount);
                 // Store the base processed amount (without rate) in row attribute
                 row.setAttribute('data-base-processed-amount', val.toString());
-                // Apply rate multiplication if checkbox is checked
+                // Apply rate multiplication if checkbox is checked or Rate Value has value
                 val = applyRateToProcessedAmount(row, val);
-                cells[7].textContent = formatNumberWithThousands(val);
-                cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                cells[8].textContent = formatNumberWithThousands(val);
+                cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
             }
 
             if (data.inputMethod !== undefined) {
@@ -14411,7 +14521,7 @@ function formatPercentValue(value) {
                 }
 
                 const cells = row.querySelectorAll('td');
-                const processedAmountCell = cells[7];
+                const processedAmountCell = cells[8]; // Processed Amount column (index 8)
                 if (processedAmountCell) {
                     const text = processedAmountCell.textContent.trim().replace(/,/g, '');
                     if (text !== '') {
@@ -14769,10 +14879,10 @@ function formatPercentValue(value) {
                         }
                         
                         const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-                        if (cells[7]) {
+                        if (cells[8]) {
                             const val = Number(finalAmount);
-                            cells[7].textContent = formatNumberWithThousands(val);
-                            cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                            cells[8].textContent = formatNumberWithThousands(val);
+                            cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                             updateProcessedAmountTotal();
                         }
                     });
@@ -14780,15 +14890,15 @@ function formatPercentValue(value) {
                     cells[6].appendChild(rateCheckbox);
                 }
                 
-                // Update Processed Amount column (index 7)
-                if (cells[7]) {
+                // Update Processed Amount column (index 8)
+                if (cells[8]) {
                     let val = Number(processedAmount);
                     // Store the base processed amount (without rate) in row attribute
                     row.setAttribute('data-base-processed-amount', val.toString());
-                    // Apply rate multiplication if checkbox is checked
+                    // Apply rate multiplication if checkbox is checked or Rate Value has value
                     val = applyRateToProcessedAmount(row, val);
-                    cells[7].textContent = formatNumberWithThousands(val);
-                    cells[7].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                    cells[8].textContent = formatNumberWithThousands(val);
+                    cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                 }
                 
                 // Store the updated data in row attributes
@@ -14993,7 +15103,7 @@ function formatPercentValue(value) {
                 }
 
                 const cells = row.querySelectorAll('td');
-                const processedAmountCell = cells[7]; // Processed Amount column
+                const processedAmountCell = cells[8]; // Processed Amount column
                 if (processedAmountCell) {
                     const text = processedAmountCell.textContent.trim().replace(/,/g, '');
                     if (text !== '') {
@@ -15102,7 +15212,7 @@ function formatPercentValue(value) {
                     const account = accountText;
                     // ⚠ 列索引说明（参考表头）：
                     // 0: Id Product, 1: Account, 2: 按钮列, 3: Currency, 4: Formula, 
-                    // 5: Source %, 6: Rate, 7: Processed Amount, 8: Skip, 9: Delete
+                    // 5: Source %, 6: Rate, 7: Rate Value, 8: Processed Amount, 9: Skip, 10: Delete
                     const currencyText = cells[3] ? cells[3].textContent.trim().replace(/[()]/g, '') : '';
                     // Columns column removed, get from data attribute instead
                     const columnsValue = row.getAttribute('data-source-columns') || '';
@@ -15163,7 +15273,7 @@ function formatPercentValue(value) {
                         } else {
                             // Last resort: get from cell text (will be rounded)
                             // 最后手段：从单元格文本获取（将四舍五入）
-                            const processedAmountText = cells[7] ? cells[7].textContent.trim() : '';
+                            const processedAmountText = cells[8] ? cells[8].textContent.trim() : '';
                             processedAmountValue = removeThousandsSeparators(processedAmountText);
                             console.warn('Using rounded value from cell text (could not recalculate):', processedAmountValue);
                         }
@@ -15174,9 +15284,17 @@ function formatPercentValue(value) {
                     const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                     const rateChecked = rateCheckbox ? rateCheckbox.checked : false;
                     const rateInput = document.getElementById('rateInput');
-                    // Extract numeric value from rate input (remove "*" or "/" prefix for saving)
+                    // Get Rate Value from Rate Value column (index 7)
+                    const rateValueInput = cells[7] ? cells[7].querySelector('.rate-value-input') : null;
+                    const rateValueFromColumn = rateValueInput && rateValueInput.value ? rateValueInput.value.trim() : '';
+                    
+                    // Priority: Rate Value column > Global rateInput (if checkbox checked)
                     let rateValue = null;
-                    if (rateChecked && rateInput && rateInput.value) {
+                    if (rateValueFromColumn !== '') {
+                        // Use Rate Value column value
+                        rateValue = rateValueFromColumn;
+                    } else if (rateChecked && rateInput && rateInput.value) {
+                        // Use global rateInput value if checkbox is checked
                         const rateInputValue = rateInput.value.trim();
                         if (rateInputValue.startsWith('*') || rateInputValue.startsWith('/')) {
                             // Extract number after "*" or "/"
@@ -15216,16 +15334,32 @@ function formatPercentValue(value) {
                         currencyId = getCurrencyIdByCode(currencyText);
                     }
                     
-                    // IMPORTANT: Apply rate multiplication to processedAmount if rate checkbox is checked
-                    // 重要：如果 rate checkbox 被勾选，将 processedAmount 乘以 rate
+                    // IMPORTANT: Apply rate multiplication to processedAmount
+                    // Priority: Rate Value column > Global rateInput (if checkbox checked)
+                    // 重要：应用 rate 乘法到 processedAmount
+                    // 优先级：Rate Value 列 > 全局 rateInput（如果 checkbox 勾选）
                     let finalProcessedAmount = parseFloat(processedAmountValue) || 0;
-                    if (rateChecked && rateValue) {
-                        const rateNum = parseFloat(rateValue);
-                        if (!isNaN(rateNum) && rateNum !== 0) {
+                    if (rateValue) {
+                        let rateNum = null;
+                        // Check if rateValue starts with "*" or "/"
+                        if (rateValue.startsWith('*')) {
+                            rateNum = parseFloat(rateValue.substring(1));
+                        } else if (rateValue.startsWith('/')) {
+                            rateNum = parseFloat(rateValue.substring(1));
+                            if (!isNaN(rateNum) && rateNum !== 0) {
+                                finalProcessedAmount = finalProcessedAmount / rateNum;
+                            }
+                            rateNum = null; // Set to null to skip multiplication below
+                        } else {
+                            rateNum = parseFloat(rateValue);
+                        }
+                        
+                        if (rateNum !== null && !isNaN(rateNum) && rateNum !== 0) {
                             finalProcessedAmount = finalProcessedAmount * rateNum;
                             console.log('Applied rate to processedAmount:', {
                                 baseAmount: processedAmountValue,
-                                rate: rateNum,
+                                rate: rateValue,
+                                rateNum: rateNum,
                                 finalAmount: finalProcessedAmount
                             });
                         }
@@ -15295,7 +15429,7 @@ function formatPercentValue(value) {
                         batchSelection: batchSelectionValue ? 1 : 0,
                         formulaVariant: formulaVariant, // Include formulaVariant to help backend distinguish rows with same account
                         rateChecked: rateChecked, // Rate checkbox state
-                        rateValue: rateValue, // Rate input value (only if checkbox is checked)
+                        rateValue: rateValue, // Rate Value column value (priority) or global rateInput value (if checkbox checked)
                         displayOrder: displayOrder // Preserve row order from Data Capture Table
                     });
                 });
