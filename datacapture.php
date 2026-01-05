@@ -9832,13 +9832,13 @@ if ($current_user_id && count($user_companies) > 0) {
             background: white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 650px; /* 限制宽度以显示约15列，剩余列需滚动查看 */
+            max-width: 800px; /* 限制宽度以显示约15列，剩余列需滚动查看 */
             height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
         }
 
         .excel-table {
             width: auto;
-            min-width: 830px; /* 30px (行标题) + 20列 × 40px = 830px */
+            min-width: 1000px; /* 30px (行标题) + 20列 × 50px = 1030px */
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
@@ -9851,7 +9851,7 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(10px, 0.63vw, 12px);
             padding: clamp(2px, 0.31vw, 6px) 0px;
             text-align: center;
-            width: 40px; /* 固定列宽 */
+            width: 50px; /* 固定列宽，增加列宽让表格看起来更大 */
             position: relative;
             box-sizing: border-box;
         }
