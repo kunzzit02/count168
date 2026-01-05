@@ -15612,11 +15612,20 @@ function formatPercentValue(value) {
 
                     // After successful final submission, record the submitted process in DB
                     try {
-                        if (parsedProcessData && parsedProcessData.process && parsedProcessData.date) {
+                        if (parsedProcessData && parsedProcessData.process) {
                             const formData = new FormData();
                             formData.append('action', 'save_submission');
                             formData.append('process_id', parsedProcessData.process);
-                            formData.append('date_submitted', parsedProcessData.date);
+                            // 使用当前实际提交的日期（今天），而不是 capture_date
+                            const today = new Date();
+                            const todayStr = today.getFullYear() + '-' + 
+                                          String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                                          String(today.getDate()).padStart(2, '0');
+                            formData.append('date_submitted', todayStr);
+                            // capture_date 仍然使用 parsedProcessData.date（用于数据关联）
+                            if (parsedProcessData.date) {
+                                formData.append('capture_date', parsedProcessData.date);
+                            }
                             
                             // 添加当前选择的 company_id
                             const currentCompanyId = <?php echo json_encode($company_id); ?>;

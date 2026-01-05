@@ -1262,13 +1262,13 @@ if ($current_user_id && count($user_companies) > 0) {
         // Load submitted processes from database by date
         async function loadSubmittedProcesses(date = null) {
             try {
-                // Use capture_date from form for filtering/grouping, but display will show date_submitted
+                // Use selected date to filter by date_submitted (actual submission date)
                 const selectedDate = date || document.getElementById('capture_date').value || getLocalDateString();
                 
                 // Add currently selected company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                // Pass capture_date as filter parameter (different from date_submitted)
-                const url = `submittedprocessesapi.php?action=get_submissions_by_capture_date&capture_date=${selectedDate}`;
+                // Use get_submissions_by_date to filter by date_submitted (actual submission date)
+                const url = `submittedprocessesapi.php?action=get_submissions_by_date&date=${selectedDate}`;
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
@@ -1276,7 +1276,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (result.success) {
                     submittedProcesses = result.data || [];
-                    console.log('Loaded', submittedProcesses.length, 'submitted processes for capture_date:', selectedDate);
+                    console.log('Loaded', submittedProcesses.length, 'submitted processes for date_submitted:', selectedDate);
                     console.log('Sample submission dates:', submittedProcesses.slice(0, 3).map(p => ({ 
                         process: p.process_code, 
                         date_submitted: p.date_submitted, 
