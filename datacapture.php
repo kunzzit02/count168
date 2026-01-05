@@ -324,6 +324,12 @@ if ($current_user_id && count($user_companies) > 0) {
         // Track if table is active (user has clicked on table)
         let tableActive = false;
 
+        // Track column/row selection state
+        let isSelectingColumns = false;
+        let isSelectingRows = false;
+        let startColumnIndex = null;
+        let startRowIndex = null;
+
         // History record for undo functionality
         let pasteHistory = [];
         let maxHistorySize = 50;
@@ -575,57 +581,112 @@ if ($current_user_id && count($user_companies) > 0) {
         function handleMouseUp() {
             isSelecting = false;
             startCell = null;
+            isSelectingColumns = false;
+            isSelectingRows = false;
+            startColumnIndex = null;
+            startRowIndex = null;
         }
 
-        // Select entire column
-        function selectColumn(colIndex) {
+        // Handle column header mouse over (for drag selection)
+        function handleColumnHeaderMouseOver(e, colIndex) {
+            if (isSelectingColumns && startColumnIndex !== null) {
+                selectColumn(startColumnIndex, colIndex);
+            }
+        }
+
+        // Handle row header mouse over (for drag selection)
+        function handleRowHeaderMouseOver(e, rowIndex) {
+            if (isSelectingRows && startRowIndex !== null) {
+                selectRow(startRowIndex, rowIndex);
+            }
+        }
+
+        // Handle column header mouse over (for drag selection)
+        function handleColumnHeaderMouseOver(e, colIndex) {
+            if (isSelectingColumns && startColumnIndex !== null) {
+                selectColumn(startColumnIndex, colIndex);
+            }
+        }
+
+        // Handle row header mouse over (for drag selection)
+        function handleRowHeaderMouseOver(e, rowIndex) {
+            if (isSelectingRows && startRowIndex !== null) {
+                selectRow(startRowIndex, rowIndex);
+            }
+        }
+
+        // Select entire column(s) - supports range selection
+        function selectColumn(colIndex, endColIndex = null) {
             // Activate table when column is selected
             tableActive = true;
             
-            clearAllSelections();
-            
-            // Highlight column header
-            const headers = document.querySelectorAll('#dataTable th');
-            if (headers[colIndex + 1]) {
-                headers[colIndex + 1].classList.add('column-selected');
+            if (endColIndex === null) {
+                endColIndex = colIndex;
             }
             
-            // Select all cells in this column
+            clearAllSelections();
+            
+            // Highlight column headers in range
+            const headers = document.querySelectorAll('#dataTable th');
+            const minCol = Math.min(colIndex, endColIndex);
+            const maxCol = Math.max(colIndex, endColIndex);
+            
+            for (let i = minCol; i <= maxCol; i++) {
+                if (headers[i + 1]) {
+                    headers[i + 1].classList.add('column-selected');
+                }
+            }
+            
+            // Select all cells in these columns
             const tableBody = document.getElementById('tableBody');
             Array.from(tableBody.children).forEach(row => {
-                const cell = row.children[colIndex + 1];
-                if (cell && cell.contentEditable === 'true') {
-                    selectedCells.add(cell);
-                    cell.classList.add('multi-selected');
-                }
-            });
-        }
-
-        // Select entire row
-        function selectRow(rowIndex) {
-            // Activate table when row is selected
-            tableActive = true;
-            
-            clearAllSelections();
-            
-            // Highlight row header
-            const tableBody = document.getElementById('tableBody');
-            const row = tableBody.children[rowIndex];
-            if (row) {
-                const rowHeader = row.querySelector('.row-header');
-                if (rowHeader) {
-                    rowHeader.classList.add('row-selected');
-                }
-            }
-            
-            // Select all cells in this row
-            if (row) {
-                Array.from(row.children).forEach(cell => {
+                for (let i = minCol; i <= maxCol; i++) {
+                    const cell = row.children[i + 1];
                     if (cell && cell.contentEditable === 'true') {
                         selectedCells.add(cell);
                         cell.classList.add('multi-selected');
                     }
-                });
+                }
+            });
+        }
+
+        // Select entire row(s) - supports range selection
+        function selectRow(rowIndex, endRowIndex = null) {
+            // Activate table when row is selected
+            tableActive = true;
+            
+            if (endRowIndex === null) {
+                endRowIndex = rowIndex;
+            }
+            
+            clearAllSelections();
+            
+            // Highlight row headers in range
+            const tableBody = document.getElementById('tableBody');
+            const minRow = Math.min(rowIndex, endRowIndex);
+            const maxRow = Math.max(rowIndex, endRowIndex);
+            
+            for (let i = minRow; i <= maxRow; i++) {
+                const row = tableBody.children[i];
+                if (row) {
+                    const rowHeader = row.querySelector('.row-header');
+                    if (rowHeader) {
+                        rowHeader.classList.add('row-selected');
+                    }
+                }
+            }
+            
+            // Select all cells in these rows
+            for (let i = minRow; i <= maxRow; i++) {
+                const row = tableBody.children[i];
+                if (row) {
+                    Array.from(row.children).forEach(cell => {
+                        if (cell && cell.contentEditable === 'true') {
+                            selectedCells.add(cell);
+                            cell.classList.add('multi-selected');
+                        }
+                    });
+                }
             }
         }
 
@@ -2187,9 +2248,15 @@ if ($current_user_id && count($user_companies) > 0) {
             for (let j = 0; j < cols; j++) {
                 const header = document.createElement('th');
                 header.textContent = j + 1; // 1, 2, 3, ...
-                header.addEventListener('click', () => {
+                header.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
                     tableActive = true;
+                    isSelectingColumns = true;
+                    startColumnIndex = j;
                     selectColumn(j);
+                });
+                header.addEventListener('mouseover', (e) => {
+                    handleColumnHeaderMouseOver(e, j);
                 });
                 header.style.cursor = 'pointer';
                 headerRow.appendChild(header);
@@ -2203,9 +2270,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 const rowHeader = document.createElement('td');
                 rowHeader.className = 'row-header';
                 rowHeader.textContent = getColumnLabel(i - 1); // A, B, C, ..., Z, AA, AB, ...
-                rowHeader.addEventListener('click', () => {
+                rowHeader.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
                     tableActive = true;
+                    isSelectingRows = true;
+                    startRowIndex = i - 1;
                     selectRow(i - 1);
+                });
+                rowHeader.addEventListener('mouseover', (e) => {
+                    handleRowHeaderMouseOver(e, i - 1);
                 });
                 rowHeader.style.cursor = 'pointer';
                 row.appendChild(rowHeader);
@@ -2312,9 +2385,15 @@ if ($current_user_id && count($user_companies) > 0) {
             const rowHeader = document.createElement('td');
             rowHeader.className = 'row-header';
             rowHeader.textContent = getColumnLabel(currentRows); // A, B, C, ..., Z, AA, AB, ...
-            rowHeader.addEventListener('click', () => {
+            rowHeader.addEventListener('mousedown', (e) => {
+                e.preventDefault();
                 tableActive = true;
+                isSelectingRows = true;
+                startRowIndex = currentRows;
                 selectRow(currentRows);
+            });
+            rowHeader.addEventListener('mouseover', (e) => {
+                handleRowHeaderMouseOver(e, currentRows);
             });
             rowHeader.style.cursor = 'pointer';
             row.appendChild(rowHeader);
@@ -2388,9 +2467,15 @@ if ($current_user_id && count($user_companies) > 0) {
             // Create new column header
             const newHeader = document.createElement('th');
             newHeader.textContent = newColIndex + 1; // 1, 2, 3, ...
-            newHeader.addEventListener('click', () => {
+            newHeader.addEventListener('mousedown', (e) => {
+                e.preventDefault();
                 tableActive = true;
+                isSelectingColumns = true;
+                startColumnIndex = newColIndex;
                 selectColumn(newColIndex);
+            });
+            newHeader.addEventListener('mouseover', (e) => {
+                handleColumnHeaderMouseOver(e, newColIndex);
             });
             newHeader.style.cursor = 'pointer';
             headerRow.appendChild(newHeader);
