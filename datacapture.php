@@ -2128,7 +2128,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Generate table rows
-        function initializeTable(rows = 26, cols = 15) {
+        function initializeTable(rows = 26, cols = 20) {
             console.log('Initializing table with', rows, 'rows and', cols, 'columns');
             
             const tableBody = document.getElementById('tableBody');
@@ -8912,8 +8912,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!shouldRestore) {
                 // Load submitted processes filtered by capture_date from form
                 loadSubmittedProcesses();
-                // Initialize table with default 26 rows (A-Z) and 15 columns
-                initializeTable(26, 15);
+                // Initialize table with default 26 rows (A-Z) and 20 columns (scroll to see 16-20)
+                initializeTable(26, 20);
             }
             
             // Test table functionality after a short delay
@@ -9831,12 +9831,13 @@ if ($current_user_id && count($user_companies) > 0) {
             overflow: auto;
             background: white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            max-width: 100%;
+            width: 100%;
+            max-width: 650px; /* 限制宽度以显示约15列，剩余列需滚动查看 */
             height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
         }
 
         .excel-table {
-            width: 100%;
+            width: auto;
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
@@ -9849,6 +9850,7 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: clamp(2px, 0.31vw, 6px) 0px;
             text-align: center;
             min-width: 40px;
+            width: 40px; /* 固定列宽 */
             position: relative;
         }
 
@@ -9878,6 +9880,7 @@ if ($current_user_id && count($user_companies) > 0) {
             font-weight: bold;
             color: #24292f;
             min-width: 30px;
+            width: 30px; /* 固定行标题宽度 */
         }
 
         .excel-table td[contenteditable="true"]:hover {
