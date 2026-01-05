@@ -3563,6 +3563,42 @@ function getCurrentProcessId() {
                 
                 let displayFormula = formulaValue;
                 
+                // First, parse new format: [id_product,第几格] (e.g., [BBB,1])
+                // 第几格 is dataColumnIndex (1-based data column index)
+                const newFormatPattern = /\[([^,\]]+),(\d+)\]/g;
+                const newFormatMatches = [];
+                let newFormatMatch;
+                
+                // Collect all new format matches
+                newFormatPattern.lastIndex = 0;
+                while ((newFormatMatch = newFormatPattern.exec(formulaValue)) !== null) {
+                    newFormatMatches.push({
+                        fullMatch: newFormatMatch[0], // e.g., "[BBB,1]"
+                        idProduct: newFormatMatch[1].trim(), // e.g., "BBB"
+                        dataColumnIndex: parseInt(newFormatMatch[2]), // e.g., 1 (dataColumnIndex)
+                        index: newFormatMatch.index
+                    });
+                }
+                
+                // Replace new format matches from end to start to preserve indices
+                newFormatMatches.sort((a, b) => b.index - a.index);
+                for (const match of newFormatMatches) {
+                    if (!isNaN(match.dataColumnIndex) && match.dataColumnIndex > 0) {
+                        let columnValue = getCellValueByIdProductAndColumn(match.idProduct, match.dataColumnIndex, null);
+                        
+                        if (columnValue !== null) {
+                            displayFormula = displayFormula.substring(0, match.index) + 
+                                          columnValue + 
+                                          displayFormula.substring(match.index + match.fullMatch.length);
+                        } else {
+                            console.warn(`updateFormulaDisplay: Column value not found for [${match.idProduct},${match.dataColumnIndex}]`);
+                            displayFormula = displayFormula.substring(0, match.index) + 
+                                          '0' + 
+                                          displayFormula.substring(match.index + match.fullMatch.length);
+                        }
+                    }
+                }
+                
                 if (clickedCellRefs && clickedCellRefs.trim() !== '') {
                     // 使用 data-clicked-cell-refs 中的引用（格式：id_product:row_label:column_index 或 id_product:column_index）
                     // 这些引用包含了正确的 id_product，可能来自其他 id product 的数据
@@ -4905,41 +4941,42 @@ function getCurrentProcessId() {
             // Get cursor position
             const cursorPos = formulaInput.selectionStart || formulaInput.value.length;
             
-            // Insert column reference with id_product format: [id_product]$columnNumber
-            // 显示给用户的列号应当与表格下方按钮的数字一致，因此使用 displayColumnIndex
+            // Get current editing id_product to determine if clicked cell is from same row
+            const processInput = document.getElementById('process');
+            const currentEditIdProduct = processInput ? processInput.value.trim() : null;
+            
+            // Determine if clicked cell is from the same row (自己row)
+            const isSameRow = currentEditIdProduct && idProduct && 
+                             currentEditIdProduct.toUpperCase() === idProduct.toUpperCase();
+            
+            // Insert column reference with new format:
+            // - 自己row: $第几格 (e.g., $2)
+            // - 其他row: [id_product, 第几格] (e.g., [BBB,1])
             let valueToInsert;
             
-            // Get row label if available (for display format)
-            let rowLabelForDisplay = null;
-            if (row) {
-                const rowHeaderCell = row.querySelector('.row-header');
-                if (rowHeaderCell) {
-                    rowLabelForDisplay = rowHeaderCell.textContent.trim();
-                }
-            }
-            
-            // Build id_product display string with row label if available
-            let idProductDisplay = '';
-            if (idProduct) {
-                if (rowLabelForDisplay) {
-                    // Format: [id_product (row_label) ]
-                    idProductDisplay = `[${idProduct} (${rowLabelForDisplay}) ]`;
+            // 第几格使用 dataColumnIndex (从1开始的数据列索引)
+            // dataColumnIndex = 1 表示第一格数据，dataColumnIndex = 2 表示第二格数据，以此类推
+            if (dataColumnIndex !== null && dataColumnIndex > 0) {
+                if (isSameRow) {
+                    // 自己row: 使用 $第几格 格式
+                    valueToInsert = `$${dataColumnIndex}`;
+                    console.log('Inserting same row reference:', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct);
                 } else {
-                    // Format: [id_product ]
-                    idProductDisplay = `[${idProduct} ]`;
+                    // 其他row: 使用 [id_product, 第几格] 格式
+                    valueToInsert = `[${idProduct},${dataColumnIndex}]`;
+                    console.log('Inserting other row reference:', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct, 'currentEditIdProduct:', currentEditIdProduct);
                 }
-            }
-            
-            if (displayColumnIndex !== null && displayColumnIndex > 0) {
-                // Insert column reference format: [id_product]$columnNumber (e.g., [M99M06 (B) ]$4)
-                // displayColumnIndex 就是 data-column-index 的值，直接使用
-                valueToInsert = `${idProductDisplay}$${displayColumnIndex}`;
-                console.log('Inserting column reference:', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'columnIndex:', columnIndex, 'idProduct:', idProduct);
-            } else if (dataColumnIndex !== null && dataColumnIndex > 0) {
-                // Fallback: 如果 displayColumnIndex 不可用，使用 dataColumnIndex + 1 来显示列号
-                // 因为 dataColumnIndex 是内部索引（从1开始的数据列），需要加1才是显示的列号
-                valueToInsert = `${idProductDisplay}$${dataColumnIndex + 1}`;
-                console.log('Inserting column reference (fallback):', valueToInsert, 'from dataColumnIndex:', dataColumnIndex, 'idProduct:', idProduct);
+            } else if (displayColumnIndex !== null && displayColumnIndex > 0) {
+                // Fallback: 如果 dataColumnIndex 不可用，使用 displayColumnIndex - 1 作为数据列索引
+                // displayColumnIndex 是表格列索引（colIndex 2 = data column 1），所以需要减1
+                const fallbackDataColumnIndex = displayColumnIndex - 1;
+                if (isSameRow) {
+                    valueToInsert = `$${fallbackDataColumnIndex}`;
+                    console.log('Inserting same row reference (fallback):', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'idProduct:', idProduct);
+                } else {
+                    valueToInsert = `[${idProduct},${fallbackDataColumnIndex}]`;
+                    console.log('Inserting other row reference (fallback):', valueToInsert, 'from displayColumnIndex:', displayColumnIndex, 'idProduct:', idProduct, 'currentEditIdProduct:', currentEditIdProduct);
+                }
             } else {
                 // Fallback to inserting the numeric value if column index cannot be determined
                 valueToInsert = numValue;
@@ -5853,15 +5890,36 @@ function getCurrentProcessId() {
                 formulaValue = String(formulaInput.value || '');
                 console.log('saveFormula - Formula value read from input (before conversion):', formulaValue, 'Type:', typeof formulaValue);
                 
-                // 将新格式 [id_product]$数字 转换回旧格式 $数字（仅用于保存到数据库）
-                // 显示格式： [M99M06 (B) ]$4 -> 保存格式： $4
-                // 匹配新格式：\[([^\]]+)\]\$(\d+)
-                const newFormatPattern = /\[([^\]]+)\]\$(\d+)(?!\d)/g;
-                formulaValue = formulaValue.replace(newFormatPattern, (match, idProductPart, columnNumber) => {
+                // 将新格式转换为保存格式
+                // 1. 新格式 [id_product,第几格] -> 如果是自己row，转换为 $第几格；如果是其他row，保持原样
+                // 2. 旧格式 [id_product]$数字 -> 转换为 $数字
+                const processInput = document.getElementById('process');
+                const currentEditIdProduct = processInput ? processInput.value.trim() : null;
+                
+                // 先处理新格式 [id_product,第几格]
+                const newCommaFormatPattern = /\[([^,\]]+),(\d+)\]/g;
+                formulaValue = formulaValue.replace(newCommaFormatPattern, (match, idProduct, dataColumnIndex) => {
+                    const clickedIdProduct = idProduct.trim();
+                    const isSameRow = currentEditIdProduct && clickedIdProduct && 
+                                     currentEditIdProduct.toUpperCase() === clickedIdProduct.toUpperCase();
+                    
+                    if (isSameRow) {
+                        // 自己row: 转换为 $第几格（dataColumnIndex就是第几格）
+                        return `$${dataColumnIndex}`;
+                    } else {
+                        // 其他row: 保持原样 [id_product,第几格]
+                        return match;
+                    }
+                });
+                
+                // 再处理旧格式 [id_product]$数字
+                const oldFormatPattern = /\[([^\]]+)\]\$(\d+)(?!\d)/g;
+                formulaValue = formulaValue.replace(oldFormatPattern, (match, idProductPart, columnNumber) => {
                     // 只保留 $列号 部分，去掉 [id_product] 前缀
                     return `$${columnNumber}`;
                 });
-                console.log('saveFormula - Formula value after converting new format to old format:', formulaValue);
+                
+                console.log('saveFormula - Formula value after converting formats:', formulaValue);
             }
             const descriptionValue = document.getElementById('description').value;
             const enableValue = inputMethodValue ? true : false;
@@ -6896,7 +6954,43 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // Finally, parse reference format if present (e.g., [id_product : column_number])
+                // Parse new format: [id_product,第几格] (e.g., [BBB,1])
+                // 第几格 is dataColumnIndex (1-based data column index)
+                const newFormatPattern = /\[([^,\]]+),(\d+)\]/g;
+                const newFormatMatches = [];
+                let newFormatMatch;
+                
+                // Collect all new format matches
+                newFormatPattern.lastIndex = 0;
+                while ((newFormatMatch = newFormatPattern.exec(parsedFormula)) !== null) {
+                    newFormatMatches.push({
+                        fullMatch: newFormatMatch[0], // e.g., "[BBB,1]"
+                        idProduct: newFormatMatch[1].trim(), // e.g., "BBB"
+                        dataColumnIndex: parseInt(newFormatMatch[2]), // e.g., 1 (dataColumnIndex)
+                        index: newFormatMatch.index
+                    });
+                }
+                
+                // Replace new format matches from end to start to preserve indices
+                newFormatMatches.sort((a, b) => b.index - a.index);
+                for (const match of newFormatMatches) {
+                    if (!isNaN(match.dataColumnIndex) && match.dataColumnIndex > 0) {
+                        let columnValue = getCellValueByIdProductAndColumn(match.idProduct, match.dataColumnIndex, null);
+                        
+                        if (columnValue !== null) {
+                            parsedFormula = parsedFormula.substring(0, match.index) + 
+                                          columnValue + 
+                                          parsedFormula.substring(match.index + match.fullMatch.length);
+                        } else {
+                            console.warn(`Column value not found for [${match.idProduct},${match.dataColumnIndex}]`);
+                            parsedFormula = parsedFormula.substring(0, match.index) + 
+                                          '0' + 
+                                          parsedFormula.substring(match.index + match.fullMatch.length);
+                        }
+                    }
+                }
+                
+                // Finally, parse old reference format if present (e.g., [id_product : column_number])
                 // IMPORTANT: column_number here is displayColumnIndex (e.g., 7 means column 7 in the table)
                 // We need to convert it to dataColumnIndex for getCellValueByIdProductAndColumn
                 const referencePattern = /\[([^\]]+)\s*:\s*(\d+)\]/g;
