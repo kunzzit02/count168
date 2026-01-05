@@ -8715,16 +8715,22 @@ function getCurrentProcessId() {
                     return;
                 }
                 
+                // Stop event propagation to prevent other handlers
+                e.stopPropagation();
+                
                 isEditing = true;
                 
-                // Get original value from cell text content
+                // Get original value from cell text content BEFORE clearing
                 const originalValue = this.textContent.trim();
                 const cellElement = this;
+                
+                console.log('Editing Rate Value cell, originalValue:', originalValue); // Debug log
                 
                 // Create input element
                 const input = document.createElement('input');
                 input.type = 'text';
-                input.value = originalValue; // Set input value to original value
+                // Set input value to original value IMMEDIATELY
+                input.value = originalValue || '';
                 input.style.width = '100%';
                 input.style.textAlign = 'center';
                 input.style.border = '1px solid #0D60FF';
@@ -8736,14 +8742,23 @@ function getCurrentProcessId() {
                 // Store reference to current input
                 currentInput = input;
                 
+                // Store original value in a closure variable to ensure it's preserved
+                const savedOriginalValue = originalValue;
+                
                 // Replace cell content with input
                 cellElement.innerHTML = '';
                 cellElement.appendChild(input);
-                input.focus();
-                // Only select text if there's a value, otherwise just focus
-                if (originalValue) {
-                    input.select();
-                }
+                
+                // IMPORTANT: Set value AFTER appending to DOM to ensure it's preserved
+                input.value = savedOriginalValue || '';
+                
+                // Focus and select AFTER value is set
+                setTimeout(() => {
+                    input.focus();
+                    if (savedOriginalValue) {
+                        input.select();
+                    }
+                }, 0);
                 
                 // Handle input changes - save the value
                 const handleInput = (saveChanges = true) => {
@@ -8751,10 +8766,20 @@ function getCurrentProcessId() {
                     const activeInput = currentInput || input;
                     if (!activeInput || !activeInput.parentElement) {
                         isEditing = false;
+                        currentInput = null;
                         return;
                     }
                     
-                    const newValue = activeInput.value.trim();
+                    // Get value directly from input element - use the actual input.value
+                    let newValue = activeInput.value;
+                    if (newValue !== null && newValue !== undefined) {
+                        newValue = String(newValue).trim();
+                    } else {
+                        // Fallback: if value is somehow null/undefined, use empty string
+                        newValue = '';
+                    }
+                    
+                    console.log('handleInput called, newValue:', newValue, 'savedOriginalValue:', savedOriginalValue, 'input.value:', activeInput.value, 'activeInput:', activeInput); // Debug log
                     const cells = row.querySelectorAll('td');
                     const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                     
@@ -8794,7 +8819,7 @@ function getCurrentProcessId() {
                         }
                     } else {
                         // Cancel: restore original value
-                        cellElement.textContent = originalValue;
+                        cellElement.textContent = savedOriginalValue;
                     }
                     
                     isEditing = false;
@@ -8802,14 +8827,35 @@ function getCurrentProcessId() {
                 };
                 
                 // Handle blur (when input loses focus) - always save changes
-                input.addEventListener('blur', function(e) {
-                    // Use setTimeout to ensure input.value is still accessible
-                    setTimeout(() => {
-                        if (isEditing && currentInput === input) {
-                            handleInput(true);
-                        }
-                    }, 100);
+                // Capture value immediately when blur starts
+                let capturedValue = savedOriginalValue;
+                
+                input.addEventListener('focus', function() {
+                    // Update captured value when input gets focus
+                    capturedValue = input.value || '';
                 });
+                
+                input.addEventListener('input', function() {
+                    // Update captured value as user types
+                    capturedValue = input.value || '';
+                });
+                
+                const blurHandler = function(e) {
+                    // Use the most recent captured value
+                    const valueToSave = capturedValue || input.value || '';
+                    console.log('Blur event, valueToSave:', valueToSave, 'input.value:', input.value, 'capturedValue:', capturedValue); // Debug log
+                    
+                    // Save immediately
+                    if (isEditing && currentInput === input) {
+                        // Temporarily set input.value to captured value to ensure it's saved
+                        if (input.value !== valueToSave) {
+                            input.value = valueToSave;
+                        }
+                        handleInput(true);
+                    }
+                };
+                
+                input.addEventListener('blur', blurHandler, { once: true });
                 
                 // Handle Enter key - save changes
                 input.addEventListener('keydown', function(e) {
