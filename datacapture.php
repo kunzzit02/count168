@@ -2128,7 +2128,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Generate table rows
-        function initializeTable(rows = 26, cols = 20) {
+        function initializeTable(rows = 26, cols = 15) {
             console.log('Initializing table with', rows, 'rows and', cols, 'columns');
             
             const tableBody = document.getElementById('tableBody');
@@ -8912,8 +8912,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!shouldRestore) {
                 // Load submitted processes filtered by capture_date from form
                 loadSubmittedProcesses();
-                // Initialize table with default 26 rows (A-Z) and 20 columns (scroll to see 16-20)
-                initializeTable(26, 20);
+                // Initialize table with default 26 rows (A-Z) and 15 columns
+                initializeTable(26, 15);
             }
             
             // Test table functionality after a short delay
@@ -9831,18 +9831,15 @@ if ($current_user_id && count($user_companies) > 0) {
             overflow: auto;
             background: white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 800px; /* 限制宽度以显示约15列，剩余列需滚动查看 */
+            max-width: 100%;
             height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
         }
 
         .excel-table {
-            width: auto;
-            min-width: 1000px; /* 30px (行标题) + 20列 × 50px = 1030px */
+            width: 100%;
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
-            table-layout: fixed; /* 固定表格布局以确保列宽生效 */
         }
 
         .excel-table th,
@@ -9851,9 +9848,8 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(10px, 0.63vw, 12px);
             padding: clamp(2px, 0.31vw, 6px) 0px;
             text-align: center;
-            width: 50px; /* 固定列宽，增加列宽让表格看起来更大 */
+            min-width: 40px;
             position: relative;
-            box-sizing: border-box;
         }
 
         .excel-table th {
@@ -9882,7 +9878,6 @@ if ($current_user_id && count($user_companies) > 0) {
             font-weight: bold;
             color: #24292f;
             min-width: 30px;
-            width: 30px; /* 固定行标题宽度 */
         }
 
         .excel-table td[contenteditable="true"]:hover {
