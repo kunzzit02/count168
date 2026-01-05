@@ -5369,18 +5369,14 @@ function getCurrentProcessId() {
                                             const displayColumnIndex = columnNumber;
                                             const dataColumnIndex = displayColumnIndex - 1;
                                             
-                                            // 在 convertedRefs 中查找匹配的引用（按顺序）
+                                            // IMPORTANT: 按顺序匹配，第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用
+                                            // 不管列号是否相同，都按顺序匹配，这样即使选择了相同列号的不同单元格，也能正确匹配
+                                            // 使用已处理的替换数量作为引用索引（按顺序匹配）
+                                            const refIndexToUse = replacements.length;
+                                            
                                             let matchedRef = null;
-                                            for (let i = 0; i < convertedRefs.length; i++) {
-                                                const ref = convertedRefs[i];
-                                                const parts = ref.split(':');
-                                                if (parts.length >= 2) {
-                                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                                    if (refDataColumnIndex === dataColumnIndex) {
-                                                        matchedRef = ref;
-                                                        break;
-                                                    }
-                                                }
+                                            if (refIndexToUse < convertedRefs.length) {
+                                                matchedRef = convertedRefs[refIndexToUse];
                                             }
                                             
                                             if (matchedRef) {
@@ -5400,12 +5396,14 @@ function getCurrentProcessId() {
                                                 
                                                 replacements.push({
                                                     from: match[0], // 例如 "$4"
-                                                    to: newFormat, // 例如 "[M99M06,4]" 或 "$4"
+                                                    to: newFormat, // 例如 "[YONG,4]" 或 "$11"
                                                     index: matchIndex
                                                 });
                                             } else {
                                                 // 如果没有找到匹配的引用，假设是自己的row（保持 $数字 格式）
                                                 // 这样保持向后兼容
+                                                // 注意：这应该不会发生，因为保存时应该包含所有引用
+                                                console.warn('populateFormWithData - No matching ref found for $' + displayColumnIndex + ', assuming own row');
                                             }
                                         }
                                     }
