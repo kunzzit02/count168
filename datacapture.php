@@ -10677,12 +10677,12 @@ if ($current_user_id && count($user_companies) > 0) {
             overflow: auto;
             background: white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            max-width: calc(30px + 15 * 100px); /* 行标题列(30px) + 15列(100px each) */
+            max-width: calc(30px + 15 * 80px); /* 行标题列(30px) + 15列(80px each) */
             height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
         }
 
         .excel-table {
-            width: calc(30px + 20 * 100px); /* 行标题列(30px) + 20列(100px each) */
+            width: calc(30px + 20 * 80px); /* 行标题列(30px) + 20列(80px each) */
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
@@ -10694,8 +10694,8 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(10px, 0.63vw, 12px);
             padding: clamp(2px, 0.31vw, 6px) clamp(8px, 0.83vw, 16px);
             text-align: center;
-            min-width: 100px;
-            width: 100px;
+            min-width: 80px;
+            width: 80px;
             position: relative;
         }
 
