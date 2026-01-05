@@ -392,10 +392,10 @@ try {
                 break;
             }
             
-            // 获取原有的 login_id 和 email 并验证用户是否存在
+            // 获取原有的 login_id 并验证用户是否存在
             // 注意：用户可能属于多个公司，所以不限制在当前公司
             $stmt = $pdo->prepare("
-                SELECT u.login_id, u.email 
+                SELECT u.login_id 
                 FROM user u
                 WHERE u.id = ?
             ");
@@ -427,38 +427,29 @@ try {
                 sendResponse(false, $validation);
             }
             
-            // 只有当 login_id 或 email 实际改变时才检查重复
-            // 如果只修改密码，login_id 和 email 不变，不需要检查重复
-            $loginIdChanged = ($input['login_id'] !== $originalUser['login_id']);
-            $emailChanged = ($input['email'] !== $originalUser['email']);
-            
-            // Check if login_id already exists (only if login_id changed)
-            // 注意：由于用户可能关联多个 company，但 login_id 在 user 表中是全局唯一的
-            // 所以只需要检查是否有其他用户使用了相同的 login_id
-            if ($loginIdChanged) {
-                $stmt = $pdo->prepare("
-                    SELECT COUNT(*) 
-                    FROM user u
-                    WHERE u.login_id = ? AND u.id != ?
-                ");
-                $stmt->execute([$input['login_id'], $input['id']]);
-                if ($stmt->fetchColumn() > 0) {
-                    sendResponse(false, 'Login ID already exists');
-                }
+            // Check if login_id already exists (excluding current user)
+            // 注意：由于用户可能关联多个 company，需要检查所有关联的 company
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) 
+                FROM user u
+                INNER JOIN user_company_map ucm ON u.id = ucm.user_id
+                WHERE u.login_id = ? AND u.id != ?
+            ");
+            $stmt->execute([$input['login_id'], $input['id']]);
+            if ($stmt->fetchColumn() > 0) {
+                sendResponse(false, 'Login ID already exists');
             }
             
-            // Check if email already exists (only if email changed)
-            // email 在 user 表中也应该是全局唯一的
-            if ($emailChanged) {
-                $stmt = $pdo->prepare("
-                    SELECT COUNT(*) 
-                    FROM user u
-                    WHERE u.email = ? AND u.id != ?
-                ");
-                $stmt->execute([$input['email'], $input['id']]);
-                if ($stmt->fetchColumn() > 0) {
-                    sendResponse(false, 'Email already exists');
-                }
+            // Check if email already exists (excluding current user)
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) 
+                FROM user u
+                INNER JOIN user_company_map ucm ON u.id = ucm.user_id
+                WHERE u.email = ? AND u.id != ?
+            ");
+            $stmt->execute([$input['email'], $input['id']]);
+            if ($stmt->fetchColumn() > 0) {
+                sendResponse(false, 'Email already exists');
             }
             
             // Prepare update query
