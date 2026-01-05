@@ -11815,8 +11815,18 @@ function getCurrentProcessId() {
                 
                 // Formula column (index 4)
                 if (cells[4]) {
-                    // If formula is empty, don't display "Formula" text, just leave it empty
-                    const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                    // IMPORTANT: 优先使用 formulaOperators（原始公式格式，如 [M99M06,4]+$4）
+                    // 而不是 formulaDisplay（解析后的值，如 270+0）
+                    // 这样用户可以清楚地看到公式的引用格式
+                    let formulaText = '';
+                    if (data.formulaOperators && data.formulaOperators.trim() !== '') {
+                        // 使用原始公式格式（包含新格式 [id_product,数字] 或 $数字）
+                        formulaText = data.formulaOperators;
+                    } else if (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+                        // 如果没有 formulaOperators，使用 formulaDisplay 作为后备
+                        formulaText = data.formula;
+                    }
+                    
                     const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
                     const inputMethodTooltip = inputMethod || '';
                     cells[4].innerHTML = `
@@ -13063,12 +13073,27 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const savedFormulaDisplay = mainTemplate.formula_display || '';
         const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
         
-        // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
-        // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
-        // 这样当用户修改表格数据后，公式会反映最新的数据
+        // IMPORTANT: 如果 formula_operators 包含新格式（[id_product,数字] 或 $数字），
+        // 直接使用原始公式格式显示，不要转换为实际值
+        // 这样用户可以清楚地看到公式的引用格式
         // CRITICAL: 必须使用 sourceColumns 中保存的 id_product，而不是当前行的 id_product
+        const hasNewFormat = formulaOperatorsValue && (/\[[^,\]]+,\d+\]/.test(formulaOperatorsValue) || /\$(\d+)(?!\d)/.test(formulaOperatorsValue));
         const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
-        if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+        const hasBracketFormat = formulaOperatorsValue && /\[[^,\]]+,\d+\]/.test(formulaOperatorsValue);
+        
+        // 如果包含新格式，直接使用原始公式格式显示（不转换为实际值）
+        if (hasNewFormat && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+            // 直接使用原始公式格式，不转换为实际值
+            // 这样用户可以清楚地看到公式的引用格式（如 [M99M06,4]+$4）
+            formulaDisplay = formulaOperatorsValue;
+            
+            // 应用 source percent（如果需要）
+            if (percentValue && enableSourcePercent) {
+                formulaDisplay = createFormulaDisplayFromExpression(formulaOperatorsValue, percentValue, enableSourcePercent);
+            }
+            
+            console.log('applyMainTemplateToRow: formula_operators contains new format, using original format for display:', formulaDisplay);
+        } else if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && !hasBracketFormat) {
             // 从当前表格数据重新计算 formula
             // IMPORTANT: 使用 sourceColumns 中保存的 id_product，而不是当前行的 id_product
             let displayFormula = formulaOperatorsValue;
@@ -13387,8 +13412,26 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         }
 
         // Always recalculate processed amount from current formula
+        // IMPORTANT: 如果 formula_operators 包含新格式（[id_product,数字] 或 $数字），
+        // 需要先转换为实际值再计算
         let processedAmount = 0;
-        if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
+        if (formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && hasNewFormat) {
+            // 如果 formula_operators 包含新格式，使用它来计算（会解析为实际值）
+            try {
+                console.log('Calculating processed amount from formula_operators (new format):', formulaOperatorsValue);
+                processedAmount = calculateFormulaResultFromExpression(
+                    formulaOperatorsValue,
+                    percentValue,
+                    mainTemplate.input_method || '',
+                    mainTemplate.enable_input_method == 1,
+                    enableSourcePercent
+                );
+                console.log('Calculated processed amount from formula_operators:', processedAmount);
+            } catch (error) {
+                console.error('Error calculating from formula_operators:', error);
+                processedAmount = 0;
+            }
+        } else if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
             try {
                 console.log('Calculating processed amount from formulaDisplay (current data):', formulaDisplay);
                 const cleanFormula = removeThousandsSeparators(formulaDisplay);
@@ -14091,12 +14134,27 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         const savedFormulaDisplay = template.formula_display || '';
         const isBatchSelectedTemplate = template.batch_selection == 1;
         
-        // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
-        // 需要从当前表格数据重新计算，将 $数字 转换为实际值（如 1+1*0.7/5）
-        // 这样当用户修改表格数据后，公式会反映最新的数据
+        // IMPORTANT: 如果 formula_operators 包含新格式（[id_product,数字] 或 $数字），
+        // 直接使用原始公式格式显示，不要转换为实际值
+        // 这样用户可以清楚地看到公式的引用格式
         // CRITICAL: 必须从 sourceColumnsValue 中提取正确的 id_product 和 row_label，而不是使用当前 sub row 的 idProduct
+        const hasNewFormat = formulaOperatorsValue && (/\[[^,\]]+,\d+\]/.test(formulaOperatorsValue) || /\$(\d+)(?!\d)/.test(formulaOperatorsValue));
         const hasDollarSigns = formulaOperatorsValue && /\$(\d+)(?!\d)/.test(formulaOperatorsValue);
-        if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+        const hasBracketFormat = formulaOperatorsValue && /\[[^,\]]+,\d+\]/.test(formulaOperatorsValue);
+        
+        // 如果包含新格式，直接使用原始公式格式显示（不转换为实际值）
+        if (hasNewFormat && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
+            // 直接使用原始公式格式，不转换为实际值
+            // 这样用户可以清楚地看到公式的引用格式（如 [M99M06,4]+$4）
+            formulaDisplay = formulaOperatorsValue;
+            
+            // 应用 source percent（如果需要）
+            if (percentValue && enableSourcePercent) {
+                formulaDisplay = createFormulaDisplayFromExpression(formulaOperatorsValue, percentValue, enableSourcePercent);
+            }
+            
+            console.log('applySubTemplatesToSummaryRow: formula_operators contains new format, using original format for display:', formulaDisplay);
+        } else if (hasDollarSigns && formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && !hasBracketFormat) {
             let displayFormula = formulaOperatorsValue;
             
             // 匹配所有 $数字 模式
@@ -14477,8 +14535,26 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         }
 
         // Always recalculate processed amount from current formula
+        // IMPORTANT: 如果 formula_operators 包含新格式（[id_product,数字] 或 $数字），
+        // 需要先转换为实际值再计算
         let processedAmount = 0;
-        if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
+        if (formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && hasNewFormat) {
+            // 如果 formula_operators 包含新格式，使用它来计算（会解析为实际值）
+            try {
+                console.log('Calculating processed amount from formula_operators (sub, new format):', formulaOperatorsValue);
+                processedAmount = calculateFormulaResultFromExpression(
+                    formulaOperatorsValue,
+                    percentValue,
+                    template.input_method || '',
+                    template.enable_input_method == 1,
+                    enableSourcePercent
+                );
+                console.log('Calculated processed amount from formula_operators (sub):', processedAmount);
+            } catch (error) {
+                console.error('Error calculating from formula_operators (sub):', error);
+                processedAmount = 0;
+            }
+        } else if (formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
             try {
                 console.log('Calculating processed amount from formulaDisplay (sub, current data):', formulaDisplay);
                 const cleanFormula = removeThousandsSeparators(formulaDisplay);
