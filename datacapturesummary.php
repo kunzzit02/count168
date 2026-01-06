@@ -11532,12 +11532,28 @@ function getCurrentProcessId() {
                 return;
             }
 
+            // Update sub product value
+            const productValues = getProductValuesFromCell(idProductCell);
+            
+            // 重要：如果单元格中已经有序号前缀（如 "1. M99M06"），保留前缀
+            // 这样即使 data.idProduct 没有前缀，也不会覆盖掉已有的前缀
+            const existingSub = productValues.sub || '';
+            const prefixPattern = /^(\d+\.\s+)(.+)$/;
+            const subMatch = existingSub.match(prefixPattern);
+            
             let idProductText = data.idProduct;
+            if (subMatch) {
+                // 保留已有的前缀
+                const preservedPrefix = subMatch[1]; // 保留 "1. " 这样的前缀
+                // 去除 data.idProduct 中可能的前缀，然后加上保留的前缀
+                const cleanIdProduct = idProductText.replace(prefixPattern, '$2');
+                idProductText = preservedPrefix + cleanIdProduct;
+            }
+            
             if (data.description && data.description.trim() !== '') {
                 idProductText += ` (${data.description})`;
             }
-            // Update sub product value
-            const productValues = getProductValuesFromCell(idProductCell);
+            
             productValues.sub = idProductText;
             idProductCell.setAttribute('data-sub-product', idProductText);
             idProductCell.textContent = mergeProductValues(productValues.main, productValues.sub);
@@ -11867,13 +11883,45 @@ function getCurrentProcessId() {
                 
                 if (cells[0]) { // Id Product (merged)
                     const productValues = getProductValuesFromCell(cells[0]);
+                    
+                    // Determine if this is a main or sub row update (需要在前面定义)
+                    const isSubRow = !productValues.main || !productValues.main.trim();
+                    
                     let idProductText = data.idProduct;
+                    
+                    // 重要：如果单元格中已经有序号前缀（如 "1. M99M06"），保留前缀
+                    // 这样即使 data.idProduct 没有前缀，也不会覆盖掉已有的前缀
+                    const existingMain = productValues.main || '';
+                    const existingSub = productValues.sub || '';
+                    
+                    // 检查是否已有前缀（格式：数字. 文本）
+                    const prefixPattern = /^(\d+\.\s+)(.+)$/;
+                    let preservedPrefix = '';
+                    
+                    if (isSubRow) {
+                        // 对于 sub row，检查 existingSub
+                        const subMatch = existingSub.match(prefixPattern);
+                        if (subMatch) {
+                            preservedPrefix = subMatch[1]; // 保留 "1. " 这样的前缀
+                            // 去除 data.idProduct 中可能的前缀，然后加上保留的前缀
+                            const cleanIdProduct = idProductText.replace(prefixPattern, '$2');
+                            idProductText = preservedPrefix + cleanIdProduct;
+                        }
+                    } else {
+                        // 对于 main row，检查 existingMain
+                        const mainMatch = existingMain.match(prefixPattern);
+                        if (mainMatch) {
+                            preservedPrefix = mainMatch[1]; // 保留 "1. " 这样的前缀
+                            // 去除 data.idProduct 中可能的前缀，然后加上保留的前缀
+                            const cleanIdProduct = idProductText.replace(prefixPattern, '$2');
+                            idProductText = preservedPrefix + cleanIdProduct;
+                        }
+                    }
+                    
                     if (data.description && data.description.trim() !== '') {
                         idProductText += ` (${data.description})`;
                     }
                     
-                    // Determine if this is a main or sub row update
-                    const isSubRow = !productValues.main || !productValues.main.trim();
                     if (isSubRow) {
                         // Update sub product value
                         productValues.sub = idProductText;
