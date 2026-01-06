@@ -1443,6 +1443,7 @@ function getCurrentProcessId() {
             
             // Store rowLabel globally so updateFormulaDataGrid can access it
             window.currentEditRowLabel = rowLabel;
+            console.log('showEditFormulaForm - productValue:', productValue, 'rowLabel:', rowLabel);
             
             // Ensure modal container exists
             let modal = document.getElementById('editFormulaModal');
@@ -2465,16 +2466,55 @@ function getCurrentProcessId() {
                 descriptionSelect1.appendChild(option);
             });
 
-            // Auto-select first option if available
-            if (idProductRows.length > 0) {
+            // Auto-select option based on current editing rowLabel if available
+            // This ensures we select the correct row when editing, not just the first one
+            const currentEditRowLabel = window.currentEditRowLabel || null;
+            const currentEditIdProduct = document.getElementById('process') ? document.getElementById('process').value.trim() : null;
+            
+            let selectedValue = null;
+            
+            if (currentEditRowLabel && currentEditIdProduct) {
+                // Try to find the option that matches both id_product and rowLabel
+                const matchingItem = idProductRows.find(item => {
+                    const normalizedItemId = normalizeIdProductText(item.idProduct);
+                    const normalizedCurrentId = normalizeIdProductText(currentEditIdProduct);
+                    return normalizedItemId === normalizedCurrentId && item.rowLabel === currentEditRowLabel;
+                });
+                
+                if (matchingItem) {
+                    const count = idProductCount.get(matchingItem.idProduct);
+                    selectedValue = (count > 1 && matchingItem.rowLabel) 
+                        ? `${matchingItem.idProduct}:${matchingItem.rowLabel}` 
+                        : matchingItem.idProduct;
+                }
+            }
+            
+            // If no match found, select first option
+            if (!selectedValue && idProductRows.length > 0) {
                 const firstItem = idProductRows[0];
                 const firstCount = idProductCount.get(firstItem.idProduct);
-                const firstValue = (firstCount > 1 && firstItem.rowLabel) 
+                selectedValue = (firstCount > 1 && firstItem.rowLabel) 
                     ? `${firstItem.idProduct}:${firstItem.rowLabel}` 
                     : firstItem.idProduct;
-                descriptionSelect1.value = firstValue;
+            }
+            
+            if (selectedValue) {
+                // Set the value (this may trigger change event, but that's okay)
+                descriptionSelect1.value = selectedValue;
+                
+                // If we selected based on currentEditRowLabel, ensure it's preserved
+                // This is important because the change event handler might have overwritten it
+                if (currentEditRowLabel && currentEditIdProduct) {
+                    const parts = selectedValue.split(':');
+                    if (parts.length === 2 && parts[1].trim() === currentEditRowLabel) {
+                        // Ensure rowLabel is preserved
+                        window.currentEditRowLabel = currentEditRowLabel;
+                        console.log('loadIdProductList - Preserved rowLabel:', currentEditRowLabel);
+                    }
+                }
+                
                 // Trigger update for second select box
-                updateIdProductRowData(firstValue);
+                updateIdProductRowData(selectedValue);
             }
         }
 
@@ -2585,6 +2625,7 @@ function getCurrentProcessId() {
             // Get rowLabel from global variable (set by showEditFormulaForm)
             // This is used to distinguish between multiple rows with same id_product
             const rowLabel = window.currentEditRowLabel || null;
+            console.log('updateFormulaDataGrid - idProduct:', idProduct, 'rowLabel:', rowLabel);
 
             // Get table data
             let parsedTableData;
@@ -2632,9 +2673,12 @@ function getCurrentProcessId() {
                     if (rowLabel) {
                         const rowHeaderCell = row.querySelector('.row-header');
                         const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                        console.log('updateFormulaDataGrid - Checking row', rowIndex, 'rowHeaderLabel:', rowHeaderLabel, 'target rowLabel:', rowLabel, 'match:', rowHeaderLabel === rowLabel);
                         if (rowHeaderLabel !== rowLabel) {
+                            console.log('updateFormulaDataGrid - Skipping row', rowIndex, 'because rowLabel does not match');
                             return; // Skip this row if row label doesn't match
                         }
+                        console.log('updateFormulaDataGrid - Row', rowIndex, 'matched! Showing data for this row');
                     }
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
@@ -9976,6 +10020,8 @@ function getCurrentProcessId() {
                     rowLabel = rowHeaderText;
                 }
             }
+            console.log('editRowFormula - processValue:', processValue, 'rowLabel:', rowLabel);
+            
             // Get account value, excluding button text if present
             const accountCell = cells[1];
             let accountValue = '';
