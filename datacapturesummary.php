@@ -6792,8 +6792,22 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 }
                 
+                // IMPORTANT: 如果当前正在编辑行，使用该行的 row_index 来确定正确的行
+                // 这样可以确保当有两个相同的 id_product 时，使用正确的行
+                let targetRowIndex = null;
+                if (window.currentEditRow) {
+                    const rowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
+                    if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
+                        targetRowIndex = parseInt(rowIndexAttr);
+                        if (isNaN(targetRowIndex)) {
+                            targetRowIndex = null;
+                        }
+                    }
+                }
+                
                 // Find the row that matches the process value
-                const processRow = findProcessRow(parsedTableData, processValue);
+                // If targetRowIndex is available, use it to find the correct row
+                const processRow = findProcessRow(parsedTableData, processValue, targetRowIndex);
                 if (!processRow || processRow.length === 0) {
                     return null;
                 }
@@ -6976,13 +6990,56 @@ function getCurrentProcessId() {
                         }
                     } else {
                         // 如果没有 data-clicked-cell-refs，使用原来的逻辑
+                        // IMPORTANT: 如果当前正在编辑行，使用该行的 row_index 来确定正确的行
+                        // 这样可以确保当有两个相同的 id_product 时，使用正确的行
+                        let targetRowIndex = null;
+                        if (window.currentEditRow) {
+                            const rowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
+                            if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
+                                targetRowIndex = parseInt(rowIndexAttr);
+                                if (isNaN(targetRowIndex)) {
+                                    targetRowIndex = null;
+                                }
+                            }
+                        }
+                        
                         const rowLabel = getRowLabelFromProcessValue(processValue);
                         if (rowLabel) {
                             for (let i = 0; i < dollarMatches.length; i++) {
                                 const dollarMatch = dollarMatches[i];
                                 // Convert $数字 to cell reference (e.g., $2 -> A2)
                                 const columnReference = rowLabel + dollarMatch.columnNumber;
-                                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                
+                                // IMPORTANT: 如果 targetRowIndex 可用，使用它来获取正确的行数据
+                                let columnValue = null;
+                                if (targetRowIndex !== null) {
+                                    // 使用 rowIndex 来获取正确的行
+                                    const dataColumnIndex = dollarMatch.columnNumber - 1;
+                                    columnValue = getCellValueByIdProductAndColumn(processValue, dataColumnIndex, rowLabel);
+                                    if (columnValue === null) {
+                                        // 如果通过 rowLabel 找不到，尝试使用 rowIndex
+                                        let parsedTableData;
+                                        if (window.transformedTableData) {
+                                            parsedTableData = window.transformedTableData;
+                                        } else {
+                                            const tableData = localStorage.getItem('capturedTableData');
+                                            if (tableData) {
+                                                parsedTableData = JSON.parse(tableData);
+                                                const processRow = findProcessRow(parsedTableData, processValue, targetRowIndex);
+                                                if (processRow && processRow.length > dataColumnIndex + 1) {
+                                                    const cellData = processRow[dataColumnIndex + 1];
+                                                    if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
+                                                        const cellValue = cellData.value.toString();
+                                                        columnValue = cellValue.replace(/\$/g, '').replace(/[^0-9+\-*/.\s()]/g, '').trim();
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    // 回退到原来的逻辑
+                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                }
                                 
                                 if (columnValue !== null) {
                                     // Replace $数字 with actual value
