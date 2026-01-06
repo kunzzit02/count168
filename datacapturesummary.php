@@ -6202,7 +6202,6 @@ function getCurrentProcessId() {
                         sourceColumns = columnRefs.join(' ');
                         console.log('saveFormula - Built sourceColumns from formula:', sourceColumns);
                     }
-                }
                     
                     // 如果从 $数字 格式中没有提取到列引用，尝试从 data-clicked-columns 属性中获取
                     // 这适用于用户通过键盘直接输入数字（如"2+6"）的情况
