@@ -7338,12 +7338,21 @@ function getCurrentProcessId() {
                     return 'Formula';
                 }
                 
+                // IMPORTANT: Check if formula contains new format [id_product,数字]
+                // If so, do NOT parse it - keep it as-is for display
+                const hasBracketFormat = /\[[^,\]]+,\d+\]/.test(formula);
+                
                 // IMPORTANT: Parse reference format (e.g., [id_product : column]) to actual values first
                 // This ensures that references to other id_product rows are correctly resolved
+                // But skip parsing if formula contains new format [id_product,数字]
                 let parsedFormula = formula;
-                if (formula.includes('[') && formula.includes(']')) {
+                if (formula.includes('[') && formula.includes(']') && !hasBracketFormat) {
                     parsedFormula = parseReferenceFormula(formula);
                     console.log('createFormulaDisplayFromExpression: Parsed reference format:', formula, '->', parsedFormula);
+                } else if (hasBracketFormat) {
+                    // Formula contains new format [id_product,数字], keep it as-is
+                    parsedFormula = formula;
+                    console.log('createFormulaDisplayFromExpression: Formula contains [id_product,数字] format, keeping original format:', parsedFormula);
                 }
                 
                 // If source percent is disabled, return parsed formula as-is
