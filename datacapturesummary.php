@@ -4943,8 +4943,35 @@ function getCurrentProcessId() {
             const processInput = document.getElementById('process');
             const currentIdProduct = processInput ? processInput.value.trim() : null;
             
-            // Get current editing row_label (to distinguish between rows with same id_product)
-            const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+            // CRITICAL: Get current editing row_label from window.currentEditRow if available
+            // This ensures we use the correct row when there are multiple rows with same id_product
+            let currentRowLabel = null;
+            if (window.currentEditRow) {
+                // Try to get row_index from currentEditRow
+                const currentEditRowIndex = window.currentEditRow.getAttribute('data-row-index');
+                if (currentEditRowIndex !== null && currentEditRowIndex !== '' && !Number.isNaN(Number(currentEditRowIndex))) {
+                    // Use row_index to find the correct row in Data Capture Table
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const rows = capturedTableBody.querySelectorAll('tr');
+                        const rowIndex = Number(currentEditRowIndex);
+                        if (rowIndex >= 0 && rowIndex < rows.length) {
+                            const targetRow = rows[rowIndex];
+                            const rowHeaderCell = targetRow.querySelector('.row-header');
+                            if (rowHeaderCell) {
+                                currentRowLabel = rowHeaderCell.textContent.trim();
+                                console.log('insertCellValueToFormula - Got currentRowLabel from currentEditRow row_index:', rowIndex, 'row_label:', currentRowLabel);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Fallback: If not found from currentEditRow, try getRowLabelFromProcessValue
+            if (!currentRowLabel && currentIdProduct) {
+                currentRowLabel = getRowLabelFromProcessValue(currentIdProduct);
+                console.log('insertCellValueToFormula - Got currentRowLabel from processValue:', currentRowLabel);
+            }
             
             // Get clicked cell's row_label
             let clickedRowLabel = cell.getAttribute('data-row-label');
