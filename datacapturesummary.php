@@ -1230,7 +1230,18 @@ function getCurrentProcessId() {
                 // In processRow: index 0 = row header, index 1 = id_product, index 2 = first data column (column 1, dataColumnIndex 0)
                 // So: dataColumnIndex 0 -> processRow index 2, dataColumnIndex 1 -> processRow index 3, etc.
                 // Formula: processRowIndex = dataColumnIndex + 2
+                // CRITICAL: columnIndex is dataColumnIndex (0-based), so displayColumnIndex = columnIndex + 1
+                const displayColumnIndex = columnIndex + 1;
                 const processRowIndex = columnIndex + 2; // Convert 0-based dataColumnIndex to processRow index
+                
+                console.log('getCellValueByIdProductAndColumn - Input:', {
+                    idProduct,
+                    rowLabel,
+                    dataColumnIndex: columnIndex,
+                    displayColumnIndex: displayColumnIndex,
+                    processRowIndex: processRowIndex,
+                    processRowLength: processRow.length
+                });
                 
                 if (processRowIndex >= 2 && processRowIndex < processRow.length) {
                     const cellData = processRow[processRowIndex];
@@ -1239,12 +1250,12 @@ function getCurrentProcessId() {
                         const cellValue = cellData.value.toString();
                         // Remove $ symbol and other formatting characters
                         const numericValue = cellValue.replace(/\$/g, '').replace(/[^0-9+\-*/.\s()]/g, '').trim();
-                        console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex, 'value:', numericValue || cellValue);
+                        console.log('Found cell value for id_product:', idProduct, 'row_label:', rowLabel, 'dataColumnIndex:', columnIndex, 'displayColumnIndex:', displayColumnIndex, 'processRowIndex:', processRowIndex, 'value:', numericValue || cellValue);
                         return numericValue || cellValue;
                     }
                 }
                 
-                console.error('Cell not found for id_product:', idProduct, 'row_label:', rowLabel, 'column:', columnIndex);
+                console.error('Cell not found for id_product:', idProduct, 'row_label:', rowLabel, 'dataColumnIndex:', columnIndex, 'displayColumnIndex:', displayColumnIndex, 'processRowIndex:', processRowIndex, 'processRowLength:', processRow.length);
                 return null;
             } catch (error) {
                 console.error('Error getting cell value by id_product and column:', error);
