@@ -1405,6 +1405,8 @@ function getCurrentProcessId() {
             
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
+            // 精准记录当前点击的这一行，避免同一个 Id Product 多行时总是取到第一行
+            currentSelectedRowForCalculator = row;
             
             // 从 Add button 进入，一律视为“新增”，不带任何预填数据
             console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
@@ -5423,6 +5425,8 @@ function getCurrentProcessId() {
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
             window.isEditMode = false;
+            // 重置当前用于计算器的行引用，避免下次打开时误用上一次的行
+            currentSelectedRowForCalculator = null;
         }
 
         // Find summary table row by idProduct, accountId, and product type
@@ -10121,6 +10125,8 @@ function getCurrentProcessId() {
             // Store the current row reference globally so saveFormula can access it
             window.currentEditRow = row;
             window.isEditMode = true;
+            // 同时记录当前正在编辑的这一行给计算器使用，防止同一个 Id Product 多行时总是取到第一行
+            currentSelectedRowForCalculator = row;
             
             // Debug log before showing form
             console.log('editRowFormula - Passing to showEditFormulaForm:', {
