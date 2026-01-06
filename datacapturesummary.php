@@ -774,6 +774,7 @@ function getCurrentProcessId() {
             
             // 检测重复的 idProduct 并添加序号前缀
             // 例如：如果有两个 "M99M06"，会变成 "1. M99M06" 和 "2. M99M06"
+            // 目的：让重复的 idProduct 变成不同的名字，这样它们就是两个不同的产品了
             const processedColumnAData = [];
             if (columnAData.length > 0) {
                 // 辅助函数：去除可能存在的序号前缀（例如 "1. M99M06" -> "M99M06"）
@@ -799,6 +800,8 @@ function getCurrentProcessId() {
                     }
                 });
                 
+                console.log('Duplicate idProduct detection:', Array.from(idProductCount.entries()).filter(([key, indices]) => indices.length > 1));
+                
                 // 第二遍：为重复的 idProduct 添加序号前缀
                 columnAData.forEach((value, index) => {
                     if (value && value.trim() !== '') {
@@ -808,16 +811,19 @@ function getCurrentProcessId() {
                         
                         if (indices && indices.length > 1) {
                             // 有重复的 idProduct，需要添加序号前缀
-                            // 找到当前 value 在重复列表中的位置
+                            // 找到当前 value 在重复列表中的位置（按照在 columnAData 中出现的顺序）
                             const sequenceIndex = indices.indexOf(index);
                             if (sequenceIndex >= 0) {
                                 const sequenceNumber = sequenceIndex + 1;
                                 const prefix = `${sequenceNumber}. `;
                                 // 去除可能存在的旧序号前缀
                                 const currentIdProduct = removeNumberPrefix(value.trim());
-                                processedColumnAData.push(prefix + currentIdProduct);
-                                console.log(`Added prefix to duplicate idProduct: "${normalizedIdProduct}" -> "${prefix + currentIdProduct}"`);
+                                const newIdProduct = prefix + currentIdProduct;
+                                processedColumnAData.push(newIdProduct);
+                                console.log(`[${index}] Added prefix to duplicate idProduct: "${normalizedIdProduct}" -> "${newIdProduct}"`);
                             } else {
+                                // 这种情况不应该发生，但为了安全起见
+                                console.warn(`[${index}] Could not find index in indices array for: "${normalizedIdProduct}"`);
                                 processedColumnAData.push(value);
                             }
                         } else {
@@ -828,6 +834,8 @@ function getCurrentProcessId() {
                         processedColumnAData.push(value);
                     }
                 });
+                
+                console.log('Processed Column A data:', processedColumnAData);
             } else {
                 processedColumnAData.push(...columnAData);
             }
