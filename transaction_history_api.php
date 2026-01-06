@@ -106,12 +106,40 @@ try {
     $date_to_db = date('Y-m-d', strtotime(str_replace('/', '-', $date_to)));
     
     // 获取 currency_id（如果指定了 currency）
+    // 支持单个 currency 或多个 currency（用逗号分隔）
     $currency_id = null;
+    $currency_codes = [];
     if ($currency) {
-        $currency_stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
-        $currency_stmt->execute([$currency, $company_id]);
-        $currency_id = $currency_stmt->fetchColumn();
-        error_log("Transaction History API: currency_id lookup: currency={$currency}, company_id={$company_id}, found={$currency_id}");
+        // 处理多个 currency（用逗号分隔）
+        $currency_list = explode(',', $currency);
+        $currency_list = array_map('trim', $currency_list);
+        $currency_list = array_filter($currency_list); // 移除空值
+        
+        if (count($currency_list) === 1) {
+            // 单个 currency，获取 currency_id
+            $currency_stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
+            $currency_stmt->execute([$currency_list[0], $company_id]);
+            $currency_id = $currency_stmt->fetchColumn();
+            $currency_codes = [$currency_list[0]];
+            error_log("Transaction History API: currency_id lookup: currency={$currency_list[0]}, company_id={$company_id}, found={$currency_id}");
+        } else if (count($currency_list) > 1) {
+            // 多个 currency，获取所有 currency_id
+            $currency_codes = $currency_list;
+            $placeholders = implode(',', array_fill(0, count($currency_list), '?'));
+            $currency_stmt = $pdo->prepare("SELECT id, code FROM currency WHERE code IN ($placeholders) AND company_id = ?");
+            $params = array_merge($currency_list, [$company_id]);
+            $currency_stmt->execute($params);
+            $currency_ids = $currency_stmt->fetchAll(PDO::FETCH_ASSOC);
+            // 如果只有一个 currency，使用单个 currency_id；否则使用 null（表示不按 currency 过滤）
+            if (count($currency_ids) === 1) {
+                $currency_id = $currency_ids[0]['id'];
+                $currency_codes = [$currency_ids[0]['code']];
+            } else {
+                // 多个 currency，不设置 currency_id（显示所有 currency 的数据）
+                $currency_id = null;
+            }
+            error_log("Transaction History API: multiple currencies: " . implode(',', $currency_list) . ", company_id={$company_id}, will show all currencies");
+        }
     }
     
     // 查询账户信息 - 使用 account_company 表过滤
@@ -129,12 +157,13 @@ try {
     }
     
     // 1. 计算 B/F (Opening Balance)
-    // 如果指定了 currency，按 currency 计算
-    // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的 currency
+    // 如果指定了单个 currency，按 currency 计算
+    // 如果指定了多个 currency 或没有指定 currency，从 data_capture_details 中获取该账户实际使用的 currency
     $bfCurrency = null;
-    if ($currency_id) {
+    if ($currency_id && count($currency_codes) === 1) {
+        // 单个 currency，按该 currency 计算 B/F
         $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id);
-        $bfCurrency = $currency;
+        $bfCurrency = $currency_codes[0];
     } else {
         // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的第一个 currency
         // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
@@ -235,9 +264,16 @@ try {
     
     $captureParams = [$company_id, $company_id, $account_id, $date_from_db, $date_to_db];
     if ($currency_id) {
+        // 单个 currency
         $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
+    } else if (!empty($currency_codes) && count($currency_codes) > 1) {
+        // 多个 currency，使用 IN 查询
+        $placeholders = implode(',', array_fill(0, count($currency_codes), '?'));
+        $sqlCapture .= " AND dcd.currency_id IN (SELECT id FROM currency WHERE code IN ($placeholders) AND company_id = ?)";
+        $captureParams = array_merge($captureParams, $currency_codes, [$company_id]);
     }
+    // 如果没有指定 currency 或 currency_codes 为空，显示所有 currency 的数据（不添加过滤条件）
     
     $sqlCapture .= " ORDER BY dc.capture_date ASC, dc.created_at ASC, dcd.id ASC";
     $stmt = $pdo->prepare($sqlCapture);
@@ -297,32 +333,76 @@ try {
     if ($currency) {
         if ($has_currency_id) {
             // 如果表有 currency_id 字段，直接使用它
-            $sql .= " AND t.currency_id = ?";
-            $transactionParams[] = $currency_id;
+            if ($currency_id) {
+                // 单个 currency
+                $sql .= " AND t.currency_id = ?";
+                $transactionParams[] = $currency_id;
+            } else if (!empty($currency_codes) && count($currency_codes) > 1) {
+                // 多个 currency，使用 IN 查询
+                $placeholders = implode(',', array_fill(0, count($currency_codes), '?'));
+                $sql .= " AND t.currency_id IN (SELECT id FROM currency WHERE code IN ($placeholders) AND company_id = ?)";
+                $transactionParams = array_merge($transactionParams, $currency_codes, [$company_id]);
+            }
+            // 如果没有指定 currency_id 且 currency_codes 为空或只有一个，不添加过滤条件（显示所有 currency）
         } else {
             // 如果表没有 currency_id 字段，使用 data_capture_details 来过滤
             // 检查 To Account 或 From Account 在 data_capture_details 中是否有该 currency 的记录
             // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
-            $sql .= " AND (
-                (t.account_id = ? AND EXISTS (
-                    SELECT 1
-                    FROM data_capture_details dcd
-                    WHERE dcd.company_id = ?
-                      AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
-                      AND dcd.currency_id = ?
-                )) OR 
-                (t.from_account_id = ? AND EXISTS (
-                    SELECT 1
-                    FROM data_capture_details dcd
-                    WHERE dcd.company_id = ?
-                      AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
-                      AND dcd.currency_id = ?
-                ))
-            )";
-            $transactionParams[] = $account_id;
-            $transactionParams[] = $currency_id;
-            $transactionParams[] = $account_id;
-            $transactionParams[] = $currency_id;
+            if ($currency_id) {
+                // 单个 currency
+                $sql .= " AND (
+                    (t.account_id = ? AND EXISTS (
+                        SELECT 1
+                        FROM data_capture_details dcd
+                        WHERE dcd.company_id = ?
+                          AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
+                          AND dcd.currency_id = ?
+                    )) OR 
+                    (t.from_account_id = ? AND EXISTS (
+                        SELECT 1
+                        FROM data_capture_details dcd
+                        WHERE dcd.company_id = ?
+                          AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
+                          AND dcd.currency_id = ?
+                    ))
+                )";
+                $transactionParams[] = $account_id;
+                $transactionParams[] = $company_id;
+                $transactionParams[] = $currency_id;
+                $transactionParams[] = $account_id;
+                $transactionParams[] = $company_id;
+                $transactionParams[] = $currency_id;
+            } else if (!empty($currency_codes) && count($currency_codes) > 1) {
+                // 多个 currency，使用 IN 查询
+                $placeholders = implode(',', array_fill(0, count($currency_codes), '?'));
+                $sql .= " AND (
+                    (t.account_id = ? AND EXISTS (
+                        SELECT 1
+                        FROM data_capture_details dcd
+                        JOIN currency c ON dcd.currency_id = c.id
+                        WHERE dcd.company_id = ?
+                          AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
+                          AND c.code IN ($placeholders)
+                          AND c.company_id = ?
+                    )) OR 
+                    (t.from_account_id = ? AND EXISTS (
+                        SELECT 1
+                        FROM data_capture_details dcd
+                        JOIN currency c ON dcd.currency_id = c.id
+                        WHERE dcd.company_id = ?
+                          AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
+                          AND c.code IN ($placeholders)
+                          AND c.company_id = ?
+                    ))
+                )";
+                $transactionParams[] = $account_id;
+                $transactionParams[] = $company_id;
+                $transactionParams = array_merge($transactionParams, $currency_codes, [$company_id]);
+                $transactionParams[] = $account_id;
+                $transactionParams[] = $company_id;
+                $transactionParams = array_merge($transactionParams, $currency_codes, [$company_id]);
+            }
+            // 如果没有指定 currency_id 且 currency_codes 为空或只有一个，不添加过滤条件（显示所有 currency）
         }
     }
     
@@ -646,9 +726,18 @@ try {
                   AND h.transaction_date BETWEEN ? AND ?";
     $rateParams = [$company_id, $company_id, $account_id, $date_from_db, $date_to_db];
     
-    if ($currency && $currency_id) {
-        $rateSql .= " AND e.currency_id = ?";
-        $rateParams[] = $currency_id;
+    if ($currency) {
+        if ($currency_id) {
+            // 单个 currency
+            $rateSql .= " AND e.currency_id = ?";
+            $rateParams[] = $currency_id;
+        } else if (!empty($currency_codes) && count($currency_codes) > 1) {
+            // 多个 currency，使用 IN 查询
+            $placeholders = implode(',', array_fill(0, count($currency_codes), '?'));
+            $rateSql .= " AND e.currency_id IN (SELECT id FROM currency WHERE code IN ($placeholders) AND company_id = ?)";
+            $rateParams = array_merge($rateParams, $currency_codes, [$company_id]);
+        }
+        // 如果没有指定 currency_id 且 currency_codes 为空或只有一个，不添加过滤条件（显示所有 currency）
     }
     
     $rateSql .= " ORDER BY h.transaction_date ASC, h.created_at ASC, e.id ASC";

@@ -2934,13 +2934,23 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 return;
             }
             
-            // 构建 URL，优先使用该行的 currency，否则使用选中的 currency
+            // 构建 URL，优先使用选中的 currency（如果选择了多个或 All，显示所有 currency 的数据）
             let url = `transaction_history_api.php?account_id=${accountId}&date_from=${dateFrom}&date_to=${dateTo}`;
-            // 优先使用该行的 currency
-            if (rowCurrency) {
-                url += `&currency=${rowCurrency}`;
-            } else if (selectedCurrencies.length > 0) {
+            // 如果选择了多个 currency 或选择了 All，传递所有选中的 currency（或空，显示所有）
+            // 如果只选择了一个 currency，使用该 currency
+            // 如果该行的 currency 不在选中的 currency 列表中，使用选中的 currency（而不是该行的 currency）
+            if (showAllCurrencies) {
+                // 选择了 All，不传递 currency 参数（显示所有 currency 的数据）
+                // url 不添加 currency 参数
+            } else if (selectedCurrencies.length > 1) {
+                // 选择了多个 currency，传递所有选中的 currency
                 url += `&currency=${selectedCurrencies.join(',')}`;
+            } else if (selectedCurrencies.length === 1) {
+                // 只选择了一个 currency，使用该 currency
+                url += `&currency=${selectedCurrencies[0]}`;
+            } else if (rowCurrency) {
+                // 如果没有选中任何 currency，但该行有 currency，使用该行的 currency
+                url += `&currency=${rowCurrency}`;
             }
             if (currentCompanyId) {
                 url += `&company_id=${currentCompanyId}`;
