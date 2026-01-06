@@ -3529,7 +3529,7 @@ function getCurrentProcessId() {
         }
         
         // Get row label (A, B, C, etc.) from process value
-        function getRowLabelFromProcessValue(processValue) {
+        function getRowLabelFromProcessValue(processValue, currentEditRow = null) {
             try {
                 // Get data capture table data
                 let parsedTableData;
@@ -3543,8 +3543,106 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 }
                 
+                // If currentEditRow is provided, use it to find the correct row index
+                // This ensures we get the correct row_label when there are multiple rows with same id_product
+                let rowIndex = null;
+                if (currentEditRow || window.currentEditRow) {
+                    const editRow = currentEditRow || window.currentEditRow;
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    if (summaryTableBody && editRow) {
+                        const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                        const normalizedProcessValue = normalizeIdProductText(processValue);
+                        const productType = editRow.getAttribute('data-product-type') || 'main';
+                        
+                        let targetMainRow = null;
+                        
+                        if (productType === 'sub') {
+                            // For sub row, find its parent main row
+                            const currentRowIndex = allRows.indexOf(editRow);
+                            if (currentRowIndex > 0) {
+                                for (let i = currentRowIndex - 1; i >= 0; i--) {
+                                    const row = allRows[i];
+                                    const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                    if (rowProductType === 'main') {
+                                        const idProductCell = row.querySelector('td:first-child');
+                                        const productValues = getProductValuesFromCell(idProductCell);
+                                        const mainText = normalizeIdProductText(productValues.main || '');
+                                        
+                                        if (mainText === normalizedProcessValue) {
+                                            targetMainRow = row;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (!targetMainRow) {
+                                const parentIdProduct = editRow.getAttribute('data-parent-id-product');
+                                if (parentIdProduct) {
+                                    const normalizedParentId = normalizeIdProductText(parentIdProduct);
+                                    for (const row of allRows) {
+                                        const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                        if (rowProductType === 'main') {
+                                            const idProductCell = row.querySelector('td:first-child');
+                                            const productValues = getProductValuesFromCell(idProductCell);
+                                            const mainText = normalizeIdProductText(productValues.main || '');
+                                            if (mainText === normalizedParentId) {
+                                                targetMainRow = row;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            targetMainRow = editRow;
+                        }
+                        
+                        if (targetMainRow) {
+                            // Find all summary rows with the same id_product (main rows only)
+                            const matchingSummaryRows = [];
+                            allRows.forEach((row, index) => {
+                                const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                if (rowProductType !== 'main') return;
+                                
+                                const idProductCell = row.querySelector('td:first-child');
+                                const productValues = getProductValuesFromCell(idProductCell);
+                                const mainText = normalizeIdProductText(productValues.main || '');
+                                
+                                if (mainText === normalizedProcessValue) {
+                                    matchingSummaryRows.push({ row, index });
+                                }
+                            });
+                            
+                            // Find the index of targetMainRow in matchingSummaryRows
+                            const currentRowIndex = matchingSummaryRows.findIndex(item => item.row === targetMainRow);
+                            if (currentRowIndex >= 0) {
+                                // Find corresponding row index in data capture table
+                                const matchingDataCaptureRows = [];
+                                if (parsedTableData.rows) {
+                                    parsedTableData.rows.forEach((row, index) => {
+                                        if (row.length > 1 && row[1].type === 'data') {
+                                            const rowValue = row[1].value;
+                                            const normalizedRowValue = normalizeIdProductText(rowValue);
+                                            if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
+                                                matchingDataCaptureRows.push(index);
+                                            }
+                                        }
+                                    });
+                                }
+                                
+                                // Use the same position in data capture table as in summary table
+                                if (currentRowIndex < matchingDataCaptureRows.length) {
+                                    rowIndex = matchingDataCaptureRows[currentRowIndex];
+                                    console.log('getRowLabelFromProcessValue - Using data capture table row index:', rowIndex, 'for summary row index:', currentRowIndex);
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 // Find the row that matches the process value
-                const processRow = findProcessRow(parsedTableData, processValue);
+                const processRow = findProcessRow(parsedTableData, processValue, rowIndex);
                 if (!processRow || processRow.length === 0) {
                     return null;
                 }
@@ -4944,7 +5042,8 @@ function getCurrentProcessId() {
             const currentIdProduct = processInput ? processInput.value.trim() : null;
             
             // Get current editing row_label (to distinguish between rows with same id_product)
-            const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+            // IMPORTANT: Pass currentEditRow to ensure we get the correct row_label when there are multiple rows with same id_product
+            const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct, window.currentEditRow) : null;
             
             // Get clicked cell's row_label
             let clickedRowLabel = cell.getAttribute('data-row-label');
@@ -6100,7 +6199,7 @@ function getCurrentProcessId() {
                         
                         // 如果没有找到匹配的引用，使用当前编辑的 id_product 作为回退
                         if (!matched) {
-                            const rowLabel = getRowLabelFromProcessValue(processValue);
+                            const rowLabel = getRowLabelFromProcessValue(processValue, window.currentEditRow);
                             if (rowLabel) {
                                 const columnRef = `${processValue}:${rowLabel}:${dollarMatch.displayColumnIndex}`;
                                 if (!columnRefs.includes(columnRef)) {
@@ -6119,7 +6218,7 @@ function getCurrentProcessId() {
                 // 如果没有 data-clicked-cell-refs，从 formulaValue 中提取所有 $数字，转换为列引用格式
                 // 这种情况下，使用当前编辑的 id_product（processValue）
                 if (!sourceColumns) {
-                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    const rowLabel = getRowLabelFromProcessValue(processValue, window.currentEditRow);
                     if (rowLabel) {
                         const dollarPattern = /\$(\d+)(?!\d)/g;
                         let match;
@@ -6147,7 +6246,7 @@ function getCurrentProcessId() {
                     if (!sourceColumns && formulaInput) {
                         const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
                         if (clickedColumns && clickedColumns.trim() !== '') {
-                            const rowLabel = getRowLabelFromProcessValue(processValue);
+                            const rowLabel = getRowLabelFromProcessValue(processValue, window.currentEditRow);
                             if (rowLabel) {
                                 const columnsArray = clickedColumns.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c) && c > 0);
                                 if (columnsArray.length > 0) {
