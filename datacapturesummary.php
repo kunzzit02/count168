@@ -1403,37 +1403,11 @@ function getCurrentProcessId() {
             // Sub row: Main value is empty, Sub value may have content or be empty
             const isSubIdProduct = !productValues.main || !productValues.main.trim();
             
-            // Get row label to distinguish between multiple rows with same id product
-            // First try to get from summary table row
-            let rowLabel = null;
-            const rowHeaderCell = row.querySelector('.row-header');
-            if (rowHeaderCell) {
-                rowLabel = rowHeaderCell.getAttribute('data-row-label') || rowHeaderCell.textContent.trim() || null;
-            }
-            
-            // If not found in summary table, try to get from captured table using data-row-index
-            if (!rowLabel) {
-                const rowIndex = row.getAttribute('data-row-index');
-                if (rowIndex !== null) {
-                    const capturedTableBody = document.getElementById('capturedTableBody');
-                    if (capturedTableBody) {
-                        const capturedRows = capturedTableBody.querySelectorAll('tr');
-                        const capturedRow = capturedRows[parseInt(rowIndex, 10)];
-                        if (capturedRow) {
-                            const capturedRowHeaderCell = capturedRow.querySelector('.row-header');
-                            if (capturedRowHeaderCell) {
-                                rowLabel = capturedRowHeaderCell.getAttribute('data-row-label') || capturedRowHeaderCell.textContent.trim() || null;
-                            }
-                        }
-                    }
-                }
-            }
-            
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
             
-            // 从 Add button 进入，一律视为"新增"，不带任何预填数据
-            console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct, 'rowLabel:', rowLabel);
+            // 从 Add button 进入，一律视为“新增”，不带任何预填数据
+            console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
             
             // 打开空白表单（edit 按钮才负责加载旧数据）
             showEditFormulaForm(productValue, isSubIdProduct, {
@@ -1448,11 +1422,11 @@ function getCurrentProcessId() {
                 enableInputMethod: false,
                 enableSourcePercent: true,
                 clickedColumns: ''
-            }, rowLabel);
+            });
         }
 
         // Show Edit Formula Form as modal positioned slightly towards top
-        function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null, rowLabel = null) {
+        function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
             // Ensure modal container exists
             let modal = document.getElementById('editFormulaModal');
             let modalContent = document.getElementById('editFormulaModalContent');
@@ -1668,13 +1642,6 @@ function getCurrentProcessId() {
                     populateFormWithData({});
                 }
             });
-            
-            // Store rowLabel globally for updateFormulaDataGrid to use
-            if (rowLabel) {
-                window.currentEditingRowLabel = rowLabel;
-            } else {
-                window.currentEditingRowLabel = null;
-            }
             
             // Load id product list into first select box
             loadIdProductList();
@@ -2582,9 +2549,6 @@ function getCurrentProcessId() {
                 return;
             }
 
-            // Get row label if specified (to distinguish between multiple rows with same id product)
-            const rowLabel = window.currentEditingRowLabel || null;
-
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2624,16 +2588,7 @@ function getCurrentProcessId() {
                 const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
                 const normalizedIdProduct = normalizeIdProductText(idProduct || '');
                 
-                // Check if id product matches
                 if (normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
-                    // If rowLabel is specified, also check if it matches
-                    if (rowLabel) {
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        const rowHeaderLabel = rowHeaderCell ? (rowHeaderCell.getAttribute('data-row-label') || rowHeaderCell.textContent.trim()) : '';
-                        if (rowHeaderLabel !== rowLabel) {
-                            return; // Skip this row if row label doesn't match
-                        }
-                    }
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
                     rowContainer.className = 'formula-data-grid-row';
@@ -10174,32 +10129,6 @@ function getCurrentProcessId() {
                 sourcePercent: sourcePercentValue
             });
             
-            // Get row label to distinguish between multiple rows with same id product
-            // First try to get from summary table row
-            let rowLabel = null;
-            const rowHeaderCell = row.querySelector('.row-header');
-            if (rowHeaderCell) {
-                rowLabel = rowHeaderCell.getAttribute('data-row-label') || rowHeaderCell.textContent.trim() || null;
-            }
-            
-            // If not found in summary table, try to get from captured table using data-row-index
-            if (!rowLabel) {
-                const rowIndex = row.getAttribute('data-row-index');
-                if (rowIndex !== null) {
-                    const capturedTableBody = document.getElementById('capturedTableBody');
-                    if (capturedTableBody) {
-                        const capturedRows = capturedTableBody.querySelectorAll('tr');
-                        const capturedRow = capturedRows[parseInt(rowIndex, 10)];
-                        if (capturedRow) {
-                            const capturedRowHeaderCell = capturedRow.querySelector('.row-header');
-                            if (capturedRowHeaderCell) {
-                                rowLabel = capturedRowHeaderCell.getAttribute('data-row-label') || capturedRowHeaderCell.textContent.trim() || null;
-                            }
-                        }
-                    }
-                }
-            }
-            
             // Show the Edit Formula form with pre-populated data
             showEditFormulaForm(processValue, false, {
                 account: accountValue,
@@ -10213,7 +10142,7 @@ function getCurrentProcessId() {
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
                 clickedColumns: clickedColumns // Pass clicked columns for restoration
-            }, rowLabel);
+            });
         }
         
         // Helper function to get process value from row
