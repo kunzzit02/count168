@@ -1226,10 +1226,11 @@ function getCurrentProcessId() {
                     return null;
                 }
                 
-                // columnIndex is 1-based data column index (1 = first data column)
-                // In processRow: index 0 = row header, index 1 = id_product, index 2 = first data column (column 1)
-                // So: columnIndex 1 -> processRow index 2, columnIndex 2 -> processRow index 3, etc.
-                const processRowIndex = columnIndex + 1; // Convert 1-based column index to processRow index
+                // columnIndex is 0-based data column index (0 = first data column, which is displayColumnIndex 1)
+                // In processRow: index 0 = row header, index 1 = id_product, index 2 = first data column (column 1, dataColumnIndex 0)
+                // So: dataColumnIndex 0 -> processRow index 2, dataColumnIndex 1 -> processRow index 3, etc.
+                // Formula: processRowIndex = dataColumnIndex + 2
+                const processRowIndex = columnIndex + 2; // Convert 0-based dataColumnIndex to processRow index
                 
                 if (processRowIndex >= 2 && processRowIndex < processRow.length) {
                     const cellData = processRow[processRowIndex];
@@ -6034,28 +6035,53 @@ function getCurrentProcessId() {
                     const refs = clickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
                     const columnRefs = [];
                     
-                    // 匹配所有 $数字，按顺序匹配对应的引用
+                    // 匹配所有 $数字 和 [id_product,数字] 格式，按顺序匹配对应的引用
                     const dollarPattern = /\$(\d+)(?!\d)/g;
+                    const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
                     let match;
-                    dollarPattern.lastIndex = 0;
-                    const dollarMatches = [];
+                    const allMatches = [];
                     
+                    // 先匹配 $数字 格式（当前row）
+                    dollarPattern.lastIndex = 0;
                     while ((match = dollarPattern.exec(formulaValue)) !== null) {
                         const columnNumber = parseInt(match[1]);
                         if (!isNaN(columnNumber) && columnNumber > 0) {
-                            dollarMatches.push({
+                            allMatches.push({
+                                type: 'dollar',
                                 columnNumber: columnNumber,
                                 displayColumnIndex: columnNumber,
-                                dataColumnIndex: columnNumber - 1
+                                dataColumnIndex: columnNumber - 1,
+                                idProduct: processValue, // 当前row使用processValue
+                                matchIndex: match.index
                             });
                         }
                     }
                     
-                    // 按顺序匹配：第一个 $数字 匹配第一个引用，第二个 $数字 匹配第二个引用
+                    // 再匹配 [id_product,数字] 格式（其他row）
+                    bracketPattern.lastIndex = 0;
+                    while ((match = bracketPattern.exec(formulaValue)) !== null) {
+                        const idProduct = match[1].trim();
+                        const columnNumber = parseInt(match[2]);
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            allMatches.push({
+                                type: 'bracket',
+                                columnNumber: columnNumber,
+                                displayColumnIndex: columnNumber,
+                                dataColumnIndex: columnNumber - 1,
+                                idProduct: idProduct,
+                                matchIndex: match.index
+                            });
+                        }
+                    }
+                    
+                    // 按在formula中的出现顺序排序
+                    allMatches.sort((a, b) => a.matchIndex - b.matchIndex);
+                    
+                    // 按顺序匹配：第一个匹配项匹配第一个引用，第二个匹配项匹配第二个引用
                     // IMPORTANT: 引用中存储的是 dataColumnIndex，需要匹配
                     let refIndex = 0; // 跟踪已使用的引用索引
-                    for (let i = 0; i < dollarMatches.length; i++) {
-                        const dollarMatch = dollarMatches[i];
+                    for (let i = 0; i < allMatches.length; i++) {
+                        const formulaMatch = allMatches[i];
                         let matched = false;
                         
                         // 从 refIndex 开始查找匹配的引用
@@ -6068,8 +6094,12 @@ function getCurrentProcessId() {
                                 const refDataColumnIndex = parseInt(parts[parts.length - 1]);
                                 const refRowLabel = parts.length === 3 ? parts[1] : null;
                                 
-                                // 检查 dataColumnIndex 是否匹配
-                                if (!isNaN(refDataColumnIndex) && refDataColumnIndex === dollarMatch.dataColumnIndex) {
+                                // 检查 dataColumnIndex 和 id_product 是否匹配
+                                // CRITICAL FIX: 对于 [id_product,数字] 格式，必须同时匹配 id_product 和 dataColumnIndex
+                                const idProductMatches = normalizeIdProductText(refIdProduct) === normalizeIdProductText(formulaMatch.idProduct);
+                                const dataColumnIndexMatches = !isNaN(refDataColumnIndex) && refDataColumnIndex === formulaMatch.dataColumnIndex;
+                                
+                                if (idProductMatches && dataColumnIndexMatches) {
                                     // 构建保存格式：id_product:row_label:displayColumnIndex
                                     // 如果引用中有 row_label，使用它；否则尝试获取
                                     let rowLabel = refRowLabel;
@@ -6079,13 +6109,13 @@ function getCurrentProcessId() {
                                     }
                                     
                                     if (rowLabel) {
-                                        const columnRef = `${refIdProduct}:${rowLabel}:${dollarMatch.displayColumnIndex}`;
+                                        const columnRef = `${refIdProduct}:${rowLabel}:${formulaMatch.displayColumnIndex}`;
                                         if (!columnRefs.includes(columnRef)) {
                                             columnRefs.push(columnRef);
                                         }
                                     } else {
                                         // 如果没有 row_label，使用简化格式：id_product:displayColumnIndex
-                                        const columnRef = `${refIdProduct}:${dollarMatch.displayColumnIndex}`;
+                                        const columnRef = `${refIdProduct}:${formulaMatch.displayColumnIndex}`;
                                         if (!columnRefs.includes(columnRef)) {
                                             columnRefs.push(columnRef);
                                         }
@@ -6098,11 +6128,17 @@ function getCurrentProcessId() {
                             }
                         }
                         
-                        // 如果没有找到匹配的引用，使用当前编辑的 id_product 作为回退
+                        // 如果没有找到匹配的引用，使用formula中的id_product和displayColumnIndex作为回退
                         if (!matched) {
-                            const rowLabel = getRowLabelFromProcessValue(processValue);
+                            const rowLabel = getRowLabelFromProcessValue(formulaMatch.idProduct);
                             if (rowLabel) {
-                                const columnRef = `${processValue}:${rowLabel}:${dollarMatch.displayColumnIndex}`;
+                                const columnRef = `${formulaMatch.idProduct}:${rowLabel}:${formulaMatch.displayColumnIndex}`;
+                                if (!columnRefs.includes(columnRef)) {
+                                    columnRefs.push(columnRef);
+                                }
+                            } else {
+                                // 如果没有 row_label，使用简化格式
+                                const columnRef = `${formulaMatch.idProduct}:${formulaMatch.displayColumnIndex}`;
                                 if (!columnRefs.includes(columnRef)) {
                                     columnRefs.push(columnRef);
                                 }
@@ -6116,16 +6152,16 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // 如果没有 data-clicked-cell-refs，从 formulaValue 中提取所有 $数字，转换为列引用格式
-                // 这种情况下，使用当前编辑的 id_product（processValue）
+                // 如果没有 data-clicked-cell-refs，从 formulaValue 中提取所有 $数字 和 [id_product,数字]，转换为列引用格式
                 if (!sourceColumns) {
+                    const columnRefs = [];
+                    
+                    // 匹配 $数字 格式（当前row）
+                    const dollarPattern = /\$(\d+)(?!\d)/g;
+                    let match;
+                    dollarPattern.lastIndex = 0;
                     const rowLabel = getRowLabelFromProcessValue(processValue);
                     if (rowLabel) {
-                        const dollarPattern = /\$(\d+)(?!\d)/g;
-                        let match;
-                        dollarPattern.lastIndex = 0;
-                        const columnRefs = [];
-                        
                         while ((match = dollarPattern.exec(formulaValue)) !== null) {
                             const columnNumber = parseInt(match[1]);
                             if (!isNaN(columnNumber) && columnNumber > 0) {
@@ -6136,11 +6172,37 @@ function getCurrentProcessId() {
                                 }
                             }
                         }
-                        
-                        if (columnRefs.length > 0) {
-                            sourceColumns = columnRefs.join(' ');
+                    }
+                    
+                    // 匹配 [id_product,数字] 格式（其他row）
+                    const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
+                    bracketPattern.lastIndex = 0;
+                    while ((match = bracketPattern.exec(formulaValue)) !== null) {
+                        const idProduct = match[1].trim();
+                        const columnNumber = parseInt(match[2]);
+                        if (!isNaN(columnNumber) && columnNumber > 0) {
+                            const otherRowLabel = getRowLabelFromProcessValue(idProduct);
+                            if (otherRowLabel) {
+                                // 格式：id_product:row_label:column_index
+                                const columnRef = `${idProduct}:${otherRowLabel}:${columnNumber}`;
+                                if (!columnRefs.includes(columnRef)) {
+                                    columnRefs.push(columnRef);
+                                }
+                            } else {
+                                // 如果没有 row_label，使用简化格式：id_product:column_index
+                                const columnRef = `${idProduct}:${columnNumber}`;
+                                if (!columnRefs.includes(columnRef)) {
+                                    columnRefs.push(columnRef);
+                                }
+                            }
                         }
                     }
+                    
+                    if (columnRefs.length > 0) {
+                        sourceColumns = columnRefs.join(' ');
+                        console.log('saveFormula - Built sourceColumns from formula:', sourceColumns);
+                    }
+                }
                     
                     // 如果从 $数字 格式中没有提取到列引用，尝试从 data-clicked-columns 属性中获取
                     // 这适用于用户通过键盘直接输入数字（如"2+6"）的情况
