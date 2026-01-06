@@ -2484,8 +2484,26 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
+            
+            // CRITICAL: If window.currentEditRow exists and matches the id_product,
+            // prioritize showing data from that specific row
+            // This ensures consistency when editing a specific row
+            let targetRow = null;
+            if (window.currentEditRow) {
+                const currentEditRowIdProduct = window.currentEditRow.getAttribute('data-id-product');
+                if (currentEditRowIdProduct && currentEditRowIdProduct.trim() === idProduct.trim()) {
+                    targetRow = window.currentEditRow;
+                    console.log('updateIdProductRowData: Using currentEditRow for id_product:', idProduct);
+                }
+            }
+            
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
+                
+                // If we have a target row, only process that row
+                if (targetRow && row !== targetRow) {
+                    return;
+                }
                 
                 // Check if id_product matches
                 if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
@@ -2566,7 +2584,33 @@ function getCurrentProcessId() {
             if (!capturedTableBody) return;
 
             const rows = capturedTableBody.querySelectorAll('tr');
-            rows.forEach((row, rowIndex) => {
+            
+            // CRITICAL: If window.currentEditRow exists, only show data from that specific row
+            // This ensures that when there are multiple rows with the same id_product,
+            // we show data from the row that was actually clicked, not the first matching row
+            let targetRow = null;
+            let targetRowIndex = null;
+            
+            if (window.currentEditRow) {
+                // Find the index of the current edit row
+                for (let i = 0; i < rows.length; i++) {
+                    if (rows[i] === window.currentEditRow) {
+                        targetRow = window.currentEditRow;
+                        targetRowIndex = i;
+                        console.log('updateFormulaDataGrid: Using currentEditRow at index:', targetRowIndex);
+                        break;
+                    }
+                }
+            }
+            
+            // If we found a target row, only process that row
+            // Otherwise, process all matching rows (fallback behavior)
+            const rowsToProcess = targetRow ? [targetRow] : rows;
+            const startIndex = targetRowIndex !== null ? targetRowIndex : 0;
+            
+            rowsToProcess.forEach((row, relativeIndex) => {
+                const rowIndex = targetRowIndex !== null ? targetRowIndex : (startIndex + relativeIndex);
+                
                 // Try to get id_product from data-id-product attribute first
                 let rowIdProduct = row.getAttribute('data-id-product');
                 
@@ -2588,7 +2632,11 @@ function getCurrentProcessId() {
                 const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
                 const normalizedIdProduct = normalizeIdProductText(idProduct || '');
                 
-                if (normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
+                // If we have a target row, always process it (even if id_product doesn't match exactly)
+                // Otherwise, only process if id_product matches
+                const shouldProcess = targetRow ? (row === targetRow) : (normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct);
+                
+                if (shouldProcess) {
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
                     rowContainer.className = 'formula-data-grid-row';
