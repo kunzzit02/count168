@@ -772,9 +772,69 @@ function getCurrentProcessId() {
             
             console.log('Column A data:', columnAData);
             
+            // 检测重复的 idProduct 并添加序号前缀
+            // 例如：如果有两个 "M99M06"，会变成 "1. M99M06" 和 "2. M99M06"
+            const processedColumnAData = [];
+            if (columnAData.length > 0) {
+                // 辅助函数：去除可能存在的序号前缀（例如 "1. M99M06" -> "M99M06"）
+                const removeNumberPrefix = (text) => {
+                    if (!text) return text;
+                    // 匹配开头的 "数字. " 格式
+                    const match = text.match(/^\d+\.\s+(.+)$/);
+                    return match ? match[1] : text;
+                };
+                
+                // 创建一个 Map 来跟踪每个 idProduct（去除序号前缀后）出现的次数和位置
+                const idProductCount = new Map();
+                
+                // 第一遍：统计每个 idProduct（去除序号前缀后）出现的次数和记录索引
+                columnAData.forEach((value, index) => {
+                    if (value && value.trim() !== '') {
+                        // 去除可能存在的序号前缀后再进行比较
+                        const normalizedIdProduct = removeNumberPrefix(value.trim());
+                        if (!idProductCount.has(normalizedIdProduct)) {
+                            idProductCount.set(normalizedIdProduct, []);
+                        }
+                        idProductCount.get(normalizedIdProduct).push(index);
+                    }
+                });
+                
+                // 第二遍：为重复的 idProduct 添加序号前缀
+                columnAData.forEach((value, index) => {
+                    if (value && value.trim() !== '') {
+                        // 去除可能存在的序号前缀后再进行比较
+                        const normalizedIdProduct = removeNumberPrefix(value.trim());
+                        const indices = idProductCount.get(normalizedIdProduct);
+                        
+                        if (indices && indices.length > 1) {
+                            // 有重复的 idProduct，需要添加序号前缀
+                            // 找到当前 value 在重复列表中的位置
+                            const sequenceIndex = indices.indexOf(index);
+                            if (sequenceIndex >= 0) {
+                                const sequenceNumber = sequenceIndex + 1;
+                                const prefix = `${sequenceNumber}. `;
+                                // 去除可能存在的旧序号前缀
+                                const currentIdProduct = removeNumberPrefix(value.trim());
+                                processedColumnAData.push(prefix + currentIdProduct);
+                                console.log(`Added prefix to duplicate idProduct: "${normalizedIdProduct}" -> "${prefix + currentIdProduct}"`);
+                            } else {
+                                processedColumnAData.push(value);
+                            }
+                        } else {
+                            // 没有重复，保持原样
+                            processedColumnAData.push(value);
+                        }
+                    } else {
+                        processedColumnAData.push(value);
+                    }
+                });
+            } else {
+                processedColumnAData.push(...columnAData);
+            }
+            
             // Create rows for the original table
             // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
-            columnAData.forEach((value, index) => {
+            processedColumnAData.forEach((value, index) => {
                 if (value && value.trim() !== '') { // Only add non-empty values
                     const row = document.createElement('tr');
                     
@@ -15736,8 +15796,9 @@ function formatPercentValue(value) {
                     });
                 });
                 
-                // 检测重复的 idProduct 并添加序号前缀
+                // 检测重复的 idProduct 并添加序号前缀（如果还没有添加的话）
                 // 例如：如果有两个 "M99M06"，会变成 "1. M99M06" 和 "2. M99M06"
+                // 注意：如果前缀已经在显示时添加了，这里会检测到并保持原样
                 if (summaryRows.length > 0) {
                     // 辅助函数：去除可能存在的序号前缀（例如 "1. M99M06" -> "M99M06"）
                     const removeNumberPrefix = (text) => {
@@ -15763,7 +15824,7 @@ function formatPercentValue(value) {
                         }
                     });
                     
-                    // 第二遍：为重复的 idProduct 添加序号前缀
+                    // 第二遍：为重复的 idProduct 添加序号前缀（如果还没有前缀）
                     idProductCount.forEach((indices, normalizedIdProduct) => {
                         if (indices.length > 1) {
                             // 有重复的 idProduct，需要添加序号前缀
@@ -15782,31 +15843,42 @@ function formatPercentValue(value) {
                             // 为每个重复的 idProduct 添加序号前缀
                             sortedIndices.forEach((rowIndex, sequenceIndex) => {
                                 const row = summaryRows[rowIndex];
-                                const sequenceNumber = sequenceIndex + 1;
-                                const prefix = `${sequenceNumber}. `;
+                                const currentIdProduct = row.idProduct;
                                 
-                                // 去除可能存在的旧序号前缀
-                                const currentIdProduct = removeNumberPrefix(row.idProduct);
-                                const currentIdProductMain = row.idProductMain ? removeNumberPrefix(row.idProductMain) : null;
-                                const currentIdProductSub = row.idProductSub ? removeNumberPrefix(row.idProductSub) : null;
+                                // 检查是否已经有前缀
+                                const hasPrefix = /^\d+\.\s+/.test(currentIdProduct);
                                 
-                                // 根据 productType 更新相应的字段
-                                if (row.productType === 'sub') {
-                                    // 更新 idProductSub
-                                    if (currentIdProductSub) {
-                                        row.idProductSub = prefix + currentIdProductSub;
+                                if (!hasPrefix) {
+                                    // 如果没有前缀，添加前缀
+                                    const sequenceNumber = sequenceIndex + 1;
+                                    const prefix = `${sequenceNumber}. `;
+                                    
+                                    // 去除可能存在的旧序号前缀（虽然理论上不应该有）
+                                    const cleanIdProduct = removeNumberPrefix(currentIdProduct);
+                                    const cleanIdProductMain = row.idProductMain ? removeNumberPrefix(row.idProductMain) : null;
+                                    const cleanIdProductSub = row.idProductSub ? removeNumberPrefix(row.idProductSub) : null;
+                                    
+                                    // 根据 productType 更新相应的字段
+                                    if (row.productType === 'sub') {
+                                        // 更新 idProductSub
+                                        if (cleanIdProductSub) {
+                                            row.idProductSub = prefix + cleanIdProductSub;
+                                        }
+                                    } else {
+                                        // 更新 idProductMain
+                                        if (cleanIdProductMain) {
+                                            row.idProductMain = prefix + cleanIdProductMain;
+                                        }
                                     }
+                                    
+                                    // 更新 idProduct 字段
+                                    row.idProduct = prefix + cleanIdProduct;
+                                    
+                                    console.log(`Added prefix to duplicate idProduct: "${normalizedIdProduct}" -> "${row.idProduct}"`);
                                 } else {
-                                    // 更新 idProductMain
-                                    if (currentIdProductMain) {
-                                        row.idProductMain = prefix + currentIdProductMain;
-                                    }
+                                    // 已经有前缀，保持原样
+                                    console.log(`idProduct already has prefix: "${currentIdProduct}"`);
                                 }
-                                
-                                // 更新 idProduct 字段
-                                row.idProduct = prefix + currentIdProduct;
-                                
-                                console.log(`Added prefix to duplicate idProduct: "${normalizedIdProduct}" -> "${row.idProduct}"`);
                             });
                         }
                     });
