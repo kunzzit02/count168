@@ -2565,6 +2565,98 @@ function getCurrentProcessId() {
             const capturedTableBody = document.getElementById('capturedTableBody');
             if (!capturedTableBody) return;
 
+            // IMPORTANT: Identify which row in data capture table corresponds to current editing row
+            // This ensures we only show data from the correct row when there are multiple rows with same id_product
+            let targetDataCaptureRowIndex = null;
+            if (window.currentEditRow) {
+                const summaryTableBody = document.getElementById('summaryTableBody');
+                if (summaryTableBody) {
+                    const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    const normalizedIdProduct = normalizeIdProductText(idProduct);
+                    const productType = window.currentEditRow.getAttribute('data-product-type') || 'main';
+                    
+                    let targetMainRow = null;
+                    
+                    if (productType === 'sub') {
+                        const currentRowIndex = allRows.indexOf(window.currentEditRow);
+                        if (currentRowIndex > 0) {
+                            for (let i = currentRowIndex - 1; i >= 0; i--) {
+                                const row = allRows[i];
+                                const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                if (rowProductType === 'main') {
+                                    const idProductCell = row.querySelector('td:first-child');
+                                    const productValues = getProductValuesFromCell(idProductCell);
+                                    const mainText = normalizeIdProductText(productValues.main || '');
+                                    
+                                    if (mainText === normalizedIdProduct) {
+                                        targetMainRow = row;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        if (!targetMainRow) {
+                            const parentIdProduct = window.currentEditRow.getAttribute('data-parent-id-product');
+                            if (parentIdProduct) {
+                                const normalizedParentId = normalizeIdProductText(parentIdProduct);
+                                for (const row of allRows) {
+                                    const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                    if (rowProductType === 'main') {
+                                        const idProductCell = row.querySelector('td:first-child');
+                                        const productValues = getProductValuesFromCell(idProductCell);
+                                        const mainText = normalizeIdProductText(productValues.main || '');
+                                        if (mainText === normalizedParentId) {
+                                            targetMainRow = row;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        targetMainRow = window.currentEditRow;
+                    }
+                    
+                    if (targetMainRow) {
+                        const matchingSummaryRows = [];
+                        allRows.forEach((row, index) => {
+                            const rowProductType = row.getAttribute('data-product-type') || 'main';
+                            if (rowProductType !== 'main') return;
+                            
+                            const idProductCell = row.querySelector('td:first-child');
+                            const productValues = getProductValuesFromCell(idProductCell);
+                            const mainText = normalizeIdProductText(productValues.main || '');
+                            
+                            if (mainText === normalizedIdProduct) {
+                                matchingSummaryRows.push({ row, index });
+                            }
+                        });
+                        
+                        const currentRowIndex = matchingSummaryRows.findIndex(item => item.row === targetMainRow);
+                        if (currentRowIndex >= 0) {
+                            const matchingDataCaptureRows = [];
+                            if (parsedTableData.rows) {
+                                parsedTableData.rows.forEach((row, index) => {
+                                    if (row.length > 1 && row[1].type === 'data') {
+                                        const rowValue = row[1].value;
+                                        const normalizedRowValue = normalizeIdProductText(rowValue);
+                                        if (rowValue === idProduct || (normalizedRowValue && normalizedRowValue === normalizedIdProduct)) {
+                                            matchingDataCaptureRows.push(index);
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            if (currentRowIndex < matchingDataCaptureRows.length) {
+                                targetDataCaptureRowIndex = matchingDataCaptureRows[currentRowIndex];
+                                console.log('updateFormulaDataGrid - Using data capture table row index:', targetDataCaptureRowIndex, 'for summary row index:', currentRowIndex);
+                            }
+                        }
+                    }
+                }
+            }
+
             const rows = capturedTableBody.querySelectorAll('tr');
             rows.forEach((row, rowIndex) => {
                 // Try to get id_product from data-id-product attribute first
@@ -2588,7 +2680,13 @@ function getCurrentProcessId() {
                 const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
                 const normalizedIdProduct = normalizeIdProductText(idProduct || '');
                 
-                if (normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
+                // IMPORTANT: Only show the row that matches the current editing row
+                // If targetDataCaptureRowIndex is set, only show that specific row
+                // Otherwise, show all matching rows (backward compatibility)
+                const shouldShowRow = normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct &&
+                                     (targetDataCaptureRowIndex === null || rowIndex === targetDataCaptureRowIndex);
+                
+                if (shouldShowRow) {
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
                     rowContainer.className = 'formula-data-grid-row';
