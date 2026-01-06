@@ -750,6 +750,42 @@ function getCurrentProcessId() {
             }, 100);
         }
 
+        // Helper function to detect and rename duplicate id products
+        // Returns an array of renamed values with prefix numbers (e.g., "1. M99M06", "2. M99M06")
+        function renameDuplicateIdProducts(idProductArray) {
+            // Count occurrences of each id product
+            const idProductCount = new Map();
+            idProductArray.forEach(idProduct => {
+                if (idProduct && idProduct.trim() !== '') {
+                    const normalizedId = idProduct.trim();
+                    idProductCount.set(normalizedId, (idProductCount.get(normalizedId) || 0) + 1);
+                }
+            });
+            
+            // Create a map to track the current occurrence number for each id product
+            const occurrenceMap = new Map();
+            
+            // Rename duplicates: add prefix "1.", "2.", "3.", etc. to all occurrences
+            return idProductArray.map(idProduct => {
+                if (!idProduct || idProduct.trim() === '') {
+                    return idProduct; // Keep empty values as is
+                }
+                
+                const normalizedId = idProduct.trim();
+                const count = idProductCount.get(normalizedId);
+                
+                // If this id product appears more than once, add prefix
+                if (count > 1) {
+                    const currentOccurrence = (occurrenceMap.get(normalizedId) || 0) + 1;
+                    occurrenceMap.set(normalizedId, currentOccurrence);
+                    return `${currentOccurrence}. ${normalizedId}`;
+                } else {
+                    // Single occurrence, keep original
+                    return normalizedId;
+                }
+            });
+        }
+
         // Populate the original table's Id Product column with data from column A
         function populateOriginalTableWithColumnAData(tableData) {
             const originalTableBody = document.getElementById('summaryTableBody');
@@ -772,9 +808,13 @@ function getCurrentProcessId() {
             
             console.log('Column A data:', columnAData);
             
+            // Detect and rename duplicate id products
+            const renamedColumnAData = renameDuplicateIdProducts(columnAData);
+            console.log('Renamed Column A data (duplicates handled):', renamedColumnAData);
+            
             // Create rows for the original table
             // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
-            columnAData.forEach((value, index) => {
+            renamedColumnAData.forEach((value, index) => {
                 if (value && value.trim() !== '') { // Only add non-empty values
                     const row = document.createElement('tr');
                     
@@ -801,7 +841,7 @@ function getCurrentProcessId() {
                     addButton.className = 'add-account-btn';
                     addButton.innerHTML = '+';
                     addButton.onclick = function() {
-                        handleAddAccount(this, value); // Pass the product value
+                        handleAddAccount(this, value); // Pass the renamed product value
                     };
                     addCell.appendChild(addButton);
                     row.appendChild(addCell);
@@ -873,7 +913,7 @@ function getCurrentProcessId() {
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.className = 'summary-row-checkbox';
-                    checkbox.setAttribute('data-value', value);
+                    checkbox.setAttribute('data-value', value); // Use renamed value
                     checkbox.addEventListener('change', updateDeleteButton);
                     checkboxCell.appendChild(checkbox);
                     row.appendChild(checkboxCell);
@@ -11468,8 +11508,81 @@ function getCurrentProcessId() {
             if (data.description && data.description.trim() !== '') {
                 idProductText += ` (${data.description})`;
             }
-            // Update sub product value
+            
+            // Detect and rename duplicate sub id products within the same parent
+            // Get parent id product (main product value)
             const productValues = getProductValuesFromCell(idProductCell);
+            const parentIdProduct = productValues.main || processValue;
+            
+            // Collect all sub id products for this parent (excluding description)
+            const allSubIdProducts = [];
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if (summaryTableBody) {
+                const allRows = summaryTableBody.querySelectorAll('tr');
+                allRows.forEach(row => {
+                    const rowProductType = row.getAttribute('data-product-type') || 'main';
+                    if (rowProductType === 'sub') {
+                        const rowIdProductCell = row.querySelector('td:first-child');
+                        if (rowIdProductCell) {
+                            const rowProductValues = getProductValuesFromCell(rowIdProductCell);
+                            const rowMainProduct = rowProductValues.main || '';
+                            const rowSubProduct = rowProductValues.sub || '';
+                            
+                            // Check if this sub row belongs to the same parent
+                            const normalizedRowMain = normalizeIdProductText(rowMainProduct);
+                            const normalizedParent = normalizeIdProductText(parentIdProduct);
+                            
+                            if (normalizedRowMain === normalizedParent || (!rowMainProduct && normalizedParent === normalizeIdProductText(processValue))) {
+                                // Extract id product without description (remove parentheses part)
+                                const subMatch = rowSubProduct.match(/^([^(]+)/);
+                                const cleanSubIdProduct = subMatch ? subMatch[1].trim() : rowSubProduct.trim();
+                                // Remove any existing prefix (e.g., "1. ", "2. ")
+                                const subIdProductWithoutPrefix = cleanSubIdProduct.replace(/^\d+\.\s*/, '');
+                                if (subIdProductWithoutPrefix) {
+                                    allSubIdProducts.push(subIdProductWithoutPrefix);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Extract id product without description and prefix
+            const idProductMatch = idProductText.match(/^([^(]+)/);
+            const cleanIdProduct = idProductMatch ? idProductMatch[1].trim() : idProductText.trim();
+            const idProductWithoutPrefix = cleanIdProduct.replace(/^\d+\.\s*/, '');
+            
+            // Count occurrences of this id product (including the current one)
+            const occurrenceCount = allSubIdProducts.filter(id => {
+                const normalizedId = normalizeIdProductText(id.replace(/^\d+\.\s*/, ''));
+                return normalizedId === normalizeIdProductText(idProductWithoutPrefix);
+            }).length + 1; // +1 for the current one
+            
+            // If duplicate, add prefix
+            if (occurrenceCount > 1) {
+                // Find the next available occurrence number
+                const existingPrefixes = allSubIdProducts
+                    .filter(id => {
+                        const normalizedId = normalizeIdProductText(id.replace(/^\d+\.\s*/, ''));
+                        return normalizedId === normalizeIdProductText(idProductWithoutPrefix);
+                    })
+                    .map(id => {
+                        const prefixMatch = id.match(/^(\d+)\.\s*/);
+                        return prefixMatch ? parseInt(prefixMatch[1]) : 0;
+                    })
+                    .filter(num => num > 0);
+                
+                const maxPrefix = existingPrefixes.length > 0 ? Math.max(...existingPrefixes) : 0;
+                const nextPrefix = maxPrefix + 1;
+                
+                // Reconstruct id product with prefix and description
+                const idProductWithPrefix = `${nextPrefix}. ${idProductWithoutPrefix}`;
+                idProductText = data.description && data.description.trim() !== ''
+                    ? `${idProductWithPrefix} (${data.description})`
+                    : idProductWithPrefix;
+            }
+            
+            // Update sub product value
             productValues.sub = idProductText;
             idProductCell.setAttribute('data-sub-product', idProductText);
             idProductCell.textContent = mergeProductValues(productValues.main, productValues.sub);
