@@ -1312,9 +1312,7 @@ function getCurrentProcessId() {
         }
         
         function buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, currentEditRow = null) {
-            // Build reference format formula:
-            // - 当前正在编辑这一行：使用 $列号（例如 $4）
-            // - 其他 Id Product：使用 [id_product : 列号] 或 [id_product : A7] 等
+            // Build reference format formula: [id_product : column_number] or [id_product : cell_position] or [id_product : column_index] (new format)
             if (!sourceColumnsValue || sourceColumnsValue.trim() === '') {
                 return '';
             }
@@ -1322,16 +1320,6 @@ function getCurrentProcessId() {
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             
             const parts = sourceColumnsValue.split(/\s+/).filter(c => c.trim() !== '');
-
-            // 获取当前正在编辑的行的 Id Product（用来判断“是否引用本行”）
-            let currentRowIdProduct = null;
-            if (currentEditRow) {
-                const idProductCell = currentEditRow.querySelector('td:first-child');
-                const productValues = idProductCell ? getProductValuesFromCell(idProductCell) : { main: null };
-                currentRowIdProduct = normalizeIdProductText(productValues.main || processValue || '');
-            } else if (processValue) {
-                currentRowIdProduct = normalizeIdProductText(processValue);
-            }
             
             // Check for new format with row label: "id_product:row_label:column_index" (e.g., "OVERALL:A:7")
             // Or new format without row label: "id_product:column_index" (e.g., "ABC123:3")
@@ -1341,37 +1329,23 @@ function getCurrentProcessId() {
             
             if (isNewFormat) {
                 // New format: "id_product:row_label:column_index" or "id_product:column_index"
-                // 对于“当前正在编辑的这一行”，统一生成 $列号；
-                // 对于其他行，仍然生成 [id_product : 列号]，方便 parseReferenceFormula 按 id_product 解析。
+                // Build reference format expression: [OVERALL : 7] + [ABC123 : 3]
+                // IMPORTANT: Use the id_product from sourceColumns, NOT processValue (which is the current row's id_product)
                 const references = [];
                 parts.forEach(part => {
                     // Try format with row label first: "id_product:row_label:column_index"
                     let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                     if (match) {
-                        const rawIdProduct = match[1];
+                        const idProduct = match[1];  // Use id_product from sourceColumns (e.g., OVERALL)
                         const columnIndex = match[3]; // column_index is displayColumnIndex
-                        const normalizedId = normalizeIdProductText(rawIdProduct);
-
-                        if (currentRowIdProduct && normalizedId === currentRowIdProduct) {
-                            // 当前正在编辑的这一行：使用 $列号
-                            references.push(`$${columnIndex}`);
-                        } else {
-                            // 其他 Id Product：保持 [id_product : 列号] 格式
-                            references.push(`[${rawIdProduct} : ${columnIndex}]`);
-                        }
+                        references.push(`[${idProduct} : ${columnIndex}]`);
                     } else {
                         // Try format without row label: "id_product:column_index"
                         match = part.match(/^([^:]+):(\d+)$/);
                         if (match) {
-                            const rawIdProduct = match[1];
+                            const idProduct = match[1];  // Use id_product from sourceColumns
                             const columnIndex = match[2]; // column_index is displayColumnIndex
-                            const normalizedId = normalizeIdProductText(rawIdProduct);
-
-                            if (currentRowIdProduct && normalizedId === currentRowIdProduct) {
-                                references.push(`$${columnIndex}`);
-                            } else {
-                                references.push(`[${rawIdProduct} : ${columnIndex}]`);
-                            }
+                            references.push(`[${idProduct} : ${columnIndex}]`);
                         }
                     }
                 });
