@@ -416,6 +416,11 @@ try {
             $stmt->execute([$input['id'], $current_company_id]);
             $belongsToCurrentCompany = $stmt->fetchColumn() > 0;
             
+            // 如果用户不属于当前公司，拒绝更新（除非是owner影子）
+            if (!$belongsToCurrentCompany && !isOwnerShadow($pdo, $input['id'], $current_company_id)) {
+                sendResponse(false, 'User does not belong to current company. Cannot update user from different company.');
+            }
+            
             // 如果没有提交 login_id，使用原有的
             if (!isset($input['login_id'])) {
                 $input['login_id'] = $originalUser['login_id'];
@@ -981,12 +986,45 @@ try {
         case 'get':
             global $current_company_id;
             if (isset($input['id'])) {
+                // Get specific user - 验证用户是否属于当前公司
+                // 先检查用户是否属于当前公司（通过 user_company_map）
+                $stmt = $pdo->prepare("
+                    SELECT COUNT(*) 
+                    FROM user_company_map 
+                    WHERE user_id = ? AND company_id = ?
+                ");
+                $stmt->execute([$input['id'], $current_company_id]);
+                $belongsToCurrentCompany = $stmt->fetchColumn() > 0;
+                
+                if (!$belongsToCurrentCompany) {
+                    // 如果不是当前公司的用户，检查是否是owner影子
+                    if (isOwnerShadow($pdo, $input['id'], $current_company_id)) {
+                        // 是owner影子，继续处理
+                    } else {
+                        sendResponse(false, 'User not found or does not belong to current company');
+                    }
+                }
+                
                 // Get specific user - 只从 user 表获取基本字段，权限从 user_company_permissions 表获取
                 $stmt = $pdo->prepare("SELECT id, login_id, name, email, role, permissions, status, created_by, created_at, last_login FROM user WHERE id = ?");
                 $stmt->execute([$input['id']]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($user) {
+                    // 再次验证用户是否属于当前公司（双重验证）
+                    $stmt = $pdo->prepare("
+                        SELECT COUNT(*) 
+                        FROM user_company_map 
+                        WHERE user_id = ? AND company_id = ?
+                    ");
+                    $stmt->execute([$user['id'], $current_company_id]);
+                    if ($stmt->fetchColumn() == 0) {
+                        // 如果不是owner影子，拒绝访问
+                        if (!isOwnerShadow($pdo, $user['id'], $current_company_id)) {
+                            sendResponse(false, 'User does not belong to current company');
+                        }
+                    }
+                    
                     // 获取用户关联的所有 company_ids
                     $stmt = $pdo->prepare("SELECT company_id FROM user_company_map WHERE user_id = ?");
                     $stmt->execute([$user['id']]);

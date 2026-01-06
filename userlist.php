@@ -2867,6 +2867,13 @@ try {
                 })
                 .then(response => response.json())
                 .then(data => {
+                    if (!data.success) {
+                        // 如果获取用户数据失败，显示错误并关闭模态框
+                        showAlert(data.message || 'Failed to load user data. User may not belong to current company.', 'danger');
+                        closeModal();
+                        return;
+                    }
+                    
                     if (data.success) {
                         const permissions = data.data.permissions ? JSON.parse(data.data.permissions) : [];
                         setUserPermissions(permissions);
@@ -3034,10 +3041,8 @@ try {
                 })
                 .catch(error => {
                     console.error('Error loading user permissions:', error);
-                    // 只有 admin 和 owner 才加载 company 列表
-                    if (currentUserRole === 'admin' || currentUserRole === 'owner') {
-                        loadCompaniesForModal();
-                    }
+                    showAlert('Failed to load user data: ' + (error.message || 'Network error. User may not belong to current company.'), 'danger');
+                    closeModal();
                 });
             } else {
                 // 清空permissions
