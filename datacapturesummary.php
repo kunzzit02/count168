@@ -772,80 +772,9 @@ function getCurrentProcessId() {
             
             console.log('Column A data:', columnAData);
             
-            // 检测并重命名重复的 id product
-            // 辅助函数：去除序号前缀（如果存在）
-            const removePrefix = (idProduct) => {
-                if (!idProduct) return '';
-                const match = idProduct.match(/^\d+\.\s(.+)$/);
-                return match ? match[1].trim() : idProduct.trim();
-            };
-            
-            // 统计每个 id product（去除前缀后）出现的次数
-            const idProductCounts = {};
-            columnAData.forEach(value => {
-                if (value && value.trim() !== '') {
-                    const normalized = removePrefix(value.trim());
-                    idProductCounts[normalized] = (idProductCounts[normalized] || 0) + 1;
-                }
-            });
-            
-            // 重命名重复的 id product
-            const idProductCurrentCount = {};
-            const renamedColumnAData = columnAData.map(value => {
-                if (!value || value.trim() === '') return value;
-                
-                const trimmedValue = value.trim();
-                const normalized = removePrefix(trimmedValue);
-                
-                // 检查是否有重复（出现次数 > 1）
-                if (idProductCounts[normalized] > 1) {
-                    // 初始化计数器
-                    if (!idProductCurrentCount[normalized]) {
-                        idProductCurrentCount[normalized] = 0;
-                    }
-                    
-                    // 增加计数器
-                    idProductCurrentCount[normalized]++;
-                    
-                    // 检查是否已经有前缀
-                    const hasPrefix = /^\d+\.\s/.test(trimmedValue);
-                    
-                    if (!hasPrefix) {
-                        // 添加序号前缀
-                        const renamed = idProductCurrentCount[normalized] + '. ' + normalized;
-                        console.log(`Renamed duplicate id product: '${trimmedValue}' -> '${renamed}'`);
-                        return renamed;
-                    }
-                }
-                
-                return value;
-            });
-            
-            // 更新 transformedTableData 中的数据，使重命名后的 id product 同步到数据源
-            if (window.transformedTableData && window.transformedTableData.rows) {
-                let rowIndex = 0;
-                window.transformedTableData.rows.forEach(row => {
-                    if (row && row.length > 1 && row[1] && row[1].type === 'data') {
-                        const originalValue = row[1].value;
-                        if (originalValue && originalValue.trim() !== '') {
-                            const normalized = removePrefix(originalValue.trim());
-                            // 如果这个 id product 被重命名了，更新数据源
-                            if (idProductCounts[normalized] > 1 && rowIndex < renamedColumnAData.length) {
-                                const renamedValue = renamedColumnAData[rowIndex];
-                                if (renamedValue !== originalValue) {
-                                    row[1].value = renamedValue;
-                                    console.log(`Updated transformedTableData: row ${rowIndex}, '${originalValue}' -> '${renamedValue}'`);
-                                }
-                            }
-                            rowIndex++;
-                        }
-                    }
-                });
-            }
-            
             // Create rows for the original table
             // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
-            renamedColumnAData.forEach((value, index) => {
+            columnAData.forEach((value, index) => {
                 if (value && value.trim() !== '') { // Only add non-empty values
                     const row = document.createElement('tr');
                     
@@ -2415,7 +2344,6 @@ function getCurrentProcessId() {
         // Load all id products from table into first select box
         // IMPORTANT: Show all rows, even if they have the same id_product, because they are different data
         // Use row label (A, B, C, etc.) to distinguish between rows with same id_product
-        // IMPORTANT: 优先从 summary table 读取已重命名的 id product
         function loadIdProductList() {
             const descriptionSelect1 = document.getElementById('descriptionSelect1');
             if (!descriptionSelect1) return;
@@ -2423,25 +2351,48 @@ function getCurrentProcessId() {
             // Clear existing options except the first one
             descriptionSelect1.innerHTML = '<option value="">Select Id Product</option>';
 
-            // 优先从 summary table 读取已重命名的 id product
+            // Get table data
+            let parsedTableData;
+            if (window.transformedTableData) {
+                parsedTableData = window.transformedTableData;
+            } else {
+                const tableData = localStorage.getItem('capturedTableData');
+                if (!tableData) {
+                    console.log('No table data found');
+                    return;
+                }
+                parsedTableData = JSON.parse(tableData);
+            }
+
+            // Get all id products with their row labels (to distinguish duplicate id_products)
             const idProductRows = [];
-            const summaryTableBody = document.getElementById('summaryTableBody');
+            const capturedTableBody = document.getElementById('capturedTableBody');
             
-            if (summaryTableBody) {
-                // 从 summary table 读取（已重命名）
-                const rows = summaryTableBody.querySelectorAll('tr');
+            if (capturedTableBody) {
+                // Get from DOM
+                const rows = capturedTableBody.querySelectorAll('tr');
                 rows.forEach((row, rowIndex) => {
-                    const idProductCell = row.querySelector('td:first-child');
-                    if (idProductCell) {
-                        const productValues = getProductValuesFromCell(idProductCell);
-                        const idProductMain = productValues.main || '';
-                        const idProductSub = productValues.sub || '';
+                    const idProduct = row.getAttribute('data-id-product');
+                    if (idProduct && idProduct.trim() !== '') {
+                        // Get row label (A, B, C, etc.) from row header
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
                         
-                        // 使用 main 或 sub（优先 main）
-                        const idProduct = idProductMain || idProductSub;
+                        idProductRows.push({
+                            idProduct: idProduct.trim(),
+                            rowLabel: rowLabel,
+                            rowIndex: rowIndex
+                        });
+                    }
+                });
+            } else if (parsedTableData && parsedTableData.rows) {
+                // Get from parsed data
+                parsedTableData.rows.forEach((row, rowIndex) => {
+                    if (row && row.length > 1 && row[1] && row[1].type === 'data') {
+                        const idProduct = row[1].value;
                         if (idProduct && idProduct.trim() !== '') {
-                            // 从 summary table 获取 row label（如果有）
-                            const rowLabel = row.querySelector('.row-header')?.textContent.trim() || '';
+                            // Get row label from first cell (header)
+                            const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
                             
                             idProductRows.push({
                                 idProduct: idProduct.trim(),
@@ -2451,60 +2402,6 @@ function getCurrentProcessId() {
                         }
                     }
                 });
-            }
-            
-            // 如果 summary table 没有数据，回退到原始数据源
-            if (idProductRows.length === 0) {
-                // Get table data
-                let parsedTableData;
-                if (window.transformedTableData) {
-                    parsedTableData = window.transformedTableData;
-                } else {
-                    const tableData = localStorage.getItem('capturedTableData');
-                    if (!tableData) {
-                        console.log('No table data found');
-                        return;
-                    }
-                    parsedTableData = JSON.parse(tableData);
-                }
-
-                const capturedTableBody = document.getElementById('capturedTableBody');
-                
-                if (capturedTableBody) {
-                    // Get from DOM
-                    const rows = capturedTableBody.querySelectorAll('tr');
-                    rows.forEach((row, rowIndex) => {
-                        const idProduct = row.getAttribute('data-id-product');
-                        if (idProduct && idProduct.trim() !== '') {
-                            // Get row label (A, B, C, etc.) from row header
-                            const rowHeaderCell = row.querySelector('.row-header');
-                            const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                            
-                            idProductRows.push({
-                                idProduct: idProduct.trim(),
-                                rowLabel: rowLabel,
-                                rowIndex: rowIndex
-                            });
-                        }
-                    });
-                } else if (parsedTableData && parsedTableData.rows) {
-                    // Get from parsed data
-                    parsedTableData.rows.forEach((row, rowIndex) => {
-                        if (row && row.length > 1 && row[1] && row[1].type === 'data') {
-                            const idProduct = row[1].value;
-                            if (idProduct && idProduct.trim() !== '') {
-                                // Get row label from first cell (header)
-                                const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
-                                
-                                idProductRows.push({
-                                    idProduct: idProduct.trim(),
-                                    rowLabel: rowLabel,
-                                    rowIndex: rowIndex
-                                });
-                            }
-                        }
-                    });
-                }
             }
 
             // Count occurrences of each id_product to determine if we need to show row label
@@ -2523,10 +2420,10 @@ function getCurrentProcessId() {
                 // If id_product appears multiple times, include row label to distinguish
                 if (count > 1 && item.rowLabel) {
                     option.value = `${item.idProduct}:${item.rowLabel}`; // Store id_product:row_label as value
-                    option.textContent = `${item.idProduct} (${item.rowLabel})`; // Display: "1. M99M06 (B)"
+                    option.textContent = `${item.idProduct} (${item.rowLabel})`; // Display: "M99M06 (B)"
                 } else {
                     option.value = item.idProduct; // Store just id_product if unique
-                    option.textContent = item.idProduct; // Display: "1. M99M06" or "OVERALL"
+                    option.textContent = item.idProduct; // Display: "OVERALL"
                 }
                 
                 // Store row index in data attribute for reference
@@ -15557,24 +15454,13 @@ function formatPercentValue(value) {
                 const summaryRows = [];
                 const seenRows = new Set(); // Track seen rows to prevent duplicates
                 
-                // 辅助函数：去除序号前缀（如果存在）
-                const removePrefix = (idProduct) => {
-                    if (!idProduct) return '';
-                    const match = idProduct.match(/^\d+\.\s(.+)$/);
-                    return match ? match[1].trim() : idProduct.trim();
-                };
-                
-                // 第一遍遍历：收集所有 id product 并统计重复
-                const idProductMainCounts = {};
-                const idProductSubCounts = {};
-                const rowDataList = [];
-                
                 rows.forEach(row => {
                     const cells = row.querySelectorAll('td');
                     
                     // 如果 Select 列被勾选，则整行不提交到数据库
                     const selectCheckbox = row.querySelector('.summary-select-checkbox');
                     if (selectCheckbox && selectCheckbox.checked) {
+                        console.log('Skipping row because Select is checked');
                         return;
                     }
                     
@@ -15593,138 +15479,6 @@ function formatPercentValue(value) {
                     const productValues = getProductValuesFromCell(idProductCell);
                     const idProductMainRaw = productValues.main || '';
                     const idProductSubRaw = productValues.sub || '';
-                    
-                    // Extract product ID and description from main
-                    let cleanIdProductMain = '';
-                    if (idProductMainRaw) {
-                        const mainMatch = idProductMainRaw.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                        if (mainMatch) {
-                            cleanIdProductMain = mainMatch[1].trim();
-                        }
-                    }
-                    
-                    // Extract product ID and description from sub
-                    let cleanIdProductSub = '';
-                    if (idProductSubRaw) {
-                        const subMatch = idProductSubRaw.match(/^([^(]+)(?:\(([^)]+)\))?/);
-                        if (subMatch) {
-                            cleanIdProductSub = subMatch[1].trim();
-                        }
-                    }
-                    
-                    // 统计（去除前缀后统计）
-                    if (cleanIdProductMain) {
-                        const normalized = removePrefix(cleanIdProductMain);
-                        idProductMainCounts[normalized] = (idProductMainCounts[normalized] || 0) + 1;
-                    }
-                    
-                    if (cleanIdProductSub) {
-                        const normalized = removePrefix(cleanIdProductSub);
-                        idProductSubCounts[normalized] = (idProductSubCounts[normalized] || 0) + 1;
-                    }
-                    
-                    // 保存行数据供后续处理
-                    rowDataList.push({
-                        row: row,
-                        cells: cells,
-                        idProductCell: idProductCell,
-                        productValues: productValues,
-                        cleanIdProductMain: cleanIdProductMain,
-                        cleanIdProductSub: cleanIdProductSub,
-                        accountText: accountText,
-                        hasButton: hasButton
-                    });
-                });
-                
-                // 第二遍遍历：重命名重复的 id product 并更新界面
-                const idProductMainCurrentCount = {};
-                const idProductSubCurrentCount = {};
-                
-                rowDataList.forEach(rowData => {
-                    const { row, idProductCell, cleanIdProductMain, cleanIdProductSub } = rowData;
-                    
-                    // 处理 idProductMain
-                    if (cleanIdProductMain) {
-                        const normalized = removePrefix(cleanIdProductMain);
-                        if (idProductMainCounts[normalized] > 1) {
-                            // 初始化计数器
-                            if (!idProductMainCurrentCount[normalized]) {
-                                idProductMainCurrentCount[normalized] = 0;
-                            }
-                            
-                            // 增加计数器
-                            idProductMainCurrentCount[normalized]++;
-                            
-                            // 检查是否已经有前缀
-                            const hasPrefix = /^\d+\.\s/.test(cleanIdProductMain);
-                            
-                            if (!hasPrefix) {
-                                // 更新界面显示
-                                const newIdProductMain = idProductMainCurrentCount[normalized] + '. ' + normalized;
-                                const productValues = getProductValuesFromCell(idProductCell);
-                                productValues.main = newIdProductMain;
-                                idProductCell.setAttribute('data-main-product', newIdProductMain);
-                                idProductCell.textContent = mergeProductValues(productValues.main, productValues.sub);
-                                
-                                // 更新 rowData 中的值
-                                rowData.cleanIdProductMain = newIdProductMain;
-                                
-                                console.log(`Renamed duplicate idProductMain: '${cleanIdProductMain}' -> '${newIdProductMain}'`);
-                            }
-                        }
-                    }
-                    
-                    // 处理 idProductSub
-                    if (cleanIdProductSub) {
-                        const normalized = removePrefix(cleanIdProductSub);
-                        if (idProductSubCounts[normalized] > 1) {
-                            // 初始化计数器
-                            if (!idProductSubCurrentCount[normalized]) {
-                                idProductSubCurrentCount[normalized] = 0;
-                            }
-                            
-                            // 增加计数器
-                            idProductSubCurrentCount[normalized]++;
-                            
-                            // 检查是否已经有前缀
-                            const hasPrefix = /^\d+\.\s/.test(cleanIdProductSub);
-                            
-                            if (!hasPrefix) {
-                                // 更新界面显示
-                                const newIdProductSub = idProductSubCurrentCount[normalized] + '. ' + normalized;
-                                const productValues = getProductValuesFromCell(idProductCell);
-                                productValues.sub = newIdProductSub;
-                                idProductCell.setAttribute('data-sub-product', newIdProductSub);
-                                idProductCell.textContent = mergeProductValues(productValues.main, productValues.sub);
-                                
-                                // 更新 rowData 中的值
-                                rowData.cleanIdProductSub = newIdProductSub;
-                                
-                                console.log(`Renamed duplicate idProductSub: '${cleanIdProductSub}' -> '${newIdProductSub}'`);
-                            }
-                        }
-                    }
-                });
-                
-                // 第三遍遍历：构建 summaryRows（使用更新后的 id product）
-                rowDataList.forEach(rowData => {
-                    const { row, cells, idProductCell, accountText, hasButton, cleanIdProductMain: updatedIdProductMain, cleanIdProductSub: updatedIdProductSub, productValues: originalProductValues } = rowData;
-                    
-                    // 如果 Select 列被勾选，则整行不提交到数据库
-                    const selectCheckbox = row.querySelector('.summary-select-checkbox');
-                    if (selectCheckbox && selectCheckbox.checked) {
-                        console.log('Skipping row because Select is checked');
-                        return;
-                    }
-                    
-                    // Skip rows that are empty or only have a + button (button is now in Account column)
-                    if (!accountText || accountText === '+' || hasButton) return;
-                    
-                    // 使用更新后的 id product（如果已重命名）或原始值
-                    // 重新从界面获取（因为可能已经更新了）
-                    const currentProductValues = getProductValuesFromCell(idProductCell);
-                    const idProductMainRaw = currentProductValues.main || '';
-                    const idProductSubRaw = currentProductValues.sub || '';
                     
                     // Extract product ID and description from main
                     let cleanIdProductMain = '';
