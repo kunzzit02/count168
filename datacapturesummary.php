@@ -5537,7 +5537,6 @@ function getCurrentProcessId() {
                 }
                 
                 // If no existing row_index, try to find it from Data Capture Table
-                // CRITICAL FIX: When multiple rows have the same id_product, use row_label from source_columns to find the correct row_index
                 if (rowIndex === null) {
                     const idProduct = productType === 'sub' 
                         ? (idProductSub || normalizeIdProductText(formData.processValue))
@@ -5548,72 +5547,20 @@ function getCurrentProcessId() {
                         const capturedTableBody = document.getElementById('capturedTableBody');
                         if (capturedTableBody) {
                             const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
-                            
-                            // CRITICAL: Extract row_label from source_columns if available
-                            // Format: "id_product:row_label:column_index" (e.g., "M99M06:D:4")
-                            let targetRowLabel = null;
-                            const sourceColumns = row.getAttribute('data-source-columns') || '';
-                            if (sourceColumns && sourceColumns.trim() !== '') {
-                                // Try to extract row_label from source_columns
-                                const parts = sourceColumns.split(/\s+/).filter(c => c.trim() !== '');
-                                for (const part of parts) {
-                                    // Try format with row label: "id_product:row_label:column_index"
-                                    const match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
-                                    if (match) {
-                                        const refIdProduct = match[1];
-                                        const refRowLabel = match[2];
-                                        // If id_product matches, use this row_label
-                                        if (normalizeIdProductText(refIdProduct) === normalizedIdProduct) {
-                                            targetRowLabel = refRowLabel;
-                                            console.log('extractRowDataForTemplate: Found row_label from source_columns:', targetRowLabel, 'for id_product:', normalizedIdProduct);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Find matching row in Data Capture Table
-                            // Priority 1: If row_label is available, match by both id_product and row_label
-                            // Priority 2: If account_id is available, try to match by account_id (but Data Capture Table may not have account_id)
-                            // Priority 3: Use first matching row (fallback)
+                            // Find the first matching row in Data Capture Table
                             for (let i = 0; i < capturedRows.length; i++) {
                                 const capturedRow = capturedRows[i];
                                 const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                                 if (capturedIdProductCell) {
                                     const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
                                     if (capturedIdProduct === normalizedIdProduct) {
-                                        // Priority 1: Match by row_label if available
-                                        if (targetRowLabel) {
-                                            const rowHeaderCell = capturedRow.querySelector('.row-header');
-                                            if (rowHeaderCell) {
-                                                const capturedRowLabel = rowHeaderCell.textContent.trim();
-                                                if (capturedRowLabel === targetRowLabel) {
-                                                    rowIndex = i;
-                                                    console.log('Computed row_index from Data Capture Table by row_label:', rowIndex, 'for id_product:', normalizedIdProduct, 'row_label:', targetRowLabel);
-                                                    row.setAttribute('data-row-index', String(rowIndex));
-                                                    break;
-                                                }
-                                            }
-                                        } else {
-                                            // Priority 2: No row_label, try account_id match (but Data Capture Table may not have account_id)
-                                            // Priority 3: Use first matching row (fallback)
-                                            const accountCell = row.querySelector('td:nth-child(2)');
-                                            const rowAccountId = accountCell?.getAttribute('data-account-id');
-                                            
-                                            // For now, if no row_label, use first matching row
-                                            // This is a fallback - ideally we should have row_label in source_columns
-                                            rowIndex = i;
-                                            console.log('Computed row_index from Data Capture Table position (no row_label, using first match):', rowIndex, 'for id_product:', normalizedIdProduct, 'account_id:', rowAccountId || 'none');
-                                            row.setAttribute('data-row-index', String(rowIndex));
-                                            break;
-                                        }
+                                        rowIndex = i;
+                                        console.log('Computed row_index from Data Capture Table position:', rowIndex, 'for id_product:', normalizedIdProduct);
+                                        // Set the data attribute for future use
+                                        row.setAttribute('data-row-index', String(rowIndex));
+                                        break;
                                     }
                                 }
-                            }
-                            
-                            // If row_label was found but no match, log warning
-                            if (targetRowLabel && rowIndex === null) {
-                                console.warn('extractRowDataForTemplate: Found row_label in source_columns but no matching Data Capture Table row found. row_label:', targetRowLabel, 'id_product:', normalizedIdProduct);
                             }
                         }
                     }
@@ -5692,7 +5639,7 @@ function getCurrentProcessId() {
                 }
             }
             
-            const rowData = {
+            return {
                 product_type: productType,
                 id_product: idProduct,
                 parent_id_product: parentIdProduct,
@@ -5723,17 +5670,6 @@ function getCurrentProcessId() {
                 formula_variant: formulaVariant, // Pass formula_variant to backend
                 template_id: templateId // Pass template_id to backend for editing existing templates
             };
-            
-            console.log('extractRowDataForTemplate: Returning row data for saving:', {
-                id_product: rowData.id_product,
-                account_id: rowData.account_id,
-                row_index: rowData.row_index,
-                formula_variant: rowData.formula_variant,
-                template_id: rowData.template_id,
-                source_columns: rowData.source_columns
-            });
-            
-            return rowData;
         }
         
         // Save template asynchronously
@@ -12781,23 +12717,6 @@ function applyTemplateToSummaryRow(idProduct, template) {
             };
 
             updateSummaryTableRow(idProduct, data, targetRow);
-            
-            // IMPORTANT: Set data-row-index attribute on the row to preserve row order
-            // This is critical for matching when multiple rows have the same id_product
-            if (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null) {
-                targetRow.setAttribute('data-row-index', String(mainTemplate.row_index));
-                console.log('applyMainTemplateToRow: Set data-row-index on row:', mainTemplate.row_index, 'for id_product:', idProduct, 'account_id:', mainTemplate.account_id, 'formula_variant:', mainTemplate.formula_variant);
-            }
-            
-            // Also set template_id and formula_variant for precise matching
-            if (mainTemplate.id) {
-                targetRow.setAttribute('data-template-id', String(mainTemplate.id));
-                console.log('applyMainTemplateToRow: Set data-template-id on row:', mainTemplate.id);
-            }
-            if (mainTemplate.formula_variant !== undefined && mainTemplate.formula_variant !== null) {
-                targetRow.setAttribute('data-formula-variant', String(mainTemplate.formula_variant));
-                console.log('applyMainTemplateToRow: Set data-formula-variant on row:', mainTemplate.formula_variant);
-            }
         }
 
         if (hadAddButton || !hasExistingData) {
@@ -12843,13 +12762,6 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             ? Number(mainTemplate.row_index) : null;
         const templateId = mainTemplate.id ? String(mainTemplate.id) : null;
 
-        console.log('applyMainTemplateToRow: Matching criteria for id_product:', idProduct, {
-            templateId: templateId,
-            templateRowIndex: templateRowIndex,
-            templateAccountId: templateAccountId,
-            templateFormulaVariant: templateFormulaVariant
-        });
-
         // Collect all matching rows (same id_product)
         const candidateRows = [];
         allRows.forEach((row, index) => {
@@ -12877,18 +12789,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     templateId: rowTemplateId,
                     rowIndex: rowRowIndex
                 });
-                
-                console.log('applyMainTemplateToRow: Found candidate row:', {
-                    index: index,
-                    accountId: rowAccountId,
-                    formulaVariant: rowFormulaVariant,
-                    templateId: rowTemplateId,
-                    rowIndex: rowRowIndex
-                });
             }
         });
-        
-        console.log('applyMainTemplateToRow: Total candidate rows found:', candidateRows.length);
 
         // Priority 1: Match by template_id (most precise)
         if (templateId) {
