@@ -15747,69 +15747,6 @@ function formatPercentValue(value) {
                     return;
                 }
                 
-                // 检测重复的 id product 并添加序号前缀
-                // 分别统计 main 和 sub 的 id product 出现的次数和位置
-                const mainProductCountMap = new Map(); // key: idProductMain, value: {count: number, indices: number[]}
-                const subProductCountMap = new Map(); // key: idProductSub, value: {count: number, indices: number[]}
-                
-                summaryRows.forEach((row, index) => {
-                    // 统计 main product
-                    if (row.idProductMain && row.idProductMain.trim() !== '') {
-                        const idProduct = row.idProductMain;
-                        if (!mainProductCountMap.has(idProduct)) {
-                            mainProductCountMap.set(idProduct, { count: 0, indices: [] });
-                        }
-                        const entry = mainProductCountMap.get(idProduct);
-                        entry.count++;
-                        entry.indices.push(index);
-                    }
-                    
-                    // 统计 sub product
-                    if (row.idProductSub && row.idProductSub.trim() !== '') {
-                        const idProduct = row.idProductSub;
-                        if (!subProductCountMap.has(idProduct)) {
-                            subProductCountMap.set(idProduct, { count: 0, indices: [] });
-                        }
-                        const entry = subProductCountMap.get(idProduct);
-                        entry.count++;
-                        entry.indices.push(index);
-                    }
-                });
-                
-                // 为重复的 main product 添加序号前缀
-                mainProductCountMap.forEach((entry, idProduct) => {
-                    if (entry.count > 1) {
-                        // 有重复，为每个出现的位置添加序号前缀
-                        entry.indices.forEach((index, sequenceIndex) => {
-                            const row = summaryRows[index];
-                            const sequenceNumber = sequenceIndex + 1;
-                            const prefix = `${sequenceNumber}. `;
-                            
-                            if (row.idProductMain && row.idProductMain === idProduct) {
-                                // 更新 main product
-                                row.idProductMain = prefix + idProduct;
-                            }
-                        });
-                    }
-                });
-                
-                // 为重复的 sub product 添加序号前缀
-                subProductCountMap.forEach((entry, idProduct) => {
-                    if (entry.count > 1) {
-                        // 有重复，为每个出现的位置添加序号前缀
-                        entry.indices.forEach((index, sequenceIndex) => {
-                            const row = summaryRows[index];
-                            const sequenceNumber = sequenceIndex + 1;
-                            const prefix = `${sequenceNumber}. `;
-                            
-                            if (row.idProductSub && row.idProductSub === idProduct) {
-                                // 更新 sub product
-                                row.idProductSub = prefix + idProduct;
-                            }
-                        });
-                    }
-                });
-                
                 console.log('Summary rows to submit:', summaryRows);
                 
                 // Prepare data to send
