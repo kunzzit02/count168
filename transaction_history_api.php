@@ -193,11 +193,7 @@ try {
         }
     }
     
-    // 2. 查询日期范围内的数据采集记录（视为 Win/Loss）
-    // ⚠️ 注意：这里的 currency 逻辑需要与 transaction_search_api.php 中保持一致
-    // Search 页面是按照「process 的 currency」（data_captures.currency_id）来分组的，
-    // 所以 History 弹窗在按 currency 过滤时也必须使用 dc.currency_id，而不是 dcd.currency_id，
-    // 否则会出现「列表有 Win/Loss，但 History 为空」的情况（例如 UP013 的 SGD）。
+    // 2. 查询日期范围内的数据采集记录（视为 Win/Loss）- 如果指定了 currency，按 currency 筛选
     $sqlCapture = "SELECT 
                         dcd.id as detail_id,
                         dcd.capture_id,
@@ -239,8 +235,7 @@ try {
     
     $captureParams = [$company_id, $company_id, $account_id, $date_from_db, $date_to_db];
     if ($currency_id) {
-        // 与 transaction_search_api.php 保持一致：按 dc.currency_id 过滤
-        $sqlCapture .= " AND dc.currency_id = ?";
+        $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
     }
     
@@ -835,9 +830,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
 
 /**
  * 按 Currency 计算 B/F (Balance Forward)
- * 与 transaction_search_api.php 中的 calculateBFByCurrency 保持一致，
- * 统一按照「process 的 currency」（data_captures.currency_id）来分类，
- * 避免 Search 和 History 看到的数字不一致。
+ * 与 transaction_search_api.php 中的函数相同
  */
 function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id) {
     $bf = 0;
@@ -849,29 +842,26 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
         $has_transaction_currency = $stmt->rowCount() > 0;
     }
     
-    // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 process currency 过滤）
-    // 注意：使用 data_captures.currency_id（process 的 currency）而不是 data_capture_details.currency_id
-    // 这样 processed_amount 会根据 process 的 currency 来分类，而不是 account 的 currency
-    // account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
+    // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
+    // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dc.currency_id = ?
+              AND dcd.currency_id = ?
               AND dc.capture_date < ?";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
-    // 2. 计算起始日期之前所有 Cr/Dr（包括 WIN/LOSE/PAYMENT/RECEIVE/CONTRA/CLAIM，作为 To Account，按 currency 过滤；RATE 单独用 transaction_entry 处理）
+    // 2. 计算起始日期之前所有 Cr/Dr（包括 WIN/LOSE/RATE/PAYMENT/RECEIVE/CONTRA/CLAIM，作为 To Account，按 currency 过滤）
     if ($has_transaction_currency) {
-        // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN t.amount
                         WHEN transaction_type = 'PAYMENT' THEN t.amount
                         WHEN transaction_type = 'WIN' THEN t.amount
                         WHEN transaction_type = 'LOSE' THEN -t.amount
@@ -879,31 +869,18 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     END), 0) as cr_dr
                 FROM transactions t
                 WHERE t.company_id = ?
-                  AND CAST(t.account_id AS CHAR) = CAST(? AS CHAR)
+                  AND t.account_id = ?
+                  AND t.currency_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE')
-                  AND (
-                      -- 对于有 currency_id 的交易类型，直接匹配 currency_id
-                      (t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE') AND t.currency_id = ?)
-                      OR
-                      -- 对于 WIN/LOSE 类型但 currency_id 为 NULL，检查该账户是否有该货币的 data_capture 记录（使用 process 的 currency）
-                      (t.transaction_type IN ('WIN', 'LOSE') AND t.currency_id IS NULL AND EXISTS (
-                          SELECT 1
-                          FROM data_capture_details dcd
-                          JOIN data_captures dc ON dcd.capture_id = dc.id
-                          WHERE dcd.company_id = ?
-                            AND dc.company_id = ?
-                            AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
-                            AND dc.currency_id = ?
-                      ))
-                  )";
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                  AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)";
         
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN t.amount
+                        WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN t.amount
                         WHEN transaction_type = 'PAYMENT' THEN t.amount
                         WHEN transaction_type = 'WIN' THEN t.amount
                         WHEN transaction_type = 'LOSE' THEN -t.amount
@@ -913,27 +890,27 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                 WHERE t.company_id = ?
                   AND t.account_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE')
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                  AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
-                      JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ?
-                        AND dc.company_id = ?
                         AND dcd.account_id = t.account_id
-                        AND dc.currency_id = ?
+                        AND dcd.currency_id = ?
                   )";
         
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);
     }
     $bf += $stmt->fetchColumn();
     
-    // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account，按 currency 过滤；RATE 单独用 transaction_entry 处理）
+    // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account，按 currency 过滤）
+    // 注意：RATE 类型的 from_account_id 可能为 NULL（手续费记录），这些记录不会在这里被计算
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'CONTRA') THEN -t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -t.amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -942,14 +919,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.from_account_id = ?
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')";
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
     } else {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
-                        WHEN transaction_type IN ('PAYMENT', 'CONTRA') THEN -t.amount
+                        WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -t.amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr
@@ -957,36 +934,19 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                 WHERE t.company_id = ?
                   AND t.from_account_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
-                      JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ?
-                        AND dc.company_id = ?
-                        AND dcd.account_id = t.from_account_id
-                        AND dc.currency_id = ?
+                        AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
+                        AND dcd.currency_id = ?
                   )";
         
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);
     }
     $bf += $stmt->fetchColumn();
-    
-    // 4. 追加起始日期之前的所有 RATE 分录（统一从 transaction_entry 计算）
-    $rateStmt = $pdo->prepare("
-        SELECT COALESCE(SUM(e.amount), 0) AS total
-        FROM transaction_entry e
-        JOIN transactions h ON e.header_id = h.id
-        WHERE h.company_id = ?
-          AND e.company_id = ?
-          AND h.transaction_type = 'RATE'
-          AND e.account_id = ?
-          AND e.currency_id = ?
-          AND h.transaction_date < ?
-    ");
-    $rateStmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from]);
-    $bf += $rateStmt->fetchColumn();
     
     return $bf;
 }
