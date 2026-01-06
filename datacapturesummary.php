@@ -3569,15 +3569,10 @@ function getCurrentProcessId() {
                     }
                 }
 
-                // 如果拿到了明确的 row_index，就直接用这个 index 去 data capture 表里取对应行的 row_label
-                if (
-                    preferredRowIndex !== null &&
-                    parsedTableData &&
-                    Array.isArray(parsedTableData.rows) &&
-                    preferredRowIndex >= 0 &&
-                    preferredRowIndex < parsedTableData.rows.length
-                ) {
-                    const processRowFromIndex = parsedTableData.rows[preferredRowIndex];
+                // 如果拿到了明确的 row_index，就通过 findProcessRow(tableData, processValue, rowIndex)
+                // 来获取对应的行，保持与其它地方一致的查找逻辑
+                if (preferredRowIndex !== null && parsedTableData && Array.isArray(parsedTableData.rows)) {
+                    const processRowFromIndex = findProcessRow(parsedTableData, processValue, preferredRowIndex);
                     if (processRowFromIndex && processRowFromIndex.length > 0) {
                         const headerCell = processRowFromIndex[0];
                         if (headerCell && headerCell.type === 'header' && headerCell.value != null) {
