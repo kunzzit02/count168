@@ -6873,7 +6873,67 @@ function getCurrentProcessId() {
                     const dataColumnIndex = bracketMatch.displayColumnIndex - 1;
                     
                     // Get cell value using id_product and column index
-                    const columnValue = getCellValueByIdProductAndColumn(bracketMatch.idProduct, dataColumnIndex, null);
+                    // IMPORTANT:
+                    // - 当用户通过点击其它 row 的单元格插入 [id_product,数字] 时，
+                    //   我们已经在 data-clicked-cell-refs 里记录了精确的行信息：id_product:row_label:dataColumnIndex
+                    // - 这里优先尝试从 data-clicked-cell-refs 中取出对应的引用，
+                    //   这样即使同一个 id_product 在表里有多行，也能区分是哪个 row（通过 row_label）
+                    let columnValue = null;
+                    let rowLabelForBracket = null;
+                    
+                    const formulaInputForBracket = document.getElementById('formula');
+                    const clickedCellRefsForBracket = formulaInputForBracket
+                        ? (formulaInputForBracket.getAttribute('data-clicked-cell-refs') || '')
+                        : '';
+                    
+                    if (clickedCellRefsForBracket && clickedCellRefsForBracket.trim() !== '') {
+                        const refs = clickedCellRefsForBracket
+                            .trim()
+                            .split(/\s+/)
+                            .filter(r => r.trim() !== '');
+                        
+                        const targetNormalizedId = (typeof normalizeIdProductText === 'function')
+                            ? normalizeIdProductText(bracketMatch.idProduct)
+                            : bracketMatch.idProduct;
+                        
+                        // 为当前 [id_product,数字] 从 refs 中找到第一个
+                        // 同时匹配 id_product 和 dataColumnIndex 的引用
+                        for (let j = 0; j < refs.length; j++) {
+                            const ref = refs[j];
+                            const parts = ref.split(':');
+                            if (parts.length >= 2) {
+                                const refIdProductRaw = parts[0];
+                                const refDataColumnIndex = parseInt(parts[parts.length - 1]);
+                                const refRowLabel = parts.length === 3 ? parts[1] : null;
+                                
+                                const refNormalizedId = (typeof normalizeIdProductText === 'function')
+                                    ? normalizeIdProductText(refIdProductRaw)
+                                    : refIdProductRaw;
+                                
+                                if (!isNaN(refDataColumnIndex) &&
+                                    refDataColumnIndex === dataColumnIndex &&
+                                    refNormalizedId === targetNormalizedId) {
+                                    rowLabelForBracket = refRowLabel;
+                                    columnValue = getCellValueByIdProductAndColumn(
+                                        bracketMatch.idProduct,
+                                        refDataColumnIndex,
+                                        rowLabelForBracket
+                                    );
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 如果没能从 data-clicked-cell-refs 找到精确引用，则退回到旧逻辑：
+                    // 仅按 id_product 查找第一行，这在只有一行该 id_product 时仍然是正确的。
+                    if (columnValue === null) {
+                        columnValue = getCellValueByIdProductAndColumn(
+                            bracketMatch.idProduct,
+                            dataColumnIndex,
+                            null
+                        );
+                    }
                     
                     if (columnValue !== null) {
                         parsedFormula = parsedFormula.substring(0, bracketMatch.index) + 
