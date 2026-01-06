@@ -1260,6 +1260,37 @@ function getCurrentProcessId() {
                     if (capturedTableBody) {
                         const rows = capturedTableBody.querySelectorAll('tr');
                         console.log('getCellValueByIdProductAndColumn: Searching for row_label:', rowLabel, 'id_product:', idProduct, 'total rows:', rows.length);
+                        
+                        // CRITICAL: Also search in parsedTableData to find the correct row index
+                        // This ensures we get the correct row even if DOM and parsedTableData are out of sync
+                        let foundRowIndexInData = null;
+                        if (parsedTableData.rows) {
+                            for (let i = 0; i < parsedTableData.rows.length; i++) {
+                                const row = parsedTableData.rows[i];
+                                if (row && row.length > 0 && row[0].type === 'header') {
+                                    const headerValue = row[0].value ? row[0].value.trim() : '';
+                                    if (headerValue === rowLabel) {
+                                        foundRowIndexInData = i;
+                                        console.log('getCellValueByIdProductAndColumn: Found row_label in parsedTableData at index:', i, 'rowLabel:', rowLabel);
+                                        
+                                        // Verify id_product matches
+                                        if (row.length > 1 && row[1].type === 'data') {
+                                            const rowIdProduct = row[1].value;
+                                            const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct);
+                                            const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                            if (normalizedRowIdProduct === normalizedIdProduct) {
+                                                console.log('getCellValueByIdProductAndColumn: Verified id_product matches in parsedTableData');
+                                            } else {
+                                                console.warn('getCellValueByIdProductAndColumn: id_product mismatch in parsedTableData. Expected:', idProduct, 'Found:', rowIdProduct);
+                                            }
+                                        }
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Also search in DOM for verification
                         for (let i = 0; i < rows.length; i++) {
                             const row = rows[i];
                             const rowHeaderCell = row.querySelector('.row-header');
@@ -1269,36 +1300,56 @@ function getCurrentProcessId() {
                             
                             const rowHeaderTextRaw = rowHeaderCell.textContent;
                             const rowHeaderTextTrimmed = rowHeaderTextRaw ? rowHeaderTextRaw.trim() : '';
-                            console.log('getCellValueByIdProductAndColumn: Checking row', i, 'row_header:', JSON.stringify(rowHeaderTextTrimmed), 'rowLabel:', JSON.stringify(rowLabel), 'match:', rowHeaderTextTrimmed === rowLabel);
+                            console.log('getCellValueByIdProductAndColumn: Checking DOM row', i, 'row_header:', JSON.stringify(rowHeaderTextTrimmed), 'rowLabel:', JSON.stringify(rowLabel), 'match:', rowHeaderTextTrimmed === rowLabel);
                             
                             // Check if row header matches rowLabel (case-sensitive)
-                                if (rowHeaderTextTrimmed === rowLabel) {
-                                    // Found row by label, now get the row index
-                                    // CRITICAL: Use row_label match - row_label is more reliable than id_product when there are multiple rows with same id_product
-                                    // The row index in DOM directly corresponds to the row index in parsedTableData
+                            if (rowHeaderTextTrimmed === rowLabel) {
+                                // Found row by label in DOM
+                                console.log('getCellValueByIdProductAndColumn: Found row by row_label in DOM! DOM rowIndex:', i, 'parsedTableData rowIndex:', foundRowIndexInData);
+                                
+                                // Use parsedTableData row index if found, otherwise use DOM index
+                                if (foundRowIndexInData !== null) {
+                                    rowIndex = foundRowIndexInData;
+                                    console.log('getCellValueByIdProductAndColumn: Using parsedTableData rowIndex:', rowIndex);
+                                } else {
                                     rowIndex = i;
-                                    console.log('getCellValueByIdProductAndColumn: Found row by row_label! rowIndex:', rowIndex, 'rowLabel:', rowLabel);
-                                    
-                                    // Optional: Verify id_product for logging (but don't require it)
-                                    const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
-                                    if (idProductCell) {
-                                        const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
-                                        const cellIdProduct = normalizeIdProductText(cellIdProductText);
-                                        const normalizedIdProduct = normalizeIdProductText(idProduct);
-                                        console.log('getCellValueByIdProductAndColumn: Verified id_product - cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct, 'match:', cellIdProduct === normalizedIdProduct);
-                                    } else {
-                                        console.log('getCellValueByIdProductAndColumn: idProductCell not found, but using row by row_label anyway (rowIndex:', rowIndex, ')');
-                                    }
-                                    break;
+                                    console.log('getCellValueByIdProductAndColumn: Using DOM rowIndex:', rowIndex);
                                 }
+                                
+                                // Optional: Verify id_product for logging (but don't require it)
+                                const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
+                                if (idProductCell) {
+                                    const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                    const cellIdProduct = normalizeIdProductText(cellIdProductText);
+                                    const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                    console.log('getCellValueByIdProductAndColumn: Verified id_product - cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct, 'match:', cellIdProduct === normalizedIdProduct);
+                                } else {
+                                    console.log('getCellValueByIdProductAndColumn: idProductCell not found, but using row by row_label anyway (rowIndex:', rowIndex, ')');
+                                }
+                                break;
+                            }
+                        }
+                        
+                        // If found in parsedTableData but not in DOM, use parsedTableData index
+                        if (rowIndex === null && foundRowIndexInData !== null) {
+                            rowIndex = foundRowIndexInData;
+                            console.log('getCellValueByIdProductAndColumn: Using parsedTableData rowIndex (not found in DOM):', rowIndex);
                         }
                     }
                     
                     // If found row by label, use findProcessRow with rowIndex
                     if (rowIndex !== null) {
-                        console.log('getCellValueByIdProductAndColumn: Using rowIndex:', rowIndex, 'for row_label:', rowLabel);
+                        console.log('getCellValueByIdProductAndColumn: Using rowIndex:', rowIndex, 'for row_label:', rowLabel, 'id_product:', idProduct);
                         processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
                         console.log('getCellValueByIdProductAndColumn: Found row by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProduct, 'processRow:', processRow ? 'found' : 'not found');
+                        
+                        // Verify the returned row has the correct row_label
+                        if (processRow && processRow.length > 0 && processRow[0].type === 'header') {
+                            const returnedRowLabel = processRow[0].value ? processRow[0].value.trim() : '';
+                            if (returnedRowLabel !== rowLabel) {
+                                console.error('getCellValueByIdProductAndColumn: Row mismatch! Expected row_label:', rowLabel, 'Got:', returnedRowLabel);
+                            }
+                        }
                     } else {
                         console.warn('getCellValueByIdProductAndColumn: row_label not found:', rowLabel);
                     }
@@ -2881,6 +2932,31 @@ function getCurrentProcessId() {
                                         console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
                                         return;
                                     }
+                                    
+                                    // CRITICAL: Ensure the cell has all necessary attributes before calling insertCellValueToFormula
+                                    // This ensures that insertCellValueToFormula can correctly identify the row
+                                    if (clickedRowLabel && !targetCell.getAttribute('data-row-label')) {
+                                        targetCell.setAttribute('data-row-label', clickedRowLabel);
+                                        console.log('Set data-row-label on targetCell:', clickedRowLabel);
+                                    }
+                                    
+                                    // Also ensure id_product is set on the cell
+                                    if (!targetCell.getAttribute('data-id-product')) {
+                                        const idProductCell = targetRow.querySelector('td[data-column-index="1"]') || targetRow.querySelectorAll('td')[1];
+                                        if (idProductCell) {
+                                            const idProduct = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                            if (idProduct) {
+                                                targetCell.setAttribute('data-id-product', idProduct);
+                                                console.log('Set data-id-product on targetCell:', idProduct);
+                                            }
+                                        }
+                                    }
+                                    
+                                    console.log('Calling insertCellValueToFormula with cell:', {
+                                        rowLabel: targetCell.getAttribute('data-row-label'),
+                                        idProduct: targetCell.getAttribute('data-id-product'),
+                                        columnIndex: targetCell.getAttribute('data-column-index')
+                                    });
                                     
                                     // Reuse existing logic: behave exactly like clicking the cell
                                     insertCellValueToFormula(targetCell);
