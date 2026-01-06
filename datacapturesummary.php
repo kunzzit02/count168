@@ -1402,12 +1402,14 @@ function getCurrentProcessId() {
             const productValues = getProductValuesFromCell(idProductCell);
             // Sub row: Main value is empty, Sub value may have content or be empty
             const isSubIdProduct = !productValues.main || !productValues.main.trim();
+            // Keep the original row_index so calculator knows exactly which row this is
+            const rowIndexAttr = row ? row.getAttribute('data-row-index') : null;
             
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
             
             // 从 Add button 进入，一律视为“新增”，不带任何预填数据
-            console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
+            console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct, 'rowIndex:', rowIndexAttr);
             
             // 打开空白表单（edit 按钮才负责加载旧数据）
             showEditFormulaForm(productValue, isSubIdProduct, {
@@ -1421,11 +1423,14 @@ function getCurrentProcessId() {
                 inputMethod: '',
                 enableInputMethod: false,
                 enableSourcePercent: true,
-                clickedColumns: ''
+                clickedColumns: '',
+                // 传入当前行的 row_index，方便后续精确匹配
+                rowIndex: rowIndexAttr !== null ? rowIndexAttr : null
             });
         }
 
         // Show Edit Formula Form as modal positioned slightly towards top
+        // 新增参数：prePopulatedData.rowIndex 用来在存在多个相同 id_product 行时，精确定位当前行
         function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
             // Ensure modal container exists
             let modal = document.getElementById('editFormulaModal');
@@ -1444,15 +1449,33 @@ function getCurrentProcessId() {
             }
             
             // Find and store the current row for calculator keypad
+            // 先尝试通过 rowIndex 精确匹配；如果没有 rowIndex 再按 id_product 匹配
+            currentSelectedRowForCalculator = null;
             if (productValue) {
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 if (summaryTableBody) {
-                    const rows = summaryTableBody.querySelectorAll('tr');
-                    for (let row of rows) {
-                        const rowProcessValue = getProcessValueFromRow(row);
-                        if (rowProcessValue === productValue) {
-                            currentSelectedRowForCalculator = row;
-                            break;
+                    const rows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                    
+                    // 1) 优先按 rowIndex 精确匹配（同一个 id_product 有多行时非常重要）
+                    if (prePopulatedData && prePopulatedData.rowIndex !== undefined && prePopulatedData.rowIndex !== null && prePopulatedData.rowIndex !== '') {
+                        const targetIndex = Number(prePopulatedData.rowIndex);
+                        const rowByIndex = rows.find(r => {
+                            const attr = r.getAttribute('data-row-index');
+                            return attr !== null && !Number.isNaN(Number(attr)) && Number(attr) === targetIndex;
+                        });
+                        if (rowByIndex) {
+                            currentSelectedRowForCalculator = rowByIndex;
+                        }
+                    }
+                    
+                    // 2) 如果还没找到，再按 id_product（processValue）匹配，保持原有兼容行为
+                    if (!currentSelectedRowForCalculator) {
+                        for (let row of rows) {
+                            const rowProcessValue = getProcessValueFromRow(row);
+                            if (rowProcessValue === productValue) {
+                                currentSelectedRowForCalculator = row;
+                                break;
+                            }
                         }
                     }
                 }
@@ -9915,6 +9938,8 @@ function getCurrentProcessId() {
         function editRowFormula(button) {
             const row = button.closest('tr');
             const cells = row.querySelectorAll('td');
+            // 当前行在 Data Capture Table 中的行号，用于区分同一个 id_product 的不同行
+            const rowIndexAttr = row ? row.getAttribute('data-row-index') : null;
             
             // Extract data from the row (note: indices shifted by 1 due to merged Id Product column)
             const processValue = getProcessValueFromRow(row);
@@ -10141,7 +10166,9 @@ function getCurrentProcessId() {
                 inputMethod: inputMethodValue,
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
-                clickedColumns: clickedColumns // Pass clicked columns for restoration
+                clickedColumns: clickedColumns, // Pass clicked columns for restoration
+                // 传入当前行的 row_index，确保后续从正确的行获取列数据
+                rowIndex: rowIndexAttr !== null ? rowIndexAttr : null
             });
         }
         
