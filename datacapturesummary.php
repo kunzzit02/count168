@@ -1403,20 +1403,10 @@ function getCurrentProcessId() {
             // Sub row: Main value is empty, Sub value may have content or be empty
             const isSubIdProduct = !productValues.main || !productValues.main.trim();
             
-            // Get rowLabel from row header to distinguish between multiple rows with same id_product
-            let rowLabel = null;
-            const rowHeaderCell = row.querySelector('.row-header');
-            if (rowHeaderCell) {
-                const rowHeaderText = rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
-                if (rowHeaderText) {
-                    rowLabel = rowHeaderText;
-                }
-            }
-            
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
             
-            // 从 Add button 进入，一律视为"新增"，不带任何预填数据
+            // 从 Add button 进入，一律视为“新增”，不带任何预填数据
             console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
             
             // 打开空白表单（edit 按钮才负责加载旧数据）
@@ -1431,20 +1421,12 @@ function getCurrentProcessId() {
                 inputMethod: '',
                 enableInputMethod: false,
                 enableSourcePercent: true,
-                clickedColumns: '',
-                rowLabel: rowLabel // Pass rowLabel to distinguish between multiple rows with same id_product
+                clickedColumns: ''
             });
         }
 
         // Show Edit Formula Form as modal positioned slightly towards top
         function showEditFormulaForm(productValue, isSubIdProduct = false, prePopulatedData = null) {
-            // Extract rowLabel from prePopulatedData if provided
-            const rowLabel = (prePopulatedData && prePopulatedData.rowLabel) ? prePopulatedData.rowLabel : null;
-            
-            // Store rowLabel globally so updateFormulaDataGrid can access it
-            window.currentEditRowLabel = rowLabel;
-            console.log('showEditFormulaForm - productValue:', productValue, 'rowLabel:', rowLabel);
-            
             // Ensure modal container exists
             let modal = document.getElementById('editFormulaModal');
             let modalContent = document.getElementById('editFormulaModalContent');
@@ -1674,23 +1656,7 @@ function getCurrentProcessId() {
                 const descriptionSelect1 = document.getElementById('descriptionSelect1');
                 if (descriptionSelect1) {
                     descriptionSelect1.addEventListener('change', function() {
-                        // Update rowLabel when user selects a different id product/row
-                        const selectedValue = this.value;
-                        if (selectedValue) {
-                            const parts = selectedValue.split(':');
-                            if (parts.length === 2) {
-                                // Format: "id_product:row_label"
-                                window.currentEditRowLabel = parts[1].trim();
-                            } else {
-                                // Only id_product, no row_label (unique id_product)
-                                window.currentEditRowLabel = null;
-                            }
-                        } else {
-                            window.currentEditRowLabel = null;
-                        }
-                        updateIdProductRowData(selectedValue);
-                        // Update formula data grid with new rowLabel
-                        updateFormulaDataGrid();
+                        updateIdProductRowData(this.value);
                     });
                 }
                 
@@ -2466,55 +2432,16 @@ function getCurrentProcessId() {
                 descriptionSelect1.appendChild(option);
             });
 
-            // Auto-select option based on current editing rowLabel if available
-            // This ensures we select the correct row when editing, not just the first one
-            const currentEditRowLabel = window.currentEditRowLabel || null;
-            const currentEditIdProduct = document.getElementById('process') ? document.getElementById('process').value.trim() : null;
-            
-            let selectedValue = null;
-            
-            if (currentEditRowLabel && currentEditIdProduct) {
-                // Try to find the option that matches both id_product and rowLabel
-                const matchingItem = idProductRows.find(item => {
-                    const normalizedItemId = normalizeIdProductText(item.idProduct);
-                    const normalizedCurrentId = normalizeIdProductText(currentEditIdProduct);
-                    return normalizedItemId === normalizedCurrentId && item.rowLabel === currentEditRowLabel;
-                });
-                
-                if (matchingItem) {
-                    const count = idProductCount.get(matchingItem.idProduct);
-                    selectedValue = (count > 1 && matchingItem.rowLabel) 
-                        ? `${matchingItem.idProduct}:${matchingItem.rowLabel}` 
-                        : matchingItem.idProduct;
-                }
-            }
-            
-            // If no match found, select first option
-            if (!selectedValue && idProductRows.length > 0) {
+            // Auto-select first option if available
+            if (idProductRows.length > 0) {
                 const firstItem = idProductRows[0];
                 const firstCount = idProductCount.get(firstItem.idProduct);
-                selectedValue = (firstCount > 1 && firstItem.rowLabel) 
+                const firstValue = (firstCount > 1 && firstItem.rowLabel) 
                     ? `${firstItem.idProduct}:${firstItem.rowLabel}` 
                     : firstItem.idProduct;
-            }
-            
-            if (selectedValue) {
-                // Set the value (this may trigger change event, but that's okay)
-                descriptionSelect1.value = selectedValue;
-                
-                // If we selected based on currentEditRowLabel, ensure it's preserved
-                // This is important because the change event handler might have overwritten it
-                if (currentEditRowLabel && currentEditIdProduct) {
-                    const parts = selectedValue.split(':');
-                    if (parts.length === 2 && parts[1].trim() === currentEditRowLabel) {
-                        // Ensure rowLabel is preserved
-                        window.currentEditRowLabel = currentEditRowLabel;
-                        console.log('loadIdProductList - Preserved rowLabel:', currentEditRowLabel);
-                    }
-                }
-                
+                descriptionSelect1.value = firstValue;
                 // Trigger update for second select box
-                updateIdProductRowData(selectedValue);
+                updateIdProductRowData(firstValue);
             }
         }
 
@@ -2622,11 +2549,6 @@ function getCurrentProcessId() {
                 return;
             }
 
-            // Get rowLabel from global variable (set by showEditFormulaForm)
-            // This is used to distinguish between multiple rows with same id_product
-            const rowLabel = window.currentEditRowLabel || null;
-            console.log('updateFormulaDataGrid - idProduct:', idProduct, 'rowLabel:', rowLabel);
-
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2666,20 +2588,7 @@ function getCurrentProcessId() {
                 const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
                 const normalizedIdProduct = normalizeIdProductText(idProduct || '');
                 
-                // Check if id_product matches
                 if (normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
-                    // If rowLabel is provided, also check if it matches
-                    // This ensures we only show data from the specific row being edited
-                    if (rowLabel) {
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                        console.log('updateFormulaDataGrid - Checking row', rowIndex, 'rowHeaderLabel:', rowHeaderLabel, 'target rowLabel:', rowLabel, 'match:', rowHeaderLabel === rowLabel);
-                        if (rowHeaderLabel !== rowLabel) {
-                            console.log('updateFormulaDataGrid - Skipping row', rowIndex, 'because rowLabel does not match');
-                            return; // Skip this row if row label doesn't match
-                        }
-                        console.log('updateFormulaDataGrid - Row', rowIndex, 'matched! Showing data for this row');
-                    }
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
                     rowContainer.className = 'formula-data-grid-row';
@@ -5514,7 +5423,6 @@ function getCurrentProcessId() {
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
             window.isEditMode = false;
-            window.currentEditRowLabel = null; // Clear rowLabel when closing modal
         }
 
         // Find summary table row by idProduct, accountId, and product type
@@ -10010,18 +9918,6 @@ function getCurrentProcessId() {
             
             // Extract data from the row (note: indices shifted by 1 due to merged Id Product column)
             const processValue = getProcessValueFromRow(row);
-            
-            // Get rowLabel from row header to distinguish between multiple rows with same id_product
-            let rowLabel = null;
-            const rowHeaderCell = row.querySelector('.row-header');
-            if (rowHeaderCell) {
-                const rowHeaderText = rowHeaderCell.textContent ? rowHeaderCell.textContent.trim() : '';
-                if (rowHeaderText) {
-                    rowLabel = rowHeaderText;
-                }
-            }
-            console.log('editRowFormula - processValue:', processValue, 'rowLabel:', rowLabel);
-            
             // Get account value, excluding button text if present
             const accountCell = cells[1];
             let accountValue = '';
@@ -10245,8 +10141,7 @@ function getCurrentProcessId() {
                 inputMethod: inputMethodValue,
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
-                clickedColumns: clickedColumns, // Pass clicked columns for restoration
-                rowLabel: rowLabel // Pass rowLabel to distinguish between multiple rows with same id_product
+                clickedColumns: clickedColumns // Pass clicked columns for restoration
             });
         }
         
