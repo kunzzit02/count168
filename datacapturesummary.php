@@ -12741,6 +12741,14 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         });
 
+        // DEBUG: Log candidate rows for troubleshooting
+        console.log('applyMainTemplateToRow - Found', candidateRows.length, 'candidate rows for id_product:', idProduct, 'template_id:', templateId, 'template_row_index:', templateRowIndex, 'template_account_id:', templateAccountId, 'template_formula_variant:', templateFormulaVariant);
+        if (candidateRows.length > 1) {
+            candidateRows.forEach((candidate, idx) => {
+                console.log('  Candidate', idx + ':', 'row_index:', candidate.rowIndex, 'account_id:', candidate.accountId, 'template_id:', candidate.templateId, 'formula_variant:', candidate.formulaVariant);
+            });
+        }
+
         // Priority 1: Match by template_id (most precise) - CRITICAL for distinguishing rows with same id_product
         if (templateId) {
             for (const candidate of candidateRows) {
@@ -12855,10 +12863,36 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 7: Use first empty row (no account yet)
+        // Priority 7: Match by row_index only (even if account_id not available yet)
+        // This is critical when multiple rows with same id_product don't have account_id yet
+        // We use row_index to match the correct row position
+        if (!targetRow && templateRowIndex !== null) {
+            for (const candidate of candidateRows) {
+                if (candidate.rowIndex === templateRowIndex) {
+                    // Check if this row already has a different template_id (already matched to another template)
+                    // If so, skip it to avoid overwriting
+                    if (candidate.templateId && candidate.templateId !== templateId) {
+                        console.log('Skipping row with different template_id:', candidate.templateId, 'for template_id:', templateId);
+                        continue;
+                    }
+                    targetRow = candidate.row;
+                    console.log('Matched row by row_index only (no account yet):', templateRowIndex, 'for id_product:', idProduct);
+                    break;
+                }
+            }
+        }
+
+        // Priority 8: Use first empty row (no account yet) - but only if row_index doesn't match
+        // This ensures we don't overwrite rows that should be matched by row_index
         if (!targetRow) {
             for (const candidate of candidateRows) {
                 if (!candidate.accountId) {
+                    // Check if this row already has a different template_id (already matched to another template)
+                    // If so, skip it to avoid overwriting
+                    if (candidate.templateId && candidate.templateId !== templateId) {
+                        console.log('Skipping empty row with different template_id:', candidate.templateId, 'for template_id:', templateId);
+                        continue;
+                    }
                     targetRow = candidate.row;
                     console.log('Matched empty row (no account) for id_product:', idProduct);
                     break;
@@ -12866,10 +12900,21 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 8: Use first available row as fallback
+        // Priority 9: Use first available row as fallback (only if no other match found)
         if (!targetRow && candidateRows.length > 0) {
-            targetRow = candidateRows[0].row;
-            console.log('Using first available row as fallback for id_product:', idProduct);
+            // Try to find a row that hasn't been matched to another template yet
+            for (const candidate of candidateRows) {
+                if (!candidate.templateId || candidate.templateId === templateId) {
+                    targetRow = candidate.row;
+                    console.log('Using first available row as fallback for id_product:', idProduct);
+                    break;
+                }
+            }
+            // If all rows are already matched, use the first one anyway (shouldn't happen, but safety fallback)
+            if (!targetRow) {
+                targetRow = candidateRows[0].row;
+                console.log('Using first available row as final fallback (all rows already matched) for id_product:', idProduct);
+            }
         }
 
         if (!targetRow) {
@@ -12884,13 +12929,31 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const accountText = accountCell ? accountCell.textContent.trim() : '';
         const hasExistingData = accountText !== '' && !hadAddButton;
 
-        // Only apply template if row doesn't have existing data, or if account matches
+        // Get row's current template_id to check if it's already matched to another template
+        const rowTemplateId = targetRow.getAttribute('data-template-id');
+        const rowFormulaVariant = targetRow.getAttribute('data-formula-variant');
         const rowAccountId = accountCell?.getAttribute('data-account-id');
-        const shouldApply = !hasExistingData || (templateAccountId && rowAccountId && rowAccountId === templateAccountId);
+
+        // CRITICAL: If row already has a different template_id, don't overwrite it
+        // This prevents one template from overwriting another template's data
+        if (rowTemplateId && rowTemplateId !== templateId) {
+            console.log('applyMainTemplateToRow: Skipping row with different template_id:', rowTemplateId, 'for template_id:', templateId, 'id_product:', idProduct);
+            return null; // Return null to indicate this template couldn't be applied
+        }
+
+        // Only apply template if:
+        // 1. Row doesn't have existing data, OR
+        // 2. Account matches, OR
+        // 3. Template_id matches (updating existing template), OR
+        // 4. Row_index matches and row doesn't have account yet (initial population)
+        const shouldApply = !hasExistingData 
+            || (templateAccountId && rowAccountId && rowAccountId === templateAccountId)
+            || (templateId && rowTemplateId && rowTemplateId === templateId)
+            || (templateRowIndex !== null && !rowAccountId && targetRow.getAttribute('data-row-index') === String(templateRowIndex));
 
         if (!shouldApply && hasExistingData) {
-            console.log('applyMainTemplateToRow: Skipping row with existing data that doesn\'t match account_id');
-            return;
+            console.log('applyMainTemplateToRow: Skipping row with existing data that doesn\'t match criteria. template_id:', templateId, 'row_template_id:', rowTemplateId, 'account_id:', templateAccountId, 'row_account_id:', rowAccountId);
+            return null; // Return null to indicate this template couldn't be applied
         }
 
         // Apply the template (reuse the logic from applyTemplateToSummaryRow)
