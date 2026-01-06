@@ -136,18 +136,22 @@ try {
         $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id);
         $bfCurrency = $currency;
     } else {
-        // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的第一个 currency
+        // 如果没有指定 currency，从 data_captures 中获取该账户实际使用的第一个 currency（使用 process 的 currency）
+        // 🔧 修复：使用 dc.currency_id（process 的 currency）而不是 dcd.currency_id（data_capture_details 的 currency）
+        // 与 transaction_search_api.php 保持一致
         // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
         $stmt = $pdo->prepare("
             SELECT DISTINCT c.code 
             FROM data_capture_details dcd
-            JOIN currency c ON dcd.currency_id = c.id
+            JOIN data_captures dc ON dcd.capture_id = dc.id
+            JOIN currency c ON dc.currency_id = c.id
             WHERE dcd.company_id = ?
+              AND dc.company_id = ?
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
             ORDER BY c.code ASC
             LIMIT 1
         ");
-        $stmt->execute([$company_id, $account_id]);
+        $stmt->execute([$company_id, $company_id, $account_id]);
         $bfCurrency = $stmt->fetchColumn();
         
         if ($bfCurrency) {
@@ -194,6 +198,8 @@ try {
     }
     
     // 2. 查询日期范围内的数据采集记录（视为 Win/Loss）- 如果指定了 currency，按 currency 筛选
+    // 🔧 修复：使用 dc.currency_id（process 的 currency）而不是 dcd.currency_id（data_capture_details 的 currency）
+    // 与 transaction_search_api.php 保持一致，确保搜索页面和历史记录弹窗显示一致的数据
     $sqlCapture = "SELECT 
                         dcd.id as detail_id,
                         dcd.capture_id,
@@ -217,13 +223,13 @@ try {
                         dcd.product_type,
                         dcd.source_value,
                         dcd.formula,
-                        dcd.currency_id,
+                        dc.currency_id,
                         dcd.rate,
                         c.code as currency_code,
                         COALESCE(u.login_id, o.owner_code) as capture_created_by
                     FROM data_capture_details dcd
                     JOIN data_captures dc ON dcd.capture_id = dc.id
-                    JOIN currency c ON dcd.currency_id = c.id
+                    JOIN currency c ON dc.currency_id = c.id
                     LEFT JOIN user u ON dc.user_type = 'user' AND dc.created_by = u.id
                     LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
                     JOIN process p ON dc.process_id = p.id
@@ -235,7 +241,7 @@ try {
     
     $captureParams = [$company_id, $company_id, $account_id, $date_from_db, $date_to_db];
     if ($currency_id) {
-        $sqlCapture .= " AND dcd.currency_id = ?";
+        $sqlCapture .= " AND dc.currency_id = ?";
         $captureParams[] = $currency_id;
     }
     
@@ -300,28 +306,37 @@ try {
             $sql .= " AND t.currency_id = ?";
             $transactionParams[] = $currency_id;
         } else {
-            // 如果表没有 currency_id 字段，使用 data_capture_details 来过滤
-            // 检查 To Account 或 From Account 在 data_capture_details 中是否有该 currency 的记录
+            // 如果表没有 currency_id 字段，使用 data_captures 来过滤（使用 process 的 currency）
+            // 🔧 修复：使用 dc.currency_id（process 的 currency）而不是 dcd.currency_id（data_capture_details 的 currency）
+            // 检查 To Account 或 From Account 在 data_captures 中是否有该 currency 的记录
             // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
             $sql .= " AND (
                 (t.account_id = ? AND EXISTS (
                     SELECT 1
                     FROM data_capture_details dcd
+                    JOIN data_captures dc ON dcd.capture_id = dc.id
                     WHERE dcd.company_id = ?
+                      AND dc.company_id = ?
                       AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
-                      AND dcd.currency_id = ?
+                      AND dc.currency_id = ?
                 )) OR 
                 (t.from_account_id = ? AND EXISTS (
                     SELECT 1
                     FROM data_capture_details dcd
+                    JOIN data_captures dc ON dcd.capture_id = dc.id
                     WHERE dcd.company_id = ?
+                      AND dc.company_id = ?
                       AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
-                      AND dcd.currency_id = ?
+                      AND dc.currency_id = ?
                 ))
             )";
             $transactionParams[] = $account_id;
+            $transactionParams[] = $company_id;
+            $transactionParams[] = $company_id;
             $transactionParams[] = $currency_id;
             $transactionParams[] = $account_id;
+            $transactionParams[] = $company_id;
+            $transactionParams[] = $company_id;
             $transactionParams[] = $currency_id;
         }
     }
@@ -563,13 +578,15 @@ try {
             // 如果指定了 currency filter，使用它
             $transactionCurrency = $currency;
         } else {
-            // 从 data_capture_details 中获取该账户在该交易日期使用的 currency
+            // 从 data_captures 中获取该账户在该交易日期使用的 currency（使用 process 的 currency）
+            // 🔧 修复：使用 dc.currency_id（process 的 currency）而不是 dcd.currency_id（data_capture_details 的 currency）
+            // 与 transaction_search_api.php 保持一致
             // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
             $stmt = $pdo->prepare("
                 SELECT DISTINCT c.code 
                 FROM data_capture_details dcd
                 JOIN data_captures dc ON dcd.capture_id = dc.id
-                JOIN currency c ON dcd.currency_id = c.id
+                JOIN currency c ON dc.currency_id = c.id
                 WHERE dcd.company_id = ?
                   AND dc.company_id = ?
                   AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
@@ -843,6 +860,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     }
     
     // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
+    // 🔧 修复：使用 dc.currency_id（process 的 currency）而不是 dcd.currency_id（data_capture_details 的 currency）
+    // 与 transaction_search_api.php 保持一致，确保搜索页面和历史记录弹窗显示一致的数据
     // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
@@ -850,7 +869,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dcd.currency_id = ?
+              AND dc.currency_id = ?
               AND dc.capture_date < ?";
     
     $stmt = $pdo->prepare($sql);
@@ -895,13 +914,15 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
+                      JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ?
-                        AND dcd.account_id = t.account_id
-                        AND dcd.currency_id = ?
+                        AND dc.company_id = ?
+                        AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
+                        AND dc.currency_id = ?
                   )";
         
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
     }
     $bf += $stmt->fetchColumn();
     
@@ -938,13 +959,15 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
+                      JOIN data_captures dc ON dcd.capture_id = dc.id
                       WHERE dcd.company_id = ?
+                        AND dc.company_id = ?
                         AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
-                        AND dcd.currency_id = ?
+                        AND dc.currency_id = ?
                   )";
         
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);
+        $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
     }
     $bf += $stmt->fetchColumn();
     
