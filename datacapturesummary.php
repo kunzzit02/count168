@@ -2549,6 +2549,32 @@ function getCurrentProcessId() {
                 return;
             }
 
+            // CRITICAL: Get the current editing row's row_index and template_id to identify which specific row we're editing
+            // This is essential when there are multiple rows with the same id_product
+            let currentEditRowIndex = null;
+            let currentEditTemplateId = null;
+            let currentEditFormulaVariant = null;
+            
+            if (window.currentEditRow) {
+                const rowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
+                if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
+                    currentEditRowIndex = Number(rowIndexAttr);
+                }
+                const templateIdAttr = window.currentEditRow.getAttribute('data-template-id');
+                if (templateIdAttr && templateIdAttr !== '') {
+                    currentEditTemplateId = templateIdAttr;
+                }
+                const formulaVariantAttr = window.currentEditRow.getAttribute('data-formula-variant');
+                if (formulaVariantAttr && formulaVariantAttr !== '') {
+                    currentEditFormulaVariant = formulaVariantAttr;
+                }
+                console.log('updateFormulaDataGrid - Current editing row info:', {
+                    rowIndex: currentEditRowIndex,
+                    templateId: currentEditTemplateId,
+                    formulaVariant: currentEditFormulaVariant
+                });
+            }
+
             // Get table data
             let parsedTableData;
             if (window.transformedTableData) {
@@ -2566,6 +2592,9 @@ function getCurrentProcessId() {
             if (!capturedTableBody) return;
 
             const rows = capturedTableBody.querySelectorAll('tr');
+            const matchingRows = [];
+            
+            // First pass: collect all matching rows
             rows.forEach((row, rowIndex) => {
                 // Try to get id_product from data-id-product attribute first
                 let rowIdProduct = row.getAttribute('data-id-product');
@@ -2589,9 +2618,45 @@ function getCurrentProcessId() {
                 const normalizedIdProduct = normalizeIdProductText(idProduct || '');
                 
                 if (normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
-                    // Create a separate row container for each matching row
-                    const rowContainer = document.createElement('div');
-                    rowContainer.className = 'formula-data-grid-row';
+                    matchingRows.push({
+                        row,
+                        rowIndex,
+                        rowIdProduct
+                    });
+                }
+            });
+
+            // CRITICAL: If we have currentEditRowIndex, prioritize the row that matches it
+            // Sort matching rows: current editing row first, then others
+            matchingRows.sort((a, b) => {
+                // If we have currentEditRowIndex, prioritize matching row
+                if (currentEditRowIndex !== null) {
+                    if (a.rowIndex === currentEditRowIndex && b.rowIndex !== currentEditRowIndex) {
+                        return -1; // a comes first
+                    }
+                    if (a.rowIndex !== currentEditRowIndex && b.rowIndex === currentEditRowIndex) {
+                        return 1; // b comes first
+                    }
+                }
+                // Otherwise maintain original order
+                return a.rowIndex - b.rowIndex;
+            });
+
+            // Second pass: create row containers for each matching row
+            matchingRows.forEach(({row, rowIndex, rowIdProduct}) => {
+                // Create a separate row container for each matching row
+                const rowContainer = document.createElement('div');
+                rowContainer.className = 'formula-data-grid-row';
+                
+                // CRITICAL: Mark the current editing row so user knows which row they're editing
+                const isCurrentEditRow = currentEditRowIndex !== null && rowIndex === currentEditRowIndex;
+                if (isCurrentEditRow) {
+                    rowContainer.setAttribute('data-current-edit-row', 'true');
+                    rowContainer.style.border = '2px solid #0D60FF'; // Highlight current editing row
+                    rowContainer.style.padding = '4px';
+                    rowContainer.style.marginBottom = '8px';
+                    console.log('updateFormulaDataGrid - Highlighting current editing row at index:', rowIndex);
+                }
                     
                     // Get all data cells (skip row header and id_product column)
                     const cells = row.querySelectorAll('td');
@@ -2628,6 +2693,17 @@ function getCurrentProcessId() {
                                         return;
                                     }
                                     
+                                    // CRITICAL: Get row_label from the target row to ensure correct identification
+                                    // This is essential when there are multiple rows with same id_product
+                                    let rowLabel = targetRow.getAttribute('data-row-label');
+                                    if (!rowLabel) {
+                                        const rowHeaderCell = targetRow.querySelector('.row-header');
+                                        if (rowHeaderCell) {
+                                            rowLabel = rowHeaderCell.textContent.trim();
+                                            targetRow.setAttribute('data-row-label', rowLabel);
+                                        }
+                                    }
+                                    
                                     // Find the cell with matching data-column-index
                                     const targetCells = targetRow.querySelectorAll('td');
                                     let targetCell = null;
@@ -2642,6 +2718,23 @@ function getCurrentProcessId() {
                                         console.warn('Cell not found for column index:', targetColumnIndex, 'in row index:', targetRowIndex);
                                         return;
                                     }
+                                    
+                                    // CRITICAL: Ensure cell has row_label attribute for correct identification
+                                    if (rowLabel && !targetCell.getAttribute('data-row-label')) {
+                                        targetCell.setAttribute('data-row-label', rowLabel);
+                                    }
+                                    
+                                    // CRITICAL: Ensure cell has id_product attribute
+                                    if (!targetCell.getAttribute('data-id-product')) {
+                                        const idProductCell = targetRow.querySelector('td[data-column-index="1"]') || targetRow.querySelectorAll('td')[1];
+                                        if (idProductCell) {
+                                            const idProduct = idProductCell.textContent.trim();
+                                            targetCell.setAttribute('data-id-product', idProduct);
+                                            targetRow.setAttribute('data-id-product', idProduct);
+                                        }
+                                    }
+                                    
+                                    console.log('Formula data grid - Clicked cell from row_index:', targetRowIndex, 'row_label:', rowLabel, 'column_index:', targetColumnIndex);
                                     
                                     // Reuse existing logic: behave exactly like clicking the cell
                                     insertCellValueToFormula(targetCell);
