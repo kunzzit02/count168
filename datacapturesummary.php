@@ -12741,18 +12741,55 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         });
 
-        // Priority 1: Match by template_id (most precise)
+        // Priority 1: Match by template_id (most precise) - CRITICAL for distinguishing rows with same id_product
         if (templateId) {
             for (const candidate of candidateRows) {
                 if (candidate.templateId === templateId) {
                     targetRow = candidate.row;
-                    console.log('Matched row by template_id:', templateId);
+                    console.log('Matched row by template_id:', templateId, 'for id_product:', idProduct);
                     break;
                 }
             }
         }
 
-        // Priority 2: Match by row_index (exact match) - this is the most reliable way to match rows
+        // Priority 2: Match by row_index + account_id + formula_variant (most reliable combination)
+        // This ensures we match the correct row even when there are multiple rows with same id_product
+        if (!targetRow && templateRowIndex !== null && templateAccountId && templateFormulaVariant) {
+            for (const candidate of candidateRows) {
+                if (candidate.rowIndex === templateRowIndex && 
+                    candidate.accountId === templateAccountId && 
+                    candidate.formulaVariant === templateFormulaVariant) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by row_index + account_id + formula_variant:', templateRowIndex, templateAccountId, templateFormulaVariant, 'for id_product:', idProduct);
+                    break;
+                }
+            }
+        }
+
+        // Priority 3: Match by row_index + account_id (if formula_variant not available)
+        if (!targetRow && templateRowIndex !== null && templateAccountId) {
+            for (const candidate of candidateRows) {
+                if (candidate.rowIndex === templateRowIndex && candidate.accountId === templateAccountId) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by row_index + account_id:', templateRowIndex, templateAccountId, 'for id_product:', idProduct);
+                    break;
+                }
+            }
+        }
+
+        // Priority 4: Match by account_id + formula_variant (if row_index not available)
+        // This is important when row_index might have changed but account_id and formula_variant remain the same
+        if (!targetRow && templateAccountId && templateFormulaVariant) {
+            for (const candidate of candidateRows) {
+                if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
+                    targetRow = candidate.row;
+                    console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant, 'for id_product:', idProduct);
+                    break;
+                }
+            }
+        }
+
+        // Priority 5: Match by row_index (exact match) - this is reliable when row_index is stable
         // IMPORTANT: When row_index matches, we should use that row regardless of account_id/formula_variant
         // This ensures that templates are applied to the correct row position even if account_id changes
         // CRITICAL: If exact row_index match fails (e.g., row was moved due to new rows inserted in Data Capture Table),
@@ -12764,7 +12801,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             for (const candidate of candidateRows) {
                 if (candidate.rowIndex === templateRowIndex) {
                     targetRow = candidate.row;
-                    console.log('Matched row by row_index (exact match):', templateRowIndex, 'template account_id:', templateAccountId, 'candidate account_id:', candidate.accountId);
+                    console.log('Matched row by row_index (exact match):', templateRowIndex, 'template account_id:', templateAccountId, 'candidate account_id:', candidate.accountId, 'for id_product:', idProduct);
                     break;
                 }
             }
@@ -12807,54 +12844,32 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 3: Match by account_id + formula_variant (if row_index not available)
-        if (!targetRow && templateAccountId && templateFormulaVariant) {
-            for (const candidate of candidateRows) {
-                if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
-                    break;
-                }
-            }
-        }
-
-        // Priority 4: Match by account_id only (if formula_variant not available)
+        // Priority 6: Match by account_id only (if formula_variant and row_index not available)
         if (!targetRow && templateAccountId) {
             for (const candidate of candidateRows) {
                 if (candidate.accountId === templateAccountId) {
                     targetRow = candidate.row;
-                    console.log('Matched row by account_id:', templateAccountId);
+                    console.log('Matched row by account_id:', templateAccountId, 'for id_product:', idProduct);
                     break;
                 }
             }
         }
 
-        // Priority 5: Match by row_index only (if account_id not available)
-        if (!targetRow && templateRowIndex !== null) {
-            for (const candidate of candidateRows) {
-                if (candidate.rowIndex === templateRowIndex) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by row_index:', templateRowIndex);
-                    break;
-                }
-            }
-        }
-
-        // Priority 6: Use first empty row (no account yet)
+        // Priority 7: Use first empty row (no account yet)
         if (!targetRow) {
             for (const candidate of candidateRows) {
                 if (!candidate.accountId) {
                     targetRow = candidate.row;
-                    console.log('Matched empty row (no account)');
+                    console.log('Matched empty row (no account) for id_product:', idProduct);
                     break;
                 }
             }
         }
 
-        // Priority 7: Use first available row as fallback
+        // Priority 8: Use first available row as fallback
         if (!targetRow && candidateRows.length > 0) {
             targetRow = candidateRows[0].row;
-            console.log('Using first available row as fallback');
+            console.log('Using first available row as fallback for id_product:', idProduct);
         }
 
         if (!targetRow) {
