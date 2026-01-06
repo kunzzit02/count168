@@ -291,10 +291,18 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     // If exists, use its formula_variant (update existing record)
     // If not exists, find the next available formula_variant (create new record)
     // This allows multiple rows with same id_product and account_id but different formulas (different formula_variant)
+    // IMPORTANT: Also consider row_index to distinguish between multiple rows with same id_product
     if ($formulaVariant === null) {
+        // Get row_index if provided (helps distinguish between multiple rows with same id_product)
+        $rowIndex = isset($row['row_index']) && $row['row_index'] !== null ? (int)$row['row_index'] : null;
+        
         // First, try to find existing template with same id_product, account_id, batch_selection, AND formula_display
+        // If row_index is provided, also match by row_index to find the correct row
         // This handles the case where the same formula is being updated
         if ($productType === 'sub') {
+            // Build WHERE clause with optional row_index matching
+            $rowIndexCondition = $rowIndex !== null ? "AND row_index = :row_index" : "";
+            
             $existingTemplateStmt = $pdo->prepare("
                 SELECT formula_variant FROM data_capture_templates 
                 WHERE company_id = :company_id
@@ -306,6 +314,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                   AND batch_selection = :batch_selection
                   AND COALESCE(formula_display, '') = COALESCE(:formula_display, '')
                   AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
+                  $rowIndexCondition
                 ORDER BY updated_at DESC
                 LIMIT 1
             ");
@@ -325,7 +334,13 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             if ($dataCaptureId) {
                 $existingTemplateParams[':data_capture_id'] = $dataCaptureId;
             }
+            if ($rowIndex !== null) {
+                $existingTemplateParams[':row_index'] = $rowIndex;
+            }
         } else {
+            // Build WHERE clause with optional row_index matching
+            $rowIndexCondition = $rowIndex !== null ? "AND row_index = :row_index" : "";
+            
             $existingTemplateStmt = $pdo->prepare("
                 SELECT formula_variant FROM data_capture_templates 
                 WHERE company_id = :company_id
@@ -336,6 +351,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                   AND batch_selection = :batch_selection
                   AND COALESCE(formula_display, '') = COALESCE(:formula_display, '')
                   AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
+                  $rowIndexCondition
                 ORDER BY updated_at DESC
                 LIMIT 1
             ");
@@ -353,6 +369,9 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             }
             if ($dataCaptureId) {
                 $existingTemplateParams[':data_capture_id'] = $dataCaptureId;
+            }
+            if ($rowIndex !== null) {
+                $existingTemplateParams[':row_index'] = $rowIndex;
             }
         }
         
