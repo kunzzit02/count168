@@ -221,10 +221,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <option value="GENERAL">GENERAL</option>
                             <!-- <option value="CITIBET">CITIBET</option> -->
                             <option value="CITIBET_MAJOR">CITIBET</option>
-                            <option value="KING855">King855</option>
                             <option value="VPOWER">VPOWER</option>
-                            <option value="PEGASUS">PEGASUS</option>
-                            <option value="API_INVOICE">API- INVOICE</option>
                             <option value="API_RETURN">API-RETURN</option>
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
