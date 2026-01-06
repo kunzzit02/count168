@@ -6792,22 +6792,8 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 }
                 
-                // IMPORTANT: 如果当前正在编辑行，使用该行的 row_index 来确定正确的行
-                // 这样可以确保当有两个相同的 id_product 时，使用正确的行
-                let targetRowIndex = null;
-                if (window.currentEditRow) {
-                    const rowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
-                    if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
-                        targetRowIndex = parseInt(rowIndexAttr);
-                        if (isNaN(targetRowIndex)) {
-                            targetRowIndex = null;
-                        }
-                    }
-                }
-                
                 // Find the row that matches the process value
-                // If targetRowIndex is available, use it to find the correct row
-                const processRow = findProcessRow(parsedTableData, processValue, targetRowIndex);
+                const processRow = findProcessRow(parsedTableData, processValue);
                 if (!processRow || processRow.length === 0) {
                     return null;
                 }
@@ -6990,56 +6976,13 @@ function getCurrentProcessId() {
                         }
                     } else {
                         // 如果没有 data-clicked-cell-refs，使用原来的逻辑
-                        // IMPORTANT: 如果当前正在编辑行，使用该行的 row_index 来确定正确的行
-                        // 这样可以确保当有两个相同的 id_product 时，使用正确的行
-                        let targetRowIndex = null;
-                        if (window.currentEditRow) {
-                            const rowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
-                            if (rowIndexAttr && rowIndexAttr !== '' && rowIndexAttr !== '999999') {
-                                targetRowIndex = parseInt(rowIndexAttr);
-                                if (isNaN(targetRowIndex)) {
-                                    targetRowIndex = null;
-                                }
-                            }
-                        }
-                        
                         const rowLabel = getRowLabelFromProcessValue(processValue);
                         if (rowLabel) {
                             for (let i = 0; i < dollarMatches.length; i++) {
                                 const dollarMatch = dollarMatches[i];
                                 // Convert $数字 to cell reference (e.g., $2 -> A2)
                                 const columnReference = rowLabel + dollarMatch.columnNumber;
-                                
-                                // IMPORTANT: 如果 targetRowIndex 可用，使用它来获取正确的行数据
-                                let columnValue = null;
-                                if (targetRowIndex !== null) {
-                                    // 使用 rowIndex 来获取正确的行
-                                    const dataColumnIndex = dollarMatch.columnNumber - 1;
-                                    columnValue = getCellValueByIdProductAndColumn(processValue, dataColumnIndex, rowLabel);
-                                    if (columnValue === null) {
-                                        // 如果通过 rowLabel 找不到，尝试使用 rowIndex
-                                        let parsedTableData;
-                                        if (window.transformedTableData) {
-                                            parsedTableData = window.transformedTableData;
-                                        } else {
-                                            const tableData = localStorage.getItem('capturedTableData');
-                                            if (tableData) {
-                                                parsedTableData = JSON.parse(tableData);
-                                                const processRow = findProcessRow(parsedTableData, processValue, targetRowIndex);
-                                                if (processRow && processRow.length > dataColumnIndex + 1) {
-                                                    const cellData = processRow[dataColumnIndex + 1];
-                                                    if (cellData && cellData.type === 'data' && (cellData.value !== null && cellData.value !== undefined && cellData.value !== '')) {
-                                                        const cellValue = cellData.value.toString();
-                                                        columnValue = cellValue.replace(/\$/g, '').replace(/[^0-9+\-*/.\s()]/g, '').trim();
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    // 回退到原来的逻辑
-                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                }
+                                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
                                 
                                 if (columnValue !== null) {
                                     // Replace $数字 with actual value
@@ -11824,16 +11767,9 @@ function getCurrentProcessId() {
             
             if (!row) {
                 // Find the row in the summary table that matches the process value
-                // IMPORTANT: If formula_variant is provided, use it to distinguish rows with same id_product
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 const rows = summaryTableBody.querySelectorAll('tr');
                 
-                // Get formula_variant from data if available
-                const targetFormulaVariant = (data.formulaVariant !== undefined && data.formulaVariant !== null) 
-                    ? String(data.formulaVariant) : null;
-                
-                // Collect all candidate rows (same id_product)
-                const candidateRows = [];
                 for (let i = 0; i < rows.length; i++) {
                     const currentRow = rows[i];
                     const idProductCell = currentRow.querySelector('td:first-child');
@@ -11848,30 +11784,10 @@ function getCurrentProcessId() {
                         const match = cellText.match(/^([^(]+)/);
                         const cleanCellText = match ? match[1].trim() : cellText;
                         if (cleanCellText === processValue) {
-                            const rowFormulaVariant = currentRow.getAttribute('data-formula-variant');
-                            candidateRows.push({
-                                row: currentRow,
-                                formulaVariant: rowFormulaVariant
-                            });
-                        }
-                    }
-                }
-                
-                // If formula_variant is provided, try to match by it first
-                if (targetFormulaVariant && candidateRows.length > 1) {
-                    for (const candidate of candidateRows) {
-                        if (candidate.formulaVariant === targetFormulaVariant) {
-                            row = candidate.row;
-                            console.log('updateSummaryTableRow - Matched row by formula_variant:', targetFormulaVariant);
+                            row = currentRow;
                             break;
                         }
                     }
-                }
-                
-                // If no match by formula_variant, use first candidate (backward compatibility)
-                if (!row && candidateRows.length > 0) {
-                    row = candidateRows[0].row;
-                    console.log('updateSummaryTableRow - Using first candidate row (no formula_variant match)');
                 }
             }
             
@@ -12836,34 +12752,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 2: Match by formula_variant (CRITICAL for distinguishing rows with same id_product)
-        // IMPORTANT: When multiple rows have the same id_product, formula_variant is the key identifier
-        // This ensures that each row with the same id_product but different formula gets the correct template
-        if (!targetRow && templateFormulaVariant) {
-            // First, try to match by formula_variant + account_id (most precise)
-            if (templateAccountId) {
-                for (const candidate of candidateRows) {
-                    if (candidate.formulaVariant === templateFormulaVariant && candidate.accountId === templateAccountId) {
-                        targetRow = candidate.row;
-                        console.log('Matched row by formula_variant + account_id:', templateFormulaVariant, templateAccountId);
-                        break;
-                    }
-                }
-            }
-            
-            // If no match with account_id, try formula_variant only
-            if (!targetRow) {
-                for (const candidate of candidateRows) {
-                    if (candidate.formulaVariant === templateFormulaVariant) {
-                        targetRow = candidate.row;
-                        console.log('Matched row by formula_variant:', templateFormulaVariant);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Priority 3: Match by row_index (exact match) - this is the most reliable way to match rows
+        // Priority 2: Match by row_index (exact match) - this is the most reliable way to match rows
         // IMPORTANT: When row_index matches, we should use that row regardless of account_id/formula_variant
         // This ensures that templates are applied to the correct row position even if account_id changes
         // CRITICAL: If exact row_index match fails (e.g., row was moved due to new rows inserted in Data Capture Table),
@@ -12918,7 +12807,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 4: Match by account_id + formula_variant (if row_index not available)
+        // Priority 3: Match by account_id + formula_variant (if row_index not available)
         if (!targetRow && templateAccountId && templateFormulaVariant) {
             for (const candidate of candidateRows) {
                 if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
@@ -12929,7 +12818,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 5: Match by account_id only (if formula_variant not available)
+        // Priority 4: Match by account_id only (if formula_variant not available)
         if (!targetRow && templateAccountId) {
             for (const candidate of candidateRows) {
                 if (candidate.accountId === templateAccountId) {
@@ -12940,7 +12829,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 6: Match by row_index only (if account_id not available)
+        // Priority 5: Match by row_index only (if account_id not available)
         if (!targetRow && templateRowIndex !== null) {
             for (const candidate of candidateRows) {
                 if (candidate.rowIndex === templateRowIndex) {
@@ -12951,7 +12840,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 7: Use first empty row (no account yet)
+        // Priority 6: Use first empty row (no account yet)
         if (!targetRow) {
             for (const candidate of candidateRows) {
                 if (!candidate.accountId) {
@@ -12962,7 +12851,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
         }
 
-        // Priority 8: Use first available row as fallback
+        // Priority 7: Use first available row as fallback
         if (!targetRow && candidateRows.length > 0) {
             targetRow = candidateRows[0].row;
             console.log('Using first available row as fallback');
