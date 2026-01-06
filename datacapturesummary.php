@@ -1146,6 +1146,12 @@ function getCurrentProcessId() {
         // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
         function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null) {
             try {
+                // If rowLabel not provided, try to use global rowLabel from current edit session
+                if (!rowLabel && window.currentEditRowLabel) {
+                    rowLabel = window.currentEditRowLabel;
+                    console.log('getCellValueByIdProductAndColumn - Using global rowLabel:', rowLabel, 'for id_product:', idProduct);
+                }
+                
                 // Use transformed table data if available, otherwise get from localStorage
                 let parsedTableData;
                 if (window.transformedTableData) {
@@ -1406,8 +1412,27 @@ function getCurrentProcessId() {
             // Store the button reference globally so saveFormula can access it
             window.currentAddAccountButton = button;
             
-            // 从 Add button 进入，一律视为“新增”，不带任何预填数据
-            console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct);
+            // Get rowLabel from data capture table to distinguish duplicate id_products
+            let rowLabel = null;
+            const rowIndex = row.getAttribute('data-row-index');
+            if (rowIndex !== null) {
+                const capturedTableBody = document.getElementById('capturedTableBody');
+                if (capturedTableBody) {
+                    const capturedRows = capturedTableBody.querySelectorAll('tr');
+                    const targetRowIndex = parseInt(rowIndex, 10);
+                    if (targetRowIndex >= 0 && targetRowIndex < capturedRows.length) {
+                        const targetRow = capturedRows[targetRowIndex];
+                        const rowHeaderCell = targetRow.querySelector('.row-header');
+                        if (rowHeaderCell) {
+                            rowLabel = rowHeaderCell.textContent.trim();
+                            console.log('handleAddAccount - Found rowLabel:', rowLabel, 'for rowIndex:', rowIndex);
+                        }
+                    }
+                }
+            }
+            
+            // 从 Add button 进入，一律视为"新增"，不带任何预填数据
+            console.log('handleAddAccount - Open as NEW entry (no pre-filled data) for product:', productValue, 'isSubIdProduct:', isSubIdProduct, 'rowLabel:', rowLabel);
             
             // 打开空白表单（edit 按钮才负责加载旧数据）
             showEditFormulaForm(productValue, isSubIdProduct, {
@@ -1421,7 +1446,8 @@ function getCurrentProcessId() {
                 inputMethod: '',
                 enableInputMethod: false,
                 enableSourcePercent: true,
-                clickedColumns: ''
+                clickedColumns: '',
+                rowLabel: rowLabel // Pass rowLabel to distinguish duplicate id_products
             });
         }
 
@@ -1441,6 +1467,13 @@ function getCurrentProcessId() {
             }
             if (!modalContent) {
                 modalContent = document.getElementById('editFormulaModalContent');
+            }
+            
+            // Store rowLabel globally for use in updateFormulaDataGrid and getCellValueByIdProductAndColumn
+            const rowLabel = prePopulatedData && prePopulatedData.rowLabel ? prePopulatedData.rowLabel : null;
+            window.currentEditRowLabel = rowLabel;
+            if (rowLabel) {
+                console.log('showEditFormulaForm - Storing rowLabel:', rowLabel, 'for id_product:', productValue);
             }
             
             // Find and store the current row for calculator keypad
@@ -2548,6 +2581,12 @@ function getCurrentProcessId() {
             if (!idProduct || idProduct === '') {
                 return;
             }
+            
+            // Get rowLabel from global variable to filter specific row when there are duplicates
+            const rowLabel = window.currentEditRowLabel || null;
+            if (rowLabel) {
+                console.log('updateFormulaDataGrid - Using rowLabel:', rowLabel, 'to filter rows for id_product:', idProduct);
+            }
 
             // Get table data
             let parsedTableData;
@@ -2588,7 +2627,17 @@ function getCurrentProcessId() {
                 const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct || '');
                 const normalizedIdProduct = normalizeIdProductText(idProduct || '');
                 
+                // Check if id_product matches
                 if (normalizedRowIdProduct && normalizedRowIdProduct === normalizedIdProduct) {
+                    // If rowLabel is specified, also check if it matches
+                    if (rowLabel) {
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                        if (rowHeaderLabel !== rowLabel) {
+                            return; // Skip this row if row label doesn't match
+                        }
+                        console.log('updateFormulaDataGrid - Row matches both id_product and rowLabel:', rowLabel);
+                    }
                     // Create a separate row container for each matching row
                     const rowContainer = document.createElement('div');
                     rowContainer.className = 'formula-data-grid-row';
@@ -5423,6 +5472,7 @@ function getCurrentProcessId() {
             window.currentAddAccountButton = null;
             window.currentEditRow = null;
             window.isEditMode = false;
+            window.currentEditRowLabel = null; // Clear rowLabel when closing modal
         }
 
         // Find summary table row by idProduct, accountId, and product type
@@ -10122,11 +10172,31 @@ function getCurrentProcessId() {
             window.currentEditRow = row;
             window.isEditMode = true;
             
+            // Get rowLabel from data capture table to distinguish duplicate id_products
+            let rowLabel = null;
+            const rowIndex = row.getAttribute('data-row-index');
+            if (rowIndex !== null) {
+                const capturedTableBody = document.getElementById('capturedTableBody');
+                if (capturedTableBody) {
+                    const capturedRows = capturedTableBody.querySelectorAll('tr');
+                    const targetRowIndex = parseInt(rowIndex, 10);
+                    if (targetRowIndex >= 0 && targetRowIndex < capturedRows.length) {
+                        const targetRow = capturedRows[targetRowIndex];
+                        const rowHeaderCell = targetRow.querySelector('.row-header');
+                        if (rowHeaderCell) {
+                            rowLabel = rowHeaderCell.textContent.trim();
+                            console.log('editRowFormula - Found rowLabel:', rowLabel, 'for rowIndex:', rowIndex);
+                        }
+                    }
+                }
+            }
+            
             // Debug log before showing form
             console.log('editRowFormula - Passing to showEditFormulaForm:', {
                 formula: formulaValue,
                 source: sourceValue,
-                sourcePercent: sourcePercentValue
+                sourcePercent: sourcePercentValue,
+                rowLabel: rowLabel
             });
             
             // Show the Edit Formula form with pre-populated data
@@ -10141,7 +10211,8 @@ function getCurrentProcessId() {
                 inputMethod: inputMethodValue,
                 enableInputMethod: enableInputMethodValue,
                 enableSourcePercent: enableSourcePercentValue,
-                clickedColumns: clickedColumns // Pass clicked columns for restoration
+                clickedColumns: clickedColumns, // Pass clicked columns for restoration
+                rowLabel: rowLabel // Pass rowLabel to distinguish duplicate id_products
             });
         }
         
