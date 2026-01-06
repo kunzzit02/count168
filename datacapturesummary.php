@@ -1213,11 +1213,52 @@ function getCurrentProcessId() {
                     }
                 }
                 
-                // If row_label not provided or not found, fallback to original behavior
+                // If row_label not provided or not found, try to get it from current editing row
                 if (!processRow) {
-                    processRow = findProcessRow(parsedTableData, idProduct);
-                    if (rowLabel) {
-                        console.warn('Row not found by row_label:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
+                    // CRITICAL FIX: If rowLabel is null and we're editing a row, try to get rowLabel from currentEditRow
+                    if (!rowLabel && window.currentEditRow) {
+                        // Try to get row_index from current editing row
+                        const editRowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
+                        if (editRowIndexAttr !== null && editRowIndexAttr !== '' && !Number.isNaN(Number(editRowIndexAttr))) {
+                            const editRowIndex = Number(editRowIndexAttr);
+                            if (editRowIndex >= 0 && editRowIndex < 999999) {
+                                // Get rowLabel from Data Capture Table using rowIndex
+                                const capturedTableBody = document.getElementById('capturedTableBody');
+                                if (capturedTableBody) {
+                                    const rows = capturedTableBody.querySelectorAll('tr');
+                                    if (editRowIndex >= 0 && editRowIndex < rows.length) {
+                                        const row = rows[editRowIndex];
+                                        const rowHeaderCell = row.querySelector('.row-header');
+                                        if (rowHeaderCell) {
+                                            rowLabel = rowHeaderCell.textContent.trim();
+                                            console.log('getCellValueByIdProductAndColumn: Got rowLabel from currentEditRow row_index:', rowLabel, 'rowIndex:', editRowIndex);
+                                            
+                                            // Now try to find the row again with the rowLabel
+                                            for (let i = 0; i < rows.length; i++) {
+                                                const checkRow = rows[i];
+                                                const checkRowHeaderCell = checkRow.querySelector('.row-header');
+                                                if (checkRowHeaderCell && checkRowHeaderCell.textContent.trim() === rowLabel) {
+                                                    rowIndex = i;
+                                                    processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
+                                                    console.log('getCellValueByIdProductAndColumn: Found row using rowLabel from currentEditRow:', rowLabel, 'rowIndex:', rowIndex);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If still not found, fallback to original behavior
+                    if (!processRow) {
+                        processRow = findProcessRow(parsedTableData, idProduct);
+                        if (rowLabel) {
+                            console.warn('Row not found by row_label:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
+                        } else {
+                            console.warn('Row not found for id_product:', idProduct, 'rowLabel not provided, falling back to first matching row');
+                        }
                     }
                 }
                 
@@ -3529,8 +3570,22 @@ function getCurrentProcessId() {
         }
         
         // Get row label (A, B, C, etc.) from process value
-        function getRowLabelFromProcessValue(processValue) {
+        function getRowLabelFromProcessValue(processValue, rowIndex = null) {
             try {
+                // CRITICAL FIX: When editing a row, use the current editing row's row_index to find the correct row_label
+                // This ensures that when there are multiple rows with same id_product, we get the correct row_label
+                if (rowIndex === null && window.currentEditRow) {
+                    // Try to get row_index from current editing row
+                    const editRowIndexAttr = window.currentEditRow.getAttribute('data-row-index');
+                    if (editRowIndexAttr !== null && editRowIndexAttr !== '' && !Number.isNaN(Number(editRowIndexAttr))) {
+                        const editRowIndex = Number(editRowIndexAttr);
+                        if (editRowIndex >= 0 && editRowIndex < 999999) {
+                            rowIndex = editRowIndex;
+                            console.log('getRowLabelFromProcessValue: Using row_index from currentEditRow:', rowIndex);
+                        }
+                    }
+                }
+                
                 // Get data capture table data
                 let parsedTableData;
                 if (window.transformedTableData) {
@@ -3544,7 +3599,8 @@ function getCurrentProcessId() {
                 }
                 
                 // Find the row that matches the process value
-                const processRow = findProcessRow(parsedTableData, processValue);
+                // CRITICAL: Use rowIndex if available to find the correct row when there are multiple rows with same id_product
+                const processRow = findProcessRow(parsedTableData, processValue, rowIndex);
                 if (!processRow || processRow.length === 0) {
                     return null;
                 }
