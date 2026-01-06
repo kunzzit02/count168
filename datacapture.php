@@ -9309,11 +9309,99 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
+            // 检测并重命名重复的 id product
+            try {
+                renameDuplicateIdProducts();
+            } catch (err) {
+                console.error('renameDuplicateIdProducts failed:', err);
+            }
+            
             // Citibet: 确保 MY EARNINGS / TOTAL 金额落在第 11 列
             try {
                 fixCitibetAmountColumns();
             } catch (err) {
                 console.error('fixCitibetAmountColumns failed:', err);
+            }
+        }
+        
+        // 检测并重命名重复的 id product
+        function renameDuplicateIdProducts() {
+            const tableBody = document.getElementById('tableBody');
+            if (!tableBody) return;
+            
+            const rows = Array.from(tableBody.children);
+            if (rows.length === 0) return;
+            
+            console.log('Checking for duplicate id products...');
+            
+            // 辅助函数：去除可能的前缀（如 "1. ", "2. " 等）
+            function removePrefix(value) {
+                const match = value.match(/^\d+\.\s*(.+)$/);
+                return match ? match[1] : value;
+            }
+            
+            // 收集所有 id product（第一列，跳过行号列）
+            // key: 原始 id product value (去除前缀), value: array of {rowIndex, originalValue}
+            const idProductMap = new Map();
+            
+            rows.forEach((row, rowIndex) => {
+                // 第一列是行号，第二列（index 1）是 id product
+                if (row.children.length > 1) {
+                    const idProductCell = row.children[1];
+                    if (idProductCell && idProductCell.contentEditable === 'true') {
+                        const idProductValue = (idProductCell.textContent || '').trim();
+                        
+                        // 跳过空值和特殊行（如 TOTAL, SUB TOTAL, GRAND TOTAL 等）
+                        if (idProductValue !== '') {
+                            const upperValue = idProductValue.toUpperCase();
+                            if (!upperValue.includes('TOTAL') && 
+                                !upperValue.includes('OVERALL') &&
+                                !upperValue.includes('EARNINGS') &&
+                                !upperValue.match(/^(MY|TOTAL|SUB|GRAND)/)) {
+                                
+                                // 去除可能的前缀，获取原始值用于比较
+                                const originalValue = removePrefix(idProductValue);
+                                
+                                // 如果还没有这个 id product，创建数组
+                                if (!idProductMap.has(originalValue)) {
+                                    idProductMap.set(originalValue, []);
+                                }
+                                idProductMap.get(originalValue).push({
+                                    rowIndex: rowIndex,
+                                    originalValue: idProductValue
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 检测重复并重命名
+            idProductMap.forEach((rowDataArray, originalValue) => {
+                if (rowDataArray.length > 1) {
+                    console.log(`Found duplicate id product "${originalValue}" at ${rowDataArray.length} rows`);
+                    
+                    // 按顺序重命名：第一个加 "1."，第二个加 "2."，以此类推
+                    rowDataArray.forEach((rowData, index) => {
+                        const row = rows[rowData.rowIndex];
+                        if (row && row.children.length > 1) {
+                            const idProductCell = row.children[1];
+                            if (idProductCell && idProductCell.contentEditable === 'true') {
+                                const prefix = `${index + 1}. `;
+                                const newValue = prefix + originalValue;
+                                idProductCell.textContent = newValue;
+                                console.log(`Renamed row ${rowData.rowIndex}: "${rowData.originalValue}" -> "${newValue}"`);
+                            }
+                        }
+                    });
+                }
+            });
+            
+            const duplicateCount = Array.from(idProductMap.values()).filter(arr => arr.length > 1).length;
+            if (duplicateCount > 0) {
+                console.log(`Renamed ${duplicateCount} duplicate id product(s)`);
+            } else {
+                console.log('No duplicate id products found');
             }
         }
 
