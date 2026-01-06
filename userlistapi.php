@@ -427,29 +427,30 @@ try {
                 sendResponse(false, $validation);
             }
             
-            // Check if login_id already exists (excluding current user)
-            // 注意：由于用户可能关联多个 company，需要检查所有关联的 company
+            // Check if login_id already exists in current company (excluding current user)
+            // 注意：只检查当前公司内是否有重复的 login_id，允许不同公司有相同的 login_id
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) 
                 FROM user u
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-                WHERE u.login_id = ? AND u.id != ?
+                WHERE u.login_id = ? AND u.id != ? AND ucm.company_id = ?
             ");
-            $stmt->execute([$input['login_id'], $input['id']]);
+            $stmt->execute([$input['login_id'], $input['id'], $current_company_id]);
             if ($stmt->fetchColumn() > 0) {
-                sendResponse(false, 'Login ID already exists');
+                sendResponse(false, 'Login ID already exists in current company');
             }
             
-            // Check if email already exists (excluding current user)
+            // Check if email already exists in current company (excluding current user)
+            // 注意：只检查当前公司内是否有重复的 email，允许不同公司有相同的 email
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) 
                 FROM user u
                 INNER JOIN user_company_map ucm ON u.id = ucm.user_id
-                WHERE u.email = ? AND u.id != ?
+                WHERE u.email = ? AND u.id != ? AND ucm.company_id = ?
             ");
-            $stmt->execute([$input['email'], $input['id']]);
+            $stmt->execute([$input['email'], $input['id'], $current_company_id]);
             if ($stmt->fetchColumn() > 0) {
-                sendResponse(false, 'Email already exists');
+                sendResponse(false, 'Email already exists in current company');
             }
             
             // Prepare update query
