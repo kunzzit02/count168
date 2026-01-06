@@ -1102,16 +1102,17 @@ function getCurrentProcessId() {
             
             parts.forEach(part => {
                 // Try new format with row label first: "id_product:row_label:column_index"
-                // IMPORTANT: sourceColumns stored in database uses displayColumnIndex (e.g., "OVERALL:A:7")
-                // But getCellValueByIdProductAndColumn expects dataColumnIndex (e.g., 6, where dataColumnIndex = displayColumnIndex - 1)
+                // IMPORTANT: sourceColumns stored in database uses dataColumnIndex (1-based data column index)
+                // For example, if user clicks column 7 (colIdx=7), dataColumnIndex = colIdx - 1 = 6
+                // So saved format is "OVERALL:A:6" (not "OVERALL:A:7")
+                // getCellValueByIdProductAndColumn expects dataColumnIndex (1-based data column index)
+                // So we should use the saved value directly without subtracting 1
                 let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                 if (match) {
                     const idProduct = match[1];
                     const rowLabel = match[2];
-                    const displayColumnIndex = parseInt(match[3]);
-                    // Convert displayColumnIndex to dataColumnIndex for getCellValueByIdProductAndColumn
-                    const dataColumnIndex = displayColumnIndex - 1;
-                    console.log('getCellValuesFromNewFormat: new format match - idProduct:', idProduct, 'rowLabel:', rowLabel, 'displayColumnIndex:', displayColumnIndex, 'dataColumnIndex:', dataColumnIndex);
+                    const dataColumnIndex = parseInt(match[3]); // Already dataColumnIndex, use directly
+                    console.log('getCellValuesFromNewFormat: new format match - idProduct:', idProduct, 'rowLabel:', rowLabel, 'dataColumnIndex:', dataColumnIndex);
                     const cellValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex, rowLabel);
                     console.log('getCellValuesFromNewFormat: cellValue from new format:', cellValue);
                     if (cellValue !== null && cellValue !== '') {
@@ -1122,10 +1123,8 @@ function getCurrentProcessId() {
                     match = part.match(/^([^:]+):(\d+)$/);
                     if (match) {
                         const idProduct = match[1];
-                        const displayColumnIndex = parseInt(match[2]);
-                        // Convert displayColumnIndex to dataColumnIndex for getCellValueByIdProductAndColumn
-                        const dataColumnIndex = displayColumnIndex - 1;
-                        console.log('getCellValuesFromNewFormat: old format match - idProduct:', idProduct, 'displayColumnIndex:', displayColumnIndex, 'dataColumnIndex:', dataColumnIndex);
+                        const dataColumnIndex = parseInt(match[2]); // Already dataColumnIndex, use directly
+                        console.log('getCellValuesFromNewFormat: old format match - idProduct:', idProduct, 'dataColumnIndex:', dataColumnIndex);
                         const cellValue = getCellValueByIdProductAndColumn(idProduct, dataColumnIndex);
                         console.log('getCellValuesFromNewFormat: cellValue from old format:', cellValue);
                         if (cellValue !== null && cellValue !== '') {
@@ -1331,21 +1330,26 @@ function getCurrentProcessId() {
                 // New format: "id_product:row_label:column_index" or "id_product:column_index"
                 // Build reference format expression: [OVERALL : 7] + [ABC123 : 3]
                 // IMPORTANT: Use the id_product from sourceColumns, NOT processValue (which is the current row's id_product)
+                // IMPORTANT: sourceColumns stored in database uses dataColumnIndex (1-based data column index)
+                // For display, we need to convert dataColumnIndex to displayColumnIndex (actual table column index)
+                // Conversion: displayColumnIndex = dataColumnIndex + 1
                 const references = [];
                 parts.forEach(part => {
                     // Try format with row label first: "id_product:row_label:column_index"
                     let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                     if (match) {
                         const idProduct = match[1];  // Use id_product from sourceColumns (e.g., OVERALL)
-                        const columnIndex = match[3]; // column_index is displayColumnIndex
-                        references.push(`[${idProduct} : ${columnIndex}]`);
+                        const dataColumnIndex = parseInt(match[3]); // Saved as dataColumnIndex
+                        const displayColumnIndex = dataColumnIndex + 1; // Convert to displayColumnIndex for display
+                        references.push(`[${idProduct} : ${displayColumnIndex}]`);
                     } else {
                         // Try format without row label: "id_product:column_index"
                         match = part.match(/^([^:]+):(\d+)$/);
                         if (match) {
                             const idProduct = match[1];  // Use id_product from sourceColumns
-                            const columnIndex = match[2]; // column_index is displayColumnIndex
-                            references.push(`[${idProduct} : ${columnIndex}]`);
+                            const dataColumnIndex = parseInt(match[2]); // Saved as dataColumnIndex
+                            const displayColumnIndex = dataColumnIndex + 1; // Convert to displayColumnIndex for display
+                            references.push(`[${idProduct} : ${displayColumnIndex}]`);
                         }
                     }
                 });
