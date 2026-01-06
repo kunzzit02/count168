@@ -8370,7 +8370,36 @@ function getCurrentProcessId() {
                 
                 // Determine which row index to use in data capture table
                 let rowIndex = null;
-                if (currentEditRow) {
+                
+                // First, try to use rowLabel from global variable (most reliable when editing)
+                const rowLabel = window.currentEditRowLabel || null;
+                if (rowLabel) {
+                    // Find row by rowLabel in data capture table
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const capturedRows = capturedTableBody.querySelectorAll('tr');
+                        for (let i = 0; i < capturedRows.length; i++) {
+                            const row = capturedRows[i];
+                            const rowHeaderCell = row.querySelector('.row-header');
+                            if (rowHeaderCell && rowHeaderCell.textContent.trim() === rowLabel) {
+                                // Verify id_product matches
+                                const rowIdProduct = row.getAttribute('data-id-product');
+                                if (rowIdProduct) {
+                                    const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct);
+                                    const normalizedProcessValue = normalizeIdProductText(processValue);
+                                    if (normalizedRowIdProduct === normalizedProcessValue) {
+                                        rowIndex = i;
+                                        console.log('getColumnDataFromTable - Found row by rowLabel:', rowLabel, 'rowIndex:', rowIndex);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // If rowLabel not found or not available, fallback to original logic
+                if (rowIndex === null && currentEditRow) {
                     const summaryTableBody = document.getElementById('summaryTableBody');
                     if (summaryTableBody) {
                         const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
@@ -8569,7 +8598,36 @@ function getCurrentProcessId() {
                 
                 // Determine which row index to use in data capture table (same logic as getColumnDataFromTable)
                 let rowIndex = null;
-                if (currentEditRow) {
+                
+                // First, try to use rowLabel from global variable (most reliable when editing)
+                const rowLabel = window.currentEditRowLabel || null;
+                if (rowLabel) {
+                    // Find row by rowLabel in data capture table
+                    const capturedTableBody = document.getElementById('capturedTableBody');
+                    if (capturedTableBody) {
+                        const capturedRows = capturedTableBody.querySelectorAll('tr');
+                        for (let i = 0; i < capturedRows.length; i++) {
+                            const row = capturedRows[i];
+                            const rowHeaderCell = row.querySelector('.row-header');
+                            if (rowHeaderCell && rowHeaderCell.textContent.trim() === rowLabel) {
+                                // Verify id_product matches
+                                const rowIdProduct = row.getAttribute('data-id-product');
+                                if (rowIdProduct) {
+                                    const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct);
+                                    const normalizedProcessValue = normalizeIdProductText(processValue);
+                                    if (normalizedRowIdProduct === normalizedProcessValue) {
+                                        rowIndex = i;
+                                        console.log('getColumnDataFromTableWithParentheses - Found row by rowLabel:', rowLabel, 'rowIndex:', rowIndex);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // If rowLabel not found or not available, fallback to original logic
+                if (rowIndex === null && currentEditRow) {
                     const summaryTableBody = document.getElementById('summaryTableBody');
                     if (summaryTableBody) {
                         const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
