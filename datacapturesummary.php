@@ -3827,7 +3827,7 @@ function getCurrentProcessId() {
                             
                             // 如果从引用中找不到值，使用当前编辑的id_product
                             if (columnValue === null && currentIdProduct) {
-                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                const rowLabel = getRowLabelFromProcessValue(processValue, window.currentEditRow);
                                 if (rowLabel) {
                                     const dataColumnIndex = match.columnNumber - 1;
                                     columnValue = getCellValueByIdProductAndColumn(currentIdProduct, dataColumnIndex, rowLabel);
@@ -3858,7 +3858,7 @@ function getCurrentProcessId() {
                 } else {
                     // 如果没有 data-clicked-cell-refs，使用原来的逻辑（使用当前编辑的 id_product）
                     // 获取行标签
-                    const rowLabel = getRowLabelFromProcessValue(processValue);
+                    const rowLabel = getRowLabelFromProcessValue(processValue, window.currentEditRow);
                     if (!rowLabel) {
                         formulaDisplayInput.value = formulaValue;
                         return;
@@ -3892,7 +3892,7 @@ function getCurrentProcessId() {
                         const match = allMatches[i];
                         // 获取列的实际值
                         const columnReference = rowLabel + match.columnNumber;
-                        const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                        const columnValue = getColumnValueFromCellReference(columnReference, processValue, window.currentEditRow);
                         
                         if (columnValue !== null) {
                             // 替换 $数字 为实际值
@@ -6860,7 +6860,7 @@ function getCurrentProcessId() {
         }
 
         // Get column value from cell reference (e.g., "A4" -> value from row A, column 4)
-        function getColumnValueFromCellReference(cellReference, processValue) {
+        function getColumnValueFromCellReference(cellReference, processValue, currentEditRow = null) {
             try {
                 if (!cellReference || !processValue) {
                     return null;
@@ -6891,8 +6891,100 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 }
                 
+                // Determine which row index to use in data capture table (same logic as getColumnDataFromTable)
+                let rowIndex = null;
+                if (currentEditRow || window.currentEditRow) {
+                    const editRow = currentEditRow || window.currentEditRow;
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    if (summaryTableBody && editRow) {
+                        const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                        const normalizedProcessValue = normalizeIdProductText(processValue);
+                        const productType = editRow.getAttribute('data-product-type') || 'main';
+                        
+                        let targetMainRow = null;
+                        
+                        if (productType === 'sub') {
+                            const currentRowIndex = allRows.indexOf(editRow);
+                            if (currentRowIndex > 0) {
+                                for (let i = currentRowIndex - 1; i >= 0; i--) {
+                                    const row = allRows[i];
+                                    const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                    if (rowProductType === 'main') {
+                                        const idProductCell = row.querySelector('td:first-child');
+                                        const productValues = getProductValuesFromCell(idProductCell);
+                                        const mainText = normalizeIdProductText(productValues.main || '');
+                                        
+                                        if (mainText === normalizedProcessValue) {
+                                            targetMainRow = row;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (!targetMainRow) {
+                                const parentIdProduct = editRow.getAttribute('data-parent-id-product');
+                                if (parentIdProduct) {
+                                    const normalizedParentId = normalizeIdProductText(parentIdProduct);
+                                    for (const row of allRows) {
+                                        const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                        if (rowProductType === 'main') {
+                                            const idProductCell = row.querySelector('td:first-child');
+                                            const productValues = getProductValuesFromCell(idProductCell);
+                                            const mainText = normalizeIdProductText(productValues.main || '');
+                                            if (mainText === normalizedParentId) {
+                                                targetMainRow = row;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            targetMainRow = editRow;
+                        }
+                        
+                        if (targetMainRow) {
+                            const matchingSummaryRows = [];
+                            allRows.forEach((row, index) => {
+                                const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                if (rowProductType !== 'main') return;
+                                
+                                const idProductCell = row.querySelector('td:first-child');
+                                const productValues = getProductValuesFromCell(idProductCell);
+                                const mainText = normalizeIdProductText(productValues.main || '');
+                                
+                                if (mainText === normalizedProcessValue) {
+                                    matchingSummaryRows.push({ row, index });
+                                }
+                            });
+                            
+                            const currentRowIndex = matchingSummaryRows.findIndex(item => item.row === targetMainRow);
+                            if (currentRowIndex >= 0) {
+                                const matchingDataCaptureRows = [];
+                                if (parsedTableData.rows) {
+                                    parsedTableData.rows.forEach((row, index) => {
+                                        if (row.length > 1 && row[1].type === 'data') {
+                                            const rowValue = row[1].value;
+                                            const normalizedRowValue = normalizeIdProductText(rowValue);
+                                            if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
+                                                matchingDataCaptureRows.push(index);
+                                            }
+                                        }
+                                    });
+                                }
+                                
+                                if (currentRowIndex < matchingDataCaptureRows.length) {
+                                    rowIndex = matchingDataCaptureRows[currentRowIndex];
+                                    console.log('getColumnValueFromCellReference - Using data capture table row index:', rowIndex, 'for summary row index:', currentRowIndex);
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 // Find the row that matches the process value
-                const processRow = findProcessRow(parsedTableData, processValue);
+                const processRow = findProcessRow(parsedTableData, processValue, rowIndex);
                 if (!processRow || processRow.length === 0) {
                     return null;
                 }
@@ -7053,10 +7145,10 @@ function getCurrentProcessId() {
                             
                             // 如果从引用中找不到值，回退到使用当前编辑的 id_product
                             if (columnValue === null) {
-                                const rowLabel = getRowLabelFromProcessValue(processValue);
+                                const rowLabel = getRowLabelFromProcessValue(processValue, window.currentEditRow);
                                 if (rowLabel) {
                                     const columnReference = rowLabel + dollarMatch.columnNumber;
-                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                    columnValue = getColumnValueFromCellReference(columnReference, processValue, window.currentEditRow);
                                 }
                             }
                             
@@ -7075,13 +7167,13 @@ function getCurrentProcessId() {
                         }
                     } else {
                         // 如果没有 data-clicked-cell-refs，使用原来的逻辑
-                        const rowLabel = getRowLabelFromProcessValue(processValue);
+                        const rowLabel = getRowLabelFromProcessValue(processValue, window.currentEditRow);
                         if (rowLabel) {
                             for (let i = 0; i < dollarMatches.length; i++) {
                                 const dollarMatch = dollarMatches[i];
                                 // Convert $数字 to cell reference (e.g., $2 -> A2)
                                 const columnReference = rowLabel + dollarMatch.columnNumber;
-                                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
+                                const columnValue = getColumnValueFromCellReference(columnReference, processValue, window.currentEditRow);
                                 
                                 if (columnValue !== null) {
                                     // Replace $数字 with actual value
