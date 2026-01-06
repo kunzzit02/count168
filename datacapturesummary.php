@@ -772,77 +772,9 @@ function getCurrentProcessId() {
             
             console.log('Column A data:', columnAData);
             
-            // 检测重复的 idProduct 并添加序号前缀
-            // 例如：如果有两个 "M99M06"，会变成 "1. M99M06" 和 "2. M99M06"
-            // 目的：让重复的 idProduct 变成不同的名字，这样它们就是两个不同的产品了
-            const processedColumnAData = [];
-            if (columnAData.length > 0) {
-                // 辅助函数：去除可能存在的序号前缀（例如 "1. M99M06" -> "M99M06"）
-                const removeNumberPrefix = (text) => {
-                    if (!text) return text;
-                    // 匹配开头的 "数字. " 格式
-                    const match = text.match(/^\d+\.\s+(.+)$/);
-                    return match ? match[1] : text;
-                };
-                
-                // 创建一个 Map 来跟踪每个 idProduct（去除序号前缀后）出现的次数和位置
-                const idProductCount = new Map();
-                
-                // 第一遍：统计每个 idProduct（去除序号前缀后）出现的次数和记录索引
-                columnAData.forEach((value, index) => {
-                    if (value && value.trim() !== '') {
-                        // 去除可能存在的序号前缀后再进行比较
-                        const normalizedIdProduct = removeNumberPrefix(value.trim());
-                        if (!idProductCount.has(normalizedIdProduct)) {
-                            idProductCount.set(normalizedIdProduct, []);
-                        }
-                        idProductCount.get(normalizedIdProduct).push(index);
-                    }
-                });
-                
-                console.log('Duplicate idProduct detection:', Array.from(idProductCount.entries()).filter(([key, indices]) => indices.length > 1));
-                
-                // 第二遍：为重复的 idProduct 添加序号前缀
-                columnAData.forEach((value, index) => {
-                    if (value && value.trim() !== '') {
-                        // 去除可能存在的序号前缀后再进行比较
-                        const normalizedIdProduct = removeNumberPrefix(value.trim());
-                        const indices = idProductCount.get(normalizedIdProduct);
-                        
-                        if (indices && indices.length > 1) {
-                            // 有重复的 idProduct，需要添加序号前缀
-                            // 找到当前 value 在重复列表中的位置（按照在 columnAData 中出现的顺序）
-                            const sequenceIndex = indices.indexOf(index);
-                            if (sequenceIndex >= 0) {
-                                const sequenceNumber = sequenceIndex + 1;
-                                const prefix = `${sequenceNumber}. `;
-                                // 去除可能存在的旧序号前缀
-                                const currentIdProduct = removeNumberPrefix(value.trim());
-                                const newIdProduct = prefix + currentIdProduct;
-                                processedColumnAData.push(newIdProduct);
-                                console.log(`[${index}] Added prefix to duplicate idProduct: "${normalizedIdProduct}" -> "${newIdProduct}"`);
-                            } else {
-                                // 这种情况不应该发生，但为了安全起见
-                                console.warn(`[${index}] Could not find index in indices array for: "${normalizedIdProduct}"`);
-                                processedColumnAData.push(value);
-                            }
-                        } else {
-                            // 没有重复，保持原样
-                            processedColumnAData.push(value);
-                        }
-                    } else {
-                        processedColumnAData.push(value);
-                    }
-                });
-                
-                console.log('Processed Column A data:', processedColumnAData);
-            } else {
-                processedColumnAData.push(...columnAData);
-            }
-            
             // Create rows for the original table
             // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
-            processedColumnAData.forEach((value, index) => {
+            columnAData.forEach((value, index) => {
                 if (value && value.trim() !== '') { // Only add non-empty values
                     const row = document.createElement('tr');
                     
@@ -11532,28 +11464,12 @@ function getCurrentProcessId() {
                 return;
             }
 
-            // Update sub product value
-            const productValues = getProductValuesFromCell(idProductCell);
-            
-            // 重要：如果单元格中已经有序号前缀（如 "1. M99M06"），保留前缀
-            // 这样即使 data.idProduct 没有前缀，也不会覆盖掉已有的前缀
-            const existingSub = productValues.sub || '';
-            const prefixPattern = /^(\d+\.\s+)(.+)$/;
-            const subMatch = existingSub.match(prefixPattern);
-            
             let idProductText = data.idProduct;
-            if (subMatch) {
-                // 保留已有的前缀
-                const preservedPrefix = subMatch[1]; // 保留 "1. " 这样的前缀
-                // 去除 data.idProduct 中可能的前缀，然后加上保留的前缀
-                const cleanIdProduct = idProductText.replace(prefixPattern, '$2');
-                idProductText = preservedPrefix + cleanIdProduct;
-            }
-            
             if (data.description && data.description.trim() !== '') {
                 idProductText += ` (${data.description})`;
             }
-            
+            // Update sub product value
+            const productValues = getProductValuesFromCell(idProductCell);
             productValues.sub = idProductText;
             idProductCell.setAttribute('data-sub-product', idProductText);
             idProductCell.textContent = mergeProductValues(productValues.main, productValues.sub);
@@ -11883,45 +11799,13 @@ function getCurrentProcessId() {
                 
                 if (cells[0]) { // Id Product (merged)
                     const productValues = getProductValuesFromCell(cells[0]);
-                    
-                    // Determine if this is a main or sub row update (需要在前面定义)
-                    const isSubRow = !productValues.main || !productValues.main.trim();
-                    
                     let idProductText = data.idProduct;
-                    
-                    // 重要：如果单元格中已经有序号前缀（如 "1. M99M06"），保留前缀
-                    // 这样即使 data.idProduct 没有前缀，也不会覆盖掉已有的前缀
-                    const existingMain = productValues.main || '';
-                    const existingSub = productValues.sub || '';
-                    
-                    // 检查是否已有前缀（格式：数字. 文本）
-                    const prefixPattern = /^(\d+\.\s+)(.+)$/;
-                    let preservedPrefix = '';
-                    
-                    if (isSubRow) {
-                        // 对于 sub row，检查 existingSub
-                        const subMatch = existingSub.match(prefixPattern);
-                        if (subMatch) {
-                            preservedPrefix = subMatch[1]; // 保留 "1. " 这样的前缀
-                            // 去除 data.idProduct 中可能的前缀，然后加上保留的前缀
-                            const cleanIdProduct = idProductText.replace(prefixPattern, '$2');
-                            idProductText = preservedPrefix + cleanIdProduct;
-                        }
-                    } else {
-                        // 对于 main row，检查 existingMain
-                        const mainMatch = existingMain.match(prefixPattern);
-                        if (mainMatch) {
-                            preservedPrefix = mainMatch[1]; // 保留 "1. " 这样的前缀
-                            // 去除 data.idProduct 中可能的前缀，然后加上保留的前缀
-                            const cleanIdProduct = idProductText.replace(prefixPattern, '$2');
-                            idProductText = preservedPrefix + cleanIdProduct;
-                        }
-                    }
-                    
                     if (data.description && data.description.trim() !== '') {
                         idProductText += ` (${data.description})`;
                     }
                     
+                    // Determine if this is a main or sub row update
+                    const isSubRow = !productValues.main || !productValues.main.trim();
                     if (isSubRow) {
                         // Update sub product value
                         productValues.sub = idProductText;
@@ -15851,94 +15735,6 @@ function formatPercentValue(value) {
                         displayOrder: displayOrder // Preserve row order from Data Capture Table
                     });
                 });
-                
-                // 检测重复的 idProduct 并添加序号前缀（如果还没有添加的话）
-                // 例如：如果有两个 "M99M06"，会变成 "1. M99M06" 和 "2. M99M06"
-                // 注意：如果前缀已经在显示时添加了，这里会检测到并保持原样
-                if (summaryRows.length > 0) {
-                    // 辅助函数：去除可能存在的序号前缀（例如 "1. M99M06" -> "M99M06"）
-                    const removeNumberPrefix = (text) => {
-                        if (!text) return text;
-                        // 匹配开头的 "数字. " 格式
-                        const match = text.match(/^\d+\.\s+(.+)$/);
-                        return match ? match[1] : text;
-                    };
-                    
-                    // 创建一个 Map 来跟踪每个 idProduct（去除序号前缀后）出现的次数和位置
-                    const idProductCount = new Map();
-                    
-                    // 第一遍：统计每个 idProduct（去除序号前缀后）出现的次数和记录索引
-                    summaryRows.forEach((row, index) => {
-                        const idProduct = row.idProduct;
-                        if (idProduct && idProduct.trim() !== '') {
-                            // 去除可能存在的序号前缀后再进行比较
-                            const normalizedIdProduct = removeNumberPrefix(idProduct.trim());
-                            if (!idProductCount.has(normalizedIdProduct)) {
-                                idProductCount.set(normalizedIdProduct, []);
-                            }
-                            idProductCount.get(normalizedIdProduct).push(index);
-                        }
-                    });
-                    
-                    // 第二遍：为重复的 idProduct 添加序号前缀（如果还没有前缀）
-                    idProductCount.forEach((indices, normalizedIdProduct) => {
-                        if (indices.length > 1) {
-                            // 有重复的 idProduct，需要添加序号前缀
-                            // 按照 displayOrder 排序（如果有），否则按照数组顺序
-                            const sortedIndices = [...indices].sort((a, b) => {
-                                const orderA = summaryRows[a].displayOrder;
-                                const orderB = summaryRows[b].displayOrder;
-                                if (orderA !== null && orderB !== null) {
-                                    return orderA - orderB;
-                                }
-                                if (orderA !== null) return -1;
-                                if (orderB !== null) return 1;
-                                return a - b; // 保持原始顺序
-                            });
-                            
-                            // 为每个重复的 idProduct 添加序号前缀
-                            sortedIndices.forEach((rowIndex, sequenceIndex) => {
-                                const row = summaryRows[rowIndex];
-                                const currentIdProduct = row.idProduct;
-                                
-                                // 检查是否已经有前缀
-                                const hasPrefix = /^\d+\.\s+/.test(currentIdProduct);
-                                
-                                if (!hasPrefix) {
-                                    // 如果没有前缀，添加前缀
-                                    const sequenceNumber = sequenceIndex + 1;
-                                    const prefix = `${sequenceNumber}. `;
-                                    
-                                    // 去除可能存在的旧序号前缀（虽然理论上不应该有）
-                                    const cleanIdProduct = removeNumberPrefix(currentIdProduct);
-                                    const cleanIdProductMain = row.idProductMain ? removeNumberPrefix(row.idProductMain) : null;
-                                    const cleanIdProductSub = row.idProductSub ? removeNumberPrefix(row.idProductSub) : null;
-                                    
-                                    // 根据 productType 更新相应的字段
-                                    if (row.productType === 'sub') {
-                                        // 更新 idProductSub
-                                        if (cleanIdProductSub) {
-                                            row.idProductSub = prefix + cleanIdProductSub;
-                                        }
-                                    } else {
-                                        // 更新 idProductMain
-                                        if (cleanIdProductMain) {
-                                            row.idProductMain = prefix + cleanIdProductMain;
-                                        }
-                                    }
-                                    
-                                    // 更新 idProduct 字段
-                                    row.idProduct = prefix + cleanIdProduct;
-                                    
-                                    console.log(`Added prefix to duplicate idProduct: "${normalizedIdProduct}" -> "${row.idProduct}"`);
-                                } else {
-                                    // 已经有前缀，保持原样
-                                    console.log(`idProduct already has prefix: "${currentIdProduct}"`);
-                                }
-                            });
-                        }
-                    });
-                }
                 
                 if (summaryRows.length === 0) {
                     // Re-enable button on error
