@@ -15736,6 +15736,82 @@ function formatPercentValue(value) {
                     });
                 });
                 
+                // 检测重复的 idProduct 并添加序号前缀
+                // 例如：如果有两个 "M99M06"，会变成 "1. M99M06" 和 "2. M99M06"
+                if (summaryRows.length > 0) {
+                    // 辅助函数：去除可能存在的序号前缀（例如 "1. M99M06" -> "M99M06"）
+                    const removeNumberPrefix = (text) => {
+                        if (!text) return text;
+                        // 匹配开头的 "数字. " 格式
+                        const match = text.match(/^\d+\.\s+(.+)$/);
+                        return match ? match[1] : text;
+                    };
+                    
+                    // 创建一个 Map 来跟踪每个 idProduct（去除序号前缀后）出现的次数和位置
+                    const idProductCount = new Map();
+                    
+                    // 第一遍：统计每个 idProduct（去除序号前缀后）出现的次数和记录索引
+                    summaryRows.forEach((row, index) => {
+                        const idProduct = row.idProduct;
+                        if (idProduct && idProduct.trim() !== '') {
+                            // 去除可能存在的序号前缀后再进行比较
+                            const normalizedIdProduct = removeNumberPrefix(idProduct.trim());
+                            if (!idProductCount.has(normalizedIdProduct)) {
+                                idProductCount.set(normalizedIdProduct, []);
+                            }
+                            idProductCount.get(normalizedIdProduct).push(index);
+                        }
+                    });
+                    
+                    // 第二遍：为重复的 idProduct 添加序号前缀
+                    idProductCount.forEach((indices, normalizedIdProduct) => {
+                        if (indices.length > 1) {
+                            // 有重复的 idProduct，需要添加序号前缀
+                            // 按照 displayOrder 排序（如果有），否则按照数组顺序
+                            const sortedIndices = [...indices].sort((a, b) => {
+                                const orderA = summaryRows[a].displayOrder;
+                                const orderB = summaryRows[b].displayOrder;
+                                if (orderA !== null && orderB !== null) {
+                                    return orderA - orderB;
+                                }
+                                if (orderA !== null) return -1;
+                                if (orderB !== null) return 1;
+                                return a - b; // 保持原始顺序
+                            });
+                            
+                            // 为每个重复的 idProduct 添加序号前缀
+                            sortedIndices.forEach((rowIndex, sequenceIndex) => {
+                                const row = summaryRows[rowIndex];
+                                const sequenceNumber = sequenceIndex + 1;
+                                const prefix = `${sequenceNumber}. `;
+                                
+                                // 去除可能存在的旧序号前缀
+                                const currentIdProduct = removeNumberPrefix(row.idProduct);
+                                const currentIdProductMain = row.idProductMain ? removeNumberPrefix(row.idProductMain) : null;
+                                const currentIdProductSub = row.idProductSub ? removeNumberPrefix(row.idProductSub) : null;
+                                
+                                // 根据 productType 更新相应的字段
+                                if (row.productType === 'sub') {
+                                    // 更新 idProductSub
+                                    if (currentIdProductSub) {
+                                        row.idProductSub = prefix + currentIdProductSub;
+                                    }
+                                } else {
+                                    // 更新 idProductMain
+                                    if (currentIdProductMain) {
+                                        row.idProductMain = prefix + currentIdProductMain;
+                                    }
+                                }
+                                
+                                // 更新 idProduct 字段
+                                row.idProduct = prefix + currentIdProduct;
+                                
+                                console.log(`Added prefix to duplicate idProduct: "${normalizedIdProduct}" -> "${row.idProduct}"`);
+                            });
+                        }
+                    });
+                }
+                
                 if (summaryRows.length === 0) {
                     // Re-enable button on error
                     if (submitBtn) {
