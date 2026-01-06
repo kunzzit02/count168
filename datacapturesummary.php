@@ -1237,6 +1237,23 @@ function getCurrentProcessId() {
         // Format: "id_product:row_label:column_index" (e.g., "BB:C:3") or "id_product:column_index" (backward compatibility)
         function getCellValueByIdProductAndColumn(idProduct, columnIndex, rowLabel = null) {
             try {
+                // CRITICAL: If window.currentEditRow exists and id_product matches, use it to get row_label
+                // This ensures we always use the correct row when editing
+                if (window.currentEditRow && !rowLabel) {
+                    const currentEditIdProductCell = window.currentEditRow.querySelector('td:first-child');
+                    if (currentEditIdProductCell) {
+                        const currentEditProductValues = getProductValuesFromCell(currentEditIdProductCell);
+                        const currentEditIdProduct = normalizeIdProductText(currentEditProductValues.main || currentEditProductValues.sub || '');
+                        const normalizedIdProduct = normalizeIdProductText(idProduct);
+                        
+                        if (currentEditIdProduct === normalizedIdProduct) {
+                            // id_product matches, get row_label from currentEditRow
+                            rowLabel = getRowLabelFromProcessValue(idProduct, window.currentEditRow);
+                            console.log('getCellValueByIdProductAndColumn: Using row_label from window.currentEditRow:', rowLabel, 'for id_product:', idProduct);
+                        }
+                    }
+                }
+                
                 // Use transformed table data if available, otherwise get from localStorage
                 let parsedTableData;
                 if (window.transformedTableData) {
@@ -4264,8 +4281,11 @@ function getCurrentProcessId() {
                 } else {
                     // 如果没有 data-clicked-cell-refs，使用原来的逻辑（使用当前编辑的 id_product）
                     // 获取行标签
+                    // CRITICAL: Always use window.currentEditRow if available to ensure correct row identification
                     const rowLabel = getRowLabelFromProcessValue(processValue, window.currentEditRow);
+                    console.log('updateFormulaDisplay: No clicked-cell-refs, using rowLabel:', rowLabel, 'for processValue:', processValue, 'currentEditRow:', window.currentEditRow ? 'set' : 'not set');
                     if (!rowLabel) {
+                        console.warn('updateFormulaDisplay: Could not get rowLabel, using formulaValue as-is');
                         formulaDisplayInput.value = formulaValue;
                         return;
                     }
