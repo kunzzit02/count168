@@ -2657,9 +2657,9 @@ function getCurrentProcessId() {
                     rowContainer.style.marginBottom = '8px';
                     console.log('updateFormulaDataGrid - Highlighting current editing row at index:', rowIndex);
                 }
-                    
-                    // Get all data cells (skip row header and id_product column)
-                    const cells = row.querySelectorAll('td');
+                
+                // Get all data cells (skip row header and id_product column)
+                const cells = row.querySelectorAll('td');
                     
                     cells.forEach((cell, cellIndex) => {
                         const columnIndex = cell.getAttribute('data-column-index');
