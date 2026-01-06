@@ -3529,6 +3529,8 @@ function getCurrentProcessId() {
         }
         
         // Get row label (A, B, C, etc.) from process value
+        // ✅ 当同一个 Id Product 在表里出现多行时，优先根据「当前正在编辑/新增的那一行」来取对应的 row_label
+        //    而不是一律取第一行，这样就可以区分同一个 Id Product 的不同 row。
         function getRowLabelFromProcessValue(processValue) {
             try {
                 // Get data capture table data
@@ -3542,8 +3544,49 @@ function getCurrentProcessId() {
                     }
                     parsedTableData = JSON.parse(tableData);
                 }
-                
-                // Find the row that matches the process value
+
+                // 1️⃣ 优先根据当前正在操作的 Summary Row 的 data-row-index 来定位行
+                //    - 编辑模式：window.currentEditRow
+                //    - 新增（Add 按钮）：window.currentAddAccountButton 对应的行
+                let preferredRowIndex = null;
+                let currentSummaryRow = null;
+
+                if (window.currentEditRow) {
+                    currentSummaryRow = window.currentEditRow;
+                } else if (window.currentAddAccountButton) {
+                    const btnRow = window.currentAddAccountButton.closest
+                        ? window.currentAddAccountButton.closest('tr')
+                        : null;
+                    if (btnRow) {
+                        currentSummaryRow = btnRow;
+                    }
+                }
+
+                if (currentSummaryRow) {
+                    const rowIndexAttr = currentSummaryRow.getAttribute('data-row-index');
+                    if (rowIndexAttr !== null && rowIndexAttr !== '' && !Number.isNaN(Number(rowIndexAttr))) {
+                        preferredRowIndex = Number(rowIndexAttr);
+                    }
+                }
+
+                // 如果拿到了明确的 row_index，就直接用这个 index 去 data capture 表里取对应行的 row_label
+                if (
+                    preferredRowIndex !== null &&
+                    parsedTableData &&
+                    Array.isArray(parsedTableData.rows) &&
+                    preferredRowIndex >= 0 &&
+                    preferredRowIndex < parsedTableData.rows.length
+                ) {
+                    const processRowFromIndex = parsedTableData.rows[preferredRowIndex];
+                    if (processRowFromIndex && processRowFromIndex.length > 0) {
+                        const headerCell = processRowFromIndex[0];
+                        if (headerCell && headerCell.type === 'header' && headerCell.value != null) {
+                            return String(headerCell.value).trim();
+                        }
+                    }
+                }
+
+                // 2️⃣ 如果没有拿到当前行的 row_index（旧数据 / 兼容情况），退回到原来的按 Id Product 匹配第一行的逻辑
                 const processRow = findProcessRow(parsedTableData, processValue);
                 if (!processRow || processRow.length === 0) {
                     return null;
