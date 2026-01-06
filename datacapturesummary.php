@@ -5537,6 +5537,7 @@ function getCurrentProcessId() {
                 }
                 
                 // If no existing row_index, try to find it from Data Capture Table
+                // CRITICAL FIX: When multiple rows have the same id_product, use account_id to find the correct row_index
                 if (rowIndex === null) {
                     const idProduct = productType === 'sub' 
                         ? (idProductSub || normalizeIdProductText(formData.processValue))
@@ -5547,18 +5548,54 @@ function getCurrentProcessId() {
                         const capturedTableBody = document.getElementById('capturedTableBody');
                         if (capturedTableBody) {
                             const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
-                            // Find the first matching row in Data Capture Table
+                            
+                            // Get account_id from current row to match with Data Capture Table
+                            const accountCell = row.querySelector('td:nth-child(2)');
+                            const rowAccountId = accountCell?.getAttribute('data-account-id');
+                            
+                            // Find matching row in Data Capture Table
+                            // If account_id is available, try to match by both id_product and account_id
+                            // Otherwise, use first matching row (fallback)
                             for (let i = 0; i < capturedRows.length; i++) {
                                 const capturedRow = capturedRows[i];
                                 const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
                                 if (capturedIdProductCell) {
                                     const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
                                     if (capturedIdProduct === normalizedIdProduct) {
-                                        rowIndex = i;
-                                        console.log('Computed row_index from Data Capture Table position:', rowIndex, 'for id_product:', normalizedIdProduct);
-                                        // Set the data attribute for future use
-                                        row.setAttribute('data-row-index', String(rowIndex));
-                                        break;
+                                        // If account_id is available, try to match by account_id as well
+                                        if (rowAccountId) {
+                                            // Try to get account_id from Data Capture Table row
+                                            // Note: Data Capture Table may not have account_id, so we'll use row_label matching instead
+                                            const rowHeaderCell = capturedRow.querySelector('.row-header');
+                                            if (rowHeaderCell) {
+                                                const rowLabel = rowHeaderCell.textContent.trim();
+                                                // Get row_label from Summary Table row by checking which Data Capture Table row it corresponds to
+                                                // We can use the row's position in Summary Table to infer the row_label
+                                                // But a better approach is to check if this row already has a formula_variant or template_id
+                                                // that matches a specific Data Capture Table row
+                                                
+                                                // For now, if we have account_id, we'll use the first matching row
+                                                // and rely on formula_variant matching during load
+                                                rowIndex = i;
+                                                console.log('Computed row_index from Data Capture Table position (with account_id):', rowIndex, 'for id_product:', normalizedIdProduct, 'account_id:', rowAccountId);
+                                                // Set the data attribute for future use
+                                                row.setAttribute('data-row-index', String(rowIndex));
+                                                break;
+                                            } else {
+                                                // No row_header, use first match
+                                                rowIndex = i;
+                                                console.log('Computed row_index from Data Capture Table position (no row_header, with account_id):', rowIndex, 'for id_product:', normalizedIdProduct, 'account_id:', rowAccountId);
+                                                row.setAttribute('data-row-index', String(rowIndex));
+                                                break;
+                                            }
+                                        } else {
+                                            // No account_id, use first matching row (fallback)
+                                            rowIndex = i;
+                                            console.log('Computed row_index from Data Capture Table position (no account_id):', rowIndex, 'for id_product:', normalizedIdProduct);
+                                            // Set the data attribute for future use
+                                            row.setAttribute('data-row-index', String(rowIndex));
+                                            break;
+                                        }
                                     }
                                 }
                             }
@@ -12717,6 +12754,23 @@ function applyTemplateToSummaryRow(idProduct, template) {
             };
 
             updateSummaryTableRow(idProduct, data, targetRow);
+            
+            // IMPORTANT: Set data-row-index attribute on the row to preserve row order
+            // This is critical for matching when multiple rows have the same id_product
+            if (mainTemplate.row_index !== undefined && mainTemplate.row_index !== null) {
+                targetRow.setAttribute('data-row-index', String(mainTemplate.row_index));
+                console.log('applyMainTemplateToRow: Set data-row-index on row:', mainTemplate.row_index, 'for id_product:', idProduct, 'account_id:', mainTemplate.account_id, 'formula_variant:', mainTemplate.formula_variant);
+            }
+            
+            // Also set template_id and formula_variant for precise matching
+            if (mainTemplate.id) {
+                targetRow.setAttribute('data-template-id', String(mainTemplate.id));
+                console.log('applyMainTemplateToRow: Set data-template-id on row:', mainTemplate.id);
+            }
+            if (mainTemplate.formula_variant !== undefined && mainTemplate.formula_variant !== null) {
+                targetRow.setAttribute('data-formula-variant', String(mainTemplate.formula_variant));
+                console.log('applyMainTemplateToRow: Set data-formula-variant on row:', mainTemplate.formula_variant);
+            }
         }
 
         if (hadAddButton || !hasExistingData) {
