@@ -310,7 +310,7 @@ $company_id = $_SESSION['company_id'] ?? null;
         }
         
         // Find column index in a process row that matches the given numeric value
-        function findColumnIndexByValue(processValue, numericValue) {
+        function findColumnIndexByValue(processValue, numericValue, currentEditRow = null) {
             try {
                 if (numericValue === null || numericValue === undefined || isNaN(numericValue)) {
                     return null;
@@ -328,8 +328,99 @@ $company_id = $_SESSION['company_id'] ?? null;
                     parsedTableData = JSON.parse(tableData);
                 }
                 
+                // Determine which row index to use (same logic as getColumnDataFromTable)
+                let rowIndex = null;
+                const editRow = currentEditRow || window.currentEditRow;
+                if (editRow) {
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    if (summaryTableBody) {
+                        const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                        const normalizedProcessValue = normalizeIdProductText(processValue);
+                        const productType = editRow.getAttribute('data-product-type') || 'main';
+                        
+                        let targetMainRow = null;
+                        
+                        if (productType === 'sub') {
+                            const currentRowIndex = allRows.indexOf(editRow);
+                            if (currentRowIndex > 0) {
+                                for (let i = currentRowIndex - 1; i >= 0; i--) {
+                                    const row = allRows[i];
+                                    const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                    if (rowProductType === 'main') {
+                                        const idProductCell = row.querySelector('td:first-child');
+                                        const productValues = getProductValuesFromCell(idProductCell);
+                                        const mainText = normalizeIdProductText(productValues.main || '');
+                                        
+                                        if (mainText === normalizedProcessValue) {
+                                            targetMainRow = row;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (!targetMainRow) {
+                                const parentIdProduct = editRow.getAttribute('data-parent-id-product');
+                                if (parentIdProduct) {
+                                    const normalizedParentId = normalizeIdProductText(parentIdProduct);
+                                    for (const row of allRows) {
+                                        const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                        if (rowProductType === 'main') {
+                                            const idProductCell = row.querySelector('td:first-child');
+                                            const productValues = getProductValuesFromCell(idProductCell);
+                                            const mainText = normalizeIdProductText(productValues.main || '');
+                                            if (mainText === normalizedParentId) {
+                                                targetMainRow = row;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            targetMainRow = editRow;
+                        }
+                        
+                        if (targetMainRow) {
+                            const matchingSummaryRows = [];
+                            allRows.forEach((row, index) => {
+                                const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                if (rowProductType !== 'main') return;
+                                
+                                const idProductCell = row.querySelector('td:first-child');
+                                const productValues = getProductValuesFromCell(idProductCell);
+                                const mainText = normalizeIdProductText(productValues.main || '');
+                                
+                                if (mainText === normalizedProcessValue) {
+                                    matchingSummaryRows.push({ row, index });
+                                }
+                            });
+                            
+                            const currentRowIndex = matchingSummaryRows.findIndex(item => item.row === targetMainRow);
+                            if (currentRowIndex >= 0) {
+                                const matchingDataCaptureRows = [];
+                                if (parsedTableData.rows) {
+                                    parsedTableData.rows.forEach((row, index) => {
+                                        if (row.length > 1 && row[1].type === 'data') {
+                                            const rowValue = row[1].value;
+                                            const normalizedRowValue = normalizeIdProductText(rowValue);
+                                            if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
+                                                matchingDataCaptureRows.push(index);
+                                            }
+                                        }
+                                    });
+                                }
+                                
+                                if (currentRowIndex < matchingDataCaptureRows.length) {
+                                    rowIndex = matchingDataCaptureRows[currentRowIndex];
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 // Find the row that matches the process value
-                const processRow = findProcessRow(parsedTableData, processValue);
+                const processRow = findProcessRow(parsedTableData, processValue, rowIndex);
                 if (!processRow) {
                     return null;
                 }
@@ -3565,7 +3656,7 @@ function getCurrentProcessId() {
         }
 
         // Find columns that contain values matching numbers in formula
-        function findColumnsFromFormula(formulaValue, processValue) {
+        function findColumnsFromFormula(formulaValue, processValue, currentEditRow = null) {
             try {
                 if (!formulaValue || !processValue) {
                     return [];
@@ -3589,8 +3680,99 @@ function getCurrentProcessId() {
                     parsedTableData = JSON.parse(tableData);
                 }
                 
+                // Determine which row index to use (same logic as getColumnDataFromTable)
+                let rowIndex = null;
+                const editRow = currentEditRow || window.currentEditRow;
+                if (editRow) {
+                    const summaryTableBody = document.getElementById('summaryTableBody');
+                    if (summaryTableBody) {
+                        const allRows = Array.from(summaryTableBody.querySelectorAll('tr'));
+                        const normalizedProcessValue = normalizeIdProductText(processValue);
+                        const productType = editRow.getAttribute('data-product-type') || 'main';
+                        
+                        let targetMainRow = null;
+                        
+                        if (productType === 'sub') {
+                            const currentRowIndex = allRows.indexOf(editRow);
+                            if (currentRowIndex > 0) {
+                                for (let i = currentRowIndex - 1; i >= 0; i--) {
+                                    const row = allRows[i];
+                                    const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                    if (rowProductType === 'main') {
+                                        const idProductCell = row.querySelector('td:first-child');
+                                        const productValues = getProductValuesFromCell(idProductCell);
+                                        const mainText = normalizeIdProductText(productValues.main || '');
+                                        
+                                        if (mainText === normalizedProcessValue) {
+                                            targetMainRow = row;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (!targetMainRow) {
+                                const parentIdProduct = editRow.getAttribute('data-parent-id-product');
+                                if (parentIdProduct) {
+                                    const normalizedParentId = normalizeIdProductText(parentIdProduct);
+                                    for (const row of allRows) {
+                                        const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                        if (rowProductType === 'main') {
+                                            const idProductCell = row.querySelector('td:first-child');
+                                            const productValues = getProductValuesFromCell(idProductCell);
+                                            const mainText = normalizeIdProductText(productValues.main || '');
+                                            if (mainText === normalizedParentId) {
+                                                targetMainRow = row;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            targetMainRow = editRow;
+                        }
+                        
+                        if (targetMainRow) {
+                            const matchingSummaryRows = [];
+                            allRows.forEach((row, index) => {
+                                const rowProductType = row.getAttribute('data-product-type') || 'main';
+                                if (rowProductType !== 'main') return;
+                                
+                                const idProductCell = row.querySelector('td:first-child');
+                                const productValues = getProductValuesFromCell(idProductCell);
+                                const mainText = normalizeIdProductText(productValues.main || '');
+                                
+                                if (mainText === normalizedProcessValue) {
+                                    matchingSummaryRows.push({ row, index });
+                                }
+                            });
+                            
+                            const currentRowIndex = matchingSummaryRows.findIndex(item => item.row === targetMainRow);
+                            if (currentRowIndex >= 0) {
+                                const matchingDataCaptureRows = [];
+                                if (parsedTableData.rows) {
+                                    parsedTableData.rows.forEach((row, index) => {
+                                        if (row.length > 1 && row[1].type === 'data') {
+                                            const rowValue = row[1].value;
+                                            const normalizedRowValue = normalizeIdProductText(rowValue);
+                                            if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
+                                                matchingDataCaptureRows.push(index);
+                                            }
+                                        }
+                                    });
+                                }
+                                
+                                if (currentRowIndex < matchingDataCaptureRows.length) {
+                                    rowIndex = matchingDataCaptureRows[currentRowIndex];
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 // Find the row that matches the process value
-                const processRow = findProcessRow(parsedTableData, processValue);
+                const processRow = findProcessRow(parsedTableData, processValue, rowIndex);
                 if (!processRow) {
                     return [];
                 }
@@ -4338,7 +4520,7 @@ function getCurrentProcessId() {
                     }
                     
                     if (shouldReplace && rowLabel) {
-                        const matchedColumnIndex = findColumnIndexByValue(processValue, numericValue);
+                        const matchedColumnIndex = findColumnIndexByValue(processValue, numericValue, window.currentEditRow);
                         
                         if (matchedColumnIndex !== null) {
                             const columnReference = rowLabel + matchedColumnIndex;
@@ -12562,7 +12744,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
             if (!currentSourceData && !sourceColumnsValue && formulaOperatorsValue && formulaOperatorsValue.trim() !== '') {
                 console.log('source_columns is empty but formula_operators exists, trying to find columns from formula:', formulaOperatorsValue);
                 const processValue = idProduct;
-                const foundColumns = findColumnsFromFormula(formulaOperatorsValue, processValue);
+                const foundColumns = findColumnsFromFormula(formulaOperatorsValue, processValue, targetRow);
                 if (foundColumns && foundColumns.length > 0) {
                     // Found columns, try to build source expression from these columns
                     const columnNumbers = foundColumns.join(' ');
