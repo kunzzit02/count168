@@ -3586,10 +3586,6 @@ function getCurrentProcessId() {
             }
             
             try {
-                // IMPORTANT: 检查formula是否包含新格式 [id_product,数字]
-                // 如果包含，不要解析它，保持原样显示
-                const hasBracketFormat = formulaValue && /\[[^,\]]+,\d+\]/.test(formulaValue);
-                
                 // IMPORTANT: 优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
                 // 这样当用户选择其他 id product 的数据时，能正确显示那些数据
                 // 重要：优先从 data-clicked-cell-refs 读取引用，因为它包含了正确的 id_product
@@ -3597,13 +3593,6 @@ function getCurrentProcessId() {
                 const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
                 
                 let displayFormula = formulaValue;
-                
-                // 如果formula包含新格式 [id_product,数字]，只解析 $数字 部分，保持 [id_product,数字] 原样
-                if (hasBracketFormat) {
-                    // 只处理 $数字 格式，不处理 [id_product,数字] 格式
-                    // 这样可以保持引用格式，区分相同id_product的不同row
-                    console.log('updateFormulaDisplay: Formula contains [id_product,数字] format, keeping it as-is');
-                }
                 
                 if (clickedCellRefs && clickedCellRefs.trim() !== '') {
                     // 使用 data-clicked-cell-refs 中的引用（格式：id_product:row_label:column_index 或 id_product:column_index）
@@ -3749,21 +3738,11 @@ function getCurrentProcessId() {
                             }
                         }
                         
-                        // 对于 [id_product,数字] 格式，保持原样，不替换为实际值
-                        // 这样可以区分相同id_product的不同row
-                        if (match.fromBracketFormat) {
-                            // 保持 [id_product,数字] 格式原样，不替换
-                            matchValues.push({
-                                match: match,
-                                value: match.fullMatch // 保持原格式
-                            });
-                        } else {
-                            // 对于 $数字 格式，替换为实际值
-                            matchValues.push({
-                                match: match,
-                                value: columnValue !== null ? columnValue : '0'
-                            });
-                        }
+                        // 存储匹配的值（如果找不到值，存储 '0'）
+                        matchValues.push({
+                            match: match,
+                            value: columnValue !== null ? columnValue : '0'
+                        });
                     }
                     
                     // 从后往前替换，避免位置偏移
@@ -3773,7 +3752,7 @@ function getCurrentProcessId() {
                         const match = matchValue.match;
                         const value = matchValue.value;
                         
-                        // 替换：$数字 替换为实际值，[id_product,数字] 保持原样
+                        // 替换 $数字 为实际值
                         displayFormula = displayFormula.substring(0, match.index) + 
                                         value + 
                                         displayFormula.substring(match.index + match.fullMatch.length);
@@ -6203,42 +6182,26 @@ function getCurrentProcessId() {
                 sourceColumns = ''; // Clear sourceColumns when formula is empty
                 console.log('Formula value is empty, keeping formulaDisplay as empty string and clearing columnsDisplay');
             } else {
-                // 检查formula是否包含新格式 [id_product,数字]
-                const hasBracketFormat = formulaValue && /\[[^,\]]+,\d+\]/.test(formulaValue);
-                
-                if (hasBracketFormat) {
-                    // 如果formula包含新格式 [id_product,数字]，直接保存原始格式
-                    // 不要转换为计算值，保持引用格式以便区分相同id_product的不同row
-                    const trimmedFormula = formulaValue.trim();
+                // 优先使用 formulaDisplay 输入框的值（已经转换好的值）
+                if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
+                    const convertedFormula = formulaDisplayInput.value.trim();
                     // 添加 Source Percent 部分（如果需要）
-                    if (sourcePercentEnableValue && sourcePercentValue && sourcePercentValue !== '1') {
-                        formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                    } else {
-                        formulaDisplay = trimmedFormula;
-                    }
-                    console.log('saveFormula - Formula contains [id_product,数字] format, saving original format:', formulaDisplay);
+                    formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
+                    console.log('saveFormula - Using formulaDisplay input value:', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
                 } else {
-                    // 优先使用 formulaDisplay 输入框的值（已经转换好的值）
-                    if (formulaDisplayInput && formulaDisplayInput.value && formulaDisplayInput.value.trim() !== '') {
-                        const convertedFormula = formulaDisplayInput.value.trim();
-                        // 添加 Source Percent 部分（如果需要）
+                    // 如果 formulaDisplay 输入框为空，从 formulaValue 转换
+                    const trimmedFormula = formulaValue.trim();
+                    // 先将 $数字 转换为实际值
+                    const processValueForDisplay = processValue;
+                    // 临时更新显示框以获取转换后的值
+                    updateFormulaDisplay(trimmedFormula, processValueForDisplay);
+                    const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
+                    if (convertedFormula && convertedFormula !== '') {
                         formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
-                        console.log('saveFormula - Using formulaDisplay input value:', convertedFormula, 'Final formulaDisplay:', formulaDisplay);
                     } else {
-                        // 如果 formulaDisplay 输入框为空，从 formulaValue 转换
-                        const trimmedFormula = formulaValue.trim();
-                        // 先将 $数字 转换为实际值
-                        const processValueForDisplay = processValue;
-                        // 临时更新显示框以获取转换后的值
-                        updateFormulaDisplay(trimmedFormula, processValueForDisplay);
-                        const convertedFormula = formulaDisplayInput ? formulaDisplayInput.value.trim() : '';
-                        if (convertedFormula && convertedFormula !== '') {
-                            formulaDisplay = createFormulaDisplayFromExpression(convertedFormula, sourcePercentValue, sourcePercentEnableValue);
-                        } else {
-                            formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
-                        }
-                        console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
+                        formulaDisplay = createFormulaDisplayFromExpression(trimmedFormula, sourcePercentValue, sourcePercentEnableValue);
                     }
+                    console.log('saveFormula - Created formulaDisplay from formulaValue:', formulaDisplay);
                 }
             }
             
@@ -6865,18 +6828,22 @@ function getCurrentProcessId() {
             }
         }
         
-        // Parse [id_product,数字] format for calculation (replaces with actual values)
-        // This is used only for calculation, not for display
-        // Example: "[M99M06,4]" -> "270"
-        function parseReferenceFormulaForCalculation(formula) {
+        // Parse reference format formula and replace with actual values
+        // Example: "[iphsp3 : 4] + [iphsp3 : 2]" -> "17 + 42"
+        // Also supports cell references: "A4 + A3" -> "17 + 42"
+        function parseReferenceFormula(formula) {
             try {
                 if (!formula || formula.trim() === '') {
                     return '';
                 }
                 
+                // Get process value from form
+                const processInput = document.getElementById('process');
+                const processValue = processInput ? processInput.value.trim() : null;
+                
                 let parsedFormula = formula;
                 
-                // Parse [id_product,数字] format (other row references)
+                // First, parse [id_product,数字] format (other row references)
                 // Pattern: [id_product,数字] (e.g., "[BBB,1]", "[YONG,4]")
                 const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
                 let match;
@@ -6919,128 +6886,6 @@ function getCurrentProcessId() {
                                       parsedFormula.substring(bracketMatch.index + bracketMatch.fullMatch.length);
                     }
                 }
-                
-                // Then parse $数字 format (current row references)
-                const processInput = document.getElementById('process');
-                const processValue = processInput ? processInput.value.trim() : null;
-                const formulaInput = document.getElementById('formula');
-                const clickedCellRefs = formulaInput ? (formulaInput.getAttribute('data-clicked-cell-refs') || '') : '';
-                
-                if (processValue) {
-                    const dollarPattern = /\$(\d+)(?!\d)/g;
-                    const dollarMatches = [];
-                    let match;
-                    dollarPattern.lastIndex = 0;
-                    
-                    while ((match = dollarPattern.exec(parsedFormula)) !== null) {
-                        const fullMatch = match[0];
-                        const columnNumber = parseInt(match[1]);
-                        const matchIndex = match.index;
-                        
-                        if (!isNaN(columnNumber) && columnNumber > 0) {
-                            dollarMatches.push({
-                                fullMatch: fullMatch,
-                                columnNumber: columnNumber,
-                                index: matchIndex
-                            });
-                        }
-                    }
-                    
-                    dollarMatches.sort((a, b) => b.index - a.index);
-                    
-                    if (clickedCellRefs && clickedCellRefs.trim() !== '') {
-                        const refs = clickedCellRefs.trim().split(/\s+/).filter(r => r.trim() !== '');
-                        let refIndex = 0;
-                        
-                        for (let i = 0; i < dollarMatches.length; i++) {
-                            const dollarMatch = dollarMatches[i];
-                            let columnValue = null;
-                            const dataColumnIndex = dollarMatch.columnNumber - 1;
-                            
-                            for (let j = refIndex; j < refs.length; j++) {
-                                const ref = refs[j];
-                                const parts = ref.split(':');
-                                if (parts.length >= 2) {
-                                    const refIdProduct = parts[0];
-                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                    const refRowLabel = parts.length === 3 ? parts[1] : null;
-                                    
-                                    if (!isNaN(refDataColumnIndex) && refDataColumnIndex === dataColumnIndex) {
-                                        columnValue = getCellValueByIdProductAndColumn(refIdProduct, refDataColumnIndex, refRowLabel);
-                                        refIndex = j + 1;
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            if (columnValue === null) {
-                                const rowLabel = getRowLabelFromProcessValue(processValue);
-                                if (rowLabel) {
-                                    const columnReference = rowLabel + dollarMatch.columnNumber;
-                                    columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                }
-                            }
-                            
-                            if (columnValue !== null) {
-                                parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                              columnValue + 
-                                              parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                            } else {
-                                parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                              '0' + 
-                                              parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                            }
-                        }
-                    } else {
-                        const rowLabel = getRowLabelFromProcessValue(processValue);
-                        if (rowLabel) {
-                            for (let i = 0; i < dollarMatches.length; i++) {
-                                const dollarMatch = dollarMatches[i];
-                                const columnReference = rowLabel + dollarMatch.columnNumber;
-                                const columnValue = getColumnValueFromCellReference(columnReference, processValue);
-                                
-                                if (columnValue !== null) {
-                                    parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                  columnValue + 
-                                                  parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                } else {
-                                    parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                  '0' + 
-                                                  parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                return parsedFormula;
-            } catch (error) {
-                console.error('Error parsing reference formula for calculation:', error);
-                return formula;
-            }
-        }
-        
-        // Parse reference format formula and replace with actual values
-        // Example: "[iphsp3 : 4] + [iphsp3 : 2]" -> "17 + 42"
-        // Also supports cell references: "A4 + A3" -> "17 + 42"
-        // IMPORTANT: This function does NOT parse [id_product,数字] format - it keeps it as-is
-        function parseReferenceFormula(formula) {
-            try {
-                if (!formula || formula.trim() === '') {
-                    return '';
-                }
-                
-                // Get process value from form
-                const processInput = document.getElementById('process');
-                const processValue = processInput ? processInput.value.trim() : null;
-                
-                let parsedFormula = formula;
-                
-                // IMPORTANT: Do NOT parse [id_product,数字] format - keep it as-is
-                // This format is used to distinguish between rows with same id_product
-                // Pattern: [id_product,数字] (e.g., "[BBB,1]", "[YONG,4]")
-                // We skip parsing this format to preserve the reference format
-                console.log('parseReferenceFormula: Skipping [id_product,数字] format to preserve row distinction');
                 
                 // Then, parse $数字 format (current row references) (e.g., "$2", "$3", "$10")
                 // This must be done after parsing [id_product,数字] to avoid conflicts
@@ -7471,21 +7316,12 @@ function getCurrentProcessId() {
                     return 'Formula';
                 }
                 
-                // IMPORTANT: Check if formula contains new format [id_product,数字]
-                // If so, do NOT parse it - keep it as-is to preserve row distinction
-                const hasBracketFormat = /\[[^,\]]+,\d+\]/.test(formula);
-                
                 // IMPORTANT: Parse reference format (e.g., [id_product : column]) to actual values first
                 // This ensures that references to other id_product rows are correctly resolved
-                // But skip parsing if formula contains new format [id_product,数字]
                 let parsedFormula = formula;
-                if (formula.includes('[') && formula.includes(']') && !hasBracketFormat) {
+                if (formula.includes('[') && formula.includes(']')) {
                     parsedFormula = parseReferenceFormula(formula);
                     console.log('createFormulaDisplayFromExpression: Parsed reference format:', formula, '->', parsedFormula);
-                } else if (hasBracketFormat) {
-                    // Formula contains new format [id_product,数字], keep it as-is
-                    parsedFormula = formula;
-                    console.log('createFormulaDisplayFromExpression: Formula contains [id_product,数字] format, keeping original format:', parsedFormula);
                 }
                 
                 // If source percent is disabled, return parsed formula as-is
@@ -9580,23 +9416,8 @@ function getCurrentProcessId() {
             let formulaDisplay;
             const isDisplayReferenceFormat = displayExpression && /\[[^\]]+\s*:\s*\d+\]/.test(displayExpression);
             const savedHasReferenceFormat = savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
-            
-            // IMPORTANT: Check if saved formula contains new format [id_product,数字] (e.g., [M99M06,4])
-            const savedHasBracketFormat = savedFormulaDisplay && /\[[^,\]]+,\d+\]/.test(savedFormulaDisplay);
 
-            // If saved formula has new format [id_product,数字], use it directly without parsing
-            // This preserves the reference format to distinguish between rows with same id_product
-            if (savedHasBracketFormat) {
-                // 直接使用原始格式，不转换为实际值
-                // 这样用户可以清楚地看到公式的引用格式（如 [M99M06,4]+$4）
-                // 并且能区分相同id_product的不同row
-                if (sourcePercentText && enableSourcePercent && sourcePercentText !== '1') {
-                    formulaDisplay = createFormulaDisplayFromExpression(savedFormulaDisplay, sourcePercentText, enableSourcePercent);
-                } else {
-                    formulaDisplay = savedFormulaDisplay;
-                }
-                console.log('Saved formula_display contains [id_product,数字] format, using original format:', formulaDisplay);
-            } else if (isDisplayReferenceFormat) {
+            if (isDisplayReferenceFormat) {
                 // Parse reference format to actual values before creating display
                 const parsedExpression = parseReferenceFormula(displayExpression);
                 if (enableSourcePercent && sourcePercentText) {
@@ -9632,18 +9453,7 @@ function getCurrentProcessId() {
             // Calculate processed amount：显示可用引用格式，但计算必须用数字表达式
             let processedAmount = 0;
             const isDisplayReference = formulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(formulaDisplay);
-            const isDisplayBracketFormat = formulaDisplay && /\[[^,\]]+,\d+\]/.test(formulaDisplay);
-            
-            // If formula contains [id_product,数字] format, parse it for calculation but keep original for display
-            let formulaForCalculation = formulaDisplay;
-            if (isDisplayBracketFormat) {
-                // For calculation, we need to parse [id_product,数字] to actual values
-                // But we'll keep the original format for display
-                formulaForCalculation = parseReferenceFormulaForCalculation(formulaDisplay);
-                console.log('Formula contains [id_product,数字] format, parsed for calculation:', formulaDisplay, '->', formulaForCalculation);
-            }
-            
-            if (!isDisplayReference && !isDisplayBracketFormat && formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
+            if (!isDisplayReference && formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
                 try {
                     console.log('Calculating processed amount from formulaDisplay:', formulaDisplay);
                     const formulaResult = evaluateFormulaExpression(formulaDisplay);
@@ -9659,25 +9469,6 @@ function getCurrentProcessId() {
                 } catch (error) {
                     console.error('Error calculating from formulaDisplay:', error, 'formulaDisplay:', formulaDisplay);
                     // Fallback to calculateFormulaResultFromExpression if formulaDisplay evaluation fails
-                    processedAmount = calculateFormulaResultFromExpression(resolvedSourceExpression, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
-                }
-            } else if (isDisplayBracketFormat) {
-                // Formula contains [id_product,数字] format, use parsed formula for calculation
-                try {
-                    console.log('Calculating processed amount from parsed bracket format:', formulaForCalculation);
-                    const formulaResult = evaluateFormulaExpression(formulaForCalculation);
-                    
-                    // Apply input method transformation if enabled
-                    if (enableInputMethod && inputMethod) {
-                        processedAmount = applyInputMethodTransformation(formulaResult, inputMethod);
-                        console.log('Applied input method transformation:', processedAmount);
-                    } else {
-                        processedAmount = formulaResult;
-                    }
-                    console.log('Final processed amount from parsed bracket format:', processedAmount);
-                } catch (error) {
-                    console.error('Error calculating from parsed bracket format:', error, 'formulaForCalculation:', formulaForCalculation);
-                    // Fallback to calculateFormulaResultFromExpression
                     processedAmount = calculateFormulaResultFromExpression(resolvedSourceExpression, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
                 }
             } else {
