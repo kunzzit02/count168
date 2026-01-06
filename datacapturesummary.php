@@ -11767,9 +11767,14 @@ function getCurrentProcessId() {
             
             if (!row) {
                 // Find the row in the summary table that matches the process value
+                // CRITICAL FIX: When multiple rows have the same id_product, use template_id and formula_variant to distinguish them
                 const summaryTableBody = document.getElementById('summaryTableBody');
                 const rows = summaryTableBody.querySelectorAll('tr');
                 
+                const normalizedTargetId = normalizeIdProductText(processValue);
+                const candidateRows = [];
+                
+                // First, collect all rows with matching id_product
                 for (let i = 0; i < rows.length; i++) {
                     const currentRow = rows[i];
                     const idProductCell = currentRow.querySelector('td:first-child');
@@ -11783,11 +11788,57 @@ function getCurrentProcessId() {
                         // Remove description in parentheses if present
                         const match = cellText.match(/^([^(]+)/);
                         const cleanCellText = match ? match[1].trim() : cellText;
-                        if (cleanCellText === processValue) {
-                            row = currentRow;
-                            break;
+                        const normalizedCellText = normalizeIdProductText(cleanCellText);
+                        if (normalizedCellText === normalizedTargetId) {
+                            candidateRows.push(currentRow);
                         }
                     }
+                }
+                
+                // If multiple rows found, try to match by template_id or formula_variant
+                if (candidateRows.length > 1 && (data.templateId || data.formulaVariant)) {
+                    // Priority 1: Match by template_id
+                    if (data.templateId) {
+                        for (const candidateRow of candidateRows) {
+                            const rowTemplateId = candidateRow.getAttribute('data-template-id');
+                            if (rowTemplateId === String(data.templateId)) {
+                                row = candidateRow;
+                                console.log('updateSummaryTableRow: Matched row by template_id:', data.templateId);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Priority 2: Match by formula_variant (if template_id match failed)
+                    if (!row && data.formulaVariant) {
+                        for (const candidateRow of candidateRows) {
+                            const rowFormulaVariant = candidateRow.getAttribute('data-formula-variant');
+                            if (rowFormulaVariant === String(data.formulaVariant)) {
+                                row = candidateRow;
+                                console.log('updateSummaryTableRow: Matched row by formula_variant:', data.formulaVariant);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Priority 3: Match by account_id (if available)
+                    if (!row && data.accountDbId) {
+                        for (const candidateRow of candidateRows) {
+                            const accountCell = candidateRow.querySelector('td:nth-child(2)');
+                            const rowAccountId = accountCell?.getAttribute('data-account-id');
+                            if (rowAccountId === String(data.accountDbId)) {
+                                row = candidateRow;
+                                console.log('updateSummaryTableRow: Matched row by account_id:', data.accountDbId);
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // If still no match, use first candidate (fallback)
+                if (!row && candidateRows.length > 0) {
+                    row = candidateRows[0];
+                    console.log('updateSummaryTableRow: Using first candidate row (fallback)');
                 }
             }
             
