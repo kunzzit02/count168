@@ -5717,6 +5717,64 @@ if ($current_user_id && count($user_companies) > 0) {
             return null; // 不是Excel格式
         }
 
+        // API-RETURN 格式解析函数
+        // 解析格式：KING855: (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)
+        // 输出：['KING855', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225']
+        function parseApiReturnFormat(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            
+            // 去除首尾空白
+            const trimmed = pastedData.trim();
+            if (!trimmed) return null;
+            
+            // 检查是否包含冒号和运算符（API-RETURN 格式的特征）
+            if (!trimmed.includes(':') || 
+                (!trimmed.includes('(') && !trimmed.includes('+') && !trimmed.includes('-') && 
+                 !trimmed.includes('*') && !trimmed.includes('/'))) {
+                return null;
+            }
+            
+            console.log('Using API-RETURN format parser');
+            console.log('Input:', trimmed);
+            
+            const result = [];
+            
+            // 1. 提取冒号前的标签（如 KING855）
+            const colonIndex = trimmed.indexOf(':');
+            if (colonIndex > 0) {
+                const label = trimmed.substring(0, colonIndex).trim();
+                if (label) {
+                    result.push(label);
+                }
+            }
+            
+            // 2. 提取表达式部分（冒号后的内容）
+            const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
+            
+            // 3. 使用正则表达式提取所有数字（包括小数和负数）
+            // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
+            const numberPattern = /-?\d+\.\d+|-?\d+/g;
+            const numbers = expression.match(numberPattern);
+            
+            if (numbers && numbers.length > 0) {
+                // 将提取的数字添加到结果中
+                numbers.forEach(num => {
+                    result.push(num);
+                });
+            }
+            
+            // 如果至少提取到了标签或数字，返回结果
+            if (result.length > 0) {
+                console.log('Parsed result:', result);
+                return {
+                    columns: result,
+                    columnCount: result.length
+                };
+            }
+            
+            return null;
+        }
+
         // 处理单元格粘贴事件
         function handleCellPaste(e) {
             // 获取单元格元素（支持文本节点和元素节点）
@@ -5824,6 +5882,71 @@ if ($current_user_id && count($user_companies) > 0) {
 
                 return;
             }
+            
+            // API-RETURN 专用解析（仅在 API_RETURN 类型时启用）
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'API_RETURN') {
+                const apiReturnParsed = parseApiReturnFormat(pastedData);
+                if (apiReturnParsed) {
+                    const { columns, columnCount } = apiReturnParsed;
+                    
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col);
+                    
+                    // 确保表格有足够的列
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredCols = startCol + columnCount;
+                    
+                    if (requiredCols > currentCols) {
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(currentRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const tableRow = tableBody.children[startRow];
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    columns.forEach((cellData, colIndex) => {
+                        const actualColIndex = startCol + colIndex;
+                        const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                        
+                        if (cell && cell.contentEditable === 'true') {
+                            const trimmedData = (cellData || '').trim();
+                            currentPasteChanges.push({
+                                row: startRow,
+                                col: actualColIndex,
+                                oldValue: cell.textContent,
+                                newValue: trimmedData
+                            });
+                            
+                            // 标签部分保持原样，数字部分保持原样
+                            cell.textContent = trimmedData;
+                            if (trimmedData) {
+                                successCount++;
+                            }
+                        }
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+                    
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted ${successCount} cells in ${columnCount} columns!`, 'success');
+                    } else {
+                        showNotification('No cells were pasted from API-RETURN format.', 'danger');
+                    }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    return;
+                }
+            }
+            
             const loweredForDetect = (pastedData || '').toLowerCase();
             const isPaymentReportLike =
                 loweredForDetect.includes('downline payment') &&
