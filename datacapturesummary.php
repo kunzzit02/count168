@@ -821,6 +821,28 @@ function getCurrentProcessId() {
                 return value;
             });
             
+            // 更新 transformedTableData 中的数据，使重命名后的 id product 同步到数据源
+            if (window.transformedTableData && window.transformedTableData.rows) {
+                let rowIndex = 0;
+                window.transformedTableData.rows.forEach(row => {
+                    if (row && row.length > 1 && row[1] && row[1].type === 'data') {
+                        const originalValue = row[1].value;
+                        if (originalValue && originalValue.trim() !== '') {
+                            const normalized = removePrefix(originalValue.trim());
+                            // 如果这个 id product 被重命名了，更新数据源
+                            if (idProductCounts[normalized] > 1 && rowIndex < renamedColumnAData.length) {
+                                const renamedValue = renamedColumnAData[rowIndex];
+                                if (renamedValue !== originalValue) {
+                                    row[1].value = renamedValue;
+                                    console.log(`Updated transformedTableData: row ${rowIndex}, '${originalValue}' -> '${renamedValue}'`);
+                                }
+                            }
+                            rowIndex++;
+                        }
+                    }
+                });
+            }
+            
             // Create rows for the original table
             // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
             renamedColumnAData.forEach((value, index) => {
@@ -2393,6 +2415,7 @@ function getCurrentProcessId() {
         // Load all id products from table into first select box
         // IMPORTANT: Show all rows, even if they have the same id_product, because they are different data
         // Use row label (A, B, C, etc.) to distinguish between rows with same id_product
+        // IMPORTANT: 优先从 summary table 读取已重命名的 id product
         function loadIdProductList() {
             const descriptionSelect1 = document.getElementById('descriptionSelect1');
             if (!descriptionSelect1) return;
@@ -2400,48 +2423,25 @@ function getCurrentProcessId() {
             // Clear existing options except the first one
             descriptionSelect1.innerHTML = '<option value="">Select Id Product</option>';
 
-            // Get table data
-            let parsedTableData;
-            if (window.transformedTableData) {
-                parsedTableData = window.transformedTableData;
-            } else {
-                const tableData = localStorage.getItem('capturedTableData');
-                if (!tableData) {
-                    console.log('No table data found');
-                    return;
-                }
-                parsedTableData = JSON.parse(tableData);
-            }
-
-            // Get all id products with their row labels (to distinguish duplicate id_products)
+            // 优先从 summary table 读取已重命名的 id product
             const idProductRows = [];
-            const capturedTableBody = document.getElementById('capturedTableBody');
+            const summaryTableBody = document.getElementById('summaryTableBody');
             
-            if (capturedTableBody) {
-                // Get from DOM
-                const rows = capturedTableBody.querySelectorAll('tr');
+            if (summaryTableBody) {
+                // 从 summary table 读取（已重命名）
+                const rows = summaryTableBody.querySelectorAll('tr');
                 rows.forEach((row, rowIndex) => {
-                    const idProduct = row.getAttribute('data-id-product');
-                    if (idProduct && idProduct.trim() !== '') {
-                        // Get row label (A, B, C, etc.) from row header
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                    const idProductCell = row.querySelector('td:first-child');
+                    if (idProductCell) {
+                        const productValues = getProductValuesFromCell(idProductCell);
+                        const idProductMain = productValues.main || '';
+                        const idProductSub = productValues.sub || '';
                         
-                        idProductRows.push({
-                            idProduct: idProduct.trim(),
-                            rowLabel: rowLabel,
-                            rowIndex: rowIndex
-                        });
-                    }
-                });
-            } else if (parsedTableData && parsedTableData.rows) {
-                // Get from parsed data
-                parsedTableData.rows.forEach((row, rowIndex) => {
-                    if (row && row.length > 1 && row[1] && row[1].type === 'data') {
-                        const idProduct = row[1].value;
+                        // 使用 main 或 sub（优先 main）
+                        const idProduct = idProductMain || idProductSub;
                         if (idProduct && idProduct.trim() !== '') {
-                            // Get row label from first cell (header)
-                            const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
+                            // 从 summary table 获取 row label（如果有）
+                            const rowLabel = row.querySelector('.row-header')?.textContent.trim() || '';
                             
                             idProductRows.push({
                                 idProduct: idProduct.trim(),
@@ -2451,6 +2451,60 @@ function getCurrentProcessId() {
                         }
                     }
                 });
+            }
+            
+            // 如果 summary table 没有数据，回退到原始数据源
+            if (idProductRows.length === 0) {
+                // Get table data
+                let parsedTableData;
+                if (window.transformedTableData) {
+                    parsedTableData = window.transformedTableData;
+                } else {
+                    const tableData = localStorage.getItem('capturedTableData');
+                    if (!tableData) {
+                        console.log('No table data found');
+                        return;
+                    }
+                    parsedTableData = JSON.parse(tableData);
+                }
+
+                const capturedTableBody = document.getElementById('capturedTableBody');
+                
+                if (capturedTableBody) {
+                    // Get from DOM
+                    const rows = capturedTableBody.querySelectorAll('tr');
+                    rows.forEach((row, rowIndex) => {
+                        const idProduct = row.getAttribute('data-id-product');
+                        if (idProduct && idProduct.trim() !== '') {
+                            // Get row label (A, B, C, etc.) from row header
+                            const rowHeaderCell = row.querySelector('.row-header');
+                            const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                            
+                            idProductRows.push({
+                                idProduct: idProduct.trim(),
+                                rowLabel: rowLabel,
+                                rowIndex: rowIndex
+                            });
+                        }
+                    });
+                } else if (parsedTableData && parsedTableData.rows) {
+                    // Get from parsed data
+                    parsedTableData.rows.forEach((row, rowIndex) => {
+                        if (row && row.length > 1 && row[1] && row[1].type === 'data') {
+                            const idProduct = row[1].value;
+                            if (idProduct && idProduct.trim() !== '') {
+                                // Get row label from first cell (header)
+                                const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
+                                
+                                idProductRows.push({
+                                    idProduct: idProduct.trim(),
+                                    rowLabel: rowLabel,
+                                    rowIndex: rowIndex
+                                });
+                            }
+                        }
+                    });
+                }
             }
 
             // Count occurrences of each id_product to determine if we need to show row label
@@ -2469,10 +2523,10 @@ function getCurrentProcessId() {
                 // If id_product appears multiple times, include row label to distinguish
                 if (count > 1 && item.rowLabel) {
                     option.value = `${item.idProduct}:${item.rowLabel}`; // Store id_product:row_label as value
-                    option.textContent = `${item.idProduct} (${item.rowLabel})`; // Display: "M99M06 (B)"
+                    option.textContent = `${item.idProduct} (${item.rowLabel})`; // Display: "1. M99M06 (B)"
                 } else {
                     option.value = item.idProduct; // Store just id_product if unique
-                    option.textContent = item.idProduct; // Display: "OVERALL"
+                    option.textContent = item.idProduct; // Display: "1. M99M06" or "OVERALL"
                 }
                 
                 // Store row index in data attribute for reference
