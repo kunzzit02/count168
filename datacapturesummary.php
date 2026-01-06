@@ -750,42 +750,6 @@ function getCurrentProcessId() {
             }, 100);
         }
 
-        // Helper function to detect and rename duplicate id products
-        // Returns an array of renamed values with prefix numbers (e.g., "1. M99M06", "2. M99M06")
-        function renameDuplicateIdProducts(idProductArray) {
-            // Count occurrences of each id product
-            const idProductCount = new Map();
-            idProductArray.forEach(idProduct => {
-                if (idProduct && idProduct.trim() !== '') {
-                    const normalizedId = idProduct.trim();
-                    idProductCount.set(normalizedId, (idProductCount.get(normalizedId) || 0) + 1);
-                }
-            });
-            
-            // Create a map to track the current occurrence number for each id product
-            const occurrenceMap = new Map();
-            
-            // Rename duplicates: add prefix "1.", "2.", "3.", etc. to all occurrences
-            return idProductArray.map(idProduct => {
-                if (!idProduct || idProduct.trim() === '') {
-                    return idProduct; // Keep empty values as is
-                }
-                
-                const normalizedId = idProduct.trim();
-                const count = idProductCount.get(normalizedId);
-                
-                // If this id product appears more than once, add prefix
-                if (count > 1) {
-                    const currentOccurrence = (occurrenceMap.get(normalizedId) || 0) + 1;
-                    occurrenceMap.set(normalizedId, currentOccurrence);
-                    return `${currentOccurrence}. ${normalizedId}`;
-                } else {
-                    // Single occurrence, keep original
-                    return normalizedId;
-                }
-            });
-        }
-
         // Populate the original table's Id Product column with data from column A
         function populateOriginalTableWithColumnAData(tableData) {
             const originalTableBody = document.getElementById('summaryTableBody');
@@ -808,13 +772,9 @@ function getCurrentProcessId() {
             
             console.log('Column A data:', columnAData);
             
-            // Detect and rename duplicate id products
-            const renamedColumnAData = renameDuplicateIdProducts(columnAData);
-            console.log('Renamed Column A data (duplicates handled):', renamedColumnAData);
-            
             // Create rows for the original table
             // IMPORTANT: Set data-row-index based on Data Capture Table row order (index = Data Capture Table row position)
-            renamedColumnAData.forEach((value, index) => {
+            columnAData.forEach((value, index) => {
                 if (value && value.trim() !== '') { // Only add non-empty values
                     const row = document.createElement('tr');
                     
@@ -841,7 +801,7 @@ function getCurrentProcessId() {
                     addButton.className = 'add-account-btn';
                     addButton.innerHTML = '+';
                     addButton.onclick = function() {
-                        handleAddAccount(this, value); // Pass the renamed product value
+                        handleAddAccount(this, value); // Pass the product value
                     };
                     addCell.appendChild(addButton);
                     row.appendChild(addCell);
@@ -913,7 +873,7 @@ function getCurrentProcessId() {
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.className = 'summary-row-checkbox';
-                    checkbox.setAttribute('data-value', value); // Use renamed value
+                    checkbox.setAttribute('data-value', value);
                     checkbox.addEventListener('change', updateDeleteButton);
                     checkboxCell.appendChild(checkbox);
                     row.appendChild(checkboxCell);
@@ -2404,66 +2364,35 @@ function getCurrentProcessId() {
                 parsedTableData = JSON.parse(tableData);
             }
 
-            // Get all id products from SUMMARY TABLE (which has renamed values with prefixes)
-            // This ensures we use the renamed id products (e.g., "1. M99M06", "2. M99M06") instead of original ones
+            // Get all id products with their row labels (to distinguish duplicate id_products)
             const idProductRows = [];
-            const summaryTableBody = document.getElementById('summaryTableBody');
+            const capturedTableBody = document.getElementById('capturedTableBody');
             
-            if (summaryTableBody) {
-                // Get from summary table DOM (these are the renamed id products)
-                const rows = summaryTableBody.querySelectorAll('tr');
+            if (capturedTableBody) {
+                // Get from DOM
+                const rows = capturedTableBody.querySelectorAll('tr');
                 rows.forEach((row, rowIndex) => {
-                    const productType = row.getAttribute('data-product-type') || 'main';
-                    // Only get main rows (sub rows don't appear in the dropdown)
-                    if (productType === 'main') {
-                        const idProductCell = row.querySelector('td:first-child');
-                        if (idProductCell) {
-                            const productValues = getProductValuesFromCell(idProductCell);
-                            const idProduct = productValues.main || '';
-                            if (idProduct && idProduct.trim() !== '') {
-                                // Extract id product without description (remove parentheses part)
-                                const match = idProduct.match(/^([^(]+)/);
-                                const cleanIdProduct = match ? match[1].trim() : idProduct.trim();
-                                
-                                // Get row label from captured table (for matching with data)
-                                const rowIndexAttr = row.getAttribute('data-row-index');
-                                let rowLabel = '';
-                                if (rowIndexAttr !== null && rowIndexAttr !== '') {
-                                    const capturedTableBody = document.getElementById('capturedTableBody');
-                                    if (capturedTableBody) {
-                                        const capturedRows = capturedTableBody.querySelectorAll('tr');
-                                        const rowIndexNum = parseInt(rowIndexAttr);
-                                        if (rowIndexNum >= 0 && rowIndexNum < capturedRows.length) {
-                                            const capturedRow = capturedRows[rowIndexNum];
-                                            const rowHeaderCell = capturedRow.querySelector('.row-header');
-                                            rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                                        }
-                                    }
-                                }
-                                
-                                idProductRows.push({
-                                    idProduct: cleanIdProduct, // Use renamed id product (e.g., "1. M99M06")
-                                    rowLabel: rowLabel,
-                                    rowIndex: rowIndexAttr !== null && rowIndexAttr !== '' ? parseInt(rowIndexAttr) : rowIndex
-                                });
-                            }
-                        }
+                    const idProduct = row.getAttribute('data-id-product');
+                    if (idProduct && idProduct.trim() !== '') {
+                        // Get row label (A, B, C, etc.) from row header
+                        const rowHeaderCell = row.querySelector('.row-header');
+                        const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                        
+                        idProductRows.push({
+                            idProduct: idProduct.trim(),
+                            rowLabel: rowLabel,
+                            rowIndex: rowIndex
+                        });
                     }
                 });
-            }
-            
-            // If no summary table rows found, fallback to captured table (for backward compatibility)
-            if (idProductRows.length === 0) {
-                const capturedTableBody = document.getElementById('capturedTableBody');
-                if (capturedTableBody) {
-                    // Get from DOM
-                    const rows = capturedTableBody.querySelectorAll('tr');
-                    rows.forEach((row, rowIndex) => {
-                        const idProduct = row.getAttribute('data-id-product');
+            } else if (parsedTableData && parsedTableData.rows) {
+                // Get from parsed data
+                parsedTableData.rows.forEach((row, rowIndex) => {
+                    if (row && row.length > 1 && row[1] && row[1].type === 'data') {
+                        const idProduct = row[1].value;
                         if (idProduct && idProduct.trim() !== '') {
-                            // Get row label (A, B, C, etc.) from row header
-                            const rowHeaderCell = row.querySelector('.row-header');
-                            const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                            // Get row label from first cell (header)
+                            const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
                             
                             idProductRows.push({
                                 idProduct: idProduct.trim(),
@@ -2471,25 +2400,8 @@ function getCurrentProcessId() {
                                 rowIndex: rowIndex
                             });
                         }
-                    });
-                } else if (parsedTableData && parsedTableData.rows) {
-                    // Get from parsed data
-                    parsedTableData.rows.forEach((row, rowIndex) => {
-                        if (row && row.length > 1 && row[1] && row[1].type === 'data') {
-                            const idProduct = row[1].value;
-                            if (idProduct && idProduct.trim() !== '') {
-                                // Get row label from first cell (header)
-                                const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
-                                
-                                idProductRows.push({
-                                    idProduct: idProduct.trim(),
-                                    rowLabel: rowLabel,
-                                    rowIndex: rowIndex
-                                });
-                            }
-                        }
-                    });
-                }
+                    }
+                });
             }
 
             // Count occurrences of each id_product to determine if we need to show row label
@@ -2546,66 +2458,12 @@ function getCurrentProcessId() {
             }
 
             // Parse idProductValue: it can be "id_product" or "id_product:row_label"
-            // id_product might be renamed (e.g., "1. M99M06"), so we need to find the exact row in summary table
             let idProduct = idProductValue.trim();
             let rowLabel = null;
             const parts = idProductValue.split(':');
             if (parts.length === 2) {
                 idProduct = parts[0].trim();
                 rowLabel = parts[1].trim();
-            }
-            
-            // CRITICAL: Find the exact row in summary table by matching the renamed id product
-            // This ensures we get the correct rowIndex for the specific renamed id product
-            let targetRowIndex = null;
-            const summaryTableBody = document.getElementById('summaryTableBody');
-            if (summaryTableBody) {
-                const summaryRows = summaryTableBody.querySelectorAll('tr');
-                for (let i = 0; i < summaryRows.length; i++) {
-                    const summaryRow = summaryRows[i];
-                    const productType = summaryRow.getAttribute('data-product-type') || 'main';
-                    if (productType === 'main') {
-                        const idProductCell = summaryRow.querySelector('td:first-child');
-                        if (idProductCell) {
-                            const productValues = getProductValuesFromCell(idProductCell);
-                            const mainIdProduct = productValues.main || '';
-                            // Extract id product without description
-                            const match = mainIdProduct.match(/^([^(]+)/);
-                            const cleanMainIdProduct = match ? match[1].trim() : mainIdProduct.trim();
-                            
-                            // Match the exact renamed id product
-                            if (cleanMainIdProduct === idProduct) {
-                                // If rowLabel is specified, also check if it matches
-                                if (rowLabel) {
-                                    const rowIndexAttr = summaryRow.getAttribute('data-row-index');
-                                    if (rowIndexAttr !== null && rowIndexAttr !== '') {
-                                        const capturedTableBody = document.getElementById('capturedTableBody');
-                                        if (capturedTableBody) {
-                                            const capturedRows = capturedTableBody.querySelectorAll('tr');
-                                            const rowIndexNum = parseInt(rowIndexAttr);
-                                            if (rowIndexNum >= 0 && rowIndexNum < capturedRows.length) {
-                                                const capturedRow = capturedRows[rowIndexNum];
-                                                const rowHeaderCell = capturedRow.querySelector('.row-header');
-                                                const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                                                if (rowHeaderLabel === rowLabel) {
-                                                    targetRowIndex = rowIndexNum;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    // No rowLabel specified, use the first match (or use rowIndex from summary row)
-                                    const rowIndexAttr = summaryRow.getAttribute('data-row-index');
-                                    if (rowIndexAttr !== null && rowIndexAttr !== '') {
-                                        targetRowIndex = parseInt(rowIndexAttr);
-                                        break; // Use the first matching row
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
 
             // Get table data
@@ -2626,12 +2484,24 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
-            
-            // If we found a specific rowIndex from summary table, use it directly
-            if (targetRowIndex !== null && targetRowIndex >= 0 && targetRowIndex < rows.length) {
-                // Process only this specific row
-                const row = rows[targetRowIndex];
+            rows.forEach((row, rowIndex) => {
+                const rowIdProduct = row.getAttribute('data-id-product');
                 
+                // Check if id_product matches
+                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
+                    return;
+                }
+                
+                // If row_label is specified, also check if it matches
+                if (rowLabel) {
+                    const rowHeaderCell = row.querySelector('.row-header');
+                    const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                    if (rowHeaderLabel !== rowLabel) {
+                        return; // Skip this row if row label doesn't match
+                    }
+                }
+                
+                // Match found, process this row
                 // Get all data cells (skip row header and id_product column)
                 const cells = row.querySelectorAll('td');
                 
@@ -2643,7 +2513,7 @@ function getCurrentProcessId() {
                         if (cellValue !== '') {
                             // Create a separate option for each column data
                             const option = document.createElement('option');
-                            option.value = `${targetRowIndex}:${columnIndex}`; // Store row index and column index as value
+                            option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
                             option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
                             descriptionSelect2.appendChild(option);
                             
@@ -2654,65 +2524,7 @@ function getCurrentProcessId() {
                         }
                     }
                 });
-            } else {
-                // Fallback: If we couldn't find the exact row, use original matching logic
-                // Extract original id product from renamed value (e.g., "1. M99M06" -> "M99M06")
-                const prefixMatch = idProduct.match(/^\d+\.\s*(.+)/);
-                const originalIdProduct = prefixMatch ? prefixMatch[1].trim() : idProduct;
-                
-                rows.forEach((row, rowIndex) => {
-                    const rowIdProduct = row.getAttribute('data-id-product');
-                    
-                    // Check if id_product matches (try both renamed and original)
-                    if (!rowIdProduct) {
-                        return;
-                    }
-                    const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct.trim());
-                    const normalizedIdProduct = normalizeIdProductText(idProduct);
-                    const normalizedOriginalIdProduct = normalizeIdProductText(originalIdProduct);
-                    
-                    // Match if it's the renamed value, original value, or normalized match
-                    if (normalizedRowIdProduct !== normalizedIdProduct && 
-                        normalizedRowIdProduct !== normalizedOriginalIdProduct &&
-                        rowIdProduct.trim() !== idProduct.trim() &&
-                        rowIdProduct.trim() !== originalIdProduct.trim()) {
-                        return;
-                    }
-                    
-                    // If row_label is specified, also check if it matches
-                    if (rowLabel) {
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        const rowHeaderLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                        if (rowHeaderLabel !== rowLabel) {
-                            return; // Skip this row if row label doesn't match
-                        }
-                    }
-                
-                    // Match found, process this row
-                    // Get all data cells (skip row header and id_product column)
-                    const cells = row.querySelectorAll('td');
-                    
-                    cells.forEach((cell, cellIndex) => {
-                        const columnIndex = cell.getAttribute('data-column-index');
-                        if (columnIndex && parseInt(columnIndex) > 1) {
-                            // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                            const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                            if (cellValue !== '') {
-                                // Create a separate option for each column data
-                                const option = document.createElement('option');
-                                option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
-                                option.textContent = `[${columnIndex}] ${cellValue}`; // Format: "[2] 1"
-                                descriptionSelect2.appendChild(option);
-                                
-                                // Store first option value for auto-selection
-                                if (firstOptionValue === null) {
-                                    firstOptionValue = option.value;
-                                }
-                            }
-                        }
-                    });
-                });
-            }
+            });
 
             // Auto-select first option if available
             if (firstOptionValue !== null) {
@@ -6854,17 +6666,8 @@ function getCurrentProcessId() {
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
 
-            // Extract original id product from renamed value (e.g., "1. M99M06" -> "M99M06")
-            // This handles cases where processValue is a renamed id product with prefix
-            let originalProcessValue = processValue;
-            const prefixMatch = processValue.match(/^\d+\.\s*(.+)/);
-            if (prefixMatch) {
-                originalProcessValue = prefixMatch[1].trim();
-            }
-
-            // Normalize both the original and renamed process values for comparison
-            const normalizedProcessValue = normalizeIdProductText(originalProcessValue);
-            const normalizedRenamedValue = normalizeIdProductText(processValue);
+            // Normalize the process value for comparison
+            const normalizedProcessValue = normalizeIdProductText(processValue);
 
             // If rowIndex is provided, try to use it first (for cases with multiple rows with same id_product)
             // CRITICAL: When rowIndex is provided, we should use that row even if id_product doesn't match
@@ -6874,9 +6677,8 @@ function getCurrentProcessId() {
                 if (row && row.length > 1 && row[1].type === 'data') {
                     const rowValue = row[1].value;
                     const normalizedRowValue = normalizeIdProductText(rowValue);
-                    // Check if this row matches the process value (either original or renamed)
-                    if (rowValue === processValue || rowValue === originalProcessValue || 
-                        (normalizedRowValue && (normalizedRowValue === normalizedProcessValue || normalizedRowValue === normalizedRenamedValue))) {
+                    // Check if this row matches the process value
+                    if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
                         console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValue);
                         return row;
                     } else {
@@ -6892,19 +6694,17 @@ function getCurrentProcessId() {
             // Look for the row where column A (index 1) matches the process value
             // Only search all rows if rowIndex was not provided or was invalid
             if (rowIndex === null || rowIndex < 0 || rowIndex >= tableData.rows.length) {
-                console.log('findProcessRow: rowIndex not provided or invalid, searching all rows for:', processValue, '(original:', originalProcessValue, ')');
+                console.log('findProcessRow: rowIndex not provided or invalid, searching all rows for:', processValue);
                 for (let i = 0; i < tableData.rows.length; i++) {
                     const row = tableData.rows[i];
                     if (row.length > 1 && row[1].type === 'data') {
                         const rowValue = row[1].value;
-                        // Try exact match first (for renamed values)
-                        if (rowValue === processValue || rowValue === originalProcessValue) {
+                        if (rowValue === processValue) {
                             console.log('findProcessRow: Found row at index:', i, 'by exact match');
                             return row;
                         }
-                        // Try normalized match
                         const normalizedRowValue = normalizeIdProductText(rowValue);
-                        if (normalizedRowValue && (normalizedRowValue === normalizedProcessValue || normalizedRowValue === normalizedRenamedValue)) {
+                        if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
                             console.log('findProcessRow: Found row at index:', i, 'by normalized match');
                             return row;
                         }
@@ -6912,7 +6712,7 @@ function getCurrentProcessId() {
                 }
             }
             
-            console.error('findProcessRow: No row found for processValue:', processValue, '(original:', originalProcessValue, ')', 'rowIndex:', rowIndex);
+            console.error('findProcessRow: No row found for processValue:', processValue, 'rowIndex:', rowIndex);
             return null;
         }
 
@@ -11668,81 +11468,8 @@ function getCurrentProcessId() {
             if (data.description && data.description.trim() !== '') {
                 idProductText += ` (${data.description})`;
             }
-            
-            // Detect and rename duplicate sub id products within the same parent
-            // Get parent id product (main product value)
-            const productValues = getProductValuesFromCell(idProductCell);
-            const parentIdProduct = productValues.main || processValue;
-            
-            // Collect all sub id products for this parent (excluding description)
-            const allSubIdProducts = [];
-            const summaryTableBody = document.getElementById('summaryTableBody');
-            if (summaryTableBody) {
-                const allRows = summaryTableBody.querySelectorAll('tr');
-                allRows.forEach(row => {
-                    const rowProductType = row.getAttribute('data-product-type') || 'main';
-                    if (rowProductType === 'sub') {
-                        const rowIdProductCell = row.querySelector('td:first-child');
-                        if (rowIdProductCell) {
-                            const rowProductValues = getProductValuesFromCell(rowIdProductCell);
-                            const rowMainProduct = rowProductValues.main || '';
-                            const rowSubProduct = rowProductValues.sub || '';
-                            
-                            // Check if this sub row belongs to the same parent
-                            const normalizedRowMain = normalizeIdProductText(rowMainProduct);
-                            const normalizedParent = normalizeIdProductText(parentIdProduct);
-                            
-                            if (normalizedRowMain === normalizedParent || (!rowMainProduct && normalizedParent === normalizeIdProductText(processValue))) {
-                                // Extract id product without description (remove parentheses part)
-                                const subMatch = rowSubProduct.match(/^([^(]+)/);
-                                const cleanSubIdProduct = subMatch ? subMatch[1].trim() : rowSubProduct.trim();
-                                // Remove any existing prefix (e.g., "1. ", "2. ")
-                                const subIdProductWithoutPrefix = cleanSubIdProduct.replace(/^\d+\.\s*/, '');
-                                if (subIdProductWithoutPrefix) {
-                                    allSubIdProducts.push(subIdProductWithoutPrefix);
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            
-            // Extract id product without description and prefix
-            const idProductMatch = idProductText.match(/^([^(]+)/);
-            const cleanIdProduct = idProductMatch ? idProductMatch[1].trim() : idProductText.trim();
-            const idProductWithoutPrefix = cleanIdProduct.replace(/^\d+\.\s*/, '');
-            
-            // Count occurrences of this id product (including the current one)
-            const occurrenceCount = allSubIdProducts.filter(id => {
-                const normalizedId = normalizeIdProductText(id.replace(/^\d+\.\s*/, ''));
-                return normalizedId === normalizeIdProductText(idProductWithoutPrefix);
-            }).length + 1; // +1 for the current one
-            
-            // If duplicate, add prefix
-            if (occurrenceCount > 1) {
-                // Find the next available occurrence number
-                const existingPrefixes = allSubIdProducts
-                    .filter(id => {
-                        const normalizedId = normalizeIdProductText(id.replace(/^\d+\.\s*/, ''));
-                        return normalizedId === normalizeIdProductText(idProductWithoutPrefix);
-                    })
-                    .map(id => {
-                        const prefixMatch = id.match(/^(\d+)\.\s*/);
-                        return prefixMatch ? parseInt(prefixMatch[1]) : 0;
-                    })
-                    .filter(num => num > 0);
-                
-                const maxPrefix = existingPrefixes.length > 0 ? Math.max(...existingPrefixes) : 0;
-                const nextPrefix = maxPrefix + 1;
-                
-                // Reconstruct id product with prefix and description
-                const idProductWithPrefix = `${nextPrefix}. ${idProductWithoutPrefix}`;
-                idProductText = data.description && data.description.trim() !== ''
-                    ? `${idProductWithPrefix} (${data.description})`
-                    : idProductWithPrefix;
-            }
-            
             // Update sub product value
+            const productValues = getProductValuesFromCell(idProductCell);
             productValues.sub = idProductText;
             idProductCell.setAttribute('data-sub-product', idProductText);
             idProductCell.textContent = mergeProductValues(productValues.main, productValues.sub);
