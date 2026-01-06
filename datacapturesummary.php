@@ -12823,6 +12823,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             
             if (exactMatches.length > 0) {
                 // If multiple rows have same row_index, use formula_variant to distinguish
+                // CRITICAL FIX: Prefer rows without template_id (not yet applied) or rows with matching formula_variant
                 if (exactMatches.length === 1) {
                     targetRow = exactMatches[0].row;
                     console.log('Matched row by row_index (exact match, single):', templateRowIndex, 'template account_id:', templateAccountId, 'candidate account_id:', exactMatches[0].accountId);
@@ -12838,7 +12839,18 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                         }
                     }
                     
-                    // If no formula_variant match, try account_id match
+                    // If no formula_variant match, prefer rows without template_id (not yet applied)
+                    if (!targetRow) {
+                        for (const candidate of exactMatches) {
+                            if (!candidate.templateId) {
+                                targetRow = candidate.row;
+                                console.log('Matched row by row_index (no template_id yet):', templateRowIndex);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // If no match without template_id, try account_id match
                     if (!targetRow && templateAccountId) {
                         for (const candidate of exactMatches) {
                             if (candidate.accountId === templateAccountId) {
@@ -12924,18 +12936,37 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         }
 
         // Priority 3: Match by account_id + formula_variant (if row_index not available)
+        // CRITICAL FIX: When multiple rows match, prefer rows that don't have template_id yet (not yet applied)
+        // or rows that have matching formula_variant
         if (!targetRow && templateAccountId && templateFormulaVariant) {
+            const accountFormulaMatches = [];
             for (const candidate of candidateRows) {
                 if (candidate.accountId === templateAccountId && candidate.formulaVariant === templateFormulaVariant) {
-                    targetRow = candidate.row;
-                    console.log('Matched row by account_id + formula_variant:', templateAccountId, templateFormulaVariant);
-                    break;
+                    accountFormulaMatches.push(candidate);
+                }
+            }
+            
+            if (accountFormulaMatches.length > 0) {
+                // If multiple rows match, prefer rows without template_id (not yet applied)
+                for (const candidate of accountFormulaMatches) {
+                    if (!candidate.templateId) {
+                        targetRow = candidate.row;
+                        console.log('Matched row by account_id + formula_variant (no template_id yet):', templateAccountId, templateFormulaVariant);
+                        break;
+                    }
+                }
+                
+                // If all rows have template_id, use first match
+                if (!targetRow) {
+                    targetRow = accountFormulaMatches[0].row;
+                    console.log('Matched row by account_id + formula_variant (all have template_id):', templateAccountId, templateFormulaVariant);
                 }
             }
         }
 
         // Priority 4: Match by account_id only (if formula_variant not available)
         // CRITICAL FIX: When multiple rows have the same account_id, prefer rows that match formula_variant
+        // or rows that don't have template_id yet (not yet applied)
         // This ensures correct matching when same id_product appears multiple times with same account
         if (!targetRow && templateAccountId) {
             const accountMatches = [];
@@ -12946,7 +12977,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
             }
             
             if (accountMatches.length > 0) {
-                // If multiple rows have same account_id, prefer formula_variant match
+                // If multiple rows have same account_id, prefer formula_variant match or rows without template_id
                 if (accountMatches.length === 1) {
                     targetRow = accountMatches[0].row;
                     console.log('Matched row by account_id (single):', templateAccountId);
@@ -12962,7 +12993,18 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                         }
                     }
                     
-                    // If no formula_variant match, use first candidate (fallback)
+                    // If no formula_variant match, prefer rows without template_id (not yet applied)
+                    if (!targetRow) {
+                        for (const candidate of accountMatches) {
+                            if (!candidate.templateId) {
+                                targetRow = candidate.row;
+                                console.log('Matched row by account_id (no template_id yet):', templateAccountId);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // If all rows have template_id, use first candidate (fallback)
                     if (!targetRow) {
                         targetRow = accountMatches[0].row;
                         console.log('Matched row by account_id (multiple rows with same account_id, using first):', templateAccountId);
@@ -13010,6 +13052,23 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         const hadAddButton = addCell ? !!addCell.querySelector('.add-account-btn') : false;
         const accountText = accountCell ? accountCell.textContent.trim() : '';
         const hasExistingData = accountText !== '' && !hadAddButton;
+
+        // CRITICAL FIX: When multiple rows have same id_product, check if this row already has a different template_id
+        // If the row has a different template_id, it means it belongs to a different template, so we should skip it
+        const rowTemplateId = targetRow.getAttribute('data-template-id');
+        const rowFormulaVariant = targetRow.getAttribute('data-formula-variant');
+        
+        // If row already has a template_id that doesn't match, skip it (it belongs to a different template)
+        if (templateId && rowTemplateId && rowTemplateId !== templateId) {
+            console.log('applyMainTemplateToRow: Row already has different template_id, skipping. Row template_id:', rowTemplateId, 'Template template_id:', templateId);
+            return;
+        }
+        
+        // If row already has a formula_variant that doesn't match, skip it (it belongs to a different template)
+        if (templateFormulaVariant && rowFormulaVariant && rowFormulaVariant !== templateFormulaVariant) {
+            console.log('applyMainTemplateToRow: Row already has different formula_variant, skipping. Row formula_variant:', rowFormulaVariant, 'Template formula_variant:', templateFormulaVariant);
+            return;
+        }
 
         // Only apply template if row doesn't have existing data, or if account matches
         const rowAccountId = accountCell?.getAttribute('data-account-id');
