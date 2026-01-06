@@ -2404,35 +2404,66 @@ function getCurrentProcessId() {
                 parsedTableData = JSON.parse(tableData);
             }
 
-            // Get all id products with their row labels (to distinguish duplicate id_products)
+            // Get all id products from SUMMARY TABLE (which has renamed values with prefixes)
+            // This ensures we use the renamed id products (e.g., "1. M99M06", "2. M99M06") instead of original ones
             const idProductRows = [];
-            const capturedTableBody = document.getElementById('capturedTableBody');
+            const summaryTableBody = document.getElementById('summaryTableBody');
             
-            if (capturedTableBody) {
-                // Get from DOM
-                const rows = capturedTableBody.querySelectorAll('tr');
+            if (summaryTableBody) {
+                // Get from summary table DOM (these are the renamed id products)
+                const rows = summaryTableBody.querySelectorAll('tr');
                 rows.forEach((row, rowIndex) => {
-                    const idProduct = row.getAttribute('data-id-product');
-                    if (idProduct && idProduct.trim() !== '') {
-                        // Get row label (A, B, C, etc.) from row header
-                        const rowHeaderCell = row.querySelector('.row-header');
-                        const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
-                        
-                        idProductRows.push({
-                            idProduct: idProduct.trim(),
-                            rowLabel: rowLabel,
-                            rowIndex: rowIndex
-                        });
+                    const productType = row.getAttribute('data-product-type') || 'main';
+                    // Only get main rows (sub rows don't appear in the dropdown)
+                    if (productType === 'main') {
+                        const idProductCell = row.querySelector('td:first-child');
+                        if (idProductCell) {
+                            const productValues = getProductValuesFromCell(idProductCell);
+                            const idProduct = productValues.main || '';
+                            if (idProduct && idProduct.trim() !== '') {
+                                // Extract id product without description (remove parentheses part)
+                                const match = idProduct.match(/^([^(]+)/);
+                                const cleanIdProduct = match ? match[1].trim() : idProduct.trim();
+                                
+                                // Get row label from captured table (for matching with data)
+                                const rowIndexAttr = row.getAttribute('data-row-index');
+                                let rowLabel = '';
+                                if (rowIndexAttr !== null && rowIndexAttr !== '') {
+                                    const capturedTableBody = document.getElementById('capturedTableBody');
+                                    if (capturedTableBody) {
+                                        const capturedRows = capturedTableBody.querySelectorAll('tr');
+                                        const rowIndexNum = parseInt(rowIndexAttr);
+                                        if (rowIndexNum >= 0 && rowIndexNum < capturedRows.length) {
+                                            const capturedRow = capturedRows[rowIndexNum];
+                                            const rowHeaderCell = capturedRow.querySelector('.row-header');
+                                            rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
+                                        }
+                                    }
+                                }
+                                
+                                idProductRows.push({
+                                    idProduct: cleanIdProduct, // Use renamed id product (e.g., "1. M99M06")
+                                    rowLabel: rowLabel,
+                                    rowIndex: rowIndexAttr !== null && rowIndexAttr !== '' ? parseInt(rowIndexAttr) : rowIndex
+                                });
+                            }
+                        }
                     }
                 });
-            } else if (parsedTableData && parsedTableData.rows) {
-                // Get from parsed data
-                parsedTableData.rows.forEach((row, rowIndex) => {
-                    if (row && row.length > 1 && row[1] && row[1].type === 'data') {
-                        const idProduct = row[1].value;
+            }
+            
+            // If no summary table rows found, fallback to captured table (for backward compatibility)
+            if (idProductRows.length === 0) {
+                const capturedTableBody = document.getElementById('capturedTableBody');
+                if (capturedTableBody) {
+                    // Get from DOM
+                    const rows = capturedTableBody.querySelectorAll('tr');
+                    rows.forEach((row, rowIndex) => {
+                        const idProduct = row.getAttribute('data-id-product');
                         if (idProduct && idProduct.trim() !== '') {
-                            // Get row label from first cell (header)
-                            const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
+                            // Get row label (A, B, C, etc.) from row header
+                            const rowHeaderCell = row.querySelector('.row-header');
+                            const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
                             
                             idProductRows.push({
                                 idProduct: idProduct.trim(),
@@ -2440,8 +2471,25 @@ function getCurrentProcessId() {
                                 rowIndex: rowIndex
                             });
                         }
-                    }
-                });
+                    });
+                } else if (parsedTableData && parsedTableData.rows) {
+                    // Get from parsed data
+                    parsedTableData.rows.forEach((row, rowIndex) => {
+                        if (row && row.length > 1 && row[1] && row[1].type === 'data') {
+                            const idProduct = row[1].value;
+                            if (idProduct && idProduct.trim() !== '') {
+                                // Get row label from first cell (header)
+                                const rowLabel = (row[0] && row[0].type === 'header') ? row[0].value.trim() : '';
+                                
+                                idProductRows.push({
+                                    idProduct: idProduct.trim(),
+                                    rowLabel: rowLabel,
+                                    rowIndex: rowIndex
+                                });
+                            }
+                        }
+                    });
+                }
             }
 
             // Count occurrences of each id_product to determine if we need to show row label
@@ -2498,6 +2546,7 @@ function getCurrentProcessId() {
             }
 
             // Parse idProductValue: it can be "id_product" or "id_product:row_label"
+            // id_product might be renamed (e.g., "1. M99M06"), so we need to extract original value
             let idProduct = idProductValue.trim();
             let rowLabel = null;
             const parts = idProductValue.split(':');
@@ -2505,6 +2554,10 @@ function getCurrentProcessId() {
                 idProduct = parts[0].trim();
                 rowLabel = parts[1].trim();
             }
+            
+            // Extract original id product from renamed value (e.g., "1. M99M06" -> "M99M06")
+            const prefixMatch = idProduct.match(/^\d+\.\s*(.+)/);
+            const originalIdProduct = prefixMatch ? prefixMatch[1].trim() : idProduct;
 
             // Get table data
             let parsedTableData;
@@ -2527,8 +2580,19 @@ function getCurrentProcessId() {
             rows.forEach((row, rowIndex) => {
                 const rowIdProduct = row.getAttribute('data-id-product');
                 
-                // Check if id_product matches
-                if (!rowIdProduct || rowIdProduct.trim() !== idProduct.trim()) {
+                // Check if id_product matches (try both renamed and original)
+                if (!rowIdProduct) {
+                    return;
+                }
+                const normalizedRowIdProduct = normalizeIdProductText(rowIdProduct.trim());
+                const normalizedIdProduct = normalizeIdProductText(idProduct);
+                const normalizedOriginalIdProduct = normalizeIdProductText(originalIdProduct);
+                
+                // Match if it's the renamed value, original value, or normalized match
+                if (normalizedRowIdProduct !== normalizedIdProduct && 
+                    normalizedRowIdProduct !== normalizedOriginalIdProduct &&
+                    rowIdProduct.trim() !== idProduct.trim() &&
+                    rowIdProduct.trim() !== originalIdProduct.trim()) {
                     return;
                 }
                 
@@ -6706,8 +6770,17 @@ function getCurrentProcessId() {
         function findProcessRow(tableData, processValue, rowIndex = null) {
             if (!tableData.rows) return null;
 
-            // Normalize the process value for comparison
-            const normalizedProcessValue = normalizeIdProductText(processValue);
+            // Extract original id product from renamed value (e.g., "1. M99M06" -> "M99M06")
+            // This handles cases where processValue is a renamed id product with prefix
+            let originalProcessValue = processValue;
+            const prefixMatch = processValue.match(/^\d+\.\s*(.+)/);
+            if (prefixMatch) {
+                originalProcessValue = prefixMatch[1].trim();
+            }
+
+            // Normalize both the original and renamed process values for comparison
+            const normalizedProcessValue = normalizeIdProductText(originalProcessValue);
+            const normalizedRenamedValue = normalizeIdProductText(processValue);
 
             // If rowIndex is provided, try to use it first (for cases with multiple rows with same id_product)
             // CRITICAL: When rowIndex is provided, we should use that row even if id_product doesn't match
@@ -6717,8 +6790,9 @@ function getCurrentProcessId() {
                 if (row && row.length > 1 && row[1].type === 'data') {
                     const rowValue = row[1].value;
                     const normalizedRowValue = normalizeIdProductText(rowValue);
-                    // Check if this row matches the process value
-                    if (rowValue === processValue || (normalizedRowValue && normalizedRowValue === normalizedProcessValue)) {
+                    // Check if this row matches the process value (either original or renamed)
+                    if (rowValue === processValue || rowValue === originalProcessValue || 
+                        (normalizedRowValue && (normalizedRowValue === normalizedProcessValue || normalizedRowValue === normalizedRenamedValue))) {
                         console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValue);
                         return row;
                     } else {
@@ -6734,17 +6808,19 @@ function getCurrentProcessId() {
             // Look for the row where column A (index 1) matches the process value
             // Only search all rows if rowIndex was not provided or was invalid
             if (rowIndex === null || rowIndex < 0 || rowIndex >= tableData.rows.length) {
-                console.log('findProcessRow: rowIndex not provided or invalid, searching all rows for:', processValue);
+                console.log('findProcessRow: rowIndex not provided or invalid, searching all rows for:', processValue, '(original:', originalProcessValue, ')');
                 for (let i = 0; i < tableData.rows.length; i++) {
                     const row = tableData.rows[i];
                     if (row.length > 1 && row[1].type === 'data') {
                         const rowValue = row[1].value;
-                        if (rowValue === processValue) {
+                        // Try exact match first (for renamed values)
+                        if (rowValue === processValue || rowValue === originalProcessValue) {
                             console.log('findProcessRow: Found row at index:', i, 'by exact match');
                             return row;
                         }
+                        // Try normalized match
                         const normalizedRowValue = normalizeIdProductText(rowValue);
-                        if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
+                        if (normalizedRowValue && (normalizedRowValue === normalizedProcessValue || normalizedRowValue === normalizedRenamedValue)) {
                             console.log('findProcessRow: Found row at index:', i, 'by normalized match');
                             return row;
                         }
@@ -6752,7 +6828,7 @@ function getCurrentProcessId() {
                 }
             }
             
-            console.error('findProcessRow: No row found for processValue:', processValue, 'rowIndex:', rowIndex);
+            console.error('findProcessRow: No row found for processValue:', processValue, '(original:', originalProcessValue, ')', 'rowIndex:', rowIndex);
             return null;
         }
 
