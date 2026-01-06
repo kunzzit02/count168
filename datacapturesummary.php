@@ -2803,6 +2803,8 @@ function getCurrentProcessId() {
                                     const targetRowIndex = parseInt(this.getAttribute('data-row-index'), 10);
                                     const targetColumnIndex = this.getAttribute('data-column-index');
                                     
+                                    console.log('Formula data grid item clicked - targetRowIndex:', targetRowIndex, 'targetColumnIndex:', targetColumnIndex, 'currentEditRow:', window.currentEditRow ? 'set' : 'not set');
+                                    
                                     // Re-get rows to ensure we have the latest data
                                     const capturedTableBody = document.getElementById('capturedTableBody');
                                     if (!capturedTableBody) {
@@ -2815,6 +2817,54 @@ function getCurrentProcessId() {
                                     if (!targetRow) {
                                         console.warn('Row not found for index:', targetRowIndex);
                                         return;
+                                    }
+                                    
+                                    // IMPORTANT: Ensure the clicked cell has the correct row_label attribute
+                                    // This is critical for insertCellValueToFormula to correctly identify the row
+                                    const clickedRowHeader = targetRow.querySelector('.row-header');
+                                    const clickedRowLabel = clickedRowHeader ? clickedRowHeader.textContent.trim() : null;
+                                    
+                                    // Set row_label attribute on all cells in the target row if not already set
+                                    if (clickedRowLabel) {
+                                        const allCellsInRow = targetRow.querySelectorAll('td');
+                                        allCellsInRow.forEach(cell => {
+                                            if (!cell.getAttribute('data-row-label')) {
+                                                cell.setAttribute('data-row-label', clickedRowLabel);
+                                            }
+                                        });
+                                    }
+                                    
+                                    // IMPORTANT: Verify that the clicked row matches the current editing row
+                                    // When there are multiple rows with same id_product, we should only use data from the current editing row
+                                    if (window.currentEditRow) {
+                                        // Get the id_product from the clicked row in data capture table
+                                        const clickedIdProductCell = targetRow.querySelector('td[data-column-index="1"]') || targetRow.querySelectorAll('td')[1];
+                                        const clickedIdProduct = clickedIdProductCell ? normalizeIdProductText(clickedIdProductCell.textContent.trim()) : null;
+                                        
+                                        // Get the id_product from current editing row in summary table
+                                        const currentEditIdProductCell = window.currentEditRow.querySelector('td:first-child');
+                                        const currentEditProductValues = getProductValuesFromCell(currentEditIdProductCell);
+                                        const currentEditIdProduct = normalizeIdProductText(currentEditProductValues.main || currentEditProductValues.sub || '');
+                                        
+                                        const currentRowLabel = getRowLabelFromProcessValue(currentEditIdProduct, window.currentEditRow);
+                                        
+                                        console.log('Verifying row match:', {
+                                            clickedIdProduct,
+                                            currentEditIdProduct,
+                                            clickedRowLabel,
+                                            currentRowLabel,
+                                            idProductMatches: clickedIdProduct === currentEditIdProduct,
+                                            rowLabelMatches: clickedRowLabel === currentRowLabel,
+                                            targetRowIndex,
+                                            currentEditRowIndex: Array.from(document.getElementById('summaryTableBody').querySelectorAll('tr')).indexOf(window.currentEditRow)
+                                        });
+                                        
+                                        // Only proceed if both id_product and row_label match
+                                        if (clickedIdProduct !== currentEditIdProduct || clickedRowLabel !== currentRowLabel) {
+                                            console.warn('Clicked row does not match current editing row. Clicked:', clickedIdProduct, clickedRowLabel, 'Current:', currentEditIdProduct, currentRowLabel);
+                                            showNotification('请选择当前编辑行的数据', 'warning');
+                                            return;
+                                        }
                                     }
                                     
                                     // Find the cell with matching data-column-index
@@ -5363,7 +5413,9 @@ function getCurrentProcessId() {
                 currentRowLabel,
                 clickedRowLabel,
                 rowLabelMatches,
-                isCurrentRow
+                isCurrentRow,
+                currentEditRow: window.currentEditRow ? 'set' : 'not set',
+                cellRow: row ? 'found' : 'not found'
             });
             
             // Insert column reference format based on whether it's current row or other row
