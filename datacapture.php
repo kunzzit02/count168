@@ -6114,12 +6114,9 @@ if ($current_user_id && count($user_companies) > 0) {
             const hasUserName = firstLine.includes('user name') || firstLine.includes('username');
             const hasProfit = firstLine.includes('profit');
             
-            // 如果不是 VPOWER 格式，返回 null
-            if (!hasUserName || !hasProfit) {
-                return null;
-            }
-            
-            console.log('Detected VPOWER table format');
+            // 情况1：有表头的格式
+            if (hasUserName && hasProfit) {
+                console.log('Detected VPOWER table format with header');
             
             // 解析表头，找到各列的索引
             const headerLine = lines[0];
@@ -6207,17 +6204,103 @@ if ($current_user_id && count($user_companies) > 0) {
                 dataMatrix.push(row);
             }
             
-            if (dataMatrix.length === 0) {
-                return null;
+                if (dataMatrix.length === 0) {
+                    return null;
+                }
+                
+                console.log('Parsed VPOWER data (with header):', dataMatrix);
+                
+                return {
+                    dataMatrix: dataMatrix,
+                    maxRows: dataMatrix.length,
+                    maxCols: 9
+                };
             }
             
-            console.log('Parsed VPOWER data:', dataMatrix);
+            // 情况2：无表头的纯数据格式（每6行为一组：#, User Name, profit, -, -, -）
+            // 检测模式：第一行是数字，第二行看起来像用户名（字母数字组合），第三行是数字（可能是小数）
+            const firstLineIsNumber = /^\d+$/.test(lines[0].trim());
+            const secondLineIsUsername = lines.length > 1 && /^[a-z0-9]+$/i.test(lines[1].trim());
+            const thirdLineIsNumber = lines.length > 2 && /^-?\d+\.?\d*$/.test(lines[2].trim());
             
-            return {
-                dataMatrix: dataMatrix,
-                maxRows: dataMatrix.length,
-                maxCols: 9 // 根据第二张图片，最多9列
-            };
+            if (firstLineIsNumber && secondLineIsUsername && thirdLineIsNumber) {
+                console.log('Detected VPOWER pure data format (no header)');
+                
+                const dataMatrix = [];
+                let i = 0;
+                
+                // 每6行为一组数据，但实际可能是每3行一组（#, User Name, profit）
+                while (i < lines.length) {
+                    // 检查是否还有足够的数据
+                    if (i + 2 >= lines.length) break;
+                    
+                    const hashValue = lines[i].trim();      // 第1行：#列（忽略）
+                    const userName = lines[i + 1].trim();   // 第2行：User Name
+                    const profit = lines[i + 2].trim();     // 第3行：profit
+                    
+                    // 验证第一行是数字（#列）
+                    if (!/^\d+$/.test(hashValue)) {
+                        i++;
+                        continue;
+                    }
+                    
+                    // 验证用户名格式
+                    if (!/^[a-z0-9]+$/i.test(userName)) {
+                        i++;
+                        continue;
+                    }
+                    
+                    // 验证 profit 格式
+                    if (!/^-?\d+\.?\d*$/.test(profit)) {
+                        i++;
+                        continue;
+                    }
+                    
+                    // 创建数据行
+                    const row = [];
+                    row[0] = userName.toUpperCase(); // Column 1: User Name
+                    row[1] = profit;                 // Column 2: profit
+                    row[2] = '-';                     // Column 3
+                    row[3] = '-';                     // Column 4
+                    row[4] = '-';                     // Column 5
+                    row[5] = '';                      // Column 6
+                    row[6] = '';                      // Column 7
+                    row[7] = '';                      // Column 8
+                    row[8] = '';                      // Column 9
+                    
+                    dataMatrix.push(row);
+                    
+                    // 跳3行（#, User Name, profit）
+                    i += 3;
+                    
+                    // 如果还有数据，检查是否是下一组的开始
+                    if (i >= lines.length) break;
+                    
+                    // 跳过可能的 "-" 行（Name, Tel, Remarks）
+                    while (i < lines.length && (lines[i].trim() === '-' || lines[i].trim() === '')) {
+                        i++;
+                    }
+                    
+                    // 如果下一行不是数字（#列），说明没有更多数据了
+                    if (i >= lines.length || !/^\d+$/.test(lines[i].trim())) {
+                        break;
+                    }
+                }
+                
+                if (dataMatrix.length === 0) {
+                    return null;
+                }
+                
+                console.log('Parsed VPOWER data (no header):', dataMatrix);
+                
+                return {
+                    dataMatrix: dataMatrix,
+                    maxRows: dataMatrix.length,
+                    maxCols: 9
+                };
+            }
+            
+            return null;
         }
 
         // 处理单元格粘贴事件
