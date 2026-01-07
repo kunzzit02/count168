@@ -3901,10 +3901,28 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 确保所有行的列数相同
+                // 但是要特别处理"Total"行，保持其原始格式
                 let maxCols = Math.max(...dataMatrix.map(row => row.length));
-                dataMatrix.forEach(row => {
-                    while (row.length < maxCols) {
-                        row.push('');
+                
+                // 检查是否有"Total"行，如果有，确保它的列数与其他行一致
+                // 但不要改变它的数据位置
+                dataMatrix.forEach((row, rowIndex) => {
+                    // 检查是否是"Total"行（第一列或第二列包含"Total"）
+                    const firstCell = (row[0] || '').toString().trim().toUpperCase();
+                    const secondCell = (row[1] || '').toString().trim().toUpperCase();
+                    const isTotalRow = firstCell === 'TOTAL' || firstCell.includes('TOTAL') || 
+                                      secondCell === 'TOTAL' || secondCell.includes('TOTAL');
+                    
+                    if (isTotalRow) {
+                        // 对于"Total"行，如果列数不足，在末尾补空，不要改变现有数据的位置
+                        while (row.length < maxCols) {
+                            row.push('');
+                        }
+                    } else {
+                        // 对于普通行，正常补齐列数
+                        while (row.length < maxCols) {
+                            row.push('');
+                        }
                     }
                 });
 
@@ -4247,6 +4265,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     const tableRow = tableBody.children[actualRowIndex];
                     
                     if (tableRow) {
+                        // 检查是否是"Total"行，如果是，保持原始格式（不大写转换）
+                        const firstCellData = (rowData[0] || '').toString().trim().toUpperCase();
+                        const secondCellData = (rowData[1] || '').toString().trim().toUpperCase();
+                        const isTotalRow = firstCellData === 'TOTAL' || firstCellData.includes('TOTAL') || 
+                                         secondCellData === 'TOTAL' || secondCellData.includes('TOTAL');
+                        
                         rowData.forEach((cellData, colIndex) => {
                             const actualColIndex = startCol + colIndex;
                             const cell = tableRow.children[actualColIndex + 1];
@@ -4266,9 +4290,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                 if (trimmedData === '') {
                                     cell.textContent = '';
                                 } else {
+                                    // 对于"Total"行，保持原始格式（不大写转换）
                                     // VPOWER 格式：第一列（User Name）转为大写，第二列（profit）保持原样
                                     let finalValue = trimmedData;
-                                    if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
+                                    if (isTotalRow) {
+                                        // Total行保持原始格式
+                                        finalValue = trimmedData;
+                                    } else if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
                                         if (colIndex === 0) {
                                             finalValue = trimmedData.toUpperCase();
                                         } else {
