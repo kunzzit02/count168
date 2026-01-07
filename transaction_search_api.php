@@ -330,58 +330,6 @@ if (!empty($target_account_ids)) {
             }
         }
         
-        // 🔧 修复：确保所有账户都显示，即使余额为 0
-        // 如果用户选择了特定的 currency，为所有账户都创建这些 currency 的组合
-        // 如果用户没有选择 currency（显示所有），为所有账户创建所有 currency 的组合
-        if (!empty($filter_currency_codes)) {
-            // 用户选择了特定的 currency，为所有账户都创建这些 currency 的组合
-            foreach ($filter_currency_codes as $filter_currency_code) {
-                if (!isset($currency_map[$filter_currency_code])) {
-                    continue; // currency 不存在，跳过
-                }
-                
-                $currency_id = $currency_map[$filter_currency_code];
-                
-                // 检查该账户是否已经使用过这个 currency（避免重复）
-                $already_added = false;
-                foreach ($account_currencies as $ac_currency) {
-                    if ((int)$ac_currency['currency_id'] === $currency_id) {
-                        $already_added = true;
-                        break;
-                    }
-                }
-                
-                // 如果没有使用过，也添加（这样余额为 0 的账户也会显示）
-                if (!$already_added) {
-                    $account_currencies[] = [
-                        'currency_id' => $currency_id,
-                        'currency_code' => $filter_currency_code
-                    ];
-                }
-            }
-        } else {
-            // 用户没有选择 currency（显示所有），为所有账户创建所有 currency 的组合
-            // 这样可以确保所有账户都显示，即使它们没有使用过任何 currency
-            foreach ($currency_map as $currency_code => $currency_id) {
-                // 检查该账户是否已经使用过这个 currency（避免重复）
-                $already_added = false;
-                foreach ($account_currencies as $ac_currency) {
-                    if ((int)$ac_currency['currency_id'] === $currency_id) {
-                        $already_added = true;
-                        break;
-                    }
-                }
-                
-                // 如果没有使用过，也添加
-                if (!$already_added) {
-                    $account_currencies[] = [
-                        'currency_id' => $currency_id,
-                        'currency_code' => $currency_code
-                    ];
-                }
-            }
-        }
-        
         // 如果仍然没有找到任何 currency，跳过该 account
         if (empty($account_currencies)) {
             continue;
