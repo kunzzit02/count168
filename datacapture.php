@@ -5807,6 +5807,12 @@ if ($current_user_id && count($user_companies) > 0) {
             // 去除首尾空白
             const trimmed = pastedData.trim();
             if (!trimmed) return null;
+
+            // 如果剪贴板内容包含制表符或换行，说明是整行/多行表格数据；
+            // 这种情况下不要用 API-RETURN 单公式解析器（避免把整行误拆成很多列）
+            if (trimmed.includes('\t') || trimmed.includes('\n')) {
+                return null;
+            }
             
             // 检查是否包含冒号和运算符（API-RETURN 格式的特征）
             if (!trimmed.includes(':') || 
@@ -5832,15 +5838,16 @@ if ($current_user_id && count($user_companies) > 0) {
             // 2. 提取表达式部分（冒号后的内容）
             const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
             
-            // 3. 使用正则表达式提取所有数字（包括小数和负数）
-            // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
-            const numberPattern = /-?\d+\.\d+|-?\d+/g;
-            const numbers = expression.match(numberPattern);
+            // 3. 提取数字：把 () + - * / 当成分隔符（- 也当分隔符，而不是负号）
+            // 例如："(11860.00+-138790.00*0.008...)" => ["11860.00","138790.00","0.008",...]
+            const normalizedExpr = expression.replace(/[()\+\-\*\/]/g, ' ');
+            const numberPattern = /(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g;
+            const numbers = normalizedExpr.match(numberPattern);
             
             if (numbers && numbers.length > 0) {
                 // 将提取的数字添加到结果中
                 numbers.forEach(num => {
-                    result.push(num);
+                    result.push((num || '').toString().replace(/,/g, ''));
                 });
             }
             
@@ -5854,6 +5861,33 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             return null;
+        }
+
+        // API-RETURN：把单元格里的公式清洗成：
+        // "KING855 : (11860.00+-138790.00*0.008+...)*(0.225)"
+        // => "KING855: 11860.00 138790.00 0.008 138790.00 0.001 0.90 0.225"
+        // 仅用于 API_RETURN 的通用表格粘贴流程，避免影响其它格式。
+        function formatApiReturnFormulaCell(cellText) {
+            if (!cellText || typeof cellText !== 'string') return cellText;
+            const text = cellText.trim();
+            if (!text.includes(':')) return cellText;
+            if (!(text.includes('(') || text.includes('+') || text.includes('-') || text.includes('*') || text.includes('/'))) {
+                return cellText;
+            }
+
+            const colonIndex = text.indexOf(':');
+            if (colonIndex <= 0) return cellText;
+
+            const label = text.substring(0, colonIndex).trim();
+            const expr = text.substring(colonIndex + 1).trim();
+            if (!label || !expr) return cellText;
+
+            const normalizedExpr = expr.replace(/[()\+\-\*\/]/g, ' ');
+            const numberPattern = /(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g;
+            const numbers = (normalizedExpr.match(numberPattern) || []).map(n => (n || '').toString().replace(/,/g, ''));
+            if (numbers.length === 0) return cellText;
+
+            return `${label}: ${numbers.join(' ')}`;
         }
 
         // 处理单元格粘贴事件
@@ -8583,7 +8617,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         if (cell && cell.contentEditable === 'true') {
                             // 保存旧值（包括空单元格）
-                            const trimmedData = (cellData || '').trim();
+                            let trimmedData = (cellData || '').trim();
+                            
+                            // 仅在 API-RETURN 模式下，对包含公式的单元格做清洗（不影响其它格式）
+                            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'API_RETURN') {
+                                trimmedData = (formatApiReturnFormulaCell(trimmedData) || '').trim();
+                            }
                             currentPasteChanges.push({
                                 row: actualRowIndex,
                                 col: actualColIndex,
