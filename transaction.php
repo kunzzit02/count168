@@ -2934,14 +2934,16 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 return;
             }
             
-            // 构建 URL，优先使用该行的 currency，否则使用选中的 currency
-            let url = `transaction_history_api.php?account_id=${accountId}&date_from=${dateFrom}&date_to=${dateTo}`;
-            // 优先使用该行的 currency
-            if (rowCurrency) {
-                url += `&currency=${rowCurrency}`;
-            } else if (selectedCurrencies.length > 0) {
-                url += `&currency=${selectedCurrencies.join(',')}`;
+            // 必须使用该行的 currency，不能fallback到selectedCurrencies
+            // 这样可以确保只查询该账户在该货币下的交易记录
+            if (!rowCurrency || rowCurrency.trim() === '') {
+                console.error('❌ 无法打开历史记录: rowCurrency 为空', { accountId, accountCode, rowCurrency });
+                showNotification(`Cannot open history: Currency information is missing for account ${accountCode}`, 'error');
+                return;
             }
+            
+            // 构建 URL，只使用该行的 currency
+            let url = `transaction_history_api.php?account_id=${accountId}&date_from=${dateFrom}&date_to=${dateTo}&currency=${rowCurrency}`;
             if (currentCompanyId) {
                 url += `&company_id=${currentCompanyId}`;
             }
