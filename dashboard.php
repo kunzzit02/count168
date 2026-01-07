@@ -101,6 +101,14 @@ if (isset($_GET['logout'])) {
     header("Location: index.php");
     exit();
 }
+
+// 只允许后台普通用户（user_type = user）访问 dashboard 内容
+// owner/member 等其它类型不允许直接访问
+$currentUserType = strtolower($_SESSION['user_type'] ?? 'user');
+if ($currentUserType !== 'user') {
+    header("Location: index.php");
+    exit();
+}
 ?>
 
 <!DOCTYPE html>

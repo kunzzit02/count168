@@ -1388,9 +1388,9 @@ if ($companyId) {
         <div class="content-separator"></div>
 
         <?php if ($isMember): ?>
-            <!-- Member Home -->
+            <!-- Member Home - 使用专属的 memberdashboard.php -->
             <div class="informationmenu-section">
-                <div class="informationmenu-section-title account-direct" data-page="dashboard.php" onclick="window.location.href='dashboard.php'">
+                <div class="informationmenu-section-title account-direct" data-page="memberdashboard.php" onclick="window.location.href='memberdashboard.php'">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                     </svg>
