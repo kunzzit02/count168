@@ -7326,7 +7326,8 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 首先，尝试识别格式模式
             // 如果大部分行是单个单元格（没有制表符），可能是特殊格式
-            if (rowsWithTabsRatio < 0.3 && rows.length > 10) {
+            // 修改：将行数判断从 > 10 改为 >= 2，确保少于6行时也能正确处理多行格式
+            if (rowsWithTabsRatio < 0.3 && rows.length >= 2) {
                 // 这可能是特殊格式，需要进一步判断是行优先还是列优先
                 // 从数据模式来看，可能是行优先（每个单元格占一行）
                 // 尝试通过数据模式来判断
@@ -7335,7 +7336,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 这样可以横向排列数据
                 isColumnMajor = false; // 标记为特殊格式，不是标准列优先
                 console.log('Detected SPECIAL format (one cell per line), will try row-major grouping');
-            } else if (rowsWithTabsRatio < 0.5 && rows.length > 10) {
+            } else if (rowsWithTabsRatio < 0.5 && rows.length >= 2) {
                 // 可能有部分行包含多个单元格，可能是混合格式
                 // 仍然尝试按行优先处理
                 isColumnMajor = false;
@@ -7534,18 +7535,24 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             // 检测是否为特殊格式（每个单元格占一行的行优先格式）
-            const isSpecialRowMajorFormat = rowsWithTabsRatio < 0.3 && rows.length > 10;
+            const isSpecialRowMajorFormat = rowsWithTabsRatio < 0.3 && rows.length >= 2;
             
             // 特殊检查：如果第一行包含制表符，且只有一个行标识符，应该将所有数据合并成一行
             // 这种情况通常是：第一行是制表符分隔的多个值，后面每行都是单个值，但实际应该是一行数据
+            // 修改：添加行数检查，确保行数少于6行时不会错误地合并成一行，保持多行格式
             let shouldTreatAsSingleRow = false;
             if (isSpecialRowMajorFormat && rowIdentifierIndices.length === 1 && allCells.length > 0 && allCells.length <= 30) {
                 // 检查第一行是否包含制表符
                 const firstRow = rows[0] || '';
                 if (firstRow.includes('\t')) {
-                    // 第一行包含制表符，且只有一个行标识符，应该将所有数据合并成一行
-                    shouldTreatAsSingleRow = true;
-                    console.log('Detected single-row format: First row has tabs, only one row identifier found, treating all data as single row');
+                    // 只有当行数 >= 6 时，才考虑合并成一行（保持原有逻辑）
+                    // 如果行数少于6行，应该保持多行格式，而不是合并成一行
+                    if (rows.length >= 6) {
+                        shouldTreatAsSingleRow = true;
+                        console.log('Detected single-row format: First row has tabs, only one row identifier found, treating all data as single row');
+                    } else {
+                        console.log('Detected potential single-row format, but rows < 6, keeping multi-row format');
+                    }
                 }
             }
             
