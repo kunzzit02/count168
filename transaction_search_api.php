@@ -462,6 +462,14 @@ if (!empty($target_account_ids)) {
         // 公式：Balance = B/F + Win/Loss + Cr/Dr
         $balance = $bf + $win_loss + $cr_dr;
         
+        // 🔧 修复：如果所有相关字段都为0，且 hide_zero_balance=1，则跳过该记录
+        // 检查所有字段是否都为0（使用小的容差值来避免浮点数精度问题）
+        $all_zero = (abs($bf) < 0.00001) && (abs($win_loss) < 0.00001) && (abs($cr_dr) < 0.00001) && (abs($balance) < 0.00001);
+        if ($all_zero && $hide_zero_balance) {
+            // 跳过该记录，不添加到结果中
+            continue;
+        }
+        
         // 5. 检查 Alert 条件是否达成
         $is_alert = false;
         

@@ -2435,11 +2435,23 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             }
             
             // 再应用 Show 0 balance 过滤
+            // 🔧 修复：检查所有相关字段（bf, win_loss, cr_dr, balance）是否都为0
             const filterFn = (row) => {
-                if (showZero) return true; // 显示所有（包括 0 balance）
-                const num = parseFloat(row.balance);
-                if (isNaN(num)) return true;
-                return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额
+                if (showZero) return true; // 显示所有（包括所有字段都为 0 的记录）
+                
+                // 检查所有字段是否都为0（使用小的容差值来避免浮点数精度问题）
+                const bf = parseFloat(row.bf) || 0;
+                const winLoss = parseFloat(row.win_loss) || 0;
+                const crDr = parseFloat(row.cr_dr) || 0;
+                const balance = parseFloat(row.balance) || 0;
+                
+                const allZero = Math.abs(bf) < 0.00001 && 
+                               Math.abs(winLoss) < 0.00001 && 
+                               Math.abs(crDr) < 0.00001 && 
+                               Math.abs(balance) < 0.00001;
+                
+                // 如果所有字段都为0，且未勾选"Show 0 balance"，则过滤掉
+                return !allZero;
             };
             
             filteredLeft = filteredLeft.filter(filterFn);
