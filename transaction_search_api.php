@@ -330,10 +330,57 @@ if (!empty($target_account_ids)) {
             }
         }
         
-        // 🔧 修复：只添加该账户实际使用过的 currency
-        // 不再强制为所有账户添加所有 currency，避免显示没有数据的账户+currency组合
-        // 如果用户选择了特定的 currency，但该账户没有使用过该 currency，则不会显示
-        // 只有当账户在该 currency 下有数据时（从 data_captures 或 transactions 获取），才会显示
+        // 🔧 修复：确保所有账户都显示，即使余额为 0
+        // 如果用户选择了特定的 currency，为所有账户都创建这些 currency 的组合
+        // 如果用户没有选择 currency（显示所有），为所有账户创建所有 currency 的组合
+        if (!empty($filter_currency_codes)) {
+            // 用户选择了特定的 currency，为所有账户都创建这些 currency 的组合
+            foreach ($filter_currency_codes as $filter_currency_code) {
+                if (!isset($currency_map[$filter_currency_code])) {
+                    continue; // currency 不存在，跳过
+                }
+                
+                $currency_id = $currency_map[$filter_currency_code];
+                
+                // 检查该账户是否已经使用过这个 currency（避免重复）
+                $already_added = false;
+                foreach ($account_currencies as $ac_currency) {
+                    if ((int)$ac_currency['currency_id'] === $currency_id) {
+                        $already_added = true;
+                        break;
+                    }
+                }
+                
+                // 如果没有使用过，也添加（这样余额为 0 的账户也会显示）
+                if (!$already_added) {
+                    $account_currencies[] = [
+                        'currency_id' => $currency_id,
+                        'currency_code' => $filter_currency_code
+                    ];
+                }
+            }
+        } else {
+            // 用户没有选择 currency（显示所有），为所有账户创建所有 currency 的组合
+            // 这样可以确保所有账户都显示，即使它们没有使用过任何 currency
+            foreach ($currency_map as $currency_code => $currency_id) {
+                // 检查该账户是否已经使用过这个 currency（避免重复）
+                $already_added = false;
+                foreach ($account_currencies as $ac_currency) {
+                    if ((int)$ac_currency['currency_id'] === $currency_id) {
+                        $already_added = true;
+                        break;
+                    }
+                }
+                
+                // 如果没有使用过，也添加
+                if (!$already_added) {
+                    $account_currencies[] = [
+                        'currency_id' => $currency_id,
+                        'currency_code' => $currency_code
+                    ];
+                }
+            }
+        }
         
         // 如果仍然没有找到任何 currency，跳过该 account
         if (empty($account_currencies)) {
@@ -414,21 +461,6 @@ if (!empty($target_account_ids)) {
         // 4. 计算 Balance
         // 公式：Balance = B/F + Win/Loss + Cr/Dr
         $balance = $bf + $win_loss + $cr_dr;
-        
-        // 4.5. 如果 hide_zero_balance 为 true，过滤掉所有值都为 0 的记录
-        // 只有当 B/F、Win/Loss、Cr/Dr、Balance 都为 0 时，才隐藏（除非用户勾选了 show_zero_balance）
-        if ($hide_zero_balance) {
-            // 检查所有值是否都为 0（允许小的浮点误差）
-            $all_zero = (abs($bf) < 0.00001) && 
-                        (abs($win_loss) < 0.00001) && 
-                        (abs($cr_dr) < 0.00001) && 
-                        (abs($balance) < 0.00001);
-            
-            if ($all_zero) {
-                // 所有值都为 0，跳过该记录
-                continue;
-            }
-        }
         
         // 5. 检查 Alert 条件是否达成
         $is_alert = false;
