@@ -6234,44 +6234,67 @@ if ($current_user_id && count($user_companies) > 0) {
                 };
             }
             
-            // 情况2：无表头的纯数据格式（每6行为一组：#, User Name, profit, -, -, -）
-            // 检测模式：第一行是数字，第二行看起来像用户名（字母数字组合），第三行是数字（可能是小数）
-            const firstLineIsNumber = /^\d+$/.test(lines[0]);
-            const secondLineIsUsername = lines.length > 1 && /^[a-z0-9]+$/i.test(lines[1]);
-            const thirdLineIsNumber = lines.length > 2 && /^-?\d+\.?\d*$/.test(lines[2]);
+            // 情况2：无表头的纯数据格式
+            // 支持两种格式：
+            // 格式A：有#列 - 每3-6行为一组（#, User Name, profit, -, -, -）
+            // 格式B：无#列 - 每2-5行为一组（User Name, profit, -, -, -）
+            
+            // 检测格式A：第一行是数字，第二行是用户名，第三行是profit
+            const formatA_firstLineIsNumber = /^\d+$/.test(lines[0]);
+            const formatA_secondLineIsUsername = lines.length > 1 && /^[a-z0-9]+$/i.test(lines[1]);
+            const formatA_thirdLineIsNumber = lines.length > 2 && /^-?\d+\.?\d*$/.test(lines[2]);
+            
+            // 检测格式B：第一行是用户名，第二行是profit
+            const formatB_firstLineIsUsername = lines.length > 0 && /^[a-z0-9]+$/i.test(lines[0]);
+            const formatB_secondLineIsNumber = lines.length > 1 && /^-?\d+\.?\d*$/.test(lines[1]);
             
             console.log('VPOWER format detection:', {
-                firstLineIsNumber,
-                secondLineIsUsername,
-                thirdLineIsNumber,
+                formatA: { firstLineIsNumber: formatA_firstLineIsNumber, secondLineIsUsername: formatA_secondLineIsUsername, thirdLineIsNumber: formatA_thirdLineIsNumber },
+                formatB: { firstLineIsUsername: formatB_firstLineIsUsername, secondLineIsNumber: formatB_secondLineIsNumber },
                 firstLine: lines[0],
                 secondLine: lines[1],
                 thirdLine: lines[2]
             });
             
-            if (firstLineIsNumber && secondLineIsUsername && thirdLineIsNumber) {
-                console.log('Detected VPOWER pure data format (no header)');
+            const isFormatA = formatA_firstLineIsNumber && formatA_secondLineIsUsername && formatA_thirdLineIsNumber;
+            const isFormatB = formatB_firstLineIsUsername && formatB_secondLineIsNumber;
+            
+            if (isFormatA || isFormatB) {
+                console.log(`Detected VPOWER pure data format (no header) - Format: ${isFormatA ? 'A (with #)' : 'B (without #)'}`);
                 
                 const dataMatrix = [];
                 let i = 0;
+                const hasHashColumn = isFormatA; // 是否有#列
                 
-                // 每6行为一组数据，但实际可能是每3行一组（#, User Name, profit）
                 while (i < lines.length) {
-                    // 检查是否还有足够的数据
-                    if (i + 2 >= lines.length) break;
+                    let userName, profit;
+                    let offset = 0;
                     
-                    const hashValue = lines[i];      // 第1行：#列（忽略）
-                    const userName = lines[i + 1];   // 第2行：User Name
-                    const profit = lines[i + 2];     // 第3行：profit
-                    
-                    console.log(`Processing group at index ${i}:`, { hashValue, userName, profit });
-                    
-                    // 验证第一行是数字（#列）
-                    if (!/^\d+$/.test(hashValue)) {
-                        console.log(`Skipping: hashValue "${hashValue}" is not a number`);
-                        i++;
-                        continue;
+                    if (hasHashColumn) {
+                        // 格式A：#, User Name, profit
+                        if (i + 2 >= lines.length) break;
+                        
+                        const hashValue = lines[i];      // 第1行：#列（忽略）
+                        userName = lines[i + 1];         // 第2行：User Name
+                        profit = lines[i + 2];          // 第3行：profit
+                        offset = 3;
+                        
+                        // 验证第一行是数字（#列）
+                        if (!/^\d+$/.test(hashValue)) {
+                            console.log(`Skipping: hashValue "${hashValue}" is not a number`);
+                            i++;
+                            continue;
+                        }
+                    } else {
+                        // 格式B：User Name, profit
+                        if (i + 1 >= lines.length) break;
+                        
+                        userName = lines[i];            // 第1行：User Name
+                        profit = lines[i + 1];          // 第2行：profit
+                        offset = 2;
                     }
+                    
+                    console.log(`Processing group at index ${i}:`, { userName, profit, hasHashColumn });
                     
                     // 验证用户名格式
                     if (!/^[a-z0-9]+$/i.test(userName)) {
@@ -6301,8 +6324,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     dataMatrix.push(row);
                     
-                    // 跳3行（#, User Name, profit）
-                    i += 3;
+                    // 跳过已处理的行
+                    i += offset;
                     
                     // 如果还有数据，检查是否是下一组的开始
                     if (i >= lines.length) break;
@@ -6312,10 +6335,21 @@ if ($current_user_id && count($user_companies) > 0) {
                         i++;
                     }
                     
-                    // 如果下一行不是数字（#列），说明没有更多数据了
-                    if (i >= lines.length || !/^\d+$/.test(lines[i])) {
-                        console.log(`No more data groups found at index ${i}`);
-                        break;
+                    // 检查下一组数据的开始
+                    if (i >= lines.length) break;
+                    
+                    if (hasHashColumn) {
+                        // 格式A：下一组应该以数字（#列）开始
+                        if (!/^\d+$/.test(lines[i])) {
+                            console.log(`No more data groups found at index ${i} (expected number)`);
+                            break;
+                        }
+                    } else {
+                        // 格式B：下一组应该以用户名开始
+                        if (!/^[a-z0-9]+$/i.test(lines[i])) {
+                            console.log(`No more data groups found at index ${i} (expected username)`);
+                            break;
+                        }
                     }
                     
                     console.log(`Found next group starting at index ${i}: ${lines[i]}`);
