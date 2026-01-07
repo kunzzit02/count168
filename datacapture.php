@@ -4154,6 +4154,69 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 // ===== 专用解析结束 =====
                 
+                // ===== VPOWER 专用解析 =====
+                if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
+                    try {
+                        // 检测是否是 VPOWER 格式（包含 #, User Name, profit 列）
+                        if (dataMatrix.length >= 2) {
+                            const firstRow = dataMatrix[0].map(c => (c || '').toString().toLowerCase().trim());
+                            const hasHashColumn = firstRow.includes('#') || firstRow[0] === '#';
+                            const hasUserName = firstRow.includes('user name') || firstRow.includes('username');
+                            const hasProfit = firstRow.includes('profit');
+                            
+                            if (hasUserName && hasProfit) {
+                                console.log('Detected VPOWER format in HTML table');
+                                
+                                // 找到各列的索引
+                                const hashColIndex = firstRow.findIndex(c => c === '#' || c.includes('#'));
+                                const userNameColIndex = firstRow.findIndex(c => 
+                                    c.includes('user name') || c.includes('username'));
+                                const profitColIndex = firstRow.findIndex(c => 
+                                    c.includes('profit'));
+                                
+                                if (userNameColIndex >= 0 && profitColIndex >= 0) {
+                                    const newMatrix = [];
+                                    
+                                    // 处理数据行（跳过表头）
+                                    for (let i = 1; i < dataMatrix.length; i++) {
+                                        const row = dataMatrix[i];
+                                        const userName = (row[userNameColIndex] || '').toString().trim();
+                                        const profit = (row[profitColIndex] || '').toString().trim();
+                                        
+                                        // 如果 User Name 或 profit 为空，跳过这一行
+                                        if (!userName && !profit) {
+                                            continue;
+                                        }
+                                        
+                                        // 创建新行：User Name 在第一列，profit 在第二列
+                                        const newRow = [];
+                                        newRow[0] = userName.toUpperCase(); // Column 1: User Name
+                                        newRow[1] = profit;                // Column 2: profit
+                                        newRow[2] = '-';                   // Column 3
+                                        newRow[3] = '-';                   // Column 4
+                                        newRow[4] = '-';                   // Column 5
+                                        newRow[5] = '';                    // Column 6
+                                        newRow[6] = '';                    // Column 7
+                                        newRow[7] = '';                    // Column 8
+                                        newRow[8] = '';                    // Column 9
+                                        
+                                        newMatrix.push(newRow);
+                                    }
+                                    
+                                    if (newMatrix.length > 0) {
+                                        console.log('VPOWER format parsed rows:', newMatrix.length);
+                                        dataMatrix = newMatrix;
+                                        maxCols = 9;
+                                    }
+                                }
+                            }
+                        }
+                    } catch (vpowerErr) {
+                        console.error('VPOWER special parser error:', vpowerErr);
+                    }
+                }
+                // ===== VPOWER 专用解析结束 =====
+                
                 // 直接填充到表格
                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                 const startCol = parseInt(startCell.dataset.col);
@@ -6020,6 +6083,129 @@ if ($current_user_id && count($user_companies) > 0) {
             return null;
         }
 
+        // VPOWER 表格格式解析函数
+        // 解析格式：包含 #, User Name, profit, Name, Tel, Remarks 列的表格
+        // 忽略第一列（#列），将 User Name 映射到第一列，profit 映射到第二列
+        function parseVPowerTableFormat(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            
+            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+            
+            if (lines.length < 2) return null; // 至少需要表头和数据行
+            
+            // 检测表头是否包含 VPOWER 格式的特征列
+            const firstLine = lines[0].toLowerCase();
+            const hasHashColumn = firstLine.includes('#') || /^\s*#\s*/.test(firstLine);
+            const hasUserName = firstLine.includes('user name') || firstLine.includes('username');
+            const hasProfit = firstLine.includes('profit');
+            
+            // 如果不是 VPOWER 格式，返回 null
+            if (!hasUserName || !hasProfit) {
+                return null;
+            }
+            
+            console.log('Detected VPOWER table format');
+            
+            // 解析表头，找到各列的索引
+            const headerLine = lines[0];
+            const headerCells = headerLine.split(/\t+/).map(c => c.trim());
+            
+            // 如果制表符分割失败，尝试按多个空格分割
+            let headerCols = headerCells;
+            if (headerCells.length < 3) {
+                headerCols = headerLine.split(/\s{2,}/).map(c => c.trim());
+            }
+            
+            // 查找各列的索引
+            const hashColIndex = headerCols.findIndex(c => c.toLowerCase().includes('#') || c === '#');
+            const userNameColIndex = headerCols.findIndex(c => 
+                c.toLowerCase().includes('user name') || c.toLowerCase().includes('username'));
+            const profitColIndex = headerCols.findIndex(c => 
+                c.toLowerCase().includes('profit'));
+            const nameColIndex = headerCols.findIndex(c => 
+                c.toLowerCase() === 'name' || c.toLowerCase().includes('name'));
+            const telColIndex = headerCols.findIndex(c => 
+                c.toLowerCase() === 'tel' || c.toLowerCase().includes('tel'));
+            const remarksColIndex = headerCols.findIndex(c => 
+                c.toLowerCase().includes('remark'));
+            
+            if (userNameColIndex === -1 || profitColIndex === -1) {
+                return null;
+            }
+            
+            console.log('Column indices:', {
+                hash: hashColIndex,
+                userName: userNameColIndex,
+                profit: profitColIndex,
+                name: nameColIndex,
+                tel: telColIndex,
+                remarks: remarksColIndex
+            });
+            
+            // 解析数据行
+            const dataMatrix = [];
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i];
+                if (!line.trim()) continue;
+                
+                // 尝试按制表符分割
+                let cells = line.split(/\t+/).map(c => c.trim());
+                
+                // 如果制表符分割失败，尝试按多个空格分割
+                if (cells.length < 3) {
+                    cells = line.split(/\s{2,}/).map(c => c.trim());
+                }
+                
+                // 如果还是不够，尝试按单个空格分割（但需要更智能的处理）
+                if (cells.length < 3) {
+                    // 对于这种格式，可能需要更智能的分割
+                    // 但先尝试简单分割
+                    const parts = line.split(/\s+/).filter(p => p.trim());
+                    if (parts.length >= 2) {
+                        cells = parts;
+                    }
+                }
+                
+                // 提取需要的列（忽略 # 列）
+                const userName = cells[userNameColIndex] || '';
+                const profit = cells[profitColIndex] || '';
+                
+                // 如果 User Name 或 profit 为空，跳过这一行
+                if (!userName.trim() && !profit.trim()) {
+                    continue;
+                }
+                
+                // 创建数据行：User Name 在第一列，profit 在第二列，其他列留空或设为 "-"
+                const row = [];
+                row[0] = userName.toUpperCase(); // Column 1: User Name
+                row[1] = profit;                // Column 2: profit
+                // Column 3-5 可以设为 "-" 或留空（根据第二张图片，它们显示为 "-"）
+                row[2] = '-';
+                row[3] = '-';
+                row[4] = '-';
+                // Column 6-9 留空（根据第二张图片，有些行有数据，有些没有）
+                row[5] = '';
+                row[6] = '';
+                row[7] = '';
+                row[8] = '';
+                
+                dataMatrix.push(row);
+            }
+            
+            if (dataMatrix.length === 0) {
+                return null;
+            }
+            
+            console.log('Parsed VPOWER data:', dataMatrix);
+            
+            return {
+                dataMatrix: dataMatrix,
+                maxRows: dataMatrix.length,
+                maxCols: 9 // 根据第二张图片，最多9列
+            };
+        }
+
         // 处理单元格粘贴事件
         function handleCellPaste(e) {
             // 获取单元格元素（支持文本节点和元素节点）
@@ -6039,6 +6225,83 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 先拿到纯文本内容，用来判断是不是 Payment Report
             const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+            
+            // VPOWER 专用解析（仅在 VPOWER 类型时启用）
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
+                let vpowerParsed = parseVPowerTableFormat(pastedData);
+                
+                if (vpowerParsed) {
+                    const { dataMatrix, maxRows, maxCols } = vpowerParsed;
+                    
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col);
+                    
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    
+                    const requiredRows = startRow + maxRows;
+                    const requiredCols = startCol + maxCols;
+                    
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    dataMatrix.forEach((rowData, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
+                        
+                        rowData.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                // User Name 转为大写，profit 保持原样
+                                if (colIndex === 0) {
+                                    cell.textContent = trimmedData.toUpperCase();
+                                } else {
+                                    cell.textContent = trimmedData;
+                                }
+                                
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+                    
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted VPOWER data (${maxRows} rows x ${maxCols} cols)!`, 'success');
+                    } else {
+                        showNotification('No cells were pasted from VPOWER format.', 'danger');
+                    }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    return;
+                }
+            }
             
             // Citibet 专用解析（先于通用 Payment 逻辑）
             let citibetParsed = null;
