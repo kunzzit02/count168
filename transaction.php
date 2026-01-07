@@ -2435,8 +2435,25 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             }
             
             // 再应用 Show 0 balance 过滤
+            // 如果 win_loss 为 0，则不显示（除非勾选了 Show 0 balance）
             const filterFn = (row) => {
-                if (showZero) return true; // 显示所有（包括 0 balance）
+                if (showZero) return true; // 显示所有（包括 0 balance 和 0 win_loss）
+                
+                // 检查 win_loss 是否为 0（或接近 0）
+                const winLoss = parseFloat(row.win_loss) || 0;
+                if (Math.abs(winLoss) <= 0.00001) {
+                    // win_loss 为 0，检查 balance 是否也为 0
+                    const balance = parseFloat(row.balance) || 0;
+                    if (Math.abs(balance) <= 0.00001) {
+                        // win_loss 和 balance 都为 0，不显示
+                        return false;
+                    }
+                    // win_loss 为 0 但 balance 不为 0（例如有 B/F 或 Cr/Dr），需要检查 balance 是否接近 0
+                    // 如果 balance 也为 0，则不显示
+                    return Math.abs(balance) > 0.00001;
+                }
+                
+                // win_loss 不为 0，检查 balance 是否接近 0
                 const num = parseFloat(row.balance);
                 if (isNaN(num)) return true;
                 return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额
@@ -2518,6 +2535,20 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             const showZero = document.getElementById('show_zero_balance')?.checked || false;
             if (!showZero) {
                 const filterFn = (row) => {
+                    // 检查 win_loss 是否为 0（或接近 0）
+                    const winLoss = parseFloat(row.win_loss) || 0;
+                    if (Math.abs(winLoss) <= 0.00001) {
+                        // win_loss 为 0，检查 balance 是否也为 0
+                        const balance = parseFloat(row.balance) || 0;
+                        if (Math.abs(balance) <= 0.00001) {
+                            // win_loss 和 balance 都为 0，不显示
+                            return false;
+                        }
+                        // win_loss 为 0 但 balance 不为 0，需要检查 balance 是否接近 0
+                        return Math.abs(balance) > 0.00001;
+                    }
+                    
+                    // win_loss 不为 0，检查 balance 是否接近 0
                     const num = parseFloat(row.balance);
                     if (isNaN(num)) return true;
                     return Math.abs(num) > 0.00001;
