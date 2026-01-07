@@ -2435,26 +2435,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             }
             
             // 再应用 Show 0 balance 过滤
-            // 如果 win_loss、bf、cr_dr、balance 都为 0，应该隐藏（除非勾选了 Show 0 balance）
             const filterFn = (row) => {
-                if (showZero) return true; // 显示所有（包括所有为 0 的账户）
-                
-                // 检查所有字段是否都为 0
-                const balance = parseFloat(row.balance) || 0;
-                const winLoss = parseFloat(row.win_loss) || 0;
-                const bf = parseFloat(row.bf) || 0;
-                const crDr = parseFloat(row.cr_dr) || 0;
-                
-                // 如果所有字段都为 0，则隐藏
-                if (Math.abs(balance) < 0.00001 && 
-                    Math.abs(winLoss) < 0.00001 && 
-                    Math.abs(bf) < 0.00001 && 
-                    Math.abs(crDr) < 0.00001) {
-                    return false;
-                }
-                
-                // 否则显示
-                return true;
+                if (showZero) return true; // 显示所有（包括 0 balance）
+                const num = parseFloat(row.balance);
+                if (isNaN(num)) return true;
+                return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额
             };
             
             filteredLeft = filteredLeft.filter(filterFn);
@@ -2532,23 +2517,10 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             // 再应用 show_zero_balance 过滤（如果启用）
             const showZero = document.getElementById('show_zero_balance')?.checked || false;
             if (!showZero) {
-                // 如果 win_loss、bf、cr_dr、balance 都为 0，应该隐藏
                 const filterFn = (row) => {
-                    const balance = parseFloat(row.balance) || 0;
-                    const winLoss = parseFloat(row.win_loss) || 0;
-                    const bf = parseFloat(row.bf) || 0;
-                    const crDr = parseFloat(row.cr_dr) || 0;
-                    
-                    // 如果所有字段都为 0，则隐藏
-                    if (Math.abs(balance) < 0.00001 && 
-                        Math.abs(winLoss) < 0.00001 && 
-                        Math.abs(bf) < 0.00001 && 
-                        Math.abs(crDr) < 0.00001) {
-                        return false;
-                    }
-                    
-                    // 否则显示
-                    return true;
+                    const num = parseFloat(row.balance);
+                    if (isNaN(num)) return true;
+                    return Math.abs(num) > 0.00001;
                 };
                 filteredLeft = filteredLeft.filter(filterFn);
                 filteredRight = filteredRight.filter(filterFn);

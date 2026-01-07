@@ -462,18 +462,6 @@ if (!empty($target_account_ids)) {
         // 公式：Balance = B/F + Win/Loss + Cr/Dr
         $balance = $bf + $win_loss + $cr_dr;
         
-        // 4.5. 如果 hide_zero_balance 为 true，且所有字段都为 0，跳过该组合
-        if ($hide_zero_balance) {
-            $epsilon = 0.00001; // 浮点数比较的误差范围
-            if (abs($bf) < $epsilon && 
-                abs($win_loss) < $epsilon && 
-                abs($cr_dr) < $epsilon && 
-                abs($balance) < $epsilon) {
-                // 所有字段都为 0，跳过该组合
-                continue;
-            }
-        }
-        
         // 5. 检查 Alert 条件是否达成
         $is_alert = false;
         
