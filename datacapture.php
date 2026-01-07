@@ -6454,85 +6454,127 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 计算列数和行数
-                let columnCount = 20; // 默认20列
-                let rowCount = 3; // 默认3行
+                // 根据行标识符的位置精确分割每一行
+                const dataMatrix = [];
+                let maxCols = 0;
                 
                 if (rowIdentifierIndices.length >= 2) {
-                    // 使用第一个和第二个标识符之间的间隔作为列数
-                    const firstInterval = rowIdentifierIndices[1] - rowIdentifierIndices[0];
-                    columnCount = firstInterval;
-                    rowCount = Math.ceil(allCells.length / columnCount);
-                    console.log(`AGENT LINK: Detected ${rowCount} rows x ${columnCount} cols based on row identifiers (interval: ${firstInterval})`);
+                    // 有多个行标识符，根据它们的位置精确分割
+                    console.log(`AGENT LINK: Splitting rows based on ${rowIdentifierIndices.length} row identifiers`);
                     
-                    // 验证：如果计算出的行数接近3，且总单元格数接近 3 * columnCount，则使用这个值
-                    const expectedCells = rowCount * columnCount;
-                    if (Math.abs(allCells.length - expectedCells) <= 5 && rowCount >= 2 && rowCount <= 5) {
-                        console.log(`AGENT LINK: Validation passed - ${rowCount} rows x ${columnCount} cols matches ${allCells.length} cells`);
-                    } else {
-                        // 如果验证失败，尝试使用总单元格数除以3来推断列数
-                        const altCols = Math.ceil(allCells.length / 3);
-                        if (altCols >= 15 && altCols <= 25) {
-                            columnCount = altCols;
-                            rowCount = 3;
-                            console.log(`AGENT LINK: Using alternative calculation: ${rowCount} rows x ${columnCount} cols`);
+                    for (let i = 0; i < rowIdentifierIndices.length; i++) {
+                        const startIndex = rowIdentifierIndices[i];
+                        const endIndex = (i + 1 < rowIdentifierIndices.length) 
+                            ? rowIdentifierIndices[i + 1] 
+                            : allCells.length;
+                        
+                        // 提取这一行的所有单元格
+                        const rowData = [];
+                        for (let j = startIndex; j < endIndex; j++) {
+                            rowData.push(allCells[j]);
                         }
+                        
+                        dataMatrix.push(rowData);
+                        maxCols = Math.max(maxCols, rowData.length);
+                        
+                        console.log(`AGENT LINK: Row ${i + 1} (${rowIdentifierValues[i]}): ${rowData.length} columns (indices ${startIndex} to ${endIndex - 1})`);
                     }
                 } else if (rowIdentifierIndices.length === 1) {
-                    // 只有一个标识符，尝试推断
-                    const identifierIndex = rowIdentifierIndices[0];
-                    if (identifierIndex === 0) {
-                        // 标识符在第一个位置，可能是第一行的开始
-                        // 尝试使用总单元格数除以期望的行数（3行）来推断列数
-                        const estimatedCols = Math.ceil(allCells.length / 3);
-                        if (estimatedCols >= 15 && estimatedCols <= 25) {
-                            columnCount = estimatedCols;
-                            rowCount = 3;
-                            console.log(`AGENT LINK: Estimated ${rowCount} rows x ${columnCount} cols based on total cells (identifier at index 0)`);
+                    // 只有一个行标识符，假设它是第一行的开始
+                    const firstRowStart = rowIdentifierIndices[0];
+                    
+                    // 尝试推断其他行的位置
+                    // 如果标识符在索引0，尝试使用总单元格数除以3来推断每行的列数
+                    const estimatedCols = Math.ceil(allCells.length / 3);
+                    
+                    if (firstRowStart === 0 && estimatedCols >= 15 && estimatedCols <= 25) {
+                        // 第一行从索引0开始
+                        console.log(`AGENT LINK: Single identifier at start, using estimated ${estimatedCols} cols per row`);
+                        
+                        for (let row = 0; row < 3; row++) {
+                            const startIndex = row * estimatedCols;
+                            const endIndex = Math.min((row + 1) * estimatedCols, allCells.length);
+                            const rowData = [];
+                            
+                            for (let j = startIndex; j < endIndex; j++) {
+                                rowData.push(allCells[j]);
+                            }
+                            
+                            dataMatrix.push(rowData);
+                            maxCols = Math.max(maxCols, rowData.length);
                         }
                     } else {
-                        // 标识符不在第一个位置，使用标识符位置作为列数
-                        columnCount = identifierIndex;
-                        rowCount = Math.ceil(allCells.length / columnCount);
-                        console.log(`AGENT LINK: Using identifier position as column count: ${rowCount} rows x ${columnCount} cols`);
+                        // 标识符不在开始位置，使用标识符位置作为第一行的列数
+                        const firstRowCols = firstRowStart;
+                        console.log(`AGENT LINK: Single identifier at index ${firstRowStart}, using ${firstRowCols} cols for first row`);
+                        
+                        // 第一行：从索引0到标识符位置
+                        const firstRow = allCells.slice(0, firstRowStart);
+                        dataMatrix.push(firstRow);
+                        maxCols = Math.max(maxCols, firstRow.length);
+                        
+                        // 剩余数据按相同列数分组
+                        const remainingCells = allCells.slice(firstRowStart);
+                        const remainingCols = Math.ceil(remainingCells.length / 2); // 假设还有2行
+                        
+                        for (let row = 0; row < 2 && remainingCells.length > 0; row++) {
+                            const startIndex = row * remainingCols;
+                            const endIndex = Math.min((row + 1) * remainingCols, remainingCells.length);
+                            const rowData = remainingCells.slice(startIndex, endIndex);
+                            dataMatrix.push(rowData);
+                            maxCols = Math.max(maxCols, rowData.length);
+                        }
                     }
                 } else {
-                    // 没有找到标识符，尝试使用总单元格数除以3来推断列数
+                    // 没有找到行标识符，尝试使用总单元格数除以3来推断列数
                     const estimatedCols = Math.ceil(allCells.length / 3);
+                    console.log(`AGENT LINK: No identifiers found, using estimated ${estimatedCols} cols per row`);
+                    
                     if (estimatedCols >= 15 && estimatedCols <= 25) {
-                        columnCount = estimatedCols;
-                        rowCount = 3;
-                        console.log(`AGENT LINK: No identifiers found, estimated ${rowCount} rows x ${columnCount} cols from total cells`);
+                        for (let row = 0; row < 3; row++) {
+                            const startIndex = row * estimatedCols;
+                            const endIndex = Math.min((row + 1) * estimatedCols, allCells.length);
+                            const rowData = allCells.slice(startIndex, endIndex);
+                            dataMatrix.push(rowData);
+                            maxCols = Math.max(maxCols, rowData.length);
+                        }
                     } else {
-                        // 使用默认值
-                        console.log('AGENT LINK: No row identifiers found, using default 3 rows x 20 cols');
-                    }
-                }
-                
-                // 按列数分组：每N个单元格组成一行
-                const dataMatrix = [];
-                for (let row = 0; row < rowCount; row++) {
-                    const rowData = [];
-                    for (let col = 0; col < columnCount; col++) {
-                        const cellIndex = row * columnCount + col;
-                        if (cellIndex < allCells.length) {
-                            rowData.push(allCells[cellIndex]);
-                        } else {
-                            rowData.push(''); // 填充空单元格
+                        // 使用默认值：3行，20列
+                        console.log('AGENT LINK: No identifiers found, using default 3 rows x 20 cols');
+                        for (let row = 0; row < 3; row++) {
+                            const startIndex = row * 20;
+                            const endIndex = Math.min((row + 1) * 20, allCells.length);
+                            const rowData = allCells.slice(startIndex, endIndex);
+                            dataMatrix.push(rowData);
+                            maxCols = Math.max(maxCols, rowData.length);
                         }
                     }
-                    dataMatrix.push(rowData);
                 }
                 
-                console.log('AGENT LINK: Grouped into', dataMatrix.length, 'rows x', columnCount, 'cols');
+                // 确保所有行的列数相同（用空字符串填充）
+                dataMatrix.forEach(row => {
+                    while (row.length < maxCols) {
+                        row.push('');
+                    }
+                });
+                
+                const columnCount = maxCols;
+                
+                console.log('AGENT LINK: Grouped into', dataMatrix.length, 'rows x', maxCols, 'cols');
                 if (dataMatrix.length > 0) {
                     console.log('AGENT LINK: First row sample:', dataMatrix[0].slice(0, 5));
+                    if (dataMatrix.length > 1) {
+                        console.log('AGENT LINK: Second row sample:', dataMatrix[1].slice(0, 5));
+                    }
+                    if (dataMatrix.length > 2) {
+                        console.log('AGENT LINK: Third row sample:', dataMatrix[2].slice(0, 5));
+                    }
                 }
                 
                 return {
                     dataMatrix: dataMatrix,
                     maxRows: dataMatrix.length,
-                    maxCols: columnCount
+                    maxCols: maxCols
                 };
             } else {
                 // 标准格式：每行包含多个单元格（用制表符或空格分隔）
