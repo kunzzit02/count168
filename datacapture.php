@@ -7149,26 +7149,67 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                     
-                    // 检查 Grand Total 之前的多行制表符分隔数据是否包含行标识符
+                    // 检查 Grand Total 之前的数据是否包含多个行标识符
+                    // 需要检查制表符行和单值行，因为数据可能被分割
                     let hasMultipleRowsWithIdentifiers = false;
-                    if (beforeGrandTotalTabRows.length >= 2) {
-                        const rowIdentifiers = [];
-                        for (let i = 0; i < beforeGrandTotalTabRows.length; i++) {
-                            const row = beforeGrandTotalTabRows[i].row;
-                            const cells = row.split('\t').map(c => c.trim());
-                            if (cells.length > 0 && cells[0]) {
-                                const firstCell = cells[0];
-                                // 检查是否是行标识符格式（如JDW01, JDW02, BW876等）
-                                if (/^[A-Z]{2,}[A-Z0-9]*\d*$/i.test(firstCell) && firstCell.length >= 3 && firstCell.length <= 10) {
-                                    rowIdentifiers.push(firstCell);
-                                }
+                    const allRowIdentifiers = [];
+                    
+                    // 检查制表符分隔的行
+                    for (let i = 0; i < beforeGrandTotalTabRows.length; i++) {
+                        const row = beforeGrandTotalTabRows[i].row;
+                        const cells = row.split('\t').map(c => c.trim());
+                        if (cells.length > 0 && cells[0]) {
+                            const firstCell = cells[0];
+                            // 检查是否是行标识符格式（如JDW01, JDW02, BW876等）
+                            if (/^[A-Z]{2,}[A-Z0-9]*\d*$/i.test(firstCell) && firstCell.length >= 3 && firstCell.length <= 10) {
+                                allRowIdentifiers.push({ type: 'tab', value: firstCell, index: beforeGrandTotalTabRows[i].index });
                             }
                         }
-                        // 如果有多行且每行的第一列都是行标识符，说明是多行独立数据，不应该合并
-                        if (rowIdentifiers.length >= 2 && rowIdentifiers.length === beforeGrandTotalTabRows.length) {
+                    }
+                    
+                    // 检查单值行
+                    for (let i = 0; i < beforeGrandTotalSingleRows.length; i++) {
+                        const val = beforeGrandTotalSingleRows[i].value.trim();
+                        // 检查是否是行标识符格式（如JDW01, JDW02, BW876等）
+                        if (/^[A-Z]{2,}[A-Z0-9]*\d*$/i.test(val) && val.length >= 3 && val.length <= 10) {
+                            allRowIdentifiers.push({ type: 'single', value: val, index: beforeGrandTotalSingleRows[i].index });
+                        }
+                    }
+                    
+                    // 如果找到2个或更多的行标识符，说明是多行独立数据，不应该合并
+                    if (allRowIdentifiers.length >= 2) {
+                        // 如果至少有2个行标识符是制表符行的第一列，说明是多行独立数据
+                        const tabRowIdentifiers = allRowIdentifiers.filter(r => r.type === 'tab');
+                        if (tabRowIdentifiers.length >= 2) {
                             hasMultipleRowsWithIdentifiers = true;
-                            console.log('Detected multiple rows with identifiers before Grand Total:', rowIdentifiers);
+                            console.log('Detected multiple tab-separated rows with identifiers before Grand Total:', tabRowIdentifiers.map(r => r.value));
                             console.log('Keeping them separate instead of merging');
+                        } else {
+                            // 如果行标识符分布在制表符行和单值行中，检查它们是否代表不同的行
+                            const sortedIdentifiers = allRowIdentifiers.sort((a, b) => a.index - b.index);
+                            let hasDataBetweenIdentifiers = false;
+                            
+                            for (let i = 0; i < sortedIdentifiers.length - 1; i++) {
+                                const currentIdx = sortedIdentifiers[i].index;
+                                const nextIdx = sortedIdentifiers[i + 1].index;
+                                
+                                // 检查两个标识符之间是否有其他数据
+                                for (let j = currentIdx + 1; j < nextIdx; j++) {
+                                    if (rows[j] && rows[j].trim() !== '') {
+                                        hasDataBetweenIdentifiers = true;
+                                        break;
+                                    }
+                                }
+                                
+                                if (hasDataBetweenIdentifiers) break;
+                            }
+                            
+                            // 如果行标识符之间有数据，说明是不同的行
+                            if (hasDataBetweenIdentifiers) {
+                                hasMultipleRowsWithIdentifiers = true;
+                                console.log('Detected multiple rows with identifiers before Grand Total:', allRowIdentifiers.map(r => r.value));
+                                console.log('Keeping them separate instead of merging');
+                            }
                         }
                     }
                     
