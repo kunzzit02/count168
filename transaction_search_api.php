@@ -399,72 +399,6 @@ if (!empty($target_account_ids)) {
                 }
             }
             
-            // 🔧 修复：在创建组合之前，先快速检查该账户在该currency下是否有任何数据
-            // 如果完全没有数据且hide_zero_balance=true，则不创建该组合
-            if ($hide_zero_balance) {
-                // 快速检查：是否有data_capture记录（用于win_loss）
-                $check_dc = $pdo->prepare("
-                    SELECT COUNT(*) 
-                    FROM data_capture_details dcd
-                    JOIN data_captures dc ON dcd.capture_id = dc.id
-                    WHERE dcd.company_id = ? AND dc.company_id = ?
-                      AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-                      AND dc.currency_id = ?
-                      AND dc.capture_date <= ?
-                ");
-                $check_dc->execute([$company_id, $company_id, $account_id, $currency_id, $date_to_db]);
-                $has_dc = $check_dc->fetchColumn() > 0;
-                
-                // 快速检查：是否有transactions记录（用于cr_dr）
-                $has_transaction_currency = false;
-                try {
-                    $check_txn_currency = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-                    $has_transaction_currency = $check_txn_currency->rowCount() > 0;
-                } catch (PDOException $e) {
-                    // 忽略错误
-                }
-                
-                $has_txn = false;
-                if ($has_transaction_currency) {
-                    $check_txn = $pdo->prepare("
-                        SELECT COUNT(*) 
-                        FROM transactions t
-                        WHERE t.company_id = ?
-                          AND (CAST(t.account_id AS CHAR) = CAST(? AS CHAR) OR CAST(t.from_account_id AS CHAR) = CAST(? AS CHAR))
-                          AND t.currency_id = ?
-                          AND t.transaction_date <= ?
-                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE', 'RATE')
-                    ");
-                    $check_txn->execute([$company_id, $account_id, $account_id, $currency_id, $date_to_db]);
-                    $has_txn = $check_txn->fetchColumn() > 0;
-                } else {
-                    // 如果没有currency_id字段，检查是否有transactions且通过data_capture关联
-                    $check_txn = $pdo->prepare("
-                        SELECT COUNT(*) 
-                        FROM transactions t
-                        WHERE t.company_id = ?
-                          AND (t.account_id = ? OR t.from_account_id = ?)
-                          AND t.transaction_date <= ?
-                          AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE', 'RATE')
-                          AND EXISTS (
-                              SELECT 1
-                              FROM data_capture_details dcd
-                              JOIN data_captures dc ON dcd.capture_id = dc.id
-                              WHERE dcd.company_id = ? AND dc.company_id = ?
-                                AND (dcd.account_id = t.account_id OR dcd.account_id = t.from_account_id)
-                                AND dc.currency_id = ?
-                          )
-                    ");
-                    $check_txn->execute([$company_id, $account_id, $account_id, $date_to_db, $company_id, $company_id, $currency_id]);
-                    $has_txn = $check_txn->fetchColumn() > 0;
-                }
-                
-                // 如果没有任何数据（既没有data_capture也没有transactions），且hide_zero_balance=true，则不创建该组合
-                if (!$has_dc && !$has_txn) {
-                    continue; // 跳过该组合，不添加到account_currency_combos
-                }
-            }
-            
             // 创建 account + currency 组合
             $account_currency_combos[] = [
                 'account' => $account,
@@ -527,14 +461,6 @@ if (!empty($target_account_ids)) {
         // 4. 计算 Balance
         // 公式：Balance = B/F + Win/Loss + Cr/Dr
         $balance = $bf + $win_loss + $cr_dr;
-        
-        // 🔧 修复：如果所有相关字段都为0，且 hide_zero_balance=1，则跳过该记录
-        // 检查所有字段是否都为0（使用小的容差值来避免浮点数精度问题）
-        $all_zero = (abs($bf) < 0.00001) && (abs($win_loss) < 0.00001) && (abs($cr_dr) < 0.00001) && (abs($balance) < 0.00001);
-        if ($all_zero && $hide_zero_balance) {
-            // 跳过该记录，不添加到结果中
-            continue;
-        }
         
         // 5. 检查 Alert 条件是否达成
         $is_alert = false;
