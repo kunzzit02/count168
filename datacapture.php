@@ -222,7 +222,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <!-- <option value="CITIBET">CITIBET</option> -->
                             <option value="CITIBET_MAJOR">CITIBET</option>
                             <option value="VPOWER">VPOWER</option>
-                            <option value="AGENT_LINK">AGENT LINK</option>
+                            <option value="AGENT_LINK">PS3838</option>
                             <option value="API_RETURN">API-RETURN</option>
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
@@ -6376,7 +6376,7 @@ if ($current_user_id && count($user_companies) > 0) {
             return null;
         }
 
-        // AGENT LINK 表格格式解析函数
+        // PS3838 表格格式解析函数
         // 解析格式：保持原始格式，3行数据，20列，数据位置都正确
         // 数据格式：每行一个单元格（用换行符分隔），需要按行标识符分组成3行
         function parseAgentLinkTableFormat(pastedData) {
@@ -6400,10 +6400,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 return trimmed;
             }).filter(line => line !== '');
             
-            console.log('AGENT LINK parser - lines:', lines.length);
+            console.log('PS3838 parser - lines:', lines.length);
             if (lines.length > 0) {
-                console.log('AGENT LINK parser - first line:', lines[0].substring(0, 200));
-                console.log('AGENT LINK parser - first line has tabs:', lines[0].includes('\t'));
+                console.log('PS3838 parser - first line:', lines[0].substring(0, 200));
+                console.log('PS3838 parser - first line has tabs:', lines[0].includes('\t'));
             }
             
             if (lines.length < 1) return null;
@@ -6412,11 +6412,11 @@ if ($current_user_id && count($user_companies) > 0) {
             const isOneCellPerLine = lines.every(line => !line.includes('\t') && line.split(/\s{2,}/).length <= 1);
             
             if (isOneCellPerLine) {
-                console.log('AGENT LINK: Detected one-cell-per-line format, will group into rows');
+                console.log('PS3838: Detected one-cell-per-line format, will group into rows');
                 
                 // 将所有单元格提取出来
                 const allCells = lines.map(line => line.trim()).filter(cell => cell !== '');
-                console.log('AGENT LINK: Total cells extracted:', allCells.length);
+                console.log('PS3838: Total cells extracted:', allCells.length);
                 
                 // 检测行标识符：BCA10A1, BCA10A2, Total 等
                 const rowIdentifierIndices = [];
@@ -6450,7 +6450,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (isIdentifier) {
                         rowIdentifierIndices.push(i);
                         rowIdentifierValues.push(cell);
-                        console.log(`AGENT LINK: Found row identifier "${cell}" at index ${i}`);
+                        console.log(`PS3838: Found row identifier "${cell}" at index ${i}`);
                     }
                 }
                 
@@ -6460,7 +6460,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (rowIdentifierIndices.length >= 2) {
                     // 有多个行标识符，根据它们的位置精确分割
-                    console.log(`AGENT LINK: Splitting rows based on ${rowIdentifierIndices.length} row identifiers`);
+                    console.log(`PS3838: Splitting rows based on ${rowIdentifierIndices.length} row identifiers`);
                     
                     for (let i = 0; i < rowIdentifierIndices.length; i++) {
                         const startIndex = rowIdentifierIndices[i];
@@ -6477,7 +6477,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         dataMatrix.push(rowData);
                         maxCols = Math.max(maxCols, rowData.length);
                         
-                        console.log(`AGENT LINK: Row ${i + 1} (${rowIdentifierValues[i]}): ${rowData.length} columns (indices ${startIndex} to ${endIndex - 1})`);
+                        console.log(`PS3838: Row ${i + 1} (${rowIdentifierValues[i]}): ${rowData.length} columns (indices ${startIndex} to ${endIndex - 1})`);
                     }
                 } else if (rowIdentifierIndices.length === 1) {
                     // 只有一个行标识符，假设它是第一行的开始
@@ -6489,7 +6489,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     if (firstRowStart === 0 && estimatedCols >= 15 && estimatedCols <= 25) {
                         // 第一行从索引0开始
-                        console.log(`AGENT LINK: Single identifier at start, using estimated ${estimatedCols} cols per row`);
+                        console.log(`PS3838: Single identifier at start, using estimated ${estimatedCols} cols per row`);
                         
                         for (let row = 0; row < 3; row++) {
                             const startIndex = row * estimatedCols;
@@ -6506,7 +6506,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     } else {
                         // 标识符不在开始位置，使用标识符位置作为第一行的列数
                         const firstRowCols = firstRowStart;
-                        console.log(`AGENT LINK: Single identifier at index ${firstRowStart}, using ${firstRowCols} cols for first row`);
+                        console.log(`PS3838: Single identifier at index ${firstRowStart}, using ${firstRowCols} cols for first row`);
                         
                         // 第一行：从索引0到标识符位置
                         const firstRow = allCells.slice(0, firstRowStart);
@@ -6528,7 +6528,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else {
                     // 没有找到行标识符，尝试使用总单元格数除以3来推断列数
                     const estimatedCols = Math.ceil(allCells.length / 3);
-                    console.log(`AGENT LINK: No identifiers found, using estimated ${estimatedCols} cols per row`);
+                    console.log(`PS3838: No identifiers found, using estimated ${estimatedCols} cols per row`);
                     
                     if (estimatedCols >= 15 && estimatedCols <= 25) {
                         for (let row = 0; row < 3; row++) {
@@ -6540,7 +6540,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     } else {
                         // 使用默认值：3行，20列
-                        console.log('AGENT LINK: No identifiers found, using default 3 rows x 20 cols');
+                        console.log('PS3838: No identifiers found, using default 3 rows x 20 cols');
                         for (let row = 0; row < 3; row++) {
                             const startIndex = row * 20;
                             const endIndex = Math.min((row + 1) * 20, allCells.length);
@@ -6560,14 +6560,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 const columnCount = maxCols;
                 
-                console.log('AGENT LINK: Grouped into', dataMatrix.length, 'rows x', maxCols, 'cols');
+                console.log('PS3838: Grouped into', dataMatrix.length, 'rows x', maxCols, 'cols');
                 if (dataMatrix.length > 0) {
-                    console.log('AGENT LINK: First row sample:', dataMatrix[0].slice(0, 5));
+                    console.log('PS3838: First row sample:', dataMatrix[0].slice(0, 5));
                     if (dataMatrix.length > 1) {
-                        console.log('AGENT LINK: Second row sample:', dataMatrix[1].slice(0, 5));
+                        console.log('PS3838: Second row sample:', dataMatrix[1].slice(0, 5));
                     }
                     if (dataMatrix.length > 2) {
-                        console.log('AGENT LINK: Third row sample:', dataMatrix[2].slice(0, 5));
+                        console.log('PS3838: Third row sample:', dataMatrix[2].slice(0, 5));
                     }
                 }
                 
@@ -6578,7 +6578,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 };
             } else {
                 // 标准格式：每行包含多个单元格（用制表符或空格分隔）
-                console.log('AGENT LINK: Standard format detected (multiple cells per line)');
+                console.log('PS3838: Standard format detected (multiple cells per line)');
                 
                 const dataMatrix = [];
                 lines.forEach((line, lineIndex) => {
@@ -6617,7 +6617,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 });
                 
-                console.log('AGENT LINK: Parsed standard format:', dataMatrix.length, 'rows x', maxCols, 'cols');
+                console.log('PS3838: Parsed standard format:', dataMatrix.length, 'rows x', maxCols, 'cols');
                 
                 return {
                     dataMatrix: dataMatrix,
@@ -6821,9 +6821,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 return;
             }
             
-            // AGENT LINK 专用解析（仅在 AGENT_LINK 类型时启用）
+            // PS3838 专用解析（仅在 AGENT_LINK 类型时启用）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'AGENT_LINK') {
-                console.log('AGENT LINK mode detected, attempting to parse...');
+                console.log('PS3838 mode detected, attempting to parse...');
                 console.log('Pasted data length:', pastedData.length);
                 console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
                 
@@ -6833,15 +6833,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 let agentLinkParsed = null;
                 
                 if (htmlDataFromDetect) {
-                    console.log('AGENT LINK: HTML data detected via detectAndParseHTML');
+                    console.log('PS3838: HTML data detected via detectAndParseHTML');
                     const startCell = e.target;
                     const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
                     if (filled) {
-                        console.log('AGENT LINK: Successfully filled using parseAndFillHTMLTable');
+                        console.log('PS3838: Successfully filled using parseAndFillHTMLTable');
                         setTimeout(updateSubmitButtonState, 0);
                         return;
                     } else {
-                        console.log('AGENT LINK: parseAndFillHTMLTable returned false, trying manual HTML parsing');
+                        console.log('PS3838: parseAndFillHTMLTable returned false, trying manual HTML parsing');
                     }
                 }
                 
@@ -6853,12 +6853,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         htmlData = null;
                     }
                 } catch (err) {
-                    console.log('AGENT LINK: Could not get HTML data from clipboard:', err);
+                    console.log('PS3838: Could not get HTML data from clipboard:', err);
                 }
                 
                 if (htmlData) {
-                    console.log('AGENT LINK: HTML data detected, length:', htmlData.length);
-                    console.log('AGENT LINK: HTML data sample (first 500 chars):', htmlData.substring(0, 500));
+                    console.log('PS3838: HTML data detected, length:', htmlData.length);
+                    console.log('PS3838: HTML data sample (first 500 chars):', htmlData.substring(0, 500));
                     // 解析 HTML 表格
                     try {
                         const tempDiv = document.createElement('div');
@@ -6866,7 +6866,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         const table = tempDiv.querySelector('table');
                         if (table) {
-                            console.log('AGENT LINK: HTML table found');
+                            console.log('PS3838: HTML table found');
                             let dataMatrix = [];
                             
                             // 处理表头（如果有）
@@ -6929,8 +6929,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                 });
                                 
-                                console.log('AGENT LINK: HTML parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                console.log('AGENT LINK: First row sample:', dataMatrix[0] ? dataMatrix[0].slice(0, 10) : 'empty');
+                                console.log('PS3838: HTML parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                console.log('PS3838: First row sample:', dataMatrix[0] ? dataMatrix[0].slice(0, 10) : 'empty');
                                 
                                 agentLinkParsed = {
                                     dataMatrix: dataMatrix,
@@ -6938,26 +6938,26 @@ if ($current_user_id && count($user_companies) > 0) {
                                     maxCols: maxCols
                                 };
                             } else {
-                                console.log('AGENT LINK: HTML table found but no data rows extracted');
+                                console.log('PS3838: HTML table found but no data rows extracted');
                             }
                         } else {
-                            console.log('AGENT LINK: HTML data exists but no table element found');
+                            console.log('PS3838: HTML data exists but no table element found');
                         }
                     } catch (htmlErr) {
-                        console.error('AGENT LINK HTML parser error:', htmlErr);
+                        console.error('PS3838 HTML parser error:', htmlErr);
                     }
                 } else {
-                    console.log('AGENT LINK: No HTML data detected, will try text parsing');
+                    console.log('PS3838: No HTML data detected, will try text parsing');
                 }
                 
                 // 如果 HTML 解析失败，尝试纯文本解析
                 if (!agentLinkParsed) {
-                    console.log('AGENT LINK: Attempting text format parsing...');
+                    console.log('PS3838: Attempting text format parsing...');
                     agentLinkParsed = parseAgentLinkTableFormat(pastedData);
                     if (agentLinkParsed) {
-                        console.log('AGENT LINK: Text parsing successful -', agentLinkParsed.maxRows, 'rows x', agentLinkParsed.maxCols, 'cols');
+                        console.log('PS3838: Text parsing successful -', agentLinkParsed.maxRows, 'rows x', agentLinkParsed.maxCols, 'cols');
                     } else {
-                        console.log('AGENT LINK: Text parsing failed');
+                        console.log('PS3838: Text parsing failed');
                     }
                 }
                 
@@ -6966,7 +6966,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     const startCell = e.target;
                     const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                    // AGENT LINK 格式：强制从第一列（Column 1）开始粘贴
+                    // PS3838 格式：强制从第一列（Column 1）开始粘贴
                     const startCol = 0;
                     
                     const currentRows = document.querySelectorAll('#tableBody tr').length;
@@ -7022,16 +7022,16 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     if (successCount > 0) {
-                        showNotification(`Successfully pasted AGENT LINK data (${maxRows} rows x ${maxCols} cols)!`, 'success');
+                        showNotification(`Successfully pasted PS3838 data (${maxRows} rows x ${maxCols} cols)!`, 'success');
                     } else {
-                        showNotification('No cells were pasted from AGENT LINK format.', 'danger');
+                        showNotification('No cells were pasted from PS3838 format.', 'danger');
                     }
                     
                     setTimeout(updateSubmitButtonState, 0);
                     return;
                 } else {
-                    // AGENT LINK 模式下解析失败，给出提示但不阻止（让用户知道）
-                    console.log('AGENT LINK parser returned null, data may not match expected format');
+                    // PS3838 模式下解析失败，给出提示但不阻止（让用户知道）
+                    console.log('PS3838 parser returned null, data may not match expected format');
                     // 不 return，继续尝试其他解析器
                 }
             }
