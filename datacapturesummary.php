@@ -1159,8 +1159,11 @@ function getCurrentProcessId() {
                 }
                 
                 // If row_label is provided, find the row by both id_product and row_label
+                // CRITICAL: Always prioritize id_product matching over row_label/row_index
+                // This ensures correct data is read even when row positions change
                 let processRow = null;
                 let rowIndex = null;
+                let rowIndexIdProductMatches = false;
                 
                 if (rowLabel) {
                     // Find row by row_label first, then verify id_product matches
@@ -1180,43 +1183,49 @@ function getCurrentProcessId() {
                             console.log('getCellValueByIdProductAndColumn: Checking row', i, 'row_header:', JSON.stringify(rowHeaderTextTrimmed), 'rowLabel:', JSON.stringify(rowLabel), 'match:', rowHeaderTextTrimmed === rowLabel);
                             
                             // Check if row header matches rowLabel (case-sensitive)
-                                if (rowHeaderTextTrimmed === rowLabel) {
-                                    // Found row by label, now get the row index
-                                    // CRITICAL: Use row_label match - row_label is more reliable than id_product when there are multiple rows with same id_product
-                                    // The row index in DOM directly corresponds to the row index in parsedTableData
-                                    rowIndex = i;
-                                    console.log('getCellValueByIdProductAndColumn: Found row by row_label! rowIndex:', rowIndex, 'rowLabel:', rowLabel);
+                            if (rowHeaderTextTrimmed === rowLabel) {
+                                // Found row by label, now verify id_product matches
+                                rowIndex = i;
+                                console.log('getCellValueByIdProductAndColumn: Found row by row_label! rowIndex:', rowIndex, 'rowLabel:', rowLabel);
+                                
+                                // CRITICAL: Verify id_product matches - if not, ignore this rowIndex
+                                const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
+                                if (idProductCell) {
+                                    const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                                    const cellIdProduct = normalizeIdProductText(cellIdProductText);
+                                    const normalizedIdProduct = normalizeIdProductText(idProduct);
+                                    rowIndexIdProductMatches = (cellIdProduct === normalizedIdProduct);
+                                    console.log('getCellValueByIdProductAndColumn: Verified id_product - cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct, 'match:', rowIndexIdProductMatches);
                                     
-                                    // Optional: Verify id_product for logging (but don't require it)
-                                    const idProductCell = row.querySelector('td[data-column-index="1"]') || row.querySelector('td[data-col-index="1"]') || row.querySelectorAll('td')[1];
-                                    if (idProductCell) {
-                                        const cellIdProductText = idProductCell.textContent ? idProductCell.textContent.trim() : '';
-                                        const cellIdProduct = normalizeIdProductText(cellIdProductText);
-                                        const normalizedIdProduct = normalizeIdProductText(idProduct);
-                                        console.log('getCellValueByIdProductAndColumn: Verified id_product - cellIdProduct:', cellIdProduct, 'normalizedIdProduct:', normalizedIdProduct, 'match:', cellIdProduct === normalizedIdProduct);
-                                    } else {
-                                        console.log('getCellValueByIdProductAndColumn: idProductCell not found, but using row by row_label anyway (rowIndex:', rowIndex, ')');
+                                    if (!rowIndexIdProductMatches) {
+                                        console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch! rowLabel:', rowLabel, 'rowIndex:', rowIndex, 'expected id_product:', normalizedIdProduct, 'found id_product:', cellIdProduct, 'Will fallback to id_product search');
+                                        rowIndex = null; // Reset rowIndex if id_product doesn't match
                                     }
-                                    break;
+                                } else {
+                                    console.warn('getCellValueByIdProductAndColumn: idProductCell not found for row_label:', rowLabel, 'Will fallback to id_product search');
+                                    rowIndex = null; // Reset rowIndex if id_product cell not found
                                 }
+                                break;
+                            }
                         }
                     }
                     
-                    // If found row by label, use findProcessRow with rowIndex
-                    if (rowIndex !== null) {
-                        console.log('getCellValueByIdProductAndColumn: Using rowIndex:', rowIndex, 'for row_label:', rowLabel);
+                    // Only use rowIndex if id_product matches
+                    if (rowIndex !== null && rowIndexIdProductMatches) {
+                        console.log('getCellValueByIdProductAndColumn: Using rowIndex:', rowIndex, 'for row_label:', rowLabel, 'id_product matches');
                         processRow = findProcessRow(parsedTableData, idProduct, rowIndex);
                         console.log('getCellValueByIdProductAndColumn: Found row by row_label:', rowLabel, 'rowIndex:', rowIndex, 'id_product:', idProduct, 'processRow:', processRow ? 'found' : 'not found');
                     } else {
-                        console.warn('getCellValueByIdProductAndColumn: row_label not found:', rowLabel);
+                        console.warn('getCellValueByIdProductAndColumn: row_label found but id_product mismatch or row_label not found:', rowLabel, 'falling back to id_product search');
                     }
                 }
                 
-                // If row_label not provided or not found, fallback to original behavior
+                // CRITICAL: Always fallback to id_product search if row_label didn't yield a valid match
+                // This ensures correct data is read even when row positions change
                 if (!processRow) {
                     processRow = findProcessRow(parsedTableData, idProduct);
                     if (rowLabel) {
-                        console.warn('Row not found by row_label:', rowLabel, 'falling back to first matching row for id_product:', idProduct);
+                        console.warn('getCellValueByIdProductAndColumn: Row not found by row_label or id_product mismatch, falling back to first matching row for id_product:', idProduct);
                     }
                 }
                 
@@ -6673,9 +6682,9 @@ function getCurrentProcessId() {
             // Normalize the process value for comparison
             const normalizedProcessValue = normalizeIdProductText(processValue);
 
-            // If rowIndex is provided, try to use it first (for cases with multiple rows with same id_product)
-            // CRITICAL: When rowIndex is provided, we should use that row even if id_product doesn't match
-            // because the rowIndex was determined by row_label, which is more reliable
+            // CRITICAL: Always prioritize id_product matching over rowIndex
+            // If rowIndex is provided, verify that the row at that index matches the id_product
+            // If not, fallback to searching all rows by id_product
             if (rowIndex !== null && rowIndex >= 0 && rowIndex < tableData.rows.length) {
                 const row = tableData.rows[rowIndex];
                 if (row && row.length > 1 && row[1].type === 'data') {
@@ -6686,32 +6695,32 @@ function getCurrentProcessId() {
                         console.log('findProcessRow: Found row by rowIndex:', rowIndex, 'id_product matches:', processValue);
                         return row;
                     } else {
-                        // CRITICAL: Even if id_product doesn't match, if rowIndex was explicitly provided (from row_label),
-                        // we should still use this row because row_label is more reliable than id_product matching
-                        // This handles cases where the row might have been moved or id_product changed
-                        console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValue, 'Found:', rowValue, '. Using rowIndex anyway because it was determined by row_label.');
-                        return row;
+                        // CRITICAL: If id_product doesn't match, DO NOT use this row
+                        // Fallback to searching all rows by id_product instead
+                        // This ensures correct data is read even when row positions change
+                        console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but id_product mismatch. Expected:', processValue, 'Found:', rowValue, '. Falling back to id_product search.');
+                        // Continue to search all rows below
                     }
+                } else {
+                    console.warn('findProcessRow: rowIndex provided (', rowIndex, ') but row is invalid. Falling back to id_product search.');
                 }
             }
 
             // Look for the row where column A (index 1) matches the process value
-            // Only search all rows if rowIndex was not provided or was invalid
-            if (rowIndex === null || rowIndex < 0 || rowIndex >= tableData.rows.length) {
-                console.log('findProcessRow: rowIndex not provided or invalid, searching all rows for:', processValue);
-                for (let i = 0; i < tableData.rows.length; i++) {
-                    const row = tableData.rows[i];
-                    if (row.length > 1 && row[1].type === 'data') {
-                        const rowValue = row[1].value;
-                        if (rowValue === processValue) {
-                            console.log('findProcessRow: Found row at index:', i, 'by exact match');
-                            return row;
-                        }
-                        const normalizedRowValue = normalizeIdProductText(rowValue);
-                        if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
-                            console.log('findProcessRow: Found row at index:', i, 'by normalized match');
-                            return row;
-                        }
+            // This is the primary search method - always search by id_product to ensure correct match
+            console.log('findProcessRow: Searching all rows for id_product:', processValue);
+            for (let i = 0; i < tableData.rows.length; i++) {
+                const row = tableData.rows[i];
+                if (row.length > 1 && row[1].type === 'data') {
+                    const rowValue = row[1].value;
+                    if (rowValue === processValue) {
+                        console.log('findProcessRow: Found row at index:', i, 'by exact match');
+                        return row;
+                    }
+                    const normalizedRowValue = normalizeIdProductText(rowValue);
+                    if (normalizedRowValue && normalizedRowValue === normalizedProcessValue) {
+                        console.log('findProcessRow: Found row at index:', i, 'by normalized match');
+                        return row;
                     }
                 }
             }
