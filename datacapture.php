@@ -5799,8 +5799,8 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // API-RETURN 格式解析函数
-        // 解析格式：29/12/2025 C2BT200 MYR - - -2,953.02 0.00 -5,206.22 KING855 : (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225) - ZERO
-        // 输出：['29/12/2025', 'C2BT200', 'MYR', '-', '-', '-2,953.02', '0.00', '-5,206.22', 'KING855', ':', '11860.00', '138790.00*0.008', '138790.00', '0.001', '0.90', '0.225', '-', 'ZERO']
+        // 解析格式：KING855: (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)
+        // 输出：['KING855', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225']
         function parseApiReturnFormat(pastedData) {
             if (!pastedData || typeof pastedData !== 'string') return null;
             
@@ -5820,113 +5820,31 @@ if ($current_user_id && count($user_companies) > 0) {
             
             const result = [];
             
-            // 查找冒号位置，分割前后部分
+            // 1. 提取冒号前的标签（如 KING855）
             const colonIndex = trimmed.indexOf(':');
-            if (colonIndex === -1) return null;
-            
-            // 1. 处理冒号前的部分（普通的制表符分隔数据）
-            const beforeColon = trimmed.substring(0, colonIndex).trim();
-            const afterColon = trimmed.substring(colonIndex + 1).trim();
-            
-            // 分割冒号前的部分（使用制表符或多个空格）
-            const beforeParts = beforeColon.split(/\t+|\s{2,}/).filter(p => p.trim() !== '');
-            beforeParts.forEach(part => {
-                result.push(part.trim());
-            });
-            
-            // 添加冒号
-            result.push(':');
-            
-            // 2. 处理冒号后的公式部分
-            // 查找公式的开始和结束（最外层括号）
-            const formulaMatch = afterColon.match(/\(([^)]+(?:\([^)]*\)[^)]*)*)\)\s*\*\s*\(([^)]+)\)/);
-            
-            if (formulaMatch) {
-                // 提取主公式和最后的乘数
-                const mainFormula = formulaMatch[1]; // 例如：11860.00+138790.00*0.008+138790.00*0.001/0.90
-                const finalMultiplier = formulaMatch[2]; // 例如：0.225
-                
-                // 解析主公式，按 + 分割（在顶层）
-                const terms = [];
-                let currentTerm = '';
-                let depth = 0;
-                
-                for (let i = 0; i < mainFormula.length; i++) {
-                    const char = mainFormula[i];
-                    
-                    if (char === '(') {
-                        depth++;
-                        currentTerm += char;
-                    } else if (char === ')') {
-                        depth--;
-                        currentTerm += char;
-                    } else if (char === '+' && depth === 0) {
-                        // 顶层加号，分割
-                        if (currentTerm.trim()) {
-                            terms.push(currentTerm.trim());
-                        }
-                        currentTerm = '';
-                    } else {
-                        currentTerm += char;
-                    }
-                }
-                
-                if (currentTerm.trim()) {
-                    terms.push(currentTerm.trim());
-                }
-                
-                // 处理每个项
-                // 项的格式可能是：
-                // 1. 单个数字：11860.00
-                // 2. 乘法：138790.00*0.008（保持不变）
-                // 3. 复杂表达式：138790.00*0.001/0.90（拆分为 138790.00, 0.001, 0.90）
-                terms.forEach(term => {
-                    // 检查是否同时包含乘法和除法
-                    const hasMult = term.includes('*');
-                    const hasDiv = term.includes('/');
-                    
-                    if (hasMult && hasDiv) {
-                        // 复杂表达式，需要拆分
-                        // 例如：138790.00*0.001/0.90
-                        // 拆分为：138790.00, 0.001, 0.90
-                        const parts = term.split(/([*/])/);
-                        parts.forEach(part => {
-                            const trimmedPart = part.trim();
-                            if (trimmedPart && trimmedPart !== '*' && trimmedPart !== '/') {
-                                result.push(trimmedPart);
-                            }
-                        });
-                    } else if (hasMult && !hasDiv) {
-                        // 只有乘法，保持不变
-                        // 例如：138790.00*0.008
-                        result.push(term);
-                    } else {
-                        // 单个数字或其他简单表达式
-                        result.push(term);
-                    }
-                });
-                
-                // 添加最后的乘数
-                result.push(finalMultiplier);
-                
-                // 处理公式后的其他部分（如果有）
-                const afterFormula = afterColon.substring(formulaMatch[0].length).trim();
-                if (afterFormula) {
-                    const afterParts = afterFormula.split(/\t+|\s{2,}/).filter(p => p.trim() !== '');
-                    afterParts.forEach(part => {
-                        result.push(part.trim());
-                    });
-                }
-            } else {
-                // 如果没有匹配到标准公式格式，尝试简单提取数字
-                const numberPattern = /-?\d+(?:,\d{3})*(?:\.\d+)?/g;
-                const numbers = afterColon.match(numberPattern);
-                if (numbers) {
-                    numbers.forEach(num => result.push(num));
+            if (colonIndex > 0) {
+                const label = trimmed.substring(0, colonIndex).trim();
+                if (label) {
+                    result.push(label);
                 }
             }
             
-            // 如果至少提取到了数据，返回结果
+            // 2. 提取表达式部分（冒号后的内容）
+            const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
+            
+            // 3. 使用正则表达式提取所有数字（包括小数和负数）
+            // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
+            const numberPattern = /-?\d+\.\d+|-?\d+/g;
+            const numbers = expression.match(numberPattern);
+            
+            if (numbers && numbers.length > 0) {
+                // 将提取的数字添加到结果中
+                numbers.forEach(num => {
+                    result.push(num);
+                });
+            }
+            
+            // 如果至少提取到了标签或数字，返回结果
             if (result.length > 0) {
                 console.log('Parsed result:', result);
                 return {
