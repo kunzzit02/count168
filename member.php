@@ -1047,15 +1047,9 @@ $today = date('d/m/Y');
                             foreach ($linked_data as $row) {
                                 $linked_id = $row['linked_id'];
                                 if (!isset($visited[$linked_id])) {
-                                    // 对于双向连接，加入队列继续传播
+                                    // 只有双向连接才继续传播
                                     if ($row['link_type'] === 'bidirectional') {
                                         $queue[] = $linked_id;
-                                    } else if ($row['link_type'] === 'unidirectional' && isset($row['source_account_id']) && $row['source_account_id'] == $current_id) {
-                                        // 单向连接且当前账户是发起者，直接加入结果（不继续传播）
-                                        // 因为单向连接不应该继续传播，所以不加入队列
-                                        // 但需要确保这个账户被加入到结果中
-                                        $visited[$linked_id] = true;
-                                        $linked_account_ids[] = $linked_id;
                                     }
                                 }
                             }
