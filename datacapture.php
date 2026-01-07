@@ -4219,7 +4219,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 直接填充到表格
                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                const startCol = parseInt(startCell.dataset.col);
+                // VPOWER 格式：强制从第一列（Column 1）开始粘贴
+                let startCol = parseInt(startCell.dataset.col);
+                if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
+                    startCol = 0;
+                }
                 
                 // 扩展表格（如果需要）
                 const currentRows = document.querySelectorAll('#tableBody tr').length;
@@ -4262,7 +4266,17 @@ if ($current_user_id && count($user_companies) > 0) {
                                 if (trimmedData === '') {
                                     cell.textContent = '';
                                 } else {
-                                    const finalValue = trimmedData.toUpperCase();
+                                    // VPOWER 格式：第一列（User Name）转为大写，第二列（profit）保持原样
+                                    let finalValue = trimmedData;
+                                    if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
+                                        if (colIndex === 0) {
+                                            finalValue = trimmedData.toUpperCase();
+                                        } else {
+                                            finalValue = trimmedData;
+                                        }
+                                    } else {
+                                        finalValue = trimmedData.toUpperCase();
+                                    }
                                     cell.textContent = finalValue;
                                     successCount++;
                                 }
@@ -6235,7 +6249,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     const startCell = e.target;
                     const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                    const startCol = parseInt(startCell.dataset.col);
+                    // VPOWER 格式：强制从第一列（Column 1）开始粘贴，每行数据都从第一列开始
+                    const startCol = 0;
                     
                     const currentRows = document.querySelectorAll('#tableBody tr').length;
                     const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
@@ -6259,6 +6274,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (!tableRow) return;
                         
                         rowData.forEach((cellData, colIndex) => {
+                            // 每行数据都从第一列（Column 1）开始
                             const actualColIndex = startCol + colIndex;
                             const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
                             
