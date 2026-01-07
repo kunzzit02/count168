@@ -7240,10 +7240,55 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 如果所有单值行都像是数据，且总行数不多（可能是单行数据被分割），则合并
                         // 但只有当数据明显是单行被分割时（制表符行数量少于单值行数量）才合并
                         const totalDataRows = tabSeparatedRows.length + singleValueRows.length;
+                        
+                        // 检查制表符分隔的行是否包含行标识符（如JDW01, JDW02等）
+                        // 如果有多行制表符分隔的数据，且每行的第一列都是行标识符，说明是多行独立数据，不应该合并
+                        let hasMultipleTabRowsWithIdentifiers = false;
+                        if (tabSeparatedRows.length >= 2) {
+                            // 检查每行制表符分隔的数据的第一列是否是行标识符
+                            const rowIdentifiers = [];
+                            for (let i = 0; i < tabSeparatedRows.length; i++) {
+                                const row = tabSeparatedRows[i].row;
+                                const cells = row.split('\t').map(c => c.trim());
+                                if (cells.length > 0 && cells[0]) {
+                                    const firstCell = cells[0];
+                                    // 检查是否是行标识符格式（如JDW01, JDW02, BW876等）
+                                    // 格式：字母数字组合，长度3-10，通常以字母开头
+                                    if (/^[A-Z]{2,}[A-Z0-9]*\d*$/i.test(firstCell) && firstCell.length >= 3 && firstCell.length <= 10) {
+                                        rowIdentifiers.push(firstCell);
+                                    }
+                                }
+                            }
+                            // 如果有多行且每行的第一列都是行标识符，说明是多行独立数据
+                            if (rowIdentifiers.length >= 2 && rowIdentifiers.length === tabSeparatedRows.length) {
+                                hasMultipleTabRowsWithIdentifiers = true;
+                                console.log('Detected multiple tab-separated rows with row identifiers:', rowIdentifiers);
+                                console.log('Skipping merge to preserve multi-row structure');
+                            }
+                        }
+                        
+                        // 检查单值行中是否包含行标识符（如JDW01, JDW02等）
+                        // 如果单值行中包含行标识符，说明可能是多行数据被分割了，不应该合并
+                        let hasRowIdentifiersInSingleValues = false;
+                        if (singleValueRows.length > 0) {
+                            const identifiersInSingleValues = singleValueRows.filter(item => {
+                                const val = item.value.trim();
+                                // 检查是否是行标识符格式（如JDW01, JDW02, BW876等）
+                                return /^[A-Z]{2,}[A-Z0-9]*\d*$/i.test(val) && val.length >= 3 && val.length <= 10;
+                            });
+                            // 如果单值行中有2个或更多的行标识符，说明是多行数据，不应该合并
+                            if (identifiersInSingleValues.length >= 2) {
+                                hasRowIdentifiersInSingleValues = true;
+                                console.log('Detected row identifiers in single-value rows:', identifiersInSingleValues.map(item => item.value));
+                                console.log('Skipping merge to preserve multi-row structure');
+                            }
+                        }
+                        
                         // 修改条件：只有当制表符行数量明显少于单值行数量时，才认为是单行被分割
                         const isLikelySingleRowSplit = tabSeparatedRows.length < singleValueRows.length || 
                                                       (tabSeparatedRows.length === 1 && singleValueRows.length >= 2);
-                        if (allSingleValuesAreData && totalDataRows <= 10 && isLikelySingleRowSplit) {
+                        // 如果检测到多行制表符分隔的数据且每行都有行标识符，或者单值行中包含行标识符，不进行合并
+                        if (!hasMultipleTabRowsWithIdentifiers && !hasRowIdentifiersInSingleValues && allSingleValuesAreData && totalDataRows <= 10 && isLikelySingleRowSplit) {
                             // 收集所有需要合并的值（按原始顺序）
                             const allValues = [];
                             const allIndices = [];
