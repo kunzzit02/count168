@@ -28,18 +28,6 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token'])) {
     }
 }
 
-// 检查用户类型：dashboard 内容只给普通后台 user 使用
-$currentUserType = strtolower($_SESSION['user_type'] ?? '');
-if ($currentUserType !== 'user') {
-    // member 统一跳去 memberdashboard，其他类型直接回登录页
-    if ($currentUserType === 'member') {
-        header('Location: memberdashboard.php');
-    } else {
-        header('Location: index.php');
-    }
-    exit();
-}
-
 // 检查用户是否已登录
 if (isset($_SESSION['user_id'])) {
     // 检查session超时（如果没有remember me的话）
