@@ -1510,41 +1510,65 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function deleteColumn() {
-            if (currentColumnIndex === null) return;
-            
             const tableHeader = document.getElementById('tableHeader');
             const tableBody = document.getElementById('tableBody');
             if (!tableHeader || !tableBody) return;
 
             const headerRow = tableHeader.querySelector('tr');
-            const currentCols = headerRow.children.length - 1;
+            if (!headerRow) return;
             
-            if (currentCols <= 1) {
+            // Get all selected columns
+            const selectedHeaders = Array.from(headerRow.querySelectorAll('th.column-selected'));
+            if (selectedHeaders.length === 0) {
+                // If no columns are selected, use currentColumnIndex as fallback
+                if (currentColumnIndex === null) return;
+                selectedHeaders.push(headerRow.children[currentColumnIndex + 1]);
+            }
+            
+            // Get column indices from selected headers (from back to front for safe deletion)
+            const selectedIndices = selectedHeaders
+                .map(header => getColumnIndexFromHeader(header))
+                .filter(index => index >= 0)
+                .sort((a, b) => b - a); // Sort descending to delete from back to front
+            
+            if (selectedIndices.length === 0) return;
+            
+            const currentCols = headerRow.children.length - 1;
+            const remainingCols = currentCols - selectedIndices.length;
+            
+            if (remainingCols < 1) {
                 showNotification('Cannot delete the last column', 'danger');
                 hideContextMenu();
                 return;
             }
             
-            // Remove column header
-            const headerToRemove = headerRow.children[currentColumnIndex + 1];
-            if (headerToRemove) {
-                headerToRemove.remove();
-            }
-            
-            // Remove cells from each row
-            Array.from(tableBody.children).forEach(row => {
-                const cellToRemove = row.children[currentColumnIndex + 1];
-                if (cellToRemove) {
-                    cellToRemove.remove();
+            // Delete columns from back to front
+            selectedIndices.forEach(colIndex => {
+                // Remove column header
+                const headerToRemove = headerRow.children[colIndex + 1];
+                if (headerToRemove) {
+                    headerToRemove.remove();
                 }
                 
-                // Update dataset.col for remaining cells
-                for (let c = currentColumnIndex + 1; c < row.children.length - 1; c++) {
+                // Remove cells from each row
+                Array.from(tableBody.children).forEach(row => {
+                    const cellToRemove = row.children[colIndex + 1];
+                    if (cellToRemove) {
+                        cellToRemove.remove();
+                    }
+                });
+            });
+            
+            // Update dataset.col for all remaining cells
+            Array.from(tableBody.children).forEach(row => {
+                for (let c = 1; c < row.children.length - 1; c++) {
                     const cell = row.children[c];
                     if (cell && cell.contentEditable === 'true') {
                         const oldCol = parseInt(cell.dataset.col);
-                        if (!isNaN(oldCol) && oldCol > currentColumnIndex) {
-                            cell.dataset.col = oldCol - 1;
+                        if (!isNaN(oldCol)) {
+                            // Count how many deleted columns were before this column
+                            const deletedBefore = selectedIndices.filter(idx => idx < oldCol).length;
+                            cell.dataset.col = oldCol - deletedBefore;
                         }
                     }
                 }
@@ -1582,16 +1606,36 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function clearColumn() {
-            if (currentColumnIndex === null) return;
-            
+            const tableHeader = document.getElementById('tableHeader');
             const tableBody = document.getElementById('tableBody');
-            if (!tableBody) return;
+            if (!tableHeader || !tableBody) return;
+
+            const headerRow = tableHeader.querySelector('tr');
+            if (!headerRow) return;
             
-            Array.from(tableBody.children).forEach(row => {
-                const cell = row.children[currentColumnIndex + 1];
-                if (cell && cell.contentEditable === 'true') {
-                    cell.textContent = '';
-                }
+            // Get all selected columns
+            const selectedHeaders = Array.from(headerRow.querySelectorAll('th.column-selected'));
+            if (selectedHeaders.length === 0) {
+                // If no columns are selected, use currentColumnIndex as fallback
+                if (currentColumnIndex === null) return;
+                selectedHeaders.push(headerRow.children[currentColumnIndex + 1]);
+            }
+            
+            // Get column indices from selected headers
+            const selectedIndices = selectedHeaders
+                .map(header => getColumnIndexFromHeader(header))
+                .filter(index => index >= 0);
+            
+            if (selectedIndices.length === 0) return;
+            
+            // Clear all selected columns
+            selectedIndices.forEach(colIndex => {
+                Array.from(tableBody.children).forEach(row => {
+                    const cell = row.children[colIndex + 1];
+                    if (cell && cell.contentEditable === 'true') {
+                        cell.textContent = '';
+                    }
+                });
             });
             
             hideContextMenu();
@@ -1717,21 +1761,43 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function deleteRow() {
-            if (currentRowIndex === null) return;
-            
             const tableBody = document.getElementById('tableBody');
             if (!tableBody) return;
             
-            if (tableBody.children.length <= 1) {
+            // Get all selected rows
+            const selectedRowHeaders = Array.from(document.querySelectorAll('.row-header.row-selected'));
+            let selectedIndices = [];
+            
+            if (selectedRowHeaders.length === 0) {
+                // If no rows are selected, use currentRowIndex as fallback
+                if (currentRowIndex === null) return;
+                selectedIndices = [currentRowIndex];
+            } else {
+                // Get row indices from selected row headers (from back to front for safe deletion)
+                selectedIndices = selectedRowHeaders
+                    .map(rowHeader => getRowIndexFromHeader(rowHeader))
+                    .filter(index => index >= 0)
+                    .sort((a, b) => b - a); // Sort descending to delete from back to front
+            }
+            
+            if (selectedIndices.length === 0) return;
+            
+            const currentRows = tableBody.children.length;
+            const remainingRows = currentRows - selectedIndices.length;
+            
+            if (remainingRows < 1) {
                 showNotification('Cannot delete the last row', 'danger');
                 hideContextMenu();
                 return;
             }
             
-            const rowToRemove = tableBody.children[currentRowIndex];
-            if (rowToRemove) {
-                rowToRemove.remove();
-            }
+            // Delete rows from back to front
+            selectedIndices.forEach(rowIndex => {
+                const rowToRemove = tableBody.children[rowIndex];
+                if (rowToRemove) {
+                    rowToRemove.remove();
+                }
+            });
             
             // Update row header labels and rebind event handlers
             Array.from(tableBody.children).forEach((row, index) => {
@@ -1765,19 +1831,37 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function clearRow() {
-            if (currentRowIndex === null) return;
-            
             const tableBody = document.getElementById('tableBody');
             if (!tableBody) return;
             
-            const row = tableBody.children[currentRowIndex];
-            if (row) {
-                Array.from(row.children).forEach(cell => {
-                    if (cell && cell.contentEditable === 'true') {
-                        cell.textContent = '';
-                    }
-                });
+            // Get all selected rows
+            const selectedRowHeaders = Array.from(document.querySelectorAll('.row-header.row-selected'));
+            let selectedIndices = [];
+            
+            if (selectedRowHeaders.length === 0) {
+                // If no rows are selected, use currentRowIndex as fallback
+                if (currentRowIndex === null) return;
+                selectedIndices = [currentRowIndex];
+            } else {
+                // Get row indices from selected row headers
+                selectedIndices = selectedRowHeaders
+                    .map(rowHeader => getRowIndexFromHeader(rowHeader))
+                    .filter(index => index >= 0);
             }
+            
+            if (selectedIndices.length === 0) return;
+            
+            // Clear all selected rows
+            selectedIndices.forEach(rowIndex => {
+                const row = tableBody.children[rowIndex];
+                if (row) {
+                    Array.from(row.children).forEach(cell => {
+                        if (cell && cell.contentEditable === 'true') {
+                            cell.textContent = '';
+                        }
+                    });
+                }
+            });
             
             hideContextMenu();
             updateSubmitButtonState();
