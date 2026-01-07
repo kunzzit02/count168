@@ -185,17 +185,20 @@ function computeTemplateKey(array $row): string {
         $subId = trim((string)($row['id_product_sub'] ?? $row['id_product'] ?? ''));
         $description = trim((string)($row['description_sub'] ?? $row['description'] ?? ''));
         $accountId = trim((string)($row['account_id'] ?? ''));
+        // Include sub_order in template_key to distinguish multiple sub rows with same account
+        $subOrder = isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (string)$row['sub_order'] : '';
 
         if ($subId === '' && $parent === '') {
             $parent = 'sub';
         }
 
-        $keyParts = [$parent, $subId !== '' ? $subId : $parent, $description, $accountId];
+        // Include sub_order in key parts to make each sub row unique
+        $keyParts = [$parent, $subId !== '' ? $subId : $parent, $description, $accountId, $subOrder];
         $key = implode('::', array_map(static function ($part) {
             return trim((string)$part);
         }, $keyParts));
 
-        if ($key === '::::') {
+        if ($key === '::::' || $key === ':::::') {
             $key = 'sub-' . md5(json_encode($row));
         }
 
