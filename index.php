@@ -2,14 +2,9 @@
 session_start();
 require_once 'config.php';
 
-// 如果已经登录，根据用户类型跳转到对应首页
+// 如果已经登录，直接跳转到dashboard
 if (isset($_SESSION['user_id'])) {
-    $userType = strtolower($_SESSION['user_type'] ?? '');
-    if ($userType === 'member') {
-        header("Location: memberdashboard.php");
-    } else {
-        header("Location: dashboard.php");
-    }
+    header("Location: dashboard.php");
     exit();
 }
 
