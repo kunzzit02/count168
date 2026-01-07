@@ -4237,6 +4237,155 @@ if ($current_user_id && count($user_companies) > 0) {
         //   Row2:  空行
         //   Row3:  上线 MG 的一行（m99m06 / m06-KZ）
         //   Row4:  下线 PL 的一行（yong / yong）
+        // VPOWER格式解析：解析包含User Name和profit列的表格数据
+        function parseVPowerFormat(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            
+            let dataMatrix = [];
+            let headerIndex = -1;
+            let userNameColIndex = -1;
+            let profitColIndex = -1;
+            
+            // 先尝试解析HTML表格格式
+            if (pastedData.includes('<table') || pastedData.includes('<tr') || pastedData.includes('<td')) {
+                try {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = pastedData;
+                    const table = tempDiv.querySelector('table');
+                    
+                    if (table) {
+                        const rows = [];
+                        const allRows = table.querySelectorAll('tr');
+                        
+                        allRows.forEach(tr => {
+                            const row = [];
+                            const cells = tr.querySelectorAll('th, td');
+                            cells.forEach(cell => {
+                                const text = (cell.textContent || cell.innerText || '').trim();
+                                row.push(text);
+                            });
+                            if (row.length > 0) {
+                                rows.push(row);
+                            }
+                        });
+                        
+                        if (rows.length >= 2) {
+                            // 查找表头
+                            for (let i = 0; i < Math.min(3, rows.length); i++) {
+                                const headerCells = rows[i].map(c => c.toLowerCase());
+                                const userNameIndex = headerCells.findIndex(cell => 
+                                    cell.includes('user') && cell.includes('name')
+                                );
+                                const profitIndex = headerCells.findIndex(cell => 
+                                    cell === 'profit' || cell.includes('profit')
+                                );
+                                
+                                if (userNameIndex >= 0 && profitIndex >= 0) {
+                                    headerIndex = i;
+                                    userNameColIndex = userNameIndex;
+                                    profitColIndex = profitIndex;
+                                    dataMatrix = rows;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.log('HTML parsing failed, trying text format:', e);
+                }
+            }
+            
+            // 如果HTML解析失败，尝试文本格式
+            if (headerIndex === -1 || userNameColIndex === -1 || profitColIndex === -1) {
+                // 标准化换行符
+                const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                
+                if (lines.length < 2) return null; // 至少需要表头和数据行
+                
+                // 检测表头，查找包含"User Name"和"profit"的行
+                for (let i = 0; i < Math.min(5, lines.length); i++) {
+                    const headerCells = lines[i].split(/\t/).map(c => c.trim().toLowerCase());
+                    
+                    // 查找User Name列
+                    const userNameIndex = headerCells.findIndex(cell => 
+                        cell.includes('user') && cell.includes('name')
+                    );
+                    
+                    // 查找profit列
+                    const profitIndex = headerCells.findIndex(cell => 
+                        cell === 'profit' || cell.includes('profit')
+                    );
+                    
+                    if (userNameIndex >= 0 && profitIndex >= 0) {
+                        headerIndex = i;
+                        userNameColIndex = userNameIndex;
+                        profitColIndex = profitIndex;
+                        
+                        // 构建数据矩阵
+                        dataMatrix = lines.map(line => line.split(/\t/).map(c => c.trim()));
+                        break;
+                    }
+                }
+            }
+            
+            if (headerIndex === -1 || userNameColIndex === -1 || profitColIndex === -1) {
+                return null; // 未找到表头
+            }
+            
+            // 解析数据行（跳过表头）
+            const vpowerDataMatrix = [];
+            for (let i = headerIndex + 1; i < dataMatrix.length; i++) {
+                const cells = dataMatrix[i];
+                
+                // 检查是否是数据行（至少包含User Name和profit）
+                if (cells.length <= Math.max(userNameColIndex, profitColIndex)) {
+                    continue; // 跳过列数不足的行
+                }
+                
+                const userName = (cells[userNameColIndex] || '').trim();
+                const profit = (cells[profitColIndex] || '').trim();
+                
+                // 如果User Name和profit都为空，跳过这一行
+                if (!userName && !profit) {
+                    continue;
+                }
+                
+                // 构建VPOWER格式的数据行：9列
+                // Column 1: User Name (大写)
+                // Column 2: profit
+                // Column 3-5: "-"
+                // Column 6: "2" (第一行)
+                // Column 7: "1" (第一行)
+                // Column 8-9: 空
+                const vpowerRow = new Array(9).fill('');
+                vpowerRow[0] = userName.toUpperCase(); // Column 1: User Name (大写)
+                vpowerRow[1] = profit; // Column 2: profit
+                vpowerRow[2] = '-'; // Column 3
+                vpowerRow[3] = '-'; // Column 4
+                vpowerRow[4] = '-'; // Column 5
+                
+                // 第一行填充Column 6和7
+                if (vpowerDataMatrix.length === 0) {
+                    vpowerRow[5] = '2'; // Column 6
+                    vpowerRow[6] = '1'; // Column 7
+                }
+                // 其他行保持Column 6-9为空
+                
+                vpowerDataMatrix.push(vpowerRow);
+            }
+            
+            if (vpowerDataMatrix.length === 0) {
+                return null; // 没有有效数据
+            }
+            
+            return {
+                dataMatrix: vpowerDataMatrix,
+                maxRows: vpowerDataMatrix.length,
+                maxCols: 9
+            };
+        }
+
         function parseSimplePaymentReport(pastedData) {
             if (!pastedData || typeof pastedData !== 'string') return null;
             
@@ -6199,6 +6348,76 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
+            // VPOWER 专用解析（仅在 VPOWER 类型时启用）
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
+                const vpowerParsed = parseVPowerFormat(pastedData);
+                
+                if (vpowerParsed) {
+                    const { dataMatrix, maxRows, maxCols } = vpowerParsed;
+                    
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col);
+                    
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    
+                    const requiredRows = startRow + maxRows;
+                    const requiredCols = startCol + maxCols;
+                    
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    dataMatrix.forEach((rowData, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
+                        
+                        rowData.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: cellData
+                                });
+                                
+                                cell.textContent = cellData || '';
+                                if (cellData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+                    
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted VPOWER format (${successCount} cells, ${maxRows} rows x ${maxCols} cols)!`, 'success');
+                    } else {
+                        showNotification('No cells were pasted from VPOWER format.', 'danger');
+                    }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    return;
+                }
+            }
+            
             const loweredForDetect = (pastedData || '').toLowerCase();
             const isPaymentReportLike =
                 loweredForDetect.includes('downline payment') &&
@@ -6206,8 +6425,9 @@ if ($current_user_id && count($user_companies) > 0) {
 
             // 对于 Payment Report（包含 DOWNLINE PAYMENT / PROFIT/LOSS 的），
             // 强制走纯文本解析逻辑，避免 HTML 分支抢先处理导致无法做「只保留 MAJOR / 忽略 NO/LVL/MINOR」的特殊规则。
-            if (!isPaymentReportLike) {
-                // 只有在不是 Payment Report 的情况下，才尝试用 HTML 表格解析
+            // 对于 VPOWER 类型，也优先使用专用解析器
+            if (!isPaymentReportLike && typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType !== 'VPOWER') {
+                // 只有在不是 Payment Report 和 VPOWER 的情况下，才尝试用 HTML 表格解析
                 const htmlData = detectAndParseHTML(e);
                 if (htmlData) {
                     const startCell = e.target;
