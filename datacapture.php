@@ -6600,7 +6600,26 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 没有Grand Total行，使用原来的合并逻辑
                     // 如果存在包含制表符的行，且有很多单值行，可能是同一行数据被分割了
                     // 或者只有少量行（2-10行），且大部分是单值行，可能是同一行数据
-                    if (hasTabSeparatedRow && singleValueRows.length > 0) {
+                    
+                    // 检查是否所有非空行都包含制表符（标准表格格式）
+                    // 如果是标准表格格式，不应该合并，即使行数少于6行
+                    let allRowsAreTabSeparated = true;
+                    let nonEmptyRowCount = 0;
+                    for (let i = 0; i < rows.length; i++) {
+                        const row = rows[i].trim();
+                        if (row === '') continue;
+                        nonEmptyRowCount++;
+                        if (!row.includes('\t')) {
+                            allRowsAreTabSeparated = false;
+                            break;
+                        }
+                    }
+                    
+                    // 如果所有行都是制表符分隔的（标准表格格式），不进行合并
+                    // 这样可以保持少于6行的正常表格数据不被合并
+                    if (allRowsAreTabSeparated && nonEmptyRowCount > 0) {
+                        console.log('All rows are tab-separated (standard table format), skipping merge to preserve multi-row structure');
+                    } else if (hasTabSeparatedRow && singleValueRows.length > 0) {
                         // 检查单值行是否看起来像是数值或标识符（而不是独立的行）
                         const allSingleValuesAreData = singleValueRows.every(item => {
                             const val = item.value;
@@ -6611,8 +6630,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         });
                         
                         // 如果所有单值行都像是数据，且总行数不多（可能是单行数据被分割），则合并
+                        // 但只有当数据明显是单行被分割时（制表符行数量少于单值行数量）才合并
                         const totalDataRows = tabSeparatedRows.length + singleValueRows.length;
-                        if (allSingleValuesAreData && totalDataRows <= 10) {
+                        // 修改条件：只有当制表符行数量明显少于单值行数量时，才认为是单行被分割
+                        const isLikelySingleRowSplit = tabSeparatedRows.length < singleValueRows.length || 
+                                                      (tabSeparatedRows.length === 1 && singleValueRows.length >= 2);
+                        if (allSingleValuesAreData && totalDataRows <= 10 && isLikelySingleRowSplit) {
                             // 收集所有需要合并的值（按原始顺序）
                             const allValues = [];
                             const allIndices = [];
@@ -6674,7 +6697,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                    /^-?\d[\d,.-]*$/.test(val);
                         });
                         
-                        if (allValuesAreData && singleValueRows.length >= 3) {
+                        // 只有当数据明显是单行被分割时（所有值都是简单的数据，没有行标识符），才合并
+                        // 如果数据包含行标识符（如BW876, BW97等），说明是多行数据，不应该合并
+                        const hasRowIdentifiers = singleValueRows.some(item => {
+                            const val = item.value.trim();
+                            // 检查是否是行标识符格式（如BW876, BW97, BWGM等）
+                            return /^[A-Z]{2,}[A-Z0-9]*\d*$/i.test(val) && val.length >= 3 && val.length <= 10;
+                        });
+                        
+                        // 如果包含行标识符，说明是多行数据，不应该合并
+                        if (hasRowIdentifiers) {
+                            console.log('Detected row identifiers in data, skipping merge to preserve multi-row structure');
+                        } else if (allValuesAreData && singleValueRows.length >= 3) {
                             // 合并所有单值行成一行
                             const allValues = singleValueRows.map(item => item.value);
                             const mergedRow = allValues.join('\t');
