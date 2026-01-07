@@ -1003,9 +1003,7 @@ $today = date('d/m/Y');
                 }
                 
                 if ($has_account_link_table && $currentCompanyId > 0) {
-                    // 使用广度优先搜索找出所有关联的账户（考虑连接类型）
-                    // 双向连接：所有关联账户互相可见
-                    // 单向连接：只有发起连接的账户可以看到被连接的账户
+                    // 使用广度优先搜索找出所有关联的账户
                     $linked_account_ids = [];
                     $visited = [];
                     $queue = [$accountDbId];
@@ -1020,64 +1018,23 @@ $today = date('d/m/Y');
                         $visited[$current_id] = true;
                         $linked_account_ids[] = $current_id;
                         
-                        // 查找与当前账户直接关联的所有账户（考虑连接类型）
-                        // 双向连接：两个方向都可以
-                        // 单向连接：只有 source_account_id = current_id 的连接才可见（当前账户是发起者）
-                        // 检查 account_link 表是否有 link_type 字段（兼容旧数据）
-                        $check_column_stmt = $pdo->query("SHOW COLUMNS FROM account_link LIKE 'link_type'");
-                        $has_link_type = $check_column_stmt->rowCount() > 0;
+                        // 查找与当前账户直接关联的所有账户
+                        $stmt = $pdo->prepare("
+                            SELECT account_id_2 AS linked_id 
+                            FROM account_link 
+                            WHERE account_id_1 = ? AND company_id = ?
+                            UNION
+                            SELECT account_id_1 AS linked_id 
+                            FROM account_link 
+                            WHERE account_id_2 = ? AND company_id = ?
+                        ");
+                        $stmt->execute([$current_id, $currentCompanyId, $current_id, $currentCompanyId]);
+                        $linked_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
                         
-                        if ($has_link_type) {
-                            // 使用新的逻辑（考虑连接类型）
-                            $stmt = $pdo->prepare("
-                                SELECT account_id_2 AS linked_id, link_type, source_account_id
-                                FROM account_link 
-                                WHERE account_id_1 = ? AND company_id = ?
-                                AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
-                                UNION
-                                SELECT account_id_1 AS linked_id, link_type, source_account_id
-                                FROM account_link 
-                                WHERE account_id_2 = ? AND company_id = ?
-                                AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
-                            ");
-                            $stmt->execute([$current_id, $currentCompanyId, $current_id, $current_id, $currentCompanyId, $current_id]);
-                            $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                            
-                            // 将未访问的关联账户加入队列（只处理双向连接，单向连接不继续传播）
-                            foreach ($linked_data as $row) {
-                                $linked_id = $row['linked_id'];
-                                if (!isset($visited[$linked_id])) {
-                                    // 对于双向连接，加入队列继续传播
-                                    if ($row['link_type'] === 'bidirectional') {
-                                        $queue[] = $linked_id;
-                                    } else if ($row['link_type'] === 'unidirectional' && isset($row['source_account_id']) && $row['source_account_id'] == $current_id) {
-                                        // 单向连接且当前账户是发起者，直接加入结果（不继续传播）
-                                        // 因为单向连接不应该继续传播，所以不加入队列
-                                        // 但需要确保这个账户被加入到结果中
-                                        $visited[$linked_id] = true;
-                                        $linked_account_ids[] = $linked_id;
-                                    }
-                                }
-                            }
-                        } else {
-                            // 兼容旧数据（没有 link_type 字段，默认为双向）
-                            $stmt = $pdo->prepare("
-                                SELECT account_id_2 AS linked_id 
-                                FROM account_link 
-                                WHERE account_id_1 = ? AND company_id = ?
-                                UNION
-                                SELECT account_id_1 AS linked_id 
-                                FROM account_link 
-                                WHERE account_id_2 = ? AND company_id = ?
-                            ");
-                            $stmt->execute([$current_id, $currentCompanyId, $current_id, $currentCompanyId]);
-                            $linked_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
-                            
-                            // 将未访问的关联账户加入队列
-                            foreach ($linked_ids as $linked_id) {
-                                if (!isset($visited[$linked_id])) {
-                                    $queue[] = $linked_id;
-                                }
+                        // 将未访问的关联账户加入队列
+                        foreach ($linked_ids as $linked_id) {
+                            if (!isset($visited[$linked_id])) {
+                                $queue[] = $linked_id;
                             }
                         }
                     }
