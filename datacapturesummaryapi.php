@@ -262,6 +262,9 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     $formulaDisplay = $row['formula_display'] ?? '';
     $batchSelection = isset($row['batch_selection']) ? (int)$row['batch_selection'] : 0;
     
+    // Get sub_order for sub rows (used to distinguish multiple sub rows with same account)
+    $subOrder = isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (float)$row['sub_order'] : null;
+    
     // 如果提供了 template_id，优先使用它来查找现有模板（编辑模式）
     $templateId = isset($row['template_id']) && !empty($row['template_id']) ? (int)$row['template_id'] : null;
     
@@ -294,6 +297,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     if ($formulaVariant === null) {
         // First, try to find existing template with same id_product, account_id, batch_selection, AND formula_display
         // This handles the case where the same formula is being updated
+        // For sub rows, also check sub_order to distinguish multiple sub rows with same account
         if ($productType === 'sub') {
             $existingTemplateStmt = $pdo->prepare("
                 SELECT formula_variant FROM data_capture_templates 
@@ -305,6 +309,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                   AND account_id = :account_id
                   AND batch_selection = :batch_selection
                   AND COALESCE(formula_display, '') = COALESCE(:formula_display, '')
+                  AND (COALESCE(sub_order, 0) = COALESCE(:sub_order, 0))
                   AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
                 ORDER BY updated_at DESC
                 LIMIT 1
@@ -316,7 +321,8 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 ':id_product' => $row['id_product'],
                 ':account_id' => $row['account_id'],
                 ':batch_selection' => $batchSelection,
-                ':formula_display' => $formulaDisplay
+                ':formula_display' => $formulaDisplay,
+                ':sub_order' => $subOrder
             ];
             
             if ($hasProcessId) {
@@ -367,6 +373,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             // No existing template with same formula_display found
             // Find the next available formula_variant for this id_product and account_id
             // This allows multiple rows with same id_product and account_id but different formulas
+            // For sub rows, also consider sub_order to distinguish multiple sub rows with same account
             if ($productType === 'sub') {
                 $maxVariantStmt = $pdo->prepare("
                     SELECT MAX(formula_variant) as max_variant FROM data_capture_templates 
@@ -376,6 +383,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                       AND COALESCE(parent_id_product, '') = COALESCE(:parent_id_product, '')
                       AND COALESCE(id_product, '') = COALESCE(:id_product, '')
                       AND account_id = :account_id
+                      AND (COALESCE(sub_order, 0) = COALESCE(:sub_order, 0))
                       AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
                 ");
                 
@@ -383,7 +391,8 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                     ':company_id' => $companyId,
                     ':parent_id_product' => $parentIdProduct,
                     ':id_product' => $row['id_product'],
-                    ':account_id' => $row['account_id']
+                    ':account_id' => $row['account_id'],
+                    ':sub_order' => $subOrder
                 ];
                 
                 if ($hasProcessId) {
@@ -446,7 +455,8 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     // 如果没有通过 template_id 找到记录，使用原来的逻辑查找
     if (!$existingRecord) {
         if ($productType === 'sub') {
-            // For sub type, check by parent_id_product, id_product, account_id, formula_variant, process_id, data_capture_id
+            // For sub type, check by parent_id_product, id_product, account_id, formula_variant, sub_order, process_id, data_capture_id
+            // sub_order is used to distinguish multiple sub rows with same account
             $checkStmt = $pdo->prepare("
                 SELECT id FROM data_capture_templates 
                 WHERE company_id = :company_id
@@ -456,6 +466,7 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                   AND COALESCE(id_product, '') = COALESCE(:id_product, '')
                   AND account_id = :account_id
                   AND formula_variant = :formula_variant
+                  AND (COALESCE(sub_order, 0) = COALESCE(:sub_order, 0))
                   AND data_capture_id " . ($dataCaptureId ? "= :data_capture_id" : "IS NULL") . "
                 LIMIT 1
             ");
@@ -465,7 +476,8 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
                 ':parent_id_product' => $parentIdProduct,
                 ':id_product' => $row['id_product'],
                 ':account_id' => $row['account_id'],
-                ':formula_variant' => $formulaVariant
+                ':formula_variant' => $formulaVariant,
+                ':sub_order' => $subOrder
             ];
             
             if ($hasProcessId) {
@@ -811,16 +823,19 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                     'allMains' => [] // Store all main templates for this parent
                 ];
             }
-            // Check for duplicate sub templates (same id_product, account_id, batch_selection, AND formula_variant)
-            // Only remove duplicates if ALL these fields match, including formula_variant
-            // This allows multiple sub rows with same account but different formulas (different formula_variant)
+            // Check for duplicate sub templates (same id_product, account_id, batch_selection, formula_variant, AND sub_order)
+            // Only remove duplicates if ALL these fields match, including formula_variant and sub_order
+            // This allows multiple sub rows with same account but different sub_order or different formulas
             $isDuplicate = false;
+            $currentSubOrder = isset($row['sub_order']) && $row['sub_order'] !== null ? (float)$row['sub_order'] : null;
             foreach ($templates[$parentId]['subs'] as $index => $existingSub) {
+                $existingSubOrder = isset($existingSub['sub_order']) && $existingSub['sub_order'] !== null ? (float)$existingSub['sub_order'] : null;
                 if ($existingSub['id_product'] === $row['id_product'] 
                     && $existingSub['account_id'] === $row['account_id']
                     && (int)$existingSub['batch_selection'] === (int)$row['batch_selection']
-                    && (int)($existingSub['formula_variant'] ?? 1) === (int)($row['formula_variant'] ?? 1)) {
-                    // Found duplicate (same id_product, account_id, batch_selection, AND formula_variant)
+                    && (int)($existingSub['formula_variant'] ?? 1) === (int)($row['formula_variant'] ?? 1)
+                    && (($existingSubOrder === null && $currentSubOrder === null) || ($existingSubOrder !== null && $currentSubOrder !== null && abs($existingSubOrder - $currentSubOrder) < 0.0001))) {
+                    // Found duplicate (same id_product, account_id, batch_selection, formula_variant, AND sub_order)
                     // Keep the one with latest updated_at
                     $existingUpdated = $existingSub['updated_at'] ?? '';
                     $currentUpdated = $row['updated_at'] ?? '';
