@@ -8179,6 +8179,7 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 检查是否有"Total"或"TOTAL"在数据中，以及它的位置
             let totalIndex = -1;
+            let totalRowIndex = -1; // Total行在分组后的行索引
             for (let i = 0; i < allCells.length; i++) {
                 const cell = (allCells[i] || '').trim().toUpperCase();
                 if (cell === 'TOTAL') {
@@ -8462,6 +8463,27 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
+                // 特殊处理：如果检测到Total行（不在第一行），优先尝试18列
+                // 这样可以确保Total行保持完整
+                if (totalIndex >= 0 && totalIndex > 0 && !isTotalRow) {
+                    // 尝试使用18列，检查Total行是否完整
+                    const testCols18 = 18;
+                    const testRows18 = Math.ceil(allCells.length / testCols18);
+                    const testTotalRowIndex18 = Math.floor(totalIndex / testCols18);
+                    const testTotalColInRow18 = totalIndex % testCols18;
+                    
+                    // 如果使用18列，Total能在第一列或合理位置，优先使用18列
+                    if (testTotalColInRow18 === 0 || (testTotalRowIndex18 < testRows18 && testRows18 <= 10)) {
+                        console.log(`Detected Total row at index ${totalIndex}, prioritizing 18 columns for proper Total row alignment`);
+                        // 如果18列能整除或剩余很少，直接使用18列
+                        const remainder18 = allCells.length % testCols18;
+                        if (remainder18 === 0 || remainder18 / testCols18 < 0.1) {
+                            detectedColumns = testCols18;
+                            console.log(`Using 18 columns (Total at row ${testTotalRowIndex18 + 1}, col ${testTotalColInRow18 + 1}, remainder: ${remainder18})`);
+                        }
+                    }
+                }
+                
                 // 先尝试常见的列数（15-20列），看看对应的行数是否合理
                 // 优先尝试18列（因为原始表格是A到R，18列）
                 // 但如果已经检测到单行Total数据，跳过这一步
@@ -8469,8 +8491,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 let bestMatch = { cols: 0, rows: 0, score: 0, remainder: Infinity };
                 
                 // 如果已经检测到单行Total数据且找到了合适的列数，跳过常见列数检测
-                if (isTotalRow && detectedColumns > 0 && Math.ceil(allCells.length / detectedColumns) === 1) {
-                    console.log('Skipping common column detection, using single-row Total layout');
+                // 或者如果已经因为Total行选择了18列，也跳过
+                if ((isTotalRow && detectedColumns > 0 && Math.ceil(allCells.length / detectedColumns) === 1) ||
+                    (totalIndex >= 0 && detectedColumns === 18)) {
+                    if (detectedColumns === 18) {
+                        console.log('Skipping common column detection, using 18 columns for Total row alignment');
+                    } else {
+                        console.log('Skipping common column detection, using single-row Total layout');
+                    }
                 } else {
                 
                 for (let cols of commonColumnCounts) {
@@ -8674,6 +8702,68 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('Cells used:', cellsUsed, 'out of', totalCells);
                     console.log('First row (length:', dataMatrix[0]?.length, '):', dataMatrix[0]);
                     console.log('First row last column:', dataMatrix[0]?.[estimatedColumns - 1]);
+                    
+                    // 识别Total行在dataMatrix中的位置
+                    if (totalIndex >= 0) {
+                        totalRowIndex = Math.floor(totalIndex / estimatedColumns);
+                        const totalColInRow = totalIndex % estimatedColumns;
+                        console.log(`Total found at cell index ${totalIndex}, which is row ${totalRowIndex + 1}, col ${totalColInRow + 1} in grouped matrix`);
+                        
+                        // 检查Total行是否完整：Total应该在行的第一列
+                        // 如果Total不在行的第一列，可能需要调整列数
+                        if (totalRowIndex >= 0 && totalRowIndex < dataMatrix.length) {
+                            const totalRow = dataMatrix[totalRowIndex];
+                            const firstCellInTotalRow = (totalRow[0] || '').trim().toUpperCase();
+                            
+                            // 如果Total不在第一列，且第一列不是Total，尝试使用18列重新分组
+                            if (totalColInRow !== 0 && firstCellInTotalRow !== 'TOTAL') {
+                                console.warn(`Total is not in first column of row ${totalRowIndex + 1} (col ${totalColInRow + 1}), trying 18 columns to fix...`);
+                                
+                                // 尝试使用18列重新分组
+                                const testCols = 18;
+                                const testRows = Math.ceil(totalCells / testCols);
+                                const testTotalRowIndex = Math.floor(totalIndex / testCols);
+                                const testTotalColInRow = totalIndex % testCols;
+                                
+                                // 如果使用18列，Total能在第一列，则使用18列
+                                if (testTotalColInRow === 0 || (testTotalRowIndex < testRows && testTotalRowIndex >= 0)) {
+                                    console.log(`Switching to ${testCols} columns: Total will be at row ${testTotalRowIndex + 1}, col ${testTotalColInRow + 1}`);
+                                    estimatedColumns = testCols;
+                                    
+                                    // 重新分组
+                                    dataMatrix = [];
+                                    for (let row = 0; row < testRows; row++) {
+                                        const rowData = [];
+                                        for (let col = 0; col < testCols; col++) {
+                                            const index = row * testCols + col;
+                                            if (index < totalCells) {
+                                                rowData.push(allCells[index] || '');
+                                            } else {
+                                                rowData.push('');
+                                            }
+                                        }
+                                        dataMatrix.push(rowData);
+                                    }
+                                    totalRowIndex = testTotalRowIndex;
+                                    console.log(`Regrouped with ${testCols} columns: ${dataMatrix.length} rows`);
+                                    
+                                    // 验证重新分组后的Total行
+                                    if (totalRowIndex >= 0 && totalRowIndex < dataMatrix.length) {
+                                        const newTotalRow = dataMatrix[totalRowIndex];
+                                        const newFirstCell = (newTotalRow[0] || '').trim().toUpperCase();
+                                        if (newFirstCell === 'TOTAL') {
+                                            console.log(`✓ Total is now correctly in row ${totalRowIndex + 1}, column 1`);
+                                        } else {
+                                            console.warn(`⚠ Total still not in first column after regrouping (found "${newFirstCell}")`);
+                                        }
+                                    }
+                                }
+                            } else if (totalColInRow === 0 || firstCellInTotalRow === 'TOTAL') {
+                                console.log(`✓ Total is correctly positioned in row ${totalRowIndex + 1}, column ${totalColInRow + 1}`);
+                            }
+                        }
+                    }
+                    
                     if (dataMatrix.length > 1) {
                         console.log('Second row (length:', dataMatrix[1]?.length, '):', dataMatrix[1]);
                         console.log('Second row first column:', dataMatrix[1]?.[0]);
@@ -8684,6 +8774,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const secondRowFirstCol = (dataMatrix[1]?.[0] || '').trim().toUpperCase();
                         if (secondRowFirstCol === 'TOTAL') {
                             console.log('✓ Total is correctly in Row 2, Column A');
+                            totalRowIndex = 1; // 确保记录Total行索引
                         } else if (secondRowFirstCol !== '') {
                             console.warn(`⚠ Total is NOT in Row 2, Column A. Found "${secondRowFirstCol}" instead.`);
                             // 尝试查找Total在哪里
@@ -8691,6 +8782,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 const cell = (dataMatrix[1]?.[col] || '').trim().toUpperCase();
                                 if (cell === 'TOTAL') {
                                     console.warn(`  Total is at Row 2, Column ${String.fromCharCode(65 + col)} (index ${col})`);
+                                    totalRowIndex = 1; // 记录Total行索引
                                     break;
                                 }
                             }
@@ -8699,6 +8791,15 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (dataMatrix.length > 2) {
                         console.log('Third row (length:', dataMatrix[2]?.length, '):', dataMatrix[2]);
                         console.log('Third row last column:', dataMatrix[2]?.[estimatedColumns - 1]);
+                        // 检查第三行是否包含Total
+                        for (let col = 0; col < Math.min(dataMatrix[2].length, 10); col++) {
+                            const cell = (dataMatrix[2]?.[col] || '').trim().toUpperCase();
+                            if (cell === 'TOTAL') {
+                                totalRowIndex = 2; // 记录Total行索引
+                                console.log(`  Total found in Row 3, Column ${String.fromCharCode(65 + col)}`);
+                                break;
+                            }
+                        }
                     }
                     
                     // 验证：检查最后一列是否有数据
@@ -9010,9 +9111,16 @@ if ($current_user_id && count($user_companies) > 0) {
             
                     // 处理每一行：如果第一列不是标识符（或为空），且后面有标识符列，则向左移动
             // 但是，如果数据已经正确分组（第一列是正确的），就不要移动
+            // 特殊处理：跳过Total行的列偏移，保持Total行的原始格式
             for (let rowIndex = 0; rowIndex < dataMatrix.length; rowIndex++) {
                 const row = dataMatrix[rowIndex];
                 if (!row || row.length === 0) continue;
+                
+                // 如果这是Total行，跳过列偏移处理，保持原始格式
+                if (totalRowIndex >= 0 && rowIndex === totalRowIndex) {
+                    console.log(`  Row ${rowIndex + 1}: This is the TOTAL row, skipping column shift to preserve original format`);
+                    continue;
+                }
                 
                 const firstColValue = (row[0] || '').trim();
                 const isEmpty = firstColValue === '';
