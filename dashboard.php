@@ -2,6 +2,12 @@
 session_start();
 require_once 'config.php'; // 使用统一的数据库配置
 
+// 不允许 member 用户访问 dashboard，只能访问 memberdashboard
+if (isset($_SESSION['user_type']) && strtolower($_SESSION['user_type']) === 'member') {
+    header('Location: memberdashboard.php');
+    exit();
+}
+
 // 超时时间（秒）
 define('SESSION_TIMEOUT', 3600); // 1小时
 

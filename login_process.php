@@ -98,7 +98,8 @@ try {
             $stmt = $pdo->prepare("UPDATE account SET last_login = NOW() WHERE id = ?");
             $stmt->execute([$account['id']]);
 
-            echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
+            // member 登录后跳转到专属首页
+            echo json_encode(['status' => 'success', 'redirect' => 'memberdashboard.php']);
             exit;
         } else {
             echo json_encode(['status' => 'error', 'message' => 'Account ID, Company ID or password is incorrect']);
