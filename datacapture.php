@@ -5799,8 +5799,17 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // API-RETURN 格式解析函数
-        // 解析格式：KING855: (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)
-        // 输出：['KING855', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225']
+        // 兼容两种输入：
+        // A) 仅描述列：KING855: (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)
+        // B) 整行（示例）：
+        //    29/12/2025 C2BT200 MYR - - -2,953.02 0.00 -5,206.22 KING855: (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225) - ZERO
+        // 解析规则：
+        //  - 冒号前的内容：保留为原始 token 列；但真正的 label 取冒号前最后一个 token（如 KING855）
+        //  - 冒号后的表达式：按 ()+-*/ 拆分，提取所有数字作为多列；同时保留表达式后续的非数值 token（如 '-'、'ZERO'）
+        // 输出（示例B）：[
+        //   '29/12/2025','C2BT200','MYR','-','-','-2,953.02','0.00','-5,206.22',
+        //   'KING855','11860.00','138790.00','0.008','138790.00','0.001','0.90','0.225','-','ZERO'
+        // ]
         function parseApiReturnFormat(pastedData) {
             if (!pastedData || typeof pastedData !== 'string') return null;
             
@@ -5808,10 +5817,8 @@ if ($current_user_id && count($user_companies) > 0) {
             const trimmed = pastedData.trim();
             if (!trimmed) return null;
             
-            // 检查是否包含冒号和运算符（API-RETURN 格式的特征）
-            if (!trimmed.includes(':') || 
-                (!trimmed.includes('(') && !trimmed.includes('+') && !trimmed.includes('-') && 
-                 !trimmed.includes('*') && !trimmed.includes('/'))) {
+            // 仅在存在冒号时解析（当前类型已限定为 API-RETURN，放宽对运算符的判断）
+            if (!trimmed.includes(':')) {
                 return null;
             }
             
@@ -5820,28 +5827,58 @@ if ($current_user_id && count($user_companies) > 0) {
             
             const result = [];
             
-            // 1. 提取冒号前的标签（如 KING855）
+            // 1) 定位第一个冒号（视为描述列的起点）
             const colonIndex = trimmed.indexOf(':');
-            if (colonIndex > 0) {
-                const label = trimmed.substring(0, colonIndex).trim();
-                if (label) {
-                    result.push(label);
+            const before = colonIndex > -1 ? trimmed.substring(0, colonIndex).trim() : '';
+            const after = colonIndex > -1 ? trimmed.substring(colonIndex + 1).trim() : '';
+            
+            // 2) 处理冒号前的 token：保留全部，但把真正 label 识别为最后一个 token
+            if (before) {
+                const beforeTokens = before.split(/\s+/).filter(t => t.length > 0);
+                if (beforeTokens.length > 0) {
+                    // 先保留除最后一个之外的所有前置列（如 日期/产品/币种/.../余额）
+                    if (beforeTokens.length > 1) {
+                        result.push(...beforeTokens.slice(0, -1));
+                    }
+                    // 最后一个 token 作为 label
+                    const rawLabel = beforeTokens[beforeTokens.length - 1];
+                    const cleanLabel = rawLabel.replace(/[:：]$/, '');
+                    if (cleanLabel) {
+                        result.push(cleanLabel);
+                    }
                 }
             }
             
-            // 2. 提取表达式部分（冒号后的内容）
-            const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
+            // 3) 提取表达式部分（冒号后的内容）
+            const expression = after;
             
-            // 3. 使用正则表达式提取所有数字（包括小数和负数）
-            // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
-            const numberPattern = /-?\d+\.\d+|-?\d+/g;
+            // 4) 使用正则表达式提取所有数字（包括负数和千分位，支持 11860、11860.00、-2,953.02）
+            const numberPattern = /-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+\.\d+|-?\d+/g;
             const numbers = expression.match(numberPattern);
             
             if (numbers && numbers.length > 0) {
-                // 将提取的数字添加到结果中
+                // 将提取的数字添加到结果中（保持原样）
                 numbers.forEach(num => {
                     result.push(num);
                 });
+            }
+            
+            // 5) 提取表达式后的尾部非数值 token（例如 '-'、'ZERO'）
+            //    先按空格拆分，过滤掉数字与包含运算符的片段，只保留纯单词或单独的连字符 '-'
+            if (expression) {
+                const tailTokens = expression
+                    .split(/\s+/)
+                    .filter(tok => tok.length > 0)
+                    .filter(tok => {
+                        // 排除包含运算符/括号的
+                        if (/[()+\-*/]/.test(tok) && tok !== '-') return false;
+                        // 排除数字
+                        if (/^-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$/.test(tok) || /^-?\d+(?:\.\d+)?$/.test(tok)) return false;
+                        return true;
+                    });
+                if (tailTokens.length > 0) {
+                    result.push(...tailTokens);
+                }
             }
             
             // 如果至少提取到了标签或数字，返回结果
