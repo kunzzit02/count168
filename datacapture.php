@@ -4232,7 +4232,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const requiredCols = startCol + maxCols;
                 
                 if (requiredRows > currentRows || requiredCols > currentCols) {
-                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
                     const targetCols = Math.max(currentCols, requiredCols);
                     initializeTable(targetRows, targetCols);
                 }
@@ -6413,7 +6413,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const requiredCols = startCol + maxCols;
                     
                     if (requiredRows > currentRows || requiredCols > currentCols) {
-                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
                         const targetCols = Math.max(currentCols, requiredCols);
                         initializeTable(targetRows, targetCols);
                     }
@@ -6499,7 +6499,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const requiredCols = startCol + maxCols;
 
                 if (requiredRows > currentRows || requiredCols > currentCols) {
-                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
                     const targetCols = Math.max(currentCols, requiredCols);
                     initializeTable(targetRows, targetCols);
                 }
@@ -6679,7 +6679,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const requiredCols = startCol + maxCols;
 
                 if (requiredRows > currentRows || requiredCols > currentCols) {
-                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
                     const targetCols = Math.max(currentCols, requiredCols);
                     initializeTable(targetRows, targetCols);
                 }
@@ -6752,7 +6752,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
                 if (requiredRows > currentRows || requiredCols > currentCols) {
                     console.log('Full payment paste: expanding table. Current:', currentRows, 'x', currentCols, 'Required:', requiredRows, 'x', requiredCols);
-                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
                     const targetCols = Math.max(currentCols, requiredCols);
                     initializeTable(targetRows, targetCols);
                 }
@@ -6826,7 +6826,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (requiredRows > currentRows || requiredCols > currentCols) {
                     console.log('Simple payment paste: expanding table. Current:', currentRows, 'x', currentCols, 'Required:', requiredRows, 'x', requiredCols);
-                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 50));
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
                     const targetCols = Math.max(currentCols, requiredCols);
                     initializeTable(targetRows, targetCols);
                 }
@@ -8313,8 +8313,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 for (let cols of commonColumnCounts) {
                     const rows = Math.ceil(allCells.length / cols);
-                    // 行数应该在合理范围内（2-50行）
-                    if (rows >= 2 && rows <= 50) {
+                    // 行数应该在合理范围内（2-702行，支持到ZZ）
+                    if (rows >= 2 && rows <= 702) {
                         const remainder = allCells.length % cols;
                         const expectedCells = rows * cols;
                         
@@ -8425,7 +8425,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const remainderRatio = remainder / cols;
                         
                         // 如果能整除，优先选择
-                        if (remainder === 0 && rows >= 2 && rows <= 50) {
+                        if (remainder === 0 && rows >= 2 && rows <= 702) {
                             const score = 1000 + (cols === 18 ? 100 : cols === 20 ? 90 : 0); // 18列和20列额外加分
                             if (score > bestDivisibleScore) {
                                 bestDivisibleCols = cols;
@@ -8433,7 +8433,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                         // 如果剩余很少（<5%），也考虑
-                        else if (remainderRatio < 0.05 && rows >= 2 && rows <= 50) {
+                        else if (remainderRatio < 0.05 && rows >= 2 && rows <= 702) {
                             const score = (1 - remainderRatio) * 100 + (cols === 18 ? 10 : cols === 20 ? 9 : 0);
                             if (score > bestDivisibleScore && bestDivisibleCols === null) {
                                 bestDivisibleCols = cols;
@@ -9152,7 +9152,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (requiredRows > currentRows || requiredCols > currentCols) {
                 console.log('Table needs expansion. Current:', currentRows, 'x', currentCols, 'Required:', requiredRows, 'x', requiredCols);
                 console.log('maxCols from dataMatrix:', maxCols, 'startCol:', startCol, 'requiredCols:', requiredCols);
-                const targetRows = Math.max(currentRows, Math.min(requiredRows, 50)); // 限制最大50行
+                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // 限制最大702行 (ZZ)
                 const targetCols = Math.max(currentCols, requiredCols);
                 console.log('Expanding table to:', targetRows, 'x', targetCols);
                 initializeTable(targetRows, targetCols);
@@ -9383,7 +9383,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     } else {
                         // 如果到达最后一行，添加新行（但限制最大行数）
                         const currentRows = table.children.length;
-                        if (currentRows < 50) { // 限制最大50行
+                        if (currentRows < 702) { // 限制最大702行 (ZZ)
                             // Use addNewRow function instead of initializeTable to preserve existing data
                             const newRowIndex = addNewRow();
                             if (newRowIndex !== null) {
