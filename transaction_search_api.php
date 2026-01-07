@@ -598,18 +598,18 @@ if (!empty($target_account_ids)) {
         return strcmp($a['account_id'], $b['account_id']);
     });
     
-    // 如果 hide_zero_balance 为 true，过滤掉 win_loss 为 0 且 balance 也为 0 的记录
+    // 如果 hide_zero_balance 为 true，过滤掉 win_loss 为 0 的记录
+    // 只有当勾选 "Show 0 balance" 时才显示 win_loss 为 0 的账户
     if ($hide_zero_balance) {
         $results = array_filter($results, function($row) {
             $win_loss = (float)$row['win_loss'];
-            $balance = (float)$row['balance'];
             
-            // 如果 win_loss 为 0 且 balance 也为 0（或接近 0），则过滤掉
-            if (abs($win_loss) <= 0.00001 && abs($balance) <= 0.00001) {
+            // 如果 win_loss 为 0（或接近 0），则过滤掉
+            if (abs($win_loss) <= 0.00001) {
                 return false;
             }
             
-            // 其他情况保留（win_loss 不为 0 或 balance 不为 0）
+            // win_loss 不为 0，保留
             return true;
         });
         
