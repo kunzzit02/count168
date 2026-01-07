@@ -5798,7 +5798,171 @@ if ($current_user_id && count($user_companies) > 0) {
             return null; // 不是Excel格式
         }
 
-        // API-RETURN 格式解析函数
+        // API-RETURN 表格格式解析函数
+        // 解析表格格式：29/12/2025  C2BT200  MYR  -  -  -2,953.02  0.00  -5,206.22  KING855 : (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)  -  ZERO
+        // 输出：['29/12/2025', 'C2BT200', 'MYR', '-', '-', '-2,953.02', '0.00', '-5,206.22', 'KING855:', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225', '-', 'ZERO']
+        function parseApiReturnTableFormat(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            
+            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+            
+            // 只处理单行数据
+            if (lines.length !== 1) return null;
+            
+            const singleLine = lines[0];
+            
+            // 检查是否包含多个列（至少8列以上，且包含日期格式和Description列）
+            // 尝试按多个空格分割
+            const multiSpaceSplit = singleLine.split(/\s{2,}/).map(part => part.trim());
+            
+            // 如果多个空格分割结果少于8列，尝试按单个空格分割
+            let columns = [];
+            if (multiSpaceSplit.length >= 8) {
+                columns = multiSpaceSplit;
+            } else {
+                // 尝试智能分割：识别日期、产品ID、货币、数值等
+                const words = singleLine.split(/\s+/).filter(w => w.trim() !== '');
+                if (words.length >= 8) {
+                    columns = words;
+                } else {
+                    return null;
+                }
+            }
+            
+            // 查找 Description 列（包含冒号和运算符的列，通常是第9列）
+            // 如果 Description 列被多个空格分割成多部分，需要合并
+            let descriptionIndex = -1;
+            let descriptionCol = '';
+            
+            // 首先尝试找到包含冒号和运算符的单个列
+            for (let i = 0; i < columns.length; i++) {
+                const col = columns[i];
+                if (col.includes(':') && (col.includes('(') || col.includes('+') || col.includes('-') || 
+                    col.includes('*') || col.includes('/'))) {
+                    descriptionIndex = i;
+                    descriptionCol = col;
+                    break;
+                }
+            }
+            
+            // 如果找不到完整的 Description 列，尝试合并相邻的列
+            // 例如："KING855" 和 ":(11860.00+...)" 需要合并
+            if (descriptionIndex === -1) {
+                for (let i = 0; i < columns.length; i++) {
+                    const col = columns[i];
+                    if (col.includes(':')) {
+                        // 找到包含冒号的列，检查是否需要合并下一列
+                        let mergedCol = col;
+                        let mergeCount = 0;
+                        
+                        // 尝试合并后续列，直到找到运算符
+                        for (let j = i + 1; j < columns.length && j < i + 3; j++) {
+                            mergedCol += ' ' + columns[j];
+                            mergeCount++;
+                            if (mergedCol.includes('(') || mergedCol.includes('+') || mergedCol.includes('-') || 
+                                mergedCol.includes('*') || mergedCol.includes('/')) {
+                                descriptionIndex = i;
+                                descriptionCol = mergedCol;
+                                // 更新 columns 数组：替换当前列为合并后的列，移除已合并的后续列
+                                columns[i] = mergedCol;
+                                for (let k = 0; k < mergeCount; k++) {
+                                    columns.splice(i + 1, 1);
+                                }
+                                break;
+                            }
+                        }
+                        
+                        if (descriptionIndex !== -1) break;
+                    }
+                }
+            }
+            
+            // 如果还是找不到 Description 列，返回 null
+            if (descriptionIndex === -1 || !descriptionCol) return null;
+            
+            // 确保 columns 数组中 descriptionIndex 位置的值是正确的
+            if (columns[descriptionIndex] !== descriptionCol) {
+                columns[descriptionIndex] = descriptionCol;
+            }
+            
+            console.log('Using API-RETURN table format parser');
+            console.log('Input columns:', columns);
+            console.log('Description column index:', descriptionIndex);
+            console.log('Description column:', descriptionCol);
+            
+            // 解析 Description 列
+            const parsedDescription = parseApiReturnDescription(descriptionCol);
+            
+            if (!parsedDescription || parsedDescription.length === 0) {
+                return null;
+            }
+            
+            // 构建新的列数组：保留 Description 列之前的所有列，插入解析后的 Description 列，保留 Description 列之后的所有列
+            const newColumns = [];
+            
+            // 添加 Description 列之前的所有列
+            for (let i = 0; i < descriptionIndex; i++) {
+                newColumns.push(columns[i]);
+            }
+            
+            // 添加解析后的 Description 列
+            parsedDescription.forEach(col => {
+                newColumns.push(col);
+            });
+            
+            // 添加 Description 列之后的所有列
+            for (let i = descriptionIndex + 1; i < columns.length; i++) {
+                newColumns.push(columns[i]);
+            }
+            
+            console.log('Parsed result columns:', newColumns);
+            
+            return {
+                columns: newColumns,
+                columnCount: newColumns.length
+            };
+        }
+        
+        // 解析 Description 列内容
+        // 输入：KING855 : (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)
+        // 输出：['KING855:', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225']
+        function parseApiReturnDescription(description) {
+            if (!description || typeof description !== 'string') return null;
+            
+            const trimmed = description.trim();
+            if (!trimmed) return null;
+            
+            const result = [];
+            
+            // 1. 提取冒号前的标签（如 KING855）
+            const colonIndex = trimmed.indexOf(':');
+            if (colonIndex > 0) {
+                const label = trimmed.substring(0, colonIndex).trim();
+                if (label) {
+                    result.push(label + ':');
+                }
+            }
+            
+            // 2. 提取表达式部分（冒号后的内容）
+            const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
+            
+            // 3. 使用正则表达式提取所有数字（包括小数和负数）
+            // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
+            const numberPattern = /-?\d+\.\d+|-?\d+/g;
+            const numbers = expression.match(numberPattern);
+            
+            if (numbers && numbers.length > 0) {
+                // 将提取的数字添加到结果中
+                numbers.forEach(num => {
+                    result.push(num);
+                });
+            }
+            
+            return result.length > 0 ? result : null;
+        }
+        
+        // API-RETURN 格式解析函数（单行格式，保持向后兼容）
         // 解析格式：KING855: (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)
         // 输出：['KING855', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225']
         function parseApiReturnFormat(pastedData) {
@@ -5966,7 +6130,14 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // API-RETURN 专用解析（仅在 API_RETURN 类型时启用）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'API_RETURN') {
-                const apiReturnParsed = parseApiReturnFormat(pastedData);
+                // 先尝试表格格式解析（多列数据，包含 Description 列）
+                let apiReturnParsed = parseApiReturnTableFormat(pastedData);
+                
+                // 如果表格格式解析失败，尝试单行格式解析（仅 Description 列）
+                if (!apiReturnParsed) {
+                    apiReturnParsed = parseApiReturnFormat(pastedData);
+                }
+                
                 if (apiReturnParsed) {
                     const { columns, columnCount } = apiReturnParsed;
                     
