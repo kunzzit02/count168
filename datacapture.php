@@ -6103,8 +6103,25 @@ if ($current_user_id && count($user_companies) > 0) {
         function parseVPowerTableFormat(pastedData) {
             if (!pastedData || typeof pastedData !== 'string') return null;
             
-            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-            const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+            // 去除可能的引号
+            let cleanData = pastedData.trim();
+            if ((cleanData.startsWith('"') && cleanData.endsWith('"')) || 
+                (cleanData.startsWith("'") && cleanData.endsWith("'"))) {
+                cleanData = cleanData.slice(1, -1);
+            }
+            
+            const normalizedData = cleanData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalizedData.split('\n').map(line => {
+                // 去除每行的引号
+                let trimmed = line.trim();
+                if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+                    (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+                    trimmed = trimmed.slice(1, -1);
+                }
+                return trimmed;
+            }).filter(line => line !== '');
+            
+            console.log('VPOWER parser - lines:', lines);
             
             if (lines.length < 2) return null; // 至少需要表头和数据行
             
@@ -6219,9 +6236,18 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 情况2：无表头的纯数据格式（每6行为一组：#, User Name, profit, -, -, -）
             // 检测模式：第一行是数字，第二行看起来像用户名（字母数字组合），第三行是数字（可能是小数）
-            const firstLineIsNumber = /^\d+$/.test(lines[0].trim());
-            const secondLineIsUsername = lines.length > 1 && /^[a-z0-9]+$/i.test(lines[1].trim());
-            const thirdLineIsNumber = lines.length > 2 && /^-?\d+\.?\d*$/.test(lines[2].trim());
+            const firstLineIsNumber = /^\d+$/.test(lines[0]);
+            const secondLineIsUsername = lines.length > 1 && /^[a-z0-9]+$/i.test(lines[1]);
+            const thirdLineIsNumber = lines.length > 2 && /^-?\d+\.?\d*$/.test(lines[2]);
+            
+            console.log('VPOWER format detection:', {
+                firstLineIsNumber,
+                secondLineIsUsername,
+                thirdLineIsNumber,
+                firstLine: lines[0],
+                secondLine: lines[1],
+                thirdLine: lines[2]
+            });
             
             if (firstLineIsNumber && secondLineIsUsername && thirdLineIsNumber) {
                 console.log('Detected VPOWER pure data format (no header)');
@@ -6234,24 +6260,29 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 检查是否还有足够的数据
                     if (i + 2 >= lines.length) break;
                     
-                    const hashValue = lines[i].trim();      // 第1行：#列（忽略）
-                    const userName = lines[i + 1].trim();   // 第2行：User Name
-                    const profit = lines[i + 2].trim();     // 第3行：profit
+                    const hashValue = lines[i];      // 第1行：#列（忽略）
+                    const userName = lines[i + 1];   // 第2行：User Name
+                    const profit = lines[i + 2];     // 第3行：profit
+                    
+                    console.log(`Processing group at index ${i}:`, { hashValue, userName, profit });
                     
                     // 验证第一行是数字（#列）
                     if (!/^\d+$/.test(hashValue)) {
+                        console.log(`Skipping: hashValue "${hashValue}" is not a number`);
                         i++;
                         continue;
                     }
                     
                     // 验证用户名格式
                     if (!/^[a-z0-9]+$/i.test(userName)) {
+                        console.log(`Skipping: userName "${userName}" is not valid`);
                         i++;
                         continue;
                     }
                     
                     // 验证 profit 格式
                     if (!/^-?\d+\.?\d*$/.test(profit)) {
+                        console.log(`Skipping: profit "${profit}" is not a number`);
                         i++;
                         continue;
                     }
@@ -6277,14 +6308,17 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (i >= lines.length) break;
                     
                     // 跳过可能的 "-" 行（Name, Tel, Remarks）
-                    while (i < lines.length && (lines[i].trim() === '-' || lines[i].trim() === '')) {
+                    while (i < lines.length && (lines[i] === '-' || lines[i] === '')) {
                         i++;
                     }
                     
                     // 如果下一行不是数字（#列），说明没有更多数据了
-                    if (i >= lines.length || !/^\d+$/.test(lines[i].trim())) {
+                    if (i >= lines.length || !/^\d+$/.test(lines[i])) {
+                        console.log(`No more data groups found at index ${i}`);
                         break;
                     }
+                    
+                    console.log(`Found next group starting at index ${i}: ${lines[i]}`);
                 }
                 
                 if (dataMatrix.length === 0) {
@@ -6325,7 +6359,10 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // VPOWER 专用解析（仅在 VPOWER 类型时启用）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
+                console.log('VPOWER mode detected, attempting to parse...');
+                console.log('Pasted data:', pastedData.substring(0, 200));
                 let vpowerParsed = parseVPowerTableFormat(pastedData);
+                console.log('VPOWER parse result:', vpowerParsed);
                 
                 if (vpowerParsed) {
                     const { dataMatrix, maxRows, maxCols } = vpowerParsed;
@@ -6399,6 +6436,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     setTimeout(updateSubmitButtonState, 0);
                     return;
+                } else {
+                    // VPOWER 模式下解析失败，给出提示但不阻止（让用户知道）
+                    console.log('VPOWER parser returned null, data may not match expected format');
+                    // 不 return，继续尝试其他解析器
                 }
             }
             
