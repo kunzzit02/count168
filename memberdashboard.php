@@ -118,29 +118,8 @@ $today = date('d/m/Y');
 <body class="dashboard-page">
     <?php include 'sidebar.php'; ?>
 
-    <div class="dashboard-container">
-        <h1 class="dashboard-title">Member Home</h1>
-
-        <div class="member-welcome-card">
-            <h2 class="member-welcome-title">欢迎回来，<?php echo htmlspecialchars($name ?: 'Member'); ?>！</h2>
-            <p class="member-welcome-text">
-                这里是 Member 专用的首页。您可以通过左侧菜单进入 <strong>Win/Loss</strong> 页面查看自己的输赢记录。
-            </p>
-            <p class="member-welcome-text">
-                右上角的 <strong>Win/Loss</strong> 菜单已经为您准备好所有可用公司的账户数据。
-            </p>
-
-            <div class="member-info-row">
-                <span class="member-info-pill">今日日期：<?php echo htmlspecialchars($today); ?></span>
-                <span class="member-info-pill">登录身份：Member</span>
-            </div>
-
-            <div class="member-tip">
-                提示：<br>
-                后台的交易 Dashboard（`dashboard.php`）现在仅对内部普通用户开放，Member 登录后将看到这个专属首页和 Win/Loss 报表。
-            </div>
-        </div>
-    </div>
+    <!-- 仅保留与 dashboard 相同的背景色和 sidebar，此处不显示任何内容 -->
+    <div class="dashboard-container"></div>
 </body>
 </html>
 
