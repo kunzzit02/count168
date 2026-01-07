@@ -8142,24 +8142,18 @@ if ($current_user_id && count($user_companies) > 0) {
                     const variance = columnCounts.reduce((sum, count) => sum + Math.pow(count - avgCols, 2), 0) / columnCounts.length;
                     const stdDev = Math.sqrt(variance);
                     
-                    // 如果标准差小于平均值的30%，或者大部分行的列数接近平均值（允许Total行列数略少），认为列数一致
-                    const isConsistent = stdDev < avgCols * 0.3;
-                    
-                    // 检查是否有足够多的行列数接近平均值（允许±2列的差异）
-                    const similarCount = columnCounts.filter(count => Math.abs(count - avgCols) <= 2).length;
-                    const similarRatio = similarCount / columnCounts.length;
+                    // 如果标准差小于平均值的20%，认为列数一致
+                    const isConsistent = stdDev < avgCols * 0.2;
                     
                     console.log('Column consistency check:', {
                         avgCols: avgCols.toFixed(2),
                         stdDev: stdDev.toFixed(2),
                         isConsistent: isConsistent,
-                        similarRatio: (similarRatio * 100).toFixed(1) + '%',
-                        columnCounts: columnCounts.slice(0, 10) + (columnCounts.length > 10 ? '...' : '')
+                        columnCounts: columnCounts.slice(0, 5) + (columnCounts.length > 5 ? '...' : '')
                     });
                     
-                    // 如果列数一致，或者大部分行的列数接近平均值，且大部分行都有制表符，使用标准格式
-                    // 降低rowsWithTabsRatio阈值到0.5，因为Total行可能列数较少但仍然有制表符
-                    if ((isConsistent || similarRatio >= 0.6) && rowsWithTabsRatio >= 0.5) {
+                    // 如果列数一致，且大部分行都有制表符，使用标准格式
+                    if (isConsistent && rowsWithTabsRatio >= 0.7) {
                         isStandardTableFormat = true;
                         console.log('Detected STANDARD TABLE format (consistent column count, will preserve original structure)');
                     }
@@ -8195,120 +8189,91 @@ if ($current_user_id && count($user_companies) > 0) {
             
             let dataMatrix = [];
             
-            // 如果是标准表格格式，直接使用原始行数据，不进行任何特殊处理
-            if (isStandardTableFormat) {
-                console.log('Using standard table format: preserving original row structure');
-                // 直接按行分割，每行保持原始列结构
-                dataMatrix = rows.map((row) => {
-                    const trimmed = row.trim();
-                    if (trimmed.includes('\t')) {
-                        return trimmed.split('\t').map(cell => cell.trim());
-                    } else if (trimmed !== '') {
-                        return [trimmed];
-                    } else {
-                        return [];
-                    }
-                }).filter(row => row.length > 0); // 过滤掉空行
-                
-                // 确保所有行都有相同的列数（用空字符串填充）
-                const maxCols = Math.max(...dataMatrix.map(row => row.length), 1);
-                dataMatrix = dataMatrix.map(row => {
-                    const paddedRow = [...row];
-                    while (paddedRow.length < maxCols) {
-                        paddedRow.push('');
-                    }
-                    return paddedRow;
-                });
-                
-                console.log('Standard table format processed:', dataMatrix.length, 'rows x', maxCols, 'cols');
-                console.log('First row:', dataMatrix[0]);
-                console.log('Last row:', dataMatrix[dataMatrix.length - 1]);
-            } else {
-                // 处理特殊格式：每个单元格占一行的格式
-                // 这种情况下，数据可能是行优先的（第一行所有列，然后第二行所有列）
-                // 或者是列优先的（第一列所有行，然后第二列所有行）
-                
-                // 首先，解析所有单元格值（处理制表符分隔的单元格）
-                let allCells = [];
-                for (let row of rows) {
-                    const trimmed = row.trim();
-                    if (trimmed.includes('\t')) {
-                        // 如果行中包含制表符，分割成多个单元格
-                        const cells = trimmed.split('\t').map(cell => cell.trim());
-                        // 保留空单元格，因为它们可能是重要的位置标记
-                        allCells.push(...cells);
-                    } else if (trimmed !== '') {
-                        // 否则整行作为一个单元格
-                        allCells.push(trimmed);
-                    } else {
-                        // 空行表示空单元格，保留它（这可能是第二行中的空列）
-                        allCells.push('');
+            // 处理特殊格式：每个单元格占一行的格式
+            // 这种情况下，数据可能是行优先的（第一行所有列，然后第二行所有列）
+            // 或者是列优先的（第一列所有行，然后第二列所有行）
+            
+            // 首先，解析所有单元格值（处理制表符分隔的单元格）
+            let allCells = [];
+            for (let row of rows) {
+                const trimmed = row.trim();
+                if (trimmed.includes('\t')) {
+                    // 如果行中包含制表符，分割成多个单元格
+                    const cells = trimmed.split('\t').map(cell => cell.trim());
+                    // 保留空单元格，因为它们可能是重要的位置标记
+                    allCells.push(...cells);
+                } else if (trimmed !== '') {
+                    // 否则整行作为一个单元格
+                    allCells.push(trimmed);
+                } else {
+                    // 空行表示空单元格，保留它（这可能是第二行中的空列）
+                    allCells.push('');
+                }
+            }
+            
+            console.log('Total cells extracted:', allCells.length);
+            console.log('First 20 cells:', allCells.slice(0, 20));
+            console.log('Last 10 cells:', allCells.slice(-10));
+            
+            // 检查是否有"Total"或"TOTAL"在数据中，以及它的位置
+            let totalIndex = -1;
+            for (let i = 0; i < allCells.length; i++) {
+                const cell = (allCells[i] || '').trim().toUpperCase();
+                if (cell === 'TOTAL') {
+                    totalIndex = i;
+                    const expectedRow = Math.floor(i / 18) + 1;
+                    const expectedCol = (i % 18) + 1;
+                    console.log(`Found "TOTAL" at index ${i} (expected Row ${expectedRow}, Col ${expectedCol} if 18 columns)`);
+                }
+            }
+            
+            // 检测行标识符（如CKZ03, CKZ16, BCA10A2, KZ006等）- 通常是以字母开头，可能包含数字的代码
+            // 这些标识符通常出现在每行的第一列，可以用来判断列数
+            let rowIdentifierIndices = [];
+            // 更宽泛的标识符模式：
+            // 1. 至少2个字母，后面有数字（如CKZ03, BCA10A2）
+            // 2. 字母和数字混合，以数字结尾（如KZ006, KZ010）
+            // 3. 简单的代码格式（至少2个字母开头）
+            const identifierPattern1 = /^[A-Z]{2,}[A-Z0-9]*\d+$/i; // 匹配如CKZ03, BCA10A2, KZ006, KZ010等
+            const identifierPattern2 = /^[A-Z]{2,}\d+$/i; // 匹配如KZ006, KZ010等
+            const identifierPattern3 = /^[A-Z]{2,}[A-Z0-9]{1,}$/i; // 匹配任何以2+字母开头的代码
+            
+            for (let i = 0; i < allCells.length; i++) {
+                const cell = (allCells[i] || '').trim();
+                if (cell && (identifierPattern1.test(cell) || identifierPattern2.test(cell) || 
+                    (identifierPattern3.test(cell) && cell.length >= 4 && cell.length <= 10))) {
+                    // 排除常见的非标识符（如日期、普通单词等）
+                    const upperCell = cell.toUpperCase();
+                    if (upperCell !== 'AGENT' && upperCell !== 'MEMBER' && upperCell !== 'TOTAL' && 
+                        upperCell !== 'GRAND TOTAL' && !upperCell.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                        rowIdentifierIndices.push(i);
+                        console.log(`Found row identifier "${cell}" at index ${i}`);
                     }
                 }
-                
-                console.log('Total cells extracted:', allCells.length);
-                console.log('First 20 cells:', allCells.slice(0, 20));
-                console.log('Last 10 cells:', allCells.slice(-10));
-                
-                // 检查是否有"Total"或"TOTAL"在数据中，以及它的位置
-                let totalIndex = -1;
-                for (let i = 0; i < allCells.length; i++) {
-                    const cell = (allCells[i] || '').trim().toUpperCase();
-                    if (cell === 'TOTAL') {
-                        totalIndex = i;
-                        const expectedRow = Math.floor(i / 18) + 1;
-                        const expectedCol = (i % 18) + 1;
-                        console.log(`Found "TOTAL" at index ${i} (expected Row ${expectedRow}, Col ${expectedCol} if 18 columns)`);
-                    }
+            }
+            
+            console.log(`Total row identifiers found: ${rowIdentifierIndices.length}`);
+            if (rowIdentifierIndices.length > 0) {
+                console.log(`Row identifier indices:`, rowIdentifierIndices);
+            }
+            
+            // 也检测"Grand Total"这样的特殊行
+            let grandTotalIndex = -1;
+            for (let i = 0; i < allCells.length; i++) {
+                const cell = (allCells[i] || '').trim().toUpperCase();
+                if (cell === 'GRAND TOTAL' || cell === 'TOTAL') {
+                    grandTotalIndex = i;
+                    console.log(`Found "${cell}" at index ${i}`);
                 }
-                
-                // 检测行标识符（如CKZ03, CKZ16, BCA10A2, KZ006等）- 通常是以字母开头，可能包含数字的代码
-                // 这些标识符通常出现在每行的第一列，可以用来判断列数
-                let rowIdentifierIndices = [];
-                // 更宽泛的标识符模式：
-                // 1. 至少2个字母，后面有数字（如CKZ03, BCA10A2）
-                // 2. 字母和数字混合，以数字结尾（如KZ006, KZ010）
-                // 3. 简单的代码格式（至少2个字母开头）
-                const identifierPattern1 = /^[A-Z]{2,}[A-Z0-9]*\d+$/i; // 匹配如CKZ03, BCA10A2, KZ006, KZ010等
-                const identifierPattern2 = /^[A-Z]{2,}\d+$/i; // 匹配如KZ006, KZ010等
-                const identifierPattern3 = /^[A-Z]{2,}[A-Z0-9]{1,}$/i; // 匹配任何以2+字母开头的代码
-                
-                for (let i = 0; i < allCells.length; i++) {
-                    const cell = (allCells[i] || '').trim();
-                    if (cell && (identifierPattern1.test(cell) || identifierPattern2.test(cell) || 
-                        (identifierPattern3.test(cell) && cell.length >= 4 && cell.length <= 10))) {
-                        // 排除常见的非标识符（如日期、普通单词等）
-                        const upperCell = cell.toUpperCase();
-                        if (upperCell !== 'AGENT' && upperCell !== 'MEMBER' && upperCell !== 'TOTAL' && 
-                            upperCell !== 'GRAND TOTAL' && !upperCell.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                            rowIdentifierIndices.push(i);
-                            console.log(`Found row identifier "${cell}" at index ${i}`);
-                        }
-                    }
-                }
-                
-                console.log(`Total row identifiers found: ${rowIdentifierIndices.length}`);
-                if (rowIdentifierIndices.length > 0) {
-                    console.log(`Row identifier indices:`, rowIdentifierIndices);
-                }
-                
-                // 也检测"Grand Total"这样的特殊行
-                let grandTotalIndex = -1;
-                for (let i = 0; i < allCells.length; i++) {
-                    const cell = (allCells[i] || '').trim().toUpperCase();
-                    if (cell === 'GRAND TOTAL' || cell === 'TOTAL') {
-                        grandTotalIndex = i;
-                        console.log(`Found "${cell}" at index ${i}`);
-                    }
-                }
-                
-                // 特殊处理：如果检测到行标识符模式，可以判断列数
-                let force18Columns = false;
-                let needsPaddingAfterTotal = false;
-                let detectedColumnCount = 0;
-                
-                // 方法1：如果Total在索引18，强制使用18列
-                if (totalIndex === 18) {
+            }
+            
+            // 特殊处理：如果检测到行标识符模式，可以判断列数
+            let force18Columns = false;
+            let needsPaddingAfterTotal = false;
+            let detectedColumnCount = 0;
+            
+            // 方法1：如果Total在索引18，强制使用18列
+            if (totalIndex === 18) {
                 // Total在索引18，说明第一行有18个数据（索引0-17），Total是第二行第一列
                 // 这意味着应该使用18列分组
                 force18Columns = true;
@@ -8927,10 +8892,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-            } else if (!(isSpecialRowMajorFormat && shouldTreatAsSingleRow) && !isStandardTableFormat) {
+            } else if (!(isSpecialRowMajorFormat && shouldTreatAsSingleRow)) {
                 // 行优先格式（标准格式）：每行是完整的行数据
                 // 注意：单行格式已在前面处理，这里跳过
-                // 注意：标准表格格式已在前面处理，这里跳过
                 console.log('Using ROW-MAJOR parsing');
                 
                 // 检测分隔符类型
@@ -8957,6 +8921,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         const cells = row.split('\t');
                         return cells.map(cell => cell.trim());
                     });
+                    
+                    // 如果是标准表格格式，标记为已处理，跳过后续的特殊处理
+                    if (isStandardTableFormat) {
+                        console.log('Standard table format detected, skipping special processing and column alignment');
+                        // 直接使用dataMatrix，不进行后续的特殊分组和列对齐
+                    }
                     
                     // 检测并移除行号列（如 "1.", "2.", "10" 等），避免把序号当成正常数据
                     // 新规则（修复单行/少量行复制时顺序错乱的问题）：
@@ -12101,4 +12071,5 @@ if ($current_user_id && count($user_companies) > 0) {
         }
     </style>
 </body>
+</html>
 </html>
