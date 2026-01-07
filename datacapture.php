@@ -4273,6 +4273,16 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 查找表头
                             for (let i = 0; i < Math.min(3, rows.length); i++) {
                                 const headerCells = rows[i].map(c => c.toLowerCase());
+                                
+                                // 识别并忽略序号列（如 "#", "序号", "No.", "编号" 等）
+                                const indexColPatterns = ['#', '序号', 'no.', '编号', 'number', 'num', 'id'];
+                                const isIndexColumn = (cell) => {
+                                    const cellLower = cell.trim();
+                                    return indexColPatterns.some(pattern => 
+                                        cellLower === pattern || cellLower === pattern.toLowerCase()
+                                    );
+                                };
+                                
                                 const userNameIndex = headerCells.findIndex(cell => 
                                     cell.includes('user') && cell.includes('name')
                                 );
@@ -4306,6 +4316,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 检测表头，查找包含"User Name"和"profit"的行
                 for (let i = 0; i < Math.min(5, lines.length); i++) {
                     const headerCells = lines[i].split(/\t/).map(c => c.trim().toLowerCase());
+                    
+                    // 识别并忽略序号列（如 "#", "序号", "No.", "编号" 等）
+                    // 注意：我们通过列名定位，序号列会被自动忽略
                     
                     // 查找User Name列
                     const userNameIndex = headerCells.findIndex(cell => 
@@ -4346,8 +4359,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 const userName = (cells[userNameColIndex] || '').trim();
                 const profit = (cells[profitColIndex] || '').trim();
                 
+                // 跳过序号列的值（如果第一列是序号，通常是纯数字）
+                // 检查第一列是否是序号：如果第一列是纯数字且User Name不在第一列，则可能是序号列
+                const firstCell = (cells[0] || '').trim();
+                const isFirstCellIndex = /^\d+$/.test(firstCell) && userNameColIndex !== 0;
+                
                 // 如果User Name和profit都为空，跳过这一行
-                if (!userName && !profit) {
+                // 如果第一列是序号且User Name为空，也跳过（可能是空行或只有序号）
+                if ((!userName && !profit) || (isFirstCellIndex && !userName && !profit)) {
                     continue;
                 }
                 
