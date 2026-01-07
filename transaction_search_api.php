@@ -417,8 +417,16 @@ if (!empty($target_account_ids)) {
         
         // 4.5. 如果账户在该 currency 下所有数据都为 0，且 hide_zero_balance=1，则跳过该组合
         // 这样可以避免显示没有数据的账户-currency 组合
-        if ($hide_zero_balance && abs($bf) < 0.01 && abs($win_loss) < 0.01 && abs($cr_dr) < 0.01 && abs($balance) < 0.01) {
+        // 🔧 修复：使用更严格的判断，确保所有值都接近 0
+        $hasAnyData = abs($bf) > 0.01 || abs($win_loss) > 0.01 || abs($cr_dr) > 0.01 || abs($balance) > 0.01;
+        if ($hide_zero_balance && !$hasAnyData) {
             continue; // 跳过余额为 0 且所有数据都为 0 的账户-currency 组合
+        }
+        
+        // 🔧 额外检查：如果用户选择了特定 currency，但该账户在该 currency 下没有任何有效数据，也跳过
+        // 这样可以避免显示错误的账户-currency 组合
+        if (!empty($filter_currency_codes) && !$hasAnyData) {
+            continue;
         }
         
         // 5. 检查 Alert 条件是否达成
