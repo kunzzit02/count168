@@ -17,8 +17,7 @@ require_once 'permissions.php';
 /**
  * 将 currency 加入列表（根据 currency_id 去重）
  */
-function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $currencyCode): void
-{
+function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $currencyCode): void {
     $currencyId = (int)$currencyId;
     $currencyCode = strtoupper((string)$currencyCode);
     
