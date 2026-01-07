@@ -6391,6 +6391,115 @@ if ($current_user_id && count($user_companies) > 0) {
             // 先拿到纯文本内容，用来判断是不是 Payment Report
             const pastedData = (e.clipboardData || window.clipboardData).getData('text');
             
+            // ===== 优先处理：标准制表符分隔数据（保持原始格式） =====
+            // 检查是否是标准的制表符分隔数据（多行，每行包含制表符）
+            // 这种格式应该直接按原样粘贴，不做任何转换
+            // 注意：只有在不是特殊格式（如Payment Report、VPOWER等）的情况下才使用此逻辑
+            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+            
+            // 检查是否包含特殊格式的关键词（如果包含，跳过标准格式处理，使用特殊格式解析器）
+            const lowerData = pastedData.toLowerCase();
+            const hasSpecialFormatKeywords = 
+                lowerData.includes('downline payment') ||
+                lowerData.includes('profit/loss') ||
+                lowerData.includes('my earnings') ||
+                lowerData.includes('vpower') ||
+                lowerData.includes('citibet') ||
+                lowerData.includes('api-return') ||
+                lowerData.includes('api return');
+            
+            // 检查是否所有非空行都包含制表符，且至少有2行数据
+            // 且不包含特殊格式关键词（避免误判特殊格式为标准格式）
+            if (lines.length >= 2 && !hasSpecialFormatKeywords) {
+                let allRowsHaveTabs = true;
+                let minCols = Infinity;
+                let maxCols = 0;
+                
+                for (let line of lines) {
+                    if (line.includes('\t')) {
+                        const colCount = line.split('\t').length;
+                        minCols = Math.min(minCols, colCount);
+                        maxCols = Math.max(maxCols, colCount);
+                    } else {
+                        allRowsHaveTabs = false;
+                        break;
+                    }
+                }
+                
+                // 如果所有行都包含制表符，且列数差异不大（说明是标准表格格式），直接按原样粘贴
+                // 列数应该在合理范围内（2-30列），避免误判
+                if (allRowsHaveTabs && minCols >= 2 && maxCols <= 30 && (maxCols - minCols) <= 3) {
+                    console.log('Detected standard tab-separated table format, pasting as-is without conversion');
+                    
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col);
+                    
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    
+                    const requiredRows = startRow + lines.length;
+                    const requiredCols = startCol + maxCols;
+                    
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    lines.forEach((line, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
+                        
+                        const cells = line.split('\t');
+                        cells.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                // 保持原始格式，不做任何转换（不大写，不转换）
+                                cell.textContent = trimmedData;
+                                
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+                    
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted ${successCount} cells (${lines.length} rows x ${maxCols} cols) as-is! Press Ctrl+Z to undo`, 'success');
+                    } else {
+                        showNotification('No cells were pasted.', 'danger');
+                    }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    return; // 直接返回，不进行后续的特殊格式解析
+                }
+            }
+            // ===== 标准格式处理结束 =====
+            
             // VPOWER 专用解析（仅在 VPOWER 类型时启用）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
                 console.log('VPOWER mode detected, attempting to parse...');
