@@ -123,23 +123,6 @@ $name = $_SESSION['name'] ?? '';
 </head>
 <body class="dashboard-page">
     <?php include 'sidebar.php'; ?>
-    <div class="dashboard-container">
-        <h1 class="dashboard-title">Member Dashboard</h1>
-
-        <div class="member-welcome-card">
-            <div class="member-welcome-title">
-                欢迎回来，<?php echo htmlspecialchars($name ?: 'Member', ENT_QUOTES, 'UTF-8'); ?>
-            </div>
-            <div class="member-welcome-subtitle">
-                这是您的专属首页。您可以通过左侧菜单进入 Win/Loss 等功能页面。
-            </div>
-            <div class="member-actions">
-                <button class="member-action-btn member-action-primary" type="button" onclick="window.location.href='member.php'">
-                    前往 Win/Loss
-                </button>
-            </div>
-        </div>
-    </div>
 </body>
 </html>
 
