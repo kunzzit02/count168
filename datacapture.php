@@ -3510,26 +3510,19 @@ if ($current_user_id && count($user_companies) > 0) {
                         const firstCell = (dataMatrix[i][0] || '').toString().toUpperCase().trim();
                         const secondCell = (dataMatrix[i][1] || '').toString().toUpperCase().trim();
                         
-                        // 严格检查：只有第一列或第二列明确包含 "SUB TOTAL" 时才识别
-                        // 避免将普通数据行（如用户名包含 "TOTAL" 的情况）误识别为 SUB TOTAL 行
-                        const isSubTotal = (firstCell === 'SUB TOTAL' || firstCell.startsWith('SUB TOTAL') || 
-                                            secondCell === 'SUB TOTAL' || secondCell.startsWith('SUB TOTAL')) &&
-                                            !firstCell.match(/^[A-Z0-9]+$/) && // 第一列不是纯字母数字（用户名格式）
-                                            !secondCell.match(/^[A-Z0-9]+$/); // 第二列不是纯字母数字（用户名格式）
-                        
-                        if (isSubTotal && subTotalRowIndex < 0) {
-                            subTotalRowIndex = i;
+                        // 检查第一列或第二列是否包含 SUB TOTAL
+                        if (firstCell === 'SUB TOTAL' || firstCell.includes('SUB TOTAL') || 
+                            secondCell === 'SUB TOTAL' || secondCell.includes('SUB TOTAL')) {
+                            if (subTotalRowIndex < 0) {
+                                subTotalRowIndex = i;
+                            }
                         }
-                        
-                        // 严格检查：只有第一列或第二列明确包含 "GRAND TOTAL" 时才识别
-                        // 避免将普通数据行（如用户名包含 "TOTAL" 的情况）误识别为 GRAND TOTAL 行
-                        const isGrandTotal = (firstCell === 'GRAND TOTAL' || firstCell.startsWith('GRAND TOTAL') || 
-                                             secondCell === 'GRAND TOTAL' || secondCell.startsWith('GRAND TOTAL')) &&
-                                             !firstCell.match(/^[A-Z0-9]+$/) && // 第一列不是纯字母数字（用户名格式）
-                                             !secondCell.match(/^[A-Z0-9]+$/); // 第二列不是纯字母数字（用户名格式）
-                        
-                        if (isGrandTotal && grandTotalRowIndex < 0) {
-                            grandTotalRowIndex = i;
+                        // 检查第一列或第二列是否包含 GRAND TOTAL
+                        if (firstCell === 'GRAND TOTAL' || firstCell.includes('GRAND TOTAL') || 
+                            secondCell === 'GRAND TOTAL' || secondCell.includes('GRAND TOTAL')) {
+                            if (grandTotalRowIndex < 0) {
+                                grandTotalRowIndex = i;
+                            }
                         }
                     }
                     
@@ -3651,98 +3644,73 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 修复单独的 SUB TOTAL 行
                     if (subTotalRowIndex >= 0 && subTotalRowIndex !== grandTotalRowIndex) {
                         const subTotalRow = dataMatrix[subTotalRowIndex];
-                        const firstCell = (subTotalRow[0] || '').toString().toUpperCase().trim();
-                        const secondCell = (subTotalRow[1] || '').toString().toUpperCase().trim();
+                        const nonEmptyCells = subTotalRow.filter(cell => (cell || '').toString().trim() !== '');
                         
-                        // 严格检查：只有第一列或第二列明确包含 "SUB TOTAL" 时才处理
-                        // 避免将普通数据行（如用户名包含 "TOTAL" 的情况）误识别为 SUB TOTAL 行
-                        const isSubTotalRow = (firstCell === 'SUB TOTAL' || firstCell.startsWith('SUB TOTAL') || 
-                                              secondCell === 'SUB TOTAL' || secondCell.startsWith('SUB TOTAL')) &&
-                                              !firstCell.match(/^[A-Z0-9]+$/) && // 第一列不是纯字母数字（用户名格式）
-                                              !secondCell.match(/^[A-Z0-9]+$/); // 第二列不是纯字母数字（用户名格式）
-                        
-                        if (!isSubTotalRow) {
-                            console.log('Skipping row', subTotalRowIndex, '- not a valid SUB TOTAL row');
-                            subTotalRowIndex = -1; // 重置索引，不处理这一行
-                        } else {
-                            const nonEmptyCells = subTotalRow.filter(cell => (cell || '').toString().trim() !== '');
+                        // 如果 SUB TOTAL 行的非空单元格很少（比如只有2个），可能是被拆分了
+                        if (nonEmptyCells.length <= 3 && expectedCols > 5) {
+                            console.log('SUB TOTAL row appears to be split. Collecting data from subsequent rows...');
                             
-                            // 如果 SUB TOTAL 行的非空单元格很少（比如只有2个），可能是被拆分了
-                            if (nonEmptyCells.length <= 3 && expectedCols > 5) {
-                                console.log('SUB TOTAL row appears to be split. Collecting data from subsequent rows...');
+                            // 收集从 SUB TOTAL 行开始的所有数据，直到遇到 GRAND TOTAL 或数据结束
+                            const allCells = [];
+                            let currentRow = subTotalRowIndex;
+                            let endRow = grandTotalRowIndex >= 0 ? grandTotalRowIndex : dataMatrix.length;
+                            
+                            // 先收集 SUB TOTAL 行本身的数据
+                            subTotalRow.forEach(cell => {
+                                const cellValue = (cell || '').toString().trim();
+                                if (cellValue !== '') {
+                                    allCells.push(cellValue);
+                                }
+                            });
+                            
+                            // 收集后续行的数据（这些行可能只有2列，是 SUB TOTAL 数据的延续）
+                            currentRow++;
+                            while (currentRow < endRow) {
+                                const row = dataMatrix[currentRow];
+                                const rowNonEmpty = row.filter(cell => (cell || '').toString().trim() !== '');
                                 
-                                // 收集从 SUB TOTAL 行开始的所有数据，直到遇到 GRAND TOTAL 或数据结束
-                                const allCells = [];
-                                let currentRow = subTotalRowIndex;
-                                let endRow = grandTotalRowIndex >= 0 ? grandTotalRowIndex : dataMatrix.length;
+                                // 如果这一行只有少量非空单元格（可能是 SUB TOTAL 的延续）
+                                // 或者这一行看起来像是数据行（有很多非空单元格），停止收集
+                                if (rowNonEmpty.length <= 3) {
+                                    row.forEach(cell => {
+                                        const cellValue = (cell || '').toString().trim();
+                                        if (cellValue !== '') {
+                                            allCells.push(cellValue);
+                                        }
+                                    });
+                                    currentRow++;
+                                } else {
+                                    // 这一行看起来像是新的数据行，停止收集
+                                    break;
+                                }
+                            }
+                            
+                            // 如果收集到的数据足够，重建 SUB TOTAL 行
+                            if (allCells.length >= expectedCols || allCells.length > 3) {
+                                const newSubTotalRow = [];
                                 
-                                // 先收集 SUB TOTAL 行本身的数据
-                                subTotalRow.forEach(cell => {
-                                    const cellValue = (cell || '').toString().trim();
-                                    if (cellValue !== '') {
-                                        allCells.push(cellValue);
-                                    }
-                                });
-                                
-                                // 收集后续行的数据（这些行可能只有2列，是 SUB TOTAL 数据的延续）
-                                currentRow++;
-                                while (currentRow < endRow) {
-                                    const row = dataMatrix[currentRow];
-                                    const rowNonEmpty = row.filter(cell => (cell || '').toString().trim() !== '');
-                                    
-                                    // 检查下一行是否是普通数据行（第一列是用户名格式，如 JDW01, JDW02）
-                                    const nextFirstCell = (row[0] || '').toString().trim();
-                                    const isDataRow = /^[A-Z0-9]+$/i.test(nextFirstCell) && nextFirstCell.length >= 3;
-                                    
-                                    // 如果下一行看起来像是普通数据行，停止收集
-                                    if (isDataRow) {
-                                        console.log('Stopping SUB TOTAL merge at row', currentRow, '- detected data row:', nextFirstCell);
-                                        break;
-                                    }
-                                    
-                                    // 如果这一行只有少量非空单元格（可能是 SUB TOTAL 的延续）
-                                    // 或者这一行看起来像是数据行（有很多非空单元格），停止收集
-                                    if (rowNonEmpty.length <= 3) {
-                                        row.forEach(cell => {
-                                            const cellValue = (cell || '').toString().trim();
-                                            if (cellValue !== '') {
-                                                allCells.push(cellValue);
-                                            }
-                                        });
-                                        currentRow++;
+                                // 前两个单元格应该是 "SUB TOTAL" 和 "GRAND TOTAL"（或类似）
+                                // 其余单元格是数据
+                                for (let i = 0; i < expectedCols; i++) {
+                                    if (i < allCells.length) {
+                                        newSubTotalRow.push(allCells[i]);
                                     } else {
-                                        // 这一行看起来像是新的数据行，停止收集
-                                        break;
+                                        newSubTotalRow.push('');
                                     }
                                 }
                                 
-                                // 如果收集到的数据足够，重建 SUB TOTAL 行
-                                if (allCells.length >= expectedCols || allCells.length > 3) {
-                                    const newSubTotalRow = [];
+                                // 替换原来的 SUB TOTAL 行
+                                dataMatrix[subTotalRowIndex] = newSubTotalRow;
                                     
-                                    // 前两个单元格应该是 "SUB TOTAL" 和 "GRAND TOTAL"（或类似）
-                                    // 其余单元格是数据
-                                    for (let i = 0; i < expectedCols; i++) {
-                                        if (i < allCells.length) {
-                                            newSubTotalRow.push(allCells[i]);
-                                        } else {
-                                            newSubTotalRow.push('');
-                                        }
+                                // 删除被合并的行
+                                const rowsToRemove = currentRow - subTotalRowIndex - 1;
+                                if (rowsToRemove > 0) {
+                                    dataMatrix.splice(subTotalRowIndex + 1, rowsToRemove);
+                                    // 更新 GRAND TOTAL 的索引
+                                    if (grandTotalRowIndex > subTotalRowIndex) {
+                                        grandTotalRowIndex -= rowsToRemove;
                                     }
-                                    
-                                    // 替换原来的 SUB TOTAL 行
-                                    dataMatrix[subTotalRowIndex] = newSubTotalRow;
-                                        
-                                    // 删除被合并的行
-                                    const rowsToRemove = currentRow - subTotalRowIndex - 1;
-                                    if (rowsToRemove > 0) {
-                                        dataMatrix.splice(subTotalRowIndex + 1, rowsToRemove);
-                                        // 更新 GRAND TOTAL 的索引
-                                        if (grandTotalRowIndex > subTotalRowIndex) {
-                                            grandTotalRowIndex -= rowsToRemove;
-                                        }
-                                        console.log('Fixed SUB TOTAL row, merged', rowsToRemove, 'rows, total cells:', allCells.length);
-                                    }
+                                    console.log('Fixed SUB TOTAL row, merged', rowsToRemove, 'rows, total cells:', allCells.length);
                                 }
                             }
                         }
@@ -3751,90 +3719,65 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 修复 GRAND TOTAL 行（使用更新后的索引）
                     if (grandTotalRowIndex >= 0) {
                         const grandTotalRow = dataMatrix[grandTotalRowIndex];
-                        const firstCell = (grandTotalRow[0] || '').toString().toUpperCase().trim();
-                        const secondCell = (grandTotalRow[1] || '').toString().toUpperCase().trim();
+                        const nonEmptyCells = grandTotalRow.filter(cell => (cell || '').toString().trim() !== '');
                         
-                        // 严格检查：只有第一列或第二列明确包含 "GRAND TOTAL" 时才处理
-                        // 避免将普通数据行（如用户名包含 "TOTAL" 的情况）误识别为 GRAND TOTAL 行
-                        const isGrandTotalRow = (firstCell === 'GRAND TOTAL' || firstCell.startsWith('GRAND TOTAL') || 
-                                                 secondCell === 'GRAND TOTAL' || secondCell.startsWith('GRAND TOTAL')) &&
-                                                 !firstCell.match(/^[A-Z0-9]+$/) && // 第一列不是纯字母数字（用户名格式）
-                                                 !secondCell.match(/^[A-Z0-9]+$/); // 第二列不是纯字母数字（用户名格式）
-                        
-                        if (!isGrandTotalRow) {
-                            console.log('Skipping row', grandTotalRowIndex, '- not a valid GRAND TOTAL row');
-                            grandTotalRowIndex = -1; // 重置索引，不处理这一行
-                        } else {
-                            const nonEmptyCells = grandTotalRow.filter(cell => (cell || '').toString().trim() !== '');
+                        // 如果 GRAND TOTAL 行的非空单元格很少，可能是被拆分了
+                        if (nonEmptyCells.length <= 3 && expectedCols > 5) {
+                            console.log('GRAND TOTAL row appears to be split. Collecting data from subsequent rows...');
                             
-                            // 如果 GRAND TOTAL 行的非空单元格很少，可能是被拆分了
-                            if (nonEmptyCells.length <= 3 && expectedCols > 5) {
-                                console.log('GRAND TOTAL row appears to be split. Collecting data from subsequent rows...');
+                            // 收集从 GRAND TOTAL 行开始的所有数据
+                            const allCells = [];
+                            let currentRow = grandTotalRowIndex;
+                            
+                            // 先收集 GRAND TOTAL 行本身的数据
+                            grandTotalRow.forEach(cell => {
+                                const cellValue = (cell || '').toString().trim();
+                                if (cellValue !== '') {
+                                    allCells.push(cellValue);
+                                }
+                            });
+                            
+                            // 收集后续行的数据
+                            currentRow++;
+                            while (currentRow < dataMatrix.length) {
+                                const row = dataMatrix[currentRow];
+                                const rowNonEmpty = row.filter(cell => (cell || '').toString().trim() !== '');
                                 
-                                // 收集从 GRAND TOTAL 行开始的所有数据
-                                const allCells = [];
-                                let currentRow = grandTotalRowIndex;
+                                // 如果这一行只有少量非空单元格，继续收集
+                                if (rowNonEmpty.length <= 3) {
+                                    row.forEach(cell => {
+                                        const cellValue = (cell || '').toString().trim();
+                                        if (cellValue !== '') {
+                                            allCells.push(cellValue);
+                                        }
+                                    });
+                                    currentRow++;
+                                } else {
+                                    // 这一行看起来像是新的数据行，停止收集
+                                    break;
+                                }
+                            }
+                            
+                            // 如果收集到的数据足够，重建 GRAND TOTAL 行
+                            if (allCells.length >= expectedCols || allCells.length > 3) {
+                                const newGrandTotalRow = [];
                                 
-                                // 先收集 GRAND TOTAL 行本身的数据
-                                grandTotalRow.forEach(cell => {
-                                    const cellValue = (cell || '').toString().trim();
-                                    if (cellValue !== '') {
-                                        allCells.push(cellValue);
-                                    }
-                                });
-                                
-                                // 收集后续行的数据
-                                currentRow++;
-                                while (currentRow < dataMatrix.length) {
-                                    const row = dataMatrix[currentRow];
-                                    const rowNonEmpty = row.filter(cell => (cell || '').toString().trim() !== '');
-                                    
-                                    // 检查下一行是否是普通数据行（第一列是用户名格式，如 JDW01, JDW02）
-                                    const nextFirstCell = (row[0] || '').toString().trim();
-                                    const isDataRow = /^[A-Z0-9]+$/i.test(nextFirstCell) && nextFirstCell.length >= 3;
-                                    
-                                    // 如果下一行看起来像是普通数据行，停止收集
-                                    if (isDataRow) {
-                                        console.log('Stopping GRAND TOTAL merge at row', currentRow, '- detected data row:', nextFirstCell);
-                                        break;
-                                    }
-                                    
-                                    // 如果这一行只有少量非空单元格，继续收集
-                                    if (rowNonEmpty.length <= 3) {
-                                        row.forEach(cell => {
-                                            const cellValue = (cell || '').toString().trim();
-                                            if (cellValue !== '') {
-                                                allCells.push(cellValue);
-                                            }
-                                        });
-                                        currentRow++;
+                                for (let i = 0; i < expectedCols; i++) {
+                                    if (i < allCells.length) {
+                                        newGrandTotalRow.push(allCells[i]);
                                     } else {
-                                        // 这一行看起来像是新的数据行，停止收集
-                                        break;
+                                        newGrandTotalRow.push('');
                                     }
                                 }
                                 
-                                // 如果收集到的数据足够，重建 GRAND TOTAL 行
-                                if (allCells.length >= expectedCols || allCells.length > 3) {
-                                    const newGrandTotalRow = [];
+                                // 替换原来的 GRAND TOTAL 行
+                                dataMatrix[grandTotalRowIndex] = newGrandTotalRow;
                                     
-                                    for (let i = 0; i < expectedCols; i++) {
-                                        if (i < allCells.length) {
-                                            newGrandTotalRow.push(allCells[i]);
-                                        } else {
-                                            newGrandTotalRow.push('');
-                                        }
-                                    }
-                                    
-                                    // 替换原来的 GRAND TOTAL 行
-                                    dataMatrix[grandTotalRowIndex] = newGrandTotalRow;
-                                        
-                                    // 删除被合并的行
-                                    const rowsToRemove = currentRow - grandTotalRowIndex - 1;
-                                    if (rowsToRemove > 0) {
-                                        dataMatrix.splice(grandTotalRowIndex + 1, rowsToRemove);
-                                        console.log('Fixed GRAND TOTAL row, merged', rowsToRemove, 'rows, total cells:', allCells.length);
-                                    }
+                                // 删除被合并的行
+                                const rowsToRemove = currentRow - grandTotalRowIndex - 1;
+                                if (rowsToRemove > 0) {
+                                    dataMatrix.splice(grandTotalRowIndex + 1, rowsToRemove);
+                                    console.log('Fixed GRAND TOTAL row, merged', rowsToRemove, 'rows, total cells:', allCells.length);
                                 }
                             }
                         }
