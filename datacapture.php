@@ -7132,76 +7132,152 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 如果检测到"Grand Total"行，需要特殊处理：保持两行格式
+                // 如果检测到"Grand Total"行，需要特殊处理
                 if (grandTotalIndex >= 0) {
-                    // 将数据分成两部分：
-                    // 1. 从开始到Grand Total行之前的所有行（合并成第一行）
-                    // 2. Grand Total行及其后面的数据（保持为第二行）
+                    // 检查 Grand Total 之前是否有多个制表符分隔的行
+                    const beforeGrandTotalTabRows = [];
+                    const beforeGrandTotalSingleRows = [];
                     
-                    const beforeGrandTotal = [];
-                    const grandTotalAndAfter = [];
-                    
-                    for (let i = 0; i < rows.length; i++) {
+                    for (let i = 0; i < grandTotalIndex; i++) {
                         const row = rows[i].trim();
                         if (row === '') continue;
                         
-                        if (i < grandTotalIndex) {
-                            // Grand Total行之前的数据
-                            if (row.includes('\t')) {
-                                const cells = row.split('\t').map(c => c.trim());
-                                beforeGrandTotal.push(...cells);
-                            } else {
-                                beforeGrandTotal.push(row);
-                            }
+                        if (row.includes('\t')) {
+                            beforeGrandTotalTabRows.push({ index: i, row: row });
                         } else {
-                            // Grand Total行及其后面的数据
-                            if (row.includes('\t')) {
-                                const cells = row.split('\t').map(c => c.trim());
-                                grandTotalAndAfter.push(...cells);
-                            } else {
-                                grandTotalAndAfter.push(row);
-                            }
+                            beforeGrandTotalSingleRows.push({ index: i, value: row });
                         }
                     }
                     
-                    // 如果两部分都有数据，创建两行
-                    if (beforeGrandTotal.length > 0 && grandTotalAndAfter.length > 0) {
-                        // 找到第一个非空行的索引
-                        let firstRowIndex = -1;
-                        for (let i = 0; i < rows.length; i++) {
-                            if (rows[i].trim() !== '') {
-                                firstRowIndex = i;
-                                break;
+                    // 检查 Grand Total 之前的多行制表符分隔数据是否包含行标识符
+                    let hasMultipleRowsWithIdentifiers = false;
+                    if (beforeGrandTotalTabRows.length >= 2) {
+                        const rowIdentifiers = [];
+                        for (let i = 0; i < beforeGrandTotalTabRows.length; i++) {
+                            const row = beforeGrandTotalTabRows[i].row;
+                            const cells = row.split('\t').map(c => c.trim());
+                            if (cells.length > 0 && cells[0]) {
+                                const firstCell = cells[0];
+                                // 检查是否是行标识符格式（如JDW01, JDW02, BW876等）
+                                if (/^[A-Z]{2,}[A-Z0-9]*\d*$/i.test(firstCell) && firstCell.length >= 3 && firstCell.length <= 10) {
+                                    rowIdentifiers.push(firstCell);
+                                }
                             }
                         }
+                        // 如果有多行且每行的第一列都是行标识符，说明是多行独立数据，不应该合并
+                        if (rowIdentifiers.length >= 2 && rowIdentifiers.length === beforeGrandTotalTabRows.length) {
+                            hasMultipleRowsWithIdentifiers = true;
+                            console.log('Detected multiple rows with identifiers before Grand Total:', rowIdentifiers);
+                            console.log('Keeping them separate instead of merging');
+                        }
+                    }
+                    
+                    // 如果 Grand Total 之前有多行独立数据，保持它们分开，不合并
+                    if (hasMultipleRowsWithIdentifiers) {
+                        // 只处理 Grand Total 行，保持之前的多行数据不变
+                        // 移除 Grand Total 行及其后面的空行，然后重新插入 Grand Total 行
+                        const grandTotalRow = rows[grandTotalIndex].trim();
+                        const grandTotalCells = grandTotalRow.includes('\t') 
+                            ? grandTotalRow.split('\t').map(c => c.trim())
+                            : [grandTotalRow];
                         
-                        if (firstRowIndex >= 0) {
-                            // 创建第一行（合并Grand Total之前的所有数据）
-                            const firstRow = beforeGrandTotal.join('\t');
-                            rows[firstRowIndex] = firstRow;
-                            
-                            // 创建第二行（Grand Total及其后面的数据）
-                            const secondRow = grandTotalAndAfter.join('\t');
-                            
-                            // 删除中间的所有行，然后插入第二行
+                        // 找到最后一个数据行的索引
+                        let lastDataRowIndex = grandTotalIndex - 1;
+                        while (lastDataRowIndex >= 0 && rows[lastDataRowIndex].trim() === '') {
+                            lastDataRowIndex--;
+                        }
+                        
+                        if (lastDataRowIndex >= 0) {
+                            // 删除 Grand Total 行及其后面的空行
                             const indicesToRemove = [];
-                            for (let i = firstRowIndex + 1; i < rows.length; i++) {
+                            for (let i = grandTotalIndex; i < rows.length; i++) {
                                 if (rows[i].trim() !== '') {
                                     indicesToRemove.push(i);
                                 }
                             }
                             
-                            // 从后往前删除，避免索引变化
+                            // 从后往前删除
                             for (let idx of indicesToRemove.sort((a, b) => b - a)) {
                                 rows.splice(idx, 1);
                             }
                             
-                            // 插入第二行（在第一行之后）
-                            rows.splice(firstRowIndex + 1, 0, secondRow);
+                            // 在最后一个数据行之后插入 Grand Total 行
+                            const grandTotalRowText = grandTotalCells.join('\t');
+                            rows.splice(lastDataRowIndex + 1, 0, grandTotalRowText);
                             
-                            console.log('Detected Grand Total row, kept 2 rows format');
-                            console.log('First row:', firstRow);
-                            console.log('Second row:', secondRow);
+                            console.log('Detected Grand Total row, kept multiple rows format before Grand Total');
+                        }
+                    } else {
+                        // 如果 Grand Total 之前的数据确实是单行被分割，则合并
+                        // 将数据分成两部分：
+                        // 1. 从开始到Grand Total行之前的所有行（合并成第一行）
+                        // 2. Grand Total行及其后面的数据（保持为第二行）
+                        
+                        const beforeGrandTotal = [];
+                        const grandTotalAndAfter = [];
+                        
+                        for (let i = 0; i < rows.length; i++) {
+                            const row = rows[i].trim();
+                            if (row === '') continue;
+                            
+                            if (i < grandTotalIndex) {
+                                // Grand Total行之前的数据
+                                if (row.includes('\t')) {
+                                    const cells = row.split('\t').map(c => c.trim());
+                                    beforeGrandTotal.push(...cells);
+                                } else {
+                                    beforeGrandTotal.push(row);
+                                }
+                            } else {
+                                // Grand Total行及其后面的数据
+                                if (row.includes('\t')) {
+                                    const cells = row.split('\t').map(c => c.trim());
+                                    grandTotalAndAfter.push(...cells);
+                                } else {
+                                    grandTotalAndAfter.push(row);
+                                }
+                            }
+                        }
+                        
+                        // 如果两部分都有数据，创建两行
+                        if (beforeGrandTotal.length > 0 && grandTotalAndAfter.length > 0) {
+                            // 找到第一个非空行的索引
+                            let firstRowIndex = -1;
+                            for (let i = 0; i < rows.length; i++) {
+                                if (rows[i].trim() !== '') {
+                                    firstRowIndex = i;
+                                    break;
+                                }
+                            }
+                            
+                            if (firstRowIndex >= 0) {
+                                // 创建第一行（合并Grand Total之前的所有数据）
+                                const firstRow = beforeGrandTotal.join('\t');
+                                rows[firstRowIndex] = firstRow;
+                                
+                                // 创建第二行（Grand Total及其后面的数据）
+                                const secondRow = grandTotalAndAfter.join('\t');
+                                
+                                // 删除中间的所有行，然后插入第二行
+                                const indicesToRemove = [];
+                                for (let i = firstRowIndex + 1; i < rows.length; i++) {
+                                    if (rows[i].trim() !== '') {
+                                        indicesToRemove.push(i);
+                                    }
+                                }
+                                
+                                // 从后往前删除，避免索引变化
+                                for (let idx of indicesToRemove.sort((a, b) => b - a)) {
+                                    rows.splice(idx, 1);
+                                }
+                                
+                                // 插入第二行（在第一行之后）
+                                rows.splice(firstRowIndex + 1, 0, secondRow);
+                                
+                                console.log('Detected Grand Total row, merged single-row data before Grand Total');
+                                console.log('First row:', firstRow);
+                                console.log('Second row:', secondRow);
+                            }
                         }
                     }
                 } else {
