@@ -6372,6 +6372,80 @@ if ($current_user_id && count($user_companies) > 0) {
             return null;
         }
 
+        // AGENT LINK 表格格式解析函数
+        // 解析格式：保持原始格式，3行数据，20列，数据位置都正确
+        function parseAgentLinkTableFormat(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            
+            // 去除可能的引号
+            let cleanData = pastedData.trim();
+            if ((cleanData.startsWith('"') && cleanData.endsWith('"')) || 
+                (cleanData.startsWith("'") && cleanData.endsWith("'"))) {
+                cleanData = cleanData.slice(1, -1);
+            }
+            
+            const normalizedData = cleanData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalizedData.split('\n').map(line => {
+                // 去除每行的引号
+                let trimmed = line.trim();
+                if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || 
+                    (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+                    trimmed = trimmed.slice(1, -1);
+                }
+                return trimmed;
+            }).filter(line => line !== '');
+            
+            console.log('AGENT LINK parser - lines:', lines.length);
+            
+            if (lines.length < 1) return null; // 至少需要一行数据
+            
+            // 解析数据行，保持原始格式
+            const dataMatrix = [];
+            
+            lines.forEach((line) => {
+                if (!line.trim()) return;
+                
+                // 尝试按制表符分割（最常见的情况）
+                let cells = line.split(/\t+/).map(c => c.trim());
+                
+                // 如果制表符分割失败，尝试按多个空格分割
+                if (cells.length < 5) {
+                    cells = line.split(/\s{2,}/).map(c => c.trim());
+                }
+                
+                // 如果还是不够，尝试按单个空格分割（但需要更智能的处理）
+                if (cells.length < 5) {
+                    const parts = line.split(/\s+/).filter(p => p.trim());
+                    if (parts.length >= 5) {
+                        cells = parts;
+                    }
+                }
+                
+                // 保持原始数据，不做任何转换
+                dataMatrix.push(cells);
+            });
+            
+            if (dataMatrix.length === 0) {
+                return null;
+            }
+            
+            // 确保所有行的列数相同（取最大列数）
+            let maxCols = Math.max(...dataMatrix.map(row => row.length));
+            dataMatrix.forEach(row => {
+                while (row.length < maxCols) {
+                    row.push('');
+                }
+            });
+            
+            console.log('Parsed AGENT LINK data:', dataMatrix.length, 'rows x', maxCols, 'cols');
+            
+            return {
+                dataMatrix: dataMatrix,
+                maxRows: dataMatrix.length,
+                maxCols: maxCols
+            };
+        }
+
         // 处理单元格粘贴事件
         function handleCellPaste(e) {
             // 获取单元格元素（支持文本节点和元素节点）
@@ -6634,6 +6708,176 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     setTimeout(updateSubmitButtonState, 0);
                     return;
+                }
+            }
+            
+            // AGENT LINK 专用解析（仅在 AGENT_LINK 类型时启用）
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'AGENT_LINK') {
+                console.log('AGENT LINK mode detected, attempting to parse...');
+                
+                // 先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
+                const htmlData = detectAndParseHTML(e);
+                let agentLinkParsed = null;
+                
+                if (htmlData) {
+                    // 解析 HTML 表格
+                    try {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = htmlData;
+                        
+                        const table = tempDiv.querySelector('table');
+                        if (table) {
+                            let dataMatrix = [];
+                            
+                            // 处理表头（如果有）
+                            const thead = table.querySelector('thead');
+                            if (thead) {
+                                const headerRows = thead.querySelectorAll('tr');
+                                headerRows.forEach(tr => {
+                                    const row = [];
+                                    const cells = tr.querySelectorAll('th, td');
+                                    cells.forEach(cell => {
+                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                        let text = cell.textContent || cell.innerText || '';
+                                        text = text.replace(/\s+/g, ' ').trim();
+                                        row.push(text);
+                                        for (let i = 1; i < colspan; i++) {
+                                            row.push('');
+                                        }
+                                    });
+                                    if (row.length > 0) {
+                                        dataMatrix.push(row);
+                                    }
+                                });
+                            }
+                            
+                            // 处理表体
+                            let bodyContainer = table.querySelector('tbody');
+                            if (!bodyContainer) {
+                                bodyContainer = table;
+                            }
+                            
+                            const bodyRows = bodyContainer.querySelectorAll('tr');
+                            bodyRows.forEach((tr) => {
+                                // 跳过已经在 thead 中处理过的行
+                                if (thead && tr.closest('thead')) {
+                                    return;
+                                }
+                                
+                                const row = [];
+                                const cells = tr.querySelectorAll('td, th');
+                                cells.forEach(cell => {
+                                    const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                    let text = cell.textContent || cell.innerText || '';
+                                    text = text.replace(/\s+/g, ' ').trim();
+                                    row.push(text);
+                                    for (let i = 1; i < colspan; i++) {
+                                        row.push('');
+                                    }
+                                });
+                                if (row.length > 0) {
+                                    dataMatrix.push(row);
+                                }
+                            });
+                            
+                            if (dataMatrix.length > 0) {
+                                // 确保所有行的列数相同
+                                let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                dataMatrix.forEach(row => {
+                                    while (row.length < maxCols) {
+                                        row.push('');
+                                    }
+                                });
+                                
+                                agentLinkParsed = {
+                                    dataMatrix: dataMatrix,
+                                    maxRows: dataMatrix.length,
+                                    maxCols: maxCols
+                                };
+                            }
+                        }
+                    } catch (htmlErr) {
+                        console.error('AGENT LINK HTML parser error:', htmlErr);
+                    }
+                }
+                
+                // 如果 HTML 解析失败，尝试纯文本解析
+                if (!agentLinkParsed) {
+                    agentLinkParsed = parseAgentLinkTableFormat(pastedData);
+                }
+                
+                if (agentLinkParsed) {
+                    const { dataMatrix, maxRows, maxCols } = agentLinkParsed;
+                    
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    // AGENT LINK 格式：强制从第一列（Column 1）开始粘贴
+                    const startCol = 0;
+                    
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    
+                    const requiredRows = startRow + maxRows;
+                    const requiredCols = startCol + maxCols;
+                    
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    dataMatrix.forEach((rowData, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
+                        
+                        rowData.forEach((cellData, colIndex) => {
+                            // 每行数据都从第一列（Column 1）开始
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                // 保持原始数据，不做任何转换
+                                cell.textContent = trimmedData;
+                                
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+                    
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted AGENT LINK data (${maxRows} rows x ${maxCols} cols)!`, 'success');
+                    } else {
+                        showNotification('No cells were pasted from AGENT LINK format.', 'danger');
+                    }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    return;
+                } else {
+                    // AGENT LINK 模式下解析失败，给出提示但不阻止（让用户知道）
+                    console.log('AGENT LINK parser returned null, data may not match expected format');
+                    // 不 return，继续尝试其他解析器
                 }
             }
             
