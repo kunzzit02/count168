@@ -8189,27 +8189,67 @@ if ($current_user_id && count($user_companies) > 0) {
             
             let dataMatrix = [];
             
-            // 处理特殊格式：每个单元格占一行的格式
-            // 这种情况下，数据可能是行优先的（第一行所有列，然后第二行所有列）
-            // 或者是列优先的（第一列所有行，然后第二列所有行）
-            
-            // 首先，解析所有单元格值（处理制表符分隔的单元格）
-            let allCells = [];
-            for (let row of rows) {
-                const trimmed = row.trim();
-                if (trimmed.includes('\t')) {
-                    // 如果行中包含制表符，分割成多个单元格
-                    const cells = trimmed.split('\t').map(cell => cell.trim());
-                    // 保留空单元格，因为它们可能是重要的位置标记
-                    allCells.push(...cells);
-                } else if (trimmed !== '') {
-                    // 否则整行作为一个单元格
-                    allCells.push(trimmed);
-                } else {
-                    // 空行表示空单元格，保留它（这可能是第二行中的空列）
-                    allCells.push('');
+            // 如果是标准表格格式，直接处理，完全跳过特殊格式解析
+            if (isStandardTableFormat) {
+                console.log('Processing standard table format: preserving exact row structure');
+                // 直接按行分割，每行保持原始列结构
+                dataMatrix = rows.map((row) => {
+                    const trimmed = row.trim();
+                    if (trimmed.includes('\t')) {
+                        // 使用制表符分割，保留所有单元格（包括空单元格）
+                        return trimmed.split('\t').map(cell => cell.trim());
+                    } else if (trimmed !== '') {
+                        // 单单元格行
+                        return [trimmed];
+                    } else {
+                        // 空行
+                        return [];
+                    }
+                }).filter(row => row.length > 0); // 过滤掉完全空的行
+                
+                // 确保所有行都有相同的列数（用空字符串填充到最大列数）
+                const maxCols = Math.max(...dataMatrix.map(row => row.length), 1);
+                dataMatrix = dataMatrix.map(row => {
+                    const paddedRow = [...row];
+                    while (paddedRow.length < maxCols) {
+                        paddedRow.push('');
+                    }
+                    return paddedRow;
+                });
+                
+                console.log('Standard table format processed:', dataMatrix.length, 'rows x', maxCols, 'cols');
+                console.log('First row:', dataMatrix[0]);
+                if (dataMatrix.length > 1) {
+                    console.log('Second row:', dataMatrix[1]);
                 }
-            }
+                if (dataMatrix.length > 2) {
+                    console.log('Third row (Total):', dataMatrix[dataMatrix.length - 1]);
+                }
+                // 标准表格格式处理完成，跳过所有后续的特殊格式处理
+                // 直接跳到后处理部分（列对齐检查）
+                // 注意：这里不执行 else 块中的代码，直接使用已创建的 dataMatrix
+            } else {
+                // 处理特殊格式：每个单元格占一行的格式
+                // 这种情况下，数据可能是行优先的（第一行所有列，然后第二行所有列）
+                // 或者是列优先的（第一列所有行，然后第二列所有行）
+                
+                // 首先，解析所有单元格值（处理制表符分隔的单元格）
+                let allCells = [];
+                for (let row of rows) {
+                    const trimmed = row.trim();
+                    if (trimmed.includes('\t')) {
+                        // 如果行中包含制表符，分割成多个单元格
+                        const cells = trimmed.split('\t').map(cell => cell.trim());
+                        // 保留空单元格，因为它们可能是重要的位置标记
+                        allCells.push(...cells);
+                    } else if (trimmed !== '') {
+                        // 否则整行作为一个单元格
+                        allCells.push(trimmed);
+                    } else {
+                        // 空行表示空单元格，保留它（这可能是第二行中的空列）
+                        allCells.push('');
+                    }
+                }
             
             console.log('Total cells extracted:', allCells.length);
             console.log('First 20 cells:', allCells.slice(0, 20));
@@ -8892,9 +8932,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-            } else if (!(isSpecialRowMajorFormat && shouldTreatAsSingleRow)) {
+            } else if (!(isSpecialRowMajorFormat && shouldTreatAsSingleRow) && !isStandardTableFormat) {
                 // 行优先格式（标准格式）：每行是完整的行数据
                 // 注意：单行格式已在前面处理，这里跳过
+                // 注意：标准表格格式已在前面处理，这里跳过
                 console.log('Using ROW-MAJOR parsing');
                 
                 // 检测分隔符类型
