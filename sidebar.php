@@ -1925,16 +1925,8 @@ if ($companyId) {
         console.log('Language switched to:', lang);
     }
 
-    // 页面加载时恢复语言选择（如果语言按钮存在）
+    // 页面加载时恢复语言选择
     document.addEventListener('DOMContentLoaded', function() {
-        const currentFlag = document.getElementById('current-flag');
-        const currentLangText = document.getElementById('current-lang');
-
-        // 当前页面没有语言切换按钮时，直接跳过，避免报错
-        if (!currentFlag || !currentLangText) {
-            return;
-        }
-
         // 检测当前页面语言
         let currentLang = 'en';
         if (window.location.pathname.includes('/cn/')) {
@@ -1942,6 +1934,9 @@ if ($companyId) {
         }
         
         // 更新按钮显示为当前语言
+        const currentFlag = document.getElementById('current-flag');
+        const currentLangText = document.getElementById('current-lang');
+        
         if (currentLang === 'zh') {
             currentFlag.src = 'images/china.png';
             currentFlag.alt = '中文';
