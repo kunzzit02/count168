@@ -6395,29 +6395,43 @@ if ($current_user_id && count($user_companies) > 0) {
                 return trimmed;
             }).filter(line => line !== '');
             
-            console.log('AGENT LINK parser - lines:', lines.length);
+            console.log('AGENT LINK text parser - lines:', lines.length);
+            if (lines.length > 0) {
+                console.log('AGENT LINK text parser - first line sample:', lines[0].substring(0, 100));
+                console.log('AGENT LINK text parser - first line has tabs:', lines[0].includes('\t'));
+            }
             
             if (lines.length < 1) return null; // 至少需要一行数据
             
             // 解析数据行，保持原始格式
             const dataMatrix = [];
             
-            lines.forEach((line) => {
+            lines.forEach((line, lineIndex) => {
                 if (!line.trim()) return;
                 
-                // 尝试按制表符分割（最常见的情况）
-                let cells = line.split(/\t+/).map(c => c.trim());
+                let cells = [];
                 
-                // 如果制表符分割失败，尝试按多个空格分割
-                if (cells.length < 5) {
-                    cells = line.split(/\s{2,}/).map(c => c.trim());
-                }
-                
-                // 如果还是不够，尝试按单个空格分割（但需要更智能的处理）
-                if (cells.length < 5) {
-                    const parts = line.split(/\s+/).filter(p => p.trim());
-                    if (parts.length >= 5) {
-                        cells = parts;
+                // 优先尝试按制表符分割（最常见的情况，从Excel/表格复制）
+                if (line.includes('\t')) {
+                    cells = line.split('\t').map(c => c.trim());
+                    console.log(`AGENT LINK text parser - Line ${lineIndex}: Tab-separated, ${cells.length} columns`);
+                } else {
+                    // 如果没有制表符，尝试按多个空格分割（网页表格可能用多个空格对齐）
+                    const multiSpaceSplit = line.split(/\s{2,}/).map(c => c.trim());
+                    if (multiSpaceSplit.length >= 5) {
+                        cells = multiSpaceSplit;
+                        console.log(`AGENT LINK text parser - Line ${lineIndex}: Multi-space-separated, ${cells.length} columns`);
+                    } else {
+                        // 最后尝试按单个空格分割（但可能不准确，因为数据中可能包含空格）
+                        const singleSpaceSplit = line.split(/\s+/).filter(p => p.trim());
+                        if (singleSpaceSplit.length >= 5) {
+                            cells = singleSpaceSplit;
+                            console.log(`AGENT LINK text parser - Line ${lineIndex}: Single-space-separated, ${cells.length} columns (may be inaccurate)`);
+                        } else {
+                            // 如果分割后列数太少，可能不是表格数据
+                            console.warn(`AGENT LINK text parser - Line ${lineIndex}: Could not split into enough columns, treating as single cell`);
+                            cells = [line];
+                        }
                     }
                 }
                 
@@ -6431,13 +6445,17 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 确保所有行的列数相同（取最大列数）
             let maxCols = Math.max(...dataMatrix.map(row => row.length));
-            dataMatrix.forEach(row => {
+            console.log('AGENT LINK text parser - Max columns:', maxCols);
+            dataMatrix.forEach((row, idx) => {
                 while (row.length < maxCols) {
                     row.push('');
                 }
+                if (idx < 3) {
+                    console.log(`AGENT LINK text parser - Row ${idx} (${row.length} cols):`, row.slice(0, 10));
+                }
             });
             
-            console.log('Parsed AGENT LINK data:', dataMatrix.length, 'rows x', maxCols, 'cols');
+            console.log('Parsed AGENT LINK text data:', dataMatrix.length, 'rows x', maxCols, 'cols');
             
             return {
                 dataMatrix: dataMatrix,
@@ -6714,12 +6732,14 @@ if ($current_user_id && count($user_companies) > 0) {
             // AGENT LINK 专用解析（仅在 AGENT_LINK 类型时启用）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'AGENT_LINK') {
                 console.log('AGENT LINK mode detected, attempting to parse...');
+                console.log('Pasted data (first 500 chars):', pastedData.substring(0, 500));
                 
                 // 先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                 const htmlData = detectAndParseHTML(e);
                 let agentLinkParsed = null;
                 
                 if (htmlData) {
+                    console.log('AGENT LINK: HTML data detected, parsing...');
                     // 解析 HTML 表格
                     try {
                         const tempDiv = document.createElement('div');
@@ -6729,53 +6749,28 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (table) {
                             let dataMatrix = [];
                             
-                            // 处理表头（如果有）
-                            const thead = table.querySelector('thead');
-                            if (thead) {
-                                const headerRows = thead.querySelectorAll('tr');
-                                headerRows.forEach(tr => {
-                                    const row = [];
-                                    const cells = tr.querySelectorAll('th, td');
-                                    cells.forEach(cell => {
-                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                        let text = cell.textContent || cell.innerText || '';
-                                        text = text.replace(/\s+/g, ' ').trim();
-                                        row.push(text);
-                                        for (let i = 1; i < colspan; i++) {
-                                            row.push('');
-                                        }
-                                    });
-                                    if (row.length > 0) {
-                                        dataMatrix.push(row);
-                                    }
-                                });
-                            }
+                            // 处理所有行（包括表头和表体）
+                            const allRows = table.querySelectorAll('tr');
+                            console.log('AGENT LINK: Found', allRows.length, 'rows in HTML table');
                             
-                            // 处理表体
-                            let bodyContainer = table.querySelector('tbody');
-                            if (!bodyContainer) {
-                                bodyContainer = table;
-                            }
-                            
-                            const bodyRows = bodyContainer.querySelectorAll('tr');
-                            bodyRows.forEach((tr) => {
-                                // 跳过已经在 thead 中处理过的行
-                                if (thead && tr.closest('thead')) {
-                                    return;
-                                }
-                                
+                            allRows.forEach((tr, rowIndex) => {
                                 const row = [];
                                 const cells = tr.querySelectorAll('td, th');
-                                cells.forEach(cell => {
+                                console.log(`AGENT LINK: Row ${rowIndex} has ${cells.length} cells`);
+                                
+                                cells.forEach((cell, cellIndex) => {
                                     const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
                                     let text = cell.textContent || cell.innerText || '';
                                     text = text.replace(/\s+/g, ' ').trim();
                                     row.push(text);
+                                    // 处理 colspan
                                     for (let i = 1; i < colspan; i++) {
                                         row.push('');
                                     }
                                 });
+                                
                                 if (row.length > 0) {
+                                    console.log(`AGENT LINK: Row ${rowIndex} parsed with ${row.length} columns:`, row.slice(0, 5));
                                     dataMatrix.push(row);
                                 }
                             });
@@ -6783,6 +6778,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (dataMatrix.length > 0) {
                                 // 确保所有行的列数相同
                                 let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                console.log('AGENT LINK: Max columns detected:', maxCols);
                                 dataMatrix.forEach(row => {
                                     while (row.length < maxCols) {
                                         row.push('');
@@ -6794,6 +6790,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     maxRows: dataMatrix.length,
                                     maxCols: maxCols
                                 };
+                                console.log('AGENT LINK: HTML parsing successful:', agentLinkParsed.maxRows, 'rows x', agentLinkParsed.maxCols, 'cols');
                             }
                         }
                     } catch (htmlErr) {
@@ -6803,11 +6800,18 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 如果 HTML 解析失败，尝试纯文本解析
                 if (!agentLinkParsed) {
+                    console.log('AGENT LINK: HTML parsing failed, trying text parsing...');
                     agentLinkParsed = parseAgentLinkTableFormat(pastedData);
+                    if (agentLinkParsed) {
+                        console.log('AGENT LINK: Text parsing successful:', agentLinkParsed.maxRows, 'rows x', agentLinkParsed.maxCols, 'cols');
+                    }
                 }
                 
                 if (agentLinkParsed) {
                     const { dataMatrix, maxRows, maxCols } = agentLinkParsed;
+                    
+                    console.log('AGENT LINK: Final data matrix:', dataMatrix.length, 'rows x', maxCols, 'cols');
+                    console.log('AGENT LINK: First row sample:', dataMatrix[0] ? dataMatrix[0].slice(0, 10) : 'empty');
                     
                     const startCell = e.target;
                     const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
@@ -6820,9 +6824,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     const requiredRows = startRow + maxRows;
                     const requiredCols = startCol + maxCols;
                     
+                    console.log('AGENT LINK: Current table size:', currentRows, 'rows x', currentCols, 'cols');
+                    console.log('AGENT LINK: Required size:', requiredRows, 'rows x', requiredCols, 'cols');
+                    
                     if (requiredRows > currentRows || requiredCols > currentCols) {
                         const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
                         const targetCols = Math.max(currentCols, requiredCols);
+                        console.log('AGENT LINK: Resizing table to:', targetRows, 'rows x', targetCols, 'cols');
                         initializeTable(targetRows, targetCols);
                     }
                     
@@ -6833,7 +6841,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     dataMatrix.forEach((rowData, rowIndex) => {
                         const actualRowIndex = startRow + rowIndex;
                         const tableRow = tableBody.children[actualRowIndex];
-                        if (!tableRow) return;
+                        if (!tableRow) {
+                            console.warn('AGENT LINK: Table row not found at index', actualRowIndex);
+                            return;
+                        }
                         
                         rowData.forEach((cellData, colIndex) => {
                             // 每行数据都从第一列（Column 1）开始
@@ -6855,6 +6866,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                 if (trimmedData) {
                                     successCount++;
                                 }
+                            } else if (colIndex < 5) {
+                                console.warn('AGENT LINK: Cell not found or not editable at row', actualRowIndex, 'col', actualColIndex);
                             }
                         });
                     });
