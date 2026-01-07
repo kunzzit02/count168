@@ -8123,6 +8123,43 @@ if ($current_user_id && count($user_companies) > 0) {
             console.log('Rows with tabs:', rowsWithTabs, 'out of', rows.length, '(', (rowsWithTabsRatio * 100).toFixed(1), '%)');
             console.log('Max cells in a row:', maxCellsInRow);
             
+            // 检查列数一致性：如果大部分行都有制表符，且列数一致或接近，使用标准格式
+            let isStandardTableFormat = false;
+            if (rowsWithTabsRatio >= 0.5 && rows.length > 0) {
+                // 计算每行的列数
+                const columnCounts = [];
+                for (let row of rows) {
+                    const trimmed = row.trim();
+                    if (trimmed.includes('\t')) {
+                        const cellCount = trimmed.split('\t').length;
+                        columnCounts.push(cellCount);
+                    }
+                }
+                
+                if (columnCounts.length > 0) {
+                    // 计算列数的平均值和标准差
+                    const avgCols = columnCounts.reduce((a, b) => a + b, 0) / columnCounts.length;
+                    const variance = columnCounts.reduce((sum, count) => sum + Math.pow(count - avgCols, 2), 0) / columnCounts.length;
+                    const stdDev = Math.sqrt(variance);
+                    
+                    // 如果标准差小于平均值的20%，认为列数一致
+                    const isConsistent = stdDev < avgCols * 0.2;
+                    
+                    console.log('Column consistency check:', {
+                        avgCols: avgCols.toFixed(2),
+                        stdDev: stdDev.toFixed(2),
+                        isConsistent: isConsistent,
+                        columnCounts: columnCounts.slice(0, 5) + (columnCounts.length > 5 ? '...' : '')
+                    });
+                    
+                    // 如果列数一致，且大部分行都有制表符，使用标准格式
+                    if (isConsistent && rowsWithTabsRatio >= 0.7) {
+                        isStandardTableFormat = true;
+                        console.log('Detected STANDARD TABLE format (consistent column count, will preserve original structure)');
+                    }
+                }
+            }
+            
             // 判断是否为特殊格式（每个单元格占一行的行优先格式）：
             // - 如果大部分行（少于30%）包含制表符，且行数很多，可能是特殊格式
             // - 这种格式：每个单元格占一行，顺序是行优先的（第一行的所有列，然后第二行的所有列）
@@ -8130,7 +8167,8 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 首先，尝试识别格式模式
             // 如果大部分行是单个单元格（没有制表符），可能是特殊格式
-            if (rowsWithTabsRatio < 0.3 && rows.length > 10) {
+            // 但如果已经检测到标准表格格式，跳过特殊格式检测
+            if (!isStandardTableFormat && rowsWithTabsRatio < 0.3 && rows.length > 10) {
                 // 这可能是特殊格式，需要进一步判断是行优先还是列优先
                 // 从数据模式来看，可能是行优先（每个单元格占一行）
                 // 尝试通过数据模式来判断
@@ -8139,12 +8177,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 这样可以横向排列数据
                 isColumnMajor = false; // 标记为特殊格式，不是标准列优先
                 console.log('Detected SPECIAL format (one cell per line), will try row-major grouping');
-            } else if (rowsWithTabsRatio < 0.5 && rows.length > 10) {
+            } else if (!isStandardTableFormat && rowsWithTabsRatio < 0.5 && rows.length > 10) {
                 // 可能有部分行包含多个单元格，可能是混合格式
                 // 仍然尝试按行优先处理
                 isColumnMajor = false;
                 console.log('Detected MIXED format, will try row-major grouping');
-            } else {
+            } else if (!isStandardTableFormat) {
                 // 标准格式：每行包含多个单元格（用制表符分隔）
                 console.log('Detected ROW-MAJOR format (standard table format)');
             }
@@ -8884,6 +8922,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         return cells.map(cell => cell.trim());
                     });
                     
+                    // 如果是标准表格格式，标记为已处理，跳过后续的特殊处理
+                    if (isStandardTableFormat) {
+                        console.log('Standard table format detected, skipping special processing and column alignment');
+                        // 直接使用dataMatrix，不进行后续的特殊分组和列对齐
+                    }
+                    
                     // 检测并移除行号列（如 "1.", "2.", "10" 等），避免把序号当成正常数据
                     // 新规则（修复单行/少量行复制时顺序错乱的问题）：
                     //  - 匹配「数字」或「数字+小数点」格式（例如 "1", "1.", "10", "10."）
@@ -8964,10 +9008,14 @@ if ($current_user_id && count($user_companies) > 0) {
 
             // 后处理：移除每行前面的空列或非标识符列，将第一个标识符列移到第一列
             // 标识符列通常是：以字母开头的代码（如CKZ03, CKZ16），或者第一列应该是标识符
-            console.log('Post-processing: Removing leading empty/non-identifier columns...');
+            // 如果是标准表格格式，跳过列对齐，保持原始格式
             let shiftedRowsCount = 0;
-            
-            // 定义标识符的模式：通常是以字母开头，可能包含数字，或者特殊的关键词
+            if (isStandardTableFormat) {
+                console.log('Post-processing: Skipping column alignment for standard table format (preserving original structure)');
+            } else {
+                console.log('Post-processing: Removing leading empty/non-identifier columns...');
+                
+                // 定义标识符的模式：通常是以字母开头，可能包含数字，或者特殊的关键词
             const isIdentifier = (value) => {
                 if (!value || value.trim() === '') return false;
                 const trimmed = value.trim().toUpperCase();
@@ -9008,7 +9056,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log(`First row identifier column: ${firstRowIdentifierCol + 1}`);
             }
             
-                    // 处理每一行：如果第一列不是标识符（或为空），且后面有标识符列，则向左移动
+            // 处理每一行：如果第一列不是标识符（或为空），且后面有标识符列，则向左移动
             // 但是，如果数据已经正确分组（第一列是正确的），就不要移动
             for (let rowIndex = 0; rowIndex < dataMatrix.length; rowIndex++) {
                 const row = dataMatrix[rowIndex];
@@ -9106,11 +9154,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
             }
+            } // 结束 else 块（如果不是标准表格格式）
             
-            if (shiftedRowsCount > 0) {
-                console.log(`Post-processing complete: Shifted ${shiftedRowsCount} row(s) to align identifier columns`);
-            } else {
-                console.log('Post-processing: No shifts needed (all rows start with identifier or empty)');
+            if (!isStandardTableFormat) {
+                if (shiftedRowsCount > 0) {
+                    console.log(`Post-processing complete: Shifted ${shiftedRowsCount} row(s) to align identifier columns`);
+                } else {
+                    console.log('Post-processing: No shifts needed (all rows start with identifier or empty)');
+                }
             }
             
             // 过滤掉完全为空的行，避免出现 "空白行" 被粘贴到表格
