@@ -2435,19 +2435,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             }
             
             // 再应用 Show 0 balance 过滤
-            // 如果 win_loss 为 0，则不显示（除非勾选了 Show 0 balance）
             const filterFn = (row) => {
-                if (showZero) return true; // 显示所有（包括 0 win_loss）
-                
-                // 检查 win_loss 是否为 0（或接近 0）
-                const winLoss = parseFloat(row.win_loss) || 0;
-                if (Math.abs(winLoss) <= 0.00001) {
-                    // win_loss 为 0，不显示
-                    return false;
-                }
-                
-                // win_loss 不为 0，保留
-                return true;
+                if (showZero) return true; // 显示所有（包括 0 balance）
+                const num = parseFloat(row.balance);
+                if (isNaN(num)) return true;
+                return Math.abs(num) > 0.00001; // 过滤掉绝对值为 0 的余额
             };
             
             filteredLeft = filteredLeft.filter(filterFn);
@@ -2526,15 +2518,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             const showZero = document.getElementById('show_zero_balance')?.checked || false;
             if (!showZero) {
                 const filterFn = (row) => {
-                    // 检查 win_loss 是否为 0（或接近 0）
-                    const winLoss = parseFloat(row.win_loss) || 0;
-                    if (Math.abs(winLoss) <= 0.00001) {
-                        // win_loss 为 0，不显示
-                        return false;
-                    }
-                    
-                    // win_loss 不为 0，保留
-                    return true;
+                    const num = parseFloat(row.balance);
+                    if (isNaN(num)) return true;
+                    return Math.abs(num) > 0.00001;
                 };
                 filteredLeft = filteredLeft.filter(filterFn);
                 filteredRight = filteredRight.filter(filterFn);
