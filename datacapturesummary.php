@@ -9609,10 +9609,44 @@ function getCurrentProcessId() {
             
             // Update Formula column (now index 4)
             if (cells[4]) {
-                // Get the formula to display - prioritize data.formula, then data.formulaOperators
-                let formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                // CRITICAL: Always rebuild from sourceColumns if available, to ensure deleted columns are not shown
+                // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
+                let formulaText = '';
+                const sourceColumnsValue = row.getAttribute('data-source-columns') || '';
+                const formulaOperatorsValue = row.getAttribute('data-formula-operators') || '';
+                const processValue = getProcessValueFromRow(row);
                 
-                // If formula is empty, try to get from formulaOperators
+                // If sourceColumns is available, rebuild formula display from it
+                if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && processValue) {
+                    const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
+                    if (referenceExpression) {
+                        // Parse reference format to actual values for display
+                        const parsedExpression = parseReferenceFormula(referenceExpression);
+                        
+                        // Get source percent for display
+                        const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                            ? data.sourcePercent.toString().trim() 
+                            : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                        const enableSourcePercent = data.enableSourcePercent !== undefined 
+                            ? data.enableSourcePercent 
+                            : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                        
+                        // Create formula display with source percent if enabled
+                        if (enableSourcePercent && sourcePercentText) {
+                            formulaText = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, true);
+                        } else {
+                            formulaText = parsedExpression;
+                        }
+                        console.log('updateFormulaAndProcessedAmount: Rebuilt formula from sourceColumns:', sourceColumnsValue, '->', formulaText);
+                    }
+                }
+                
+                // Fallback: Get the formula to display - prioritize data.formula, then data.formulaOperators
+                if (!formulaText || formulaText.trim() === '') {
+                    formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                }
+                
+                // If formula is still empty, try to get from formulaOperators
                 if (!formulaText || formulaText.trim() === '') {
                     const formulaOperators = data.formulaOperators || row.getAttribute('data-formula-operators') || '';
                     if (formulaOperators && formulaOperators.trim() !== '' && formulaOperators !== 'Formula') {
