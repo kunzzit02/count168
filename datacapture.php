@@ -5265,12 +5265,13 @@ if ($current_user_id && count($user_companies) > 0) {
             const rawLines = norm.split('\n').map(l => l.trim());
 
             // 允许用户从 "Overall" 开始复制（不包含 "Upline Payment" 标题）
-            // 但为了避免误判，仍然要求包含 Downline Payment，并且能找到 Overall / My Earnings / Total 关键行
+            // 但为了避免误判，仍然要求包含 Downline Payment，并且能找到 Overall / My Earnings 关键行
+            // Total 行是可选的，即使没有也能正常解析
             const hasDownline = rawLines.some(l => l.toLowerCase().includes('downline payment'));
             const hasOverall = rawLines.some(l => /^overall\b/i.test(l));
             const hasMyEarnings = rawLines.some(l => l.toLowerCase().includes('my earnings'));
             const hasTotal = rawLines.some(l => l.toLowerCase().startsWith('total :') || l.toLowerCase().startsWith('totals'));
-            if (!hasDownline || !hasOverall || !hasMyEarnings || !hasTotal) {
+            if (!hasDownline || !hasOverall || !hasMyEarnings) {
                 return null;
             }
 
