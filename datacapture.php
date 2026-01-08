@@ -3999,12 +3999,25 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 将下一行的数据追加到当前行（如果是行号，跳过它）
                                 const dataToAdd = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : nextRow;
-                                dataToAdd.forEach((cell) => {
-                                    const cellValue = (cell || '').toString().trim();
+                                
+                                // 检测并去除重叠数据：如果当前行的最后一个值和下一行的第一个值相同，跳过第一个值
+                                let startIndex = 0;
+                                if (processedRow.length > 0 && dataToAdd.length > 0) {
+                                    const lastValue = processedRow[processedRow.length - 1];
+                                    const firstValue = dataToAdd[0];
+                                    if (lastValue && firstValue && lastValue.toString().trim() === firstValue.toString().trim()) {
+                                        startIndex = 1; // 跳过第一个值（因为它是重复的）
+                                        console.log(`WBET: HTML - Detected duplicate value "${firstValue}", skipping first cell of next row`);
+                                    }
+                                }
+                                
+                                // 添加数据（跳过重复的第一个值）
+                                for (let i = startIndex; i < dataToAdd.length; i++) {
+                                    const cellValue = (dataToAdd[i] || '').toString().trim();
                                     if (cellValue) {
                                         processedRow.push(cellValue);
                                     }
-                                });
+                                }
                                 
                                 // 标记这一行已处理，跳过它
                                 rowsToSkip.add(mergeIndex);
@@ -7130,12 +7143,25 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 将下一行的数据追加到当前行（如果是行号，跳过它）
                                 const dataToAdd = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : nextRow;
-                                dataToAdd.forEach((cell) => {
-                                    const cellValue = (cell || '').toString().trim();
+                                
+                                // 检测并去除重叠数据：如果当前行的最后一个值和下一行的第一个值相同，跳过第一个值
+                                let startIndex = 0;
+                                if (processedRow.length > 0 && dataToAdd.length > 0) {
+                                    const lastValue = processedRow[processedRow.length - 1];
+                                    const firstValue = dataToAdd[0];
+                                    if (lastValue && firstValue && lastValue.toString().trim() === firstValue.toString().trim()) {
+                                        startIndex = 1; // 跳过第一个值（因为它是重复的）
+                                        console.log(`WBET: Text - Detected duplicate value "${firstValue}", skipping first cell of next row`);
+                                    }
+                                }
+                                
+                                // 添加数据（跳过重复的第一个值）
+                                for (let i = startIndex; i < dataToAdd.length; i++) {
+                                    const cellValue = (dataToAdd[i] || '').toString().trim();
                                     if (cellValue) {
                                         processedRow.push(cellValue);
                                     }
-                                });
+                                }
                                 
                                 rowsToSkip.add(mergeIndex);
                                 mergeIndex++;
