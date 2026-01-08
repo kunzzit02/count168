@@ -3967,30 +3967,15 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 检查下一行第一列是否是标签或行号
                             const nextFirstCell = (nextRow[0] || '').toString().trim();
                             const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
-                            // 检查是否是明显的用户名标签（2-3个字母，如 OB, OC, OD）
                             const nextFirstIsLabel = /^(SUB TOTAL|GRAND TOTAL|SUBTOTAL|GRANDTOTAL|OB|OC|OD|RS|NIXON|KX)$/i.test(nextFirstCell);
                             
-                            // 如果下一行第一列是明显的标签（不是数字），停止合并
+                            // 如果下一行第一列是标签，停止合并
                             if (nextFirstIsLabel && !nextFirstIsNumber) {
                                 continueMerging = false;
                                 break;
                             }
                             
-                            // 检查下一行是否看起来像新的数据行（第一列是用户名，第二列是名字）
-                            // 例如：OB RS, OC NIXON, OD KX
-                            if (nextRow.length >= 2) {
-                                const secondCell = (nextRow[1] || '').toString().trim();
-                                const firstIsShortText = nextFirstCell.length <= 3 && /^[A-Z]+$/i.test(nextFirstCell);
-                                const secondIsText = secondCell.length > 0 && !/^[\d,.-]+$/.test(secondCell.replace(/[(),]/g, ''));
-                                
-                                // 如果第一列是短文本（可能是用户名），第二列也是文本（可能是名字），这是新数据行
-                                if (firstIsShortText && secondIsText && !nextFirstIsNumber) {
-                                    continueMerging = false;
-                                    break;
-                                }
-                            }
-                            
-                            // 将下一行的所有数据追加到当前行（如果是行号，跳过它）
+                            // 将下一行的数据追加到当前行（如果是行号，跳过它）
                             const dataToAdd = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : nextRow;
                             dataToAdd.forEach((cell) => {
                                 const cellValue = (cell || '').toString().trim();
@@ -4003,8 +3988,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             rowsToSkip.add(mergeIndex);
                             mergeIndex++;
                             
-                            // 如果合并的行太多（比如超过100列），停止合并，可能是误判
-                            if (processedRow.length > 100) {
+                            // 如果合并的行太多（比如超过50列），停止合并，可能是误判
+                            if (processedRow.length > 50) {
                                 continueMerging = false;
                                 break;
                             }
@@ -6985,129 +6970,16 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         });
                         
-                        console.log('WBET: Parsed text data (before processing):', dataMatrix.length, 'rows x', maxCols, 'cols');
-                        
-                        // WBET 专用处理：
-                        // 1. 移除第一列的行号（如果有），让用户名/产品ID从第一列开始
-                        // 2. 确保 Sub Total 和 Grand Total 的所有数据保持在同一行（横向格式）
-                        
-                        const processedMatrix = [];
-                        const rowsToSkip = new Set(); // 记录需要跳过的行（已被合并的行）
-                        
-                        dataMatrix.forEach((row, rowIndex) => {
-                            // 如果这一行已经被标记为跳过，忽略
-                            if (rowsToSkip.has(rowIndex)) {
-                                return;
-                            }
-                            
-                            // 检查第一列是否是行号（纯数字，如 1, 2, 3）
-                            const firstCell = (row[0] || '').toString().trim();
-                            const isRowNumber = /^\d+$/.test(firstCell);
-                            
-                            // 如果是行号，跳过第一列，从第二列开始
-                            let processedRow;
-                            if (isRowNumber && row.length > 1) {
-                                processedRow = row.slice(1); // 跳过第一列（行号）
-                            } else {
-                                processedRow = [...row]; // 保持原样
-                            }
-                            
-                            // 检查是否是 Sub Total 或 Grand Total 行
-                            const rowText = processedRow.join(' ').toUpperCase();
-                            const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
-                            const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
-                            
-                            if (isSubTotal || isGrandTotal) {
-                                // Sub Total 或 Grand Total 行：收集后续行的数据，直到遇到另一个 Total 行或明显的标签行
-                                let continueMerging = true;
-                                let mergeIndex = rowIndex + 1;
-                                
-                                while (continueMerging && mergeIndex < dataMatrix.length) {
-                                    const nextRow = dataMatrix[mergeIndex];
-                                    if (!nextRow || rowsToSkip.has(mergeIndex)) {
-                                        mergeIndex++;
-                                        continue;
-                                    }
-                                    
-                                    const nextRowText = nextRow.join(' ').toUpperCase();
-                                    const nextIsSubTotal = nextRowText.includes('SUB TOTAL') || nextRowText.includes('SUBTOTAL');
-                                    const nextIsGrandTotal = nextRowText.includes('GRAND TOTAL') || nextRowText.includes('GRANDTOTAL');
-                                    
-                                    // 如果遇到另一个 Total 行，停止合并
-                                    if (nextIsSubTotal || nextIsGrandTotal) {
-                                        continueMerging = false;
-                                        break;
-                                    }
-                                    
-                                    // 检查下一行第一列是否是标签或行号
-                                    const nextFirstCell = (nextRow[0] || '').toString().trim();
-                                    const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
-                                    // 检查是否是明显的用户名标签（2-3个字母，如 OB, OC, OD）
-                                    const nextFirstIsLabel = /^(SUB TOTAL|GRAND TOTAL|SUBTOTAL|GRANDTOTAL|OB|OC|OD|RS|NIXON|KX)$/i.test(nextFirstCell);
-                                    
-                                    // 如果下一行第一列是明显的标签（不是数字），停止合并
-                                    if (nextFirstIsLabel && !nextFirstIsNumber) {
-                                        continueMerging = false;
-                                        break;
-                                    }
-                                    
-                                    // 检查下一行是否看起来像新的数据行（第一列是用户名，第二列是名字）
-                                    // 例如：OB RS, OC NIXON, OD KX
-                                    if (nextRow.length >= 2) {
-                                        const secondCell = (nextRow[1] || '').toString().trim();
-                                        const firstIsShortText = nextFirstCell.length <= 3 && /^[A-Z]+$/i.test(nextFirstCell);
-                                        const secondIsText = secondCell.length > 0 && !/^[\d,.-]+$/.test(secondCell.replace(/[(),]/g, ''));
-                                        
-                                        // 如果第一列是短文本（可能是用户名），第二列也是文本（可能是名字），这是新数据行
-                                        if (firstIsShortText && secondIsText && !nextFirstIsNumber) {
-                                            continueMerging = false;
-                                            break;
-                                        }
-                                    }
-                                    
-                                    // 将下一行的所有数据追加到当前行（如果是行号，跳过它）
-                                    const dataToAdd = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : nextRow;
-                                    dataToAdd.forEach((cell) => {
-                                        const cellValue = (cell || '').toString().trim();
-                                        if (cellValue) {
-                                            processedRow.push(cellValue);
-                                        }
-                                    });
-                                    
-                                    // 标记这一行已处理，跳过它
-                                    rowsToSkip.add(mergeIndex);
-                                    mergeIndex++;
-                                    
-                                    // 如果合并的行太多（比如超过100列），停止合并，可能是误判
-                                    if (processedRow.length > 100) {
-                                        continueMerging = false;
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            processedMatrix.push(processedRow);
-                        });
-                        
-                        // 重新计算最大列数
-                        const processedMaxCols = Math.max(...processedMatrix.map(row => row.length));
-                        processedMatrix.forEach(row => {
-                            while (row.length < processedMaxCols) {
-                                row.push('');
-                            }
-                        });
-                        
-                        console.log('WBET: Processed text data:', processedMatrix.length, 'rows x', processedMaxCols, 'cols');
-                        console.log('WBET: First few processed rows:', processedMatrix.slice(0, 5));
+                        console.log('WBET: Parsed text data:', dataMatrix.length, 'rows x', maxCols, 'cols');
                         
                         const startCell = e.target;
                         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = 0; // WBET: 强制从第一列开始
+                        const startCol = parseInt(startCell.dataset.col);
                         
                         const currentRows = document.querySelectorAll('#tableBody tr').length;
                         const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredRows = startRow + processedMatrix.length;
-                        const requiredCols = startCol + processedMaxCols;
+                        const requiredRows = startRow + dataMatrix.length;
+                        const requiredCols = startCol + maxCols;
                         
                         if (requiredRows > currentRows || requiredCols > currentCols) {
                             const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
@@ -7119,7 +6991,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const currentPasteChanges = [];
                         let successCount = 0;
                         
-                        processedMatrix.forEach((rowData, rowIndex) => {
+                        dataMatrix.forEach((rowData, rowIndex) => {
                             const actualRowIndex = startRow + rowIndex;
                             const tableRow = tableBody.children[actualRowIndex];
                             if (!tableRow) return;
@@ -7151,7 +7023,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (successCount > 0) {
-                            showNotification(`Successfully pasted WBET data (${processedMatrix.length} rows x ${processedMaxCols} cols)!`, 'success');
+                            showNotification(`Successfully pasted WBET data (${dataMatrix.length} rows x ${maxCols} cols)!`, 'success');
                         } else {
                             showNotification('No cells were pasted from WBET format.', 'danger');
                         }
