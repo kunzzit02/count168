@@ -11883,35 +11883,9 @@ function getCurrentProcessId() {
                 
                 // Columns, Batch Selection, and Source columns removed
                 
-                // Formula column (index 4)
-                if (cells[4]) {
-                    // If formula is empty, don't display "Formula" text, just leave it empty
-                    const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
-                    const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
-                    const inputMethodTooltip = inputMethod || '';
-                    cells[4].innerHTML = `
-                        <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                            <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
-                            <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
-                        </div>
-                    `;
-                    // Attach double-click event listener
-                    attachInlineEditListeners(row);
-                }
+                // IMPORTANT: Set data attributes first (especially data-source-columns) before building formula display
+                // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
                 
-                // Source % column (index 5) - display as percentage
-                if (cells[5]) {
-                    // Convert decimal format (1 = 100%) to percentage display format (100%)
-                    const sourcePercentValue = data.sourcePercent ? data.sourcePercent.toString().trim() : '1';
-                    cells[5].textContent = formatSourcePercentForDisplay(sourcePercentValue);
-                    // Attach double-click event listener
-                    attachInlineEditListeners(row);
-                }
-                
-                // Update Rate and Processed Amount columns using helper function
-                // This ensures Rate checkbox is only created once
-                updateFormulaAndProcessedAmount(row, data);
-
                 // Persist row_index (if provided) on the DOM row for later reordering
                 if (data.rowIndex !== undefined && data.rowIndex !== null && !Number.isNaN(Number(data.rowIndex))) {
                     row.setAttribute('data-row-index', String(Number(data.rowIndex)));
@@ -11936,6 +11910,64 @@ function getCurrentProcessId() {
                     // 回填列信息，便于引用格式公式展示
                     row.setAttribute('data-source-columns', data.columns);
                 }
+                
+                // Formula column (index 4) - rebuild from sourceColumns if available
+                if (cells[4]) {
+                    let formulaText = '';
+                    const sourceColumnsValue = row.getAttribute('data-source-columns') || '';
+                    const formulaOperatorsValue = row.getAttribute('data-formula-operators') || '';
+                    
+                    // If sourceColumns is available, rebuild formula display from it
+                    // This ensures that deleted columns are not shown after page refresh
+                    if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                        const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
+                        if (referenceExpression) {
+                            // Parse reference format to actual values for display
+                            const parsedExpression = parseReferenceFormula(referenceExpression);
+                            
+                            // Get source percent for display
+                            const sourcePercentCell = cells[5];
+                            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : (data.sourcePercent ? data.sourcePercent.toString().trim() : '1');
+                            const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1';
+                            
+                            // Create formula display with source percent if enabled
+                            if (enableSourcePercent && sourcePercentText) {
+                                formulaText = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, true);
+                            } else {
+                                formulaText = parsedExpression;
+                            }
+                        }
+                    }
+                    
+                    // Fallback to data.formula if sourceColumns is not available or buildSourceExpressionFromTable returns empty
+                    if (!formulaText && data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+                        formulaText = data.formula;
+                    }
+                    
+                    const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
+                    const inputMethodTooltip = inputMethod || '';
+                    cells[4].innerHTML = `
+                        <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
+                            <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+                            <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                        </div>
+                    `;
+                    // Attach double-click event listener
+                    attachInlineEditListeners(row);
+                }
+                
+                // Source % column (index 5) - display as percentage
+                if (cells[5]) {
+                    // Convert decimal format (1 = 100%) to percentage display format (100%)
+                    const sourcePercentValue = data.sourcePercent ? data.sourcePercent.toString().trim() : '1';
+                    cells[5].textContent = formatSourcePercentForDisplay(sourcePercentValue);
+                    // Attach double-click event listener
+                    attachInlineEditListeners(row);
+                }
+                
+                // Update Rate and Processed Amount columns using helper function
+                // This ensures Rate checkbox is only created once
+                updateFormulaAndProcessedAmount(row, data);
                 // Store last_source_value (contains *0.008, 0.002/0.90, etc.) in data attribute
                 // This is used to preserve formula structure when updating from Data Capture Table
                 if (data.source !== undefined && data.source !== 'Source') {
