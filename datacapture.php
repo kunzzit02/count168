@@ -11723,11 +11723,12 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             // 检测并重命名重复的 id product
-            try {
-                renameDuplicateIdProducts();
-            } catch (err) {
-                console.error('renameDuplicateIdProducts failed:', err);
-            }
+            // 已禁用：取消自动添加序号功能
+            // try {
+            //     renameDuplicateIdProducts();
+            // } catch (err) {
+            //     console.error('renameDuplicateIdProducts failed:', err);
+            // }
             
             // Citibet: 确保 MY EARNINGS / TOTAL 金额落在第 11 列
             try {
@@ -11739,6 +11740,9 @@ if ($current_user_id && count($user_companies) > 0) {
         
         // 检测并重命名重复的 id product
         function renameDuplicateIdProducts() {
+            // 已禁用：取消自动添加序号功能
+            return;
+            
             const tableBody = document.getElementById('tableBody');
             if (!tableBody) return;
             
@@ -11790,32 +11794,34 @@ if ($current_user_id && count($user_companies) > 0) {
             });
             
             // 检测重复并重命名
-            idProductMap.forEach((rowDataArray, originalValue) => {
-                if (rowDataArray.length > 1) {
-                    console.log(`Found duplicate id product "${originalValue}" at ${rowDataArray.length} rows`);
-                    
-                    // 按顺序重命名：第一个加 "1."，第二个加 "2."，以此类推
-                    rowDataArray.forEach((rowData, index) => {
-                        const row = rows[rowData.rowIndex];
-                        if (row && row.children.length > 1) {
-                            const idProductCell = row.children[1];
-                            if (idProductCell && idProductCell.contentEditable === 'true') {
-                                const prefix = `${index + 1}. `;
-                                const newValue = prefix + originalValue;
-                                idProductCell.textContent = newValue;
-                                console.log(`Renamed row ${rowData.rowIndex}: "${rowData.originalValue}" -> "${newValue}"`);
-                            }
-                        }
-                    });
-                }
-            });
+            // 已禁用：取消自动添加序号功能
+            // idProductMap.forEach((rowDataArray, originalValue) => {
+            //     if (rowDataArray.length > 1) {
+            //         console.log(`Found duplicate id product "${originalValue}" at ${rowDataArray.length} rows`);
+            //         
+            //         // 按顺序重命名：第一个加 "1."，第二个加 "2."，以此类推
+            //         rowDataArray.forEach((rowData, index) => {
+            //             const row = rows[rowData.rowIndex];
+            //             if (row && row.children.length > 1) {
+            //                 const idProductCell = row.children[1];
+            //                 if (idProductCell && idProductCell.contentEditable === 'true') {
+            //                     const prefix = `${index + 1}. `;
+            //                     const newValue = prefix + originalValue;
+            //                     idProductCell.textContent = newValue;
+            //                     console.log(`Renamed row ${rowData.rowIndex}: "${rowData.originalValue}" -> "${newValue}"`);
+            //                 }
+            //             }
+            //         });
+            //     }
+            // });
             
-            const duplicateCount = Array.from(idProductMap.values()).filter(arr => arr.length > 1).length;
-            if (duplicateCount > 0) {
-                console.log(`Renamed ${duplicateCount} duplicate id product(s)`);
-            } else {
-                console.log('No duplicate id products found');
-            }
+            // 已禁用：取消自动添加序号功能
+            // const duplicateCount = Array.from(idProductMap.values()).filter(arr => arr.length > 1).length;
+            // if (duplicateCount > 0) {
+            //     console.log(`Renamed ${duplicateCount} duplicate id product(s)`);
+            // } else {
+            //     console.log('No duplicate id products found');
+            // }
         }
 
         // Handle form submission
