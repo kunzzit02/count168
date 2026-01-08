@@ -2561,12 +2561,25 @@ function getCurrentProcessId() {
                 // Get all data cells (skip row header and id_product column)
                 const cells = row.querySelectorAll('td');
                 let cellCount = 0;
+                const cellDetails = [];
                 
                 cells.forEach((cell, cellIndex) => {
                     const columnIndex = cell.getAttribute('data-column-index');
+                    const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                    const isRowHeader = cell.classList.contains('row-header');
+                    
+                    // Store cell details for debugging
+                    cellDetails.push({
+                        cellIndex: cellIndex,
+                        columnIndex: columnIndex,
+                        cellValue: cellValue,
+                        isRowHeader: isRowHeader,
+                        hasColumnIndex: !!columnIndex
+                    });
+                    
+                    // Process cells with data-column-index > 1 (data columns)
                     if (columnIndex && parseInt(columnIndex) > 1) {
                         // Column index > 1 means data columns (skip row header=0 and id_product=1)
-                        const cellValue = cell.textContent ? cell.textContent.trim() : '';
                         if (cellValue !== '') {
                             cellCount++;
                             // Create a separate option for each column data
@@ -2580,11 +2593,10 @@ function getCurrentProcessId() {
                                 firstOptionValue = option.value;
                             }
                         }
-                    } else if (!columnIndex && cellIndex > 1) {
+                    } else if (!columnIndex && cellIndex > 1 && !isRowHeader) {
                         // Fallback: if data-column-index is not set but cellIndex > 1, treat it as data column
                         // This handles cases where data-column-index attribute might be missing
-                        const cellValue = cell.textContent ? cell.textContent.trim() : '';
-                        if (cellValue !== '' && !cell.classList.contains('row-header')) {
+                        if (cellValue !== '') {
                             cellCount++;
                             // Use cellIndex as columnIndex
                             const option = document.createElement('option');
@@ -2599,16 +2611,16 @@ function getCurrentProcessId() {
                     }
                 });
                 
-                // Debug: log if row matched but no cells were found
-                if (matchedRowCount > 0 && cellCount === 0) {
-                    console.log('updateIdProductRowData: Matched row but no data cells found', {
-                        rowIndex: rowIndex,
-                        rowIdProduct: rowIdProduct,
-                        normalizedRowIdProduct: normalizedRowIdProduct,
-                        normalizedTargetIdProduct: normalizedTargetIdProduct,
-                        cellsCount: cells.length
-                    });
-                }
+                // Debug: log detailed information about the matched row
+                console.log('updateIdProductRowData: Matched row details', {
+                    rowIndex: rowIndex,
+                    rowIdProduct: rowIdProduct,
+                    normalizedRowIdProduct: normalizedRowIdProduct,
+                    normalizedTargetIdProduct: normalizedTargetIdProduct,
+                    totalCells: cells.length,
+                    cellCount: cellCount,
+                    cellDetails: cellDetails
+                });
             });
             
             // Debug: log if no rows matched
