@@ -2411,6 +2411,16 @@ function getCurrentProcessId() {
                         const rowHeaderCell = row.querySelector('.row-header');
                         const rowLabel = rowHeaderCell ? rowHeaderCell.textContent.trim() : '';
                         
+                        // Debug: log id_product values that contain "TOTALS"
+                        if (idProduct.toUpperCase().includes('TOTALS')) {
+                            console.log('loadIdProductList: Found TOTALS row', {
+                                rowIndex: rowIndex,
+                                idProduct: idProduct,
+                                rowLabel: rowLabel,
+                                fromAttribute: !!row.getAttribute('data-id-product')
+                            });
+                        }
+                        
                         idProductRows.push({
                             idProduct: idProduct.trim(),
                             rowLabel: rowLabel,
@@ -2491,13 +2501,29 @@ function getCurrentProcessId() {
             }
 
             // Parse idProductValue: it can be "id_product" or "id_product:row_label"
+            // Note: id_product itself may contain colons (e.g., "TOTALS :RINGGIT MALAYSIA (RM)")
+            // So we only split on the LAST colon to separate id_product from row_label
             let idProduct = idProductValue.trim();
             let rowLabel = null;
-            const parts = idProductValue.split(':');
-            if (parts.length === 2) {
-                idProduct = parts[0].trim();
-                rowLabel = parts[1].trim();
+            const lastColonIndex = idProductValue.lastIndexOf(':');
+            if (lastColonIndex > 0 && lastColonIndex < idProductValue.length - 1) {
+                // Check if the part after the last colon looks like a row label (single letter like A, B, C, etc.)
+                const afterColon = idProductValue.substring(lastColonIndex + 1).trim();
+                // Row label is typically a single letter (A-Z) or a short identifier
+                // If it's a single letter or short identifier, treat it as row_label
+                if (/^[A-Z]$/i.test(afterColon) || afterColon.length <= 3) {
+                    idProduct = idProductValue.substring(0, lastColonIndex).trim();
+                    rowLabel = afterColon;
+                }
+                // Otherwise, treat the entire string as id_product (no row_label)
             }
+            
+            // Debug: log the parsed values
+            console.log('updateIdProductRowData: Parsed values', {
+                idProductValue: idProductValue,
+                idProduct: idProduct,
+                rowLabel: rowLabel
+            });
 
             // Get table data
             let parsedTableData;
