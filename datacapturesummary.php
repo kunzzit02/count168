@@ -11911,14 +11911,15 @@ function getCurrentProcessId() {
                     row.setAttribute('data-source-columns', data.columns);
                 }
                 
-                // Formula column (index 4) - rebuild from sourceColumns if available
+                // Formula column (index 4) - ALWAYS rebuild from sourceColumns if available
+                // This ensures that deleted columns are not shown after page refresh
                 if (cells[4]) {
                     let formulaText = '';
                     const sourceColumnsValue = row.getAttribute('data-source-columns') || '';
                     const formulaOperatorsValue = row.getAttribute('data-formula-operators') || '';
                     
-                    // If sourceColumns is available, rebuild formula display from it
-                    // This ensures that deleted columns are not shown after page refresh
+                    // CRITICAL: Always rebuild from sourceColumns if available, even if data.formula exists
+                    // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
                     if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
                         const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
                         if (referenceExpression) {
@@ -11936,12 +11937,14 @@ function getCurrentProcessId() {
                             } else {
                                 formulaText = parsedExpression;
                             }
+                            console.log('updateSummaryTableRow: Rebuilt formula from sourceColumns:', sourceColumnsValue, '->', formulaText);
                         }
                     }
                     
-                    // Fallback to data.formula if sourceColumns is not available or buildSourceExpressionFromTable returns empty
+                    // Only fallback to data.formula if sourceColumns is not available or buildSourceExpressionFromTable returns empty
                     if (!formulaText && data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
                         formulaText = data.formula;
+                        console.log('updateSummaryTableRow: Using data.formula as fallback:', formulaText);
                     }
                     
                     const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
