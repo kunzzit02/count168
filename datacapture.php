@@ -5403,32 +5403,34 @@ if ($current_user_id && count($user_companies) > 0) {
             row4[11] = mgDataTokens[9] || ''; // Total Profit/Loss
             rows.push(row4);
 
-            // PL 区块
+            // PL 区块（可选）
             const plHeaderIdx = nonEmpty.findIndex((l, idx) => idx > downlineStart && /\bpl\b/i.test(l));
-            if (plHeaderIdx === -1) return null;
-            const plHeaderTokens = splitLine(nonEmpty[plHeaderIdx]); // 1 PL yong
+            if (plHeaderIdx !== -1) {
+                const plHeaderTokens = splitLine(nonEmpty[plHeaderIdx]); // 1 PL yong
 
-            let plDataIdx = plHeaderIdx + 1;
-            while (plDataIdx < nonEmpty.length && nonEmpty[plDataIdx] === '') plDataIdx++;
-            if (plDataIdx >= nonEmpty.length) return null;
-            const plDataTokens = splitLine(nonEmpty[plDataIdx]); // yong Major 740 ...
-            if (plDataTokens.length < 10) return null;
-
-            const row5 = makeRow();
-            row5[0] = (plHeaderTokens[2] || '').toUpperCase(); // Username yong
-            row5[1] = plDataTokens[0] || '';                   // Code yong
-            row5[2] = (plDataTokens[1] || '').toUpperCase();   // PL
-            row5[3] = 'WIN/PLC';
-            // 目标：yong | yong | PL | WIN/PLC | 740 | $14.80 | 0 | $0.00 | $14.80 | -$3,111.62 | $14.80 | -$3,111.62
-            row5[4]  = plDataTokens[2] || ''; // Bet
-            row5[5]  = plDataTokens[3] || ''; // Bet Tax
-            row5[6]  = plDataTokens[4] || ''; // Eat
-            row5[7]  = plDataTokens[5] || ''; // Eat Tax
-            row5[8]  = plDataTokens[6] || ''; // Tax
-            row5[9]  = plDataTokens[7] || ''; // Profit/Loss
-            row5[10] = plDataTokens[8] || ''; // Total Tax
-            row5[11] = plDataTokens[9] || ''; // Total Profit/Loss
-            rows.push(row5);
+                let plDataIdx = plHeaderIdx + 1;
+                while (plDataIdx < nonEmpty.length && nonEmpty[plDataIdx] === '') plDataIdx++;
+                if (plDataIdx < nonEmpty.length) {
+                    const plDataTokens = splitLine(nonEmpty[plDataIdx]); // yong Major 740 ...
+                    if (plDataTokens.length >= 10) {
+                        const row5 = makeRow();
+                        row5[0] = (plHeaderTokens[2] || '').toUpperCase(); // Username yong
+                        row5[1] = plDataTokens[0] || '';                   // Code yong
+                        row5[2] = (plDataTokens[1] || '').toUpperCase();   // PL
+                        row5[3] = 'WIN/PLC';
+                        // 目标：yong | yong | PL | WIN/PLC | 740 | $14.80 | 0 | $0.00 | $14.80 | -$3,111.62 | $14.80 | -$3,111.62
+                        row5[4]  = plDataTokens[2] || ''; // Bet
+                        row5[5]  = plDataTokens[3] || ''; // Bet Tax
+                        row5[6]  = plDataTokens[4] || ''; // Eat
+                        row5[7]  = plDataTokens[5] || ''; // Eat Tax
+                        row5[8]  = plDataTokens[6] || ''; // Tax
+                        row5[9]  = plDataTokens[7] || ''; // Profit/Loss
+                        row5[10] = plDataTokens[8] || ''; // Total Tax
+                        row5[11] = plDataTokens[9] || ''; // Total Profit/Loss
+                        rows.push(row5);
+                    }
+                }
+            }
 
             // 3) Total 行
             const totalIdx = nonEmpty.findIndex(l => l.toLowerCase().startsWith('total :'));
