@@ -7830,72 +7830,200 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // API-RETURN 专用解析（仅在 API_RETURN 类型时启用）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'API_RETURN') {
-                // 先尝试表格格式解析（多列数据，包含 Description 列）
-                let apiReturnParsed = parseApiReturnTableFormat(pastedData);
+                // 检查是否是多行数据
+                const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
                 
-                // 如果表格格式解析失败，尝试单行格式解析（仅 Description 列）
-                if (!apiReturnParsed) {
-                    apiReturnParsed = parseApiReturnFormat(pastedData);
-                }
-                
-                if (apiReturnParsed) {
-                    const { columns, columnCount } = apiReturnParsed;
+                // 如果是多行数据，逐行处理
+                if (lines.length > 1) {
+                    // 检查是否包含制表符（标准表格格式）
+                    const hasTabSeparator = lines.some(line => line.includes('\t'));
                     
-                    const startCell = e.target;
-                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                    const startCol = parseInt(startCell.dataset.col);
+                    const dataMatrix = [];
+                    let maxCols = 0;
+                    let hasValidRow = false;
                     
-                    // 确保表格有足够的列
-                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                    const requiredCols = startCol + columnCount;
-                    
-                    if (requiredCols > currentCols) {
-                        const currentRows = document.querySelectorAll('#tableBody tr').length;
-                        const targetCols = Math.max(currentCols, requiredCols);
-                        initializeTable(currentRows, targetCols);
+                    if (hasTabSeparator) {
+                        // 如果包含制表符，直接按制表符分割（标准表格格式）
+                        for (let i = 0; i < lines.length; i++) {
+                            const line = lines[i];
+                            if (line.includes('\t')) {
+                                const cells = line.split('\t').map(c => c.trim());
+                                dataMatrix.push(cells);
+                                maxCols = Math.max(maxCols, cells.length);
+                                hasValidRow = true;
+                            } else if (line !== '') {
+                                // 没有制表符但非空，作为单列数据
+                                dataMatrix.push([line]);
+                                maxCols = Math.max(maxCols, 1);
+                                hasValidRow = true;
+                            }
+                        }
+                    } else {
+                        // 没有制表符，尝试使用 API-RETURN 格式解析每一行
+                        for (let i = 0; i < lines.length; i++) {
+                            const line = lines[i];
+                            
+                            // 先尝试表格格式解析（单行）
+                            let apiReturnParsed = parseApiReturnTableFormat(line);
+                            
+                            // 如果表格格式解析失败，尝试单行格式解析
+                            if (!apiReturnParsed) {
+                                apiReturnParsed = parseApiReturnFormat(line);
+                            }
+                            
+                            if (apiReturnParsed) {
+                                const { columns } = apiReturnParsed;
+                                dataMatrix.push(columns);
+                                maxCols = Math.max(maxCols, columns.length);
+                                hasValidRow = true;
+                            } else if (line !== '') {
+                                // 无法解析的行，作为单列数据
+                                dataMatrix.push([line]);
+                                maxCols = Math.max(maxCols, 1);
+                                hasValidRow = true;
+                            }
+                        }
                     }
                     
-                    const tableBody = document.getElementById('tableBody');
-                    const tableRow = tableBody.children[startRow];
-                    const currentPasteChanges = [];
-                    let successCount = 0;
-                    
-                    columns.forEach((cellData, colIndex) => {
-                        const actualColIndex = startCol + colIndex;
-                        const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
-                        
-                        if (cell && cell.contentEditable === 'true') {
-                            const trimmedData = (cellData || '').trim();
-                            currentPasteChanges.push({
-                                row: startRow,
-                                col: actualColIndex,
-                                oldValue: cell.textContent,
-                                newValue: trimmedData
-                            });
-                            
-                            // 标签部分保持原样，数字部分保持原样
-                            cell.textContent = trimmedData;
-                            if (trimmedData) {
-                                successCount++;
-                            }
+                    // 确保所有行都有相同的列数
+                    dataMatrix.forEach(row => {
+                        while (row.length < maxCols) {
+                            row.push('');
                         }
                     });
                     
-                    if (currentPasteChanges.length > 0) {
-                        pasteHistory.push(currentPasteChanges);
-                        if (pasteHistory.length > maxHistorySize) {
-                            pasteHistory.shift();
+                    if (hasValidRow && dataMatrix.length > 0 && maxCols > 0) {
+                        const startCell = e.target;
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = parseInt(startCell.dataset.col);
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + dataMatrix.length;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
                         }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
+                            
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                                
+                                if (cell && cell.contentEditable === 'true') {
+                                    const trimmedData = (cellData || '').trim();
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: trimmedData
+                                    });
+                                    
+                                    cell.textContent = trimmedData;
+                                    if (trimmedData) {
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)! 按 Ctrl+Z 可撤销`, 'success');
+                        } else {
+                            showNotification('No cells were pasted from API-RETURN format.', 'danger');
+                        }
+                        
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
+                    }
+                } else {
+                    // 单行数据处理（原有逻辑）
+                    // 先尝试表格格式解析（多列数据，包含 Description 列）
+                    let apiReturnParsed = parseApiReturnTableFormat(pastedData);
+                    
+                    // 如果表格格式解析失败，尝试单行格式解析（仅 Description 列）
+                    if (!apiReturnParsed) {
+                        apiReturnParsed = parseApiReturnFormat(pastedData);
                     }
                     
-                    if (successCount > 0) {
-                        showNotification(`Successfully pasted ${successCount} cells in ${columnCount} columns!`, 'success');
-                    } else {
-                        showNotification('No cells were pasted from API-RETURN format.', 'danger');
+                    if (apiReturnParsed) {
+                        const { columns, columnCount } = apiReturnParsed;
+                        
+                        const startCell = e.target;
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = parseInt(startCell.dataset.col);
+                        
+                        // 确保表格有足够的列
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredCols = startCol + columnCount;
+                        
+                        if (requiredCols > currentCols) {
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(currentRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const tableRow = tableBody.children[startRow];
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        columns.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: startRow,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                // 标签部分保持原样，数字部分保持原样
+                                cell.textContent = trimmedData;
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`Successfully pasted ${successCount} cells in ${columnCount} columns!`, 'success');
+                        } else {
+                            showNotification('No cells were pasted from API-RETURN format.', 'danger');
+                        }
+                        
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
                     }
-                    
-                    setTimeout(updateSubmitButtonState, 0);
-                    return;
                 }
             }
             
