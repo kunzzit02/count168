@@ -6875,7 +6875,51 @@ function getCurrentProcessId() {
                 
                 let parsedFormula = formula;
                 
-                // First, parse [id_product,数字] format (other row references)
+                // First, parse [id_product : column_number] format (from buildSourceExpressionFromTable)
+                // Pattern: [id_product : column_number] (e.g., "[OVERALL : 7]", "[ABC123 : 3]")
+                const colonPattern = /\[([^:]+)\s*:\s*(\d+)\]/g;
+                let match;
+                const colonMatches = [];
+                
+                colonPattern.lastIndex = 0;
+                while ((match = colonPattern.exec(parsedFormula)) !== null) {
+                    const fullMatch = match[0]; // e.g., "[OVERALL : 7]"
+                    const idProduct = match[1].trim(); // e.g., "OVERALL"
+                    const displayColumnIndex = parseInt(match[2]); // e.g., 7
+                    const matchIndex = match.index;
+                    
+                    if (!isNaN(displayColumnIndex) && displayColumnIndex > 0) {
+                        colonMatches.push({
+                            fullMatch: fullMatch,
+                            idProduct: idProduct,
+                            displayColumnIndex: displayColumnIndex,
+                            index: matchIndex
+                        });
+                    }
+                }
+                
+                // Replace [id_product : column_number] with actual values (from back to front)
+                colonMatches.sort((a, b) => b.index - a.index);
+                for (let i = 0; i < colonMatches.length; i++) {
+                    const colonMatch = colonMatches[i];
+                    const dataColumnIndex = colonMatch.displayColumnIndex - 1;
+                    
+                    // Get cell value using id_product and column index
+                    const columnValue = getCellValueByIdProductAndColumn(colonMatch.idProduct, dataColumnIndex, null);
+                    
+                    if (columnValue !== null) {
+                        parsedFormula = parsedFormula.substring(0, colonMatch.index) + 
+                                      columnValue + 
+                                      parsedFormula.substring(colonMatch.index + colonMatch.fullMatch.length);
+                    } else {
+                        console.warn(`Cell value not found for [${colonMatch.idProduct} : ${colonMatch.displayColumnIndex}]`);
+                        parsedFormula = parsedFormula.substring(0, colonMatch.index) + 
+                                      '0' + 
+                                      parsedFormula.substring(colonMatch.index + colonMatch.fullMatch.length);
+                    }
+                }
+                
+                // Then, parse [id_product,数字] format (other row references)
                 // Pattern: [id_product,数字] (e.g., "[BBB,1]", "[YONG,4]")
                 const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
                 let match;
@@ -11880,10 +11924,69 @@ function getCurrentProcessId() {
                 
                 // Columns, Batch Selection, and Source columns removed
                 
+                // IMPORTANT: Set data attributes first (especially data-source-columns) before building formula display
+                // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
+                if (data.formulaOperators !== undefined) {
+                    row.setAttribute('data-formula-operators', data.formulaOperators);
+                }
+                // IMPORTANT: Set sourceColumns from data.sourceColumns first (from API response)
+                // This ensures that deleted columns are not shown after page refresh
+                if (data.sourceColumns !== undefined && data.sourceColumns !== null && data.sourceColumns !== '') {
+                    row.setAttribute('data-source-columns', data.sourceColumns);
+                } else if (!row.getAttribute('data-source-columns') && data.columns) {
+                    // 回填列信息，便于引用格式公式展示
+                    row.setAttribute('data-source-columns', data.columns);
+                } else if (data.sourceColumns === '') {
+                    // Explicitly empty sourceColumns means columns were deleted, clear the attribute
+                    row.setAttribute('data-source-columns', '');
+                }
+                
                 // Formula column (index 4)
                 if (cells[4]) {
-                    // If formula is empty, don't display "Formula" text, just leave it empty
-                    const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                    // CRITICAL: Always rebuild from sourceColumns if available, to ensure deleted columns are not shown
+                    // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
+                    let formulaText = '';
+                    // IMPORTANT: Get sourceColumns from data parameter first (from API), then from row attribute
+                    // This ensures we use the latest data from database, not stale DOM attribute
+                    const sourceColumnsValue = (data.sourceColumns !== undefined && data.sourceColumns !== null)
+                        ? data.sourceColumns
+                        : (row.getAttribute('data-source-columns') || '');
+                    const formulaOperatorsValue = (data.formulaOperators !== undefined && data.formulaOperators !== null)
+                        ? data.formulaOperators
+                        : (row.getAttribute('data-formula-operators') || '');
+                    
+                    // If sourceColumns is available, rebuild formula display from it
+                    // IMPORTANT: If sourceColumnsValue is empty string, it means columns were deleted, so formula should be empty
+                    if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && processValue) {
+                        const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
+                        if (referenceExpression) {
+                            // Parse reference format to actual values for display
+                            const parsedExpression = parseReferenceFormula(referenceExpression);
+                            
+                            // Get source percent for display
+                            const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                                ? data.sourcePercent.toString().trim() 
+                                : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                            const enableSourcePercent = data.enableSourcePercent !== undefined 
+                                ? data.enableSourcePercent 
+                                : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                            
+                            // Create formula display with source percent if enabled
+                            if (enableSourcePercent && sourcePercentText) {
+                                formulaText = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, true);
+                            } else {
+                                formulaText = parsedExpression;
+                            }
+                            console.log('updateSummaryTableRow: Rebuilt formula from sourceColumns:', sourceColumnsValue, '->', formulaText);
+                        }
+                    }
+                    
+                    // Fallback: Get the formula to display - prioritize data.formula, then data.formulaOperators
+                    // IMPORTANT: If sourceColumns was explicitly set to empty (data.sourceColumns === ''), don't use fallback
+                    if (!formulaText && (data.sourceColumns === undefined || data.sourceColumns === null)) {
+                        formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                    }
+                    
                     const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
                     const inputMethodTooltip = inputMethod || '';
                     cells[4].innerHTML = `
@@ -11924,15 +12027,7 @@ function getCurrentProcessId() {
                 if (data.enableSourcePercent !== undefined) {
                     row.setAttribute('data-enable-source-percent', data.enableSourcePercent.toString());
                 }
-                if (data.formulaOperators !== undefined) {
-                    row.setAttribute('data-formula-operators', data.formulaOperators);
-                }
-                if (data.sourceColumns !== undefined) {
-                    row.setAttribute('data-source-columns', data.sourceColumns);
-                } else if (!row.getAttribute('data-source-columns') && data.columns) {
-                    // 回填列信息，便于引用格式公式展示
-                    row.setAttribute('data-source-columns', data.columns);
-                }
+                // data-source-columns and data-formula-operators are already set before formula display
                 // Store last_source_value (contains *0.008, 0.002/0.90, etc.) in data attribute
                 // This is used to preserve formula structure when updating from Data Capture Table
                 if (data.source !== undefined && data.source !== 'Source') {
