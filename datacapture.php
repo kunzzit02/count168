@@ -3967,12 +3967,21 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 检查下一行第一列是否是标签或行号
                             const nextFirstCell = (nextRow[0] || '').toString().trim();
                             const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
-                            const nextFirstIsLabel = /^(SUB TOTAL|GRAND TOTAL|SUBTOTAL|GRANDTOTAL|OB|OC|OD|RS|NIXON|KX)$/i.test(nextFirstCell);
                             
-                            // 如果下一行第一列是标签，停止合并
-                            if (nextFirstIsLabel && !nextFirstIsNumber) {
-                                continueMerging = false;
-                                break;
+                            // 如果是纯数字行号，检查第二列是否是用户名标识（2-3个大写字母）
+                            if (nextFirstIsNumber && nextRow.length >= 2) {
+                                const secondCell = (nextRow[1] || '').toString().trim();
+                                if (/^[A-Z]{2,3}$/.test(secondCell)) {
+                                    continueMerging = false; // 这是新的数据行（如 2 OC），停止合并
+                                    break;
+                                }
+                            } else if (!nextFirstIsNumber) {
+                                // 第一列不是数字，检查是否是用户名标识（2-3个大写字母）或 Total 标签
+                                if (/^[A-Z]{2,3}$/.test(nextFirstCell) || 
+                                    /^(SUB TOTAL|GRAND TOTAL|SUBTOTAL|GRANDTOTAL)$/i.test(nextFirstCell)) {
+                                    continueMerging = false; // 这是新的数据行或 Total 行，停止合并
+                                    break;
+                                }
                             }
                             
                             // 将下一行的数据追加到当前行（如果是行号，跳过它）
@@ -6944,10 +6953,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
                 
                 if (lines.length > 0) {
-                    // 尝试按制表符或空格分割
-                    const dataMatrix = [];
-                    let maxCols = 0;
-                    
+                    // 第一步：解析原始数据成行
+                    const rawDataMatrix = [];
                     lines.forEach(line => {
                         let cells = [];
                         if (line.includes('\t')) {
@@ -6957,28 +6964,117 @@ if ($current_user_id && count($user_companies) > 0) {
                             cells = line.split(/\s{2,}/).map(c => c.trim());
                         }
                         if (cells.length > 0) {
-                            dataMatrix.push(cells);
-                            maxCols = Math.max(maxCols, cells.length);
+                            rawDataMatrix.push(cells);
                         }
                     });
                     
-                    if (dataMatrix.length > 0) {
-                        // 确保所有行的列数相同
-                        dataMatrix.forEach(row => {
-                            while (row.length < maxCols) {
-                                row.push('');
+                    console.log('WBET: Raw parsed data:', rawDataMatrix.length, 'rows');
+                    
+                    // 第二步：处理数据 - 移除行号、合并 Sub Total 和 Grand Total 的数据
+                    const processedMatrix = [];
+                    const rowsToSkip = new Set();
+                    
+                    rawDataMatrix.forEach((row, rowIndex) => {
+                        if (rowsToSkip.has(rowIndex)) {
+                            return;
+                        }
+                        
+                        // 检查第一列是否是行号（纯数字）
+                        const firstCell = (row[0] || '').toString().trim();
+                        const isRowNumber = /^\d+$/.test(firstCell);
+                        
+                        // 如果是行号，跳过第一列
+                        let processedRow;
+                        if (isRowNumber && row.length > 1) {
+                            processedRow = row.slice(1);
+                        } else {
+                            processedRow = [...row];
+                        }
+                        
+                        // 检查是否是 Sub Total 或 Grand Total 行
+                        const rowText = processedRow.join(' ').toUpperCase();
+                        const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                        const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
+                        
+                        if (isSubTotal || isGrandTotal) {
+                            // 合并后续行的所有数据，直到遇到另一个 Total 行或新的数据行
+                            let mergeIndex = rowIndex + 1;
+                            
+                            while (mergeIndex < rawDataMatrix.length) {
+                                const nextRow = rawDataMatrix[mergeIndex];
+                                if (rowsToSkip.has(mergeIndex)) {
+                                    mergeIndex++;
+                                    continue;
+                                }
+                                
+                                // 检查下一行是否是另一个 Total 行
+                                const nextRowText = nextRow.join(' ').toUpperCase();
+                                const nextIsSubTotal = nextRowText.includes('SUB TOTAL') || nextRowText.includes('SUBTOTAL');
+                                const nextIsGrandTotal = nextRowText.includes('GRAND TOTAL') || nextRowText.includes('GRANDTOTAL');
+                                
+                                if (nextIsSubTotal || nextIsGrandTotal) {
+                                    break; // 遇到另一个 Total 行，停止合并
+                                }
+                                
+                                // 检查下一行第一列是否是新的数据行标识（2-3个字母，如 OB, OC, OD）
+                                const nextFirstCell = (nextRow[0] || '').toString().trim();
+                                const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
+                                
+                                // 如果是纯数字行号，检查第二列是否是用户名标识
+                                if (nextFirstIsNumber && nextRow.length >= 2) {
+                                    const secondCell = (nextRow[1] || '').toString().trim();
+                                    // 如果是2-3个大写字母，可能是新的数据行（如 OB, OC, OD）
+                                    if (/^[A-Z]{2,3}$/.test(secondCell)) {
+                                        break; // 这是新的数据行，停止合并
+                                    }
+                                } else if (!nextFirstIsNumber) {
+                                    // 第一列不是数字，检查是否是用户名标识
+                                    if (/^[A-Z]{2,3}$/.test(nextFirstCell)) {
+                                        break; // 这是新的数据行，停止合并
+                                    }
+                                }
+                                
+                                // 将下一行的数据追加到当前行（如果是行号，跳过它）
+                                const dataToAdd = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : nextRow;
+                                dataToAdd.forEach((cell) => {
+                                    const cellValue = (cell || '').toString().trim();
+                                    if (cellValue) {
+                                        processedRow.push(cellValue);
+                                    }
+                                });
+                                
+                                rowsToSkip.add(mergeIndex);
+                                mergeIndex++;
+                                
+                                // 防止合并过多（超过100列可能是误判）
+                                if (processedRow.length > 100) {
+                                    break;
+                                }
                             }
-                        });
+                        }
                         
-                        console.log('WBET: Parsed text data:', dataMatrix.length, 'rows x', maxCols, 'cols');
-                        
+                        processedMatrix.push(processedRow);
+                    });
+                    
+                    // 确保所有行的列数相同
+                    const maxCols = Math.max(...processedMatrix.map(row => row.length), 0);
+                    processedMatrix.forEach(row => {
+                        while (row.length < maxCols) {
+                            row.push('');
+                        }
+                    });
+                    
+                    console.log('WBET: Processed text data:', processedMatrix.length, 'rows x', maxCols, 'cols');
+                    console.log('WBET: First few processed rows:', processedMatrix.slice(0, 5));
+                    
+                    if (processedMatrix.length > 0) {
                         const startCell = e.target;
                         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = parseInt(startCell.dataset.col);
+                        const startCol = 0; // WBET: 强制从第一列开始
                         
                         const currentRows = document.querySelectorAll('#tableBody tr').length;
                         const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredRows = startRow + dataMatrix.length;
+                        const requiredRows = startRow + processedMatrix.length;
                         const requiredCols = startCol + maxCols;
                         
                         if (requiredRows > currentRows || requiredCols > currentCols) {
@@ -6991,7 +7087,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const currentPasteChanges = [];
                         let successCount = 0;
                         
-                        dataMatrix.forEach((rowData, rowIndex) => {
+                        processedMatrix.forEach((rowData, rowIndex) => {
                             const actualRowIndex = startRow + rowIndex;
                             const tableRow = tableBody.children[actualRowIndex];
                             if (!tableRow) return;
@@ -7023,7 +7119,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (successCount > 0) {
-                            showNotification(`Successfully pasted WBET data (${dataMatrix.length} rows x ${maxCols} cols)!`, 'success');
+                            showNotification(`Successfully pasted WBET data (${processedMatrix.length} rows x ${maxCols} cols)!`, 'success');
                         } else {
                             showNotification('No cells were pasted from WBET format.', 'danger');
                         }
