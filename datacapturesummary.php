@@ -9609,11 +9609,18 @@ function getCurrentProcessId() {
                 // CRITICAL: Always rebuild from sourceColumns if available, to ensure deleted columns are not shown
                 // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
                 let formulaText = '';
-                const sourceColumnsValue = row.getAttribute('data-source-columns') || '';
-                const formulaOperatorsValue = row.getAttribute('data-formula-operators') || '';
+                // IMPORTANT: Get sourceColumns from data parameter first (from API), then from row attribute
+                // This ensures we use the latest data from database, not stale DOM attribute
+                const sourceColumnsValue = (data.sourceColumns !== undefined && data.sourceColumns !== null)
+                    ? data.sourceColumns
+                    : (row.getAttribute('data-source-columns') || '');
+                const formulaOperatorsValue = (data.formulaOperators !== undefined && data.formulaOperators !== null)
+                    ? data.formulaOperators
+                    : (row.getAttribute('data-formula-operators') || '');
                 const processValue = getProcessValueFromRow(row);
                 
                 // If sourceColumns is available, rebuild formula display from it
+                // IMPORTANT: If sourceColumnsValue is empty string, it means columns were deleted, so formula should be empty
                 if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && processValue) {
                     const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
                     if (referenceExpression) {
@@ -9639,7 +9646,8 @@ function getCurrentProcessId() {
                 }
                 
                 // Fallback: Get the formula to display - prioritize data.formula, then data.formulaOperators
-                if (!formulaText || formulaText.trim() === '') {
+                // IMPORTANT: If sourceColumns was explicitly set to empty (data.sourceColumns === ''), don't use fallback
+                if (!formulaText && (data.sourceColumns === undefined || data.sourceColumns === null)) {
                     formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
                 }
                 
@@ -11936,7 +11944,9 @@ function getCurrentProcessId() {
                 if (data.formulaOperators !== undefined) {
                     row.setAttribute('data-formula-operators', data.formulaOperators);
                 }
-                if (data.sourceColumns !== undefined) {
+                // IMPORTANT: Set sourceColumns from data.sourceColumns first (from API response)
+                // This ensures that deleted columns are not shown after page refresh
+                if (data.sourceColumns !== undefined && data.sourceColumns !== null && data.sourceColumns !== '') {
                     row.setAttribute('data-source-columns', data.sourceColumns);
                 } else if (!row.getAttribute('data-source-columns') && data.columns) {
                     // 回填列信息，便于引用格式公式展示
@@ -11947,11 +11957,19 @@ function getCurrentProcessId() {
                 // This ensures that deleted columns are not shown after page refresh
                 if (cells[4]) {
                     let formulaText = '';
-                    const sourceColumnsValue = row.getAttribute('data-source-columns') || '';
-                    const formulaOperatorsValue = row.getAttribute('data-formula-operators') || '';
+                    // CRITICAL: Get sourceColumns from data.sourceColumns first (from API), then from row attribute
+                    // This ensures we use the latest data from database, not stale DOM attribute
+                    // IMPORTANT: Even if data.sourceColumns is empty string, we should use it (it means columns were deleted)
+                    const sourceColumnsValue = (data.sourceColumns !== undefined && data.sourceColumns !== null) 
+                        ? data.sourceColumns 
+                        : (row.getAttribute('data-source-columns') || '');
+                    const formulaOperatorsValue = (data.formulaOperators !== undefined && data.formulaOperators !== null)
+                        ? data.formulaOperators
+                        : (row.getAttribute('data-formula-operators') || '');
                     
                     // CRITICAL: Always rebuild from sourceColumns if available, even if data.formula exists
                     // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
+                    // IMPORTANT: If sourceColumnsValue is empty string, it means columns were deleted, so formula should be empty
                     if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
                         const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
                         if (referenceExpression) {
@@ -11970,13 +11988,18 @@ function getCurrentProcessId() {
                                 formulaText = parsedExpression;
                             }
                             console.log('updateSummaryTableRow: Rebuilt formula from sourceColumns:', sourceColumnsValue, '->', formulaText);
+                        } else {
+                            console.log('updateSummaryTableRow: buildSourceExpressionFromTable returned empty for sourceColumns:', sourceColumnsValue);
                         }
+                    } else {
+                        console.log('updateSummaryTableRow: sourceColumns is empty, formula should be empty. sourceColumnsValue:', sourceColumnsValue);
                     }
                     
                     // Only fallback to data.formula if sourceColumns is not available or buildSourceExpressionFromTable returns empty
-                    if (!formulaText && data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
+                    // IMPORTANT: If sourceColumns was explicitly set to empty (data.sourceColumns === ''), don't use fallback
+                    if (!formulaText && (data.sourceColumns === undefined || data.sourceColumns === null) && data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
                         formulaText = data.formula;
-                        console.log('updateSummaryTableRow: Using data.formula as fallback:', formulaText);
+                        console.log('updateSummaryTableRow: Using data.formula as fallback (sourceColumns not provided):', formulaText);
                     }
                     
                     const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
