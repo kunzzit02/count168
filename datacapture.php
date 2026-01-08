@@ -7626,14 +7626,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     let hasMultipleRowsWithIdentifiers = false;
                     const allRowIdentifiers = [];
                     
+                    // WBET 模式特殊处理：允许2个字母的行标识符（如 OB, OC, OD）
+                    const isWbetMode = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+                    const identifierMinLength = isWbetMode ? 2 : 3;
+                    const identifierPattern = isWbetMode 
+                        ? /^[A-Z]{2,}[A-Z0-9]*\d*$/i  // WBET模式：允许2个字母（如 OB, OC, OD）
+                        : /^[A-Z]{2,}[A-Z0-9]*\d*$/i;  // 其他模式：至少3个字符
+                    
                     // 检查制表符分隔的行
                     for (let i = 0; i < beforeGrandTotalTabRows.length; i++) {
                         const row = beforeGrandTotalTabRows[i].row;
                         const cells = row.split('\t').map(c => c.trim());
                         if (cells.length > 0 && cells[0]) {
                             const firstCell = cells[0];
-                            // 检查是否是行标识符格式（如JDW01, JDW02, BW876等）
-                            if (/^[A-Z]{2,}[A-Z0-9]*\d*$/i.test(firstCell) && firstCell.length >= 3 && firstCell.length <= 10) {
+                            // 检查是否是行标识符格式（如JDW01, JDW02, BW876等，或WBET模式下的OB, OC, OD等）
+                            if (identifierPattern.test(firstCell) && firstCell.length >= identifierMinLength && firstCell.length <= 10) {
                                 allRowIdentifiers.push({ type: 'tab', value: firstCell, index: beforeGrandTotalTabRows[i].index });
                             }
                         }
@@ -7642,9 +7649,32 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 检查单值行
                     for (let i = 0; i < beforeGrandTotalSingleRows.length; i++) {
                         const val = beforeGrandTotalSingleRows[i].value.trim();
-                        // 检查是否是行标识符格式（如JDW01, JDW02, BW876等）
-                        if (/^[A-Z]{2,}[A-Z0-9]*\d*$/i.test(val) && val.length >= 3 && val.length <= 10) {
+                        // 检查是否是行标识符格式（如JDW01, JDW02, BW876等，或WBET模式下的OB, OC, OD等）
+                        if (identifierPattern.test(val) && val.length >= identifierMinLength && val.length <= 10) {
                             allRowIdentifiers.push({ type: 'single', value: val, index: beforeGrandTotalSingleRows[i].index });
+                        }
+                    }
+                    
+                    // WBET 模式特殊处理：如果有多个制表符分隔的行，即使标识符数量不足，也保持多行结构
+                    if (isWbetMode && beforeGrandTotalTabRows.length >= 2) {
+                        // 对于 WBET 模式，如果有2个或更多制表符分隔的行，应该保持多行结构
+                        // 检查这些行的第一列是否都是2-3个字母的代码或"Sub Total"
+                        let wbetRowIdentifiers = [];
+                        for (let i = 0; i < beforeGrandTotalTabRows.length; i++) {
+                            const row = beforeGrandTotalTabRows[i].row;
+                            const cells = row.split('\t').map(c => c.trim());
+                            if (cells.length > 0 && cells[0]) {
+                                const firstCell = cells[0].toUpperCase();
+                                // 识别 WBET 模式的行标识：2-3个字母代码，或 "SUB TOTAL"
+                                if ((firstCell.length >= 2 && firstCell.length <= 3 && /^[A-Z]{2,3}$/.test(firstCell)) || 
+                                    firstCell === 'SUB TOTAL' || firstCell.includes('SUB TOTAL')) {
+                                    wbetRowIdentifiers.push({ type: 'tab', value: cells[0], index: beforeGrandTotalTabRows[i].index });
+                                }
+                            }
+                        }
+                        if (wbetRowIdentifiers.length >= 2) {
+                            allRowIdentifiers.push(...wbetRowIdentifiers);
+                            console.log('WBET mode: Detected multiple rows with identifiers:', wbetRowIdentifiers.map(r => r.value));
                         }
                     }
                     
@@ -7686,7 +7716,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     // 如果 Grand Total 之前有多行独立数据，保持它们分开，不合并
-                    if (hasMultipleRowsWithIdentifiers) {
+                    // WBET 模式特殊处理：如果有多个制表符分隔的行，也应该保持多行结构
+                    const isWbetModeForMerge = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+                    if (hasMultipleRowsWithIdentifiers || (isWbetModeForMerge && beforeGrandTotalTabRows.length >= 2)) {
                         // 只处理 Grand Total 行，保持之前的多行数据不变
                         // 移除 Grand Total 行及其后面的空行，然后重新插入 Grand Total 行
                         const grandTotalRow = rows[grandTotalIndex].trim();
@@ -7718,7 +7750,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             const grandTotalRowText = grandTotalCells.join('\t');
                             rows.splice(lastDataRowIndex + 1, 0, grandTotalRowText);
                             
-                            console.log('Detected Grand Total row, kept multiple rows format before Grand Total');
+                            if (isWbetModeForMerge && beforeGrandTotalTabRows.length >= 2) {
+                                console.log('WBET mode: Detected multiple tab-separated rows before Grand Total, kept multiple rows format');
+                            } else {
+                                console.log('Detected Grand Total row, kept multiple rows format before Grand Total');
+                            }
                         }
                     } else {
                         // 如果 Grand Total 之前的数据确实是单行被分割，则合并
@@ -7812,9 +7848,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                     
+                    // WBET 模式特殊处理：如果有多个制表符分隔的行，保持多行结构
+                    const isWbetMode = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+                    if (isWbetMode && tabSeparatedRows.length >= 2) {
+                        console.log('WBET mode: Detected multiple tab-separated rows, keeping multi-row structure');
+                        // 不进行合并，保持原始多行结构
+                    }
                     // 如果所有行都是制表符分隔的（标准表格格式），不进行合并
                     // 这样可以保持少于6行的正常表格数据不被合并
-                    if (allRowsAreTabSeparated && nonEmptyRowCount > 0) {
+                    else if (allRowsAreTabSeparated && nonEmptyRowCount > 0) {
                         console.log('All rows are tab-separated (standard table format), skipping merge to preserve multi-row structure');
                     } else if (hasTabSeparatedRow && singleValueRows.length > 0) {
                         // 检查单值行是否看起来像是数值或标识符（而不是独立的行）
@@ -8664,6 +8706,9 @@ if ($current_user_id && count($user_companies) > 0) {
             // 检测行标识符（如CKZ03, CKZ16, BCA10A2, KZ006等）- 通常是以字母开头，可能包含数字的代码
             // 这些标识符通常出现在每行的第一列，可以用来判断列数
             let rowIdentifierIndices = [];
+            // WBET 模式特殊处理：允许2个字母的行标识符（如 OB, OC, OD）
+            const isWbetMode = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+            const identifierMinLength = isWbetMode ? 2 : 4;
             // 更宽泛的标识符模式：
             // 1. 至少2个字母，后面有数字（如CKZ03, BCA10A2）
             // 2. 字母和数字混合，以数字结尾（如KZ006, KZ010）
@@ -8675,7 +8720,7 @@ if ($current_user_id && count($user_companies) > 0) {
             for (let i = 0; i < allCells.length; i++) {
                 const cell = (allCells[i] || '').trim();
                 if (cell && (identifierPattern1.test(cell) || identifierPattern2.test(cell) || 
-                    (identifierPattern3.test(cell) && cell.length >= 4 && cell.length <= 10))) {
+                    (identifierPattern3.test(cell) && cell.length >= identifierMinLength && cell.length <= 10))) {
                     // 排除常见的非标识符（如日期、普通单词等）
                     const upperCell = cell.toUpperCase();
                     if (upperCell !== 'AGENT' && upperCell !== 'MEMBER' && upperCell !== 'TOTAL' && 
