@@ -9547,7 +9547,10 @@ function getCurrentProcessId() {
             }
             
             // Store updated data in row attributes
-            row.setAttribute('data-source-columns', columnNumbers.join(' '));
+            // IMPORTANT: Use data.sourceColumns if provided (from save), otherwise use columnNumbers
+            // This ensures that when data is deleted and saved, the updated sourceColumns is used
+            const finalSourceColumns = data.sourceColumns !== undefined ? data.sourceColumns : (columnNumbers.join(' '));
+            row.setAttribute('data-source-columns', finalSourceColumns);
             row.setAttribute('data-formula-operators', formulaOperators);
             
             updateProcessedAmountTotal();
