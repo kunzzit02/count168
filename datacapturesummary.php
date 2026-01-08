@@ -11884,19 +11884,12 @@ function getCurrentProcessId() {
                 // Columns, Batch Selection, and Source columns removed
                 
                 // Formula column (index 4)
+                // IMPORTANT: After setting data-source-columns, rebuild formula display from sourceColumns
+                // This ensures that deleted columns are not shown after page refresh
                 if (cells[4]) {
-                    // If formula is empty, don't display "Formula" text, just leave it empty
-                    const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
-                    const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
-                    const inputMethodTooltip = inputMethod || '';
-                    cells[4].innerHTML = `
-                        <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
-                            <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
-                            <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
-                        </div>
-                    `;
-                    // Attach double-click event listener
-                    attachInlineEditListeners(row);
+                    // First, set data-source-columns if provided (this happens before formula display)
+                    // The formula display will be updated after all data attributes are set
+                    // We'll rebuild it below after sourceColumns is set
                 }
                 
                 // Source % column (index 5) - display as percentage
@@ -11972,6 +11965,72 @@ function getCurrentProcessId() {
                     row.setAttribute('data-product-type', 'main');
                 }
                 row.removeAttribute('data-parent-id-product');
+                
+                // IMPORTANT: After setting all data attributes, rebuild formula display from sourceColumns
+                // This ensures that when data is deleted and saved, the formula display reflects the updated sourceColumns
+                // Only rebuild if sourceColumns is available and different from the displayed formula
+                if (cells[4]) {
+                    const sourceColumnsValue = row.getAttribute('data-source-columns') || '';
+                    const formulaOperatorsValue = row.getAttribute('data-formula-operators') || '';
+                    
+                    // If sourceColumns is available, rebuild formula display from it
+                    if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+                        const referenceExpression = buildSourceExpressionFromTable(processValue, sourceColumnsValue, formulaOperatorsValue, row);
+                        if (referenceExpression) {
+                            // Parse reference format to actual values for display
+                            const parsedExpression = parseReferenceFormula(referenceExpression);
+                            
+                            // Get source percent for display
+                            const sourcePercentCell = cells[5];
+                            const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim().replace('%', '') : '1';
+                            const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1';
+                            
+                            // Create formula display with source percent if enabled
+                            let formulaDisplay = parsedExpression;
+                            if (enableSourcePercent && sourcePercentText) {
+                                formulaDisplay = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, true);
+                            }
+                            
+                            // Update formula display
+                            const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
+                            const inputMethodTooltip = inputMethod || '';
+                            cells[4].innerHTML = `
+                                <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
+                                    <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaDisplay}</span>
+                                    <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                                </div>
+                            `;
+                            // Attach double-click event listener
+                            attachInlineEditListeners(row);
+                        } else {
+                            // Fallback to data.formula if buildSourceExpressionFromTable returns empty
+                            const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                            const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
+                            const inputMethodTooltip = inputMethod || '';
+                            cells[4].innerHTML = `
+                                <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
+                                    <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+                                    <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                                </div>
+                            `;
+                            // Attach double-click event listener
+                            attachInlineEditListeners(row);
+                        }
+                    } else {
+                        // No sourceColumns, use data.formula as fallback
+                        const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                        const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
+                        const inputMethodTooltip = inputMethod || '';
+                        cells[4].innerHTML = `
+                            <div class="formula-cell-content" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>
+                                <span class="formula-text editable-cell" ${inputMethodTooltip ? `title="${inputMethodTooltip}"` : ''}>${formulaText}</span>
+                                <button class="edit-formula-btn" onclick="editRowFormula(this)" title="Edit Row Data">✏️</button>
+                            </div>
+                        `;
+                        // Attach double-click event listener
+                        attachInlineEditListeners(row);
+                    }
+                }
             
             updateProcessedAmountTotal();
             }
