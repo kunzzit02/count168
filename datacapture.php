@@ -7918,6 +7918,101 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     }
                 }
+                
+                // 通用多行表格数据处理：如果HTML解析失败，但数据是多行制表符分隔的，使用简单分割
+                const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                
+                // 检查是否是多行制表符分隔的数据（标准表格格式，如从Excel复制）
+                if (lines.length >= 2) {
+                    const hasTabSeparator = lines.some(line => line.includes('\t'));
+                    
+                    if (hasTabSeparator) {
+                        // 尝试解析为多行表格数据
+                        const dataMatrix = [];
+                        let maxCols = 0;
+                        
+                        lines.forEach(line => {
+                            if (line.includes('\t')) {
+                                const cells = line.split('\t').map(c => c.trim());
+                                dataMatrix.push(cells);
+                                maxCols = Math.max(maxCols, cells.length);
+                            } else if (line !== '') {
+                                // 如果没有制表符但有内容，作为单列数据
+                                dataMatrix.push([line]);
+                                maxCols = Math.max(maxCols, 1);
+                            }
+                        });
+                        
+                        // 确保所有行都有相同的列数
+                        dataMatrix.forEach(row => {
+                            while (row.length < maxCols) {
+                                row.push('');
+                            }
+                        });
+                        
+                        // 如果成功解析成多行数据，填充到表格
+                        if (dataMatrix.length > 0 && maxCols > 0) {
+                            const startCell = e.target;
+                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                            const startCol = parseInt(startCell.dataset.col);
+                            
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                            const requiredRows = startRow + dataMatrix.length;
+                            const requiredCols = startCol + maxCols;
+                            
+                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                const targetCols = Math.max(currentCols, requiredCols);
+                                initializeTable(targetRows, targetCols);
+                            }
+                            
+                            const tableBody = document.getElementById('tableBody');
+                            const currentPasteChanges = [];
+                            let successCount = 0;
+                            
+                            dataMatrix.forEach((rowData, rowIndex) => {
+                                const actualRowIndex = startRow + rowIndex;
+                                const tableRow = tableBody.children[actualRowIndex];
+                                if (!tableRow) return;
+                                
+                                rowData.forEach((cellData, colIndex) => {
+                                    const actualColIndex = startCol + colIndex;
+                                    const cell = tableRow.children[actualColIndex + 1];
+                                    
+                                    if (cell && cell.contentEditable === 'true') {
+                                        const trimmedData = (cellData || '').trim();
+                                        currentPasteChanges.push({
+                                            row: actualRowIndex,
+                                            col: actualColIndex,
+                                            oldValue: cell.textContent,
+                                            newValue: trimmedData
+                                        });
+                                        
+                                        cell.textContent = trimmedData;
+                                        if (trimmedData) {
+                                            successCount++;
+                                        }
+                                    }
+                                });
+                            });
+                            
+                            if (currentPasteChanges.length > 0) {
+                                pasteHistory.push(currentPasteChanges);
+                                if (pasteHistory.length > maxHistorySize) {
+                                    pasteHistory.shift();
+                                }
+                            }
+                            
+                            if (successCount > 0) {
+                                showNotification(`成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)! 按 Ctrl+Z 可撤销`, 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            }
+                        }
+                    }
+                }
             }
             
             // 使用普通的文本格式处理（包括 Payment Report 的专用解析）
