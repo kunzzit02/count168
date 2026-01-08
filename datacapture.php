@@ -10437,14 +10437,21 @@ if ($current_user_id && count($user_companies) > 0) {
                 let grandTotalRow = rows[grandTotalRowIndex];
                 
                 // 获取 SUB TOTAL 行的所有数据（从第二列开始，因为第一列可能是空的）
+                // 先保存 SUB TOTAL 行的完整数据，避免在扩展表格时丢失
                 const subTotalCells = [];
                 for (let i = 1; i < subTotalRow.children.length; i++) {
                     const cell = subTotalRow.children[i];
                     if (cell && cell.contentEditable === 'true') {
                         const cellText = (cell.textContent || '').toString().trim();
                         subTotalCells.push(cellText);
+                    } else {
+                        subTotalCells.push(''); // 保留空单元格位置
                     }
                 }
+                
+                // 调试：输出 SUB TOTAL 行的数据
+                console.log('WBET mode: SUB TOTAL row data (before copy):', subTotalCells);
+                console.log('WBET mode: SUB TOTAL row has', subTotalCells.filter(c => c !== '').length, 'non-empty cells');
                 
                 // 找到 SUB TOTAL 在哪个列（通常在第二列）
                 let subTotalColIndex = -1;
@@ -10464,12 +10471,54 @@ if ($current_user_id && count($user_companies) > 0) {
                 const tableHeader = document.getElementById('tableHeader');
                 const headerRow = tableHeader ? tableHeader.querySelector('tr') : null;
                 
-                // 扩展表格列数（如果需要）
+                // 扩展表格列数（如果需要）- 只添加缺失的列，不清空表格
                 const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
                 if (maxCols > currentCols) {
-                    const currentRows = document.querySelectorAll('#tableBody tr').length;
-                    initializeTable(currentRows, maxCols);
-                    // 重新获取行引用
+                    // 只添加缺失的列，不要重新初始化整个表格（避免清空数据）
+                    for (let colIndex = currentCols; colIndex < maxCols; colIndex++) {
+                        // 添加表头
+                        if (headerRow) {
+                            const newHeader = document.createElement('th');
+                            newHeader.textContent = colIndex + 1;
+                            newHeader.addEventListener('click', () => {
+                                tableActive = true;
+                                selectColumn(colIndex);
+                            });
+                            newHeader.style.cursor = 'pointer';
+                            headerRow.appendChild(newHeader);
+                        }
+                        
+                        // 为所有行添加新单元格
+                        const allRows = Array.from(tableBody.children);
+                        allRows.forEach(row => {
+                            const newCell = document.createElement('td');
+                            newCell.contentEditable = true;
+                            newCell.dataset.col = colIndex;
+                            // 添加必要的事件监听器
+                            newCell.addEventListener('mousedown', handleCellMouseDown);
+                            newCell.addEventListener('mouseover', handleCellMouseOver);
+                            newCell.addEventListener('focus', function() { this.classList.add('selected'); });
+                            newCell.addEventListener('blur', function() { this.classList.remove('selected'); });
+                            newCell.addEventListener('keydown', handleCellKeydown);
+                            newCell.addEventListener('paste', handleCellPaste);
+                            newCell.addEventListener('click', function(e) {
+                                const hasFocus = document.activeElement === this;
+                                if (hasFocus) {
+                                    moveCaretToClickPosition(this, e);
+                                } else {
+                                    setActiveCellCore(this);
+                                    this.focus();
+                                    setTimeout(() => moveCaretToClickPosition(this, e), 0);
+                                }
+                            });
+                            newCell.addEventListener('contextmenu', function(e) {
+                                e.preventDefault();
+                                showContextMenu(e, this);
+                            });
+                            row.appendChild(newCell);
+                        });
+                    }
+                    // 重新获取行引用（因为可能添加了新列）
                     const updatedRows = Array.from(tableBody.children);
                     subTotalRow = updatedRows[subTotalRowIndex];
                     grandTotalRow = updatedRows[grandTotalRowIndex];
