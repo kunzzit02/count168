@@ -7728,20 +7728,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (lastDataRowIndex >= 0) {
-                            // 删除 Grand Total 行及其后面的空行
-                            const indicesToRemove = [];
-                            for (let i = grandTotalIndex; i < rows.length; i++) {
-                                if (rows[i].trim() !== '') {
-                                    indicesToRemove.push(i);
-                                }
-                            }
-                            
-                            // 从后往前删除
-                            for (let idx of indicesToRemove.sort((a, b) => b - a)) {
-                                rows.splice(idx, 1);
-                            }
-                            
-                            // WBET 特殊处理：如果 SUB TOTAL 和 GRAND TOTAL 在同一行，分开成两行，数据相同
+                            // WBET 特殊处理：如果 SUB TOTAL 和 GRAND TOTAL 在同一行，先收集所有数据，再删除行
                             if (isWbet && hasSubTotalInGrandTotalRow && grandTotalCells.length > 0) {
                                 // 找到 SUB TOTAL 和 GRAND TOTAL 的位置
                                 let subTotalIndex = -1;
@@ -7760,9 +7747,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                 if (subTotalIndex >= 0 && grandTotalIndexInRow >= 0) {
                                     // WBET: 提取所有数据单元格
                                     // 数据格式通常是：SUB TOTAL | GRAND TOTAL | 数据1 | 数据2 | ... | 数据N
-                                    // 我们需要提取从 GRAND TOTAL 之后的所有数据
+                                    // 但数据可能分散在多行中，需要收集所有后续行的数据
                                     const dataCells = [];
                                     
+                                    // 第一步：从当前行（grandTotalRow）提取数据
                                     // 从 GRAND TOTAL 列之后开始，提取所有剩余的数据
                                     for (let i = grandTotalIndexInRow + 1; i < grandTotalCells.length; i++) {
                                         const cellVal = grandTotalCells[i].trim();
@@ -7771,9 +7759,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                     
                                     // 如果 GRAND TOTAL 列之前还有数据（在 SUB TOTAL 之后，GRAND TOTAL 之前），也要包含
-                                    // 例如：SUB TOTAL | 数据A | GRAND TOTAL | 数据B | 数据C
-                                    // 应该变成：SUB TOTAL | 数据A | 数据B | 数据C
-                                    // 和：GRAND TOTAL | 数据A | 数据B | 数据C
                                     if (subTotalIndex < grandTotalIndexInRow) {
                                         // 在 SUB TOTAL 和 GRAND TOTAL 之间有数据
                                         const middleCells = [];
@@ -7785,19 +7770,112 @@ if ($current_user_id && count($user_companies) > 0) {
                                         dataCells.unshift(...middleCells);
                                     }
                                     
+                                    // 第二步：检查后续行是否有更多数据（因为数据可能分散在多行中）
+                                    // 在删除行之前，先收集所有可能的数据
+                                    let checkRow = grandTotalIndex + 1;
+                                    const allDataRows = []; // 存储所有包含数据的行
+                                    
+                                    // 获取预期列数（参考前面的数据行）
+                                    let expectedColsForData = 0;
+                                    if (lastDataRowIndex >= 0 && lastDataRowIndex < rows.length) {
+                                        const refRow = rows[lastDataRowIndex].trim();
+                                        if (refRow.includes('\t')) {
+                                            expectedColsForData = refRow.split('\t').length;
+                                        }
+                                    }
+                                    
+                                    while (checkRow < rows.length) {
+                                        const rowText = rows[checkRow].trim();
+                                        if (rowText === '') {
+                                            checkRow++;
+                                            continue;
+                                        }
+                                        
+                                        const rowCells = rowText.includes('\t') 
+                                            ? rowText.split('\t').map(c => c.trim())
+                                            : [rowText];
+                                        
+                                        // 检查这一行是否包含 TOTAL 标签（如果是新的 TOTAL 行，停止收集）
+                                        const hasTotal = rowCells.some(c => {
+                                            const cUpper = c.toUpperCase();
+                                            return cUpper.includes('TOTAL') || cUpper.includes('SUB TOTAL') || cUpper.includes('GRAND TOTAL');
+                                        });
+                                        
+                                        if (hasTotal) {
+                                            // 如果是新的 TOTAL 行，停止收集
+                                            break;
+                                        }
+                                        
+                                        // 检查这一行是否有大量非空单元格（可能是新的数据行）
+                                        const nonEmptyCount = rowCells.filter(c => c !== '').length;
+                                        if (nonEmptyCount > expectedColsForData / 2 && nonEmptyCount > 3) {
+                                            // 可能是新的数据行，停止收集
+                                            break;
+                                        }
+                                        
+                                        // 如果这一行有一些数据，收集它们
+                                        if (nonEmptyCount > 0) {
+                                            // 跳过 TOTAL 标签，收集所有数据
+                                            for (let i = 0; i < rowCells.length; i++) {
+                                                const cellVal = rowCells[i].trim();
+                                                const cellUpper = cellVal.toUpperCase();
+                                                if (cellVal !== '' && 
+                                                    cellUpper !== 'SUB TOTAL' && 
+                                                    !cellUpper.includes('SUB TOTAL') &&
+                                                    cellUpper !== 'GRAND TOTAL' && 
+                                                    !cellUpper.includes('GRAND TOTAL')) {
+                                                    dataCells.push(cellVal);
+                                                } else if (cellVal === '') {
+                                                    // 也保留空值，以保持列数一致
+                                                    dataCells.push('');
+                                                }
+                                            }
+                                            allDataRows.push(checkRow); // 记录需要删除的行
+                                        }
+                                        
+                                        checkRow++;
+                                    }
+                                    
+                                    // 第三步：删除 Grand Total 行及其后续数据行（因为我们已经收集了它们的数据）
+                                    const indicesToRemove = [];
+                                    // 添加 Grand Total 行本身
+                                    indicesToRemove.push(grandTotalIndex);
+                                    // 添加所有已收集数据的后续行
+                                    allDataRows.forEach(rowIdx => {
+                                        // 注意：由于行索引会变化，需要从 grandTotalIndex 开始计算相对位置
+                                        // 但因为我们还没有删除行，所以直接使用原始索引
+                                        if (rowIdx > grandTotalIndex && !indicesToRemove.includes(rowIdx)) {
+                                            indicesToRemove.push(rowIdx);
+                                        }
+                                    });
+                                    
+                                    // 从后往前删除，避免索引变化
+                                    for (let idx of indicesToRemove.sort((a, b) => b - a)) {
+                                        rows.splice(idx, 1);
+                                    }
+                                    
+                                    // 更新 lastDataRowIndex（因为删除了行，索引可能变化）
+                                    // 重新找到最后一个数据行
+                                    let updatedLastDataRowIndex = lastDataRowIndex;
+                                    // 如果删除的行在 lastDataRowIndex 之后，不需要更新
+                                    // 如果删除的行在 lastDataRowIndex 之前或等于，需要调整
+                                    const deletedBefore = indicesToRemove.filter(idx => idx <= lastDataRowIndex).length;
+                                    updatedLastDataRowIndex = lastDataRowIndex - deletedBefore;
+                                    
                                     // SUB TOTAL 行：SUB TOTAL + 所有数据
                                     const finalSubTotalRow = ['SUB TOTAL', ...dataCells].join('\t');
                                     // GRAND TOTAL 行：GRAND TOTAL + 所有数据（相同）
                                     const finalGrandTotalRow = ['GRAND TOTAL', ...dataCells].join('\t');
                                     
                                     // 插入两行：先 SUB TOTAL，再 GRAND TOTAL
-                                    rows.splice(lastDataRowIndex + 1, 0, finalSubTotalRow);
-                                    rows.splice(lastDataRowIndex + 2, 0, finalGrandTotalRow);
+                                    rows.splice(updatedLastDataRowIndex + 1, 0, finalSubTotalRow);
+                                    rows.splice(updatedLastDataRowIndex + 2, 0, finalGrandTotalRow);
                                     
                                     console.log('WBET: Separated SUB TOTAL and GRAND TOTAL into two rows with identical data');
                                     console.log('SUB TOTAL row:', finalSubTotalRow);
                                     console.log('GRAND TOTAL row:', finalGrandTotalRow);
                                     console.log('Data cells extracted:', dataCells.length, 'cells');
+                                    console.log('Rows collected from:', allDataRows.length, 'subsequent rows');
                                 } else {
                                     // 如果没有找到两者，检查是否只是 GRAND TOTAL 行
                                     if (grandTotalCells.length > 1 && grandTotalCells[0].toUpperCase().includes('GRAND TOTAL')) {
@@ -7818,9 +7896,30 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                             } else {
                                 // 非 WBET 或没有 SUB TOTAL，按原逻辑处理
-                                const grandTotalRowText = grandTotalCells.join('\t');
-                                rows.splice(lastDataRowIndex + 1, 0, grandTotalRowText);
-                                console.log('Detected Grand Total row, kept multiple rows format before Grand Total');
+                                // 删除 Grand Total 行及其后面的空行
+                                const indicesToRemove = [];
+                                for (let i = grandTotalIndex; i < rows.length; i++) {
+                                    if (rows[i].trim() !== '') {
+                                        indicesToRemove.push(i);
+                                    }
+                                }
+                                
+                                // 从后往前删除
+                                for (let idx of indicesToRemove.sort((a, b) => b - a)) {
+                                    rows.splice(idx, 1);
+                                }
+                                
+                                // 重新找到最后一个数据行的索引
+                                let updatedLastDataRowIndex = grandTotalIndex - 1;
+                                while (updatedLastDataRowIndex >= 0 && rows[updatedLastDataRowIndex].trim() === '') {
+                                    updatedLastDataRowIndex--;
+                                }
+                                
+                                if (updatedLastDataRowIndex >= 0) {
+                                    const grandTotalRowText = grandTotalCells.join('\t');
+                                    rows.splice(updatedLastDataRowIndex + 1, 0, grandTotalRowText);
+                                    console.log('Detected Grand Total row, kept multiple rows format before Grand Total');
+                                }
                             }
                         }
                     } else {
@@ -7852,7 +7951,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     rows.splice(idx, 1);
                                 }
                                 
-                                // WBET 特殊处理：如果 SUB TOTAL 和 GRAND TOTAL 在同一行，分开成两行，数据相同
+                                // WBET 特殊处理：如果 SUB TOTAL 和 GRAND TOTAL 在同一行，先收集所有数据，再删除行
                                 if (hasSubTotalInGrandTotalRow) {
                                     // 找到 SUB TOTAL 和 GRAND TOTAL 的位置
                                     let subTotalIndex = -1;
@@ -7867,7 +7966,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         }
                                     }
                                     
-                                    // 提取所有数据单元格
+                                    // 第一步：从当前行提取数据
                                     const dataCells = [];
                                     
                                     // 从 GRAND TOTAL 列之后开始，提取所有剩余的数据
@@ -7891,6 +7990,90 @@ if ($current_user_id && count($user_companies) > 0) {
                                         dataCells.unshift(...middleCells);
                                     }
                                     
+                                    // 第二步：检查后续行是否有更多数据（在删除行之前收集）
+                                    let checkRow = grandTotalIndex + 1;
+                                    const allDataRows = [];
+                                    
+                                    // 获取预期列数（参考前面的数据行）
+                                    let expectedColsForData = 0;
+                                    if (lastDataRowIndex >= 0 && lastDataRowIndex < rows.length) {
+                                        const refRow = rows[lastDataRowIndex].trim();
+                                        if (refRow.includes('\t')) {
+                                            expectedColsForData = refRow.split('\t').length;
+                                        }
+                                    }
+                                    
+                                    while (checkRow < rows.length) {
+                                        const rowText = rows[checkRow].trim();
+                                        if (rowText === '') {
+                                            checkRow++;
+                                            continue;
+                                        }
+                                        
+                                        const rowCells = rowText.includes('\t') 
+                                            ? rowText.split('\t').map(c => c.trim())
+                                            : [rowText];
+                                        
+                                        // 检查这一行是否包含 TOTAL 标签（如果是新的 TOTAL 行，停止收集）
+                                        const hasTotal = rowCells.some(c => {
+                                            const cUpper = c.toUpperCase();
+                                            return cUpper.includes('TOTAL') || cUpper.includes('SUB TOTAL') || cUpper.includes('GRAND TOTAL');
+                                        });
+                                        
+                                        if (hasTotal) {
+                                            // 如果是新的 TOTAL 行，停止收集
+                                            break;
+                                        }
+                                        
+                                        // 检查这一行是否有大量非空单元格（可能是新的数据行）
+                                        const nonEmptyCount = rowCells.filter(c => c !== '').length;
+                                        if (nonEmptyCount > expectedColsForData / 2 && nonEmptyCount > 3) {
+                                            // 可能是新的数据行，停止收集
+                                            break;
+                                        }
+                                        
+                                        // 如果这一行有一些数据，收集它们
+                                        if (nonEmptyCount > 0) {
+                                            // 跳过 TOTAL 标签，收集所有数据
+                                            for (let i = 0; i < rowCells.length; i++) {
+                                                const cellVal = rowCells[i].trim();
+                                                const cellUpper = cellVal.toUpperCase();
+                                                if (cellVal !== '' && 
+                                                    cellUpper !== 'SUB TOTAL' && 
+                                                    !cellUpper.includes('SUB TOTAL') &&
+                                                    cellUpper !== 'GRAND TOTAL' && 
+                                                    !cellUpper.includes('GRAND TOTAL')) {
+                                                    dataCells.push(cellVal);
+                                                } else if (cellVal === '') {
+                                                    // 也保留空值，以保持列数一致
+                                                    dataCells.push('');
+                                                }
+                                            }
+                                            allDataRows.push(checkRow); // 记录需要删除的行
+                                        }
+                                        
+                                        checkRow++;
+                                    }
+                                    
+                                    // 第三步：删除 Grand Total 行及其后续数据行（因为我们已经收集了它们的数据）
+                                    const indicesToRemove2 = [];
+                                    indicesToRemove2.push(grandTotalIndex); // Grand Total 行本身
+                                    allDataRows.forEach(rowIdx => {
+                                        if (rowIdx > grandTotalIndex && !indicesToRemove2.includes(rowIdx)) {
+                                            indicesToRemove2.push(rowIdx);
+                                        }
+                                    });
+                                    
+                                    // 从后往前删除
+                                    for (let idx of indicesToRemove2.sort((a, b) => b - a)) {
+                                        rows.splice(idx, 1);
+                                    }
+                                    
+                                    // 重新找到最后一个数据行的索引（因为删除了行）
+                                    let updatedLastDataRowIndex2 = lastDataRowIndex;
+                                    const deletedBefore2 = indicesToRemove2.filter(idx => idx <= lastDataRowIndex).length;
+                                    updatedLastDataRowIndex2 = lastDataRowIndex - deletedBefore2;
+                                    
                                     // 如果没有找到数据，尝试从第二个单元格开始取（跳过第一个标签）
                                     if (dataCells.length === 0 && grandTotalCells.length > 1) {
                                         for (let i = 1; i < grandTotalCells.length; i++) {
@@ -7909,12 +8092,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                     // GRAND TOTAL 行：GRAND TOTAL + 所有数据（相同）
                                     const finalGrandTotalRow = ['GRAND TOTAL', ...dataCells].join('\t');
                                     
-                                    // 插入两行：先 SUB TOTAL，再 GRAND TOTAL
-                                    rows.splice(lastDataRowIndex + 1, 0, finalSubTotalRow);
-                                    rows.splice(lastDataRowIndex + 2, 0, finalGrandTotalRow);
+                                    // 插入两行：先 SUB TOTAL，再 GRAND TOTAL（使用更新后的索引）
+                                    rows.splice(updatedLastDataRowIndex2 + 1, 0, finalSubTotalRow);
+                                    rows.splice(updatedLastDataRowIndex2 + 2, 0, finalGrandTotalRow);
                                     
                                     console.log('WBET: Kept all rows separate, separated SUB TOTAL and GRAND TOTAL into two rows with identical data');
                                     console.log('Data cells extracted:', dataCells.length, 'cells');
+                                    console.log('Rows collected from:', allDataRows.length, 'subsequent rows');
                                 } else {
                                     // 没有 SUB TOTAL，只插入 GRAND TOTAL 行
                                     const grandTotalRowText = grandTotalCells.join('\t');
@@ -10628,23 +10812,29 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 如果这一行有一些非空单元格，可能是 SUB TOTAL / GRAND TOTAL 的数据延续
                                 if (nonEmptyCells.length > 0 && nonEmptyCells.length <= expectedCols) {
                                     // 收集所有单元格的数据（包括空值，以保持列数一致）
+                                    // 对于 WBET，需要收集所有数据，不要跳过任何单元格
                                     for (let i = 0; i < cells.length; i++) {
                                         const cell = cells[i];
                                         if (cell && cell.contentEditable === 'true') {
                                             const cellText = (cell.textContent || '').toString().trim();
-                                            // 跳过 TOTAL 标签
                                             const cellUpper = cellText.toUpperCase();
-                                            if (cellText !== '' && 
-                                                cellUpper !== 'SUB TOTAL' && 
-                                                !cellUpper.includes('SUB TOTAL') &&
-                                                cellUpper !== 'GRAND TOTAL' && 
-                                                !cellUpper.includes('GRAND TOTAL')) {
+                                            // 跳过 TOTAL 标签，但保留所有其他数据（包括空值）
+                                            if (cellText === '' || 
+                                                (cellUpper !== 'SUB TOTAL' && 
+                                                 !cellUpper.includes('SUB TOTAL') &&
+                                                 cellUpper !== 'GRAND TOTAL' && 
+                                                 !cellUpper.includes('GRAND TOTAL'))) {
+                                                // 收集所有单元格，包括空值，以确保数据完整
                                                 subTotalCells.push(cellText);
                                                 grandTotalCells.push(cellText);
                                             }
                                         }
                                     }
                                     checkRow++;
+                                } else if (nonEmptyCells.length === 0) {
+                                    // 如果是空行，跳过
+                                    checkRow++;
+                                    continue;
                                 } else {
                                     break;
                                 }
