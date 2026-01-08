@@ -8451,7 +8451,19 @@ if ($current_user_id && count($user_companies) > 0) {
                     const hasTabSeparator = row.includes('\t');
                     const cells = row.split('\t').map(c => c.trim());
                     const nonEmptyCells = cells.filter(c => c !== '');
-                    const isSingleValueRow = !hasTabSeparator || nonEmptyCells.length === 1;
+                    
+                    // WBET 模式：检查行中是否包含 SUB TOTAL 或 GRAND TOTAL
+                    const isWbetModeForMergeCheck = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+                    const currentValueUpper = trimmed.toUpperCase();
+                    const rowContainsSubTotalOrGrandTotal = isWbetModeForMergeCheck && 
+                        (currentValueUpper.includes('SUB TOTAL') || currentValueUpper.includes('GRAND TOTAL') ||
+                         cells.some(c => {
+                             const cUpper = c.toUpperCase();
+                             return cUpper.includes('SUB TOTAL') || cUpper.includes('GRAND TOTAL');
+                         }));
+                    
+                    // 如果包含 SUB TOTAL 或 GRAND TOTAL，且行中有制表符，说明这是完整的数据行，不是单值行
+                    const isSingleValueRow = rowContainsSubTotalOrGrandTotal ? false : (!hasTabSeparator || nonEmptyCells.length === 1);
                     
                     // 检查下一行是否是数据行（包含制表符分隔的多个值）
                     let nextRowIsDataRow = false;
@@ -8464,12 +8476,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     // 如果当前行是单值行，且下一行是数据行，则合并它们
-                    // WBET 模式：跳过 SUB TOTAL 和 GRAND TOTAL 的合并
-                    const isWbetModeForMergeCheck = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
-                    const currentValueUpper = trimmed.toUpperCase();
-                    const isSubTotalOrGrandTotal = isWbetModeForMergeCheck && 
-                        (currentValueUpper.includes('SUB TOTAL') || currentValueUpper.includes('GRAND TOTAL') ||
-                         currentValueUpper === 'SUB TOTAL' || currentValueUpper === 'GRAND TOTAL');
+                    // WBET 模式：跳过包含 SUB TOTAL 和 GRAND TOTAL 的行的合并
+                    const isSubTotalOrGrandTotal = rowContainsSubTotalOrGrandTotal;
                     
                     if (isSingleValueRow && nextRowIsDataRow && !isSubTotalOrGrandTotal) {
                         const currentValue = trimmed;
@@ -9564,21 +9572,25 @@ if ($current_user_id && count($user_companies) > 0) {
                 const isTotal = firstColUpper === 'TOTAL' || firstColUpper === 'SUB TOTAL' || firstColUpper === 'GRAND TOTAL' ||
                                firstColUpper.includes('SUB TOTAL') || firstColUpper.includes('GRAND TOTAL');
                 
-                // WBET 模式特殊处理：检查第二列是否是 SUB TOTAL 或 GRAND TOTAL
+                // WBET 模式特殊处理：检查任何列是否包含 SUB TOTAL 或 GRAND TOTAL（包括第二列、第三列等）
                 const isWbetModeForShift = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
-                let isSubTotalOrGrandTotalInSecondCol = false;
-                if (isWbetModeForShift && isEmpty && row.length > 1) {
-                    const secondColValue = (row[1] || '').trim().toUpperCase();
-                    if (secondColValue === 'SUB TOTAL' || secondColValue === 'GRAND TOTAL' ||
-                        secondColValue.includes('SUB TOTAL') || secondColValue.includes('GRAND TOTAL')) {
-                        isSubTotalOrGrandTotalInSecondCol = true;
-                        console.log(`  Row ${rowIndex + 1}: WBET mode - Second column is "${secondColValue}", preserving row data without shifting`);
+                let isSubTotalOrGrandTotalInRow = false;
+                if (isWbetModeForShift && row.length > 0) {
+                    // 检查行中是否包含 SUB TOTAL 或 GRAND TOTAL（在前5列中搜索，通常在这些位置）
+                    for (let colIdx = 0; colIdx < Math.min(row.length, 5); colIdx++) {
+                        const colValue = (row[colIdx] || '').trim().toUpperCase();
+                        if (colValue === 'SUB TOTAL' || colValue === 'GRAND TOTAL' ||
+                            colValue.includes('SUB TOTAL') || colValue.includes('GRAND TOTAL')) {
+                            isSubTotalOrGrandTotalInRow = true;
+                            console.log(`  Row ${rowIndex + 1}: WBET mode - Found "${colValue}" at column ${colIdx + 1}, preserving entire row data without shifting`);
+                            break;
+                        }
                     }
                 }
                 
                 // 如果第一列已经是标识符（包括TOTAL, SUB TOTAL, GRAND TOTAL），或者数据已经正确对齐，不需要移动
-                if (isFirstColIdentifier || isTotal || isSubTotalOrGrandTotalInSecondCol) {
-                    if (isSubTotalOrGrandTotalInSecondCol) {
+                if (isFirstColIdentifier || isTotal || isSubTotalOrGrandTotalInRow) {
+                    if (isSubTotalOrGrandTotalInRow) {
                         // WBET 模式：保持 SUB TOTAL/GRAND TOTAL 行的原始结构，不进行列对齐
                         // 这样可以确保这些行的所有数据（包括标识符后面的所有列）都被保留
                     } else {
