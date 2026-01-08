@@ -6922,7 +6922,8 @@ function getCurrentProcessId() {
                 // Then, parse [id_product,数字] format (other row references)
                 // Pattern: [id_product,数字] (e.g., "[BBB,1]", "[YONG,4]")
                 const bracketPattern = /\[([^,\]]+),(\d+)\]/g;
-                let match;
+                // Reuse match variable declared above
+                match = null;
                 const bracketMatches = [];
                 
                 bracketPattern.lastIndex = 0;
