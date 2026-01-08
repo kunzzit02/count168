@@ -10581,6 +10581,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         const subTotalCells = ['SUB TOTAL'];
                         const grandTotalCells = ['GRAND TOTAL'];
                         
+                        // 获取预期列数（参考前面的数据行）
+                        let expectedCols = 0;
+                        if (subTotalRowIndex > 0) {
+                            const prevRow = rows[subTotalRowIndex - 1];
+                            expectedCols = prevRow.children.length - 1; // 减去行号列
+                        }
+                        
                         // 直接从 headerRow 中提取所有数据
                         // 跳过行号列（index 0）和 SUB TOTAL 列（index 1）、GRAND TOTAL 列（index 2）
                         // 从第3列（index 3）开始，提取所有剩余的数据
@@ -10599,6 +10606,10 @@ if ($current_user_id && count($user_companies) > 0) {
                             subTotalCells.push(...dataCells);
                             grandTotalCells.push(...dataCells);
                             console.log('WBET: Extracted', dataCells.length, 'data cells from SUB/GRAND TOTAL header row');
+                            // 更新 expectedCols 为实际数据列数（SUB TOTAL + 数据列数）
+                            if (expectedCols === 0) {
+                                expectedCols = subTotalCells.length;
+                            }
                         } else {
                             // 对于非 WBET，使用原来的逻辑收集后续行的数据
                             let currentRow = subTotalRowIndex + 1;
