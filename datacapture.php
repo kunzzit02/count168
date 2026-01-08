@@ -8042,15 +8042,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         // ALIPAY 专用解析：识别标识符行（2-10个大写字母）并合并后续数据行
                         let currentRow = null;
-                        let skipNextLine = false; // 用于跳过 Name 行
                         
                         for (let i = 0; i < lines.length; i++) {
-                            // 如果设置了跳过标志，跳过这一行（Name 行）
-                            if (skipNextLine) {
-                                skipNextLine = false;
-                                continue;
-                            }
-                            
                             const line = lines[i];
                             const trimmedLine = line.trim();
                             
@@ -8154,7 +8147,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                             // 只有标识符，没有其他数据
                                             cells = [trimmedLine];
                                             
-                                            // 如果检测到 Name 列格式，且下一行可能是 Name 行，则跳过它
+                                            // 如果检测到 Name 列格式，且下一行可能是 Name 行，则将其作为第二列
                                             if (hasNameColumnFormat && i + 1 < lines.length) {
                                                 const nextLine = lines[i + 1].trim();
                                                 // 检查下一行是否是 Name 行（空或短文本，不包含数值）
@@ -8171,7 +8164,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                                                   (nextLine.length < 50 && !hasNumericPattern));
                                                 
                                                 if (isNameLike) {
-                                                    // 检查第三行是否包含数值数据，如果是，则跳过第二行（Name 行）
+                                                    // 检查第三行是否包含数值数据，如果是，则将第二行作为 Name 列
                                                     if (i + 2 < lines.length) {
                                                         const thirdLine = lines[i + 2].trim();
                                                         const hasNumbers = thirdLine.match(/^-?\d+[.,]\d+/) || 
@@ -8184,8 +8177,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                                                           }).length >= 2; // 至少2个数值
                                                         
                                                         if (hasNumbers) {
-                                                            skipNextLine = true; // 跳过 Name 行
-                                                            console.log('ALIPAY: Skipping Name line after identifier:', trimmedLine);
+                                                            // 将 Name 值作为第二列插入（在标识符之后）
+                                                            const nameValue = nextLine === '' ? '' : nextLine;
+                                                            cells.splice(1, 0, nameValue); // 在标识符后插入 Name
+                                                            // 跳过 Name 行的处理
+                                                            i++; // 跳过下一行（Name 行）
+                                                            console.log('ALIPAY: Detected Name column value:', nameValue, 'for identifier:', trimmedLine);
                                                         }
                                                     }
                                                 }
