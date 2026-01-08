@@ -10071,58 +10071,27 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
-            // 检测行标识符（如AW07, AWZ66, BSAM2424等）- 通常是以字母开头，可能包含数字的代码
+            // 检测行标识符（如CKZ03, CKZ16, BCA10A2, KZ006等）- 通常是以字母开头，可能包含数字的代码
             // 这些标识符通常出现在每行的第一列，可以用来判断列数
             let rowIdentifierIndices = [];
-            // 更严格的标识符模式：
-            // 1. 至少2个字母开头，后面有数字（如AW07, AWZ66, BSAM2424）
+            // 更宽泛的标识符模式：
+            // 1. 至少2个字母，后面有数字（如CKZ03, BCA10A2）
             // 2. 字母和数字混合，以数字结尾（如KZ006, KZ010）
-            // 3. 简单的代码格式（至少2个字母开头，且不能是纯数字或纯货币格式）
-            const identifierPattern1 = /^[A-Z]{2,}[A-Z0-9]*\d+$/i; // 匹配如AW07, AWZ66, BSAM2424等
-            const identifierPattern2 = /^[A-Z]{2,}\d+$/i; // 匹配如AW07, KZ006等
+            // 3. 简单的代码格式（至少2个字母开头）
+            const identifierPattern1 = /^[A-Z]{2,}[A-Z0-9]*\d+$/i; // 匹配如CKZ03, BCA10A2, KZ006, KZ010等
+            const identifierPattern2 = /^[A-Z]{2,}\d+$/i; // 匹配如KZ006, KZ010等
             const identifierPattern3 = /^[A-Z]{2,}[A-Z0-9]{1,}$/i; // 匹配任何以2+字母开头的代码
-            
-            // 辅助函数：检查是否是数值或货币格式（应该排除）
-            const isNumericOrCurrency = (str) => {
-                // 检查是否是纯数字（包括带小数点和逗号的数字）
-                if (/^[\d,.\-+\s]+$/.test(str)) {
-                    // 如果包含货币符号或看起来像金额，排除
-                    if (str.includes('$') || str.includes('€') || str.includes('£') || str.includes('¥')) {
-                        return true;
-                    }
-                    // 如果包含多个数字段（如 "1,234.56"），可能是金额
-                    if (str.match(/\d+[.,]\d+/) || str.match(/\d{1,3}([.,]\d{3})+/)) {
-                        return true;
-                    }
-                    // 如果只是简单的数字，且长度较短，可能是行号，排除
-                    if (/^\d+$/.test(str) && str.length <= 3) {
-                        return true;
-                    }
-                }
-                return false;
-            };
             
             for (let i = 0; i < allCells.length; i++) {
                 const cell = (allCells[i] || '').trim();
-                if (!cell) continue;
-                
-                // 排除数值和货币格式
-                if (isNumericOrCurrency(cell)) {
-                    continue;
-                }
-                
-                // 检查是否符合标识符模式
                 if (cell && (identifierPattern1.test(cell) || identifierPattern2.test(cell) || 
                     (identifierPattern3.test(cell) && cell.length >= 4 && cell.length <= 10))) {
                     // 排除常见的非标识符（如日期、普通单词等）
                     const upperCell = cell.toUpperCase();
                     if (upperCell !== 'AGENT' && upperCell !== 'MEMBER' && upperCell !== 'TOTAL' && 
                         upperCell !== 'GRAND TOTAL' && !upperCell.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                        // 额外检查：确保不是看起来像金额的字符串（如 "AW07" 不会匹配，但 "1,234.56" 会被排除）
-                        if (!isNumericOrCurrency(cell)) {
-                            rowIdentifierIndices.push(i);
-                            console.log(`Found row identifier "${cell}" at index ${i}`);
-                        }
+                        rowIdentifierIndices.push(i);
+                        console.log(`Found row identifier "${cell}" at index ${i}`);
                     }
                 }
             }
@@ -10167,41 +10136,22 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 console.log(`Row identifier intervals: First=${rowIdentifierIndices[0]}, Second=${rowIdentifierIndices[1]}, Interval=${firstInterval}`);
                 
-                // 验证间隔的一致性：检查多个间隔是否一致
-                let intervalsConsistent = true;
-                let consistentInterval = firstInterval;
-                if (rowIdentifierIndices.length >= 3) {
-                    // 检查前3个标识符的间隔是否一致
-                    const secondInterval = rowIdentifierIndices[2] - rowIdentifierIndices[1];
-                    if (Math.abs(firstInterval - secondInterval) > 2) {
-                        // 间隔不一致，可能检测错误
-                        intervalsConsistent = false;
-                        console.log(`WARNING: Intervals inconsistent! First=${firstInterval}, Second=${secondInterval}`);
-                    } else {
-                        // 使用平均值
-                        consistentInterval = Math.round((firstInterval + secondInterval) / 2);
-                    }
-                }
-                
-                // 限制列数在合理范围内（10-25列），避免检测到不合理的列数（如56列）
-                const maxReasonableColumns = 25;
-                const minReasonableColumns = 10;
-                
                 // 如果间隔是18（或接近18），说明每行有18列
-                if (firstInterval === 18 && intervalsConsistent) {
+                if (firstInterval === 18) {
                     force18Columns = true;
                     detectedColumnCount = 18;
                     console.log(`Detected pattern: Row identifiers at indices ${rowIdentifierIndices[0]} and ${rowIdentifierIndices[1]}, interval is 18, will use 18 columns`);
-                } else if (firstInterval >= minReasonableColumns && firstInterval <= maxReasonableColumns && intervalsConsistent) {
-                    // 如果间隔在10-25之间，且间隔一致，使用间隔值作为列数
+                } else if (firstInterval >= 14 && firstInterval <= 25) {
+                    // 如果间隔在14-25之间，使用间隔值作为列数
+                    // 这样可以处理不同列数的表格
                     force18Columns = true;
-                    detectedColumnCount = consistentInterval;
-                    console.log(`Detected pattern: Row identifiers at indices ${rowIdentifierIndices[0]} and ${rowIdentifierIndices[1]}, interval is ${consistentInterval}, will use ${consistentInterval} columns`);
-                } else if (firstInterval > 0 && firstInterval < minReasonableColumns) {
-                    // 如果间隔较小（2-9），需要检查是否是合理的列数
+                    detectedColumnCount = firstInterval;
+                    console.log(`Detected pattern: Row identifiers at indices ${rowIdentifierIndices[0]} and ${rowIdentifierIndices[1]}, interval is ${firstInterval}, will use ${firstInterval} columns`);
+                } else if (firstInterval > 0 && firstInterval < 14) {
+                    // 如果间隔较小（2-13），需要检查是否是合理的列数
                     // 对于少量行的数据（2-20行），较小的间隔可能是正确的列数
                     const estimatedRows = Math.ceil(allCells.length / firstInterval);
-                    if (estimatedRows >= 2 && estimatedRows <= 20 && allCells.length <= 200 && intervalsConsistent) {
+                    if (estimatedRows >= 2 && estimatedRows <= 20 && allCells.length <= 200) {
                         // 数据行数合理，且总单元格数不太大，使用这个间隔作为列数
                         force18Columns = true;
                         detectedColumnCount = firstInterval;
@@ -10209,22 +10159,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     } else if (rowIdentifierIndices.length >= 3) {
                         // 如果间隔太小，可能是检测错误，尝试检查第三个标识符
                         const secondInterval = rowIdentifierIndices[2] - rowIdentifierIndices[1];
-                        if (secondInterval === firstInterval && secondInterval >= minReasonableColumns && secondInterval <= maxReasonableColumns) {
-                            // 如果两个间隔相同，且在合理范围内，说明这是正确的列数
+                        if (secondInterval === firstInterval) {
+                            // 如果两个间隔相同，说明这是正确的列数
                             force18Columns = true;
                             detectedColumnCount = firstInterval;
                             console.log(`Detected pattern: Consistent intervals (${firstInterval}), will use ${firstInterval} columns`);
                         }
                     }
-                } else if (firstInterval > maxReasonableColumns) {
-                    // 间隔太大（>25），可能是检测错误，不强制使用
-                    console.log(`WARNING: Interval ${firstInterval} is too large (>${maxReasonableColumns}), ignoring this detection`);
-                    intervalsConsistent = false;
-                }
-                
-                // 如果间隔不一致或超出合理范围，不强制使用检测到的列数
-                if (!intervalsConsistent || firstInterval > maxReasonableColumns) {
-                    console.log('Row identifier intervals are inconsistent or out of range, will use alternative detection methods');
                 }
             }
             // 方法3：如果只有一个行标识符，尝试通过数据总量来推断列数（适用于少量行的数据）
@@ -10563,26 +10504,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 确保列数在合理范围内（但如果已经检测到单行Total数据，允许更大的列数）
-                const maxReasonableColumns = 25;
-                const minReasonableColumns = 5;
-                if (detectedColumns > maxReasonableColumns && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
-                    // 如果检测到的列数太大，尝试使用常见列数中最合适的
-                    console.log(`WARNING: Detected column count ${detectedColumns} is too large (>${maxReasonableColumns}), trying to find better match`);
-                    // 重新尝试常见列数
-                    const commonColumnCounts = [18, 17, 19, 16, 20, 15, 14, 12, 10];
-                    let bestFallback = { cols: 18, remainder: Infinity };
-                    for (let cols of commonColumnCounts) {
-                        const remainder = allCells.length % cols;
-                        if (remainder < bestFallback.remainder) {
-                            bestFallback = { cols: cols, remainder: remainder };
-                        }
-                    }
-                    detectedColumns = bestFallback.cols;
-                    console.log(`Using fallback column count: ${detectedColumns} (remainder: ${bestFallback.remainder})`);
-                } else if (detectedColumns < minReasonableColumns && detectedColumns > 0) {
-                    // 如果检测到的列数太小，至少使用最小值
-                    detectedColumns = Math.max(minReasonableColumns, detectedColumns);
-                    console.log(`Column count too small, adjusted to minimum: ${detectedColumns}`);
+                if (detectedColumns > 25 && (!isTotalRow || Math.ceil(allCells.length / detectedColumns) > 1)) {
+                    detectedColumns = 18; // 限制最大列数
+                    console.log('Column count too large, using default:', detectedColumns);
                 }
                 
                 } // 结束 else 块（如果已经检测到单行Total数据，跳过常见列数检测）
