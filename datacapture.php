@@ -9421,9 +9421,23 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (hasTabSeparator) {
                     // 使用制表符分隔（标准格式，如 Excel 复制的数据）
                     console.log('Using TAB separator');
-                    dataMatrix = rows.map((row) => {
+                    dataMatrix = rows.map((row, rowIdx) => {
                         const cells = row.split('\t');
-                        return cells.map(cell => cell.trim());
+                        const trimmedCells = cells.map(cell => cell.trim());
+                        
+                        // WBET模式调试：显示SUB TOTAL和GRAND TOTAL行的原始数据
+                        const isWbetDebug = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+                        if (isWbetDebug) {
+                            const rowUpper = row.toUpperCase();
+                            if (rowUpper.includes('SUB TOTAL') || rowUpper.includes('GRAND TOTAL')) {
+                                console.log(`WBET DEBUG - Row ${rowIdx + 1} RAW data:`, row);
+                                console.log(`WBET DEBUG - Row ${rowIdx + 1} Split into ${cells.length} cells:`, cells);
+                                console.log(`WBET DEBUG - Row ${rowIdx + 1} After trim (${trimmedCells.length} cells):`, trimmedCells);
+                                console.log(`WBET DEBUG - Row ${rowIdx + 1} Non-empty cells: ${trimmedCells.filter(c => c !== '').length}`);
+                            }
+                        }
+                        
+                        return trimmedCells;
                     });
                     
                     // 检测并移除行号列（如 "1.", "2.", "10" 等），避免把序号当成正常数据
@@ -9924,12 +9938,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 for (let i = 0; i < dataMatrix.length; i++) {
                     const row = dataMatrix[i];
                     if (row && row.length > 0) {
-                        // 检查前几列是否包含 SUB TOTAL
-                        for (let j = 0; j < Math.min(row.length, 3); j++) {
+                        // 检查前几列是否包含 SUB TOTAL（检查前5列，因为 SUB TOTAL 可能在第二列或第三列）
+                        for (let j = 0; j < Math.min(row.length, 5); j++) {
                             const cellValue = (row[j] || '').trim().toUpperCase();
                             if (cellValue === 'SUB TOTAL' || cellValue.includes('SUB TOTAL')) {
                                 subTotalRowIndexInMatrix = i;
                                 console.log(`WBET mode: Detected SUB TOTAL row at matrix index ${i} with ${row.length} columns`);
+                                console.log(`WBET mode: SUB TOTAL row data sample (first 10):`, row.slice(0, 10));
+                                console.log(`WBET mode: SUB TOTAL row data sample (last 10):`, row.slice(-10));
                                 break;
                             }
                         }
@@ -10026,17 +10042,20 @@ if ($current_user_id && count($user_companies) > 0) {
                     let subTotalRowDataFromMatrix = null;
                     let grandTotalRowIndexInMatrix = -1;
                     
+                    console.log('WBET mode: Searching dataMatrix for SUB TOTAL and GRAND TOTAL rows. Total rows:', dataMatrix.length);
                     for (let i = 0; i < dataMatrix.length; i++) {
                         const row = dataMatrix[i];
                         if (row && row.length > 0) {
                             // 检查前几列是否包含 SUB TOTAL 或 GRAND TOTAL
-                            for (let j = 0; j < Math.min(row.length, 3); j++) {
+                            for (let j = 0; j < Math.min(row.length, 5); j++) {
                                 const cellValue = (row[j] || '').trim().toUpperCase();
                                 if (cellValue === 'SUB TOTAL' || cellValue.includes('SUB TOTAL')) {
                                     if (!subTotalRowDataFromMatrix) {
                                         // 保存完整的 SUB TOTAL 行数据（从 dataMatrix）
                                         subTotalRowDataFromMatrix = [...row]; // 复制数组
                                         console.log('WBET mode: Found SUB TOTAL row in dataMatrix at index', i, 'with', subTotalRowDataFromMatrix.length, 'columns');
+                                        console.log('WBET mode: SUB TOTAL row data (first 10 cells):', subTotalRowDataFromMatrix.slice(0, 10));
+                                        console.log('WBET mode: SUB TOTAL row data (last 10 cells):', subTotalRowDataFromMatrix.slice(-10));
                                     }
                                 }
                                 if (cellValue === 'GRAND TOTAL' || cellValue.includes('GRAND TOTAL')) {
@@ -10142,15 +10161,99 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                             
                             // 从第二列开始复制数据（跳过第一列的标识符），使用 dataMatrix 中的原始数据
-                            for (let colIdx = 1; colIdx < subTotalRowDataFromMatrix.length && colIdx + 1 < grandTotalRow.children.length; colIdx++) {
+                            // 确保复制所有列，即使某些列是空的
+                            console.log(`WBET mode: Copying data from SUB TOTAL to GRAND TOTAL.`);
+                            console.log(`  Source (SUB TOTAL) row length: ${subTotalRowDataFromMatrix.length}`);
+                            console.log(`  Target (GRAND TOTAL) row children: ${grandTotalRow.children.length}`);
+                            console.log(`  Target (GRAND TOTAL) row data columns: ${grandTotalRow.children.length - 1}`);
+                            
+                            // 确保有足够的列，如果不够则扩展
+                            const requiredCols = subTotalRowDataFromMatrix.length;
+                            const currentTargetCols = grandTotalRow.children.length - 1;
+                            
+                            if (requiredCols > currentTargetCols) {
+                                console.log(`WBET mode: GRAND TOTAL row needs ${requiredCols} columns but only has ${currentTargetCols}, expanding...`);
+                                // 扩展表格
+                                const tableHeader = document.getElementById('tableHeader');
+                                const headerRow = tableHeader ? tableHeader.querySelector('tr') : null;
+                                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                
+                                if (requiredCols > currentCols) {
+                                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                    initializeTable(currentRows, requiredCols);
+                                    // 重新获取行引用
+                                    const updatedRows = Array.from(tableBody.children);
+                                    grandTotalRow = updatedRows[grandTotalRowIndex];
+                                }
+                                
+                                // 为 GRAND TOTAL 行添加缺失的列
+                                while (grandTotalRow.children.length - 1 < requiredCols) {
+                                    const newColIndex = grandTotalRow.children.length - 1;
+                                    
+                                    // 添加表头
+                                    if (headerRow && headerRow.children.length - 1 <= newColIndex) {
+                                        const newHeader = document.createElement('th');
+                                        newHeader.textContent = newColIndex + 1;
+                                        newHeader.addEventListener('click', () => {
+                                            tableActive = true;
+                                            selectColumn(newColIndex);
+                                        });
+                                        newHeader.style.cursor = 'pointer';
+                                        headerRow.appendChild(newHeader);
+                                    }
+                                    
+                                    // 为所有行添加新单元格
+                                    const allRows = Array.from(tableBody.children);
+                                    allRows.forEach(r => {
+                                        if (r.children.length - 1 <= newColIndex) {
+                                            const newCell = document.createElement('td');
+                                            newCell.contentEditable = true;
+                                            newCell.dataset.col = newColIndex;
+                                            // 添加事件监听器
+                                            newCell.addEventListener('mousedown', handleCellMouseDown);
+                                            newCell.addEventListener('mouseover', handleCellMouseOver);
+                                            newCell.addEventListener('focus', function() { this.classList.add('selected'); });
+                                            newCell.addEventListener('blur', function() { this.classList.remove('selected'); });
+                                            newCell.addEventListener('keydown', handleCellKeydown);
+                                            newCell.addEventListener('paste', handleCellPaste);
+                                            newCell.addEventListener('click', function(e) {
+                                                const hasFocus = document.activeElement === this;
+                                                if (hasFocus) {
+                                                    moveCaretToClickPosition(this, e);
+                                                } else {
+                                                    setActiveCellCore(this);
+                                                    this.focus();
+                                                    setTimeout(() => moveCaretToClickPosition(this, e), 0);
+                                                }
+                                            });
+                                            newCell.addEventListener('contextmenu', function(e) {
+                                                e.preventDefault();
+                                                showContextMenu(e, this);
+                                            });
+                                            r.appendChild(newCell);
+                                        }
+                                    });
+                                }
+                                console.log(`WBET mode: Expanded GRAND TOTAL row to ${grandTotalRow.children.length - 1} columns`);
+                            }
+                            
+                            // 现在复制所有列的数据（从第二列开始，跳过第一列的标识符）
+                            for (let colIdx = 1; colIdx < subTotalRowDataFromMatrix.length; colIdx++) {
                                 const grandTotalCell = grandTotalRow.children[colIdx + 1]; // +1 跳过行号列
-                                const subTotalCellValue = (subTotalRowDataFromMatrix[colIdx] || '').trim();
+                                // 直接使用原始值，不要 trim()，保留原始数据（包括空字符串）
+                                const subTotalCellValue = subTotalRowDataFromMatrix[colIdx] || '';
                                 
                                 if (grandTotalCell && grandTotalCell.contentEditable === 'true') {
+                                    // 直接设置值，即使为空也设置（保留空单元格）
                                     grandTotalCell.textContent = subTotalCellValue;
-                                    if (subTotalCellValue !== '') {
-                                        copiedCount++;
+                                    copiedCount++;
+                                    
+                                    // 调试：输出前几个单元格（包括空的）
+                                    if (colIdx <= 15) {
+                                        console.log(`WBET mode: Copied cell[${colIdx}] = "${subTotalCellValue}"`);
                                     }
+                                } else {
+                                    console.warn(`WBET mode: Cannot copy to column ${colIdx}, cell not found or not editable. grandTotalCell:`, grandTotalCell);
                                 }
                             }
                             
