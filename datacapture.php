@@ -178,6 +178,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-group">
                                 <label for="capture_remove_word">Remove Word</label>
                                 <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove">
+                                <small class="field-help" style="display: block; margin-top: 4px; font-style: italic; color: #666;">(Use semicolon to separate multiple words, e.g. abc;cde;efg)</small>
                             </div>
                             
                             <div class="form-group replace-word-group">

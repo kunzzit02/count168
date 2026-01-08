@@ -344,7 +344,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-group">
                                 <label for="edit_remove_words">Remove Words</label>
                                 <input type="text" id="edit_remove_words" name="remove_word" placeholder="Enter words to remove">
-                                <small class="field-help">(Use comma for more word to remove)</small>
+                                <small class="field-help">(Use semicolon to separate multiple words, e.g. abc;cde;efg)</small>
                             </div>
                         </div>
 
@@ -478,7 +478,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-group">
                                 <label for="add_remove_words">Remove Words</label>
                                 <input type="text" id="add_remove_words" name="remove_word" placeholder="Enter words to remove">
-                                <small class="field-help">(Use comma for more word to remove)</small>
+                                <small class="field-help">(Use semicolon to separate multiple words, e.g. abc;cde;efg)</small>
                             </div>
                         </div>
                         <div class="form-row">

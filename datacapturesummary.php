@@ -415,13 +415,18 @@ $company_id = $_SESSION['company_id'] ?? null;
             
             let result = text;
             
-            // Apply remove word
+            // Apply remove word - support multiple words separated by semicolon
             if (removeWord && removeWord.trim() !== '') {
-                // Remove all occurrences of the word (case-insensitive)
-                // Escape special regex characters to match them literally
-                const escapedRemoveWord = escapeRegex(removeWord.trim());
-                const removeRegex = new RegExp(escapedRemoveWord, 'gi');
-                result = result.replace(removeRegex, '');
+                // Split by semicolon to get multiple words
+                const wordsToRemove = removeWord.split(';').map(word => word.trim()).filter(word => word !== '');
+                
+                // Remove all occurrences of each word (case-insensitive)
+                wordsToRemove.forEach(word => {
+                    // Escape special regex characters to match them literally
+                    const escapedRemoveWord = escapeRegex(word);
+                    const removeRegex = new RegExp(escapedRemoveWord, 'gi');
+                    result = result.replace(removeRegex, '');
+                });
             }
             
             // Apply replace word
