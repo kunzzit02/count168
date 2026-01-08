@@ -10537,8 +10537,196 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
+            // WBET 特殊处理：SUB TOTAL 和 GRAND TOTAL 的数据应该是一样的
+            const isWbet = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+            
+            // 如果 SUB TOTAL 和 GRAND TOTAL 分开两行（针对 WBET）
+            if (isWbet && subTotalRowIndex >= 0 && grandTotalRowIndex >= 0 && subTotalRowIndex !== grandTotalRowIndex) {
+                console.log('WBET: Found SUB TOTAL and GRAND TOTAL in separate rows, processing...');
+                
+                let subTotalRow = rows[subTotalRowIndex];
+                let grandTotalRow = rows[grandTotalRowIndex];
+                
+                // 从 GRAND TOTAL 行提取所有数据（跳过 GRAND TOTAL 标签）
+                const grandTotalCells = Array.from(grandTotalRow.children).slice(1); // 跳过行号列
+                const grandTotalData = [];
+                
+                // 找到 GRAND TOTAL 标签的位置（通常在第二列，索引1）
+                let grandTotalLabelIndex = -1;
+                for (let i = 0; i < grandTotalCells.length; i++) {
+                    const cell = grandTotalCells[i];
+                    if (cell && cell.contentEditable === 'true') {
+                        const cellText = (cell.textContent || '').toString().toUpperCase().trim();
+                        if (cellText === 'GRAND TOTAL' || cellText.includes('GRAND TOTAL')) {
+                            grandTotalLabelIndex = i;
+                            break;
+                        }
+                    }
+                }
+                
+                // 从 GRAND TOTAL 标签之后提取所有数据（保留所有列，包括空值）
+                const startIndex = grandTotalLabelIndex >= 0 ? grandTotalLabelIndex + 1 : 1;
+                for (let i = startIndex; i < grandTotalCells.length; i++) {
+                    const cell = grandTotalCells[i];
+                    if (cell && cell.contentEditable === 'true') {
+                        const cellText = (cell.textContent || '').toString().trim();
+                        grandTotalData.push(cellText);
+                    } else {
+                        // 即使单元格不存在，也保留位置
+                        grandTotalData.push('');
+                    }
+                }
+                
+                // 同时也检查后续行是否有数据（有些情况下数据可能在后续行中）
+                // 对于 WBET，数据可能在 GRAND TOTAL 行之后的多行中
+                let nextRowIndex = grandTotalRowIndex + 1;
+                let maxDataColumns = Math.max(50, grandTotalData.length + 20); // 至少检查50列，或当前数据长度+20
+                while (nextRowIndex < rows.length && grandTotalData.length < maxDataColumns) {
+                    const nextRow = rows[nextRowIndex];
+                    const nextRowCells = Array.from(nextRow.children).slice(1); // 跳过行号列
+                    const nextRowNonEmpty = nextRowCells.filter(cell => {
+                        const text = (cell.textContent || '').toString().trim();
+                        return text !== '' && cell.contentEditable === 'true';
+                    });
+                    
+                    // 检查这一行是否包含 TOTAL 标签
+                    const rowText = nextRowCells.map(c => (c.textContent || '').toString().toUpperCase().trim()).join(' ');
+                    const hasTotal = rowText.includes('SUB TOTAL') || rowText.includes('GRAND TOTAL') || 
+                                   nextRowNonEmpty.some(c => {
+                                       const text = (c.textContent || '').toString().toUpperCase().trim();
+                                       return text === 'SUB TOTAL' || text.includes('SUB TOTAL') ||
+                                              text === 'GRAND TOTAL' || text.includes('GRAND TOTAL');
+                                   });
+                    
+                    // 如果包含 TOTAL 标签，停止收集
+                    if (hasTotal) {
+                        break;
+                    }
+                    
+                    // 如果这一行有非空单元格，收集所有数据（不管数量多少）
+                    if (nextRowNonEmpty.length > 0) {
+                        // 收集这一行的所有数据单元格
+                        for (let i = 0; i < nextRowCells.length; i++) {
+                            const cell = nextRowCells[i];
+                            if (cell && cell.contentEditable === 'true') {
+                                const cellText = (cell.textContent || '').toString().trim();
+                                // 跳过 TOTAL 标签
+                                const cellUpper = cellText.toUpperCase();
+                                if (cellText !== '' &&
+                                    cellUpper !== 'SUB TOTAL' && !cellUpper.includes('SUB TOTAL') &&
+                                    cellUpper !== 'GRAND TOTAL' && !cellUpper.includes('GRAND TOTAL')) {
+                                    grandTotalData.push(cellText);
+                                } else if (cellText === '') {
+                                    // 保留空值以保持列对齐（可选）
+                                    // grandTotalData.push('');
+                                }
+                            }
+                        }
+                        nextRowIndex++;
+                    } else {
+                        // 如果这一行完全是空的，停止收集
+                        break;
+                    }
+                }
+                
+                console.log('WBET: Extracted data from GRAND TOTAL row, total data columns:', grandTotalData.length);
+                
+                // 确保表格有足够的列
+                const requiredCols = Math.max(grandTotalData.length + 1, grandTotalCells.length); // +1 为标签列
+                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                if (requiredCols > currentCols) {
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    initializeTable(currentRows, requiredCols);
+                    // 重新获取行引用
+                    const updatedRows = Array.from(tableBody.children);
+                    rows[subTotalRowIndex] = updatedRows[subTotalRowIndex];
+                    rows[grandTotalRowIndex] = updatedRows[grandTotalRowIndex];
+                    subTotalRow = updatedRows[subTotalRowIndex];
+                    grandTotalRow = updatedRows[grandTotalRowIndex];
+                }
+                
+                // 重新获取单元格引用（因为可能已经扩展了表格）
+                const updatedSubTotalCells = Array.from(subTotalRow.children).slice(1); // 跳过行号列
+                const updatedGrandTotalCells = Array.from(grandTotalRow.children).slice(1); // 跳过行号列
+                
+                // 确保 SUB TOTAL 行有足够的单元格
+                while (updatedSubTotalCells.length < grandTotalData.length + 1) {
+                    const newColIndex = updatedSubTotalCells.length;
+                    // 添加表头
+                    const tableHeader = document.getElementById('tableHeader');
+                    const headerRow = tableHeader ? tableHeader.querySelector('tr') : null;
+                    if (headerRow && headerRow.children.length - 1 <= newColIndex) {
+                        const newHeader = document.createElement('th');
+                        newHeader.textContent = newColIndex + 1;
+                        newHeader.addEventListener('click', () => {
+                            tableActive = true;
+                            selectColumn(newColIndex);
+                        });
+                        newHeader.style.cursor = 'pointer';
+                        headerRow.appendChild(newHeader);
+                    }
+                    // 为所有行添加新单元格
+                    const allRows = Array.from(tableBody.children);
+                    allRows.forEach(row => {
+                        if (row.children.length - 1 <= newColIndex) {
+                            const newCell = document.createElement('td');
+                            newCell.contentEditable = true;
+                            newCell.dataset.col = newColIndex;
+                            newCell.addEventListener('mousedown', handleCellMouseDown);
+                            newCell.addEventListener('mouseover', handleCellMouseOver);
+                            newCell.addEventListener('focus', function() { this.classList.add('selected'); });
+                            newCell.addEventListener('blur', function() { this.classList.remove('selected'); });
+                            newCell.addEventListener('keydown', handleCellKeydown);
+                            newCell.addEventListener('paste', handleCellPaste);
+                            newCell.addEventListener('click', function(e) {
+                                const hasFocus = document.activeElement === this;
+                                if (hasFocus) {
+                                    moveCaretToClickPosition(this, e);
+                                } else {
+                                    setActiveCellCore(this);
+                                    this.focus();
+                                    setTimeout(() => moveCaretToClickPosition(this, e), 0);
+                                }
+                            });
+                            newCell.addEventListener('contextmenu', function(e) {
+                                e.preventDefault();
+                                showContextMenu(e, this);
+                            });
+                            row.appendChild(newCell);
+                        }
+                    });
+                    // 重新获取引用
+                    const newSubTotalCells = Array.from(subTotalRow.children).slice(1);
+                    updatedSubTotalCells.length = 0;
+                    updatedSubTotalCells.push(...newSubTotalCells);
+                }
+                
+                // 填充 SUB TOTAL 行：SUB TOTAL + 所有数据（与 GRAND TOTAL 相同）
+                if (updatedSubTotalCells[0] && updatedSubTotalCells[0].contentEditable === 'true') {
+                    updatedSubTotalCells[0].textContent = 'SUB TOTAL';
+                }
+                for (let i = 0; i < grandTotalData.length; i++) {
+                    if (i + 1 < updatedSubTotalCells.length && updatedSubTotalCells[i + 1] && updatedSubTotalCells[i + 1].contentEditable === 'true') {
+                        updatedSubTotalCells[i + 1].textContent = grandTotalData[i];
+                    }
+                }
+                
+                // 确保 GRAND TOTAL 行保持所有数据（确保第一列是 GRAND TOTAL，后续列是数据）
+                if (updatedGrandTotalCells[0] && updatedGrandTotalCells[0].contentEditable === 'true') {
+                    updatedGrandTotalCells[0].textContent = 'GRAND TOTAL';
+                }
+                for (let i = 0; i < grandTotalData.length; i++) {
+                    const dataIndex = i;
+                    const cellIndex = grandTotalLabelIndex >= 0 ? grandTotalLabelIndex + 1 + i : 1 + i;
+                    if (cellIndex < updatedGrandTotalCells.length && updatedGrandTotalCells[cellIndex] && updatedGrandTotalCells[cellIndex].contentEditable === 'true') {
+                        updatedGrandTotalCells[cellIndex].textContent = grandTotalData[dataIndex];
+                    }
+                }
+                
+                console.log('WBET: Updated SUB TOTAL and GRAND TOTAL rows with identical data, total data columns:', grandTotalData.length);
+            }
             // 如果 SUB TOTAL 和 GRAND TOTAL 在同一行（第一列是 SUB TOTAL，第二列是 GRAND TOTAL）
-            if (subTotalRowIndex >= 0 && subTotalRowIndex === grandTotalRowIndex) {
+            else if (subTotalRowIndex >= 0 && subTotalRowIndex === grandTotalRowIndex) {
                 const headerRow = rows[subTotalRowIndex];
                 const firstCell = headerRow.children[1];
                 const secondCell = headerRow.children[2];
@@ -10587,6 +10775,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         // 然后：继续从后续行收集数据（如果数据在后续行中）
+                        // 对于 WBET，即使后续行有很多单元格，也要收集所有数据
                         let currentRow = subTotalRowIndex + 1;
                         
                         // 获取预期列数（参考前面的数据行）
@@ -10604,8 +10793,35 @@ if ($current_user_id && count($user_companies) > 0) {
                                 return text !== '' && cell.contentEditable === 'true';
                             });
                             
+                            // 对于 WBET，如果后续行有很多非空单元格，可能也是 SUB TOTAL / GRAND TOTAL 的数据
+                            if (isWbet && nonEmptyCells.length > 3) {
+                                // 检查这一行是否包含 TOTAL 标签，如果不包含，可能是数据行的一部分
+                                const rowText = cells.map(c => (c.textContent || '').toString().toUpperCase().trim()).join(' ');
+                                const hasTotal = rowText.includes('SUB TOTAL') || rowText.includes('GRAND TOTAL') || rowText.includes('TOTAL');
+                                
+                                if (!hasTotal) {
+                                    // 这一行没有 TOTAL 标签，可能是数据行，收集所有非空单元格
+                                    for (let i = 0; i < cells.length; i++) {
+                                        const cell = cells[i];
+                                        if (cell && cell.contentEditable === 'true') {
+                                            const cellText = (cell.textContent || '').toString().trim();
+                                            if (cellText !== '') {
+                                                // 对于 WBET，SUB TOTAL 和 GRAND TOTAL 数据相同
+                                                subTotalCells.push(cellText);
+                                                grandTotalCells.push(cellText);
+                                            }
+                                        }
+                                    }
+                                    currentRow++;
+                                    continue;
+                                } else {
+                                    // 包含 TOTAL 标签，停止收集
+                                    break;
+                                }
+                            }
+                            
                             // 如果这一行有很多非空单元格，可能是新的数据行，停止收集
-                            if (nonEmptyCells.length > 3) {
+                            if (!isWbet && nonEmptyCells.length > 3) {
                                 break;
                             }
                             
