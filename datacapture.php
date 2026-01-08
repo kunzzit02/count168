@@ -4012,9 +4012,27 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                                 
                                 // 添加数据（跳过重复的第一个值）
+                                // 智能去重：检查是否与 processedRow 中的值重复
                                 for (let i = startIndex; i < dataToAdd.length; i++) {
                                     const cellValue = (dataToAdd[i] || '').toString().trim();
                                     if (cellValue) {
+                                        // 检查是否与 processedRow 的最后一个值重复（避免连续重复）
+                                        const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
+                                        if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
+                                            // 如果与最后一个值相同，跳过（避免重复）
+                                            console.log(`WBET: HTML - Skipping duplicate value "${cellValue}" (same as last value)`);
+                                            continue;
+                                        }
+                                        
+                                        // 检查是否与 processedRow 的倒数第二个值也相同（避免 A-B-B 模式变成 A-B-B-B）
+                                        if (processedRow.length >= 2) {
+                                            const secondLastValue = processedRow[processedRow.length - 2];
+                                            if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
+                                                console.log(`WBET: HTML - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
+                                                continue;
+                                            }
+                                        }
+                                        
                                         processedRow.push(cellValue);
                                     }
                                 }
@@ -4095,9 +4113,51 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 使用处理后的矩阵
                     const finalMatrix = [...processedMatrix];
                 
+                // 最终去重：去除所有行中的连续重复值
+                const deduplicatedMatrix = finalMatrix.map((row, rowIdx) => {
+                    const rowText = row.join(' ').toUpperCase();
+                    const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                    const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
+                    
+                    // 只对 Sub Total 和 Grand Total 行进行去重
+                    if (isSubTotal || isGrandTotal) {
+                        const deduplicatedRow = [];
+                        let lastValue = null;
+                        
+                        row.forEach((cell, cellIdx) => {
+                            const cellValue = (cell || '').toString().trim();
+                            const cellText = cellValue.toUpperCase();
+                            
+                            // 保留标签（SUB TOTAL 或 GRAND TOTAL）
+                            if (cellIdx === 0 && (cellText.includes('SUB TOTAL') || cellText.includes('SUBTOTAL') || 
+                                cellText.includes('GRAND TOTAL') || cellText.includes('GRANDTOTAL'))) {
+                                deduplicatedRow.push(cell);
+                                lastValue = null; // 重置，因为标签不是数据
+                            } else if (cellValue) {
+                                // 检查是否与上一个值重复
+                                if (lastValue === null || lastValue.toString().trim() !== cellValue) {
+                                    deduplicatedRow.push(cell);
+                                    lastValue = cell;
+                                } else {
+                                    console.log(`WBET: HTML - Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
+                                }
+                            } else {
+                                // 空值也添加（保持列对齐）
+                                deduplicatedRow.push(cell);
+                            }
+                        });
+                        
+                        console.log(`WBET: HTML - Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
+                        return deduplicatedRow;
+                    }
+                    
+                    // 普通数据行保持不变
+                    return row;
+                });
+                
                 // 使用处理后的矩阵
                 processedMatrix.length = 0;
-                processedMatrix.push(...finalMatrix);
+                processedMatrix.push(...deduplicatedMatrix);
                 
                 // 重新计算最大列数
                 const processedMaxCols = Math.max(...processedMatrix.map(row => row.length), 0);
@@ -7156,9 +7216,27 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                                 
                                 // 添加数据（跳过重复的第一个值）
+                                // 智能去重：检查是否与 processedRow 中的值重复
                                 for (let i = startIndex; i < dataToAdd.length; i++) {
                                     const cellValue = (dataToAdd[i] || '').toString().trim();
                                     if (cellValue) {
+                                        // 检查是否与 processedRow 的最后一个值重复（避免连续重复）
+                                        const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
+                                        if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
+                                            // 如果与最后一个值相同，跳过（避免重复）
+                                            console.log(`WBET: Text - Skipping duplicate value "${cellValue}" (same as last value)`);
+                                            continue;
+                                        }
+                                        
+                                        // 检查是否与 processedRow 的倒数第二个值也相同（避免 A-B-B 模式变成 A-B-B-B）
+                                        if (processedRow.length >= 2) {
+                                            const secondLastValue = processedRow[processedRow.length - 2];
+                                            if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
+                                                console.log(`WBET: Text - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
+                                                continue;
+                                            }
+                                        }
+                                        
                                         processedRow.push(cellValue);
                                     }
                                 }
@@ -7238,9 +7316,51 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 使用处理后的矩阵
                     const finalMatrix = [...processedMatrix];
                     
+                    // 最终去重：去除所有行中的连续重复值
+                    const deduplicatedMatrix = finalMatrix.map((row, rowIdx) => {
+                        const rowText = row.join(' ').toUpperCase();
+                        const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                        const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
+                        
+                        // 只对 Sub Total 和 Grand Total 行进行去重
+                        if (isSubTotal || isGrandTotal) {
+                            const deduplicatedRow = [];
+                            let lastValue = null;
+                            
+                            row.forEach((cell, cellIdx) => {
+                                const cellValue = (cell || '').toString().trim();
+                                const cellText = cellValue.toUpperCase();
+                                
+                                // 保留标签（SUB TOTAL 或 GRAND TOTAL）
+                                if (cellIdx === 0 && (cellText.includes('SUB TOTAL') || cellText.includes('SUBTOTAL') || 
+                                    cellText.includes('GRAND TOTAL') || cellText.includes('GRANDTOTAL'))) {
+                                    deduplicatedRow.push(cell);
+                                    lastValue = null; // 重置，因为标签不是数据
+                                } else if (cellValue) {
+                                    // 检查是否与上一个值重复
+                                    if (lastValue === null || lastValue.toString().trim() !== cellValue) {
+                                        deduplicatedRow.push(cell);
+                                        lastValue = cell;
+                                    } else {
+                                        console.log(`WBET: Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
+                                    }
+                                } else {
+                                    // 空值也添加（保持列对齐）
+                                    deduplicatedRow.push(cell);
+                                }
+                            });
+                            
+                            console.log(`WBET: Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
+                            return deduplicatedRow;
+                        }
+                        
+                        // 普通数据行保持不变
+                        return row;
+                    });
+                    
                     // 使用处理后的矩阵
                     processedMatrix.length = 0;
-                    processedMatrix.push(...finalMatrix);
+                    processedMatrix.push(...deduplicatedMatrix);
                     
                     // 确保所有行的列数相同
                     const maxCols = Math.max(...processedMatrix.map(row => row.length), 0);
