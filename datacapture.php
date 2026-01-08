@@ -7984,15 +7984,24 @@ if ($current_user_id && count($user_companies) > 0) {
                             const line = lines[i];
                             const trimmedLine = line.trim();
                             
-                            // 检查是否是标识符行（2-5个大写字母，可能包含数字，如BWGMA、BWWAY、BWWS）
-                            // 标识符通常是：全大写字母和数字，2-5个字符，不包含空格、逗号、小数点、负号
-                            // 且不包含任何数字开头（避免将"-37.44"这样的数字误判为标识符）
-                            const isIdentifier = /^[A-Z0-9]{2,5}$/.test(trimmedLine) && 
-                                                !trimmedLine.includes(' ') && 
-                                                !trimmedLine.includes(',') &&
-                                                !trimmedLine.includes('.') &&
-                                                !trimmedLine.includes('-') &&
-                                                !/^\d/.test(trimmedLine); // 不以数字开头
+                            // 检查是否是标识符行
+                            // 1. 短标识符（2-5个大写字母，可能包含数字，如BWGMA、BWWAY、BWWS）
+                            // 2. Grand Total 或 Total 这样的特殊标识符
+                            const isShortIdentifier = /^[A-Z0-9]{2,5}$/.test(trimmedLine) && 
+                                                    !trimmedLine.includes(' ') && 
+                                                    !trimmedLine.includes(',') &&
+                                                    !trimmedLine.includes('.') &&
+                                                    !trimmedLine.includes('-') &&
+                                                    !/^\d/.test(trimmedLine); // 不以数字开头
+                            
+                            // 检查是否是 Grand Total 或 Total 行（不区分大小写）
+                            const upperTrimmedLine = trimmedLine.toUpperCase();
+                            const isTotalIdentifier = upperTrimmedLine === 'GRAND TOTAL' || 
+                                                      upperTrimmedLine === 'TOTAL' ||
+                                                      upperTrimmedLine.startsWith('GRAND TOTAL') ||
+                                                      upperTrimmedLine.startsWith('TOTAL ');
+                            
+                            const isIdentifier = isShortIdentifier || isTotalIdentifier;
                             
                             if (isIdentifier) {
                                 // 如果之前有未完成的行，先保存它
@@ -8001,8 +8010,62 @@ if ($current_user_id && count($user_companies) > 0) {
                                     maxCols = Math.max(maxCols, currentRow.length);
                                 }
                                 
-                                // 开始新行，标识符作为第一列
-                                currentRow = [trimmedLine];
+                                // 开始新行
+                                // 如果是 Total 标识符，检查这一行是否包含其他数据
+                                if (isTotalIdentifier) {
+                                    // 解析整行数据（Grand Total 行可能在同一行包含多个数据）
+                                    let cells = [];
+                                    if (line.includes('\t')) {
+                                        // 制表符分隔
+                                        cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                    } else {
+                                        // 使用空格分割，但要确保 "Grand Total" 作为一个整体
+                                        // 先检查是否以 "Grand Total" 或 "Total" 开头
+                                        let remainingLine = trimmedLine;
+                                        if (upperTrimmedLine.startsWith('GRAND TOTAL')) {
+                                            // 提取 "Grand Total" 和剩余部分
+                                            const match = trimmedLine.match(/^(Grand\s+Total)\s+(.*)$/i);
+                                            if (match) {
+                                                cells.push(match[1]); // "Grand Total"
+                                                if (match[2]) {
+                                                    // 解析剩余部分的数据
+                                                    const remainingCells = match[2].split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                                    cells.push(...remainingCells);
+                                                }
+                                            } else {
+                                                // 如果匹配失败，使用原始分割
+                                                cells = trimmedLine.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                            }
+                                        } else if (upperTrimmedLine.startsWith('TOTAL ')) {
+                                            // 提取 "Total" 和剩余部分
+                                            const match = trimmedLine.match(/^(Total)\s+(.*)$/i);
+                                            if (match) {
+                                                cells.push(match[1]); // "Total"
+                                                if (match[2]) {
+                                                    // 解析剩余部分的数据
+                                                    const remainingCells = match[2].split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                                    cells.push(...remainingCells);
+                                                }
+                                            } else {
+                                                // 如果匹配失败，使用原始分割
+                                                cells = trimmedLine.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                            }
+                                        } else {
+                                            // 完全匹配 "Grand Total" 或 "Total"
+                                            cells = [trimmedLine];
+                                        }
+                                    }
+                                    
+                                    // 如果解析出多个单元格，使用所有单元格；否则只使用标识符
+                                    if (cells.length > 1) {
+                                        currentRow = cells;
+                                    } else {
+                                        currentRow = [trimmedLine];
+                                    }
+                                } else {
+                                    // 短标识符（如BWGMA），只作为第一列
+                                    currentRow = [trimmedLine];
+                                }
                             } else {
                                 // 这是数据行，需要合并到当前行
                                 if (currentRow === null) {
