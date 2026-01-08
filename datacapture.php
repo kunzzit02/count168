@@ -10602,14 +10602,65 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         // 对于 WBET，SUB TOTAL 和 GRAND TOTAL 使用相同的数据
+                        let currentRow; // 定义 currentRow 变量
                         if (isWbet) {
+                            // 对于 WBET，先从头行提取数据，然后检查后续行是否有更多数据
                             subTotalCells.push(...dataCells);
                             grandTotalCells.push(...dataCells);
                             console.log('WBET: Extracted', dataCells.length, 'data cells from SUB/GRAND TOTAL header row');
+                            
+                            // 检查后续行是否有更多数据（因为数据可能分散在多行中）
+                            let checkRow = subTotalRowIndex + 1;
+                            while (checkRow < rows.length) {
+                                const row = rows[checkRow];
+                                const cells = Array.from(row.children).slice(1); // 跳过行号列
+                                const nonEmptyCells = cells.filter(cell => {
+                                    const text = (cell.textContent || '').toString().trim();
+                                    return text !== '' && cell.contentEditable === 'true';
+                                });
+                                
+                                // 如果这一行有很多非空单元格（可能是数据行），收集所有数据
+                                if (nonEmptyCells.length > expectedCols / 2 || nonEmptyCells.length > 5) {
+                                    // 可能是新的数据行，停止收集
+                                    break;
+                                }
+                                
+                                // 如果这一行有一些非空单元格，可能是 SUB TOTAL / GRAND TOTAL 的数据延续
+                                if (nonEmptyCells.length > 0 && nonEmptyCells.length <= expectedCols) {
+                                    // 收集所有单元格的数据（包括空值，以保持列数一致）
+                                    for (let i = 0; i < cells.length; i++) {
+                                        const cell = cells[i];
+                                        if (cell && cell.contentEditable === 'true') {
+                                            const cellText = (cell.textContent || '').toString().trim();
+                                            // 跳过 TOTAL 标签
+                                            const cellUpper = cellText.toUpperCase();
+                                            if (cellText !== '' && 
+                                                cellUpper !== 'SUB TOTAL' && 
+                                                !cellUpper.includes('SUB TOTAL') &&
+                                                cellUpper !== 'GRAND TOTAL' && 
+                                                !cellUpper.includes('GRAND TOTAL')) {
+                                                subTotalCells.push(cellText);
+                                                grandTotalCells.push(cellText);
+                                            }
+                                        }
+                                    }
+                                    checkRow++;
+                                } else {
+                                    break;
+                                }
+                            }
+                            
+                            console.log('WBET: Total data cells after collecting:', subTotalCells.length - 1, 'data cells');
+                            
                             // 更新 expectedCols 为实际数据列数（SUB TOTAL + 数据列数）
                             if (expectedCols === 0) {
                                 expectedCols = subTotalCells.length;
+                            } else {
+                                // 使用前面数据行的列数作为参考
+                                expectedCols = Math.max(expectedCols, subTotalCells.length);
                             }
+                            // 对于 WBET，数据收集完成
+                            currentRow = checkRow;
                         } else {
                             // 对于非 WBET，使用原来的逻辑收集后续行的数据
                             let currentRow = subTotalRowIndex + 1;
