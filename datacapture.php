@@ -8464,7 +8464,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     // 如果当前行是单值行，且下一行是数据行，则合并它们
-                    if (isSingleValueRow && nextRowIsDataRow) {
+                    // WBET 模式：跳过 SUB TOTAL 和 GRAND TOTAL 的合并
+                    const isWbetModeForMergeCheck = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+                    const currentValueUpper = trimmed.toUpperCase();
+                    const isSubTotalOrGrandTotal = isWbetModeForMergeCheck && 
+                        (currentValueUpper.includes('SUB TOTAL') || currentValueUpper.includes('GRAND TOTAL') ||
+                         currentValueUpper === 'SUB TOTAL' || currentValueUpper === 'GRAND TOTAL');
+                    
+                    if (isSingleValueRow && nextRowIsDataRow && !isSubTotalOrGrandTotal) {
                         const currentValue = trimmed;
                         let nextRowIndex = i + 1;
                         let nextRow = rows[nextRowIndex] ? rows[nextRowIndex].trim() : '';
@@ -8473,6 +8480,16 @@ if ($current_user_id && count($user_companies) > 0) {
                         while (nextRowIndex < rows.length && nextRow === '') {
                             nextRowIndex++;
                             nextRow = rows[nextRowIndex] ? rows[nextRowIndex].trim() : '';
+                        }
+                        
+                        // WBET 模式：检查下一行是否包含 SUB TOTAL 或 GRAND TOTAL，如果是则跳过合并
+                        if (isWbetModeForMergeCheck && nextRow) {
+                            const nextRowUpper = nextRow.toUpperCase();
+                            if (nextRowUpper.includes('SUB TOTAL') || nextRowUpper.includes('GRAND TOTAL')) {
+                                // 跳过合并，保持 SUB TOTAL 和 GRAND TOTAL 分开
+                                processedRows.push(row);
+                                continue;
+                            }
                         }
                         
                         if (nextRow && nextRow.includes('\t')) {
@@ -10371,6 +10388,24 @@ if ($current_user_id && count($user_companies) > 0) {
             if (rows.length === 0) return;
             
             console.log('Converting table format on submit...');
+            
+            // WBET 模式：完全跳过 SUB TOTAL 和 GRAND TOTAL 的转换，保持原始格式
+            const isWbetMode = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+            if (isWbetMode) {
+                console.log('WBET mode: Skipping SUB TOTAL / GRAND TOTAL conversion to preserve original format');
+                // 只执行其他必要的转换（如重复产品检测等）
+                try {
+                    renameDuplicateIdProducts();
+                } catch (err) {
+                    console.error('renameDuplicateIdProducts failed:', err);
+                }
+                try {
+                    fixCitibetAmountColumns();
+                } catch (err) {
+                    console.error('fixCitibetAmountColumns failed:', err);
+                }
+                return;
+            }
             
             // 查找 SUB TOTAL 和 GRAND TOTAL 行
             let subTotalRowIndex = -1;
