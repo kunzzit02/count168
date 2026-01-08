@@ -10370,6 +10370,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         (secondText === 'GRAND TOTAL' || secondText.includes('GRAND TOTAL'))) {
                         console.log('Found SUB TOTAL and GRAND TOTAL in same row, converting...');
                         
+                        // WBET 特殊处理：SUB TOTAL 和 GRAND TOTAL 的数据应该是一样的
+                        const isWbet = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+                        
                         // 收集后续行的数据（每行2列，分别是 SUB TOTAL 和 GRAND TOTAL 的数据）
                         const subTotalCells = ['SUB TOTAL'];
                         const grandTotalCells = ['GRAND TOTAL'];
@@ -10388,6 +10391,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                     console.log('Detected extra value on SUB/GRAND TOTAL header row:', thirdText);
                                     // 这里仅加入 GRAND TOTAL 行，保证「GRAND TOTAL 后面的数值」不会丢失
                                     grandTotalCells.push(thirdText);
+                                    // 对于 WBET，SUB TOTAL 和 GRAND TOTAL 数据相同，所以也加入 SUB TOTAL
+                                    if (isWbet) {
+                                        subTotalCells.push(thirdText);
+                                    }
                                 }
                             }
                         }
@@ -10416,8 +10423,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                 if (cell1 !== '' && cell2 !== '' && 
                                     !cell1.toUpperCase().includes('TOTAL') && 
                                     !cell2.toUpperCase().includes('TOTAL')) {
-                                    subTotalCells.push(cell1);
-                                    grandTotalCells.push(cell2);
+                                    // 对于 WBET，SUB TOTAL 和 GRAND TOTAL 数据相同，都使用 GRAND TOTAL 的数据（cell2）
+                                    if (isWbet) {
+                                        subTotalCells.push(cell2);
+                                        grandTotalCells.push(cell2);
+                                    } else {
+                                        subTotalCells.push(cell1);
+                                        grandTotalCells.push(cell2);
+                                    }
                                     currentRow++;
                                     continue;
                                 }
@@ -10431,16 +10444,34 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 如果这一行只有1个非空单元格
                             if (nonEmptyCells.length === 1) {
                                 const cell = (nonEmptyCells[0].textContent || '').toString().trim();
-                                if (subTotalCells.length > grandTotalCells.length) {
+                                if (isWbet) {
+                                    // 对于 WBET，SUB TOTAL 和 GRAND TOTAL 数据相同
+                                    subTotalCells.push(cell);
                                     grandTotalCells.push(cell);
                                 } else {
-                                    subTotalCells.push(cell);
+                                    if (subTotalCells.length > grandTotalCells.length) {
+                                        grandTotalCells.push(cell);
+                                    } else {
+                                        subTotalCells.push(cell);
+                                    }
                                 }
                                 currentRow++;
                                 continue;
                             }
                             
                             break;
+                        }
+                        
+                        // 对于 WBET，确保 SUB TOTAL 和 GRAND TOTAL 数据完全相同
+                        if (isWbet && grandTotalCells.length > subTotalCells.length) {
+                            // 如果 GRAND TOTAL 的数据更多，SUB TOTAL 也使用相同数据
+                            subTotalCells.length = 0;
+                            subTotalCells.push('SUB TOTAL');
+                            // 复制 GRAND TOTAL 的所有数据（跳过第一个 "GRAND TOTAL"）
+                            for (let i = 1; i < grandTotalCells.length; i++) {
+                                subTotalCells.push(grandTotalCells[i]);
+                            }
+                            console.log('WBET: SUB TOTAL and GRAND TOTAL data made identical');
                         }
                         
                         // 如果收集到了足够的数据，重建两行
