@@ -8448,10 +8448,16 @@ if ($current_user_id && count($user_companies) > 0) {
                     trailingEmptyCount = 0;
                     
                     // 检查是否是单行值（没有制表符分隔，或只有一个非空单元格）
+                    // WBET 模式：SUB TOTAL 和 GRAND TOTAL 行即使只有一个非空单元格，也不应该被当作单值行
                     const hasTabSeparator = row.includes('\t');
                     const cells = row.split('\t').map(c => c.trim());
                     const nonEmptyCells = cells.filter(c => c !== '');
-                    const isSingleValueRow = !hasTabSeparator || nonEmptyCells.length === 1;
+                    const trimmedUpper = trimmed.toUpperCase();
+                    const isSubTotalOrGrandTotalRowForSingleCheck = isWbetModeForMergeCheck && 
+                        (trimmedUpper.includes('SUB TOTAL') || trimmedUpper.includes('GRAND TOTAL') || 
+                         cells.some(c => c.toUpperCase().includes('SUB TOTAL') || c.toUpperCase().includes('GRAND TOTAL')));
+                    // 如果包含 SUB TOTAL 或 GRAND TOTAL，且行中有制表符，说明这是完整的数据行，不是单值行
+                    const isSingleValueRow = isSubTotalOrGrandTotalRowForSingleCheck ? false : (!hasTabSeparator || nonEmptyCells.length === 1);
                     
                     // 检查下一行是否是数据行（包含制表符分隔的多个值）
                     let nextRowIsDataRow = false;
@@ -8546,8 +8552,15 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     // 检查是否是标识符行
-                    const isIdentifierRow = identifierPattern.test(trimmed) || 
-                                          (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0]));
+                    // WBET 模式：SUB TOTAL 和 GRAND TOTAL 行不应该被当作标识符行处理，它们本身包含完整数据
+                    const isWbetModeForIdentifierCheck = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+                    const trimmedUpper = trimmed.toUpperCase();
+                    const isSubTotalOrGrandTotalRow = isWbetModeForIdentifierCheck && 
+                        (trimmedUpper.includes('SUB TOTAL') || trimmedUpper.includes('GRAND TOTAL'));
+                    
+                    const isIdentifierRow = !isSubTotalOrGrandTotalRow && 
+                        (identifierPattern.test(trimmed) || 
+                         (row.includes('\t') && row.split('\t').filter(cell => cell.trim() !== '').length === 1 && identifierPattern.test(trimmed.split('\t')[0])));
                     
                     if (isIdentifierRow) {
                         // 这是一个标识符行，检查后续行
@@ -9422,6 +9435,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 新规则（修复单行/少量行复制时顺序错乱的问题）：
                     //  - 匹配「数字」或「数字+小数点」格式（例如 "1", "1.", "10", "10."）
                     //  - 只要所有非空行的第一列都满足该格式，就认为是行号列并移除
+                    // WBET 模式：SUB TOTAL 和 GRAND TOTAL 行不应该被影响
+                    const isWbetModeForRowNumber = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
                     if (dataMatrix.length > 0 && dataMatrix[0].length > 0) {
                         const firstCell = dataMatrix[0][0] || '';
                         const rowNumberPattern = /^\d+\.?$/; // 匹配 "1" 或 "1." 这种
@@ -9430,11 +9445,21 @@ if ($current_user_id && count($user_companies) > 0) {
                         let allRowsHaveRowNumbers = true;
                         if (isRowNumber) {
                             // 检查所有非空行，第一列是否都长得像序号
+                            // WBET 模式：跳过 SUB TOTAL 和 GRAND TOTAL 行的检查
                             for (let i = 0; i < dataMatrix.length; i++) {
                                 const row = dataMatrix[i];
                                 if (!row || row.length === 0) continue;
                                 const cell = (row[0] || '').trim();
                                 if (cell === '') continue; // 允许尾部空行
+                                
+                                // WBET 模式：如果行中包含 SUB TOTAL 或 GRAND TOTAL，跳过检查
+                                if (isWbetModeForRowNumber) {
+                                    const rowText = row.join(' ').toUpperCase();
+                                    if (rowText.includes('SUB TOTAL') || rowText.includes('GRAND TOTAL')) {
+                                        continue; // 跳过 SUB TOTAL 和 GRAND TOTAL 行
+                                    }
+                                }
+                                
                                 if (!rowNumberPattern.test(cell)) {
                                     allRowsHaveRowNumbers = false;
                                     break;
@@ -9448,6 +9473,13 @@ if ($current_user_id && count($user_companies) > 0) {
                             console.log('Detected row number column (like 1., 2., ...), removing first column');
                             dataMatrix = dataMatrix.map(row => {
                                 if (row.length > 0) {
+                                    // WBET 模式：如果行包含 SUB TOTAL 或 GRAND TOTAL，不移除第一列
+                                    if (isWbetModeForRowNumber) {
+                                        const rowText = row.join(' ').toUpperCase();
+                                        if (rowText.includes('SUB TOTAL') || rowText.includes('GRAND TOTAL')) {
+                                            return row; // 保持原样
+                                        }
+                                    }
                                     return row.slice(1); // 移除第一列
                                 }
                                 return row;
