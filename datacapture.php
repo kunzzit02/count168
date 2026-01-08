@@ -3937,51 +3937,49 @@ if ($current_user_id && count($user_companies) > 0) {
                         processedRow = [...row]; // 保持原样
                     }
                     
-                    // 检查是否是 Sub Total 或 Grand Total 行
-                    const rowText = processedRow.join(' ').toUpperCase();
-                    const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
-                    const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
-                    
-                    if (isSubTotal || isGrandTotal) {
-                        // Sub Total 或 Grand Total 行：收集后续行的数据，直到遇到另一个 Total 行或明显的标签行
-                        let continueMerging = true;
-                        let mergeIndex = rowIndex + 1;
+                        // 检查是否是 Sub Total 或 Grand Total 行
+                        const rowText = processedRow.join(' ').toUpperCase();
+                        const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                        const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
                         
-                        while (continueMerging && mergeIndex < dataMatrix.length) {
-                            const nextRow = dataMatrix[mergeIndex];
-                            if (!nextRow || rowsToSkip.has(mergeIndex)) {
-                                mergeIndex++;
-                                continue;
-                            }
+                        if (isSubTotal || isGrandTotal) {
+                            // Sub Total 或 Grand Total 行：收集后续行的数据，直到遇到另一个 Total 行或明显的标签行
+                            let continueMerging = true;
+                            let mergeIndex = rowIndex + 1;
                             
-                            const nextRowText = nextRow.join(' ').toUpperCase();
-                            const nextIsSubTotal = nextRowText.includes('SUB TOTAL') || nextRowText.includes('SUBTOTAL');
-                            const nextIsGrandTotal = nextRowText.includes('GRAND TOTAL') || nextRowText.includes('GRANDTOTAL');
+                            while (continueMerging && mergeIndex < dataMatrix.length) {
+                                const nextRow = dataMatrix[mergeIndex];
+                                if (!nextRow || rowsToSkip.has(mergeIndex)) {
+                                    mergeIndex++;
+                                    continue;
+                                }
+                                
+                                // 先处理下一行的行号（如果有）
+                                const nextFirstCell = (nextRow[0] || '').toString().trim();
+                                const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
+                                const nextProcessedRow = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : [...nextRow];
+                                
+                                // 检查下一行是否是另一个 Total 行（必须在 processedRow 中检查）
+                                const nextRowText = nextProcessedRow.join(' ').toUpperCase();
+                                const nextIsSubTotal = nextRowText.includes('SUB TOTAL') || nextRowText.includes('SUBTOTAL');
+                                const nextIsGrandTotal = nextRowText.includes('GRAND TOTAL') || nextRowText.includes('GRANDTOTAL');
+                                
+                                // 如果遇到另一个 Total 行，必须停止合并（Sub Total 和 Grand Total 必须分开）
+                                if (nextIsSubTotal || nextIsGrandTotal) {
+                                    console.log(`WBET: Stopping HTML merge at row ${mergeIndex} - found another Total row (${nextIsSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'})`);
+                                    continueMerging = false;
+                                    break;
+                                }
                             
-                            // 如果遇到另一个 Total 行，停止合并
-                            if (nextIsSubTotal || nextIsGrandTotal) {
-                                continueMerging = false;
+                            // 检查下一行是否是新的数据行标识（2-3个字母，如 OB, OC, OD）
+                            // 注意：使用 nextProcessedRow 因为已经处理过行号了
+                            const nextProcessedFirstCell = (nextProcessedRow[0] || '').toString().trim();
+                            
+                            // 检查是否是用户名标识（2-3个大写字母）
+                            if (/^[A-Z]{2,3}$/.test(nextProcessedFirstCell)) {
+                                console.log(`WBET: Stopping HTML merge at row ${mergeIndex} - found new data row (${nextProcessedFirstCell})`);
+                                continueMerging = false; // 这是新的数据行，停止合并
                                 break;
-                            }
-                            
-                            // 检查下一行第一列是否是标签或行号
-                            const nextFirstCell = (nextRow[0] || '').toString().trim();
-                            const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
-                            
-                            // 如果是纯数字行号，检查第二列是否是用户名标识（2-3个大写字母）
-                            if (nextFirstIsNumber && nextRow.length >= 2) {
-                                const secondCell = (nextRow[1] || '').toString().trim();
-                                if (/^[A-Z]{2,3}$/.test(secondCell)) {
-                                    continueMerging = false; // 这是新的数据行（如 2 OC），停止合并
-                                    break;
-                                }
-                            } else if (!nextFirstIsNumber) {
-                                // 第一列不是数字，检查是否是用户名标识（2-3个大写字母）或 Total 标签
-                                if (/^[A-Z]{2,3}$/.test(nextFirstCell) || 
-                                    /^(SUB TOTAL|GRAND TOTAL|SUBTOTAL|GRANDTOTAL)$/i.test(nextFirstCell)) {
-                                    continueMerging = false; // 这是新的数据行或 Total 行，停止合并
-                                    break;
-                                }
                             }
                             
                             // 将下一行的数据追加到当前行（如果是行号，跳过它）
@@ -7007,31 +7005,30 @@ if ($current_user_id && count($user_companies) > 0) {
                                     continue;
                                 }
                                 
-                                // 检查下一行是否是另一个 Total 行
-                                const nextRowText = nextRow.join(' ').toUpperCase();
+                                // 先处理下一行的行号（如果有）
+                                const nextFirstCell = (nextRow[0] || '').toString().trim();
+                                const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
+                                const nextProcessedRow = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : [...nextRow];
+                                
+                                // 检查下一行是否是另一个 Total 行（必须在 processedRow 中检查，因为可能没有行号）
+                                const nextRowText = nextProcessedRow.join(' ').toUpperCase();
                                 const nextIsSubTotal = nextRowText.includes('SUB TOTAL') || nextRowText.includes('SUBTOTAL');
                                 const nextIsGrandTotal = nextRowText.includes('GRAND TOTAL') || nextRowText.includes('GRANDTOTAL');
                                 
+                                // 如果遇到另一个 Total 行，必须停止合并（Sub Total 和 Grand Total 必须分开）
                                 if (nextIsSubTotal || nextIsGrandTotal) {
+                                    console.log(`WBET: Stopping merge at row ${mergeIndex} - found another Total row (${nextIsSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'})`);
                                     break; // 遇到另一个 Total 行，停止合并
                                 }
                                 
-                                // 检查下一行第一列是否是新的数据行标识（2-3个字母，如 OB, OC, OD）
-                                const nextFirstCell = (nextRow[0] || '').toString().trim();
-                                const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
+                                // 检查下一行是否是新的数据行标识（2-3个字母，如 OB, OC, OD）
+                                // 注意：使用 nextProcessedRow 因为已经处理过行号了
+                                const nextProcessedFirstCell = (nextProcessedRow[0] || '').toString().trim();
                                 
-                                // 如果是纯数字行号，检查第二列是否是用户名标识
-                                if (nextFirstIsNumber && nextRow.length >= 2) {
-                                    const secondCell = (nextRow[1] || '').toString().trim();
-                                    // 如果是2-3个大写字母，可能是新的数据行（如 OB, OC, OD）
-                                    if (/^[A-Z]{2,3}$/.test(secondCell)) {
-                                        break; // 这是新的数据行，停止合并
-                                    }
-                                } else if (!nextFirstIsNumber) {
-                                    // 第一列不是数字，检查是否是用户名标识
-                                    if (/^[A-Z]{2,3}$/.test(nextFirstCell)) {
-                                        break; // 这是新的数据行，停止合并
-                                    }
+                                // 检查是否是用户名标识（2-3个大写字母）
+                                if (/^[A-Z]{2,3}$/.test(nextProcessedFirstCell)) {
+                                    console.log(`WBET: Stopping merge at row ${mergeIndex} - found new data row (${nextProcessedFirstCell})`);
+                                    break; // 这是新的数据行，停止合并
                                 }
                                 
                                 // 将下一行的数据追加到当前行（如果是行号，跳过它）
