@@ -7980,10 +7980,77 @@ if ($current_user_id && count($user_companies) > 0) {
                         const dataMatrix = [];
                         let maxCols = 0;
                         
-                        // ALIPAY 专用解析：识别标识符行（2-5个大写字母）并合并后续数据行
+                        // 首先检测是否包含 Name 列的格式（标识符 -> Name -> 数值数据）
+                        // 检测模式：标识符行后面跟着一个可能是 Name 的行（空或短文本，不包含数值），然后才是数值数据
+                        let hasNameColumnFormat = false;
+                        if (lines.length >= 3) {
+                            let identifierCount = 0;
+                            let nameLikeLineCount = 0;
+                            for (let i = 0; i < Math.min(lines.length, 30); i++) {
+                                const testLine = lines[i].trim();
+                                const isShortId = /^[A-Z0-9]{2,10}$/.test(testLine) && 
+                                                !testLine.includes(' ') && 
+                                                !testLine.includes(',') &&
+                                                !testLine.includes('.') &&
+                                                !testLine.includes('-') &&
+                                                !/^\d/.test(testLine);
+                                
+                                if (isShortId) {
+                                    identifierCount++;
+                                    // 检查下一行是否是 Name 行（空或短文本，不包含数值）
+                                    if (i + 1 < lines.length) {
+                                        const nextLine = lines[i + 1].trim();
+                                        // Name 行特征：空行，或短文本（通常不超过50字符），不包含逗号分隔的数字
+                                        // 也不应该包含多个空格分隔的数值
+                                        const hasNumericPattern = nextLine.match(/^-?\d+[.,]\d+/) || 
+                                                                 nextLine.match(/^-?\d{1,3}(,\d{3})+\.\d{2}/) ||
+                                                                 nextLine.split(/\s+/).filter(c => {
+                                                                     const trimmed = c.trim();
+                                                                     return trimmed !== '' && 
+                                                                            (/^-?\d+[.,]\d+/.test(trimmed) || 
+                                                                             /^-?\d{1,3}(,\d{3})+\.\d{2}/.test(trimmed));
+                                                                 }).length >= 2; // 至少2个数值
+                                        
+                                        const isNameLike = (nextLine === '' || 
+                                                          (nextLine.length < 50 && !hasNumericPattern));
+                                        
+                                        if (isNameLike && i + 2 < lines.length) {
+                                            // 检查第三行是否包含数值数据
+                                            const thirdLine = lines[i + 2].trim();
+                                            const hasNumbers = thirdLine.match(/^-?\d+[.,]\d+/) || 
+                                                              thirdLine.match(/^-?\d{1,3}(,\d{3})+\.\d{2}/) ||
+                                                              thirdLine.split(/\s+/).filter(c => {
+                                                                  const trimmed = c.trim();
+                                                                  return trimmed !== '' && 
+                                                                         (/^-?\d+[.,]\d+/.test(trimmed) || 
+                                                                          /^-?\d{1,3}(,\d{3})+\.\d{2}/.test(trimmed));
+                                                              }).length >= 2; // 至少2个数值
+                                            
+                                            if (hasNumbers) {
+                                                nameLikeLineCount++;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            // 如果至少有一半的标识符后面跟着 Name 行，则认为是 Name 列格式
+                            if (identifierCount >= 2 && nameLikeLineCount >= identifierCount * 0.5) {
+                                hasNameColumnFormat = true;
+                                console.log('ALIPAY: Detected Name column format (', nameLikeLineCount, 'out of', identifierCount, 'identifiers)');
+                            }
+                        }
+                        
+                        // ALIPAY 专用解析：识别标识符行（2-10个大写字母）并合并后续数据行
                         let currentRow = null;
+                        let skipNextLine = false; // 用于跳过 Name 行
                         
                         for (let i = 0; i < lines.length; i++) {
+                            // 如果设置了跳过标志，跳过这一行（Name 行）
+                            if (skipNextLine) {
+                                skipNextLine = false;
+                                continue;
+                            }
+                            
                             const line = lines[i];
                             const trimmedLine = line.trim();
                             
@@ -8086,6 +8153,43 @@ if ($current_user_id && count($user_companies) > 0) {
                                         } else {
                                             // 只有标识符，没有其他数据
                                             cells = [trimmedLine];
+                                            
+                                            // 如果检测到 Name 列格式，且下一行可能是 Name 行，则跳过它
+                                            if (hasNameColumnFormat && i + 1 < lines.length) {
+                                                const nextLine = lines[i + 1].trim();
+                                                // 检查下一行是否是 Name 行（空或短文本，不包含数值）
+                                                const hasNumericPattern = nextLine.match(/^-?\d+[.,]\d+/) || 
+                                                                         nextLine.match(/^-?\d{1,3}(,\d{3})+\.\d{2}/) ||
+                                                                         nextLine.split(/\s+/).filter(c => {
+                                                                             const trimmed = c.trim();
+                                                                             return trimmed !== '' && 
+                                                                                    (/^-?\d+[.,]\d+/.test(trimmed) || 
+                                                                                     /^-?\d{1,3}(,\d{3})+\.\d{2}/.test(trimmed));
+                                                                         }).length >= 2; // 至少2个数值
+                                                
+                                                const isNameLike = (nextLine === '' || 
+                                                                  (nextLine.length < 50 && !hasNumericPattern));
+                                                
+                                                if (isNameLike) {
+                                                    // 检查第三行是否包含数值数据，如果是，则跳过第二行（Name 行）
+                                                    if (i + 2 < lines.length) {
+                                                        const thirdLine = lines[i + 2].trim();
+                                                        const hasNumbers = thirdLine.match(/^-?\d+[.,]\d+/) || 
+                                                                          thirdLine.match(/^-?\d{1,3}(,\d{3})+\.\d{2}/) ||
+                                                                          thirdLine.split(/\s+/).filter(c => {
+                                                                              const trimmed = c.trim();
+                                                                              return trimmed !== '' && 
+                                                                                     (/^-?\d+[.,]\d+/.test(trimmed) || 
+                                                                                      /^-?\d{1,3}(,\d{3})+\.\d{2}/.test(trimmed));
+                                                                          }).length >= 2; // 至少2个数值
+                                                        
+                                                        if (hasNumbers) {
+                                                            skipNextLine = true; // 跳过 Name 行
+                                                            console.log('ALIPAY: Skipping Name line after identifier:', trimmedLine);
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                     
