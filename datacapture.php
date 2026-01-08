@@ -4039,42 +4039,47 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     console.log(`WBET: Found Sub Total at row ${subTotalRowIndex}, Grand Total at row ${grandTotalRowIndex}`);
                     
-                    // 如果找到了 Sub Total 和 Grand Total，确保它们分开
+                    // 如果找到了 Sub Total 和 Grand Total，智能检测并修复数据分配
                     if (subTotalRowIndex >= 0 && grandTotalRowIndex >= 0 && grandTotalRowIndex > subTotalRowIndex) {
                         const subTotalRow = processedMatrix[subTotalRowIndex];
                         const grandTotalRow = processedMatrix[grandTotalRowIndex];
                         
-                        // 检查 Sub Total 行是否包含了过多数据（可能是 Grand Total 的数据）
-                        // Sub Total 行应该只包含 "SUB TOTAL" 标签和少量数据，或者为空
-                        const subTotalDataCells = subTotalRow.filter((cell, idx) => {
-                            const cellText = (cell || '').toString().trim().toUpperCase();
-                            return idx > 0 && cellText !== '' && 
-                                   cellText !== 'SUB TOTAL' && 
-                                   cellText !== 'SUBTOTAL' &&
-                                   !cellText.includes('GRAND TOTAL') && 
-                                   !cellText.includes('GRANDTOTAL');
-                        });
+                        // 提取数据单元格（排除标签）
+                        const getDataCells = (row) => {
+                            return row.filter((cell, idx) => {
+                                const cellText = (cell || '').toString().trim().toUpperCase();
+                                return idx > 0 && cellText !== '' && 
+                                       cellText !== 'SUB TOTAL' && 
+                                       cellText !== 'SUBTOTAL' &&
+                                       cellText !== 'GRAND TOTAL' && 
+                                       cellText !== 'GRANDTOTAL';
+                            });
+                        };
                         
-                        // 检查 Grand Total 行是否有数据
-                        const grandTotalDataCells = grandTotalRow.filter((cell, idx) => {
-                            const cellText = (cell || '').toString().trim().toUpperCase();
-                            return idx > 0 && cellText !== '' && 
-                                   cellText !== 'GRAND TOTAL' && 
-                                   cellText !== 'GRANDTOTAL';
-                        });
+                        const subTotalDataCells = getDataCells(subTotalRow);
+                        const grandTotalDataCells = getDataCells(grandTotalRow);
                         
                         console.log(`WBET: Sub Total has ${subTotalDataCells.length} data cells, Grand Total has ${grandTotalDataCells.length} data cells`);
                         
-                        // 如果 Sub Total 行有大量数据，而 Grand Total 行数据很少或为空，可能需要重新分配
-                        // 但根据图片，Sub Total 行应该为空，Grand Total 行应该有数据
-                        // 所以如果 Sub Total 行有数据，而 Grand Total 行数据较少，可能需要将部分数据移到 Grand Total
-                        // 但通常情况下，应该保持现状，只确保它们分开
-                        
-                        // 确保 Sub Total 行只包含标签（根据图片，Sub Total 行应该是空的）
-                        // 但如果有数据，保持不变（可能是正确的数据）
+                        // 根据用户需求：Sub Total 和 Grand Total 的数据应该是一样的
+                        // 如果 Sub Total 行数据为空，而 Grand Total 行有数据，将 Grand Total 的数据复制到 Sub Total
+                        if (subTotalDataCells.length === 0 && grandTotalDataCells.length > 0) {
+                            console.log('WBET: Sub Total is empty but Grand Total has data. Copying Grand Total data to Sub Total.');
+                            const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
+                            processedMatrix[subTotalRowIndex] = newSubTotalRow;
+                        } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length === 0) {
+                            console.log('WBET: Grand Total is empty but Sub Total has data. Copying Sub Total data to Grand Total.');
+                            const newGrandTotalRow = ['GRAND TOTAL', ...subTotalDataCells];
+                            processedMatrix[grandTotalRowIndex] = newGrandTotalRow;
+                        } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length > 0) {
+                            // 两者都有数据，使用 Grand Total 的数据作为标准（因为通常 Grand Total 更完整）
+                            console.log('WBET: Both have data. Ensuring Sub Total matches Grand Total.');
+                            const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
+                            processedMatrix[subTotalRowIndex] = newSubTotalRow;
+                        }
                     }
                     
-                    // 构建最终矩阵（目前保持不变，但添加了检查）
+                    // 使用处理后的矩阵
                     const finalMatrix = [...processedMatrix];
                 
                 // 使用处理后的矩阵
@@ -7164,42 +7169,47 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     console.log(`WBET: Found Sub Total at row ${subTotalRowIndex}, Grand Total at row ${grandTotalRowIndex}`);
                     
-                    // 如果找到了 Sub Total 和 Grand Total，确保它们分开
+                    // 如果找到了 Sub Total 和 Grand Total，智能检测并修复数据分配
                     if (subTotalRowIndex >= 0 && grandTotalRowIndex >= 0 && grandTotalRowIndex > subTotalRowIndex) {
                         const subTotalRow = processedMatrix[subTotalRowIndex];
                         const grandTotalRow = processedMatrix[grandTotalRowIndex];
                         
-                        // 检查 Sub Total 行是否包含了过多数据（可能是 Grand Total 的数据）
-                        // Sub Total 行应该只包含 "SUB TOTAL" 标签和少量数据，或者为空
-                        const subTotalDataCells = subTotalRow.filter((cell, idx) => {
-                            const cellText = (cell || '').toString().trim().toUpperCase();
-                            return idx > 0 && cellText !== '' && 
-                                   cellText !== 'SUB TOTAL' && 
-                                   cellText !== 'SUBTOTAL' &&
-                                   !cellText.includes('GRAND TOTAL') && 
-                                   !cellText.includes('GRANDTOTAL');
-                        });
+                        // 提取数据单元格（排除标签）
+                        const getDataCells = (row) => {
+                            return row.filter((cell, idx) => {
+                                const cellText = (cell || '').toString().trim().toUpperCase();
+                                return idx > 0 && cellText !== '' && 
+                                       cellText !== 'SUB TOTAL' && 
+                                       cellText !== 'SUBTOTAL' &&
+                                       cellText !== 'GRAND TOTAL' && 
+                                       cellText !== 'GRANDTOTAL';
+                            });
+                        };
                         
-                        // 检查 Grand Total 行是否有数据
-                        const grandTotalDataCells = grandTotalRow.filter((cell, idx) => {
-                            const cellText = (cell || '').toString().trim().toUpperCase();
-                            return idx > 0 && cellText !== '' && 
-                                   cellText !== 'GRAND TOTAL' && 
-                                   cellText !== 'GRANDTOTAL';
-                        });
+                        const subTotalDataCells = getDataCells(subTotalRow);
+                        const grandTotalDataCells = getDataCells(grandTotalRow);
                         
                         console.log(`WBET: Sub Total has ${subTotalDataCells.length} data cells, Grand Total has ${grandTotalDataCells.length} data cells`);
                         
-                        // 如果 Sub Total 行有大量数据，而 Grand Total 行数据很少或为空，可能需要重新分配
-                        // 但根据图片，Sub Total 行应该为空，Grand Total 行应该有数据
-                        // 所以如果 Sub Total 行有数据，而 Grand Total 行数据较少，可能需要将部分数据移到 Grand Total
-                        // 但通常情况下，应该保持现状，只确保它们分开
-                        
-                        // 确保 Sub Total 行只包含标签（根据图片，Sub Total 行应该是空的）
-                        // 但如果有数据，保持不变（可能是正确的数据）
+                        // 根据用户需求：Sub Total 和 Grand Total 的数据应该是一样的
+                        // 如果 Sub Total 行数据为空，而 Grand Total 行有数据，将 Grand Total 的数据复制到 Sub Total
+                        if (subTotalDataCells.length === 0 && grandTotalDataCells.length > 0) {
+                            console.log('WBET: Sub Total is empty but Grand Total has data. Copying Grand Total data to Sub Total.');
+                            const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
+                            processedMatrix[subTotalRowIndex] = newSubTotalRow;
+                        } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length === 0) {
+                            console.log('WBET: Grand Total is empty but Sub Total has data. Copying Sub Total data to Grand Total.');
+                            const newGrandTotalRow = ['GRAND TOTAL', ...subTotalDataCells];
+                            processedMatrix[grandTotalRowIndex] = newGrandTotalRow;
+                        } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length > 0) {
+                            // 两者都有数据，使用 Grand Total 的数据作为标准（因为通常 Grand Total 更完整）
+                            console.log('WBET: Both have data. Ensuring Sub Total matches Grand Total.');
+                            const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
+                            processedMatrix[subTotalRowIndex] = newSubTotalRow;
+                        }
                     }
                     
-                    // 构建最终矩阵（目前保持不变，但添加了检查）
+                    // 使用处理后的矩阵
                     const finalMatrix = [...processedMatrix];
                     
                     // 使用处理后的矩阵
