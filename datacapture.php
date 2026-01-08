@@ -7844,11 +7844,42 @@ if ($current_user_id && count($user_companies) > 0) {
                     let hasValidRow = false;
                     
                     if (hasTabSeparator) {
-                        // 如果包含制表符，直接按制表符分割（标准表格格式）
+                        // 如果包含制表符，按制表符分割，但需要检查 Description 列（通常是第9列，索引8）是否包含公式
                         for (let i = 0; i < lines.length; i++) {
                             const line = lines[i];
                             if (line.includes('\t')) {
                                 const cells = line.split('\t').map(c => c.trim());
+                                
+                                // 检查 Description 列（第9列，索引8）是否包含公式（有冒号和运算符）
+                                const descriptionIndex = 8; // 第9列的索引是8
+                                if (cells.length > descriptionIndex) {
+                                    const descriptionCell = cells[descriptionIndex] || '';
+                                    
+                                    // 检查是否包含公式特征：冒号和运算符
+                                    if (descriptionCell.includes(':') && 
+                                        (descriptionCell.includes('(') || descriptionCell.includes('+') || 
+                                         descriptionCell.includes('-') || descriptionCell.includes('*') || 
+                                         descriptionCell.includes('/'))) {
+                                        
+                                        // 解析 Description 列中的公式
+                                        const parsedDescription = parseApiReturnFormat(descriptionCell);
+                                        
+                                        if (parsedDescription && parsedDescription.columns && parsedDescription.columns.length > 0) {
+                                            // 将 Description 列替换为解析后的第一个元素（标签部分）
+                                            // 然后将解析后的数字追加到后续列
+                                            const parsedColumns = parsedDescription.columns;
+                                            
+                                            // 替换 Description 列（第9列）为解析后的第一个元素
+                                            cells[descriptionIndex] = parsedColumns[0] || descriptionCell;
+                                            
+                                            // 将解析后的其他元素追加到后续列
+                                            for (let j = 1; j < parsedColumns.length; j++) {
+                                                cells.push(parsedColumns[j]);
+                                            }
+                                        }
+                                    }
+                                }
+                                
                                 dataMatrix.push(cells);
                                 maxCols = Math.max(maxCols, cells.length);
                                 hasValidRow = true;
