@@ -3833,6 +3833,155 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
+        // WBET 专用的 HTML 表格解析：保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
+        function parseAndFillHTMLTableForWBET(htmlString, startCell) {
+            try {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlString;
+                
+                const table = tempDiv.querySelector('table');
+                if (!table) {
+                    return false;
+                }
+                
+                console.log('WBET: Parsing HTML table and filling directly (preserving Sub Total and Grand Total as separate rows)...');
+                
+                let dataMatrix = [];
+                
+                // 处理表头（如果有）
+                const thead = table.querySelector('thead');
+                if (thead) {
+                    const headerRows = thead.querySelectorAll('tr');
+                    headerRows.forEach(tr => {
+                        const row = [];
+                        const cells = tr.querySelectorAll('th, td');
+                        cells.forEach(cell => {
+                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                            let text = cell.textContent || cell.innerText || '';
+                            text = text.replace(/\s+/g, ' ').trim();
+                            row.push(text);
+                            for (let i = 1; i < colspan; i++) {
+                                row.push('');
+                            }
+                        });
+                        if (row.length > 0) {
+                            dataMatrix.push(row);
+                        }
+                    });
+                }
+                
+                // 处理表体
+                let bodyContainer = table.querySelector('tbody');
+                if (!bodyContainer) {
+                    bodyContainer = table;
+                }
+                
+                const bodyRows = bodyContainer.querySelectorAll('tr');
+                bodyRows.forEach((tr) => {
+                    if (thead && tr.closest('thead')) {
+                        return;
+                    }
+                    
+                    const row = [];
+                    const cells = tr.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                        let text = cell.textContent || cell.innerText || '';
+                        text = text.replace(/\s+/g, ' ').trim();
+                        row.push(text);
+                        for (let i = 1; i < colspan; i++) {
+                            row.push('');
+                        }
+                    });
+                    if (row.length > 0) {
+                        dataMatrix.push(row);
+                    }
+                });
+                
+                if (dataMatrix.length === 0) {
+                    return false;
+                }
+                
+                // 确保所有行的列数相同
+                let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                dataMatrix.forEach(row => {
+                    while (row.length < maxCols) {
+                        row.push('');
+                    }
+                });
+                
+                console.log('WBET: HTML table parsed:', dataMatrix.length, 'rows x', maxCols, 'columns');
+                
+                // 直接填充到表格（保持原始格式）
+                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                const startCol = parseInt(startCell.dataset.col);
+                
+                // 扩展表格（如果需要）
+                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                const requiredRows = startRow + dataMatrix.length;
+                const requiredCols = startCol + maxCols;
+                
+                if (requiredRows > currentRows || requiredCols > currentCols) {
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                    const targetCols = Math.max(currentCols, requiredCols);
+                    initializeTable(targetRows, targetCols);
+                }
+                
+                // 填充数据并记录粘贴历史（用于撤销）
+                const tableBody = document.getElementById('tableBody');
+                const currentPasteChanges = [];
+                let successCount = 0;
+                
+                dataMatrix.forEach((rowData, rowIndex) => {
+                    const actualRowIndex = startRow + rowIndex;
+                    const tableRow = tableBody.children[actualRowIndex];
+                    
+                    if (tableRow) {
+                        rowData.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1];
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                // 保存旧值用于撤销（包括空单元格）
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                // 保持原始格式，不做任何转换（包括 Sub Total 和 Grand Total）
+                                cell.textContent = trimmedData;
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                    }
+                });
+                
+                // 将本次粘贴操作添加到历史记录
+                if (currentPasteChanges.length > 0) {
+                    pasteHistory.push(currentPasteChanges);
+                    if (pasteHistory.length > maxHistorySize) {
+                        pasteHistory.shift();
+                    }
+                }
+                
+                console.log('WBET: HTML table filled directly:', dataMatrix.length, 'rows x', maxCols, 'columns');
+                showNotification(`Successfully pasted WBET data (${dataMatrix.length} rows x ${maxCols} cols)! Press Ctrl+Z to undo`, 'success');
+                
+                // 注意：WBET 格式不调用 convertTableFormatOnSubmit，以保持 Sub Total 和 Grand Total 分开成两行
+                
+                return true;
+            } catch (error) {
+                console.error('WBET: Error parsing HTML table:', error);
+                return false;
+            }
+        }
+
         // 简化的HTML表格解析：直接解析并填充到表格，不做复杂转换
         function parseAndFillHTMLTable(htmlString, startCell) {
             try {
@@ -6647,6 +6796,148 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 先拿到纯文本内容，用来判断是不是 Payment Report
             const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+            
+            // WBET 专用解析（仅在 WBET 类型时启用）
+            // 保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET') {
+                console.log('WBET mode detected, attempting to parse...');
+                console.log('Pasted data length:', pastedData.length);
+                console.log('Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
+                
+                // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
+                const htmlDataFromDetect = detectAndParseHTML(e);
+                
+                if (htmlDataFromDetect) {
+                    console.log('WBET: HTML data detected via detectAndParseHTML');
+                    const startCell = e.target;
+                    const filled = parseAndFillHTMLTableForWBET(htmlDataFromDetect, startCell);
+                    if (filled) {
+                        console.log('WBET: Successfully filled using parseAndFillHTMLTableForWBET');
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
+                    } else {
+                        console.log('WBET: parseAndFillHTMLTableForWBET returned false, trying standard HTML parsing');
+                    }
+                }
+                
+                // 如果上面的方法失败，尝试手动解析HTML
+                let htmlData = null;
+                try {
+                    htmlData = e.clipboardData.getData('text/html');
+                    if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                        htmlData = null;
+                    }
+                } catch (err) {
+                    console.log('WBET: Could not get HTML data from clipboard:', err);
+                }
+                
+                if (htmlData) {
+                    console.log('WBET: HTML data detected, length:', htmlData.length);
+                    const filled = parseAndFillHTMLTableForWBET(htmlData, e.target);
+                    if (filled) {
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
+                    }
+                }
+                
+                // 如果 HTML 解析失败，尝试纯文本解析
+                console.log('WBET: Trying text-based parsing...');
+                const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                
+                if (lines.length > 0) {
+                    // 尝试按制表符或空格分割
+                    const dataMatrix = [];
+                    let maxCols = 0;
+                    
+                    lines.forEach(line => {
+                        let cells = [];
+                        if (line.includes('\t')) {
+                            cells = line.split('\t').map(c => c.trim());
+                        } else {
+                            // 使用多个空格分割
+                            cells = line.split(/\s{2,}/).map(c => c.trim());
+                        }
+                        if (cells.length > 0) {
+                            dataMatrix.push(cells);
+                            maxCols = Math.max(maxCols, cells.length);
+                        }
+                    });
+                    
+                    if (dataMatrix.length > 0) {
+                        // 确保所有行的列数相同
+                        dataMatrix.forEach(row => {
+                            while (row.length < maxCols) {
+                                row.push('');
+                            }
+                        });
+                        
+                        console.log('WBET: Parsed text data:', dataMatrix.length, 'rows x', maxCols, 'cols');
+                        
+                        const startCell = e.target;
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = parseInt(startCell.dataset.col);
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + dataMatrix.length;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
+                            
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
+                                if (cell && cell.contentEditable === 'true') {
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: cellData
+                                    });
+                                    // 保持原始格式，不做任何转换
+                                    cell.textContent = cellData;
+                                    if (cellData) {
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`Successfully pasted WBET data (${dataMatrix.length} rows x ${maxCols} cols)!`, 'success');
+                        } else {
+                            showNotification('No cells were pasted from WBET format.', 'danger');
+                        }
+                        
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
+                    }
+                }
+                
+                // WBET 解析失败，继续尝试其他解析器
+                console.log('WBET parser failed, continuing with other parsers');
+            }
             
             // VPOWER 专用解析（仅在 VPOWER 类型时启用）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
@@ -10319,6 +10610,12 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // 在提交时转换表格格式（处理 SUB TOTAL / GRAND TOTAL 等）
         function convertTableFormatOnSubmit() {
+            // WBET 格式：保持原始格式，不执行任何转换（特别是保持 Sub Total 和 Grand Total 分开成两行）
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET') {
+                console.log('WBET format detected: Skipping format conversion to preserve Sub Total and Grand Total as separate rows');
+                return;
+            }
+            
             const tableBody = document.getElementById('tableBody');
             if (!tableBody) return;
             
