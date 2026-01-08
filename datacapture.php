@@ -9917,17 +9917,44 @@ if ($current_user_id && count($user_companies) > 0) {
             let successCount = 0;
             let skippedRows = 0;
             
+            // WBET 模式：记录 SUB TOTAL 行的索引，确保完整填充
+            const isWbetModeForFill = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+            let subTotalRowIndexInMatrix = -1;
+            if (isWbetModeForFill && dataMatrix.length > 0) {
+                for (let i = 0; i < dataMatrix.length; i++) {
+                    const row = dataMatrix[i];
+                    if (row && row.length > 0) {
+                        // 检查前几列是否包含 SUB TOTAL
+                        for (let j = 0; j < Math.min(row.length, 3); j++) {
+                            const cellValue = (row[j] || '').trim().toUpperCase();
+                            if (cellValue === 'SUB TOTAL' || cellValue.includes('SUB TOTAL')) {
+                                subTotalRowIndexInMatrix = i;
+                                console.log(`WBET mode: Detected SUB TOTAL row at matrix index ${i} with ${row.length} columns`);
+                                break;
+                            }
+                        }
+                        if (subTotalRowIndexInMatrix >= 0) break;
+                    }
+                }
+            }
+            
             dataMatrix.forEach((rowData, rowIndex) => {
                 const actualRowIndex = startRow + rowIndex;
                 const tableRow = tableBody.children[actualRowIndex];
                 
                 if (tableRow) {
                     // 如果是 Downline Payment 格式，只填充前11列
-                    const maxColsToFill = isDownlinePaymentFinal ? 11 : rowData.length;
-                    const colsToProcess = Math.min(maxColsToFill, rowData.length);
+                    // WBET 模式：确保 SUB TOTAL 行填充所有列
+                    let maxColsToFill = isDownlinePaymentFinal ? 11 : rowData.length;
+                    if (isWbetModeForFill && rowIndex === subTotalRowIndexInMatrix) {
+                        // SUB TOTAL 行：确保填充所有列（使用 maxCols 而不是 rowData.length，因为可能还有其他行的数据）
+                        maxColsToFill = maxCols; // 使用计算出的最大列数
+                        console.log(`WBET mode: Ensuring SUB TOTAL row fills all ${maxColsToFill} columns`);
+                    }
+                    const colsToProcess = Math.min(maxColsToFill, Math.max(rowData.length, maxCols));
                     
                     for (let colIndex = 0; colIndex < colsToProcess; colIndex++) {
-                        const cellData = rowData[colIndex];
+                        const cellData = rowData[colIndex] || ''; // 如果列不存在，使用空字符串
                         const actualColIndex = startCol + colIndex;
                         // +1 因为第一列是行号（row header）
                         const cell = tableRow.children[actualColIndex + 1];
@@ -9991,9 +10018,150 @@ if ($current_user_id && count($user_companies) > 0) {
             // 确保「先选 process 再粘贴」与「先粘贴再选 process」两种顺序都能正确启用 Submit 按钮
             setTimeout(updateSubmitButtonState, 0);
             
-            // 粘贴完成后立即应用格式转换（SUB TOTAL / GRAND TOTAL 转换）
-            // 这样用户粘贴后就能看到最终的排版效果，不需要等到点击 submit
-            if (successCount > 0) {
+            // WBET 模式：粘贴完成后，确保 SUB TOTAL 行完整，并将 GRAND TOTAL 行复制 SUB TOTAL 行的数据
+            const isWbetModeForPaste = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+            if (isWbetModeForPaste && successCount > 0) {
+                setTimeout(() => {
+                    // 首先从 dataMatrix 中找到 SUB TOTAL 行的原始数据
+                    let subTotalRowDataFromMatrix = null;
+                    let grandTotalRowIndexInMatrix = -1;
+                    
+                    for (let i = 0; i < dataMatrix.length; i++) {
+                        const row = dataMatrix[i];
+                        if (row && row.length > 0) {
+                            // 检查前几列是否包含 SUB TOTAL 或 GRAND TOTAL
+                            for (let j = 0; j < Math.min(row.length, 3); j++) {
+                                const cellValue = (row[j] || '').trim().toUpperCase();
+                                if (cellValue === 'SUB TOTAL' || cellValue.includes('SUB TOTAL')) {
+                                    if (!subTotalRowDataFromMatrix) {
+                                        // 保存完整的 SUB TOTAL 行数据（从 dataMatrix）
+                                        subTotalRowDataFromMatrix = [...row]; // 复制数组
+                                        console.log('WBET mode: Found SUB TOTAL row in dataMatrix at index', i, 'with', subTotalRowDataFromMatrix.length, 'columns');
+                                    }
+                                }
+                                if (cellValue === 'GRAND TOTAL' || cellValue.includes('GRAND TOTAL')) {
+                                    if (grandTotalRowIndexInMatrix < 0) {
+                                        grandTotalRowIndexInMatrix = i;
+                                        console.log('WBET mode: Found GRAND TOTAL row in dataMatrix at index', grandTotalRowIndexInMatrix);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 然后找到表格中的 GRAND TOTAL 行位置
+                    const tableBody = document.getElementById('tableBody');
+                    if (tableBody && subTotalRowDataFromMatrix && grandTotalRowIndexInMatrix >= 0) {
+                        const rows = Array.from(tableBody.children);
+                        const grandTotalRowIndex = startRow + grandTotalRowIndexInMatrix;
+                        let grandTotalRow = rows[grandTotalRowIndex];
+                        
+                        if (grandTotalRow) {
+                        
+                            // 确保 GRAND TOTAL 行有足够的列
+                            const maxCols = Math.max(subTotalRowDataFromMatrix.length, grandTotalRow.children.length - 1);
+                            
+                            // 如果 GRAND TOTAL 行的列数不够，需要扩展表格
+                            if (maxCols > grandTotalRow.children.length - 1) {
+                                // 扩展表格列数
+                                const tableHeader = document.getElementById('tableHeader');
+                                const headerRow = tableHeader ? tableHeader.querySelector('tr') : null;
+                                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                
+                                if (maxCols > currentCols) {
+                                    console.log(`WBET mode: Expanding table from ${currentCols} to ${maxCols} columns`);
+                                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                    initializeTable(currentRows, maxCols);
+                                    // 重新获取行引用
+                                    const updatedRows = Array.from(tableBody.children);
+                                    grandTotalRow = updatedRows[grandTotalRowIndex];
+                                }
+                                
+                                // 为 GRAND TOTAL 行添加缺失的列
+                                while (grandTotalRow.children.length - 1 < maxCols) {
+                                    const newColIndex = grandTotalRow.children.length - 1;
+                                    
+                                    // 添加表头
+                                    if (headerRow && headerRow.children.length - 1 <= newColIndex) {
+                                        const newHeader = document.createElement('th');
+                                        newHeader.textContent = newColIndex + 1;
+                                        newHeader.addEventListener('click', () => {
+                                            tableActive = true;
+                                            selectColumn(newColIndex);
+                                        });
+                                        newHeader.style.cursor = 'pointer';
+                                        headerRow.appendChild(newHeader);
+                                    }
+                                    
+                                    // 为所有行添加新单元格
+                                    const allRows = Array.from(tableBody.children);
+                                    allRows.forEach(r => {
+                                        if (r.children.length - 1 <= newColIndex) {
+                                            const newCell = document.createElement('td');
+                                            newCell.contentEditable = true;
+                                            newCell.dataset.col = newColIndex;
+                                            // 添加事件监听器（简化版，实际应该从其他地方复制完整的事件绑定逻辑）
+                                            newCell.addEventListener('mousedown', handleCellMouseDown);
+                                            newCell.addEventListener('mouseover', handleCellMouseOver);
+                                            newCell.addEventListener('focus', function() { this.classList.add('selected'); });
+                                            newCell.addEventListener('blur', function() { this.classList.remove('selected'); });
+                                            newCell.addEventListener('keydown', handleCellKeydown);
+                                            newCell.addEventListener('paste', handleCellPaste);
+                                            newCell.addEventListener('click', function(e) {
+                                                const hasFocus = document.activeElement === this;
+                                                if (hasFocus) {
+                                                    moveCaretToClickPosition(this, e);
+                                                } else {
+                                                    setActiveCellCore(this);
+                                                    this.focus();
+                                                    setTimeout(() => moveCaretToClickPosition(this, e), 0);
+                                                }
+                                            });
+                                            newCell.addEventListener('contextmenu', function(e) {
+                                                e.preventDefault();
+                                                showContextMenu(e, this);
+                                            });
+                                            r.appendChild(newCell);
+                                        }
+                                    });
+                                }
+                            }
+                            
+                            // 复制 SUB TOTAL 行的数据到 GRAND TOTAL 行（保持第一列的 "GRAND TOTAL"）
+                            let copiedCount = 0;
+                            
+                            // 首先确保 GRAND TOTAL 行的第一列有 "GRAND TOTAL"
+                            if (grandTotalRow.children.length > 1) {
+                                const firstCell = grandTotalRow.children[1];
+                                if (firstCell && firstCell.contentEditable === 'true') {
+                                    const firstCellText = (firstCell.textContent || '').trim().toUpperCase();
+                                    if (firstCellText !== 'GRAND TOTAL' && !firstCellText.includes('GRAND TOTAL')) {
+                                        firstCell.textContent = 'GRAND TOTAL';
+                                    }
+                                }
+                            }
+                            
+                            // 从第二列开始复制数据（跳过第一列的标识符），使用 dataMatrix 中的原始数据
+                            for (let colIdx = 1; colIdx < subTotalRowDataFromMatrix.length && colIdx + 1 < grandTotalRow.children.length; colIdx++) {
+                                const grandTotalCell = grandTotalRow.children[colIdx + 1]; // +1 跳过行号列
+                                const subTotalCellValue = (subTotalRowDataFromMatrix[colIdx] || '').trim();
+                                
+                                if (grandTotalCell && grandTotalCell.contentEditable === 'true') {
+                                    grandTotalCell.textContent = subTotalCellValue;
+                                    if (subTotalCellValue !== '') {
+                                        copiedCount++;
+                                    }
+                                }
+                            }
+                            
+                            console.log(`WBET mode: Copied ${copiedCount} cells from SUB TOTAL row (from dataMatrix) to GRAND TOTAL row`);
+                        }
+                    }
+                    
+                    // 然后执行正常的格式转换（WBET 模式会跳过 SUB TOTAL / GRAND TOTAL 转换）
+                    convertTableFormatOnSubmit();
+                }, 150); // 稍微延迟，确保 DOM 更新完成
+            } else if (successCount > 0) {
                 setTimeout(() => {
                     convertTableFormatOnSubmit();
                 }, 100); // 稍微延迟，确保 DOM 更新完成
