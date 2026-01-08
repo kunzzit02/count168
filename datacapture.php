@@ -9507,14 +9507,18 @@ if ($current_user_id && count($user_companies) > 0) {
                 const trimmed = value.trim().toUpperCase();
                 // 标识符通常是：
                 // 1. 以字母开头，可能是代码格式（如CKZ03, BK001, BCA10A2等）
-                // 2. 特殊关键词（如TOTAL, TOTAL, Agent等）
+                // 2. 特殊关键词（如TOTAL, SUB TOTAL, GRAND TOTAL, Agent等）
                 // 3. 常见的标识符模式
                 if (/^[A-Z]/.test(trimmed) || /^[A-Z]{2,}\d+/.test(trimmed)) {
                     return true;
                 }
-                // 特殊关键词
-                const specialKeywords = ['TOTAL', 'AGENT', 'MEMBER', 'USER'];
+                // 特殊关键词（包含 SUB TOTAL 和 GRAND TOTAL，用于 WBET 模式）
+                const specialKeywords = ['TOTAL', 'SUB TOTAL', 'GRAND TOTAL', 'AGENT', 'MEMBER', 'USER'];
                 if (specialKeywords.includes(trimmed)) {
+                    return true;
+                }
+                // 检查是否包含这些关键词（用于匹配 "SUB TOTAL" 或包含这些词的字符串）
+                if (trimmed.includes('SUB TOTAL') || trimmed.includes('GRAND TOTAL')) {
                     return true;
                 }
                 return false;
@@ -9555,12 +9559,31 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 检查是否是数值（可能是从后面错位过来的数据）
                 const isNumeric = isNumericValue(firstColValue);
                 
-                // 特殊处理：如果第一列是"TOTAL"，应该在第一列（已经是正确位置）
-                const isTotal = firstColValue.toUpperCase() === 'TOTAL';
+                // 特殊处理：如果第一列是"TOTAL"、"SUB TOTAL"或"GRAND TOTAL"，应该在第一列（已经是正确位置）
+                const firstColUpper = firstColValue.toUpperCase();
+                const isTotal = firstColUpper === 'TOTAL' || firstColUpper === 'SUB TOTAL' || firstColUpper === 'GRAND TOTAL' ||
+                               firstColUpper.includes('SUB TOTAL') || firstColUpper.includes('GRAND TOTAL');
                 
-                // 如果第一列已经是标识符（包括TOTAL），或者数据已经正确对齐，不需要移动
-                if (isFirstColIdentifier || isTotal) {
-                    console.log(`  Row ${rowIndex + 1}: First column is already identifier ("${firstColValue}"), no shift needed`);
+                // WBET 模式特殊处理：检查第二列是否是 SUB TOTAL 或 GRAND TOTAL
+                const isWbetModeForShift = typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET';
+                let isSubTotalOrGrandTotalInSecondCol = false;
+                if (isWbetModeForShift && isEmpty && row.length > 1) {
+                    const secondColValue = (row[1] || '').trim().toUpperCase();
+                    if (secondColValue === 'SUB TOTAL' || secondColValue === 'GRAND TOTAL' ||
+                        secondColValue.includes('SUB TOTAL') || secondColValue.includes('GRAND TOTAL')) {
+                        isSubTotalOrGrandTotalInSecondCol = true;
+                        console.log(`  Row ${rowIndex + 1}: WBET mode - Second column is "${secondColValue}", preserving row data without shifting`);
+                    }
+                }
+                
+                // 如果第一列已经是标识符（包括TOTAL, SUB TOTAL, GRAND TOTAL），或者数据已经正确对齐，不需要移动
+                if (isFirstColIdentifier || isTotal || isSubTotalOrGrandTotalInSecondCol) {
+                    if (isSubTotalOrGrandTotalInSecondCol) {
+                        // WBET 模式：保持 SUB TOTAL/GRAND TOTAL 行的原始结构，不进行列对齐
+                        // 这样可以确保这些行的所有数据（包括标识符后面的所有列）都被保留
+                    } else {
+                        console.log(`  Row ${rowIndex + 1}: First column is already identifier ("${firstColValue}"), no shift needed`);
+                    }
                     continue;
                 }
                 
@@ -9593,7 +9616,19 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     // 如果找到标识符列，向左移动数据
+                    // WBET 模式特殊检查：如果标识符是 SUB TOTAL 或 GRAND TOTAL，不进行移动，保持原始结构
                     if (identifierColIndex > 0) {
+                        const identifierValue = (row[identifierColIndex] || '').trim().toUpperCase();
+                        const isSubTotalOrGrandTotal = isWbetModeForShift && 
+                            (identifierValue === 'SUB TOTAL' || identifierValue === 'GRAND TOTAL' ||
+                             identifierValue.includes('SUB TOTAL') || identifierValue.includes('GRAND TOTAL'));
+                        
+                        if (isSubTotalOrGrandTotal) {
+                            // WBET 模式：SUB TOTAL 和 GRAND TOTAL 行保持原样，不进行列对齐
+                            console.log(`  Row ${rowIndex + 1}: WBET mode - Preserving ${identifierValue} row structure without shifting`);
+                            continue;
+                        }
+                        
                         const shiftAmount = identifierColIndex;
                         
                         // 保存移动前的数据以便调试
