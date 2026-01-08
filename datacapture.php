@@ -4628,12 +4628,21 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 // ===== VPOWER 专用解析结束 =====
                 
+                // ===== ALIPAY 专用处理：保持原始格式，不做任何转换 =====
+                // ALIPAY 格式：直接使用原始数据，不进行任何解析或转换
+                // 确保数据保持原始格式，每行数据保持在一行中
+                if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'ALIPAY') {
+                    console.log('ALIPAY mode: Keeping original format, no conversion');
+                    // ALIPAY 保持原始数据矩阵，不做任何修改
+                }
+                // ===== ALIPAY 专用处理结束 =====
+                
                 // 直接填充到表格
                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                // VPOWER 和 AGENT_LINK 格式：强制从第一列（Column 1）开始粘贴
+                // VPOWER、AGENT_LINK 和 ALIPAY 格式：强制从第一列（Column 1）开始粘贴
                 let startCol = parseInt(startCell.dataset.col);
                 if (typeof currentDataCaptureType !== 'undefined' && 
-                    (currentDataCaptureType === 'VPOWER' || currentDataCaptureType === 'AGENT_LINK')) {
+                    (currentDataCaptureType === 'VPOWER' || currentDataCaptureType === 'AGENT_LINK' || currentDataCaptureType === 'ALIPAY')) {
                     startCol = 0;
                 }
                 
@@ -4679,7 +4688,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     cell.textContent = '';
                                 } else {
                                     // VPOWER 格式：第一列（User Name）转为大写，第二列（profit）保持原样
-                                    // AGENT_LINK 格式：保持原始数据，不做任何转换
+                                    // AGENT_LINK 和 ALIPAY 格式：保持原始数据，不做任何转换
                                     let finalValue = trimmedData;
                                     if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
                                         if (colIndex === 0) {
@@ -4687,7 +4696,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                         } else {
                                             finalValue = trimmedData;
                                         }
-                                    } else if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'AGENT_LINK') {
+                                    } else if (typeof currentDataCaptureType !== 'undefined' && 
+                                               (currentDataCaptureType === 'AGENT_LINK' || currentDataCaptureType === 'ALIPAY')) {
                                         finalValue = trimmedData; // 保持原始格式
                                     } else {
                                         finalValue = trimmedData.toUpperCase();
@@ -7826,6 +7836,250 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else {
                     // PS3838 模式下解析失败，给出提示但不阻止（让用户知道）
                     console.log('PS3838 parser returned null, data may not match expected format');
+                    // 不 return，继续尝试其他解析器
+                }
+            }
+            
+            // ALIPAY 专用解析（仅在 ALIPAY 类型时启用）
+            // ALIPAY 格式：保持原始格式，不做任何转换或拆分
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'ALIPAY') {
+                console.log('ALIPAY mode detected, attempting to parse...');
+                console.log('Pasted data length:', pastedData.length);
+                console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
+                
+                // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
+                const htmlDataFromDetect = detectAndParseHTML(e);
+                let alipayParsed = null;
+                
+                if (htmlDataFromDetect) {
+                    console.log('ALIPAY: HTML data detected via detectAndParseHTML');
+                    const startCell = e.target;
+                    const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
+                    if (filled) {
+                        console.log('ALIPAY: Successfully filled using parseAndFillHTMLTable');
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
+                    } else {
+                        console.log('ALIPAY: parseAndFillHTMLTable returned false, trying manual HTML parsing');
+                    }
+                }
+                
+                // 如果上面的方法失败，尝试手动解析HTML
+                let htmlData = null;
+                try {
+                    htmlData = e.clipboardData.getData('text/html');
+                    if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                        htmlData = null;
+                    }
+                } catch (err) {
+                    console.log('ALIPAY: Could not get HTML data from clipboard:', err);
+                }
+                
+                if (htmlData) {
+                    console.log('ALIPAY: HTML data detected, length:', htmlData.length);
+                    // 解析 HTML 表格，保持原始格式
+                    try {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = htmlData;
+                        
+                        const table = tempDiv.querySelector('table');
+                        if (table) {
+                            console.log('ALIPAY: HTML table found');
+                            let dataMatrix = [];
+                            
+                            // 处理表头（如果有）
+                            const thead = table.querySelector('thead');
+                            if (thead) {
+                                const headerRows = thead.querySelectorAll('tr');
+                                headerRows.forEach(tr => {
+                                    const row = [];
+                                    const cells = tr.querySelectorAll('th, td');
+                                    cells.forEach(cell => {
+                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                        let text = cell.textContent || cell.innerText || '';
+                                        text = text.replace(/\s+/g, ' ').trim();
+                                        row.push(text);
+                                        for (let i = 1; i < colspan; i++) {
+                                            row.push('');
+                                        }
+                                    });
+                                    if (row.length > 0) {
+                                        dataMatrix.push(row);
+                                    }
+                                });
+                            }
+                            
+                            // 处理表体，保持原始格式
+                            let bodyContainer = table.querySelector('tbody');
+                            if (!bodyContainer) {
+                                bodyContainer = table;
+                            }
+                            
+                            const bodyRows = bodyContainer.querySelectorAll('tr');
+                            bodyRows.forEach((tr) => {
+                                // 跳过已经在 thead 中处理过的行
+                                if (thead && tr.closest('thead')) {
+                                    return;
+                                }
+                                
+                                const row = [];
+                                const cells = tr.querySelectorAll('td, th');
+                                cells.forEach(cell => {
+                                    const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                    let text = cell.textContent || cell.innerText || '';
+                                    text = text.replace(/\s+/g, ' ').trim();
+                                    row.push(text);
+                                    for (let i = 1; i < colspan; i++) {
+                                        row.push('');
+                                    }
+                                });
+                                if (row.length > 0) {
+                                    dataMatrix.push(row);
+                                }
+                            });
+                            
+                            if (dataMatrix.length > 0) {
+                                // 确保所有行的列数相同
+                                let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                dataMatrix.forEach(row => {
+                                    while (row.length < maxCols) {
+                                        row.push('');
+                                    }
+                                });
+                                
+                                console.log('ALIPAY: HTML parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                
+                                alipayParsed = {
+                                    dataMatrix: dataMatrix,
+                                    maxRows: dataMatrix.length,
+                                    maxCols: maxCols
+                                };
+                            } else {
+                                console.log('ALIPAY: HTML table found but no data rows extracted');
+                            }
+                        } else {
+                            console.log('ALIPAY: HTML data exists but no table element found');
+                        }
+                    } catch (htmlErr) {
+                        console.error('ALIPAY HTML parser error:', htmlErr);
+                    }
+                } else {
+                    console.log('ALIPAY: No HTML data detected, will try text parsing');
+                }
+                
+                // 如果 HTML 解析失败，尝试纯文本解析
+                if (!alipayParsed) {
+                    console.log('ALIPAY: Attempting text format parsing...');
+                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    if (lines.length > 0) {
+                        const dataMatrix = [];
+                        let maxCols = 0;
+                        
+                        lines.forEach(line => {
+                            let cells = [];
+                            if (line.includes('\t')) {
+                                cells = line.split('\t').map(c => c.trim());
+                            } else {
+                                // 使用多个空格分割
+                                cells = line.split(/\s{2,}/).map(c => c.trim());
+                            }
+                            if (cells.length > 0) {
+                                dataMatrix.push(cells);
+                                maxCols = Math.max(maxCols, cells.length);
+                            }
+                        });
+                        
+                        // 确保所有行的列数相同
+                        dataMatrix.forEach(row => {
+                            while (row.length < maxCols) {
+                                row.push('');
+                            }
+                        });
+                        
+                        if (dataMatrix.length > 0) {
+                            console.log('ALIPAY: Text parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                            alipayParsed = {
+                                dataMatrix: dataMatrix,
+                                maxRows: dataMatrix.length,
+                                maxCols: maxCols
+                            };
+                        }
+                    }
+                }
+                
+                if (alipayParsed) {
+                    const { dataMatrix, maxRows, maxCols } = alipayParsed;
+                    
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    // ALIPAY 格式：强制从第一列（Column 1）开始粘贴
+                    const startCol = 0;
+                    
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    
+                    const requiredRows = startRow + maxRows;
+                    const requiredCols = startCol + maxCols;
+                    
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    dataMatrix.forEach((rowData, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
+                        
+                        rowData.forEach((cellData, colIndex) => {
+                            // 每行数据都从第一列（Column 1）开始
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                // 保持原始数据，不做任何转换
+                                cell.textContent = trimmedData;
+                                
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+                    
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted ALIPAY data (${maxRows} rows x ${maxCols} cols)!`, 'success');
+                    } else {
+                        showNotification('No cells were pasted from ALIPAY format.', 'danger');
+                    }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    return;
+                } else {
+                    // ALIPAY 模式下解析失败，给出提示但不阻止（让用户知道）
+                    console.log('ALIPAY parser returned null, data may not match expected format');
                     // 不 return，继续尝试其他解析器
                 }
             }
