@@ -7977,19 +7977,59 @@ if ($current_user_id && count($user_companies) > 0) {
                         const dataMatrix = [];
                         let maxCols = 0;
                         
-                        lines.forEach(line => {
-                            let cells = [];
-                            if (line.includes('\t')) {
-                                cells = line.split('\t').map(c => c.trim());
+                        // ALIPAY 专用解析：识别标识符行（2-5个大写字母）并合并后续数据行
+                        let currentRow = null;
+                        
+                        for (let i = 0; i < lines.length; i++) {
+                            const line = lines[i];
+                            const trimmedLine = line.trim();
+                            
+                            // 检查是否是标识符行（2-5个大写字母，可能包含数字，如BWGMA、BWWAY、BWWS）
+                            // 标识符通常是：全大写字母和数字，2-5个字符，不包含空格、逗号、小数点、负号
+                            // 且不包含任何数字开头（避免将"-37.44"这样的数字误判为标识符）
+                            const isIdentifier = /^[A-Z0-9]{2,5}$/.test(trimmedLine) && 
+                                                !trimmedLine.includes(' ') && 
+                                                !trimmedLine.includes(',') &&
+                                                !trimmedLine.includes('.') &&
+                                                !trimmedLine.includes('-') &&
+                                                !/^\d/.test(trimmedLine); // 不以数字开头
+                            
+                            if (isIdentifier) {
+                                // 如果之前有未完成的行，先保存它
+                                if (currentRow !== null) {
+                                    dataMatrix.push(currentRow);
+                                    maxCols = Math.max(maxCols, currentRow.length);
+                                }
+                                
+                                // 开始新行，标识符作为第一列
+                                currentRow = [trimmedLine];
                             } else {
-                                // 使用多个空格分割
-                                cells = line.split(/\s{2,}/).map(c => c.trim());
+                                // 这是数据行，需要合并到当前行
+                                if (currentRow === null) {
+                                    // 如果没有标识符，从第一行开始
+                                    currentRow = [];
+                                }
+                                
+                                // 解析数据行（支持制表符或空格分隔）
+                                let cells = [];
+                                if (line.includes('\t')) {
+                                    cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                } else {
+                                    // 使用空格分割（包括单个空格和多个空格）
+                                    // 但要注意负数（如-37.44）和带逗号的数字（如-53,616.16）
+                                    cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                }
+                                
+                                // 将数据单元格添加到当前行
+                                currentRow.push(...cells);
                             }
-                            if (cells.length > 0) {
-                                dataMatrix.push(cells);
-                                maxCols = Math.max(maxCols, cells.length);
-                            }
-                        });
+                        }
+                        
+                        // 保存最后一行
+                        if (currentRow !== null && currentRow.length > 0) {
+                            dataMatrix.push(currentRow);
+                            maxCols = Math.max(maxCols, currentRow.length);
+                        }
                         
                         // 确保所有行的列数相同
                         dataMatrix.forEach(row => {
@@ -8000,6 +8040,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         if (dataMatrix.length > 0) {
                             console.log('ALIPAY: Text parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                            console.log('ALIPAY: First row sample:', dataMatrix[0] ? dataMatrix[0].slice(0, 10) : 'empty');
                             alipayParsed = {
                                 dataMatrix: dataMatrix,
                                 maxRows: dataMatrix.length,
