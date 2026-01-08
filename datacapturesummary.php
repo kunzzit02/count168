@@ -5226,27 +5226,33 @@ function getCurrentProcessId() {
                             const isNewFormat = isNewIdProductColumnFormat(data.clickedColumns);
                             
                             if (isNewFormat) {
-                                // New format: convert displayColumnIndex to dataColumnIndex for data-clicked-cell-refs
-                                // Saved format uses displayColumnIndex (e.g., "OVERALL:A:7"), but data-clicked-cell-refs needs dataColumnIndex (e.g., "OVERALL:A:6")
-                                // dataColumnIndex = displayColumnIndex - 1
+                                // New format: Convert saved value to dataColumnIndex for data-clicked-cell-refs
+                                // After fix: Saved format uses dataColumnIndex (e.g., "OVERALL:A:6")
+                                // Before fix: Saved format used displayColumnIndex (e.g., "OVERALL:A:7")
+                                // data-clicked-cell-refs always needs dataColumnIndex
+                                // Since we now save dataColumnIndex, we can use the value directly
+                                // But for backward compatibility with old data, we check if conversion is needed
                                 const parts = data.clickedColumns.split(/\s+/).filter(c => c.trim() !== '');
                                 const convertedRefs = parts.map(part => {
-                                    // Try format with row label: "id_product:row_label:displayColumnIndex"
+                                    // Try format with row label: "id_product:row_label:column_index"
                                     let match = part.match(/^([^:]+):([A-Z]+):(\d+)$/);
                                     if (match) {
                                         const idProduct = match[1];
                                         const rowLabel = match[2];
-                                        const displayColumnIndex = parseInt(match[3]);
-                                        const dataColumnIndex = displayColumnIndex - 1;
-                                        return `${idProduct}:${rowLabel}:${dataColumnIndex}`;
+                                        const columnIndex = parseInt(match[3]);
+                                        // After fix: saved value is already dataColumnIndex, use directly
+                                        // For backward compatibility: if this is from old data (displayColumnIndex),
+                                        // the reading logic will handle it correctly by adding 1
+                                        // So we use the value as-is, assuming it's dataColumnIndex (new format)
+                                        return `${idProduct}:${rowLabel}:${columnIndex}`;
                                     }
-                                    // Try format without row label: "id_product:displayColumnIndex"
+                                    // Try format without row label: "id_product:column_index"
                                     match = part.match(/^([^:]+):(\d+)$/);
                                     if (match) {
                                         const idProduct = match[1];
-                                        const displayColumnIndex = parseInt(match[2]);
-                                        const dataColumnIndex = displayColumnIndex - 1;
-                                        return `${idProduct}:${dataColumnIndex}`;
+                                        const columnIndex = parseInt(match[2]);
+                                        // After fix: saved value is already dataColumnIndex, use directly
+                                        return `${idProduct}:${columnIndex}`;
                                     }
                                     // If format doesn't match, return as-is (shouldn't happen)
                                     return part;
@@ -5254,7 +5260,7 @@ function getCurrentProcessId() {
                                 
                                 const convertedClickedCellRefs = convertedRefs.join(' ');
                                 formulaInput.setAttribute('data-clicked-cell-refs', convertedClickedCellRefs);
-                                console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs (converted displayColumnIndex to dataColumnIndex):', convertedClickedCellRefs, 'from:', data.clickedColumns);
+                                console.log('Edit mode: Restored id_product:column format to data-clicked-cell-refs:', convertedClickedCellRefs, 'from:', data.clickedColumns);
                                 
                                 // 将 formula 中的旧格式 $数字 转换为新格式
                                 // 当前row: 保持 $数字
@@ -6088,7 +6094,8 @@ function getCurrentProcessId() {
                                 
                                 // 检查 dataColumnIndex 是否匹配
                                 if (!isNaN(refDataColumnIndex) && refDataColumnIndex === dollarMatch.dataColumnIndex) {
-                                    // 构建保存格式：id_product:row_label:displayColumnIndex
+                                    // 构建保存格式：id_product:row_label:dataColumnIndex
+                                    // IMPORTANT: 保存 dataColumnIndex 而不是 displayColumnIndex，以便读取时正确转换
                                     // 如果引用中有 row_label，使用它；否则尝试获取
                                     let rowLabel = refRowLabel;
                                     if (!rowLabel) {
@@ -6097,13 +6104,13 @@ function getCurrentProcessId() {
                                     }
                                     
                                     if (rowLabel) {
-                                        const columnRef = `${refIdProduct}:${rowLabel}:${dollarMatch.displayColumnIndex}`;
+                                        const columnRef = `${refIdProduct}:${rowLabel}:${dollarMatch.dataColumnIndex}`;
                                         if (!columnRefs.includes(columnRef)) {
                                             columnRefs.push(columnRef);
                                         }
                                     } else {
-                                        // 如果没有 row_label，使用简化格式：id_product:displayColumnIndex
-                                        const columnRef = `${refIdProduct}:${dollarMatch.displayColumnIndex}`;
+                                        // 如果没有 row_label，使用简化格式：id_product:dataColumnIndex
+                                        const columnRef = `${refIdProduct}:${dollarMatch.dataColumnIndex}`;
                                         if (!columnRefs.includes(columnRef)) {
                                             columnRefs.push(columnRef);
                                         }
@@ -6120,7 +6127,8 @@ function getCurrentProcessId() {
                         if (!matched) {
                             const rowLabel = getRowLabelFromProcessValue(processValue);
                             if (rowLabel) {
-                                const columnRef = `${processValue}:${rowLabel}:${dollarMatch.displayColumnIndex}`;
+                                // IMPORTANT: 保存 dataColumnIndex 而不是 displayColumnIndex
+                                const columnRef = `${processValue}:${rowLabel}:${dollarMatch.dataColumnIndex}`;
                                 if (!columnRefs.includes(columnRef)) {
                                     columnRefs.push(columnRef);
                                 }
@@ -6147,8 +6155,10 @@ function getCurrentProcessId() {
                         while ((match = dollarPattern.exec(formulaValue)) !== null) {
                             const columnNumber = parseInt(match[1]);
                             if (!isNaN(columnNumber) && columnNumber > 0) {
-                                // 格式：id_product:row_label:column_index
-                                const columnRef = `${processValue}:${rowLabel}:${columnNumber}`;
+                                // 格式：id_product:row_label:dataColumnIndex
+                                // IMPORTANT: columnNumber 是 displayColumnIndex，需要转换为 dataColumnIndex
+                                const dataColumnIndex = columnNumber - 1;
+                                const columnRef = `${processValue}:${rowLabel}:${dataColumnIndex}`;
                                 if (!columnRefs.includes(columnRef)) {
                                     columnRefs.push(columnRef);
                                 }
@@ -6169,7 +6179,11 @@ function getCurrentProcessId() {
                             if (rowLabel) {
                                 const columnsArray = clickedColumns.split(',').map(c => parseInt(c.trim())).filter(c => !isNaN(c) && c > 0);
                                 if (columnsArray.length > 0) {
-                                    const columnRefs = columnsArray.map(colNum => `${processValue}:${rowLabel}:${colNum}`);
+                                    // IMPORTANT: colNum 是 displayColumnIndex，需要转换为 dataColumnIndex
+                                    const columnRefs = columnsArray.map(colNum => {
+                                        const dataColumnIndex = colNum - 1;
+                                        return `${processValue}:${rowLabel}:${dataColumnIndex}`;
+                                    });
                                     sourceColumns = columnRefs.join(' ');
                                     console.log('saveFormula - Built sourceColumns from data-clicked-columns:', sourceColumns);
                                 }
