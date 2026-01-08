@@ -2390,7 +2390,22 @@ function getCurrentProcessId() {
                 // Get from DOM
                 const rows = capturedTableBody.querySelectorAll('tr');
                 rows.forEach((row, rowIndex) => {
-                    const idProduct = row.getAttribute('data-id-product');
+                    let idProduct = row.getAttribute('data-id-product');
+                    
+                    // If not found in attribute, try to get from id_product column (second cell)
+                    if (!idProduct || idProduct.trim() === '') {
+                        const cells = row.querySelectorAll('td');
+                        // First cell (index 0) is row header, second cell (index 1) is id_product
+                        if (cells.length > 1 && cells[1]) {
+                            const idProductCell = cells[1];
+                            idProduct = idProductCell.textContent ? idProductCell.textContent.trim() : '';
+                            // Store it for future use
+                            if (idProduct) {
+                                row.setAttribute('data-id-product', idProduct);
+                            }
+                        }
+                    }
+                    
                     if (idProduct && idProduct.trim() !== '') {
                         // Get row label (A, B, C, etc.) from row header
                         const rowHeaderCell = row.querySelector('.row-header');
@@ -2505,6 +2520,7 @@ function getCurrentProcessId() {
 
             const rows = capturedTableBody.querySelectorAll('tr');
             let firstOptionValue = null;
+            let matchedRowCount = 0;
             rows.forEach((row, rowIndex) => {
                 // Try to get id_product from data-id-product attribute first
                 let rowIdProduct = row.getAttribute('data-id-product');
@@ -2541,8 +2557,10 @@ function getCurrentProcessId() {
                 }
                 
                 // Match found, process this row
+                matchedRowCount++;
                 // Get all data cells (skip row header and id_product column)
                 const cells = row.querySelectorAll('td');
+                let cellCount = 0;
                 
                 cells.forEach((cell, cellIndex) => {
                     const columnIndex = cell.getAttribute('data-column-index');
@@ -2550,6 +2568,7 @@ function getCurrentProcessId() {
                         // Column index > 1 means data columns (skip row header=0 and id_product=1)
                         const cellValue = cell.textContent ? cell.textContent.trim() : '';
                         if (cellValue !== '') {
+                            cellCount++;
                             // Create a separate option for each column data
                             const option = document.createElement('option');
                             option.value = `${rowIndex}:${columnIndex}`; // Store row index and column index as value
@@ -2561,9 +2580,45 @@ function getCurrentProcessId() {
                                 firstOptionValue = option.value;
                             }
                         }
+                    } else if (!columnIndex && cellIndex > 1) {
+                        // Fallback: if data-column-index is not set but cellIndex > 1, treat it as data column
+                        // This handles cases where data-column-index attribute might be missing
+                        const cellValue = cell.textContent ? cell.textContent.trim() : '';
+                        if (cellValue !== '' && !cell.classList.contains('row-header')) {
+                            cellCount++;
+                            // Use cellIndex as columnIndex
+                            const option = document.createElement('option');
+                            option.value = `${rowIndex}:${cellIndex}`;
+                            option.textContent = `[${cellIndex}] ${cellValue}`;
+                            descriptionSelect2.appendChild(option);
+                            
+                            if (firstOptionValue === null) {
+                                firstOptionValue = option.value;
+                            }
+                        }
                     }
                 });
+                
+                // Debug: log if row matched but no cells were found
+                if (matchedRowCount > 0 && cellCount === 0) {
+                    console.log('updateIdProductRowData: Matched row but no data cells found', {
+                        rowIndex: rowIndex,
+                        rowIdProduct: rowIdProduct,
+                        normalizedRowIdProduct: normalizedRowIdProduct,
+                        normalizedTargetIdProduct: normalizedTargetIdProduct,
+                        cellsCount: cells.length
+                    });
+                }
             });
+            
+            // Debug: log if no rows matched
+            if (matchedRowCount === 0) {
+                console.log('updateIdProductRowData: No rows matched', {
+                    idProduct: idProduct,
+                    normalizedTargetIdProduct: normalizedTargetIdProduct,
+                    totalRows: rows.length
+                });
+            }
 
             // Auto-select first option if available
             if (firstOptionValue !== null) {
