@@ -7866,15 +7866,17 @@ if ($current_user_id && count($user_companies) > 0) {
                                         
                                         if (parsedDescription && parsedDescription.columns && parsedDescription.columns.length > 0) {
                                             // 将 Description 列替换为解析后的第一个元素（标签部分）
-                                            // 然后将解析后的数字追加到后续列
+                                            // 然后将解析后的数字插入到 Description 列之后
                                             const parsedColumns = parsedDescription.columns;
                                             
-                                            // 替换 Description 列（第9列）为解析后的第一个元素
+                                            // 替换 Description 列（第9列）为解析后的第一个元素（标签）
                                             cells[descriptionIndex] = parsedColumns[0] || descriptionCell;
                                             
-                                            // 将解析后的其他元素追加到后续列
-                                            for (let j = 1; j < parsedColumns.length; j++) {
-                                                cells.push(parsedColumns[j]);
+                                            // 将解析后的其他元素（数字）插入到 Description 列之后
+                                            // 使用 splice 在 descriptionIndex + 1 位置插入
+                                            const numbersToInsert = parsedColumns.slice(1); // 跳过第一个元素（标签）
+                                            if (numbersToInsert.length > 0) {
+                                                cells.splice(descriptionIndex + 1, 0, ...numbersToInsert);
                                             }
                                         }
                                     }
