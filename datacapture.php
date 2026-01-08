@@ -7988,9 +7988,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             const trimmedLine = line.trim();
                             
                             // 检查是否是标识符行
-                            // 1. 短标识符（2-5个大写字母，可能包含数字，如BWGMA、BWWAY、BWWS）
+                            // 1. 短标识符（2-10个大写字母，可能包含数字，如BWGMA、BWWAY、BWWS、AW9966、BSAM2424）
                             // 2. Grand Total 或 Total 这样的特殊标识符
-                            const isShortIdentifier = /^[A-Z0-9]{2,5}$/.test(trimmedLine) && 
+                            const isShortIdentifier = /^[A-Z0-9]{2,10}$/.test(trimmedLine) && 
                                                     !trimmedLine.includes(' ') && 
                                                     !trimmedLine.includes(',') &&
                                                     !trimmedLine.includes('.') &&
@@ -8066,8 +8066,31 @@ if ($current_user_id && count($user_companies) > 0) {
                                         currentRow = [trimmedLine];
                                     }
                                 } else {
-                                    // 短标识符（如BWGMA），只作为第一列
-                                    currentRow = [trimmedLine];
+                                    // 短标识符（如AW07, AW9966），检查该行是否包含其他数据
+                                    // 如果标识符后面还有数据（在同一行），需要解析整行
+                                    let cells = [];
+                                    if (line.includes('\t')) {
+                                        // 制表符分隔
+                                        cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                    } else {
+                                        // 使用空格分割
+                                        // 检查标识符后面是否还有内容
+                                        // 匹配 2-10 个字符的标识符，后面跟着空格和数据
+                                        const identifierMatch = trimmedLine.match(/^([A-Z0-9]{2,10})\s+(.*)$/);
+                                        if (identifierMatch && identifierMatch[2]) {
+                                            // 标识符后面有数据，解析整行
+                                            cells.push(identifierMatch[1]); // 标识符
+                                            // 解析剩余部分的数据
+                                            const remainingCells = identifierMatch[2].split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                            cells.push(...remainingCells);
+                                        } else {
+                                            // 只有标识符，没有其他数据
+                                            cells = [trimmedLine];
+                                        }
+                                    }
+                                    
+                                    // 使用解析后的单元格
+                                    currentRow = cells;
                                 }
                             } else {
                                 // 这是数据行，需要合并到当前行
