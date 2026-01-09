@@ -178,7 +178,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-group">
                                 <label for="capture_remove_word">Remove Word</label>
                                 <input type="text" id="capture_remove_word" name="remove_word" placeholder="Enter words to remove">
-                                <small class="field-help" style="display: block; margin-top: 4px; font-style: italic; color: #666;">(Use semicolon to separate multiple words, e.g. abc;cde;efg)</small>
+                                <small class="field-help" style="display: block; margin-top: 0px; font-style: italic; color: #666;">(Use semicolon to separate multiple words, e.g. abc;cde;efg)</small>
                             </div>
                             
                             <div class="form-group replace-word-group">
@@ -13588,11 +13588,11 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         .field-help {
-            font-size: 12px;
+            font-size: clamp(8px, 0.625vw, 12px);
             color: #666;
             margin-top: 4px;
             display: block;
-            margin-left: 132px; /* Align with input fields (120px label width + 12px gap) */
+            margin-left: 0px; /* Align with input fields (120px label width + 12px gap) */
         }
 
         .form-actions {
