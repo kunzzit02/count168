@@ -1283,13 +1283,13 @@ if ($current_user_id && count($user_companies) > 0) {
         // Load submitted processes from database by date
         async function loadSubmittedProcesses(date = null) {
             try {
-                // Use selected date to filter by date_submitted (actual submission date)
+                // Use selected date to filter by capture_date (form selected date)
                 const selectedDate = date || document.getElementById('capture_date').value || getLocalDateString();
                 
                 // Add currently selected company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
-                // Use get_submissions_by_date to filter by date_submitted (actual submission date)
-                const url = `submittedprocessesapi.php?action=get_submissions_by_date&date=${selectedDate}`;
+                // Use get_submissions_by_capture_date to filter by capture_date (form selected date)
+                const url = `submittedprocessesapi.php?action=get_submissions_by_capture_date&capture_date=${selectedDate}`;
                 const finalUrl = currentCompanyId ? `${url}&company_id=${currentCompanyId}` : url;
                 
                 const response = await fetch(finalUrl);
@@ -1297,7 +1297,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (result.success) {
                     submittedProcesses = result.data || [];
-                    console.log('Loaded', submittedProcesses.length, 'submitted processes for date_submitted:', selectedDate);
+                    console.log('Loaded', submittedProcesses.length, 'submitted processes for capture_date:', selectedDate);
                     console.log('Sample submission dates:', submittedProcesses.slice(0, 3).map(p => ({ 
                         process: p.process_code, 
                         date_submitted: p.date_submitted, 
@@ -1978,11 +1978,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 const formData = new FormData();
                 formData.append('action', 'save_submission');
                 formData.append('process_id', processData.process); // This is the id of the process table
-                // Use current submit date for date_submitted (actual submission time)
-                const submitDate = getLocalDateString();
-                formData.append('date_submitted', submitDate);
-                // Use capture_date from form for grouping/filtering purposes
+                // Use capture_date from form for date_submitted (so records show under selected date)
                 const captureDate = processData.date || document.getElementById('capture_date').value || getLocalDateString();
+                formData.append('date_submitted', captureDate);
+                // Also save capture_date for consistency
                 formData.append('capture_date', captureDate);
                 
                 // Add currently selected company_id
@@ -1991,9 +1990,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     formData.append('company_id', currentCompanyId);
                 }
                 
-                console.log('Sending to API - process_id:', processData.process, 'submit_date:', submitDate, 'capture_date:', captureDate, 'company_id:', currentCompanyId);
-                console.log('Current date from getLocalDateString():', submitDate);
-                console.log('Form capture_date:', captureDate);
+                console.log('Sending to API - process_id:', processData.process, 'date_submitted:', captureDate, 'capture_date:', captureDate, 'company_id:', currentCompanyId);
+                console.log('Form capture_date (used for date_submitted):', captureDate);
                 
                 const response = await fetch('submittedprocessesapi.php', {
                     method: 'POST',
