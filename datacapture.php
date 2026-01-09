@@ -312,7 +312,7 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="context-menu-item" onclick="clearSelectedCells()">
             <span>🗑️ Clear</span>
         </div>
-        <div class="context-menu-item" onclick="selectAllCells()">
+        <div class="context-menu-item" onclick="selectAllCells(event)">
             <span>☑️ Select All</span>
         </div>
     </div>
@@ -947,11 +947,29 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Select all cells
-        function selectAllCells() {
+        function selectAllCells(e) {
+            // Prevent event propagation to avoid menu closing before selection completes
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
+            
             clearAllSelections();
             
             const tableBody = document.getElementById('tableBody');
+            if (!tableBody) {
+                console.log('Table body not found');
+                hideContextMenu();
+                return;
+            }
+            
             const allCells = tableBody.querySelectorAll('td[contenteditable="true"]');
+            
+            if (allCells.length === 0) {
+                console.log('No cells found to select');
+                hideContextMenu();
+                return;
+            }
             
             allCells.forEach(cell => {
                 selectedCells.add(cell);
@@ -959,6 +977,7 @@ if ($current_user_id && count($user_companies) > 0) {
             });
             
             console.log('Selected all', allCells.length, 'cells');
+            hideContextMenu();
         }
 
         // Add keyboard shortcut support
