@@ -13383,13 +13383,13 @@ if ($current_user_id && count($user_companies) > 0) {
 
         .custom-select-button {
             width: 100%;
-            padding: 8px 30px 8px 12px;
+            padding: clamp(4px, 0.3vw, 8px) clamp(6px, 0.63vw, 12px);
             border: 1px solid #ddd;
             border-radius: 4px;
             background: white;
             cursor: pointer;
             text-align: left;
-            font-size: 14px;
+            font-size: clamp(10px, 0.73vw, 14px);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
