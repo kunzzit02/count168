@@ -6,8 +6,6 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // 检查用户是否已登录
 if (!isset($_SESSION['user_id'])) {
-    // 如果未登录，输出JavaScript重定向到登录页
-    // 这样可以确保整个页面都停止工作，而不仅仅是sidebar消失
     echo '<script>window.location.href = "index.php";</script>';
     exit();
 }
@@ -33,17 +31,15 @@ if (!$isMember) {
 
 // 检查当前登录用户是否为 owner/admin 且与 c168 相关（支持多重 company）
 $hasC168Access = false;
-$companyId = $_SESSION['company_id'] ?? null;  // company 的数字主键（移到外面，确保作用域正确）
+$companyId = $_SESSION['company_id'] ?? null;
 if ($user_id) {
     $roleLower    = strtolower($role ?? '');
-    $companyCode  = strtoupper($_SESSION['company_code'] ?? ''); // 登录时选的公司代码
+    $companyCode  = strtoupper($_SESSION['company_code'] ?? '');
 
     if (in_array($roleLower, ['owner', 'admin'], true)) {
-        // 条件1：登录时选的公司代码就是 c168
         if ($companyCode === 'C168') {
             $hasC168Access = true;
         } elseif ($companyId) {
-            // 条件2：当前选中公司在 company 表中确认为 c168
             try {
                 $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
                 $stmt->execute([$companyId]);
@@ -68,7 +64,6 @@ if ($companyId) {
         $stmt->execute([$companyId]);
         $company_expiration_date = $stmt->fetchColumn();
         
-        // 在 PHP 端计算倒计时
         if ($company_expiration_date) {
             $today = new DateTime();
             $today->setTime(0, 0, 0);
@@ -76,7 +71,7 @@ if ($companyId) {
             $expiration->setTime(0, 0, 0);
             
             $diff = $today->diff($expiration);
-            $diffDays = (int)$diff->format('%r%a'); // 带符号的天数差
+            $diffDays = (int)$diff->format('%r%a');
             
             if ($diffDays < 0) {
                 $expiration_countdown_text = 'Expired';
@@ -115,26 +110,24 @@ if ($companyId) {
 
 <!-- Sidebar CSS -->
 <style>
-    /* Sidebar 自己的字体设置，避免被各页面 body 的全局字体覆盖导致闪一下样式 */
+    /* Sidebar 自己的字体设置 */
     .informationmenu,
     .informationmenu * {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器（包裹头像和用户信息） */
+    /* 用户信息容器 - 优化间距和布局 */
     .user-info-container {
         display: flex;
         align-items: center;
         justify-content: flex-start;
         width: 100%;
-        padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
-        margin-bottom: clamp(2px, 0.31vw, 6px);
-        min-height: 50px;
+        padding: 16px 12px;
+        margin-bottom: 8px;
+        min-height: 64px;
         contain: layout style;
         will-change: auto;
-        /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
-        /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
     }
@@ -147,18 +140,15 @@ if ($companyId) {
         flex-direction: row;
         gap: 0;
         cursor: pointer;
-        padding: clamp(2px, 0.4vw, 8px);
+        padding: 6px;
         padding-left: 0px;
         border-radius: 25px;
-        /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
         transition: background-color 0.3s ease;
         text-align: left;
         color: white;
         flex-shrink: 0;
-        /* 优化渲染性能 */
         min-width: 0;
         contain: layout style;
-        /* 确保不会被头像选择菜单覆盖，但也不覆盖菜单 */
         z-index: 1;
     }
 
@@ -188,26 +178,22 @@ if ($companyId) {
         flex-direction: column;     
         align-items: center;
         margin-left: 0;
+        margin-right: 12px;
         flex-shrink: 0;
         width: fit-content;
-        /* 优化渲染性能，防止页面切换时的布局重排 */
-        min-width: clamp(40px, 3.65vw, 70px);
-        /* 移除 paint 限制，允许头像选择菜单超出容器边界显示 */
+        min-width: 48px;
         contain: layout style;
-        /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
-        /* 创建新的堆叠上下文，确保子元素（头像选择菜单）的z-index能够覆盖其他元素 */
         z-index: 10000;
         isolation: isolate;
     }
 
     /* 当前头像显示 */
     .current-avatar {
-        width: clamp(30px, 2.6vw, 50px);
-        height: clamp(30px, 2.6vw, 50px);
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         cursor: pointer;
-        /* 只对需要动画的属性应用过渡，避免页面切换时位置属性变化导致的闪烁 */
         transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
         border: 2px solid rgba(255, 255, 255, 0.3);
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -219,12 +205,10 @@ if ($companyId) {
         position: relative;
         overflow: hidden;
         box-sizing: border-box;
-        /* 优化渲染性能，防止闪烁 - 强制 GPU 加速并隔离布局 */
         transform: translateZ(0);
         will-change: border-color, box-shadow;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
-        /* 确保尺寸固定，避免 flex 布局重新计算时的抖动 */
         flex-shrink: 0;
     }
 
@@ -237,20 +221,19 @@ if ($companyId) {
     .avatar-options {
         position: absolute;
         top: 75%;
-        left: calc(100% + clamp(8px, 0.83vw, 16px));
+        left: calc(100% + 12px);
         transform: translateY(-50%);
         background: rgba(255, 255, 255, 0.95);
         border-radius: 12px;
-        padding: clamp(8px, 0.78vw, 15px);
+        padding: 12px;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
         backdrop-filter: blur(20px);
         opacity: 0;
         visibility: hidden;
         transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
-        /* 使用非常高的 z-index 确保显示在所有内容之上 */
         z-index: 9999;
-        width: clamp(120px, 10vw, 180px);
-        max-height: clamp(300px, 40vh, 500px);
+        width: 160px;
+        max-height: 400px;
         overflow-y: auto;
     }
 
@@ -272,8 +255,8 @@ if ($companyId) {
     }
 
     .avatar-option {
-        width: clamp(34px, 3vw, 56px);
-        height: clamp(34px, 3vw, 56px);
+        width: 44px;
+        height: 44px;
         border-radius: 50%;
         cursor: pointer;
         transition: all 0.3s ease;
@@ -301,28 +284,28 @@ if ($companyId) {
     .options-title {
         text-align: center;
         color: #333;
-        font-size: clamp(7px, 0.58vw, 11px);
+        font-size: 11px;
         font-weight: 600;
-        margin-bottom: clamp(4px, 0.42vw, 8px);
+        margin-bottom: 8px;
         text-transform: uppercase;
         letter-spacing: 1px;
     }
     
     .gender-selection {
         display: flex;
-        gap: clamp(6px, 0.63vw, 12px);
-        margin-bottom: clamp(8px, 0.83vw, 16px);
+        gap: 8px;
+        margin-bottom: 12px;
         justify-content: center;
     }
 
     .gender-btn {
         flex: 1;
-        padding: clamp(6px, 0.63vw, 12px);
+        padding: 8px;
         border: 2px solid rgba(102, 126, 234, 0.3);
         border-radius: 8px;
         background: rgba(255, 255, 255, 0.8);
         color: #667eea;
-        font-size: clamp(8px, 0.73vw, 14px);
+        font-size: 12px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s ease;
@@ -343,18 +326,13 @@ if ($companyId) {
     .avatar-list {
         display: none;
         grid-template-columns: repeat(3, 1fr);
-        gap: clamp(6px, 0.63vw, 12px);
-        margin-top: clamp(6px, 0.63vw, 12px);
+        gap: 8px;
+        margin-top: 8px;
         justify-items: center;
     }
 
     .avatar-list.show {
         display: grid;
-    }
-
-    .avatar-option {
-        width: clamp(32px, 2.8vw, 48px);
-        height: clamp(32px, 2.8vw, 48px);
     }
 
     .avatar-options::-webkit-scrollbar {
@@ -380,26 +358,27 @@ if ($companyId) {
         flex-direction: column;
         justify-content: center;
         align-items: flex-start;
-        gap: 2px;
+        gap: 4px;
         margin-left: 0px;
-        min-width: clamp(60px, 5vw, 100px);
+        min-width: 80px;
         flex: 1;
     }
 
     .user-name {
         margin: 0;
-        font-size: clamp(10px, 0.83vw, 16px);
+        font-size: 15px;
         font-weight: 600;
         color: white;
-        line-height: 1.2;
+        line-height: 1.3;
+        letter-spacing: 0.3px;
     }
 
-    
     .user-role {
-        font-size: clamp(9px, 0.57vw, 11px);
+        font-size: 11px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.8);
-        line-height: 1.2;
+        color: rgba(255, 255, 255, 0.75);
+        line-height: 1.3;
+        text-transform: capitalize;
     }
 
     /* 左边的选项bar */
@@ -428,7 +407,7 @@ if ($companyId) {
     }
 
     .informationmenu {
-        width: clamp(160px, 11.98vw, 230px);
+        width: 230px;
         height: 100vh;
         background: #002d49;
         backdrop-filter: blur(20px);
@@ -439,19 +418,15 @@ if ($companyId) {
         overflow: visible;
         z-index: 1000;
         transform: translateX(0) translateZ(0);
-        /* 只对transform应用过渡，避免页面切换时其他CSS属性变化导致的闪烁 */
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
         flex-direction: column;
         border-right: 1px solid rgba(255, 255, 255, 0.2);
-        /* 优化渲染性能，防止闪烁 */
         will-change: transform;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
-        /* 确保sidebar始终可见，不会被重新渲染影响 */
         visibility: visible;
         opacity: 1;
-        /* 强制GPU加速，提高渲染稳定性 */
         -webkit-transform: translateX(0) translateZ(0);
     }
 
@@ -464,13 +439,12 @@ if ($companyId) {
     }
 
     .informationmenu-header {
-        padding: clamp(6px, 0.73vw, 14px) 10px clamp(6px, 0.52vw, 10px);
+        padding: 20px 16px 16px;
         border-bottom: 0px solid rgba(255, 255, 255, 0.1);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
     }
 
@@ -523,8 +497,8 @@ if ($companyId) {
     }
 
     .informationmenu-section-title {
-        padding: clamp(8px, 0.83vw, 16px) clamp(12px, 1.04vw, 20px);
-        font-size: clamp(10px, 0.84vw, 16px);
+        padding: 12px 20px;
+        font-size: 14px;
         font-weight: 600;
         color: white;
         cursor: pointer;
@@ -533,7 +507,7 @@ if ($companyId) {
         justify-content: flex-start;
         transition: all 0.3s ease;
         border-radius: 25px 0 0 25px;
-        margin: 0;
+        margin: 2px 0;
         position: relative;
         overflow: hidden;
     }
@@ -579,7 +553,6 @@ if ($companyId) {
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
     }
 
-    /* 添加active状态样式 */
     .informationmenu-section-title.current-page {
         background: #0E93F3;
         color: white;
@@ -602,7 +575,7 @@ if ($companyId) {
     }
 
     .section-arrow {
-        font-size: clamp(8px, 0.625px, 12px);
+        font-size: 10px;
         transition: transform 0.3s ease;
         margin-left: auto;
         color: rgba(255, 255, 255, 0.8);
@@ -626,9 +599,9 @@ if ($companyId) {
     }
 
     .section-icon {
-        width: clamp(16px, 1.04vw, 20px);
-        height: clamp(16px, 1.04vw, 20px);
-        margin-right: clamp(10px, 0.68vw, 13px);
+        width: 18px;
+        height: 18px;
+        margin-right: 12px;
         vertical-align: middle;
         flex-shrink: 0;
         object-fit: contain;
@@ -672,10 +645,10 @@ if ($companyId) {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: clamp(4px, 0.625vw, 12px) clamp(12px, 1.3px, 25px);
+        padding: 10px 20px;
         color: rgba(255, 255, 255, 0.9);
         text-decoration: none;
-        font-size: clamp(10px, 0.84vw, 16px);
+        font-size: 13px;
         font-weight: 500;
         transition: all 0.3s ease;
         cursor: pointer;
@@ -701,10 +674,10 @@ if ($companyId) {
         transform: translateX(3px);
     }
 
-    /* 子菜单 - 紧凑型，显示在菜单项旁边 */
+    /* 子菜单 */
     .submenu {
         position: fixed;
-        width: clamp(100px, 10.42vw, 200px);
+        width: 180px;
         min-height: auto;
         background:rgb(0, 84, 136);
         color: white;
@@ -727,16 +700,16 @@ if ($companyId) {
     }
 
     .submenu-content {
-        padding: clamp(2px, 0.42vw, 8px) 0;
+        padding: 6px 0;
     }
 
     .submenu-item {
         display: flex;
         align-items: center;
-        padding: clamp(4px, 0.52vw, 10px) clamp(10px, 0.83vw, 16px);
+        padding: 10px 16px;
         color: rgba(255, 255, 255, 0.9);
         text-decoration: none;
-        font-size: clamp(8px, 0.84vw, 16px);
+        font-size: 13px;
         font-weight: bold;
         transition: all 0.2s ease;
         cursor: pointer;
@@ -766,24 +739,26 @@ if ($companyId) {
         transform: translateX(120%);
     }
 
-    /* Logout Button Specific Styles */
+    /* Logout Button */
     .logout-btn {
         background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
         color: white;
-        padding: clamp(6px, 0.42vw, 8px) 20px;
-        font-size: clamp(10px, 0.83vw, 16px);
-        width: clamp(70px, 6.25vw, 120px);
+        padding: 10px 24px;
+        font-size: 14px;
+        font-weight: 600;
+        width: 140px;
         border: none;
-        border-radius: 6px;
-        box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
         --sweep-color: rgba(255, 255, 255, 0.2);
-        cursor: pointer
+        cursor: pointer;
+        transition: all 0.3s ease;
     }
 
     .logout-btn:hover {
         background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
-        box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
-        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.5);
+        transform: translateY(-2px);
     }
 
     .informationmenu-footer {
@@ -791,13 +766,13 @@ if ($companyId) {
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 25px;
+        padding: 20px;
         border-top: none;
         background: rgba(255, 255, 255, 0);
         margin-top: auto;
         flex-shrink: 0;
         backdrop-filter: blur(10px);
-        gap: 0px;
+        gap: 12px;
     }
 
     /* 滚动条样式 */
@@ -819,7 +794,6 @@ if ($companyId) {
         background: rgba(255, 255, 255, 0.5);
     }
 
-    /* 添加一些微妙的动画 */
     @keyframes float {
         0%, 100% { transform: translateY(0px); }
         50% { transform: translateY(-2px); }
@@ -829,24 +803,25 @@ if ($companyId) {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: clamp(4px, 0.625vw, 12px);
-        margin-bottom: clamp(4px, 0.52vw, 10px);
+        gap: 12px;
+        margin-bottom: 12px;
         width: 100%;
     }
 
     .header-logo {
-        height: clamp(32px, 2.3vw, 44px);
+        height: 42px;
         object-fit: contain;
         width: auto;
     }
 
+    /* 优化分隔线 - 更细更精致 */
     .content-separator {
-        height: clamp(1px, 0.1vw, 2px);
-        margin: clamp(0px, 0.52vw, 10px) 20px clamp(6px, 0.52vw, 10px) 20px;
+        height: 1px;
+        margin: 16px 24px;
         background: linear-gradient(
             to right, 
             transparent 0%, 
-            rgba(255, 255, 255, 1) 50%, 
+            rgba(255, 255, 255, 0.3) 50%, 
             transparent 100%
         );
         position: relative;
@@ -861,114 +836,11 @@ if ($companyId) {
         box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
     }
 
-    /* 语言切换按钮样式 */
-    .language-switcher {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-top: clamp(2px, 0.31vw, 6px);
-        padding: clamp(0px, 0.21vw, 4px) 8px;
-    }
-
-    .language-dropdown {
-        position: relative;
-        display: inline-block;
-    }
-
-    .language-btn {
-        display: flex;
-        align-items: center;
-        gap: clamp(4px, 0.42vw, 8px);
-        padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
-        background: #9abff7;
-        border: none;
-        border-radius: clamp(4px, 0.42vw, 8px);
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        justify-content: space-between;
-    }
-
-    .language-btn:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        transform: translateY(-1px);
-    }
-
-    .flag-icon {
-        width: clamp(15px, 1.04vw, 20px);
-        height: clamp(10px, 0.78vw, 15px);
-        object-fit: cover;
-        border-radius: clamp(0px, 0.1vw, 2px);
-    }
-
-    .language-text {
-        font-size: clamp(7px, 0.63vw, 12px);
-        font-weight: 600;
-        color: #333;
-    }
-
-    .dropdown-arrow {
-        font-size: clamp(6px, 0.52vw, 10px);
-        color: #002c65;
-        transition: transform 0.3s ease;
-    }
-
-    .language-btn.active .dropdown-arrow {
-        transform: rotate(180deg);
-    }
-
-    .language-dropdown-list {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: #9abff7;
-        border-radius: clamp(4px, 0.42vw, 8px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        opacity: 0;
-        visibility: hidden;
-        transform: translateY(-10px);
-        transition: all 0.3s ease;
-        z-index: 1000;
-        margin-top: 4px;
-        overflow: hidden;
-    }
-
-    .language-dropdown-list.show {
-        opacity: 1;
-        visibility: visible;
-        transform: translateY(0);
-    }
-
-    .language-option {
-        display: flex;
-        align-items: center;
-        gap: clamp(4px, 0.42vw, 8px);
-        padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
-        cursor: pointer;
-        transition: all 0.3s ease;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    }
-
-    .language-option:last-child {
-        border-bottom: none;
-    }
-
-    .language-option:hover {
-        background: rgba(0, 0, 0, 0.05);
-    }
-
-    .language-option span {
-        font-size: clamp(7px, 0.63vw, 12px);
-        font-weight: 600;
-        color: #333;
-    }
-
     /* 通知铃铛样式 */
     .notification-bell {
         position: relative;
-        width: clamp(26px, 1.88vw, 36px);
-        height: clamp(26px, 1.88vw, 36px);
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.15);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -988,8 +860,8 @@ if ($companyId) {
     }
 
     .notification-bell svg {
-        width: clamp(16px, 1.14vw, 22px);
-        height: clamp(16px, 1.14vw, 22px);
+        width: 20px;
+        height: 20px;
         transform-origin: 50% 10%;
         animation: bell-shake 1s ease-in-out infinite;
     }
@@ -1028,7 +900,7 @@ if ($companyId) {
         position: fixed;
         top: 0;
         right: -400px;
-        width: clamp(260px, 20.83vw, 400px);
+        width: 360px;
         height: 100vh;
         background: #ffffff;
         box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
@@ -1045,7 +917,7 @@ if ($companyId) {
 
     /* 通知面板头部 */
     .notification-header {
-        padding: clamp(10px, 1.04vw, 20px) clamp(16px, 1.25vw, 24px);
+        padding: 20px 24px;
         border-bottom: 1px solid #e5e7eb;
         display: flex;
         align-items: center;
@@ -1055,7 +927,7 @@ if ($companyId) {
 
     .notification-header h2 {
         margin: 0;
-        font-size: clamp(14px, 1.04vw, 20px);
+        font-size: 18px;
         font-weight: 600;
         color: #1a237e;
     }
@@ -1080,20 +952,20 @@ if ($companyId) {
     }
 
     .notification-close svg {
-        width: clamp(16px, 1.04vw, 20px);
-        height: clamp(16px, 1.04vw, 20px);
+        width: 18px;
+        height: 18px;
     }
 
     /* 通知内容区域 */
     .notification-content {
         flex: 1;
         overflow-y: auto;
-        padding: clamp(10px, 0.83vw, 16px);
+        padding: 16px;
     }
 
     .notification-item {
-        padding: clamp(10px, 0.83vw, 16px);
-        margin-bottom: clamp(8px, 0.625vw, 12px);
+        padding: 14px;
+        margin-bottom: 12px;
         background: #f9fafb;
         border-radius: 12px;
         border-left: 4px solid #1a237e;
@@ -1113,21 +985,21 @@ if ($companyId) {
     }
 
     .notification-title {
-        font-size: clamp(10px, 0.73vw, 14px);
+        font-size: 14px;
         font-weight: 600;
         color: #111827;
         margin-bottom: 6px;
     }
 
     .notification-message {
-        font-size: clamp(9px, 0.68vw, 13px);
+        font-size: 13px;
         color: #6b7280;
         line-height: 1.5;
         margin-bottom: 8px;
     }
 
     .notification-time {
-        font-size: clamp(8px, 0.625vw, 12px);
+        font-size: 11px;
         color: #9ca3af;
     }
 
@@ -1151,15 +1023,15 @@ if ($companyId) {
 
     /* 公司到期倒计时样式 */
     .company-expiration-countdown {
-        padding: clamp(4px, 0.42vw, 6px) clamp(6px, 0.63vw, 10px);
-        margin-bottom: clamp(6px, 0.52vw, 10px);
+        padding: 10px 14px;
+        margin-bottom: 12px;
         background: rgba(255, 255, 255, 0.12);
-        border-radius: 6px;
+        border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.2);
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: clamp(4px, 0.42vw, 6px);
+        gap: 8px;
         transition: all 0.3s ease;
     }
 
@@ -1179,8 +1051,8 @@ if ($companyId) {
     }
 
     .expiration-icon {
-        width: clamp(10px, 0.83vw, 15px);
-        height: clamp(10px, 0.83vw, 15px);
+        width: 14px;
+        height: 14px;
         flex-shrink: 0;
         color: white;
     }
@@ -1200,27 +1072,32 @@ if ($companyId) {
     .expiration-content {
         display: flex;
         align-items: baseline;
-        gap: clamp(3px, 0.31vw, 4px);
+        gap: 6px;
         flex-wrap: wrap;
         justify-content: center;
     }
 
     .expiration-label {
-        font-size: clamp(6px, 0.625vw, 10px);
+        font-size: 11px;
         font-weight: 700;
         color: #ffffff;
         margin: 0;
-        line-height: 1.3;
+        line-height: 1.4;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     }
 
     .expiration-countdown-text {
-        font-size: clamp(6px, 0.625vw, 10px);
+        font-size: 11px;
         font-weight: 600;
         color: #ffffff;
         margin: 0;
-        line-height: 1.3;
+        line-height: 1.4;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 添加菜单分组间距 */
+    .informationmenu-section + .informationmenu-section {
+        margin-top: 4px;
     }
 </style>
 
@@ -1241,15 +1118,13 @@ if ($companyId) {
             </div>
         </div>
 
-        <!-- 用户信息容器（头像和用户信息左右排版） -->
+        <!-- 用户信息容器 -->
         <div class="user-info-container">
-            <!-- 添加头像选择器（改为使用 PNG 照片） -->
+            <!-- 头像选择器 -->
             <div class="avatar-selector-container">
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
-                    <!-- 移除默认 src，避免每次切换页面先闪一下默认头像；实际头像由 JS 根据 localStorage 设置 -->
                     <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;" loading="eager">
                     <script>
-                        // 立即设置头像，避免闪烁（在DOMContentLoaded之前执行）
                         (function() {
                             const avatarImages = {
                                 male1: 'images/avatar1.png',
@@ -1275,7 +1150,6 @@ if ($companyId) {
                             const avatarId = (savedAvatar && avatarImages[savedAvatar]) ? savedAvatar : 'male1';
                             const img = document.getElementById('currentAvatarImg');
                             if (img) {
-                                // 直接设置 src，图片尺寸已固定，不会导致布局变化
                                 img.src = avatarImages[avatarId];
                             }
                         })();
@@ -1362,26 +1236,6 @@ if ($companyId) {
                 </div>
             </div>
         </div>
-        <!-- 语言切换按钮 -->
-        <!-- <div class="language-switcher">
-            <div class="language-dropdown">
-                <button class="language-btn" onclick="toggleLanguageDropdown()">
-                    <img src="images/uk.png" alt="English" class="flag-icon" id="current-flag">
-                    <span class="language-text" id="current-lang">English</span>
-                    <span class="dropdown-arrow">▼</span>
-                </button>
-                <div class="language-dropdown-list" id="languageDropdown">
-                    <div class="language-option" onclick="selectLanguage('en')">
-                        <img src="images/uk.png" alt="English" class="flag-icon">
-                        <span>English</span>
-                    </div>
-                    <div class="language-option" onclick="selectLanguage('zh')">
-                        <img src="images/china.png" alt="中文" class="flag-icon">
-                        <span>中文</span>
-                    </div>
-                </div>
-            </div>
-        </div> -->
     </div>
 
     <div class="informationmenu-content">
@@ -1420,7 +1274,7 @@ if ($companyId) {
             </div>
             <?php endif; ?>
 
-            <!-- Domain Section - 只有与 c168 相关且角色为 owner/admin 的用户可见 -->
+            <!-- Domain Section -->
             <?php if ((empty($permissions) || in_array('domain', $permissions)) && $hasC168Access): ?>
             <div class="informationmenu-section">
                 <div class="informationmenu-section-title" data-page="domain.php" onclick="window.location.href='domain.php'">
@@ -1432,8 +1286,7 @@ if ($companyId) {
             </div>
             <?php endif; ?>
 
-            <!-- Announcement Section - Only C168 owner/admin can see and access (to publish/manage announcements) -->
-            <!-- All users can view announcements in dashboard, but only C168 can publish/manage -->
+            <!-- Announcement Section -->
             <?php if ($hasC168Access): ?>
             <div class="informationmenu-section">
                 <div class="informationmenu-section-title account-direct" data-page="announcement.php" onclick="window.location.href='announcement.php'">
@@ -1444,16 +1297,6 @@ if ($companyId) {
                 </div>
             </div>
             <?php endif; ?>
-
-            <!-- Auto Login Manager Section -->
-            <!-- <div class="informationmenu-section">
-                <div class="informationmenu-section-title account-direct" data-page="auto-login-manager.php" onclick="window.location.href='auto-login-manager.php'">
-                    <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
-                    </svg>
-                    自动登录管理
-                </div>
-            </div> -->
 
             <!-- Admin Section -->
             <?php if (empty($permissions) || in_array('admin', $permissions)): ?>
@@ -1621,17 +1464,14 @@ if ($companyId) {
     const userAvatar = document.getElementById('user-avatar');
     const sidebarToggle = document.getElementById('sidebarToggle');
 
-    // Show sidebar when clicking user avatar
     userAvatar?.addEventListener('click', function() {
         sidebar.classList.add('show');
         overlay.classList.add('show');
     });
 
-    // Close sidebar function
     function closeSidebar() {
         sidebar.classList.remove('show');
         overlay.classList.remove('show');
-        // Close all dropdown menus
         document.querySelectorAll('.dropdown-menu-items').forEach(dropdown => {
             dropdown.classList.remove('show');
         });
@@ -1640,37 +1480,30 @@ if ($companyId) {
         });
     }
 
-    // Close sidebar when clicking overlay
     overlay?.addEventListener('click', closeSidebar);
 
-    // ESC key to close sidebar
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeSidebar();
         }
     });   
 
-    // Section title click events
     document.querySelectorAll('.informationmenu-section-title').forEach(title => {
         let middleClickHandled = false;
         let ctrlClickHandled = false;
         
-        // 添加 mousedown 事件来支持中键点击和 Ctrl+点击（优先处理，在 onclick 之前）
         title.addEventListener('mousedown', function(e) {
             const isMiddleClick = e.button === 1 || e.which === 2;
-            const isCtrlClick = e.ctrlKey || e.metaKey; // metaKey 支持 Mac 的 Cmd 键
+            const isCtrlClick = e.ctrlKey || e.metaKey;
             const pageUrl = this.getAttribute('data-page');
             
-            // 处理中键点击
             if (pageUrl && isMiddleClick) {
                 e.preventDefault();
                 e.stopPropagation();
                 middleClickHandled = true;
-                // 临时保存并移除 onclick，防止它执行
                 const originalOnclick = this.onclick;
                 this.onclick = null;
                 window.open(pageUrl, '_blank');
-                // 恢复 onclick（延迟恢复，确保 click 事件不会触发）
                 setTimeout(() => {
                     this.onclick = originalOnclick;
                     middleClickHandled = false;
@@ -1678,16 +1511,13 @@ if ($companyId) {
                 return false;
             }
             
-            // 处理 Ctrl+点击（左键或右键都可以）
             if (pageUrl && isCtrlClick && (e.button === 0 || e.button === 2)) {
                 e.preventDefault();
                 e.stopPropagation();
                 ctrlClickHandled = true;
-                // 临时保存并移除 onclick，防止它执行
                 const originalOnclick = this.onclick;
                 this.onclick = null;
                 window.open(pageUrl, '_blank');
-                // 恢复 onclick（延迟恢复，确保 click 事件不会触发）
                 setTimeout(() => {
                     this.onclick = originalOnclick;
                     ctrlClickHandled = false;
@@ -1697,38 +1527,32 @@ if ($companyId) {
                 middleClickHandled = false;
                 ctrlClickHandled = false;
             }
-        }, true); // 使用捕获阶段，确保在其他事件之前执行
+        }, true);
         
         title.addEventListener('click', function(e) {
-            // 如果已经在 mousedown 中处理了中键点击或 Ctrl+点击，直接返回
             if (middleClickHandled || ctrlClickHandled) {
                 e.preventDefault();
                 e.stopPropagation();
                 return false;
             }
             
-            // 检测 Ctrl+点击 - 在新窗口打开（备用处理）
-            const isCtrlClick = e.ctrlKey || e.metaKey; // metaKey 支持 Mac 的 Cmd 键
+            const isCtrlClick = e.ctrlKey || e.metaKey;
             const pageUrl = this.getAttribute('data-page');
             
             if (pageUrl && isCtrlClick) {
                 e.preventDefault();
                 e.stopPropagation();
-                // 临时移除 onclick 防止执行
                 const originalOnclick = this.onclick;
                 this.onclick = null;
                 window.open(pageUrl, '_blank');
-                // 恢复 onclick
                 setTimeout(() => {
                     this.onclick = originalOnclick;
                 }, 100);
                 return false;
             }
             
-            // 检测中键点击（滚轮按钮）- 作为备用处理
             const isMiddleClick = e.button === 1 || e.which === 2;
             
-            // 如果有 data-page 属性且是中键点击，在新窗口打开
             if (pageUrl && isMiddleClick) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1736,7 +1560,6 @@ if ($companyId) {
                 return false;
             }
             
-            // 如果是中键点击但没有 data-page，阻止默认行为
             if (isMiddleClick) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1746,41 +1569,34 @@ if ($companyId) {
             const targetId = this.getAttribute('data-target');
             const section = this.getAttribute('data-section');
             
-            // 如果是有 submenu 的 section（report 或 maintenance），不执行点击展开逻辑
             if (section === 'report' || section === 'maintenance') {
                 return;
             }
             
             const targetDropdown = document.getElementById(targetId);
 
-            // Normal toggle logic when sidebar is expanded
-            // Close other section dropdowns
             document.querySelectorAll('.dropdown-menu-items').forEach(dropdown => {
                 if (dropdown.id !== targetId) {
                     dropdown.classList.remove('show');
                 }
             });
 
-            // Remove other section title active states
             document.querySelectorAll('.informationmenu-section-title').forEach(t => {
                 if (t !== this) {
                     t.classList.remove('active');
                 }
             });
 
-            // Toggle current section
             this.classList.toggle('active');
             targetDropdown?.classList.toggle('show');
         });
     });
 
-    // Submenu item click effects (支持 Ctrl+点击)
     document.querySelectorAll('.submenu-item').forEach(item => {
         item.addEventListener('click', function(e) {
             const href = this.getAttribute('href');
             
-            // 检测 Ctrl+点击 - 在新窗口打开
-            const isCtrlClick = e.ctrlKey || e.metaKey; // metaKey 支持 Mac 的 Cmd 键
+            const isCtrlClick = e.ctrlKey || e.metaKey;
             
             if (isCtrlClick && href && href !== '#' && !href.startsWith('javascript:')) {
                 e.preventDefault();
@@ -1789,7 +1605,6 @@ if ($companyId) {
                 return false;
             }
             
-            // 检测中键点击（滚轮按钮）
             const isMiddleClick = e.button === 1 || e.which === 2;
             
             if (isMiddleClick && href && href !== '#' && !href.startsWith('javascript:')) {
@@ -1798,16 +1613,12 @@ if ($companyId) {
                 window.open(href, '_blank');
                 return false;
             }
-            
-            // 其他情况使用默认行为（正常导航）
         });
     });
 
-    // Menu item click effects
     document.querySelectorAll('.informationmenu-item').forEach(item => {
         let middleClickHandled = false;
         
-        // 添加 mousedown 事件来支持中键点击（优先处理）
         item.addEventListener('mousedown', function(e) {
             const isMiddleClick = e.button === 1 || e.which === 2;
             const href = this.getAttribute('href');
@@ -1821,18 +1632,16 @@ if ($companyId) {
             } else {
                 middleClickHandled = false;
             }
-        }, true); // 使用捕获阶段
+        }, true);
         
         item.addEventListener('click', function(e) {
-            // 如果已经在 mousedown 中处理了中键点击，直接返回
             if (middleClickHandled) {
                 e.preventDefault();
                 e.stopPropagation();
                 return false;
             }
             
-            // 检测 Ctrl+点击 - 在新窗口打开
-            const isCtrlClick = e.ctrlKey || e.metaKey; // metaKey 支持 Mac 的 Cmd 键
+            const isCtrlClick = e.ctrlKey || e.metaKey;
             const href = this.getAttribute('href');
             
             if (isCtrlClick && href && href !== '#' && !href.startsWith('javascript:')) {
@@ -1842,10 +1651,8 @@ if ($companyId) {
                 return false;
             }
             
-            // 检测中键点击（滚轮按钮）- 作为备用处理
             const isMiddleClick = e.button === 1 || e.which === 2;
 
-            // 如果是中键点击且有有效链接，在新窗口打开
             if (isMiddleClick && href && href !== '#' && !href.startsWith('javascript:')) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1853,117 +1660,21 @@ if ($companyId) {
                 return false;
             }
 
-            // Check if there's a real link
             if (href && href !== '#' && !href.startsWith('javascript:')) {
-                // Has real link, allow normal navigation
                 window.location.href = href;
                 return;
             }
 
-            // No real link, prevent default behavior
             e.preventDefault();
 
-            // Remove other active states
             document.querySelectorAll('.informationmenu-item').forEach(i => i.classList.remove('active'));
 
-            // Add active state to current item
             this.classList.add('active');
             
-            // You can add custom logic here for items without real links
             console.log('Clicked menu item:', this.textContent);
         });
     });
 
-    // 语言切换功能
-    let currentLanguage = 'en';
-    
-    function toggleLanguageDropdown() {
-        const dropdown = document.getElementById('languageDropdown');
-        const button = document.querySelector('.language-btn');
-        
-        dropdown.classList.toggle('show');
-        button.classList.toggle('active');
-    }
-    
-    function selectLanguage(lang) {
-        currentLanguage = lang;
-        const dropdown = document.getElementById('languageDropdown');
-        const button = document.querySelector('.language-btn');
-        const currentFlag = document.getElementById('current-flag');
-        const currentLang = document.getElementById('current-lang');
-        
-        // 更新按钮显示
-        if (lang === 'en') {
-            currentFlag.src = 'images/uk.png';
-            currentFlag.alt = 'English';
-            currentLang.textContent = 'English';
-        } else if (lang === 'zh') {
-            currentFlag.src = 'images/china.png';
-            currentFlag.alt = '中文';
-            currentLang.textContent = '中文';
-        }
-        
-        // 关闭下拉菜单
-        dropdown.classList.remove('show');
-        button.classList.remove('active');
-        
-        // 保存语言选择到localStorage
-        localStorage.setItem('selectedLanguage', lang);
-        
-        // 获取当前页面文件名
-        const currentPage = window.location.pathname.split('/').pop();
-        
-        // 根据语言选择跳转到对应页面
-        // if (lang === 'zh') {
-        //     window.location.href = `cn/${currentPage}`;
-        // } else if (lang === 'en') {
-        //     if (window.location.pathname.includes('/cn/')) {
-        //         window.location.href = `../${currentPage}`;
-        //     }
-        // }
-        
-        console.log('Language switched to:', lang);
-    }
-
-    // 页面加载时恢复语言选择
-    document.addEventListener('DOMContentLoaded', function() {
-        // 检测当前页面语言
-        let currentLang = 'en';
-        if (window.location.pathname.includes('/cn/')) {
-            currentLang = 'zh';
-        }
-        
-        // 更新按钮显示为当前语言
-        const currentFlag = document.getElementById('current-flag');
-        const currentLangText = document.getElementById('current-lang');
-        
-        if (currentLang === 'zh') {
-            currentFlag.src = 'images/china.png';
-            currentFlag.alt = '中文';
-            currentLangText.textContent = '中文';
-        } else {
-            currentFlag.src = 'images/uk.png';
-            currentFlag.alt = 'English';
-            currentLangText.textContent = 'English';
-        }
-        
-        // 保存当前语言到localStorage
-        localStorage.setItem('selectedLanguage', currentLang);
-    });
-    
-    // 点击其他地方关闭下拉菜单
-    document.addEventListener('click', function(e) {
-        const languageDropdown = document.querySelector('.language-dropdown');
-        const dropdown = document.getElementById('languageDropdown');
-        const button = document.querySelector('.language-btn');
-        
-        if (languageDropdown && !languageDropdown.contains(e.target)) {
-            if (dropdown) dropdown.classList.remove('show');
-            if (button) button.classList.remove('active');
-        }
-    });
-
-    // Logout function
     function handleLogout() {
         if (confirm('Are you sure you want to logout?')) {
             window.location.href = 'dashboard.php?logout=1';
@@ -1972,13 +1683,11 @@ if ($companyId) {
 
     console.log('Sidebar menu system loaded successfully');
 
-    // 获取当前页面文件名
     function getCurrentPageName() {
         const path = window.location.pathname;
         return path.split('/').pop();
     }
 
-    // 头像图片映射（请根据实际路径调整）
     const avatarImages = {
         male1: 'images/avatar1.png',
         male2: 'images/avatar2.png',
@@ -2000,20 +1709,18 @@ if ($companyId) {
         female9: 'images/female9.png'
     };
 
-    let currentAvatarId = 'male1'; // 默认头像
+    let currentAvatarId = 'male1';
 
     function toggleAvatarOptions() {
         const options = document.getElementById('avatarOptions');
         const isShowing = options.classList.contains('show');
         
         if (!isShowing) {
-            // 打开时重置到性别选择
             backToGenderSelection();
         }
         
         options.classList.toggle('show');
         
-        // 更新选中状态
         updateSelectedAvatar();
     }
 
@@ -2022,7 +1729,6 @@ if ($companyId) {
         const femaleList = document.getElementById('femaleAvatarList');
         const genderBtns = document.querySelectorAll('.gender-btn');
         
-        // 更新按钮状态
         genderBtns.forEach(btn => {
             btn.classList.remove('active');
             if (btn.textContent.toLowerCase() === gender) {
@@ -2030,7 +1736,6 @@ if ($companyId) {
             }
         });
         
-        // 显示对应的头像列表，隐藏另一个
         if (gender === 'male') {
             maleList.classList.add('show');
             femaleList.classList.remove('show');
@@ -2045,7 +1750,6 @@ if ($companyId) {
         const femaleList = document.getElementById('femaleAvatarList');
         const genderBtns = document.querySelectorAll('.gender-btn');
         
-        // 重置为 Male active 状态
         genderBtns.forEach(btn => {
             btn.classList.remove('active');
             if (btn.textContent.toLowerCase() === 'male') {
@@ -2053,7 +1757,6 @@ if ($companyId) {
             }
         });
         
-        // 显示男性头像列表，隐藏女性头像列表
         maleList.classList.add('show');
         femaleList.classList.remove('show');
     }
@@ -2069,34 +1772,28 @@ if ($companyId) {
             currentAvatarImg.src = avatarImages[avatarId];
         }
         
-        // 隐藏选项
         if (options) {
             options.classList.remove('show');
         }
         
-        // 保存用户选择到localStorage（可选）
         localStorage.setItem('selectedAvatar', avatarId);
         
-        // 更新选中样式
         updateSelectedAvatar();
         
         console.log('Avatar changed to:', avatarId);
     }
 
     function updateSelectedAvatar() {
-        // 清除所有选中状态
         document.querySelectorAll('.avatar-option').forEach(option => {
             option.classList.remove('selected');
         });
         
-        // 添加当前选中状态
         const selectedOption = document.querySelector(`.avatar-option[data-avatar-id="${currentAvatarId}"]`);
         if (selectedOption) {
             selectedOption.classList.add('selected');
         }
     }
 
-    // 页面加载时恢复用户选择的头像
     document.addEventListener('DOMContentLoaded', function() {
         const savedAvatar = localStorage.getItem('selectedAvatar');
         const currentAvatarImg = document.getElementById('currentAvatarImg');
@@ -2112,7 +1809,6 @@ if ($companyId) {
         }
         updateSelectedAvatar();
         
-        // 根据当前头像的性别设置默认显示
         if (currentAvatarId.startsWith('female')) {
             selectGender('female');
         } else {
@@ -2120,8 +1816,6 @@ if ($companyId) {
         }
     });
 
-
-    // 点击其他地方关闭头像选择菜单
     document.addEventListener('click', function(e) {
         const avatarContainer = document.querySelector('.avatar-selector-container');
         const avatarOptions = document.getElementById('avatarOptions');
@@ -2132,16 +1826,13 @@ if ($companyId) {
         }
     });
 
-    // 设置当前页面的高亮状态
     function setCurrentPageHighlight() {
         const currentPage = getCurrentPageName();
         
-        // 移除所有现有的current-page类
         document.querySelectorAll('.informationmenu-section-title').forEach(title => {
             title.classList.remove('current-page');
         });
         
-        // Maintenance 三个子页面统一高亮 Maintenance 主菜单
         const maintenancePages = [
             'capture_maintenance.php',
             'transaction_maintenance.php',
@@ -2155,7 +1846,6 @@ if ($companyId) {
             }
         }
         
-        // Report 两个子页面统一高亮 Report 主菜单
         const reportPages = [
             'customer_report.php',
             'domain_report.php'
@@ -2167,7 +1857,6 @@ if ($companyId) {
             }
         }
         
-        // 其他页面按 data-page 精确匹配
         document.querySelectorAll('.informationmenu-section-title').forEach(title => {
             const pageName = title.getAttribute('data-page');
             if (pageName === currentPage) {
@@ -2176,10 +1865,8 @@ if ($companyId) {
         });
     }
 
-    // 页面加载时设置高亮
     document.addEventListener('DOMContentLoaded', setCurrentPageHighlight);
 
-    // 动态定位 submenu
     function positionSubmenu(wrapper) {
         const title = wrapper.querySelector('.informationmenu-section-title');
         const submenu = wrapper.querySelector('.submenu');
@@ -2190,20 +1877,15 @@ if ($companyId) {
         const sidebar = document.querySelector('.informationmenu');
         const sidebarRect = sidebar.getBoundingClientRect();
         
-        // 计算 submenu 的位置
-        // left: sidebar 右边缘
         submenu.style.left = sidebarRect.right + 'px';
-        // top: 与菜单项顶部对齐
         submenu.style.top = titleRect.top + 'px';
     }
 
-    // 为所有有 submenu 的 wrapper 添加鼠标事件
     document.querySelectorAll('.menu-item-wrapper').forEach(wrapper => {
         const submenu = wrapper.querySelector('.submenu');
         if (submenu) {
             let hideTimeout = null;
             
-            // 清除隐藏延迟
             function clearHideTimeout() {
                 if (hideTimeout) {
                     clearTimeout(hideTimeout);
@@ -2211,7 +1893,6 @@ if ($companyId) {
                 }
             }
             
-            // 显示 submenu
             function showSubmenu() {
                 clearHideTimeout();
                 positionSubmenu(wrapper);
@@ -2221,7 +1902,6 @@ if ($companyId) {
                 submenu.style.pointerEvents = 'auto';
             }
             
-            // 隐藏 submenu（带延迟）
             function hideSubmenu() {
                 clearHideTimeout();
                 hideTimeout = setTimeout(function() {
@@ -2229,37 +1909,31 @@ if ($companyId) {
                     submenu.style.visibility = 'hidden';
                     submenu.style.transform = 'translateX(-10px)';
                     submenu.style.pointerEvents = 'none';
-                }, 100); // 0.1 秒延迟
+                }, 100);
             }
             
-            // 鼠标进入 wrapper
             wrapper.addEventListener('mouseenter', function() {
                 showSubmenu();
             });
             
-            // 鼠标离开 wrapper
             wrapper.addEventListener('mouseleave', function() {
                 hideSubmenu();
             });
             
-            // 鼠标进入 submenu
             submenu.addEventListener('mouseenter', function() {
                 showSubmenu();
             });
             
-            // 鼠标离开 submenu
             submenu.addEventListener('mouseleave', function() {
                 hideSubmenu();
             });
             
-            // 当鼠标移动时也更新位置（处理滚动等情况）
             wrapper.addEventListener('mousemove', function() {
                 positionSubmenu(wrapper);
             });
         }
     });
 
-    // Notification panel functionality
     function toggleNotificationPanel(event) {
         const panel = document.getElementById('notificationPanel');
         const overlay = document.getElementById('notificationOverlay');
@@ -2269,11 +1943,9 @@ if ($companyId) {
         } else {
             panel.classList.add('show');
             overlay.classList.add('show');
-            // 加载公告
             loadAnnouncements();
         }
         
-        // 阻止事件冒泡
         if (event) {
             event.stopPropagation();
         }
@@ -2287,7 +1959,6 @@ if ($companyId) {
         overlay.classList.remove('show');
     }
 
-    // Load announcements
     async function loadAnnouncements() {
         try {
             const response = await fetch('announcement_get_dashboard_api.php');
@@ -2304,7 +1975,6 @@ if ($companyId) {
                     </div>
                 `).join('');
                 
-                // Mark as read when clicking notification item
                 const notificationItems = contentContainer.querySelectorAll('.notification-item');
                 notificationItems.forEach(item => {
                     item.addEventListener('click', function() {
@@ -2332,26 +2002,22 @@ if ($companyId) {
         }
     }
 
-    // HTML escape function
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
 
-    // 点击其他地方关闭通知面板
     document.addEventListener('click', function(e) {
         const bell = document.querySelector('.notification-bell');
         const panel = document.getElementById('notificationPanel');
         const overlay = document.getElementById('notificationOverlay');
         
-        // 如果点击的不是通知铃铛和通知面板内部，则关闭面板
         if (!bell.contains(e.target) && !panel.contains(e.target) && panel.classList.contains('show')) {
             closeNotificationPanel();
         }
     });
 
-    // 公司到期倒计时功能
     <?php if ($company_expiration_date): ?>
     function calculateCountdown(expirationDate) {
         if (!expirationDate) return null;
@@ -2410,7 +2076,6 @@ if ($companyId) {
         if (countdown) {
             countdownText.textContent = countdown.text;
             countdownText.className = 'expiration-countdown-text ' + countdown.status;
-            // 同时更新容器的状态类
             countdownContainer.className = 'company-expiration-countdown ' + countdown.status;
         } else {
             countdownText.textContent = 'No expiration date';
@@ -2419,8 +2084,6 @@ if ($companyId) {
         }
     }
 
-    // 页面加载时立即更新倒计时（不等待 DOMContentLoaded，因为初始值已在 PHP 中设置）
-    // 每分钟更新一次倒计时
     setInterval(updateExpirationCountdown, 60000);
     <?php endif; ?>
 </script>
