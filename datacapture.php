@@ -2026,19 +2026,20 @@ if ($current_user_id && count($user_companies) > 0) {
             
             let html = '';
             submittedProcesses.forEach((process, index) => {
-                // Format date as dd/mm/yyyy using date_submitted (actual submission date)
-                // Handle date string format (YYYY-MM-DD) properly to avoid timezone issues
+                // Format date and time using created_at (actual submission time)
+                // This shows when the record was actually submitted, not the selected date
                 let dateObj;
-                if (process.date_submitted) {
-                    // If it's already a date string in YYYY-MM-DD format, parse it directly
-                    if (typeof process.date_submitted === 'string' && process.date_submitted.match(/^\d{4}-\d{2}-\d{2}/)) {
-                        const dateParts = process.date_submitted.split(' ')[0].split('-');
-                        dateObj = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-                    } else {
-                        dateObj = new Date(process.date_submitted);
-                    }
+                let timeObj;
+                
+                if (process.created_at) {
+                    // Use created_at for both date and time display
+                    const createdDate = new Date(process.created_at);
+                    dateObj = createdDate;
+                    timeObj = createdDate;
                 } else {
+                    // Fallback to current date/time if created_at is not available
                     dateObj = new Date();
+                    timeObj = new Date();
                 }
                 
                 const day = String(dateObj.getDate()).padStart(2, '0');
@@ -2046,15 +2047,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 const year = dateObj.getFullYear();
                 const formattedDate = `${day}/${month}/${year}`;
                 
-                // Format time (if created_at exists)
-                let formattedDateTime = formattedDate;
-                if (process.created_at) {
-                    const timeObj = new Date(process.created_at);
-                    const hours = String(timeObj.getHours()).padStart(2, '0');
-                    const minutes = String(timeObj.getMinutes()).padStart(2, '0');
-                    const formattedTime = `${hours}:${minutes}`;
-                    formattedDateTime = `${formattedDate} ${formattedTime}`;
-                }
+                // Format time from created_at
+                const hours = String(timeObj.getHours()).padStart(2, '0');
+                const minutes = String(timeObj.getMinutes()).padStart(2, '0');
+                const formattedTime = `${hours}:${minutes}`;
+                const formattedDateTime = `${formattedDate} ${formattedTime}`;
                 
                 html += `
                     <div class="submitted-item">
