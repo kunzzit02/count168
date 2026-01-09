@@ -1476,6 +1476,17 @@ function getCurrentProcessId() {
                 }
             }
             
+            // Helper function to escape HTML for use in attribute values
+            const escapeHtml = (str) => {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            };
+            
             // Create form HTML
             const formHTML = `
                 <div id="editFormulaForm" class="edit-formula-form-container">
@@ -1489,7 +1500,7 @@ function getCurrentProcessId() {
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label for="process">Id Product</label>
-                                        <input type="text" id="process" value="${productValue}" readonly>
+                                        <input type="text" id="process" value="${escapeHtml(productValue || '')}" readonly>
                                     </div>
                                 </div>
                                 
@@ -5506,101 +5517,129 @@ function getCurrentProcessId() {
                                 // 注意：如果公式已经包含新格式 [id_product,数字]，不需要转换
                                 let currentFormula = formulaInput.value || '';
                                 if (currentFormula && currentFormula.trim() !== '' && !hasNewFormat) {
-                                    // 获取当前编辑的id_product
-                                    const processInput = document.getElementById('process');
-                                    const currentIdProduct = processInput ? processInput.value.trim() : null;
+                                    // CRITICAL FIX: In edit mode, if formula only contains $数字 (current row references),
+                                    // and there are no references to other rows, don't convert it
+                                    // This prevents issues when id product name is long or contains special characters
+                                    const isEditMode = !!window.currentEditRow;
                                     
-                                    // 匹配所有 $数字 格式
-                                    const dollarPattern = /\$(\d+)(?!\d)/g;
-                                    let match;
-                                    const replacements = [];
+                                    // Check if formula only contains $数字 (no other row references)
+                                    const onlyCurrentRowRefs = /^[\s\$0-9+\-*/().]+$/.test(currentFormula) && 
+                                                               !currentFormula.includes('[') && 
+                                                               !currentFormula.includes(']');
                                     
-                                    // 收集所有需要替换的 $数字
-                                    dollarPattern.lastIndex = 0;
-                                    while ((match = dollarPattern.exec(currentFormula)) !== null) {
-                                        const columnNumber = parseInt(match[1]);
-                                        const matchIndex = match.index;
-                                        
-                                        if (!isNaN(columnNumber) && columnNumber > 0) {
-                                            // 从 data-clicked-cell-refs 中找到对应的 id_product
-                                            // 按顺序匹配：第一个 $数字 匹配第一个引用
-                                            const displayColumnIndex = columnNumber;
-                                            const dataColumnIndex = displayColumnIndex - 1;
-                                            
-                                            // 在 convertedRefs 中查找匹配的引用（按顺序）
-                                            let matchedRef = null;
-                                            for (let i = 0; i < convertedRefs.length; i++) {
-                                                const ref = convertedRefs[i];
-                                                const parts = ref.split(':');
-                                                if (parts.length >= 2) {
-                                                    const refDataColumnIndex = parseInt(parts[parts.length - 1]);
-                                                    if (refDataColumnIndex === dataColumnIndex) {
-                                                        matchedRef = ref;
-                                                        break;
-                                                    }
-                                                }
-                                            }
-                                            
-                                            if (matchedRef) {
-                                                const parts = matchedRef.split(':');
-                                                const idProduct = parts[0];
-                                                const refRowLabel = parts.length === 3 ? parts[1] : null;
-                                                
-                                                // 获取当前编辑row的row_label
-                                                const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
-                                                
-                                                // 判断是否是当前row：必须同时匹配id_product和row_label
-                                                const idProductMatches = currentIdProduct && idProduct && 
-                                                                         normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct);
-                                                
-                                                // 如果两个row_label都存在，必须匹配
-                                                // 如果只有一个存在，不能匹配（视为不同row）
-                                                let rowLabelMatches = true;
-                                                if (currentRowLabel && refRowLabel) {
-                                                    rowLabelMatches = currentRowLabel === refRowLabel;
-                                                } else if (currentRowLabel || refRowLabel) {
-                                                    rowLabelMatches = false;
-                                                }
-                                                
-                                                const isCurrentRow = idProductMatches && rowLabelMatches;
-                                                
-                                                let newFormat = '';
-                                                if (isCurrentRow) {
-                                                    // 当前row: 保持 $数字 格式
-                                                    newFormat = `$${displayColumnIndex}`;
-                                                } else {
-                                                    // 其他row: 转换为 [id_product,数字] 格式
-                                                    newFormat = `[${idProduct},${displayColumnIndex}]`;
-                                                }
-                                                
-                                                replacements.push({
-                                                    from: match[0], // 例如 "$4"
-                                                    to: newFormat, // 例如 "$4" 或 "[BBB,4]"
-                                                    index: matchIndex
-                                                });
-                                            }
-                                        }
-                                    }
-                                    
-                                    // 从后往前替换，避免位置偏移
-                                    if (replacements.length > 0) {
-                                        replacements.sort((a, b) => b.index - a.index);
-                                        let newFormula = currentFormula;
-                                        for (const replacement of replacements) {
-                                            newFormula = newFormula.substring(0, replacement.index) + 
-                                                        replacement.to + 
-                                                        newFormula.substring(replacement.index + replacement.from.length);
-                                        }
-                                        formulaInput.value = newFormula;
-                                        console.log('populateFormWithData - Converted formula from old format to new format:', currentFormula, '->', newFormula);
-                                        
-                                        // 更新显示框
-                                        const processValue = document.getElementById('process')?.value;
-                                        updateFormulaDisplay(newFormula, processValue);
-                                    } else {
-                                        // 如果没有需要替换的内容，也要更新显示框
+                                    // If in edit mode and formula only references current row, skip conversion
+                                    if (isEditMode && onlyCurrentRowRefs) {
+                                        console.log('populateFormWithData - Edit mode: Formula only contains current row references, skipping conversion');
+                                        // Just update display without conversion
                                         const processValue = document.getElementById('process')?.value;
                                         updateFormulaDisplay(currentFormula, processValue);
+                                    } else {
+                                        // Get current editing row's id_product from the row itself, not from input
+                                        // This ensures we get the complete value even if it contains special characters
+                                        let currentIdProduct = null;
+                                        if (window.currentEditRow) {
+                                            currentIdProduct = getProcessValueFromRow(window.currentEditRow);
+                                        }
+                                        
+                                        // Fallback to input value if row value not available
+                                        if (!currentIdProduct) {
+                                            const processInput = document.getElementById('process');
+                                            currentIdProduct = processInput ? processInput.value.trim() : null;
+                                        }
+                                        
+                                        // 匹配所有 $数字 格式
+                                        const dollarPattern = /\$(\d+)(?!\d)/g;
+                                        let match;
+                                        const replacements = [];
+                                        
+                                        // 收集所有需要替换的 $数字
+                                        dollarPattern.lastIndex = 0;
+                                        while ((match = dollarPattern.exec(currentFormula)) !== null) {
+                                            const columnNumber = parseInt(match[1]);
+                                            const matchIndex = match.index;
+                                            
+                                            if (!isNaN(columnNumber) && columnNumber > 0) {
+                                                // 从 data-clicked-cell-refs 中找到对应的 id_product
+                                                // 按顺序匹配：第一个 $数字 匹配第一个引用
+                                                const displayColumnIndex = columnNumber;
+                                                const dataColumnIndex = displayColumnIndex - 1;
+                                                
+                                                // 在 convertedRefs 中查找匹配的引用（按顺序）
+                                                let matchedRef = null;
+                                                for (let i = 0; i < convertedRefs.length; i++) {
+                                                    const ref = convertedRefs[i];
+                                                    const parts = ref.split(':');
+                                                    if (parts.length >= 2) {
+                                                        const refDataColumnIndex = parseInt(parts[parts.length - 1]);
+                                                        if (refDataColumnIndex === dataColumnIndex) {
+                                                            matchedRef = ref;
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                if (matchedRef) {
+                                                    const parts = matchedRef.split(':');
+                                                    const idProduct = parts[0];
+                                                    const refRowLabel = parts.length === 3 ? parts[1] : null;
+                                                    
+                                                    // 获取当前编辑row的row_label
+                                                    const currentRowLabel = currentIdProduct ? getRowLabelFromProcessValue(currentIdProduct) : null;
+                                                    
+                                                    // CRITICAL FIX: Use normalizeIdProductText for comparison to handle special characters
+                                                    // 判断是否是当前row：必须同时匹配id_product和row_label
+                                                    const idProductMatches = currentIdProduct && idProduct && 
+                                                                             normalizeIdProductText(currentIdProduct) === normalizeIdProductText(idProduct);
+                                                    
+                                                    // 如果两个row_label都存在，必须匹配
+                                                    // 如果只有一个存在，不能匹配（视为不同row）
+                                                    let rowLabelMatches = true;
+                                                    if (currentRowLabel && refRowLabel) {
+                                                        rowLabelMatches = currentRowLabel === refRowLabel;
+                                                    } else if (currentRowLabel || refRowLabel) {
+                                                        rowLabelMatches = false;
+                                                    }
+                                                    
+                                                    const isCurrentRow = idProductMatches && rowLabelMatches;
+                                                    
+                                                    let newFormat = '';
+                                                    if (isCurrentRow) {
+                                                        // 当前row: 保持 $数字 格式
+                                                        newFormat = `$${displayColumnIndex}`;
+                                                    } else {
+                                                        // 其他row: 转换为 [id_product,数字] 格式
+                                                        newFormat = `[${idProduct},${displayColumnIndex}]`;
+                                                    }
+                                                    
+                                                    replacements.push({
+                                                        from: match[0], // 例如 "$4"
+                                                        to: newFormat, // 例如 "$4" 或 "[BBB,4]"
+                                                        index: matchIndex
+                                                    });
+                                                }
+                                            }
+                                        }
+                                        
+                                        // 从后往前替换，避免位置偏移
+                                        if (replacements.length > 0) {
+                                            replacements.sort((a, b) => b.index - a.index);
+                                            let newFormula = currentFormula;
+                                            for (const replacement of replacements) {
+                                                newFormula = newFormula.substring(0, replacement.index) + 
+                                                            replacement.to + 
+                                                            newFormula.substring(replacement.index + replacement.from.length);
+                                            }
+                                            formulaInput.value = newFormula;
+                                            console.log('populateFormWithData - Converted formula from old format to new format:', currentFormula, '->', newFormula);
+                                            
+                                            // 更新显示框
+                                            const processValue = document.getElementById('process')?.value;
+                                            updateFormulaDisplay(newFormula, processValue);
+                                        } else {
+                                            // 如果没有需要替换的内容，也要更新显示框
+                                            const processValue = document.getElementById('process')?.value;
+                                            updateFormulaDisplay(currentFormula, processValue);
+                                        }
                                     }
                                 } else if (hasNewFormat) {
                                     // 公式已经是新格式，确保显示框已更新（上面已经更新过了）
@@ -10438,9 +10477,10 @@ function getCurrentProcessId() {
             if (productValues.main) {
                 const mainText = productValues.main.trim();
                 if (mainText) {
-                    // Extract only the base product value (remove description in parentheses)
-                    const match = mainText.match(/^([^(]+)/);
-                    return match ? match[1].trim() : mainText;
+                    // CRITICAL FIX: Use the full value from data attribute, don't truncate
+                    // The data-main-product attribute contains the complete id product value
+                    // Only remove trailing colons and spaces, but preserve everything including parentheses
+                    return mainText.replace(/[: ]+$/, '').trim();
                 }
             }
             
@@ -10448,9 +10488,10 @@ function getCurrentProcessId() {
             if (productValues.sub) {
                 const subText = productValues.sub.trim();
                 if (subText) {
-                    // Extract only the base product value (remove description in parentheses)
-                    const match = subText.match(/^([^(]+)/);
-                    return match ? match[1].trim() : subText;
+                    // CRITICAL FIX: Use the full value from data attribute, don't truncate
+                    // The data-sub-product attribute contains the complete id product value
+                    // Only remove trailing colons and spaces, but preserve everything including parentheses
+                    return subText.replace(/[: ]+$/, '').trim();
                 }
             }
             
