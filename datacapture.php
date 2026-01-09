@@ -227,6 +227,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <option value="API_RETURN">API-RETURN</option>
                             <option value="WBET">WBET</option>
                             <option value="ALIPAY">ALIPAY</option>
+                            <option value="PEGASUS">PEGASUS</option>
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
