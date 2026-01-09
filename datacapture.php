@@ -7090,6 +7090,180 @@ if ($current_user_id && count($user_companies) > 0) {
             // 先拿到纯文本内容，用来判断是不是 Payment Report
             const pastedData = (e.clipboardData || window.clipboardData).getData('text');
             
+            // PEGASUS 专用解析（仅在 PEGASUS 类型时启用）
+            // PEGASUS 格式：无论粘贴什么数据（多行或多列），都合并成一行
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'PEGASUS') {
+                console.log('PEGASUS mode detected, attempting to parse and merge into single row...');
+                console.log('Pasted data length:', pastedData.length);
+                console.log('Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
+                
+                let dataMatrix = [];
+                let allCells = [];
+                
+                // 优先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
+                const htmlDataFromDetect = detectAndParseHTML(e);
+                
+                if (htmlDataFromDetect) {
+                    console.log('PEGASUS: HTML data detected via detectAndParseHTML');
+                    dataMatrix = htmlDataFromDetect;
+                } else {
+                    // 如果 HTML 解析失败，尝试手动解析 HTML
+                    let htmlData = null;
+                    try {
+                        htmlData = e.clipboardData.getData('text/html');
+                        if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                            console.log('PEGASUS: HTML data detected, parsing manually...');
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = htmlData;
+                            
+                            const table = tempDiv.querySelector('table');
+                            if (table) {
+                                // 处理表头（如果有）
+                                const thead = table.querySelector('thead');
+                                if (thead) {
+                                    const headerRows = thead.querySelectorAll('tr');
+                                    headerRows.forEach(tr => {
+                                        const cells = tr.querySelectorAll('th, td');
+                                        cells.forEach(cell => {
+                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                            let text = cell.textContent || cell.innerText || '';
+                                            text = text.replace(/\s+/g, ' ').trim();
+                                            if (text) allCells.push(text);
+                                            for (let i = 1; i < colspan; i++) {
+                                                allCells.push('');
+                                            }
+                                        });
+                                    });
+                                }
+                                
+                                // 处理表体
+                                let bodyContainer = table.querySelector('tbody');
+                                if (!bodyContainer) {
+                                    bodyContainer = table;
+                                }
+                                
+                                const bodyRows = bodyContainer.querySelectorAll('tr');
+                                bodyRows.forEach((tr) => {
+                                    if (thead && tr.closest('thead')) {
+                                        return;
+                                    }
+                                    
+                                    const cells = tr.querySelectorAll('td, th');
+                                    cells.forEach(cell => {
+                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                        let text = cell.textContent || cell.innerText || '';
+                                        text = text.replace(/\s+/g, ' ').trim();
+                                        if (text) allCells.push(text);
+                                        for (let i = 1; i < colspan; i++) {
+                                            allCells.push('');
+                                        }
+                                    });
+                                });
+                            }
+                        }
+                    } catch (err) {
+                        console.log('PEGASUS: Could not get HTML data from clipboard:', err);
+                    }
+                }
+                
+                // 如果 HTML 解析成功，从 dataMatrix 提取所有单元格
+                if (dataMatrix && dataMatrix.length > 0) {
+                    console.log('PEGASUS: Extracting cells from HTML data matrix...');
+                    dataMatrix.forEach(row => {
+                        if (Array.isArray(row)) {
+                            row.forEach(cell => {
+                                const trimmed = (cell || '').toString().trim();
+                                if (trimmed) allCells.push(trimmed);
+                            });
+                        }
+                    });
+                }
+                
+                // 如果 HTML 解析失败或没有数据，尝试纯文本解析
+                if (allCells.length === 0) {
+                    console.log('PEGASUS: Trying text-based parsing...');
+                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    lines.forEach(line => {
+                        if (line.includes('\t')) {
+                            // 制表符分隔
+                            const cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                            allCells.push(...cells);
+                        } else {
+                            // 空格分隔（多个空格或单个空格）
+                            const cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                            allCells.push(...cells);
+                        }
+                    });
+                }
+                
+                // 合并所有单元格成一行
+                if (allCells.length > 0) {
+                    console.log('PEGASUS: Merged all data into single row with', allCells.length, 'cells');
+                    console.log('PEGASUS: First 10 cells:', allCells.slice(0, 10));
+                    
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    // PEGASUS 格式：强制从第一列（Column 1）开始粘贴
+                    const startCol = 0;
+                    
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredCols = startCol + allCells.length;
+                    
+                    if (requiredCols > currentCols) {
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(currentRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const tableRow = tableBody.children[startRow];
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    allCells.forEach((cellData, colIndex) => {
+                        const actualColIndex = startCol + colIndex;
+                        const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                        
+                        if (cell && cell.contentEditable === 'true') {
+                            const trimmedData = (cellData || '').trim();
+                            currentPasteChanges.push({
+                                row: startRow,
+                                col: actualColIndex,
+                                oldValue: cell.textContent,
+                                newValue: trimmedData
+                            });
+                            
+                            // 保持原始数据，不做任何转换
+                            cell.textContent = trimmedData;
+                            
+                            if (trimmedData) {
+                                successCount++;
+                            }
+                        }
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
+                        }
+                    }
+                    
+                    if (successCount > 0) {
+                        showNotification(`Successfully pasted PEGASUS data (1 row x ${allCells.length} cols)!`, 'success');
+                    } else {
+                        showNotification('No cells were pasted from PEGASUS format.', 'danger');
+                    }
+                    
+                    setTimeout(updateSubmitButtonState, 0);
+                    return;
+                } else {
+                    console.log('PEGASUS: No data extracted, continuing with other parsers');
+                }
+            }
+            
             // WBET 专用解析（仅在 WBET 类型时启用）
             // 保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET') {
