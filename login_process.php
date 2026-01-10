@@ -167,12 +167,29 @@ try {
             SELECT o.* 
             FROM owner o
             INNER JOIN company c ON c.owner_id = o.id
-            WHERE o.owner_code = ? AND UPPER(c.company_id) = ?
+            WHERE UPPER(o.owner_code) = UPPER(?) AND UPPER(c.company_id) = ?
         ");
         $stmt->execute([$login_id, $company_id]);
         $owner = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if ($owner && password_verify($password, $owner['password'])) {
+        // 密码验证：兼容哈希密码和明文密码
+        $password_valid = false;
+        if ($owner) {
+            // 先尝试哈希验证（标准方式）
+            if (password_verify($password, $owner['password'])) {
+                $password_valid = true;
+            } 
+            // 如果哈希验证失败，检查是否是明文密码（兼容旧数据）
+            elseif ($password === $owner['password']) {
+                $password_valid = true;
+                // 如果使用明文密码验证成功，自动升级为哈希密码
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                $update_stmt = $pdo->prepare("UPDATE owner SET password = ? WHERE id = ?");
+                $update_stmt->execute([$hashed_password, $owner['id']]);
+            }
+        }
+        
+        if ($owner && $password_valid) {
             // Owner 登录成功
             
             // 获取 company 表的数字 ID（而不是使用字符串 company_id）
