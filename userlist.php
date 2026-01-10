@@ -3932,6 +3932,15 @@ try {
         document.getElementById('userForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // 前端验证：创建模式时必须填写密码
+            if (!isEditMode) {
+                const passwordInput = document.getElementById('password');
+                if (!passwordInput || !passwordInput.value || passwordInput.value.trim() === '') {
+                    showAlert('Password is required when creating a new user', 'danger');
+                    return;
+                }
+            }
+            
             const formData = new FormData(this);
             const data = Object.fromEntries(formData.entries());
             data.action = isEditMode ? 'update' : 'create';
@@ -4096,6 +4105,9 @@ try {
                 delete data.role;
             }
             
+            // 添加调试日志
+            console.log('Submitting user data:', data);
+            
             fetch('userlistapi.php', {
                 method: 'POST',
                 headers: {
@@ -4103,8 +4115,15 @@ try {
                 },
                 body: JSON.stringify(data)
             })
-            .then(response => response.json())
+            .then(response => {
+                // 检查 HTTP 响应状态
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('API Response:', data);
                 if (data.success) {
                     const apiMessage = data.message || (isEditMode ? 'User updated successfully!' : 'User created successfully!');
                     showAlert(apiMessage, 'success');
@@ -4132,12 +4151,15 @@ try {
                         addUserCard(data.data);
                     }
                 } else {
-                    showAlert(data.message || 'Operation failed', 'danger');
+                    // 显示详细的错误信息
+                    const errorMessage = data.message || 'Operation failed';
+                    console.error('API Error:', errorMessage);
+                    showAlert(errorMessage, 'danger');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showAlert('An error occurred while saving user', 'danger');
+                showAlert('An error occurred while saving user: ' + error.message, 'danger');
             });
         });
 

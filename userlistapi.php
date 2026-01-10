@@ -225,6 +225,9 @@ try {
             
             // Hash password
             $hashedPassword = password_hash($input['password'], PASSWORD_DEFAULT);
+            if ($hashedPassword === false) {
+                sendResponse(false, 'Failed to hash password');
+            }
             
             // 处理权限数据
             $permissions = isset($input['permissions']) ? json_encode($input['permissions']) : null;
@@ -250,15 +253,27 @@ try {
                 ]);
                 
                 if (!$result) {
-                    throw new Exception('Failed to create user');
+                    $errorInfo = $stmt->errorInfo();
+                    error_log("Failed to create user - SQL Error: " . print_r($errorInfo, true));
+                    throw new Exception('Failed to create user: ' . ($errorInfo[2] ?? 'Unknown database error'));
                 }
                 
                 $newUserId = $pdo->lastInsertId();
                 
+                if (!$newUserId || $newUserId <= 0) {
+                    error_log("Failed to get new user ID after insert");
+                    throw new Exception('Failed to get new user ID');
+                }
+                
                 // 在 user_company_map 中创建所有关联
                 $mapStmt = $pdo->prepare("INSERT INTO user_company_map (user_id, company_id) VALUES (?, ?)");
                 foreach ($company_ids as $company_id) {
-                    $mapStmt->execute([$newUserId, $company_id]);
+                    $mapResult = $mapStmt->execute([$newUserId, $company_id]);
+                    if (!$mapResult) {
+                        $mapErrorInfo = $mapStmt->errorInfo();
+                        error_log("Failed to create user_company_map - SQL Error: " . print_r($mapErrorInfo, true));
+                        throw new Exception('Failed to create company association: ' . ($mapErrorInfo[2] ?? 'Unknown database error'));
+                    }
                 }
                 
                 // 为新用户在所有关联的公司下初始化权限
@@ -311,8 +326,15 @@ try {
                 }
                 
                 sendResponse(true, 'User created successfully', $newUser);
+            } catch (PDOException $e) {
+                $pdo->rollBack();
+                error_log("Create user PDO error: " . $e->getMessage());
+                error_log("SQL State: " . $e->getCode());
+                error_log("Error Info: " . print_r($e->errorInfo, true));
+                sendResponse(false, 'Database error: ' . $e->getMessage());
             } catch (Exception $e) {
                 $pdo->rollBack();
+                error_log("Create user error: " . $e->getMessage());
                 sendResponse(false, 'Failed to create user: ' . $e->getMessage());
             }
             break;
