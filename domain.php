@@ -1708,7 +1708,7 @@ try {
                     const expDate = typeof company === 'object' && company.expiration_date ? company.expiration_date : null;
                     
                     return `
-                        <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 12px; margin: 3px; font-size: 11px; font-weight: bold;">
+                        <span style="display: inline-block; background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 12px; margin: 3px; font-size: clamp(8px, 0.57vw, 11px); font-weight: bold;">
                             ${companyId}${expDate ? ` - ${formatDate(expDate)}` : ''}
                         </span>
                     `;
