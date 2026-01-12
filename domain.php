@@ -1572,32 +1572,34 @@ try {
         function handleCompanyExpirationClick(companyId, selectElement) {
             // 记录点击时的当前值
             const clickedValue = selectElement.value;
+            let changeTriggered = false;
             
-            // 监听change事件，如果值没有改变（用户选择了相同的选项），也执行更新
+            // 监听change事件，如果值改变了，标记为已触发
             const handleChange = function() {
-                const newValue = selectElement.value;
-                // 如果值还是原来的值，说明用户选择了相同的选项
-                if (newValue === clickedValue) {
-                    // 直接执行更新
-                    updateCompanyExpiration(companyId, clickedValue);
-                }
-                // 移除事件监听器，避免重复执行
-                selectElement.removeEventListener('change', handleChange);
-            };
-            
-            // 添加change事件监听器
-            selectElement.addEventListener('change', handleChange);
-            
-            // 如果用户选择了相同的选项，change事件不会触发，所以延迟检查
-            setTimeout(() => {
-                // 检查值是否还是原来的值，且change事件没有触发
-                if (selectElement.value === clickedValue) {
-                    // 值没有改变，用户可能选择了相同的选项，直接执行更新
-                    updateCompanyExpiration(companyId, clickedValue);
-                }
+                changeTriggered = true;
                 // 移除事件监听器
                 selectElement.removeEventListener('change', handleChange);
-            }, 300); // 延迟300ms检查，给change事件足够的时间触发
+                selectElement.removeEventListener('blur', handleBlur);
+            };
+            
+            // 监听blur事件（下拉菜单关闭时），如果值没有改变，说明用户选择了相同的选项
+            const handleBlur = function() {
+                // 延迟检查，确保change事件已经处理完成
+                setTimeout(() => {
+                    // 如果change事件没有触发，且值还是原来的值，说明用户选择了相同的选项
+                    if (!changeTriggered && selectElement.value === clickedValue) {
+                        // 直接执行更新
+                        updateCompanyExpiration(companyId, clickedValue);
+                    }
+                    // 移除事件监听器
+                    selectElement.removeEventListener('change', handleChange);
+                    selectElement.removeEventListener('blur', handleBlur);
+                }, 50);
+            };
+            
+            // 添加事件监听器
+            selectElement.addEventListener('change', handleChange);
+            selectElement.addEventListener('blur', handleBlur);
         }
         
         // 根据到期日期判断对应的期限选项
