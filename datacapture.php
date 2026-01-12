@@ -9579,13 +9579,71 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     }
                 } else {
-                    // 单行数据处理（原有逻辑）
+                    // 单行数据处理：保留所有列，只解析公式列
                     // 先尝试表格格式解析（多列数据，包含 Description 列）
                     let apiReturnParsed = parseApiReturnTableFormat(pastedData);
                     
-                    // 如果表格格式解析失败，尝试单行格式解析（仅 Description 列）
                     if (!apiReturnParsed) {
-                        apiReturnParsed = parseApiReturnFormat(pastedData);
+                        // 如果表格格式解析失败，尝试通用单行处理：按空格分割，保留所有列，只解析公式列
+                        const trimmed = pastedData.trim();
+                        if (trimmed) {
+                            // 按空格分割所有列
+                            const columns = trimmed.split(/\s+/).filter(c => c.trim() !== '');
+                            
+                            if (columns.length > 0) {
+                                // 处理所有列：去掉标签后的冒号
+                                for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+                                    if (columns[colIndex] && columns[colIndex].endsWith(':') && !columns[colIndex].includes('(')) {
+                                        columns[colIndex] = columns[colIndex].slice(0, -1);
+                                    }
+                                }
+                                
+                                // 检查所有列，找到包含公式的列
+                                let hasFormula = false;
+                                for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+                                    const cell = columns[colIndex] || '';
+                                    
+                                    // 检查是否包含公式特征：括号和运算符
+                                    const isFormula = (cell.includes('(') || cell.includes('+') || 
+                                                       cell.includes('-') || cell.includes('*') || 
+                                                       cell.includes('/')) && 
+                                                      (cell.includes('(') || cell.match(/\d/));
+                                    
+                                    if (isFormula) {
+                                        hasFormula = true;
+                                        // 解析公式列
+                                        let numbers = [];
+                                        // 先移除所有括号和空格
+                                        let cleanFormula = cell.replace(/[()\s]/g, '');
+                                        // 按运算符分割
+                                        const parts = cleanFormula.split(/([+\-*/])/);
+                                        
+                                        parts.forEach(part => {
+                                            if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
+                                                const numMatch = part.match(/^\d+\.?\d*$/);
+                                                if (numMatch) {
+                                                    numbers.push(numMatch[0]);
+                                                }
+                                            }
+                                        });
+                                        
+                                        if (numbers.length > 0) {
+                                            // 用数字替换公式列
+                                            columns.splice(colIndex, 1, ...numbers);
+                                        }
+                                        // 处理完一个公式列后，跳出循环（一次只处理一个公式列）
+                                        break;
+                                    }
+                                }
+                                
+                                if (hasFormula || columns.length > 0) {
+                                    apiReturnParsed = {
+                                        columns: columns,
+                                        columnCount: columns.length
+                                    };
+                                }
+                            }
+                        }
                     }
                     
                     if (apiReturnParsed) {
@@ -9623,7 +9681,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     newValue: trimmedData
                                 });
                                 
-                                // 标签部分保持原样，数字部分保持原样
+                                // 保持原始格式，不做任何转换
                                 cell.textContent = trimmedData;
                                 if (trimmedData) {
                                     successCount++;
