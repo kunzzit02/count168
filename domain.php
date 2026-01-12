@@ -1503,6 +1503,10 @@ try {
         function openCompanyModal() {
             // 复制当前选中的companies到临时列表（深拷贝）
             tempCompanies = selectedCompanies.map(c => ({ ...c }));
+            // 重置所有公司的selectedPeriod，这样下拉框会显示"Select Period"
+            tempCompanies.forEach(company => {
+                company.selectedPeriod = null;
+            });
             updateCompanyDisplay();
             document.getElementById('companyModal').style.display = 'block';
             document.getElementById('companyInput').value = '';
@@ -1561,6 +1565,8 @@ try {
                 // 如果公司已经有到期日期，从该日期继续加时间；否则从今天开始计算
                 const startDate = company.expiration_date || null;
                 company.expiration_date = calculateExpirationDate(period, startDate);
+                // 记录用户选择的period，这样下拉框会显示选中的选项
+                company.selectedPeriod = period;
                 updateCompanyDisplay();
             }
         }
@@ -1617,15 +1623,16 @@ try {
                     // C168不显示到期日期选择器和日期显示
                     let expirationControls = '';
                     if (!isC168) {
-                        // 下拉框显示占位符选项，不默认选中任何期限，用户必须主动选择
+                        // 如果有记录的selectedPeriod，显示它；否则显示占位符选项
+                        const selectedPeriod = company.selectedPeriod || '';
                         expirationControls = `
                             <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
-                                <option value="" selected>Select Period</option>
-                                <option value="7days">7 Days</option>
-                                <option value="1month">1 Month</option>
-                                <option value="3months">3 Months</option>
-                                <option value="6months">6 Months</option>
-                                <option value="1year">1 Year</option>
+                                <option value="" ${selectedPeriod === '' ? 'selected' : ''}>Select Period</option>
+                                <option value="7days" ${selectedPeriod === '7days' ? 'selected' : ''}>7 Days</option>
+                                <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
+                                <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
+                                <option value="6months" ${selectedPeriod === '6months' ? 'selected' : ''}>6 Months</option>
+                                <option value="1year" ${selectedPeriod === '1year' ? 'selected' : ''}>1 Year</option>
                             </select>
                             <span class="exp-date-display">${formatDate(company.expiration_date)}</span>
                         `;
