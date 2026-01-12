@@ -542,14 +542,14 @@ DELIMITER ;
 -- 第四部分：创建事件调度器（每天自动清理7天前的数据）
 -- =============================================
 
--- 删除已存在的事件（如果存在）
+-- 删除已存在的存储过程和事件（如果存在）
 DROP EVENT IF EXISTS `evt_cleanup_backup_data`;
+DROP PROCEDURE IF EXISTS `sp_cleanup_backup_data`;
 
--- 创建事件：每天凌晨2点执行，删除7天前的备份数据
-CREATE EVENT `evt_cleanup_backup_data`
-ON SCHEDULE EVERY 1 DAY
-STARTS DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 02:00:00')
-DO
+-- 创建存储过程：清理7天前的备份数据
+DELIMITER $$
+
+CREATE PROCEDURE `sp_cleanup_backup_data`()
 BEGIN
   -- 删除 data_captures_backup 中7天前的数据
   DELETE FROM `data_captures_backup` 
@@ -578,7 +578,17 @@ BEGIN
   -- 删除 transaction_entry_backup 中7天前的数据
   DELETE FROM `transaction_entry_backup` 
   WHERE `backup_created_at` < DATE_SUB(NOW(), INTERVAL 7 DAY);
-END;
+END$$
+
+DELIMITER ;
+
+-- 创建事件：每天凌晨2点执行存储过程
+-- 注意：如果此语句在 phpMyAdmin 中执行失败，可以手动创建事件或使用定时任务
+CREATE EVENT `evt_cleanup_backup_data`
+ON SCHEDULE EVERY 1 DAY
+STARTS DATE_FORMAT(DATE_ADD(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 02:00:00')
+DO
+  CALL `sp_cleanup_backup_data`();
 
 -- =============================================
 -- 完成
@@ -594,22 +604,29 @@ END;
 --    - UPDATE 触发器：每次更新原表时，自动在备份表中创建新记录（保留变更历史）
 --    - 备份表会记录所有变更历史，同一原表记录可能有多条备份记录
 --
--- 3. 事件调度器已创建：
---    - 事件名称：evt_cleanup_backup_data
---    - 执行时间：每天凌晨2点自动执行
---    - 功能：删除所有备份表中 backup_created_at 超过7天的记录
+-- 3. 自动清理机制已创建：
+--    - 存储过程：sp_cleanup_backup_data（用于清理7天前的备份数据）
+--    - 事件调度器：evt_cleanup_backup_data（每天凌晨2点自动执行存储过程）
+--    - 如果事件创建失败，可以手动调用存储过程：CALL sp_cleanup_backup_data();
+--    - 或者设置应用层的定时任务来调用此存储过程
 --
 -- 4. 重要提示：
 --    - 备份表使用自增ID作为主键，可以记录同一原表记录的所有变更历史
 --    - 7天后，所有超过7天的备份记录会被自动删除
 --    - 如果需要修改清理时间，可以修改事件调度器中的执行时间
 --
--- 5. 权限说明：
+-- 5. 权限和兼容性说明：
 --    - 如果执行脚本时遇到 "Access denied; you need SUPER privilege" 错误：
 --      1. 让数据库管理员执行：SET GLOBAL event_scheduler = ON;
 --      2. 或者检查事件调度器是否已启用：SHOW VARIABLES LIKE 'event_scheduler';
---      3. 如果无法启用事件调度器，可以手动执行清理SQL：
+--
+--    - 如果在 phpMyAdmin 中 CREATE EVENT 语句执行失败：
+--      1. 存储过程 sp_cleanup_backup_data 应该已成功创建
+--      2. 可以手动调用存储过程清理数据：CALL sp_cleanup_backup_data();
+--      3. 或者通过应用层定时任务（如 cron job）定期调用此存储过程
+--      4. 或者手动执行清理SQL（对每个备份表执行）：
 --         DELETE FROM `data_captures_backup` WHERE `backup_created_at` < DATE_SUB(NOW(), INTERVAL 7 DAY);
---         (对每个备份表执行相同的删除语句)
+--         DELETE FROM `data_capture_details_backup` WHERE `backup_created_at` < DATE_SUB(NOW(), INTERVAL 7 DAY);
+--         (对其他备份表执行相同的删除语句)
 -- =============================================
 
