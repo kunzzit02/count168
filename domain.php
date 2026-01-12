@@ -285,7 +285,7 @@ try {
 
         .modal-content {
             background-color: #ffffff;
-            margin: 4% auto;
+            margin: 2% auto;
             padding: 0;
             border: none;
             border-radius: 16px;
