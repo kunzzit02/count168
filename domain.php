@@ -360,7 +360,7 @@ try {
         }
 
         .form-group {
-            margin-bottom: clamp(10px, 1.04vw, 20px);
+            margin-bottom: clamp(6px, 0.625vw, 12px);
         }
 
         .form-group label {
