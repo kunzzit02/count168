@@ -299,7 +299,7 @@ try {
         .modal-content h2 {
             background-color: #f8fafc;
             margin: 0;
-            padding: clamp(10px, 1.04vw, 20px) 32px;
+            padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
             font-size: clamp(14px, 1.25vw, 24px);
             font-weight: bold;
             color: #1e293b;
