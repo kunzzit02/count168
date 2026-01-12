@@ -604,7 +604,7 @@ if (isset($_GET['logout'])) {
             border-radius: 8px;
             border: none;
             cursor: pointer;
-            font-size: 14px;
+            font-size: clamp(8px, 0.73vw, 14px);
             display: inline-flex;
             align-items: center;
             gap: 8px;
