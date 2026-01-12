@@ -1219,6 +1219,9 @@ try {
             const expDate = new Date(today);
             
             switch(period) {
+                case '7days':
+                    expDate.setDate(today.getDate() + 7);
+                    break;
                 case '1month':
                     expDate.setMonth(today.getMonth() + 1);
                     break;
@@ -1562,12 +1565,15 @@ try {
             if (diffDays >= 175 && diffDays <= 190) return '6months';
             if (diffDays >= 88 && diffDays <= 95) return '3months';
             if (diffDays >= 28 && diffDays <= 32) return '1month';
+            if (diffDays >= 5 && diffDays <= 9) return '7days';
             
             // 默认返回最接近的选项
             if (diffMonths >= 11) return '1year';
             if (diffMonths >= 5) return '6months';
             if (diffMonths >= 2) return '3months';
-            return '1month';
+            if (diffDays >= 28) return '1month';
+            if (diffDays >= 7) return '7days';
+            return '7days';
         }
         
         function updateCompanyDisplay() {
@@ -1599,6 +1605,7 @@ try {
                         const selectedPeriod = getPeriodFromDate(company.expiration_date);
                         expirationControls = `
                             <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
+                                <option value="7days" ${selectedPeriod === '7days' ? 'selected' : ''}>7 Days</option>
                                 <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
                                 <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
                                 <option value="6months" ${selectedPeriod === '6months' ? 'selected' : ''}>6 Months</option>
