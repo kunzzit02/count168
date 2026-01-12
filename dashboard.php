@@ -248,7 +248,7 @@ if (isset($_GET['logout'])) {
         
         .dashboard-kpi-card .icon {
             width: 32px;
-            height: 32px;
+            height: 22px;
             font-size: clamp(16px, 1.2vw, 24px);
             display: flex;
             align-items: center;
