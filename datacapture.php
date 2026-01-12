@@ -6657,9 +6657,12 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!trimmed) return null;
             
             // 检查是否包含冒号和运算符（API-RETURN 格式的特征）
-            if (!trimmed.includes(':') || 
-                (!trimmed.includes('(') && !trimmed.includes('+') && !trimmed.includes('-') && 
-                 !trimmed.includes('*') && !trimmed.includes('/'))) {
+            // 注意：现在也支持没有冒号的情况（只有公式）
+            const hasColon = trimmed.includes(':');
+            const hasOperators = trimmed.includes('(') || trimmed.includes('+') || trimmed.includes('-') || 
+                                trimmed.includes('*') || trimmed.includes('/');
+            
+            if (!hasOperators) {
                 return null;
             }
             
@@ -6677,15 +6680,37 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
-            // 2. 提取表达式部分（冒号后的内容）
+            // 2. 提取表达式部分（冒号后的内容，如果没有冒号就是整个字符串）
             const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
             
-            // 3. 使用正则表达式提取所有数字（包括小数和负数）
-            // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
-            const numberPattern = /-?\d+\.\d+|-?\d+/g;
-            const numbers = expression.match(numberPattern);
+            // 3. 提取数字
+            // 如果表达式包含括号，说明是公式，需要正确处理减号（减号是运算符，不是负数符号）
+            let numbers = [];
+            if (expression.includes('(') || expression.includes(')')) {
+                // 公式格式：按运算符分割提取数字
+                let cleanFormula = expression.replace(/[()\s]/g, '');
+                const parts = cleanFormula.split(/([+\-*/])/);
+                
+                parts.forEach(part => {
+                    if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
+                        // 这是一个数字（可能是小数）
+                        const numMatch = part.match(/^\d+\.?\d*$/);
+                        if (numMatch) {
+                            numbers.push(numMatch[0]);
+                        }
+                    }
+                });
+            } else {
+                // 非公式格式：使用正则表达式提取所有数字（包括小数和负数）
+                // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
+                const numberPattern = /-?\d+\.\d+|-?\d+/g;
+                const matchedNumbers = expression.match(numberPattern);
+                if (matchedNumbers) {
+                    numbers = matchedNumbers;
+                }
+            }
             
-            if (numbers && numbers.length > 0) {
+            if (numbers.length > 0) {
                 // 将提取的数字添加到结果中
                 numbers.forEach(num => {
                     result.push(num);
@@ -9347,40 +9372,102 @@ if ($current_user_id && count($user_companies) > 0) {
                     let hasValidRow = false;
                     
                     if (hasTabSeparator) {
-                        // 如果包含制表符，按制表符分割，但需要检查 Description 列（通常是第9列，索引8）是否包含公式
+                        // 如果包含制表符，按制表符分割，检查所有列是否包含公式
                         for (let i = 0; i < lines.length; i++) {
                             const line = lines[i];
                             if (line.includes('\t')) {
                                 const cells = line.split('\t').map(c => c.trim());
                                 
-                                // 检查 Description 列（第9列，索引8）是否包含公式（有冒号和运算符）
-                                const descriptionIndex = 8; // 第9列的索引是8
-                                if (cells.length > descriptionIndex) {
-                                    const descriptionCell = cells[descriptionIndex] || '';
+                                // 处理所有列：去掉标签后的冒号（如 "abc:" -> "abc"）
+                                for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+                                    if (cells[colIndex] && cells[colIndex].endsWith(':') && !cells[colIndex].includes('(')) {
+                                        // 如果单元格以冒号结尾且不包含公式，去掉冒号
+                                        cells[colIndex] = cells[colIndex].slice(0, -1);
+                                    }
+                                }
+                                
+                                // 检查所有列，找到包含公式的列（有括号和运算符）
+                                for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+                                    const cell = cells[colIndex] || '';
                                     
-                                    // 检查是否包含公式特征：冒号和运算符
-                                    if (descriptionCell.includes(':') && 
-                                        (descriptionCell.includes('(') || descriptionCell.includes('+') || 
-                                         descriptionCell.includes('-') || descriptionCell.includes('*') || 
-                                         descriptionCell.includes('/'))) {
+                                    // 检查是否包含公式特征：括号和运算符（不一定需要冒号）
+                                    const hasFormula = (cell.includes('(') || cell.includes('+') || 
+                                                       cell.includes('-') || cell.includes('*') || 
+                                                       cell.includes('/')) && 
+                                                      (cell.includes('(') || cell.match(/\d/)); // 包含数字
+                                    
+                                    if (hasFormula) {
+                                        // 解析公式列
+                                        let parsedFormula = null;
                                         
-                                        // 解析 Description 列中的公式
-                                        const parsedDescription = parseApiReturnFormat(descriptionCell);
-                                        
-                                        if (parsedDescription && parsedDescription.columns && parsedDescription.columns.length > 0) {
-                                            // 将 Description 列替换为解析后的第一个元素（标签部分）
-                                            // 然后将解析后的数字插入到 Description 列之后
-                                            const parsedColumns = parsedDescription.columns;
+                                        // 如果有冒号，使用parseApiReturnFormat
+                                        if (cell.includes(':')) {
+                                            parsedFormula = parseApiReturnFormat(cell);
+                                        } else {
+                                            // 如果没有冒号，直接提取数字
+                                            // 需要正确处理减号：在公式中，减号是运算符，不是负数符号
+                                            // 例如 "(22.33+55.66-42*539/563)" 中的 "-42" 应该提取为 "42"
+                                            let numbers = [];
+                                            // 先移除所有括号和空格
+                                            let cleanFormula = cell.replace(/[()\s]/g, '');
+                                            // 按运算符分割，但保留运算符
+                                            const parts = cleanFormula.split(/([+\-*/])/);
                                             
-                                            // 替换 Description 列（第9列）为解析后的第一个元素（标签）
-                                            cells[descriptionIndex] = parsedColumns[0] || descriptionCell;
+                                            parts.forEach(part => {
+                                                if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
+                                                    // 这是一个数字（可能是小数）
+                                                    const numMatch = part.match(/^\d+\.?\d*$/);
+                                                    if (numMatch) {
+                                                        numbers.push(numMatch[0]);
+                                                    }
+                                                }
+                                            });
                                             
-                                            // 将解析后的其他元素（数字）插入到 Description 列之后
-                                            // 使用 splice 在 descriptionIndex + 1 位置插入
-                                            const numbersToInsert = parsedColumns.slice(1); // 跳过第一个元素（标签）
-                                            if (numbersToInsert.length > 0) {
-                                                cells.splice(descriptionIndex + 1, 0, ...numbersToInsert);
+                                            if (numbers.length > 0) {
+                                                parsedFormula = { columns: numbers };
                                             }
+                                        }
+                                        
+                                        if (parsedFormula && parsedFormula.columns && parsedFormula.columns.length > 0) {
+                                            const parsedColumns = parsedFormula.columns;
+                                            
+                                            // 如果有标签（第一个元素可能是标签），保留标签但去掉冒号
+                                            let label = '';
+                                            let numbersToInsert = [];
+                                            
+                                            if (parsedColumns.length > 0) {
+                                                // 检查第一个元素是否是标签（包含非数字字符）
+                                                const firstElement = parsedColumns[0];
+                                                if (firstElement && !/^-?\d+\.?\d*$/.test(firstElement)) {
+                                                    // 是标签，去掉冒号
+                                                    label = firstElement.replace(':', '');
+                                                    numbersToInsert = parsedColumns.slice(1);
+                                                } else {
+                                                    // 不是标签，都是数字
+                                                    numbersToInsert = parsedColumns;
+                                                }
+                                            }
+                                            
+                                            // 替换公式列为标签（如果有）
+                                            if (label) {
+                                                cells[colIndex] = label;
+                                            } else {
+                                                // 如果没有标签，移除公式列（后面会用数字替换）
+                                                cells[colIndex] = '';
+                                            }
+                                            
+                                            // 将解析后的数字插入到公式列之后
+                                            if (numbersToInsert.length > 0) {
+                                                // 如果公式列被清空，直接替换；否则插入
+                                                if (!label) {
+                                                    cells.splice(colIndex, 1, ...numbersToInsert);
+                                                } else {
+                                                    cells.splice(colIndex + 1, 0, ...numbersToInsert);
+                                                }
+                                            }
+                                            
+                                            // 处理完一个公式列后，跳出循环（一次只处理一个公式列）
+                                            break;
                                         }
                                     }
                                 }
