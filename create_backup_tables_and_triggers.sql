@@ -6,8 +6,11 @@
 -- 3. 创建事件调度器（每天自动清理7天前的备份数据）
 -- =============================================
 
--- 启用事件调度器
-SET GLOBAL event_scheduler = ON;
+-- 注意：启用事件调度器需要 SUPER 权限
+-- 如果当前用户没有 SUPER 权限，请让数据库管理员执行以下命令：
+-- SET GLOBAL event_scheduler = ON;
+-- 或者检查事件调度器是否已启用：
+-- SHOW VARIABLES LIKE 'event_scheduler';
 
 -- =============================================
 -- 第一部分：创建备份表
@@ -597,9 +600,16 @@ END;
 --    - 功能：删除所有备份表中 backup_created_at 超过7天的记录
 --
 -- 4. 重要提示：
---    - 请确保 MySQL 的事件调度器已启用：SET GLOBAL event_scheduler = ON;
 --    - 备份表使用自增ID作为主键，可以记录同一原表记录的所有变更历史
 --    - 7天后，所有超过7天的备份记录会被自动删除
 --    - 如果需要修改清理时间，可以修改事件调度器中的执行时间
+--
+-- 5. 权限说明：
+--    - 如果执行脚本时遇到 "Access denied; you need SUPER privilege" 错误：
+--      1. 让数据库管理员执行：SET GLOBAL event_scheduler = ON;
+--      2. 或者检查事件调度器是否已启用：SHOW VARIABLES LIKE 'event_scheduler';
+--      3. 如果无法启用事件调度器，可以手动执行清理SQL：
+--         DELETE FROM `data_captures_backup` WHERE `backup_created_at` < DATE_SUB(NOW(), INTERVAL 7 DAY);
+--         (对每个备份表执行相同的删除语句)
 -- =============================================
 
