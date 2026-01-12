@@ -1214,28 +1214,37 @@ try {
         let tempCompanies = [];
         
         // 计算到期日期
-        function calculateExpirationDate(period) {
-            const today = new Date();
-            const expDate = new Date(today);
+        // startDate: 可选的起始日期（YYYY-MM-DD格式），如果提供则从该日期开始计算，否则从今天开始
+        function calculateExpirationDate(period, startDate = null) {
+            let baseDate;
+            if (startDate) {
+                // 如果提供了起始日期，从该日期开始计算
+                baseDate = new Date(startDate);
+            } else {
+                // 如果没有提供起始日期，从今天开始计算
+                baseDate = new Date();
+            }
+            
+            const expDate = new Date(baseDate);
             
             switch(period) {
                 case '7days':
-                    expDate.setDate(today.getDate() + 7);
+                    expDate.setDate(baseDate.getDate() + 7);
                     break;
                 case '1month':
-                    expDate.setMonth(today.getMonth() + 1);
+                    expDate.setMonth(baseDate.getMonth() + 1);
                     break;
                 case '3months':
-                    expDate.setMonth(today.getMonth() + 3);
+                    expDate.setMonth(baseDate.getMonth() + 3);
                     break;
                 case '6months':
-                    expDate.setMonth(today.getMonth() + 6);
+                    expDate.setMonth(baseDate.getMonth() + 6);
                     break;
                 case '1year':
-                    expDate.setFullYear(today.getFullYear() + 1);
+                    expDate.setFullYear(baseDate.getFullYear() + 1);
                     break;
                 default:
-                    expDate.setMonth(today.getMonth() + 1);
+                    expDate.setMonth(baseDate.getMonth() + 1);
             }
             
             return expDate.toISOString().split('T')[0]; // 返回 YYYY-MM-DD 格式
@@ -1545,7 +1554,9 @@ try {
             }
             const company = tempCompanies.find(c => c.company_id === companyId);
             if (company) {
-                company.expiration_date = calculateExpirationDate(period);
+                // 如果公司已经有到期日期，从该日期继续加时间；否则从今天开始计算
+                const startDate = company.expiration_date || null;
+                company.expiration_date = calculateExpirationDate(period, startDate);
                 updateCompanyDisplay();
             }
         }
