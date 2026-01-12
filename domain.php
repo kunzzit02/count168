@@ -1552,6 +1552,10 @@ try {
             if (companyId.toUpperCase() === 'C168') {
                 return;
             }
+            // 如果选择的是占位符选项，不执行更新
+            if (!period || period === '') {
+                return;
+            }
             const company = tempCompanies.find(c => c.company_id === companyId);
             if (company) {
                 // 如果公司已经有到期日期，从该日期继续加时间；否则从今天开始计算
@@ -1613,11 +1617,12 @@ try {
                     // C168不显示到期日期选择器和日期显示
                     let expirationControls = '';
                     if (!isC168) {
-                        // 下拉框始终显示默认值（1 Month），不保持上次选择，这样每次选择都会触发change事件
+                        // 下拉框显示占位符选项，不默认选中任何期限，用户必须主动选择
                         expirationControls = `
                             <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
+                                <option value="" selected>Select...</option>
                                 <option value="7days">7 Days</option>
-                                <option value="1month" selected>1 Month</option>
+                                <option value="1month">1 Month</option>
                                 <option value="3months">3 Months</option>
                                 <option value="6months">6 Months</option>
                                 <option value="1year">1 Year</option>
