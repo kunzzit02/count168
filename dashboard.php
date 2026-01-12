@@ -389,7 +389,7 @@ if (isset($_GET['logout'])) {
             align-items: center;
             background: white;
             border: 1px solid #d1d5db;
-            border-radius: 8px;
+            border-radius: clamp(4px, 0.42vw, 8px);
             padding: clamp(2px, 0.31vw, 6px) clamp(0px, 0.21vw, 4px);
             gap: 0px;
             min-width: 100px;
@@ -601,7 +601,7 @@ if (isset($_GET['logout'])) {
 
         .btn {
             padding: clamp(5px, 0.42vw, 8px) clamp(10px, 0.83vw, 16px);
-            border-radius: 8px;
+            border-radius: clamp(4px, 0.42vw, 8px);
             border: none;
             cursor: pointer;
             font-size: clamp(8px, 0.73vw, 14px);
