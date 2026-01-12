@@ -1571,39 +1571,33 @@ try {
         // 处理select点击事件（用于支持重复选择相同选项）
         function handleCompanyExpirationClick(companyId, selectElement) {
             // 记录点击时的当前值
-            const currentValue = selectElement.value;
+            const clickedValue = selectElement.value;
             
-            // 当用户点击下拉菜单时，监听选项的点击
-            // 使用事件委托，在下拉菜单打开后监听option的mousedown事件
-            const handleOptionMouseDown = function(e) {
-                // 检查点击的是否是option元素
-                if (e.target.tagName === 'OPTION') {
-                    const clickedValue = e.target.value;
-                    
-                    // 如果点击的是当前选中的选项，强制触发更新
-                    if (clickedValue === currentValue) {
-                        // 先临时改变值，然后立即改回，强制触发onchange
-                        e.preventDefault();
-                        const tempValue = currentValue === '1year' ? '6months' : '1year';
-                        selectElement.value = tempValue;
-                        // 使用setTimeout确保值改变后再改回
-                        setTimeout(() => {
-                            selectElement.value = currentValue;
-                            // 手动触发change事件
-                            const changeEvent = new Event('change', { bubbles: true });
-                            selectElement.dispatchEvent(changeEvent);
-                        }, 0);
-                    }
+            // 监听change事件，如果值没有改变（用户选择了相同的选项），也执行更新
+            const handleChange = function() {
+                const newValue = selectElement.value;
+                // 如果值还是原来的值，说明用户选择了相同的选项
+                if (newValue === clickedValue) {
+                    // 直接执行更新
+                    updateCompanyExpiration(companyId, clickedValue);
                 }
+                // 移除事件监听器，避免重复执行
+                selectElement.removeEventListener('change', handleChange);
             };
             
-            // 在下拉菜单打开时添加事件监听
-            selectElement.addEventListener('focus', function() {
-                // 延迟添加，确保在下拉菜单打开后
-                setTimeout(() => {
-                    document.addEventListener('mousedown', handleOptionMouseDown, { once: true });
-                }, 0);
-            });
+            // 添加change事件监听器
+            selectElement.addEventListener('change', handleChange);
+            
+            // 如果用户选择了相同的选项，change事件不会触发，所以延迟检查
+            setTimeout(() => {
+                // 检查值是否还是原来的值，且change事件没有触发
+                if (selectElement.value === clickedValue) {
+                    // 值没有改变，用户可能选择了相同的选项，直接执行更新
+                    updateCompanyExpiration(companyId, clickedValue);
+                }
+                // 移除事件监听器
+                selectElement.removeEventListener('change', handleChange);
+            }, 300); // 延迟300ms检查，给change事件足够的时间触发
         }
         
         // 根据到期日期判断对应的期限选项
