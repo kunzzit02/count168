@@ -896,7 +896,7 @@ if (isset($_GET['logout'])) {
                             </div>
                         </div>
 
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; flex-direction: column; gap: clamp(0px, 0.21vw, 4px);">
                             <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
                                 <i class="fas fa-clock" style="color: #3b82f6;"></i>
                                 Quick Select
