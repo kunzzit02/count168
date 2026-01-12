@@ -362,7 +362,7 @@ if (isset($_GET['logout'])) {
             cursor: pointer;
             transition: all 0.2s;
             position: relative;
-            min-width: clamp(180px, 15.63vw, 300px);
+            min-width: clamp(140px, 12.5vw, 240px);
             z-index: 1;
         }
 
@@ -650,7 +650,7 @@ if (isset($_GET['logout'])) {
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
             z-index: 99999;
             padding: clamp(8px, 0.83vw, 16px);
-            min-width: clamp(140px, 12.5vw, 240px);
+            min-width: clamp(180px, 15.63vw, 300px);
             max-height: 350px;
             overflow: visible;
         }
