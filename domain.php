@@ -1620,7 +1620,7 @@ try {
                         // 下拉框显示占位符选项，不默认选中任何期限，用户必须主动选择
                         expirationControls = `
                             <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
-                                <option value="" selected>Select...</option>
+                                <option value="" selected>Select Period</option>
                                 <option value="7days">7 Days</option>
                                 <option value="1month">1 Month</option>
                                 <option value="3months">3 Months</option>
