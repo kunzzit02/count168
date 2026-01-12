@@ -1341,7 +1341,7 @@ if (isset($_GET['logout'])) {
             
                 // 重置上次请求参数，允许重新加载
                 lastRequestParams = null;
-            await loadData();
+            await loadData(true); // 立即执行
             } catch (error) {
                 console.error('Failed to update date range:', error);
                 showError('Failed to update date range');
@@ -1621,7 +1621,7 @@ if (isset($_GET['logout'])) {
                 updateDateDisplay('end');
                 lastRequestParams = null;
                 if (dateRange.startDate && dateRange.endDate && window.companyId) {
-                    await loadData();
+                    await loadData(true); // 立即执行
                 }
             }
         }
@@ -1662,7 +1662,7 @@ if (isset($_GET['logout'])) {
             }
             lastRequestParams = null;
             if (dateRange.startDate && dateRange.endDate && window.companyId) {
-                await loadData();
+                await loadData(true); // 立即执行
             }
         }
 
@@ -1772,7 +1772,7 @@ if (isset($_GET['logout'])) {
             if (dropdown) dropdown.classList.remove('show');
             lastRequestParams = null;
             if (dateRange.startDate && dateRange.endDate && window.companyId) {
-                await loadData();
+                await loadData(true); // 立即执行
             }
         }
 
@@ -1794,55 +1794,30 @@ if (isset($_GET['logout'])) {
         let isLoading = false; // 防止重复请求
         let lastRequestParams = null; // 记录上次请求参数，避免重复请求相同数据
         
-        async function loadData() {
-            // 清除之前的定时器
-            if (loadDataTimeout) {
-                clearTimeout(loadDataTimeout);
+        // 实际执行数据加载的函数
+        async function executeLoadData() {
+            if (!dateRange.startDate || !dateRange.endDate || !window.companyId) {
+                return;
             }
             
-            // 如果正在加载，直接返回
-            if (isLoading) {
-                return Promise.resolve();
-            }
-            
-            // 检查是否与上次请求参数相同
-            const currentParams = JSON.stringify({
+            // 检查参数是否仍然有效
+            const checkParams = JSON.stringify({
                 date_from: dateRange.startDate,
                 date_to: dateRange.endDate,
                 company_id: window.companyId
             });
-            if (lastRequestParams === currentParams) {
-                return Promise.resolve();
+            if (lastRequestParams === checkParams) {
+                return;
             }
             
-            // 使用防抖，延迟 500ms 执行（增加延迟时间，减少请求频率）
-            return new Promise((resolve) => {
-                loadDataTimeout = setTimeout(async () => {
-                    if (!dateRange.startDate || !dateRange.endDate || !window.companyId) {
-                            resolve();
-                            return;
-                        }
-                        
-                    // 检查参数是否仍然有效
-                    const checkParams = JSON.stringify({
-                        date_from: dateRange.startDate,
-                        date_to: dateRange.endDate,
-                        company_id: window.companyId
-                    });
-                    if (lastRequestParams === checkParams) {
-                        resolve();
-                        return;
-                    }
-                    
-                    // 如果页面不可见，不执行请求
-                    if (!isPageVisible) {
-                        resolve();
-                        return;
-                    }
-                    
-                    isLoading = true;
-                    lastRequestParams = checkParams;
-                    setLoadingState(true);
+            // 如果页面不可见，不执行请求
+            if (!isPageVisible) {
+                return;
+            }
+            
+            isLoading = true;
+            lastRequestParams = checkParams;
+            setLoadingState(true);
                     
                     try {
                         const queryParams = new URLSearchParams({
@@ -1894,9 +1869,42 @@ if (isset($_GET['logout'])) {
                     } finally {
                         isLoading = false;
                         setLoadingState(false);
-                        resolve();
                     }
-                }, 500); // 增加到 500ms
+        }
+        
+        async function loadData(immediate = false) {
+            // 清除之前的定时器
+            if (loadDataTimeout) {
+                clearTimeout(loadDataTimeout);
+                loadDataTimeout = null;
+            }
+            
+            // 如果正在加载，直接返回
+            if (isLoading) {
+                return Promise.resolve();
+            }
+            
+            // 检查是否与上次请求参数相同
+            const currentParams = JSON.stringify({
+                date_from: dateRange.startDate,
+                date_to: dateRange.endDate,
+                company_id: window.companyId
+            });
+            if (lastRequestParams === currentParams) {
+                return Promise.resolve();
+            }
+            
+            // 如果立即执行，跳过防抖
+            if (immediate) {
+                return executeLoadData();
+            }
+            
+            // 使用防抖，延迟 300ms 执行（仅在非立即模式下）
+            return new Promise((resolve) => {
+                loadDataTimeout = setTimeout(async () => {
+                    await executeLoadData();
+                    resolve();
+                }, 300);
             });
         }
         
@@ -2486,7 +2494,7 @@ if (isset($_GET['logout'])) {
                 lastRequestParams = null;
             
             // 重新加载数据
-            await loadData();
+            await loadData(true); // 切换公司时立即执行
             } catch (error) {
                 console.error('切换公司失败:', error);
                 showError('Error switching company');
