@@ -624,7 +624,7 @@ if (isset($_GET['logout'])) {
 
         .form-label {
             display: block;
-            font-size: clamp(8px, 0.74vw, 14px);
+            font-size: clamp(9px, 0.74vw, 14px);
             font-weight: bold;
             color: #000000ff;
             margin-bottom: 8px;
