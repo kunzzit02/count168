@@ -1516,10 +1516,11 @@ try {
                 return;
             }
             
-            // 添加新公司，默认1个月到期
+            // 添加新公司，C168不需要设置到期日期
+            const isC168 = companyId === 'C168';
             tempCompanies.push({
                 company_id: companyId,
-                expiration_date: calculateExpirationDate('1month')
+                expiration_date: isC168 ? null : calculateExpirationDate('1month')
             });
             updateCompanyDisplay();
             input.value = '';
@@ -1535,6 +1536,10 @@ try {
         }
         
         function updateCompanyExpiration(companyId, period) {
+            // C168不需要设置到期日期
+            if (companyId.toUpperCase() === 'C168') {
+                return;
+            }
             const company = tempCompanies.find(c => c.company_id === companyId);
             if (company) {
                 company.expiration_date = calculateExpirationDate(period);
@@ -1572,9 +1577,23 @@ try {
                 container.innerHTML = '<span style="color: #94a3b8; font-size: 11px;">No companies added yet</span>';
             } else {
                 container.innerHTML = tempCompanies.map(company => {
-                    const selectedPeriod = getPeriodFromDate(company.expiration_date);
                     const isC168 = company.company_id.toUpperCase() === 'C168';
                     const removeButton = isC168 ? '' : `<button type="button" class="company-remove-btn" onclick="removeCompanyFromList('${company.company_id}')">Remove</button>`;
+                    
+                    // C168不显示到期日期选择器和日期显示
+                    let expirationControls = '';
+                    if (!isC168) {
+                        const selectedPeriod = getPeriodFromDate(company.expiration_date);
+                        expirationControls = `
+                            <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
+                                <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
+                                <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
+                                <option value="6months" ${selectedPeriod === '6months' ? 'selected' : ''}>6 Months</option>
+                                <option value="1year" ${selectedPeriod === '1year' ? 'selected' : ''}>1 Year</option>
+                            </select>
+                            <span class="exp-date-display">${formatDate(company.expiration_date)}</span>
+                        `;
+                    }
                     
                     return `
                         <div class="company-item">
@@ -1582,13 +1601,7 @@ try {
                                 <span>${company.company_id}</span>
                             </div>
                             <div class="company-item-right">
-                                <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
-                                    <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
-                                    <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
-                                    <option value="6months" ${selectedPeriod === '6months' ? 'selected' : ''}>6 Months</option>
-                                    <option value="1year" ${selectedPeriod === '1year' ? 'selected' : ''}>1 Year</option>
-                                </select>
-                                <span class="exp-date-display">${formatDate(company.expiration_date)}</span>
+                                ${expirationControls}
                                 ${removeButton}
                             </div>
                         </div>
