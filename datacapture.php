@@ -9708,6 +9708,358 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
+            // 4.RETURN 专用解析（使用与 API-RETURN 相同的格式处理逻辑）
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '4.RETURN') {
+                // 检查是否是多行数据
+                const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                
+                // 如果是多行数据，逐行处理
+                if (lines.length > 1) {
+                    // 检查是否包含制表符（标准表格格式）
+                    const hasTabSeparator = lines.some(line => line.includes('\t'));
+                    
+                    const dataMatrix = [];
+                    let maxCols = 0;
+                    let hasValidRow = false;
+                    
+                    if (hasTabSeparator) {
+                        // 如果包含制表符，按制表符分割，检查所有列是否包含公式
+                        for (let i = 0; i < lines.length; i++) {
+                            const line = lines[i];
+                            if (line.includes('\t')) {
+                                const cells = line.split('\t').map(c => c.trim());
+                                
+                                // 处理所有列：去掉标签后的冒号（如 "abc:" -> "abc"）
+                                for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+                                    if (cells[colIndex] && cells[colIndex].endsWith(':') && !cells[colIndex].includes('(')) {
+                                        // 如果单元格以冒号结尾且不包含公式，去掉冒号
+                                        cells[colIndex] = cells[colIndex].slice(0, -1);
+                                    }
+                                }
+                                
+                                // 检查所有列，找到包含公式的列（有括号和运算符）
+                                for (let colIndex = 0; colIndex < cells.length; colIndex++) {
+                                    const cell = cells[colIndex] || '';
+                                    
+                                    // 检查是否包含公式特征：括号和运算符（不一定需要冒号）
+                                    const hasFormula = (cell.includes('(') || cell.includes('+') || 
+                                                       cell.includes('-') || cell.includes('*') || 
+                                                       cell.includes('/')) && 
+                                                      (cell.includes('(') || cell.match(/\d/)); // 包含数字
+                                    
+                                    if (hasFormula) {
+                                        // 解析公式列
+                                        let parsedFormula = null;
+                                        
+                                        // 如果有冒号，使用parseApiReturnFormat
+                                        if (cell.includes(':')) {
+                                            parsedFormula = parseApiReturnFormat(cell);
+                                        } else {
+                                            // 如果没有冒号，直接提取数字
+                                            // 需要正确处理减号：在公式中，减号是运算符，不是负数符号
+                                            // 例如 "(22.33+55.66-42*539/563)" 中的 "-42" 应该提取为 "42"
+                                            let numbers = [];
+                                            // 先移除所有括号和空格
+                                            let cleanFormula = cell.replace(/[()\s]/g, '');
+                                            // 按运算符分割，但保留运算符
+                                            const parts = cleanFormula.split(/([+\-*/])/);
+                                            
+                                            parts.forEach(part => {
+                                                if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
+                                                    // 这是一个数字（可能是小数）
+                                                    const numMatch = part.match(/^\d+\.?\d*$/);
+                                                    if (numMatch) {
+                                                        numbers.push(numMatch[0]);
+                                                    }
+                                                }
+                                            });
+                                            
+                                            if (numbers.length > 0) {
+                                                parsedFormula = { columns: numbers };
+                                            }
+                                        }
+                                        
+                                        if (parsedFormula && parsedFormula.columns && parsedFormula.columns.length > 0) {
+                                            const parsedColumns = parsedFormula.columns;
+                                            
+                                            // 如果有标签（第一个元素可能是标签），保留标签但去掉冒号
+                                            let label = '';
+                                            let numbersToInsert = [];
+                                            
+                                            if (parsedColumns.length > 0) {
+                                                // 检查第一个元素是否是标签（包含非数字字符）
+                                                const firstElement = parsedColumns[0];
+                                                if (firstElement && !/^-?\d+\.?\d*$/.test(firstElement)) {
+                                                    // 是标签，去掉冒号
+                                                    label = firstElement.replace(':', '');
+                                                    numbersToInsert = parsedColumns.slice(1);
+                                                } else {
+                                                    // 不是标签，都是数字
+                                                    numbersToInsert = parsedColumns;
+                                                }
+                                            }
+                                            
+                                            // 替换公式列为标签（如果有）
+                                            if (label) {
+                                                cells[colIndex] = label;
+                                            } else {
+                                                // 如果没有标签，移除公式列（后面会用数字替换）
+                                                cells[colIndex] = '';
+                                            }
+                                            
+                                            // 将解析后的数字插入到公式列之后
+                                            if (numbersToInsert.length > 0) {
+                                                // 如果公式列被清空，直接替换；否则插入
+                                                if (!label) {
+                                                    cells.splice(colIndex, 1, ...numbersToInsert);
+                                                } else {
+                                                    cells.splice(colIndex + 1, 0, ...numbersToInsert);
+                                                }
+                                            }
+                                            
+                                            // 处理完一个公式列后，跳出循环（一次只处理一个公式列）
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                dataMatrix.push(cells);
+                                maxCols = Math.max(maxCols, cells.length);
+                                hasValidRow = true;
+                            } else if (line !== '') {
+                                // 没有制表符但非空，作为单列数据
+                                dataMatrix.push([line]);
+                                maxCols = Math.max(maxCols, 1);
+                                hasValidRow = true;
+                            }
+                        }
+                    } else {
+                        // 没有制表符，尝试使用 API-RETURN 格式解析每一行
+                        for (let i = 0; i < lines.length; i++) {
+                            const line = lines[i];
+                            
+                            // 先尝试表格格式解析（单行）
+                            let apiReturnParsed = parseApiReturnTableFormat(line);
+                            
+                            // 如果表格格式解析失败，尝试单行格式解析
+                            if (!apiReturnParsed) {
+                                apiReturnParsed = parseApiReturnFormat(line);
+                            }
+                            
+                            if (apiReturnParsed) {
+                                const { columns } = apiReturnParsed;
+                                dataMatrix.push(columns);
+                                maxCols = Math.max(maxCols, columns.length);
+                                hasValidRow = true;
+                            } else if (line !== '') {
+                                // 无法解析的行，作为单列数据
+                                dataMatrix.push([line]);
+                                maxCols = Math.max(maxCols, 1);
+                                hasValidRow = true;
+                            }
+                        }
+                    }
+                    
+                    // 确保所有行都有相同的列数
+                    dataMatrix.forEach(row => {
+                        while (row.length < maxCols) {
+                            row.push('');
+                        }
+                    });
+                    
+                    if (hasValidRow && dataMatrix.length > 0 && maxCols > 0) {
+                        const startCell = e.target;
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = parseInt(startCell.dataset.col);
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + dataMatrix.length;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
+                            
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                                
+                                if (cell && cell.contentEditable === 'true') {
+                                    const trimmedData = (cellData || '').trim();
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: trimmedData
+                                    });
+                                    
+                                    cell.textContent = trimmedData;
+                                    if (trimmedData) {
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)! 按 Ctrl+Z 可撤销`, 'success');
+                        } else {
+                            showNotification('No cells were pasted from 4.RETURN format.', 'danger');
+                        }
+                        
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
+                    }
+                } else {
+                    // 单行数据处理：保留所有列，只解析公式列
+                    // 先尝试表格格式解析（多列数据，包含 Description 列）
+                    let apiReturnParsed = parseApiReturnTableFormat(pastedData);
+                    
+                    if (!apiReturnParsed) {
+                        // 如果表格格式解析失败，尝试通用单行处理：按空格分割，保留所有列，只解析公式列
+                        const trimmed = pastedData.trim();
+                        if (trimmed) {
+                            // 按空格分割所有列
+                            const columns = trimmed.split(/\s+/).filter(c => c.trim() !== '');
+                            
+                            if (columns.length > 0) {
+                                // 处理所有列：去掉标签后的冒号
+                                for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+                                    if (columns[colIndex] && columns[colIndex].endsWith(':') && !columns[colIndex].includes('(')) {
+                                        columns[colIndex] = columns[colIndex].slice(0, -1);
+                                    }
+                                }
+                                
+                                // 检查所有列，找到包含公式的列
+                                let hasFormula = false;
+                                for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+                                    const cell = columns[colIndex] || '';
+                                    
+                                    // 检查是否包含公式特征：括号和运算符
+                                    const isFormula = (cell.includes('(') || cell.includes('+') || 
+                                                       cell.includes('-') || cell.includes('*') || 
+                                                       cell.includes('/')) && 
+                                                      (cell.includes('(') || cell.match(/\d/));
+                                    
+                                    if (isFormula) {
+                                        hasFormula = true;
+                                        // 解析公式列
+                                        let numbers = [];
+                                        // 先移除所有括号和空格
+                                        let cleanFormula = cell.replace(/[()\s]/g, '');
+                                        // 按运算符分割
+                                        const parts = cleanFormula.split(/([+\-*/])/);
+                                        
+                                        parts.forEach(part => {
+                                            if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
+                                                const numMatch = part.match(/^\d+\.?\d*$/);
+                                                if (numMatch) {
+                                                    numbers.push(numMatch[0]);
+                                                }
+                                            }
+                                        });
+                                        
+                                        if (numbers.length > 0) {
+                                            // 用数字替换公式列
+                                            columns.splice(colIndex, 1, ...numbers);
+                                        }
+                                        // 处理完一个公式列后，跳出循环（一次只处理一个公式列）
+                                        break;
+                                    }
+                                }
+                                
+                                if (hasFormula || columns.length > 0) {
+                                    apiReturnParsed = {
+                                        columns: columns,
+                                        columnCount: columns.length
+                                    };
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (apiReturnParsed) {
+                        const { columns, columnCount } = apiReturnParsed;
+                        
+                        const startCell = e.target;
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = parseInt(startCell.dataset.col);
+                        
+                        // 确保表格有足够的列
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredCols = startCol + columnCount;
+                        
+                        if (requiredCols > currentCols) {
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(currentRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const tableRow = tableBody.children[startRow];
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        columns.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: startRow,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                // 保持原始格式，不做任何转换
+                                cell.textContent = trimmedData;
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`Successfully pasted ${successCount} cells in ${columnCount} columns!`, 'success');
+                        } else {
+                            showNotification('No cells were pasted from 4.RETURN format.', 'danger');
+                        }
+                        
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
+                    }
+                }
+            }
+            
             const loweredForDetect = (pastedData || '').toLowerCase();
             const isPaymentReportLike =
                 loweredForDetect.includes('downline payment') &&
