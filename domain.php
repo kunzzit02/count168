@@ -1561,6 +1561,51 @@ try {
             }
         }
         
+        // 处理公司到期日期选择变化（支持重复选择相同选项）
+        function handleCompanyExpirationChange(companyId, selectElement) {
+            const period = selectElement.value;
+            // 直接执行更新
+            updateCompanyExpiration(companyId, period);
+        }
+        
+        // 处理select点击事件（用于支持重复选择相同选项）
+        function handleCompanyExpirationClick(companyId, selectElement) {
+            // 记录点击时的当前值
+            const currentValue = selectElement.value;
+            
+            // 当用户点击下拉菜单时，监听选项的点击
+            // 使用事件委托，在下拉菜单打开后监听option的mousedown事件
+            const handleOptionMouseDown = function(e) {
+                // 检查点击的是否是option元素
+                if (e.target.tagName === 'OPTION') {
+                    const clickedValue = e.target.value;
+                    
+                    // 如果点击的是当前选中的选项，强制触发更新
+                    if (clickedValue === currentValue) {
+                        // 先临时改变值，然后立即改回，强制触发onchange
+                        e.preventDefault();
+                        const tempValue = currentValue === '1year' ? '6months' : '1year';
+                        selectElement.value = tempValue;
+                        // 使用setTimeout确保值改变后再改回
+                        setTimeout(() => {
+                            selectElement.value = currentValue;
+                            // 手动触发change事件
+                            const changeEvent = new Event('change', { bubbles: true });
+                            selectElement.dispatchEvent(changeEvent);
+                        }, 0);
+                    }
+                }
+            };
+            
+            // 在下拉菜单打开时添加事件监听
+            selectElement.addEventListener('focus', function() {
+                // 延迟添加，确保在下拉菜单打开后
+                setTimeout(() => {
+                    document.addEventListener('mousedown', handleOptionMouseDown, { once: true });
+                }, 0);
+            });
+        }
+        
         // 根据到期日期判断对应的期限选项
         function getPeriodFromDate(expirationDate) {
             if (!expirationDate) return '1month';
@@ -1615,7 +1660,7 @@ try {
                     if (!isC168) {
                         const selectedPeriod = getPeriodFromDate(company.expiration_date);
                         expirationControls = `
-                            <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
+                            <select class="company-exp-select" onchange="handleCompanyExpirationChange('${company.company_id}', this)" onclick="handleCompanyExpirationClick('${company.company_id}', this)">
                                 <option value="7days" ${selectedPeriod === '7days' ? 'selected' : ''}>7 Days</option>
                                 <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
                                 <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
