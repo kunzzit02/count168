@@ -1183,7 +1183,7 @@ try {
                     <div class="form-group">
                         <label>Companies</label>
                         <button type="button" class="btn btn-add" onclick="openCompanyModal()" style="width: 100%;">Manage Companies</button>
-                        <div id="selectedCompaniesDisplay" style="margin-top: 10px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; min-height: 40px; background: #f9fafb;">
+                        <div id="selectedCompaniesDisplay" style="margin-top: 10px; padding: clamp(4px, 0.52vw, 10px); border: 1px solid #e5e7eb; border-radius: 8px; min-height: 40px; background: #f9fafb;">
                             <span style="color: #94a3b8; font-size: 12px;">No companies selected</span>
                         </div>
                         <input type="hidden" id="companies" name="companies">
