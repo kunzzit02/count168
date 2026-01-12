@@ -1547,31 +1547,6 @@ try {
             updateCompanyDisplay();
         }
         
-        // 处理公司到期日期选择变化
-        function handleCompanyExpirationChange(companyId, selectElement) {
-            const period = selectElement.value;
-            updateCompanyExpiration(companyId, period);
-            
-            // 更新显示后，找到新的 select 元素并重置它的值，确保下次选择相同选项时也能触发
-            setTimeout(() => {
-                // 找到对应的公司项
-                const companyItem = Array.from(document.querySelectorAll('.company-item')).find(item => {
-                    return item.querySelector('.company-item-left span').textContent.trim() === companyId;
-                });
-                if (companyItem) {
-                    const newSelect = companyItem.querySelector('.company-exp-select');
-                    if (newSelect) {
-                        const currentValue = newSelect.value;
-                        // 临时设置为空，然后立即设置回原值，这样下次选择相同选项时也会触发 onchange
-                        newSelect.value = '';
-                        setTimeout(() => {
-                            newSelect.value = currentValue;
-                        }, 0);
-                    }
-                }
-            }, 50);
-        }
-        
         function updateCompanyExpiration(companyId, period) {
             // C168不需要设置到期日期
             if (companyId.toUpperCase() === 'C168') {
@@ -1640,7 +1615,7 @@ try {
                     if (!isC168) {
                         const selectedPeriod = getPeriodFromDate(company.expiration_date);
                         expirationControls = `
-                            <select class="company-exp-select" onchange="handleCompanyExpirationChange('${company.company_id}', this)">
+                            <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
                                 <option value="7days" ${selectedPeriod === '7days' ? 'selected' : ''}>7 Days</option>
                                 <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
                                 <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
