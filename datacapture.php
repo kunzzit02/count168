@@ -6666,14 +6666,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 return null;
             }
             
-            // 如果包含多个空格分隔的部分（超过3个），说明不是纯公式格式，应该由智能分割处理
-            // 例如："abc: qw ed ws (22.33+55.66-42*539/563) 4" 有6个部分，不应该用这个函数解析
-            const partsCount = trimmed.split(/\s+/).length;
-            if (partsCount > 3) {
-                // 多个部分，让智能分割处理
-                return null;
-            }
-            
             console.log('Using API-RETURN format parser');
             console.log('Input:', trimmed);
             
@@ -9587,153 +9579,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     }
                 } else {
-                    // 单行数据处理：智能分割并解析公式
-                    // 处理格式如："abc: qw ed ws (22.33+55.66-42*539/563) 4"
-                    // 应该分割成：abc, qw, ed, ws, 22.33, 55.66, 42, 539, 563, 4
+                    // 单行数据处理（原有逻辑）
+                    // 先尝试表格格式解析（多列数据，包含 Description 列）
+                    let apiReturnParsed = parseApiReturnTableFormat(pastedData);
                     
-                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
-                    
-                    if (lines.length === 1) {
-                        const singleLine = lines[0];
-                        
-                        // 先尝试表格格式解析（多列数据，包含 Description 列）
-                        let apiReturnParsed = parseApiReturnTableFormat(singleLine);
-                        
-                        // 如果表格格式解析失败，尝试智能分割
-                        // 检查是否包含多个空格分隔的部分（说明不是纯公式格式）
-                        const partsCount = singleLine.split(/\s+/).length;
-                        const hasMultipleParts = partsCount > 3;
-                        
-                        console.log('API-RETURN: Single line detected, parts count:', partsCount, 'hasMultipleParts:', hasMultipleParts);
-                        
-                        if (!apiReturnParsed && hasMultipleParts) {
-                            console.log('API-RETURN: Using smart split logic');
-                            // 按空格分割，但需要智能处理公式部分
-                            const parts = [];
-                            let currentPart = '';
-                            let inFormula = false;
-                            let parenCount = 0;
-                            
-                            for (let i = 0; i < singleLine.length; i++) {
-                                const char = singleLine[i];
-                                
-                                if (char === '(') {
-                                    if (currentPart.trim()) {
-                                        parts.push(currentPart.trim());
-                                        currentPart = '';
-                                    }
-                                    inFormula = true;
-                                    parenCount = 1;
-                                    currentPart = char;
-                                } else if (char === ')') {
-                                    currentPart += char;
-                                    parenCount--;
-                                    if (parenCount === 0) {
-                                        // 公式结束
-                                        parts.push(currentPart.trim());
-                                        currentPart = '';
-                                        inFormula = false;
-                                    }
-                                } else if (inFormula) {
-                                    currentPart += char;
-                                    if (char === '(') parenCount++;
-                                } else if (char === ' ' || char === '\t') {
-                                    if (currentPart.trim()) {
-                                        parts.push(currentPart.trim());
-                                        currentPart = '';
-                                    }
-                                } else {
-                                    currentPart += char;
-                                }
-                            }
-                            
-                            if (currentPart.trim()) {
-                                parts.push(currentPart.trim());
-                            }
-                            
-                            // 处理每个部分：找到公式并解析
-                            const finalColumns = [];
-                            
-                            for (let i = 0; i < parts.length; i++) {
-                                const part = parts[i];
-                                
-                                // 检查是否是公式（包含括号和运算符）
-                                const isFormula = (part.includes('(') || part.includes('+') || 
-                                                  part.includes('-') || part.includes('*') || 
-                                                  part.includes('/')) && 
-                                                 (part.includes('(') || part.match(/\d/));
-                                
-                                if (isFormula) {
-                                    // 解析公式
-                                    let formulaNumbers = [];
-                                    
-                                    // 如果有冒号，使用parseApiReturnFormat
-                                    if (part.includes(':')) {
-                                        const parsed = parseApiReturnFormat(part);
-                                        if (parsed && parsed.columns) {
-                                            // 第一个可能是标签，后面的都是数字
-                                            const cols = parsed.columns;
-                                            if (cols.length > 0) {
-                                                const first = cols[0];
-                                                // 检查第一个是否是标签
-                                                if (first && !/^-?\d+\.?\d*$/.test(first)) {
-                                                    // 是标签，去掉冒号
-                                                    finalColumns.push(first.replace(':', ''));
-                                                    formulaNumbers = cols.slice(1);
-                                                } else {
-                                                    formulaNumbers = cols;
-                                                }
-                                            }
-                                        }
-                                    } else {
-                                        // 没有冒号，直接提取数字
-                                        let cleanFormula = part.replace(/[()\s]/g, '');
-                                        const formulaParts = cleanFormula.split(/([+\-*/])/);
-                                        
-                                        formulaParts.forEach(formulaPart => {
-                                            if (formulaPart && formulaPart !== '+' && formulaPart !== '-' && 
-                                                formulaPart !== '*' && formulaPart !== '/') {
-                                                const numMatch = formulaPart.match(/^\d+\.?\d*$/);
-                                                if (numMatch) {
-                                                    formulaNumbers.push(numMatch[0]);
-                                                }
-                                            }
-                                        });
-                                    }
-                                    
-                                    // 添加解析后的数字
-                                    formulaNumbers.forEach(num => {
-                                        finalColumns.push(num);
-                                    });
-                                } else {
-                                    // 不是公式，直接添加（去掉末尾的冒号）
-                                    let cleanPart = part;
-                                    if (cleanPart.endsWith(':') && !cleanPart.includes('(')) {
-                                        cleanPart = cleanPart.slice(0, -1);
-                                    }
-                                    finalColumns.push(cleanPart);
-                                }
-                            }
-                            
-                            if (finalColumns.length > 0) {
-                                console.log('API-RETURN: Smart split result:', finalColumns);
-                                apiReturnParsed = {
-                                    columns: finalColumns,
-                                    columnCount: finalColumns.length
-                                };
-                            } else {
-                                console.log('API-RETURN: Smart split failed, trying parseApiReturnFormat');
-                                // 如果智能分割失败，尝试原有的单行格式解析
-                                apiReturnParsed = parseApiReturnFormat(singleLine);
-                            }
-                        } else if (!apiReturnParsed) {
-                            console.log('API-RETURN: No multiple parts, trying parseApiReturnFormat');
-                            // 如果智能分割条件不满足，尝试原有的单行格式解析
-                            apiReturnParsed = parseApiReturnFormat(singleLine);
-                        }
-                    } else {
-                        // 多行数据，使用原有逻辑
+                    // 如果表格格式解析失败，尝试单行格式解析（仅 Description 列）
+                    if (!apiReturnParsed) {
                         apiReturnParsed = parseApiReturnFormat(pastedData);
                     }
                     
