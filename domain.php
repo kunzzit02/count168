@@ -1526,6 +1526,10 @@ try {
         }
         
         function removeCompanyFromList(companyId) {
+            // 不允许删除C168
+            if (companyId.toUpperCase() === 'C168') {
+                return;
+            }
             tempCompanies = tempCompanies.filter(c => c.company_id !== companyId);
             updateCompanyDisplay();
         }
@@ -1569,6 +1573,8 @@ try {
             } else {
                 container.innerHTML = tempCompanies.map(company => {
                     const selectedPeriod = getPeriodFromDate(company.expiration_date);
+                    const isC168 = company.company_id.toUpperCase() === 'C168';
+                    const removeButton = isC168 ? '' : `<button type="button" class="company-remove-btn" onclick="removeCompanyFromList('${company.company_id}')">Remove</button>`;
                     
                     return `
                         <div class="company-item">
@@ -1583,7 +1589,7 @@ try {
                                     <option value="1year" ${selectedPeriod === '1year' ? 'selected' : ''}>1 Year</option>
                                 </select>
                                 <span class="exp-date-display">${formatDate(company.expiration_date)}</span>
-                                <button type="button" class="company-remove-btn" onclick="removeCompanyFromList('${company.company_id}')">Remove</button>
+                                ${removeButton}
                             </div>
                         </div>
                     `;
