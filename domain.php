@@ -1147,7 +1147,7 @@ try {
         <div class="modal-content" style="max-width: 700px;">
             <span class="close" onclick="closeModal()">&times;</span>
             <h2 id="modalTitle">Add Domain</h2>
-            <div class="modal-body" style="display: block; padding: 20px 32px;">
+            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);">
                 <!-- Domain Info -->
                 <div class="domain-info-panel" style="flex: 1;">
                     <h3>Domain Information</h3>
