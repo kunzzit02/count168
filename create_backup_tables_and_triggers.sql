@@ -196,69 +196,94 @@ CREATE TABLE IF NOT EXISTS `transaction_entry_backup` (
 -- =============================================
 -- 第二部分：创建额外索引（优化查询性能）
 -- 注意：主键和基本索引已在表创建时定义，这里只添加额外索引
+-- 如果索引已存在，会先删除再创建，避免重复键名错误
 -- =============================================
 
+DELIMITER $$
+
+-- 创建辅助存储过程：安全地添加索引（如果不存在则添加）
+DROP PROCEDURE IF EXISTS `sp_add_index_if_not_exists`$$
+CREATE PROCEDURE `sp_add_index_if_not_exists`(
+  IN p_table_name VARCHAR(64),
+  IN p_index_name VARCHAR(64),
+  IN p_index_columns VARCHAR(255)
+)
+BEGIN
+  DECLARE v_index_exists INT DEFAULT 0;
+  
+  SELECT COUNT(*) INTO v_index_exists
+  FROM information_schema.statistics
+  WHERE table_schema = DATABASE()
+    AND table_name = p_table_name
+    AND index_name = p_index_name;
+  
+  IF v_index_exists = 0 THEN
+    SET @sql = CONCAT('ALTER TABLE `', p_table_name, '` ADD KEY `', p_index_name, '` (', p_index_columns, ')');
+    PREPARE stmt FROM @sql;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+  END IF;
+END$$
+
+DELIMITER ;
+
 -- data_captures_backup 额外索引
-ALTER TABLE `data_captures_backup`
-  ADD KEY `idx_process` (`process_id`),
-  ADD KEY `idx_currency` (`currency_id`),
-  ADD KEY `idx_capture_date` (`capture_date`),
-  ADD KEY `idx_user_type_created_by` (`user_type`,`created_by`),
-  ADD KEY `idx_company_id` (`company_id`);
+CALL sp_add_index_if_not_exists('data_captures_backup', 'idx_process', '`process_id`');
+CALL sp_add_index_if_not_exists('data_captures_backup', 'idx_currency', '`currency_id`');
+CALL sp_add_index_if_not_exists('data_captures_backup', 'idx_capture_date', '`capture_date`');
+CALL sp_add_index_if_not_exists('data_captures_backup', 'idx_user_type_created_by', '`user_type`,`created_by`');
+CALL sp_add_index_if_not_exists('data_captures_backup', 'idx_company_id', '`company_id`');
 
 -- data_capture_details_backup 额外索引
-ALTER TABLE `data_capture_details_backup`
-  ADD KEY `idx_capture` (`capture_id`),
-  ADD KEY `idx_account` (`account_id`),
-  ADD KEY `idx_product_type` (`product_type`),
-  ADD KEY `idx_formula_variant` (`capture_id`,`id_product`,`account_id`,`formula_variant`),
-  ADD KEY `idx_company_id` (`company_id`);
+CALL sp_add_index_if_not_exists('data_capture_details_backup', 'idx_capture', '`capture_id`');
+CALL sp_add_index_if_not_exists('data_capture_details_backup', 'idx_account', '`account_id`');
+CALL sp_add_index_if_not_exists('data_capture_details_backup', 'idx_product_type', '`product_type`');
+CALL sp_add_index_if_not_exists('data_capture_details_backup', 'idx_formula_variant', '`capture_id`,`id_product`,`account_id`,`formula_variant`');
+CALL sp_add_index_if_not_exists('data_capture_details_backup', 'idx_company_id', '`company_id`');
 
 -- data_capture_templates_backup 额外索引
-ALTER TABLE `data_capture_templates_backup`
-  ADD KEY `idx_data_capture_id` (`data_capture_id`),
-  ADD KEY `idx_company_id` (`company_id`),
-  ADD KEY `idx_process_id` (`process_id`);
+CALL sp_add_index_if_not_exists('data_capture_templates_backup', 'idx_data_capture_id', '`data_capture_id`');
+CALL sp_add_index_if_not_exists('data_capture_templates_backup', 'idx_company_id', '`company_id`');
+CALL sp_add_index_if_not_exists('data_capture_templates_backup', 'idx_process_id', '`process_id`');
 
 -- transactions_backup 额外索引
-ALTER TABLE `transactions_backup`
-  ADD KEY `idx_account_date` (`account_id`,`transaction_date`),
-  ADD KEY `idx_from_account_date` (`from_account_id`,`transaction_date`),
-  ADD KEY `idx_transaction_date` (`transaction_date`),
-  ADD KEY `idx_transaction_type` (`transaction_type`),
-  ADD KEY `idx_created_by` (`created_by`),
-  ADD KEY `idx_created_by_owner` (`created_by_owner`),
-  ADD KEY `idx_currency_id` (`currency_id`),
-  ADD KEY `idx_transactions_company` (`company_id`);
+CALL sp_add_index_if_not_exists('transactions_backup', 'idx_account_date', '`account_id`,`transaction_date`');
+CALL sp_add_index_if_not_exists('transactions_backup', 'idx_from_account_date', '`from_account_id`,`transaction_date`');
+CALL sp_add_index_if_not_exists('transactions_backup', 'idx_transaction_date', '`transaction_date`');
+CALL sp_add_index_if_not_exists('transactions_backup', 'idx_transaction_type', '`transaction_type`');
+CALL sp_add_index_if_not_exists('transactions_backup', 'idx_created_by', '`created_by`');
+CALL sp_add_index_if_not_exists('transactions_backup', 'idx_created_by_owner', '`created_by_owner`');
+CALL sp_add_index_if_not_exists('transactions_backup', 'idx_currency_id', '`currency_id`');
+CALL sp_add_index_if_not_exists('transactions_backup', 'idx_transactions_company', '`company_id`');
 
 -- transactions_rate_backup 额外索引
-ALTER TABLE `transactions_rate_backup`
-  ADD KEY `rate_transfer_from_account_id` (`rate_transfer_from_account_id`),
-  ADD KEY `rate_transfer_to_account_id` (`rate_transfer_to_account_id`),
-  ADD KEY `rate_middleman_account_id` (`rate_middleman_account_id`),
-  ADD KEY `rate_from_currency_id` (`rate_from_currency_id`),
-  ADD KEY `rate_to_currency_id` (`rate_to_currency_id`),
-  ADD KEY `idx_transaction_id` (`transaction_id`),
-  ADD KEY `idx_rate_group_id` (`rate_group_id`),
-  ADD KEY `idx_rate_from_account` (`rate_from_account_id`),
-  ADD KEY `idx_rate_to_account` (`rate_to_account_id`),
-  ADD KEY `idx_rate_company` (`company_id`);
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'rate_transfer_from_account_id', '`rate_transfer_from_account_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'rate_transfer_to_account_id', '`rate_transfer_to_account_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'rate_middleman_account_id', '`rate_middleman_account_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'rate_from_currency_id', '`rate_from_currency_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'rate_to_currency_id', '`rate_to_currency_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'idx_transaction_id', '`transaction_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'idx_rate_group_id', '`rate_group_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'idx_rate_from_account', '`rate_from_account_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'idx_rate_to_account', '`rate_to_account_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_backup', 'idx_rate_company', '`company_id`');
 
 -- transactions_rate_details_backup 额外索引
-ALTER TABLE `transactions_rate_details_backup`
-  ADD KEY `from_account_id` (`from_account_id`),
-  ADD KEY `currency_id` (`currency_id`),
-  ADD KEY `idx_rate_group_id` (`rate_group_id`),
-  ADD KEY `idx_transaction_id` (`transaction_id`),
-  ADD KEY `idx_account_id` (`account_id`),
-  ADD KEY `idx_rate_details_company` (`company_id`);
+CALL sp_add_index_if_not_exists('transactions_rate_details_backup', 'from_account_id', '`from_account_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_details_backup', 'currency_id', '`currency_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_details_backup', 'idx_rate_group_id', '`rate_group_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_details_backup', 'idx_transaction_id', '`transaction_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_details_backup', 'idx_account_id', '`account_id`');
+CALL sp_add_index_if_not_exists('transactions_rate_details_backup', 'idx_rate_details_company', '`company_id`');
 
 -- transaction_entry_backup 额外索引
-ALTER TABLE `transaction_entry_backup`
-  ADD KEY `idx_header` (`header_id`),
-  ADD KEY `idx_account_currency_date` (`account_id`,`currency_id`,`created_at`),
-  ADD KEY `fk_entry_currency` (`currency_id`),
-  ADD KEY `idx_entry_company` (`company_id`);
+CALL sp_add_index_if_not_exists('transaction_entry_backup', 'idx_header', '`header_id`');
+CALL sp_add_index_if_not_exists('transaction_entry_backup', 'idx_account_currency_date', '`account_id`,`currency_id`,`created_at`');
+CALL sp_add_index_if_not_exists('transaction_entry_backup', 'fk_entry_currency', '`currency_id`');
+CALL sp_add_index_if_not_exists('transaction_entry_backup', 'idx_entry_company', '`company_id`');
+
+-- 删除辅助存储过程（不再需要）
+DROP PROCEDURE IF EXISTS `sp_add_index_if_not_exists`;
 
 -- =============================================
 -- 第三部分：创建触发器（INSERT 和 UPDATE）
