@@ -1177,7 +1177,7 @@ try {
                     <div class="form-group" id="secondaryPasswordGroup">
                         <label for="secondary_password">Secondary Password *</label>
                         <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits only" required>
-                        <small style="color: #64748b; font-size: 11px; margin-top: 4px; display: block;">Must be exactly 6 digits (0-9)</small>
+                        <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;">Must be exactly 6 digits (0-9)</small>
                     </div>
                     
                     <div class="form-group">
