@@ -1504,8 +1504,10 @@ try {
             // 复制当前选中的companies到临时列表（深拷贝）
             tempCompanies = selectedCompanies.map(c => ({ ...c }));
             // 重置所有公司的selectedPeriod，这样下拉框会显示"Select Period"
+            // 同时保存原始到期日期，这样每次选择period时都从原始日期开始计算
             tempCompanies.forEach(company => {
                 company.selectedPeriod = null;
+                company.originalExpirationDate = company.expiration_date || null; // 保存原始到期日期
             });
             updateCompanyDisplay();
             document.getElementById('companyModal').style.display = 'block';
@@ -1534,9 +1536,11 @@ try {
             
             // 添加新公司，C168不需要设置到期日期
             const isC168 = companyId === 'C168';
+            const newExpirationDate = isC168 ? null : calculateExpirationDate('1month');
             tempCompanies.push({
                 company_id: companyId,
-                expiration_date: isC168 ? null : calculateExpirationDate('1month')
+                expiration_date: newExpirationDate,
+                originalExpirationDate: newExpirationDate // 新添加的公司，原始到期日期就是第一次设置的日期
             });
             updateCompanyDisplay();
             input.value = '';
@@ -1562,8 +1566,9 @@ try {
             }
             const company = tempCompanies.find(c => c.company_id === companyId);
             if (company) {
-                // 如果公司已经有到期日期，从该日期继续加时间；否则从今天开始计算
-                const startDate = company.expiration_date || null;
+                // 从原始到期日期开始计算，而不是从当前已修改的到期日期计算
+                // 这样无论用户如何来回选择period，都只会从原始日期开始累加
+                const startDate = company.originalExpirationDate || null;
                 company.expiration_date = calculateExpirationDate(period, startDate);
                 // 记录用户选择的period，这样下拉框会显示选中的选项
                 company.selectedPeriod = period;
@@ -1667,7 +1672,11 @@ try {
                 return aId.localeCompare(bId);
             });
             
-            selectedCompanies = sortedCompanies.map(c => ({ ...c })); // 深拷贝
+            // 只保存需要的字段，不保存临时字段（originalExpirationDate, selectedPeriod）
+            selectedCompanies = sortedCompanies.map(c => ({
+                company_id: c.company_id,
+                expiration_date: c.expiration_date
+            }));
             updateSelectedCompaniesDisplay();
             // 将 companies 数据序列化为 JSON 字符串
             document.getElementById('companies').value = JSON.stringify(selectedCompanies);
