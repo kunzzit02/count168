@@ -1561,47 +1561,6 @@ try {
             }
         }
         
-        // 处理公司到期日期选择变化（支持重复选择相同选项）
-        function handleCompanyExpirationChange(companyId, selectElement) {
-            const period = selectElement.value;
-            // 直接执行更新
-            updateCompanyExpiration(companyId, period);
-        }
-        
-        // 处理select点击事件（用于支持重复选择相同选项）
-        function handleCompanyExpirationClick(companyId, selectElement) {
-            // 记录点击时的当前值
-            const clickedValue = selectElement.value;
-            let changeTriggered = false;
-            
-            // 监听change事件，如果值改变了，标记为已触发
-            const handleChange = function() {
-                changeTriggered = true;
-                // 移除事件监听器
-                selectElement.removeEventListener('change', handleChange);
-                selectElement.removeEventListener('blur', handleBlur);
-            };
-            
-            // 监听blur事件（下拉菜单关闭时），如果值没有改变，说明用户选择了相同的选项
-            const handleBlur = function() {
-                // 延迟检查，确保change事件已经处理完成
-                setTimeout(() => {
-                    // 如果change事件没有触发，且值还是原来的值，说明用户选择了相同的选项
-                    if (!changeTriggered && selectElement.value === clickedValue) {
-                        // 直接执行更新
-                        updateCompanyExpiration(companyId, clickedValue);
-                    }
-                    // 移除事件监听器
-                    selectElement.removeEventListener('change', handleChange);
-                    selectElement.removeEventListener('blur', handleBlur);
-                }, 50);
-            };
-            
-            // 添加事件监听器
-            selectElement.addEventListener('change', handleChange);
-            selectElement.addEventListener('blur', handleBlur);
-        }
-        
         // 根据到期日期判断对应的期限选项
         function getPeriodFromDate(expirationDate) {
             if (!expirationDate) return '1month';
@@ -1656,7 +1615,7 @@ try {
                     if (!isC168) {
                         const selectedPeriod = getPeriodFromDate(company.expiration_date);
                         expirationControls = `
-                            <select class="company-exp-select" onchange="handleCompanyExpirationChange('${company.company_id}', this)" onclick="handleCompanyExpirationClick('${company.company_id}', this)">
+                            <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
                                 <option value="7days" ${selectedPeriod === '7days' ? 'selected' : ''}>7 Days</option>
                                 <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
                                 <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
