@@ -1576,7 +1576,20 @@ try {
             if (tempCompanies.length === 0) {
                 container.innerHTML = '<span style="color: #94a3b8; font-size: 11px;">No companies added yet</span>';
             } else {
-                container.innerHTML = tempCompanies.map(company => {
+                // 排序：C168放在第一个，其他按字母顺序
+                const sortedCompanies = [...tempCompanies].sort((a, b) => {
+                    const aId = a.company_id.toUpperCase();
+                    const bId = b.company_id.toUpperCase();
+                    
+                    // C168始终排在第一位
+                    if (aId === 'C168') return -1;
+                    if (bId === 'C168') return 1;
+                    
+                    // 其他按字母顺序排序
+                    return aId.localeCompare(bId);
+                });
+                
+                container.innerHTML = sortedCompanies.map(company => {
                     const isC168 = company.company_id.toUpperCase() === 'C168';
                     const removeButton = isC168 ? '' : `<button type="button" class="company-remove-btn" onclick="removeCompanyFromList('${company.company_id}')">Remove</button>`;
                     
@@ -1611,7 +1624,20 @@ try {
         }
         
         function confirmCompanies() {
-            selectedCompanies = tempCompanies.map(c => ({ ...c })); // 深拷贝
+            // 排序后再保存：C168放在第一个，其他按字母顺序
+            const sortedCompanies = [...tempCompanies].sort((a, b) => {
+                const aId = a.company_id.toUpperCase();
+                const bId = b.company_id.toUpperCase();
+                
+                // C168始终排在第一位
+                if (aId === 'C168') return -1;
+                if (bId === 'C168') return 1;
+                
+                // 其他按字母顺序排序
+                return aId.localeCompare(bId);
+            });
+            
+            selectedCompanies = sortedCompanies.map(c => ({ ...c })); // 深拷贝
             updateSelectedCompaniesDisplay();
             // 将 companies 数据序列化为 JSON 字符串
             document.getElementById('companies').value = JSON.stringify(selectedCompanies);
@@ -1625,7 +1651,20 @@ try {
             if (selectedCompanies.length === 0) {
                 display.innerHTML = '<span style="color: #94a3b8; font-size: 11px;">No companies selected</span>';
             } else {
-                display.innerHTML = selectedCompanies.map(company => {
+                // 排序：C168放在第一个，其他按字母顺序
+                const sortedCompanies = [...selectedCompanies].sort((a, b) => {
+                    const aId = (typeof a === 'string' ? a : a.company_id).toUpperCase();
+                    const bId = (typeof b === 'string' ? b : b.company_id).toUpperCase();
+                    
+                    // C168始终排在第一位
+                    if (aId === 'C168') return -1;
+                    if (bId === 'C168') return 1;
+                    
+                    // 其他按字母顺序排序
+                    return aId.localeCompare(bId);
+                });
+                
+                display.innerHTML = sortedCompanies.map(company => {
                     const companyId = typeof company === 'string' ? company : company.company_id;
                     const expDate = typeof company === 'object' && company.expiration_date ? company.expiration_date : null;
                     
