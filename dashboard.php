@@ -345,12 +345,46 @@ if (isset($_GET['logout'])) {
         .dashboard-date-controls {
             display: flex;
             flex-wrap: wrap;
-            gap: clamp(8px, 1.2vw, 20px);
+            gap: clamp(10px, 1.5vw, 30px);
             align-items: center;
             margin-bottom: 8px;
         }
 
-        .dashboard-enhanced-date-picker {
+        /* 日期范围选择器样式 */
+        .date-range-picker {
+            display: flex;
+            align-items: center;
+            gap: clamp(4px, 0.42vw, 8px);
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: clamp(4px, 0.42vw, 8px);
+            padding: clamp(4px, 0.42vw, 8px) clamp(8px, 0.83vw, 16px);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            min-width: clamp(180px, 15.63vw, 300px);
+            z-index: 1;
+        }
+
+        .date-range-picker:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .date-range-picker i {
+            color: #3b82f6;
+            font-size: clamp(8px, 0.74vw, 14px);
+            margin: 0 clamp(2px, 0.32vw, 6px);
+        }
+
+        .date-range-picker span {
+            color: #374151;
+            font-size: clamp(8px, 0.74vw, 14px);
+            font-weight: 500;
+        }
+
+        /* 增强的日期选择器样式 */
+        .enhanced-date-picker {
             display: flex;
             align-items: center;
             background: white;
@@ -363,12 +397,20 @@ if (isset($_GET['logout'])) {
             position: relative;
         }
 
-        .dashboard-enhanced-date-picker:focus-within {
+        .enhanced-date-picker:focus-within {
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
-        .dashboard-date-part {
+        .enhanced-date-picker:hover {
+            border-color: #9ca3af;
+        }
+
+        .enhanced-date-picker.month-only {
+            min-width: clamp(80px, 6.77vw, 130px);
+        }
+
+        .date-part {
             position: relative;
             cursor: pointer;
             padding: 0px clamp(2px, 0.42vw, 8px);
@@ -383,18 +425,18 @@ if (isset($_GET['logout'])) {
             font-family: 'Amaranth', sans-serif;
         }
 
-        .dashboard-date-part:hover {
+        .date-part:hover {
             background-color: #f3f4f6;
             border-color: #d1d5db;
         }
 
-        .dashboard-date-part.active {
+        .date-part.active {
             background-color: #3b82f6;
             color: white;
             border-color: #3b82f6;
         }
 
-        .dashboard-date-separator {
+        .date-separator {
             color: #9ca3af;
             font-size: clamp(8px, 0.74vw, 14px);
             font-weight: 500;
@@ -403,7 +445,7 @@ if (isset($_GET['logout'])) {
             font-family: 'Amaranth', sans-serif;
         }
 
-        .dashboard-date-dropdown {
+        .date-dropdown {
             position: absolute;
             top: 120%;
             left: 0;
@@ -419,7 +461,7 @@ if (isset($_GET['logout'])) {
             display: none;
         }
 
-        .dashboard-date-dropdown.show {
+        .date-dropdown.show {
             display: block;
             animation: dropdownFadeIn 0.2s ease-out;
         }
@@ -435,21 +477,25 @@ if (isset($_GET['logout'])) {
             }
         }
 
-        .dashboard-year-grid, .dashboard-month-grid {
+        .year-grid, .month-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: clamp(0px, 0.21vw, 4px);
             padding: clamp(2px, 0.36vw, 8px);
         }
 
-        .dashboard-day-grid {
+        .month-grid {
+            padding: clamp(4px, 0.42vw, 8px);
+        }
+
+        .day-grid {
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             gap: 0px;
             padding: 2px;
         }
 
-        .dashboard-date-option {
+        .date-option {
             padding: clamp(1px, 0.1vw, 2px);
             text-align: center;
             cursor: pointer;
@@ -462,18 +508,24 @@ if (isset($_GET['logout'])) {
             font-family: 'Amaranth', sans-serif;
         }
 
-        .dashboard-date-option:hover {
+        .date-option:hover {
             background-color: #f3f4f6;
             border-color: #d1d5db;
         }
 
-        .dashboard-date-option.selected {
+        .date-option.selected {
             background-color: #3b82f6;
             color: white;
             border-color: #3b82f6;
         }
 
-        .dashboard-day-header {
+        .date-option.today.selected {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        .day-header {
             padding: clamp(2px, 0.21vw, 4px);
             text-align: center;
             font-size: clamp(6px, 0.63vw, 12px);
@@ -482,13 +534,291 @@ if (isset($_GET['logout'])) {
             font-family: 'Amaranth', sans-serif;
         }
 
-        .dashboard-form-label {
+        /* 分隔线 */
+        .divider {
+            width: 1px;
+            height: 24px;
+            background-color: #3b82f6 !important;
+        }
+
+        /* 下拉菜单样式 */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-toggle {
+            display: flex;
+            align-items: center;
+            font-size: clamp(8px, 0.74vw, 14px);
+            gap: 8px;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+            z-index: 1000;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .dropdown-menu.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            display: block;
+            width: 100%;
+            padding: clamp(6px, 0.52vw, 10px) clamp(10px, 1.04vw, 20px);
+            border: none;
+            background: transparent;
+            color: #374151;
+            cursor: pointer;
+            font-size: clamp(8px, 0.74vw, 14px);
+            font-weight: 600;
+            text-align: left;
+            transition: background-color 0.2s;
+            font-family: 'Amaranth', sans-serif;
+        }
+
+        .dropdown-item:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        .dropdown-item:first-child {
+            border-radius: 6px 6px 0 0;
+        }
+
+        .dropdown-item:last-child {
+            border-radius: 0 0 6px 6px;
+        }
+
+        .btn {
+            padding: clamp(5px, 0.42vw, 8px) clamp(10px, 0.83vw, 16px);
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            text-decoration: none;
+            font-family: 'Amaranth', sans-serif;
+        }
+
+        .btn-secondary {
+            background-color: #3b82f6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #2563eb;
+        }
+
+        .form-label {
             display: block;
             font-size: clamp(8px, 0.74vw, 14px);
             font-weight: bold;
             color: #000000ff;
             margin-bottom: 8px;
             font-family: 'Amaranth', sans-serif;
+        }
+
+        .date-info {
+            font-size: clamp(8px, 0.74vw, 14px);
+            font-weight: bold;
+            color: #6b7280;
+            padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
+            background: rgba(255, 255, 255, 1);
+            border-radius: 6px;
+            font-family: 'Amaranth', sans-serif;
+        }
+
+        /* 日历弹窗样式 */
+        .calendar-popup {
+            position: fixed;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            z-index: 99999;
+            padding: clamp(8px, 0.83vw, 16px);
+            min-width: clamp(180px, 15.63vw, 300px);
+            max-height: 350px;
+            overflow: visible;
+        }
+
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .calendar-nav-btn {
+            background: transparent;
+            border: 0px solid #d1d5db;
+            border-radius: 4px;
+            width: clamp(20px, 1.25vw, 24px);
+            height: clamp(20px, 1.25vw, 24px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .calendar-nav-btn:hover {
+            background-color: #f3f4f6;
+            border-color: #3b82f6;
+        }
+
+        .calendar-nav-btn i {
+            color: #374151;
+            font-size: clamp(7px, 0.57vw, 11px);
+        }
+
+        .calendar-month-year {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .calendar-month-year select {
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: clamp(2px, 0.21vw, 4px) clamp(4px, 0.31vw, 6px);
+            font-size: clamp(8px, 0.63vw, 12px);
+            font-weight: 600;
+            color: #000000ff;
+            background: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Amaranth', sans-serif;
+        }
+
+        .calendar-month-year select:hover {
+            border-color: #3b82f6;
+        }
+
+        .calendar-month-year select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin-bottom: 4px;
+        }
+
+        .calendar-weekday {
+            text-align: center;
+            font-size: clamp(8px, 0.63vw, 12px);
+            font-weight: 600;
+            color: #898989;
+            padding: clamp(2px, 0.21vw, 4px) 0;
+            font-family: 'Amaranth', sans-serif;
+        }
+
+        .calendar-days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0px;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: clamp(8px, 0.63vw, 12px);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #000000ff;
+            background: transparent;
+            border: 1px solid transparent;
+            position: relative;
+            padding: 4px;
+            font-family: 'Amaranth', sans-serif;
+        }
+
+        .calendar-day:hover {
+            background-color: #f3f4f6;
+        }
+
+        .calendar-day.today {
+            border-color: #3b82f6;
+            font-weight: 600;
+        }
+
+        .calendar-day.selected {
+            background-color: #3b82f6;
+            color: white;
+            font-weight: 600;
+        }
+
+        .calendar-day.in-range {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: #374151;
+            border-radius: 0px;
+        }
+
+        .calendar-day.start-date {
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 6px 0 0 6px;
+        }
+
+        .calendar-day.end-date {
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .calendar-day.start-date.end-date {
+            border-radius: 6px;
+        }
+
+        .calendar-day.start-date.selecting {
+            border-radius: 6px;
+        }
+
+        .calendar-day.preview-range {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #374151;
+            border-radius: 0px;
+        }
+
+        .calendar-day.preview-end {
+            background-color: rgba(59, 130, 246, 0.4);
+            color: #374151;
+            font-weight: 600;
+            border: 1px dashed #3b82f6;
+        }
+
+        .calendar-day.other-month {
+            color: #d1d5db;
+        }
+
+        .calendar-day.disabled {
+            color: #d1d5db;
+            cursor: not-allowed;
+        }
+
+        .calendar-day.disabled:hover {
+            background-color: transparent;
         }
 
         .dashboard-date-info {
@@ -535,43 +865,58 @@ if (isset($_GET['logout'])) {
             <div class="dashboard-card">
                 <div class="dashboard-card-body">
                     <div class="dashboard-date-controls">
-                        <!-- 开始日期选择器 -->
+                        <!-- 日期范围选择器 -->
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label class="dashboard-form-label" style="margin: 0;">Start Date</label>
-                            <div class="dashboard-enhanced-date-picker" id="start-date-picker">
-                                <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('start', 'year')">
-                                    <span id="start-year-display">2024</span>
-                                </div>
-                                <span class="dashboard-date-separator">Year</span>
-                                <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('start', 'month')">
-                                    <span id="start-month-display">01</span>
-                                </div>
-                                <span class="dashboard-date-separator">Month</span>
-                                <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('start', 'day')">
-                                    <span id="start-day-display">01</span>
-                                </div>
-                                <span class="dashboard-date-separator">Day</span>
-                                <div class="dashboard-date-dropdown" id="start-dropdown"></div>
+                            <label class="form-label" style="margin: 0;">Date Range</label>
+                            <div class="date-range-picker" id="date-range-picker" onclick="toggleCalendar()">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span id="date-range-display">Select date range</span>
                             </div>
                         </div>
-                        
-                        <!-- 结束日期选择器 -->
+
+                        <div class="divider"></div>
+
+                        <!-- 月份选择器 -->
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <label class="dashboard-form-label" style="margin: 0;">End Date</label>
-                            <div class="dashboard-enhanced-date-picker" id="end-date-picker">
-                                <div class="dashboard-date-part" data-type="year" onclick="showDateDropdown('end', 'year')">
-                                    <span id="end-year-display">2024</span>
+                            <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-calendar" style="color: #3b82f6;"></i>
+                                Select Year & Month
+                            </label>
+                            <div class="enhanced-date-picker month-only" id="month-date-picker">
+                                <div class="date-part" data-type="year" onclick="showDateDropdown('month', 'year')">
+                                    <span id="month-year-display">--</span>
                                 </div>
-                                <span class="dashboard-date-separator">Year</span>
-                                <div class="dashboard-date-part" data-type="month" onclick="showDateDropdown('end', 'month')">
-                                    <span id="end-month-display">01</span>
+                                <span class="date-separator">Year</span>
+                                <div class="date-part" data-type="month" onclick="showDateDropdown('month', 'month')">
+                                    <span id="month-month-display">--</span>
                                 </div>
-                                <span class="dashboard-date-separator">Month</span>
-                                <div class="dashboard-date-part" data-type="day" onclick="showDateDropdown('end', 'day')">
-                                    <span id="end-day-display">01</span>
+                                <span class="date-separator">Month</span>
+            
+                                <div class="date-dropdown" id="month-dropdown"></div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label class="form-label" style="margin: 0; display: flex; align-items: center; gap: 4px;">
+                                <i class="fas fa-clock" style="color: #3b82f6;"></i>
+                                Quick Select
+                            </label>
+                            <div class="dropdown">
+                                <button class="btn btn-secondary dropdown-toggle" onclick="toggleQuickSelectDropdown()">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <span id="quick-select-text">Period</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+                                <div class="dropdown-menu" id="quick-select-dropdown">
+                                    <button class="dropdown-item" onclick="selectQuickRange('today')">Today</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('yesterday')">Yesterday</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('thisWeek')">This Week</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('lastWeek')">Last Week</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('thisMonth')">This Month</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('lastMonth')">Last Month</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('thisYear')">This Year</button>
+                                    <button class="dropdown-item" onclick="selectQuickRange('lastYear')">Last Year</button>
                                 </div>
-                                <span class="dashboard-date-separator">Day</span>
-                                <div class="dashboard-date-dropdown" id="end-dropdown"></div>
                             </div>
                         </div>
                     </div>
@@ -639,6 +984,49 @@ if (isset($_GET['logout'])) {
         </div>
     </div>
 
+    <!-- 日历弹窗 -->
+    <div class="calendar-popup" id="calendar-popup" style="display: none;">
+        <div class="calendar-header">
+            <button class="calendar-nav-btn" onclick="event.stopPropagation(); changeMonth(-1)">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="calendar-month-year" onclick="event.stopPropagation();">
+                <select id="calendar-month-select" onchange="renderCalendar()">
+                    <option value="0">Jan</option>
+                    <option value="1">Feb</option>
+                    <option value="2">Mar</option>
+                    <option value="3">Apr</option>
+                    <option value="4">May</option>
+                    <option value="5">Jun</option>
+                    <option value="6">Jul</option>
+                    <option value="7">Aug</option>
+                    <option value="8">Sep</option>
+                    <option value="9">Oct</option>
+                    <option value="10">Nov</option>
+                    <option value="11">Dec</option>
+                </select>
+                <select id="calendar-year-select" onchange="renderCalendar()">
+                    <!-- 动态生成年份 -->
+                </select>
+            </div>
+            <button class="calendar-nav-btn" onclick="event.stopPropagation(); changeMonth(1)">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <div class="calendar-weekdays">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+        </div>
+        <div class="calendar-days" id="calendar-days">
+            <!-- 动态生成日期 -->
+        </div>
+    </div>
+
     <script>
         const API_BASE_URL = 'transaction_dashboard_api.php';
         let trendChart = null;
@@ -648,8 +1036,15 @@ if (isset($_GET['logout'])) {
         };
         let startDateValue = { year: null, month: null, day: null };
         let endDateValue = { year: null, month: null, day: null };
+        let monthDateValue = { year: null, month: null };
         let currentDatePicker = null;
         let currentDateType = null;
+        
+        // 日历选择器变量
+        let calendarCurrentDate = new Date();
+        let calendarStartDate = null;
+        let calendarEndDate = null;
+        let isSelectingRange = false;
         
         // 存储图表元数据（用于 tooltip）
         let chartMetadata = {
@@ -662,36 +1057,56 @@ if (isset($_GET['logout'])) {
         // 当前选择的图表数据类型（'all', 'capital', 'expenses', 'profit'）
         let selectedChartDataType = 'all';
 
-        // 初始化日期选择器
-        function initDatePickers() {
+        // 初始化增强日期选择器
+        function initEnhancedDatePickers() {
             const today = new Date();
+            today.setHours(0, 0, 0, 0);
             const currentYear = today.getFullYear();
             const currentMonth = today.getMonth() + 1;
-            const firstDayOfMonth = new Date(currentYear, currentMonth - 1, 1);
-            const lastDayOfMonth = new Date(currentYear, currentMonth, 0);
+            const currentDay = today.getDate();
+
+            // 计算本周的开始日期（周一）
+            const thisWeekStart = new Date(today);
+            const dayOfWeek = thisWeekStart.getDay();
+            const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+            thisWeekStart.setDate(thisWeekStart.getDate() - daysToMonday);
+            thisWeekStart.setHours(0, 0, 0, 0);
+
+            // 初始化日历选择器默认值为本周（周一到今天）
+            calendarStartDate = new Date(thisWeekStart);
+            calendarEndDate = new Date(today);
+
+            const startYear = thisWeekStart.getFullYear();
+            const startMonth = thisWeekStart.getMonth() + 1;
+            const startDay = thisWeekStart.getDate();
 
             dateRange = {
-                startDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`,
-                endDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(lastDayOfMonth.getDate()).padStart(2, '0')}`
+                startDate: `${startYear}-${String(startMonth).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`,
+                endDate: `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`
             };
 
             startDateValue = {
-                year: currentYear,
-                month: currentMonth,
-                day: 1
+                year: startYear,
+                month: startMonth,
+                day: startDay
             };
 
             endDateValue = {
                 year: currentYear,
                 month: currentMonth,
-                day: lastDayOfMonth.getDate()
+                day: currentDay
             };
 
-            updateDateDisplay('start');
-            updateDateDisplay('end');
+            monthDateValue = {
+                year: null,
+                month: null
+            };
+
+            updateDateDisplay('month');
+            updateDateRangeDisplay();
 
             document.addEventListener('click', function(e) {
-                if (!e.target.closest('.dashboard-enhanced-date-picker')) {
+                if (!e.target.closest('.enhanced-date-picker')) {
                     hideAllDropdowns();
                 }
             });
@@ -700,11 +1115,33 @@ if (isset($_GET['logout'])) {
             loadOwnerCompanies();
         }
 
+        // 兼容性：保留旧函数名
+        function initDatePickers() {
+            initEnhancedDatePickers();
+        }
+
         function updateDateDisplay(prefix) {
-            const dateValue = prefix === 'start' ? startDateValue : endDateValue;
-            document.getElementById(`${prefix}-year-display`).textContent = dateValue.year;
-            document.getElementById(`${prefix}-month-display`).textContent = String(dateValue.month).padStart(2, '0');
-            document.getElementById(`${prefix}-day-display`).textContent = String(dateValue.day).padStart(2, '0');
+            if (prefix === 'month') {
+                const monthYearDisplay = document.getElementById('month-year-display');
+                const monthMonthDisplay = document.getElementById('month-month-display');
+                if (monthYearDisplay) {
+                    monthYearDisplay.textContent = monthDateValue.year || '--';
+                }
+                if (monthMonthDisplay) {
+                    monthMonthDisplay.textContent = monthDateValue.month ? String(monthDateValue.month).padStart(2, '0') : '--';
+                }
+            } else {
+                // 兼容旧的 start/end 显示（如果存在）
+                const yearEl = document.getElementById(`${prefix}-year-display`);
+                const monthEl = document.getElementById(`${prefix}-month-display`);
+                const dayEl = document.getElementById(`${prefix}-day-display`);
+                if (yearEl && monthEl && dayEl) {
+                    const dateValue = prefix === 'start' ? startDateValue : endDateValue;
+                    yearEl.textContent = dateValue.year;
+                    monthEl.textContent = String(dateValue.month).padStart(2, '0');
+                    dayEl.textContent = String(dateValue.day).padStart(2, '0');
+                }
+            }
         }
 
         function showDateDropdown(prefix, type) {
@@ -712,23 +1149,28 @@ if (isset($_GET['logout'])) {
             const dropdown = document.getElementById(`${prefix}-dropdown`);
             const datePicker = document.getElementById(`${prefix}-date-picker`);
             
+            if (!dropdown || !datePicker) return;
+            
             currentDatePicker = prefix;
             currentDateType = type;
             
-            datePicker.querySelectorAll('.dashboard-date-part').forEach(part => {
+            datePicker.querySelectorAll('.date-part').forEach(part => {
                 part.classList.remove('active');
             });
-            datePicker.querySelector(`[data-type="${type}"]`).classList.add('active');
+            const targetPart = datePicker.querySelector(`[data-type="${type}"]`);
+            if (targetPart) {
+                targetPart.classList.add('active');
+            }
             
             generateDropdownContent(prefix, type);
             dropdown.classList.add('show');
         }
 
         function hideAllDropdowns() {
-            document.querySelectorAll('.dashboard-date-dropdown').forEach(dropdown => {
+            document.querySelectorAll('.date-dropdown').forEach(dropdown => {
                 dropdown.classList.remove('show');
             });
-            document.querySelectorAll('.dashboard-date-part').forEach(part => {
+            document.querySelectorAll('.date-part').forEach(part => {
                 part.classList.remove('active');
             });
             currentDatePicker = null;
@@ -737,46 +1179,77 @@ if (isset($_GET['logout'])) {
 
         function generateDropdownContent(prefix, type) {
             const dropdown = document.getElementById(`${prefix}-dropdown`);
-            const dateValue = prefix === 'start' ? startDateValue : endDateValue;
+            if (!dropdown) return;
+            
+            let dateValue;
+            if (prefix === 'month') {
+                dateValue = monthDateValue;
+            } else {
+                dateValue = prefix === 'start' ? startDateValue : endDateValue;
+            }
             const today = new Date();
             
             dropdown.innerHTML = '';
             
             if (type === 'year') {
                 const yearGrid = document.createElement('div');
-                yearGrid.className = 'dashboard-year-grid';
+                yearGrid.className = 'year-grid';
                 const currentYear = today.getFullYear();
-                for (let year = 2022; year <= currentYear + 1; year++) {
+                const startYear = 2022;
+                const endYear = currentYear + 1;
+                
+                for (let year = startYear; year <= endYear; year++) {
                     const yearOption = document.createElement('div');
-                    yearOption.className = 'dashboard-date-option';
+                    yearOption.className = 'date-option';
                     yearOption.textContent = year;
                     if (year === dateValue.year) yearOption.classList.add('selected');
                     if (year === currentYear) yearOption.classList.add('today');
-                    yearOption.addEventListener('click', () => selectDateValue(prefix, 'year', year));
+                    yearOption.addEventListener('click', function() {
+                        selectDateValue(prefix, 'year', year);
+                    });
                     yearGrid.appendChild(yearOption);
                 }
                 dropdown.appendChild(yearGrid);
             } else if (type === 'month') {
                 const monthGrid = document.createElement('div');
-                monthGrid.className = 'dashboard-month-grid';
+                monthGrid.className = 'month-grid';
+                
+                if (prefix === 'month') {
+                    // 月份选择器的月份下拉：添加"无"选项
+                    const noneOption = document.createElement('div');
+                    noneOption.className = 'date-option';
+                    noneOption.textContent = 'None';
+                    noneOption.style.gridColumn = '1 / -1';
+                    if (!dateValue.month) noneOption.classList.add('selected');
+                    noneOption.addEventListener('click', function() {
+                        selectDateValue(prefix, 'month', null);
+                    });
+                    monthGrid.appendChild(noneOption);
+                }
+                
                 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                 months.forEach((monthName, index) => {
                     const monthValue = index + 1;
                     const monthOption = document.createElement('div');
-                    monthOption.className = 'dashboard-date-option';
+                    monthOption.className = 'date-option';
                     monthOption.textContent = monthName;
                     if (monthValue === dateValue.month) monthOption.classList.add('selected');
-                    monthOption.addEventListener('click', () => selectDateValue(prefix, 'month', monthValue));
+                    if (dateValue.year === today.getFullYear() && monthValue === today.getMonth() + 1) {
+                        monthOption.classList.add('today');
+                    }
+                    monthOption.addEventListener('click', function() {
+                        selectDateValue(prefix, 'month', monthValue);
+                    });
                     monthGrid.appendChild(monthOption);
                 });
                 dropdown.appendChild(monthGrid);
             } else if (type === 'day') {
                 const dayGrid = document.createElement('div');
-                dayGrid.className = 'dashboard-day-grid';
+                dayGrid.className = 'day-grid';
                 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                 weekdays.forEach(day => {
                     const dayHeader = document.createElement('div');
-                    dayHeader.className = 'dashboard-day-header';
+                    dayHeader.className = 'day-header';
                     dayHeader.textContent = day;
                     dayGrid.appendChild(dayHeader);
                 });
@@ -794,10 +1267,15 @@ if (isset($_GET['logout'])) {
                 
                 for (let day = 1; day <= daysInMonth; day++) {
                     const dayOption = document.createElement('div');
-                    dayOption.className = 'dashboard-date-option';
+                    dayOption.className = 'date-option';
                     dayOption.textContent = day;
                     if (day === dateValue.day) dayOption.classList.add('selected');
-                    dayOption.addEventListener('click', () => selectDateValue(prefix, 'day', day));
+                    if (year === today.getFullYear() && month === today.getMonth() + 1 && day === today.getDate()) {
+                        dayOption.classList.add('today');
+                    }
+                    dayOption.addEventListener('click', function() {
+                        selectDateValue(prefix, 'day', day);
+                    });
                     dayGrid.appendChild(dayOption);
                 }
                 dropdown.appendChild(dayGrid);
@@ -806,19 +1284,27 @@ if (isset($_GET['logout'])) {
 
         function selectDateValue(prefix, type, value) {
             try {
-            const dateValue = prefix === 'start' ? startDateValue : endDateValue;
-            dateValue[type] = value;
-            
-            if (type === 'year' || type === 'month') {
-                const daysInMonth = new Date(dateValue.year, dateValue.month, 0).getDate();
-                if (dateValue.day > daysInMonth) {
-                    dateValue.day = daysInMonth;
+                let dateValue;
+                if (prefix === 'month') {
+                    dateValue = monthDateValue;
+                    dateValue[type] = value;
+                    updateDateDisplay('month');
+                    hideAllDropdowns();
+                    handleMonthPickerChange();
+                    return;
+                } else {
+                    dateValue = prefix === 'start' ? startDateValue : endDateValue;
+                    dateValue[type] = value;
+                    if (type === 'year' || type === 'month') {
+                        const daysInMonth = new Date(dateValue.year, dateValue.month, 0).getDate();
+                        if (dateValue.day > daysInMonth) {
+                            dateValue.day = daysInMonth;
+                        }
+                    }
+                    updateDateDisplay(prefix);
+                    hideAllDropdowns();
+                    updateDateRangeFromPickers();
                 }
-            }
-            
-            updateDateDisplay(prefix);
-            hideAllDropdowns();
-            updateDateRangeFromPickers();
             } catch (error) {
                 console.error('Failed to select date value:', error);
             }
@@ -847,6 +1333,12 @@ if (isset($_GET['logout'])) {
                 endDate: endDateStr
             };
             
+            // 更新日历选择器
+            calendarStartDate = new Date(startDateValue.year, startDateValue.month - 1, startDateValue.day);
+            calendarStartDate.setHours(0, 0, 0, 0);
+            calendarEndDate = new Date(endDateValue.year, endDateValue.month - 1, endDateValue.day);
+            calendarEndDate.setHours(0, 0, 0, 0);
+            
                 // 重置上次请求参数，允许重新加载
                 lastRequestParams = null;
             await loadData();
@@ -855,6 +1347,447 @@ if (isset($_GET['logout'])) {
                 showError('Failed to update date range');
             }
         }
+
+        // 更新日期范围显示
+        function updateDateRangeDisplay() {
+            const display = document.getElementById('date-range-display');
+            if (!display) return;
+            if (calendarStartDate && calendarEndDate) {
+                const start = formatDateDisplay(calendarStartDate);
+                const end = formatDateDisplay(calendarEndDate);
+                display.textContent = `${start} - ${end}`;
+            } else if (calendarStartDate) {
+                const start = formatDateDisplay(calendarStartDate);
+                display.textContent = `${start} - Select end date`;
+            } else {
+                display.textContent = 'Select date range';
+            }
+        }
+
+        // 格式化日期显示
+        function formatDateDisplay(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${month}/${day}/${year}`;
+        }
+
+        // 格式化日期为 YYYY-MM-DD
+        function formatDateToYYYYMMDD(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // 切换日历显示
+        function toggleCalendar() {
+            const popup = document.getElementById('calendar-popup');
+            const picker = document.getElementById('date-range-picker');
+            if (!popup || !picker) return;
+            
+            if (popup.style.display === 'none' || !popup.style.display) {
+                const rect = picker.getBoundingClientRect();
+                popup.style.top = (rect.bottom + 8) + 'px';
+                popup.style.left = rect.left + 'px';
+                popup.style.display = 'block';
+                initCalendar();
+                renderCalendar();
+            } else {
+                popup.style.display = 'none';
+            }
+        }
+
+        // 初始化日历
+        function initCalendar() {
+            const today = new Date();
+            if (!calendarStartDate) {
+                const currentYear = today.getFullYear();
+                const currentMonth = today.getMonth() + 1;
+                const firstDayOfMonth = new Date(currentYear, currentMonth - 1, 1);
+                const lastDayOfMonth = new Date(currentYear, currentMonth, 0);
+                calendarStartDate = new Date(firstDayOfMonth);
+                calendarStartDate.setHours(0, 0, 0, 0);
+                calendarEndDate = new Date(currentYear, currentMonth - 1, lastDayOfMonth.getDate());
+                calendarEndDate.setHours(0, 0, 0, 0);
+            }
+            if (calendarStartDate && !calendarEndDate) {
+                isSelectingRange = true;
+            } else if (calendarStartDate && calendarEndDate) {
+                isSelectingRange = false;
+            }
+            if (calendarStartDate) {
+                calendarCurrentDate = new Date(calendarStartDate.getFullYear(), calendarStartDate.getMonth(), 1);
+            } else {
+                calendarCurrentDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            }
+            const yearSelect = document.getElementById('calendar-year-select');
+            if (yearSelect) {
+                yearSelect.innerHTML = '';
+                const currentYear = today.getFullYear();
+                for (let year = 2022; year <= currentYear + 1; year++) {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    if (year === calendarCurrentDate.getFullYear()) {
+                        option.selected = true;
+                    }
+                    yearSelect.appendChild(option);
+                }
+            }
+            const monthSelect = document.getElementById('calendar-month-select');
+            if (monthSelect) {
+                monthSelect.value = calendarCurrentDate.getMonth();
+            }
+            updateDateRangeDisplay();
+        }
+
+        // 切换月份
+        function changeMonth(delta) {
+            calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + delta);
+            const monthSelect = document.getElementById('calendar-month-select');
+            const yearSelect = document.getElementById('calendar-year-select');
+            if (monthSelect) monthSelect.value = calendarCurrentDate.getMonth();
+            if (yearSelect) yearSelect.value = calendarCurrentDate.getFullYear();
+            renderCalendar();
+        }
+
+        // 渲染日历
+        function renderCalendar() {
+            const yearSelect = document.getElementById('calendar-year-select');
+            const monthSelect = document.getElementById('calendar-month-select');
+            if (!yearSelect || !monthSelect) return;
+            
+            const year = parseInt(yearSelect.value);
+            const month = parseInt(monthSelect.value);
+            calendarCurrentDate = new Date(year, month, 1);
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const prevLastDay = new Date(year, month, 0);
+            const firstDayWeek = firstDay.getDay();
+            const lastDate = lastDay.getDate();
+            const prevLastDate = prevLastDay.getDate();
+            
+            const daysContainer = document.getElementById('calendar-days');
+            if (!daysContainer) return;
+            daysContainer.innerHTML = '';
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            for (let i = firstDayWeek - 1; i >= 0; i--) {
+                const day = prevLastDate - i;
+                const dayElement = createDayElement(day, year, month - 1, true);
+                daysContainer.appendChild(dayElement);
+            }
+            for (let day = 1; day <= lastDate; day++) {
+                const dayElement = createDayElement(day, year, month, false);
+                daysContainer.appendChild(dayElement);
+            }
+            const totalCells = daysContainer.children.length;
+            const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+            for (let day = 1; day <= remainingCells; day++) {
+                const dayElement = createDayElement(day, year, month + 1, true);
+                daysContainer.appendChild(dayElement);
+            }
+        }
+
+        // 创建日期元素
+        function createDayElement(day, year, month, isOtherMonth) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'calendar-day';
+            dayElement.textContent = day;
+            const date = new Date(year, month, day);
+            date.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (isOtherMonth) {
+                dayElement.classList.add('other-month');
+            }
+            if (date.getTime() === today.getTime() && !isOtherMonth) {
+                dayElement.classList.add('today');
+            }
+            if (calendarStartDate) {
+                const startTime = calendarStartDate.getTime();
+                const currentTime = date.getTime();
+                if (calendarEndDate) {
+                    const endTime = calendarEndDate.getTime();
+                    if (currentTime === startTime && currentTime === endTime) {
+                        dayElement.classList.add('selected', 'start-date', 'end-date');
+                    } else if (currentTime === startTime) {
+                        dayElement.classList.add('start-date');
+                    } else if (currentTime === endTime) {
+                        dayElement.classList.add('end-date');
+                    } else if (currentTime > startTime && currentTime < endTime) {
+                        dayElement.classList.add('in-range');
+                    }
+                } else {
+                    if (currentTime === startTime) {
+                        dayElement.classList.add('start-date', 'selecting');
+                    }
+                }
+            }
+            dayElement.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectDate(date);
+            });
+            dayElement.addEventListener('mouseenter', () => {
+                if (isSelectingRange && calendarStartDate && !calendarEndDate) {
+                    highlightPreviewRange(date);
+                }
+            });
+            return dayElement;
+        }
+
+        // 高亮预览范围
+        function highlightPreviewRange(hoverDate) {
+            const days = document.querySelectorAll('.calendar-day');
+            const startTime = calendarStartDate.getTime();
+            const hoverTime = hoverDate.getTime();
+            const yearSelect = document.getElementById('calendar-year-select');
+            const monthSelect = document.getElementById('calendar-month-select');
+            if (!yearSelect || !monthSelect) return;
+            
+            const year = parseInt(yearSelect.value);
+            const month = parseInt(monthSelect.value);
+            
+            days.forEach(day => {
+                day.classList.remove('preview-range', 'preview-end');
+                const dayText = parseInt(day.textContent);
+                if (!dayText) return;
+                let dayDate;
+                if (day.classList.contains('other-month')) {
+                    const firstDayOfMonth = new Date(year, month, 1);
+                    const firstDayWeek = firstDayOfMonth.getDay();
+                    if (dayText > 20) {
+                        dayDate = new Date(year, month - 1, dayText);
+                    } else {
+                        dayDate = new Date(year, month + 1, dayText);
+                    }
+                } else {
+                    dayDate = new Date(year, month, dayText);
+                }
+                dayDate.setHours(0, 0, 0, 0);
+                const dayTime = dayDate.getTime();
+                const minTime = Math.min(startTime, hoverTime);
+                const maxTime = Math.max(startTime, hoverTime);
+                if (dayTime > minTime && dayTime < maxTime) {
+                    day.classList.add('preview-range');
+                } else if (dayTime === hoverTime && dayTime !== startTime) {
+                    day.classList.add('preview-end');
+                }
+            });
+        }
+
+        // 选择日期
+        async function selectDate(date) {
+            if (!calendarStartDate || (calendarStartDate && calendarEndDate)) {
+                calendarStartDate = new Date(date);
+                calendarEndDate = null;
+                isSelectingRange = true;
+            } else {
+                if (date < calendarStartDate) {
+                    calendarEndDate = calendarStartDate;
+                    calendarStartDate = new Date(date);
+                } else {
+                    calendarEndDate = new Date(date);
+                }
+                isSelectingRange = false;
+                await updateDateRange();
+                const popup = document.getElementById('calendar-popup');
+                if (popup) popup.style.display = 'none';
+            }
+            renderCalendar();
+            updateDateRangeDisplay();
+        }
+
+        // 更新dateRange对象
+        async function updateDateRange() {
+            if (calendarStartDate && calendarEndDate) {
+                dateRange.startDate = formatDateToYYYYMMDD(calendarStartDate);
+                dateRange.endDate = formatDateToYYYYMMDD(calendarEndDate);
+                startDateValue = {
+                    year: calendarStartDate.getFullYear(),
+                    month: calendarStartDate.getMonth() + 1,
+                    day: calendarStartDate.getDate()
+                };
+                endDateValue = {
+                    year: calendarEndDate.getFullYear(),
+                    month: calendarEndDate.getMonth() + 1,
+                    day: calendarEndDate.getDate()
+                };
+                updateDateDisplay('start');
+                updateDateDisplay('end');
+                lastRequestParams = null;
+                if (dateRange.startDate && dateRange.endDate && window.companyId) {
+                    await loadData();
+                }
+            }
+        }
+
+        // 处理月份选择器变化
+        async function handleMonthPickerChange() {
+            const year = monthDateValue.year;
+            const month = monthDateValue.month;
+            if (year && month) {
+                const firstDay = `${year}-${String(month).padStart(2, '0')}-01`;
+                const lastDay = new Date(year, month, 0).getDate();
+                const lastDayFormatted = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+                dateRange = { startDate: firstDay, endDate: lastDayFormatted };
+                calendarStartDate = new Date(year, month - 1, 1);
+                calendarStartDate.setHours(0, 0, 0, 0);
+                calendarEndDate = new Date(year, month - 1, lastDay);
+                calendarEndDate.setHours(0, 0, 0, 0);
+                startDateValue = { year: year, month: month, day: 1 };
+                endDateValue = { year: year, month: month, day: lastDay };
+                updateDateDisplay('start');
+                updateDateDisplay('end');
+                updateDateRangeDisplay();
+            } else if (year && !month) {
+                const firstDay = `${year}-01-01`;
+                const lastDay = `${year}-12-31`;
+                dateRange = { startDate: firstDay, endDate: lastDay };
+                calendarStartDate = new Date(year, 0, 1);
+                calendarStartDate.setHours(0, 0, 0, 0);
+                calendarEndDate = new Date(year, 11, 31);
+                calendarEndDate.setHours(0, 0, 0, 0);
+                startDateValue = { year: year, month: 1, day: 1 };
+                endDateValue = { year: year, month: 12, day: 31 };
+                updateDateDisplay('start');
+                updateDateDisplay('end');
+                updateDateRangeDisplay();
+            } else {
+                return;
+            }
+            lastRequestParams = null;
+            if (dateRange.startDate && dateRange.endDate && window.companyId) {
+                await loadData();
+            }
+        }
+
+        // 快速选择下拉菜单控制
+        function toggleQuickSelectDropdown() {
+            const dropdown = document.getElementById('quick-select-dropdown');
+            if (!dropdown) return;
+            hideAllDropdowns();
+            dropdown.classList.toggle('show');
+        }
+
+        // 快速选择时间范围
+        async function selectQuickRange(range) {
+            const today = new Date();
+            let startDate, endDate;
+            switch(range) {
+                case 'today':
+                    startDate = new Date(today);
+                    endDate = new Date(today);
+                    break;
+                case 'yesterday':
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    startDate = yesterday;
+                    endDate = yesterday;
+                    break;
+                case 'thisWeek':
+                    const thisWeekStart = new Date(today);
+                    const dayOfWeek = thisWeekStart.getDay();
+                    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                    thisWeekStart.setDate(thisWeekStart.getDate() - daysToMonday);
+                    startDate = thisWeekStart;
+                    endDate = new Date(today);
+                    break;
+                case 'lastWeek':
+                    const lastWeekEnd = new Date(today);
+                    const lastWeekDayOfWeek = lastWeekEnd.getDay();
+                    const daysToLastSunday = lastWeekDayOfWeek === 0 ? 0 : lastWeekDayOfWeek;
+                    lastWeekEnd.setDate(lastWeekEnd.getDate() - daysToLastSunday - 1);
+                    const lastWeekStart = new Date(lastWeekEnd);
+                    lastWeekStart.setDate(lastWeekStart.getDate() - 6);
+                    startDate = lastWeekStart;
+                    endDate = lastWeekEnd;
+                    break;
+                case 'thisMonth':
+                    startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                    endDate = new Date(today);
+                    break;
+                case 'lastMonth':
+                    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+                    startDate = lastMonth;
+                    endDate = lastMonthEnd;
+                    break;
+                case 'thisYear':
+                    startDate = new Date(today.getFullYear(), 0, 1);
+                    endDate = new Date(today);
+                    break;
+                case 'lastYear':
+                    startDate = new Date(today.getFullYear() - 1, 0, 1);
+                    endDate = new Date(today.getFullYear() - 1, 11, 31);
+                    break;
+                default:
+                    return;
+            }
+            const formatDate = (date) => {
+                return date.getFullYear() + '-' + 
+                    String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                    String(date.getDate()).padStart(2, '0');
+            };
+            dateRange = {
+                startDate: formatDate(startDate),
+                endDate: formatDate(endDate)
+            };
+            calendarStartDate = new Date(startDate);
+            calendarStartDate.setHours(0, 0, 0, 0);
+            calendarEndDate = new Date(endDate);
+            calendarEndDate.setHours(0, 0, 0, 0);
+            startDateValue = {
+                year: startDate.getFullYear(),
+                month: startDate.getMonth() + 1,
+                day: startDate.getDate()
+            };
+            endDateValue = {
+                year: endDate.getFullYear(),
+                month: endDate.getMonth() + 1,
+                day: endDate.getDate()
+            };
+            monthDateValue = { year: null, month: null };
+            updateDateDisplay('start');
+            updateDateDisplay('end');
+            updateDateDisplay('month');
+            updateDateRangeDisplay();
+            const quickSelectText = document.getElementById('quick-select-text');
+            const rangeTexts = {
+                'today': 'Today',
+                'yesterday': 'Yesterday',
+                'thisWeek': 'This Week',
+                'lastWeek': 'Last Week',
+                'thisMonth': 'This Month',
+                'lastMonth': 'Last Month',
+                'thisYear': 'This Year',
+                'lastYear': 'Last Year'
+            };
+            if (quickSelectText) quickSelectText.textContent = rangeTexts[range] || 'Period';
+            const dropdown = document.getElementById('quick-select-dropdown');
+            if (dropdown) dropdown.classList.remove('show');
+            lastRequestParams = null;
+            if (dateRange.startDate && dateRange.endDate && window.companyId) {
+                await loadData();
+            }
+        }
+
+        // 点击外部关闭日历和下拉菜单
+        document.addEventListener('click', function(e) {
+            const calendar = document.getElementById('date-range-picker');
+            const popup = document.getElementById('calendar-popup');
+            if (calendar && popup && !calendar.contains(e.target) && !popup.contains(e.target)) {
+                popup.style.display = 'none';
+            }
+            if (!e.target.closest('.dropdown')) {
+                const quickDropdown = document.getElementById('quick-select-dropdown');
+                if (quickDropdown) quickDropdown.classList.remove('show');
+            }
+        });
 
         // 防抖函数，避免频繁调用
         let loadDataTimeout = null;
