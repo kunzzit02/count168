@@ -45,6 +45,15 @@ if (isset($_SESSION['user_id'])) {
         exit();
     }
     
+    // 检查owner是否已通过二级密码验证
+    if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner') {
+        if (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true) {
+            // Owner未通过二级密码验证，重定向到二级密码验证页面
+            header("Location: owner_secondary_password.php");
+            exit();
+        }
+    }
+    
     // 更新活动时间戳
     $_SESSION['last_activity'] = time();
     

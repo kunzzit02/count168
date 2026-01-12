@@ -105,6 +105,24 @@ if (isset($_SESSION['user_id'])) {
         exit();
     }
     
+    // 检查owner是否已通过二级密码验证（排除二级密码验证页面本身）
+    $currentFile = basename($_SERVER['PHP_SELF']);
+    if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner' && $currentFile !== 'owner_secondary_password.php') {
+        if (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true) {
+            // Owner未通过二级密码验证，重定向到二级密码验证页面
+            if ($isApiRequest) {
+                if (!headers_sent()) {
+                    header('Content-Type: application/json');
+                }
+                echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => 'owner_secondary_password.php']);
+                exit();
+            }
+            
+            header("Location: owner_secondary_password.php");
+            exit();
+        }
+    }
+    
     // 更新活动时间戳 - 每次页面访问都更新
     $_SESSION['last_activity'] = time();
     

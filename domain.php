@@ -1174,6 +1174,12 @@ try {
                         <input type="password" id="password" name="password">
                     </div>
                     
+                    <div class="form-group" id="secondaryPasswordGroup">
+                        <label for="secondary_password">Secondary Password *</label>
+                        <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="6 digits only" required>
+                        <small style="color: #64748b; font-size: 11px; margin-top: 4px; display: block;">Must be exactly 6 digits (0-9)</small>
+                    </div>
+                    
                     <div class="form-group">
                         <label>Companies</label>
                         <button type="button" class="btn btn-add" onclick="openCompanyModal()" style="width: 100%;">Manage Companies</button>
@@ -1193,6 +1199,10 @@ try {
     </div>
 
     <script>
+        // PHP变量传递给JavaScript
+        const hasC168Context = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
+        const isOwnerOrAdmin = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
+        
         // 分页相关变量
         let currentPage = 1;
         let rowsPerPage = 10;
@@ -1408,6 +1418,25 @@ try {
             }
         }
 
+        // 强制输入只能为数字（用于二级密码）
+        function forceNumeric(input) {
+            const cursorPosition = typeof input.selectionStart === 'number' ? input.selectionStart : input.value.length;
+            // 只保留数字
+            const numericValue = input.value.replace(/[^0-9]/g, '');
+            // 限制为6位
+            const limitedValue = numericValue.slice(0, 6);
+            input.value = limitedValue;
+            // 恢复光标位置
+            try {
+                if (typeof input.setSelectionRange === 'function') {
+                    const newCursorPosition = Math.min(cursorPosition, limitedValue.length);
+                    input.setSelectionRange(newCursorPosition, newCursorPosition);
+                }
+            } catch (err) {
+                // ignore selection errors
+            }
+        }
+        
         // 为输入框添加事件监听器
         function setupInputFormatting() {
             const uppercaseInputs = ['owner_code', 'name'];
@@ -1444,6 +1473,18 @@ try {
                     });
                 }
             });
+            
+            // 处理二级密码输入框（只允许数字，最多6位）
+            const secondaryPasswordInput = document.getElementById('secondary_password');
+            if (secondaryPasswordInput) {
+                secondaryPasswordInput.addEventListener('input', function() {
+                    forceNumeric(this);
+                });
+                
+                secondaryPasswordInput.addEventListener('paste', function() {
+                    setTimeout(() => forceNumeric(this), 0);
+                });
+            }
         }
         
         // Company管理相关函数
@@ -1652,6 +1693,12 @@ try {
             document.getElementById('passwordGroup').style.display = 'block';
             document.getElementById('owner_code').disabled = false;
             
+            // 添加模式：二级密码必填
+            const secondaryPasswordInput = document.getElementById('secondary_password');
+            secondaryPasswordInput.required = true;
+            secondaryPasswordInput.disabled = false;
+            document.getElementById('secondaryPasswordGroup').style.display = 'block';
+            
             // 重置companies
             selectedCompanies = [];
             document.getElementById('companies').value = '';
@@ -1667,6 +1714,22 @@ try {
             document.getElementById('modalTitle').textContent = 'Edit Domain';
             document.getElementById('password').required = false;
             document.getElementById('passwordGroup').style.display = 'block';
+            
+            // 编辑模式：只有C168的owner/admin可以修改二级密码
+            const secondaryPasswordInput = document.getElementById('secondary_password');
+            if (hasC168Context && isOwnerOrAdmin) {
+                // C168的owner/admin可以修改二级密码（可选）
+                secondaryPasswordInput.required = false;
+                secondaryPasswordInput.disabled = false;
+                secondaryPasswordInput.placeholder = 'Leave empty to keep current password';
+                document.getElementById('secondaryPasswordGroup').style.display = 'block';
+            } else {
+                // 非C168用户不能修改二级密码
+                secondaryPasswordInput.required = false;
+                secondaryPasswordInput.disabled = true;
+                secondaryPasswordInput.value = '';
+                document.getElementById('secondaryPasswordGroup').style.display = 'none';
+            }
             
             // Get domain data from domain card
             const card = document.querySelector(`.domain-card[data-id="${id}"]`);
@@ -1719,6 +1782,12 @@ try {
         function closeModal() {
             document.getElementById('domainModal').style.display = 'none';
             selectedCompanies = [];
+            // 重置二级密码输入框
+            const secondaryPasswordInput = document.getElementById('secondary_password');
+            if (secondaryPasswordInput) {
+                secondaryPasswordInput.value = '';
+                secondaryPasswordInput.required = true;
+            }
         }
 
         // 切换删除模式
@@ -2103,6 +2172,11 @@ try {
             // Remove password if empty during edit
             if (isEditMode && !data.password) {
                 delete data.password;
+            }
+            
+            // 移除空的二级密码（编辑模式，如果用户没有修改）
+            if (isEditMode && !data.secondary_password) {
+                delete data.secondary_password;
             }
             
             fetch('domainapi.php', {

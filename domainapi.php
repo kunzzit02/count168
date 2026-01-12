@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once 'config.php';
 
 header('Content-Type: application/json');
@@ -8,6 +9,33 @@ $json = file_get_contents('php://input');
 $data = json_decode($json, true);
 
 $action = $data['action'] ?? '';
+
+// 检查用户是否已登录（对于需要权限的操作）
+if (in_array($action, ['create', 'update', 'delete'])) {
+    if (!isset($_SESSION['user_id'])) {
+        echo json_encode(['success' => false, 'message' => 'User not logged in']);
+        exit;
+    }
+    
+    // 检查C168权限（用于二级密码修改权限判断）
+    $user_role = strtolower($_SESSION['role'] ?? '');
+    $company_id = $_SESSION['company_id'] ?? null;
+    $company_code = strtoupper($_SESSION['company_code'] ?? '');
+    
+    $isOwnerOrAdmin = in_array($user_role, ['owner', 'admin'], true);
+    $isC168ByCode = ($company_code === 'C168');
+    $isC168ById = false;
+    if ($company_id) {
+        try {
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
+            $stmt->execute([$company_id]);
+            $isC168ById = $stmt->fetchColumn() > 0;
+        } catch (PDOException $e) {
+            $isC168ById = false;
+        }
+    }
+    $hasC168Context = ($isC168ByCode || $isC168ById);
+}
 
 /**
  * 将 ID 数组标准化为唯一的整型列表
@@ -66,24 +94,32 @@ try {
             $name = trim($data['name'] ?? '');
             $email = strtolower(trim($data['email'] ?? ''));
             $password = $data['password'] ?? '';
+            $secondary_password = $data['secondary_password'] ?? '';
             $companies = $data['companies'] ?? '';
             
             // Validate required fields
-            if (empty($owner_code) || empty($name) || empty($email) || empty($password)) {
+            if (empty($owner_code) || empty($name) || empty($email) || empty($password) || empty($secondary_password)) {
                 echo json_encode(['success' => false, 'message' => 'All fields are required']);
                 exit;
             }
             
-            // Hash password
+            // 验证二级密码：必须是6位数字
+            if (!preg_match('/^\d{6}$/', $secondary_password)) {
+                echo json_encode(['success' => false, 'message' => 'Secondary password must be exactly 6 digits']);
+                exit;
+            }
+            
+            // Hash passwords
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            $hashed_secondary_password = password_hash($secondary_password, PASSWORD_DEFAULT);
             
             // Start transaction
             $pdo->beginTransaction();
             
             try {
                 // Insert owner
-                $stmt = $pdo->prepare("INSERT INTO owner (owner_code, name, email, password, created_by) VALUES (?, ?, ?, ?, ?)");
-                $stmt->execute([$owner_code, $name, $email, $hashed_password, $_SESSION['username'] ?? 'system']);
+                $stmt = $pdo->prepare("INSERT INTO owner (owner_code, name, email, password, secondary_password, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$owner_code, $name, $email, $hashed_password, $hashed_secondary_password, $_SESSION['login_id'] ?? 'system']);
                 
                 $owner_id = $pdo->lastInsertId();
                 
@@ -101,7 +137,7 @@ try {
                             $expiration_date = !empty($company['expiration_date']) ? $company['expiration_date'] : null;
                             
                             if (!empty($company_id)) {
-                                $stmt->execute([$company_id, $owner_id, $_SESSION['username'] ?? 'system', $expiration_date]);
+                                $stmt->execute([$company_id, $owner_id, $_SESSION['login_id'] ?? 'system', $expiration_date]);
                             }
                         }
                     } else {
@@ -111,7 +147,7 @@ try {
                         
                         foreach ($company_ids as $company_id) {
                             if (!empty($company_id)) {
-                                $stmt->execute([strtoupper($company_id), $owner_id, $_SESSION['username'] ?? 'system', null]);
+                                $stmt->execute([strtoupper($company_id), $owner_id, $_SESSION['login_id'] ?? 'system', null]);
                             }
                         }
                     }
@@ -159,6 +195,7 @@ try {
             $name = trim($data['name'] ?? '');
             $email = strtolower(trim($data['email'] ?? ''));
             $password = $data['password'] ?? '';
+            $secondary_password = $data['secondary_password'] ?? '';
             $companies = $data['companies'] ?? '';
             
             if (empty($id) || empty($name) || empty($email)) {
@@ -166,21 +203,51 @@ try {
                 exit;
             }
             
+            // 如果提供了二级密码，验证格式（只有C168的owner/admin可以修改）
+            if (!empty($secondary_password)) {
+                if (!$hasC168Context || !$isOwnerOrAdmin) {
+                    echo json_encode(['success' => false, 'message' => 'Only C168 owner/admin can modify secondary password']);
+                    exit;
+                }
+                
+                // 验证二级密码：必须是6位数字
+                if (!preg_match('/^\d{6}$/', $secondary_password)) {
+                    echo json_encode(['success' => false, 'message' => 'Secondary password must be exactly 6 digits']);
+                    exit;
+                }
+            }
+            
             // Start transaction
             $pdo->beginTransaction();
             
             try {
-                // Update owner
+                // Update owner - 根据提供的字段构建UPDATE语句
+                $updateFields = [];
+                $updateValues = [];
+                
+                $updateFields[] = "name = ?";
+                $updateValues[] = $name;
+                
+                $updateFields[] = "email = ?";
+                $updateValues[] = $email;
+                
                 if (!empty($password)) {
-                    // Update with new password
                     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                    $stmt = $pdo->prepare("UPDATE owner SET name = ?, email = ?, password = ? WHERE id = ?");
-                    $stmt->execute([$name, $email, $hashed_password, $id]);
-                } else {
-                    // Update without password
-                    $stmt = $pdo->prepare("UPDATE owner SET name = ?, email = ? WHERE id = ?");
-                    $stmt->execute([$name, $email, $id]);
+                    $updateFields[] = "password = ?";
+                    $updateValues[] = $hashed_password;
                 }
+                
+                // 只有C168的owner/admin可以修改二级密码
+                if (!empty($secondary_password) && $hasC168Context && $isOwnerOrAdmin) {
+                    $hashed_secondary_password = password_hash($secondary_password, PASSWORD_DEFAULT);
+                    $updateFields[] = "secondary_password = ?";
+                    $updateValues[] = $hashed_secondary_password;
+                }
+                
+                $updateValues[] = $id;
+                $sql = "UPDATE owner SET " . implode(', ', $updateFields) . " WHERE id = ?";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($updateValues);
                 
                 // Get existing companies for this owner
                 $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ?");
@@ -372,7 +439,7 @@ try {
                         $stmt->execute([
                             $company_data['company_id'], 
                             $id, 
-                            $_SESSION['username'] ?? 'system',
+                            $_SESSION['login_id'] ?? 'system',
                             $company_data['expiration_date']
                         ]);
                     }
