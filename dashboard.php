@@ -613,6 +613,12 @@ if (isset($_GET['logout'])) {
             font-family: 'Amaranth', sans-serif;
         }
 
+        /* 确保 sidebar 中的 logout button 文字居中 */
+        .informationmenu-footer .logout-btn {
+            justify-content: center;
+            text-align: center;
+        }
+
         .btn-secondary {
             background-color: #3b82f6;
             color: white;
