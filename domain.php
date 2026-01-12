@@ -1613,14 +1613,14 @@ try {
                     // C168不显示到期日期选择器和日期显示
                     let expirationControls = '';
                     if (!isC168) {
-                        const selectedPeriod = getPeriodFromDate(company.expiration_date);
+                        // 下拉框始终显示默认值（1 Month），不保持上次选择，这样每次选择都会触发change事件
                         expirationControls = `
                             <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
-                                <option value="7days" ${selectedPeriod === '7days' ? 'selected' : ''}>7 Days</option>
-                                <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
-                                <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
-                                <option value="6months" ${selectedPeriod === '6months' ? 'selected' : ''}>6 Months</option>
-                                <option value="1year" ${selectedPeriod === '1year' ? 'selected' : ''}>1 Year</option>
+                                <option value="7days">7 Days</option>
+                                <option value="1month" selected>1 Month</option>
+                                <option value="3months">3 Months</option>
+                                <option value="6months">6 Months</option>
+                                <option value="1year">1 Year</option>
                             </select>
                             <span class="exp-date-display">${formatDate(company.expiration_date)}</span>
                         `;
