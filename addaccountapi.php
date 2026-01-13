@@ -277,16 +277,18 @@ try {
                 }
             }
             
-            // 只有当用户已经设置了账户权限（且权限列表不为空）时，才自动添加新账户
-            // 如果用户没有设置权限或权限列表为空，他们默认可以看到所有账户，不需要更新
-            if ($hasPermissionsSet && !empty($currentPermissions)) {
+            // 如果用户已经设置了账户权限（包括空数组的情况），自动添加新账户
+            // 如果用户没有设置权限（account_permissions 是 null），他们默认可以看到所有账户，不需要更新
+            if ($hasPermissionsSet) {
                 // 检查是否已经存在这个账户权限
                 $accountExists = false;
-                foreach ($currentPermissions as $permission) {
-                    // 兼容字符串和整数类型的 ID
-                    if (isset($permission['id']) && (int)$permission['id'] == (int)$newAccountId) {
-                        $accountExists = true;
-                        break;
+                if (!empty($currentPermissions)) {
+                    foreach ($currentPermissions as $permission) {
+                        // 兼容字符串和整数类型的 ID
+                        if (isset($permission['id']) && (int)$permission['id'] == (int)$newAccountId) {
+                            $accountExists = true;
+                            break;
+                        }
                     }
                 }
                 
