@@ -1387,12 +1387,32 @@ if ($current_user_id && count($user_companies) > 0) {
         function showContextMenu(e, cell) {
             const contextMenu = document.getElementById('contextMenu');
             
-            // If current cell is not selected, select it first
+            // Check if Ctrl/Cmd is pressed
+            const isCtrlPressed = e.ctrlKey || e.metaKey;
+            
+            // If current cell is not selected
             if (!selectedCells.has(cell)) {
-                clearAllSelections();
-                selectedCells.add(cell);
-                cell.classList.add('multi-selected');
+                if (isCtrlPressed) {
+                    // If Ctrl is pressed, add to selection (multi-select mode)
+                    selectedCells.add(cell);
+                    cell.classList.add('multi-selected');
+                } else {
+                    // If no Ctrl and multiple cells are already selected, keep them all and add current cell
+                    // This allows right-clicking on any cell to add it to the selection
+                    if (selectedCells.size > 0) {
+                        selectedCells.add(cell);
+                        cell.classList.add('multi-selected');
+                    } else {
+                        // If no cells selected, select only current cell
+                        clearAllSelections();
+                        selectedCells.add(cell);
+                        cell.classList.add('multi-selected');
+                    }
+                }
             }
+            // If cell is already selected, keep all selections (don't clear)
+            // This ensures that when right-clicking on an already selected cell in a multi-selection,
+            // all selections are preserved
             
             // Set menu position
             contextMenu.style.left = e.pageX + 'px';
