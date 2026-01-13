@@ -85,14 +85,9 @@ function filterAccountsByPermissions($pdo, $baseQuery, $params = []) {
     // 解析 JSON 数据
     $userAccountPermissions = json_decode($permission['account_permissions'], true);
     
-    // 如果 account_permissions 是空数组 []（已设置但清空），用户看不到任何账户
+    // 如果 account_permissions 是空数组 [] 或无效数据，视为未设置权限，显示所有账户
+    // 只有当权限列表有值时才进行过滤
     if (empty($userAccountPermissions) || !is_array($userAccountPermissions)) {
-        $hasWhere = stripos($baseQuery, ' WHERE ') !== false;
-        if ($hasWhere) {
-            $baseQuery .= " AND 1=0";
-        } else {
-            $baseQuery .= " WHERE 1=0";
-        }
         return [$baseQuery, $params];
     }
     

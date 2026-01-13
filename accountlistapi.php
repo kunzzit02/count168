@@ -116,10 +116,9 @@ try {
             // 解析 JSON 数据
             $userAccountPermissions = json_decode($permission['account_permissions'], true);
             
-            // 如果 account_permissions 是空数组 []（已设置但清空），用户看不到任何账户
-            if (empty($userAccountPermissions) || !is_array($userAccountPermissions)) {
-                $sql .= " AND 1=0"; // 不显示任何账户
-            } else {
+            // 如果 account_permissions 是空数组 [] 或无效数据，视为未设置权限，显示所有账户
+            // 只有当权限列表有值时才进行过滤
+            if (!empty($userAccountPermissions) && is_array($userAccountPermissions)) {
                 // 如果 account_permissions 有值，只显示权限列表中的账户
                 $accountIds = array_column($userAccountPermissions, 'id');
                 // 确保所有 ID 都是整数类型，避免类型不匹配问题
@@ -134,11 +133,10 @@ try {
                     // 使用 a.id，避免与 account_company.id 产生歧义
                     $sql .= " AND a.id IN ($placeholders)";
                     $params = array_merge($params, $accountIds);
-                } else {
-                    // 如果 accountIds 为空（虽然理论上不应该发生），不显示任何账户
-                    $sql .= " AND 1=0";
                 }
+                // 如果 accountIds 为空，不添加过滤条件，显示所有账户（视为未设置权限）
             }
+            // 如果 account_permissions 是空数组或无效数据，不添加过滤条件，显示所有账户
         }
         // 如果 account_permissions 是 null，不添加过滤条件，显示所有账户
     }
