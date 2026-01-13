@@ -1071,7 +1071,9 @@ try {
                         <button class="btn btn-edit edit-btn" onclick="editDomain(<?php echo $domain['id']; ?>)" aria-label="Edit">
                             <img src="images/edit.svg" alt="Edit">
                         </button>
+                        <?php if (strtoupper($domain['owner_code']) !== 'K'): ?>
                         <input type="checkbox" class="domain-checkbox" value="<?php echo $domain['id']; ?>" onchange="updateDeleteButton()">
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -1976,8 +1978,30 @@ try {
                 return;
             }
             
-            const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
-            const selectedNames = Array.from(selectedCheckboxes).map(cb => {
+            // 过滤掉 Owner Code 为 'K' 的账号
+            const invalidCheckboxes = Array.from(selectedCheckboxes).filter(cb => {
+                const card = cb.closest('.domain-card');
+                const ownerCode = card.querySelectorAll('.card-item')[1].textContent.trim().toUpperCase();
+                return ownerCode === 'K';
+            });
+            
+            const validCheckboxes = Array.from(selectedCheckboxes).filter(cb => {
+                const card = cb.closest('.domain-card');
+                const ownerCode = card.querySelectorAll('.card-item')[1].textContent.trim().toUpperCase();
+                return ownerCode !== 'K';
+            });
+            
+            if (invalidCheckboxes.length > 0 && validCheckboxes.length === 0) {
+                showAlert('Cannot delete owner with code K', 'danger');
+                return;
+            }
+            
+            if (invalidCheckboxes.length > 0 && validCheckboxes.length > 0) {
+                showAlert(`Owner with code K cannot be deleted. ${validCheckboxes.length} other owner(s) will be deleted.`, 'danger');
+            }
+            
+            const selectedIds = validCheckboxes.map(cb => cb.value);
+            const selectedNames = validCheckboxes.map(cb => {
                 const card = cb.closest('.domain-card');
                 return card.querySelectorAll('.card-item')[2].textContent; // Name列（现在是第3列，索引2）
             });
@@ -2008,7 +2032,7 @@ try {
                     }
 
                     // 删除选中的卡片
-                    selectedCheckboxes.forEach(cb => {
+                    validCheckboxes.forEach(cb => {
                     const card = cb.closest('.domain-card');
                         card.remove();
                     });
@@ -2064,7 +2088,7 @@ try {
                     <button class="btn btn-edit edit-btn" onclick="editDomain(${domainData.id})" aria-label="Edit">
                         <img src="images/edit.svg" alt="Edit">
                     </button>
-                    <input type="checkbox" class="domain-checkbox" value="${domainData.id}" onchange="updateDeleteButton()">
+                    ${domainData.owner_code.toUpperCase() !== 'K' ? `<input type="checkbox" class="domain-checkbox" value="${domainData.id}" onchange="updateDeleteButton()">` : ''}
                 </div>
             `;
             
