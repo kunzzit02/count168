@@ -300,7 +300,6 @@ if (isset($_GET['logout'])) {
             display: flex;
             justify-content: center;
             gap: 8px;
-            margin-bottom: clamp(16px, 1.35vw, 26px);
             flex-wrap: wrap;
         }
         
@@ -973,17 +972,17 @@ if (isset($_GET['logout'])) {
                     <div>
                         <div class="dashboard-chart-title">Trend Chart</div>
                         <div class="dashboard-date-info" id="chart-date-range" style="margin-top: 4px; margin-bottom: 0; border: none; padding: 0; background: transparent;">Loading data...</div>
-                        </div>
                     </div>
-                <!-- 图表数据切换按钮 -->
-                <div class="dashboard-chart-buttons">
-                    <button class="chart-data-btn active" data-type="all">All</button>
-                    <button class="chart-data-btn" data-type="capital">Capital</button>
-                    <button class="chart-data-btn" data-type="expenses">Expenses</button>
-                    <button class="chart-data-btn" data-type="profit">Profit</button>
+                    <!-- 图表数据切换按钮 -->
+                    <div class="dashboard-chart-buttons">
+                        <button class="chart-data-btn active" data-type="all">All</button>
+                        <button class="chart-data-btn" data-type="capital">Capital</button>
+                        <button class="chart-data-btn" data-type="expenses">Expenses</button>
+                        <button class="chart-data-btn" data-type="profit">Profit</button>
+                    </div>
                 </div>
-                        <div class="dashboard-chart-container">
-                            <canvas id="trend-chart"></canvas>
+                <div class="dashboard-chart-container">
+                    <canvas id="trend-chart"></canvas>
                 </div>
             </div>
             </div>
