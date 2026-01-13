@@ -581,6 +581,7 @@ if (isset($_GET['logout'])) {
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
             z-index: 1000;
             width: 100%;
+            min-width: clamp(140px, 12.5vw, 160px);
             box-sizing: border-box;
         }
 
