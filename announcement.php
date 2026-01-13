@@ -242,7 +242,8 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             flex: 1;
         }
 
-        .announcement-delete-btn {
+        .announcement-delete-btn,
+        .announcement-edit-btn {
             background: #ef4444;
             color: white;
             border: none;
@@ -251,11 +252,35 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             font-size: clamp(8px, 0.625vw, 12px);
             cursor: pointer;
             transition: background 0.2s;
-            margin-left: 12px;
+            margin-left: 8px;
+        }
+
+        .announcement-edit-btn {
+            background: #3b82f6;
+        }
+
+        .announcement-edit-btn:hover {
+            background: #2563eb;
         }
 
         .announcement-delete-btn:hover {
             background: #dc2626;
+        }
+
+        .maintenance-edit-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: clamp(4px, 0.31vw, 6px) clamp(8px, 0.625vw, 12px);
+            font-size: clamp(8px, 0.625vw, 12px);
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: 8px;
+        }
+
+        .maintenance-edit-btn:hover {
+            background: #2563eb;
         }
 
         .announcement-content {
@@ -419,6 +444,92 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             font-size: clamp(16px, 1.25vw, 24px);
             font-family: 'Amaranth';
         }
+
+        /* Edit Modal Styles */
+        .edit-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow: auto;
+        }
+
+        .edit-modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: clamp(20px, 2.08vw, 40px);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .edit-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: clamp(16px, 1.35vw, 24px);
+        }
+
+        .edit-modal-header h2 {
+            margin: 0;
+            color: #002C49;
+            font-family: 'Amaranth';
+            font-size: clamp(18px, 1.46vw, 28px);
+        }
+
+        .edit-modal-close {
+            color: #9ca3af;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .edit-modal-close:hover {
+            color: #111827;
+        }
+
+        .edit-modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: clamp(16px, 1.35vw, 24px);
+        }
+
+        .edit-modal-btn {
+            flex: 1;
+            padding: clamp(8px, 0.625vw, 12px);
+            border: none;
+            border-radius: 8px;
+            font-size: clamp(12px, 0.83vw, 16px);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .edit-modal-btn-cancel {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .edit-modal-btn-cancel:hover {
+            background: #d1d5db;
+        }
+
+        .edit-modal-btn-save {
+            background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+            color: white;
+        }
+
+        .edit-modal-btn-save:hover {
+            background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -489,6 +600,52 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     <!-- 通知容器 -->
     <div id="notificationContainer"></div>
 
+    <!-- Edit Announcement Modal -->
+    <div id="editAnnouncementModal" class="edit-modal">
+        <div class="edit-modal-content">
+            <div class="edit-modal-header">
+                <h2>Edit Announcement</h2>
+                <span class="edit-modal-close" onclick="closeEditAnnouncementModal()">&times;</span>
+            </div>
+            <form id="editAnnouncementForm">
+                <input type="hidden" id="editAnnouncementId" name="id">
+                <div class="form-group">
+                    <label for="editAnnouncementTitle">Title *</label>
+                    <input type="text" id="editAnnouncementTitle" name="title" required maxlength="500" placeholder="Enter announcement title">
+                </div>
+                <div class="form-group">
+                    <label for="editAnnouncementContent">Content *</label>
+                    <textarea id="editAnnouncementContent" name="content" required placeholder="Enter announcement content"></textarea>
+                </div>
+                <div class="edit-modal-actions">
+                    <button type="button" class="edit-modal-btn edit-modal-btn-cancel" onclick="closeEditAnnouncementModal()">Cancel</button>
+                    <button type="submit" class="edit-modal-btn edit-modal-btn-save">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Maintenance Modal -->
+    <div id="editMaintenanceModal" class="edit-modal">
+        <div class="edit-modal-content">
+            <div class="edit-modal-header">
+                <h2>Edit Maintenance Content</h2>
+                <span class="edit-modal-close" onclick="closeEditMaintenanceModal()">&times;</span>
+            </div>
+            <form id="editMaintenanceForm">
+                <input type="hidden" id="editMaintenanceId" name="id">
+                <div class="form-group">
+                    <label for="editMaintenanceContent">Content *</label>
+                    <textarea id="editMaintenanceContent" name="content" required placeholder="Enter maintenance content"></textarea>
+                </div>
+                <div class="edit-modal-actions">
+                    <button type="button" class="edit-modal-btn edit-modal-btn-cancel" onclick="closeEditMaintenanceModal()">Cancel</button>
+                    <button type="submit" class="edit-modal-btn edit-modal-btn-save">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // 加载公告列表
         async function loadAnnouncements() {
@@ -499,21 +656,32 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                 const listContainer = document.getElementById('announcementList');
                 
                 if (result.success && result.data.length > 0) {
-                    listContainer.innerHTML = result.data.map(announcement => `
+                    listContainer.innerHTML = result.data.map(announcement => {
+                        const titleEscaped = escapeHtml(announcement.title);
+                        const contentEscaped = escapeHtml(announcement.content);
+                        const titleForJs = titleEscaped.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+                        const contentForJs = contentEscaped.replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n");
+                        return `
                         <div class="announcement-item">
                             <div class="announcement-item-header">
-                                <h3 class="announcement-title">${escapeHtml(announcement.title)}</h3>
-                                <button class="announcement-delete-btn" onclick="deleteAnnouncement(${announcement.id}, '${escapeHtml(announcement.title)}')">
-                                    Delete
-                                </button>
+                                <h3 class="announcement-title">${titleEscaped}</h3>
+                                <div>
+                                    <button class="announcement-edit-btn" onclick="openEditAnnouncementModal(${announcement.id}, '${titleForJs}', '${contentForJs}')">
+                                        Edit
+                                    </button>
+                                    <button class="announcement-delete-btn" onclick="deleteAnnouncement(${announcement.id}, '${titleForJs}')">
+                                        Delete
+                                    </button>
+                                </div>
                             </div>
-                            <div class="announcement-content">${escapeHtml(announcement.content)}</div>
+                            <div class="announcement-content">${contentEscaped}</div>
                             <div class="announcement-meta">
                                 <span>Created by: ${escapeHtml(announcement.created_by)}</span>
                                 <span>Created at: ${escapeHtml(announcement.created_at)}</span>
                             </div>
                         </div>
-                    `).join('');
+                    `;
+                    }).join('');
                 } else {
                     listContainer.innerHTML = `
                         <div class="empty-state">
@@ -622,6 +790,76 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             return div.innerHTML;
         }
 
+        // ========== Announcement Edit Functions ==========
+        
+        // Open edit announcement modal
+        function openEditAnnouncementModal(id, title, content) {
+            document.getElementById('editAnnouncementId').value = id;
+            // Decode HTML entities
+            const titleDecoded = title.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+            const contentDecoded = content.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\\n/g, '\n');
+            document.getElementById('editAnnouncementTitle').value = titleDecoded;
+            document.getElementById('editAnnouncementContent').value = contentDecoded;
+            document.getElementById('editAnnouncementModal').style.display = 'block';
+        }
+
+        // Close edit announcement modal
+        function closeEditAnnouncementModal() {
+            document.getElementById('editAnnouncementModal').style.display = 'none';
+            document.getElementById('editAnnouncementForm').reset();
+        }
+
+        // Submit edit announcement form
+        document.getElementById('editAnnouncementForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('editAnnouncementId').value;
+            const title = document.getElementById('editAnnouncementTitle').value.trim();
+            const content = document.getElementById('editAnnouncementContent').value.trim();
+
+            if (!title || !content) {
+                showNotification('Please fill in both title and content', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('id', id);
+                formData.append('title', title);
+                formData.append('content', content);
+
+                const response = await fetch('announcement_update_api.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Announcement updated successfully', 'success');
+                    closeEditAnnouncementModal();
+                    loadAnnouncements();
+                } else {
+                    showNotification('Update failed: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Failed to update announcement:', error);
+                showNotification('Failed to update announcement: ' + error.message, 'error');
+            }
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const editAnnouncementModal = document.getElementById('editAnnouncementModal');
+            const editMaintenanceModal = document.getElementById('editMaintenanceModal');
+            if (event.target === editAnnouncementModal) {
+                closeEditAnnouncementModal();
+            }
+            if (event.target === editMaintenanceModal) {
+                closeEditMaintenanceModal();
+            }
+        }
+
         // 页面加载时获取公告列表
         document.addEventListener('DOMContentLoaded', function() {
             loadAnnouncements();
@@ -643,21 +881,30 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                 
                 if (result.success && result.data.length > 0) {
                     // 有维护内容，显示列表
-                    listContainer.innerHTML = result.data.map(maintenance => `
+                    listContainer.innerHTML = result.data.map(maintenance => {
+                        const contentEscaped = escapeHtml(maintenance.content);
+                        const contentForJs = contentEscaped.replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n");
+                        return `
                         <div class="maintenance-item">
                             <div class="maintenance-item-header">
                                 <div style="flex: 1;"></div>
-                                <button class="maintenance-delete-btn" onclick="deleteMaintenanceContent(${maintenance.id})">
-                                    Delete
-                                </button>
+                                <div>
+                                    <button class="maintenance-edit-btn" onclick="openEditMaintenanceModal(${maintenance.id}, '${contentForJs}')">
+                                        Edit
+                                    </button>
+                                    <button class="maintenance-delete-btn" onclick="deleteMaintenanceContent(${maintenance.id})">
+                                        Delete
+                                    </button>
+                                </div>
                             </div>
-                            <div class="maintenance-content">${escapeHtml(maintenance.content)}</div>
+                            <div class="maintenance-content">${contentEscaped}</div>
                             <div class="announcement-meta">
                                 <span>Created by: ${escapeHtml(maintenance.created_by)}</span>
                                 <span>Created at: ${escapeHtml(maintenance.created_at)}</span>
                             </div>
                         </div>
-                    `).join('');
+                    `;
+                    }).join('');
                     
                     // 禁用表单并显示警告
                     formWarning.style.display = 'block';
@@ -748,6 +995,60 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             } catch (error) {
                 console.error('Failed to publish maintenance content:', error);
                 showNotification('Failed to publish maintenance content: ' + error.message, 'error');
+            }
+        });
+
+        // ========== Maintenance Edit Functions ==========
+        
+        // Open edit maintenance modal
+        function openEditMaintenanceModal(id, content) {
+            document.getElementById('editMaintenanceId').value = id;
+            // Decode HTML entities
+            const contentDecoded = content.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\\n/g, '\n');
+            document.getElementById('editMaintenanceContent').value = contentDecoded;
+            document.getElementById('editMaintenanceModal').style.display = 'block';
+        }
+
+        // Close edit maintenance modal
+        function closeEditMaintenanceModal() {
+            document.getElementById('editMaintenanceModal').style.display = 'none';
+            document.getElementById('editMaintenanceForm').reset();
+        }
+
+        // Submit edit maintenance form
+        document.getElementById('editMaintenanceForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('editMaintenanceId').value;
+            const content = document.getElementById('editMaintenanceContent').value.trim();
+
+            if (!content) {
+                showNotification('Please fill in the content', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('id', id);
+                formData.append('content', content);
+
+                const response = await fetch('maintenance_update_api.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Maintenance content updated successfully', 'success');
+                    closeEditMaintenanceModal();
+                    loadMaintenanceContent();
+                } else {
+                    showNotification('Update failed: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Failed to update maintenance content:', error);
+                showNotification('Failed to update maintenance content: ' + error.message, 'error');
             }
         });
     </script>
