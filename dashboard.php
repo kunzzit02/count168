@@ -281,11 +281,10 @@ if (isset($_GET['logout'])) {
         }
         
         .dashboard-chart-header {
-            display: flex;
-            justify-content: space-between;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
             margin-bottom: clamp(16px, 1.35vw, 26px);
-            flex-wrap: wrap;
             gap: clamp(12px, 1.04vw, 20px);
         }
         
@@ -301,6 +300,7 @@ if (isset($_GET['logout'])) {
             justify-content: center;
             gap: 8px;
             flex-wrap: wrap;
+            grid-column: 2;
         }
         
         .chart-data-btn {
@@ -338,6 +338,23 @@ if (isset($_GET['logout'])) {
         @media (max-width: 1200px) {
             .dashboard-kpi-grid {
                 grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard-chart-header {
+                grid-template-columns: 1fr;
+                justify-items: center;
+                text-align: center;
+            }
+            
+            .dashboard-chart-header > div:first-child {
+                width: 100%;
+                text-align: center;
+            }
+            
+            .dashboard-chart-buttons {
+                grid-column: 1;
             }
         }
         
