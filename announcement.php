@@ -41,7 +41,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
     <link href='https://fonts.googleapis.com/css?family=Amaranth' rel='stylesheet'>
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
-    <title>Announcement and Maintenance Management</title>
+    <title>Announcement Management</title>
     <?php include 'sidebar.php'; ?>
     <style>
         body {
@@ -49,6 +49,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            height: 100vh;
             font-weight: 700;
             background-color: #e9f1ff;
             background-image:
@@ -59,7 +60,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                 linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
             background-blend-mode: screen, screen, multiply, screen, normal;
             overflow-x: hidden;
-            overflow-y: auto;
+            overflow-y: hidden;
         }
 
         .container {
@@ -67,9 +68,9 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             margin: 0;
             padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
             width: 100%;
-            min-height: 100vh;
+            height: 100vh;
             box-sizing: border-box;
-            overflow: visible;
+            overflow: hidden;
         }
 
         h1 {
@@ -107,8 +108,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             border-radius: 12px;
             padding: clamp(16px, 1.25vw, 24px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            min-height: 400px;
-            max-height: 600px;
+            height: 100%;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -329,8 +329,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             border-radius: 12px;
             padding: clamp(16px, 1.25vw, 24px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            min-height: 400px;
-            max-height: 600px;
+            height: 100%;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -402,7 +401,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
 </head>
 <body>
     <div class="container">
-        <h1>Announcement and Maintenance Management</h1>
+        <h1>Announcement Management</h1>
         
         <div class="separator-line"></div>
         
@@ -436,6 +435,8 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
 
         <!-- Maintenance Content Management Section -->
         <div class="separator-line" style="margin-top: 40px;"></div>
+        
+        <h1 style="margin-top: 40px;">Maintenance Content Management</h1>
         
         <div class="maintenance-layout">
             <!-- Left: Create Maintenance Content Form -->
