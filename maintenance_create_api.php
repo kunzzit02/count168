@@ -56,6 +56,16 @@ try {
         throw new Exception('Content cannot be empty');
     }
     
+    // 检查是否已经存在活跃的维护内容
+    $checkSql = "SELECT COUNT(*) FROM maintenance_marquee WHERE company_code = 'C168' AND status = 'active'";
+    $checkStmt = $pdo->prepare($checkSql);
+    $checkStmt->execute();
+    $existingCount = $checkStmt->fetchColumn();
+    
+    if ($existingCount > 0) {
+        throw new Exception('Maintenance content already exists. Please delete the existing content before creating a new one.');
+    }
+    
     // 获取用户类型和创建者ID
     $user_type = $_SESSION['user_type'] ?? 'user';
     $created_by = $user_id;

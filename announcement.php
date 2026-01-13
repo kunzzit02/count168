@@ -148,6 +148,13 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
+        .form-group input:disabled,
+        .form-group textarea:disabled {
+            background-color: #f3f4f6;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
         .form-group textarea {
             height: clamp(120px, 9.4vw, 180px);
             resize: vertical;
@@ -175,6 +182,18 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
 
         .submit-btn:active {
             transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .submit-btn:disabled:hover {
+            background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+            transform: none;
+            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
 
         .announcement-list-header {
@@ -443,12 +462,15 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             <!-- Left: Create Maintenance Content Form -->
             <div class="maintenance-form-section">
                 <h2 style="margin-top: 0; color: #002C49; font-family: 'Amaranth'; font-size: clamp(16px, 1.25vw, 24px); margin-bottom: clamp(8px, 0.73vw, 14px);">Create New Maintenance Content</h2>
+                <div id="maintenanceFormWarning" style="display: none; background: #fef3c7; border: 1px solid #fbbf24; border-radius: 8px; padding: 12px; margin-bottom: 16px; color: #92400e; font-size: clamp(11px, 0.73vw, 14px);">
+                    <strong>⚠️ Notice:</strong> Maintenance content already exists. Please delete the existing content before creating a new one.
+                </div>
                 <form id="maintenanceForm">
                     <div class="form-group">
                         <label for="maintenanceContent">Content *</label>
-                        <textarea id="maintenanceContent" name="content" required placeholder="Enter maintenance content"></textarea>
+                        <textarea id="maintenanceContent" name="content" required placeholder="Enter maintenance content" disabled></textarea>
                     </div>
-                    <button type="submit" class="submit-btn">Publish Maintenance Content</button>
+                    <button type="submit" class="submit-btn" id="maintenanceSubmitBtn" disabled>Publish Maintenance Content</button>
                 </form>
             </div>
 
@@ -615,8 +637,12 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                 const result = await response.json();
                 
                 const listContainer = document.getElementById('maintenanceList');
+                const formWarning = document.getElementById('maintenanceFormWarning');
+                const contentTextarea = document.getElementById('maintenanceContent');
+                const submitBtn = document.getElementById('maintenanceSubmitBtn');
                 
                 if (result.success && result.data.length > 0) {
+                    // 有维护内容，显示列表
                     listContainer.innerHTML = result.data.map(maintenance => `
                         <div class="maintenance-item">
                             <div class="maintenance-item-header">
@@ -632,12 +658,27 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                             </div>
                         </div>
                     `).join('');
+                    
+                    // 禁用表单并显示警告
+                    formWarning.style.display = 'block';
+                    contentTextarea.disabled = true;
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.5';
+                    submitBtn.style.cursor = 'not-allowed';
                 } else {
+                    // 没有维护内容，显示空状态
                     listContainer.innerHTML = `
                         <div class="empty-state">
                             <p>No maintenance content</p>
                         </div>
                     `;
+                    
+                    // 启用表单并隐藏警告
+                    formWarning.style.display = 'none';
+                    contentTextarea.disabled = false;
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
                 }
             } catch (error) {
                 console.error('Failed to load maintenance content:', error);
@@ -664,6 +705,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
 
                 if (result.success) {
                     showNotification('Maintenance content deleted successfully', 'success');
+                    // 重新加载列表，这会自动启用表单
                     loadMaintenanceContent();
                 } else {
                     showNotification('Delete failed: ' + result.error, 'error');
