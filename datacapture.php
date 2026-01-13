@@ -317,7 +317,7 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="context-menu-item" onclick="clearSelectedCells()">
             <span>🗑️ Clear</span>
         </div>
-        <div class="context-menu-item" onclick="showDeleteDialog()">
+        <div class="context-menu-item" onclick="showDeleteDialog(event)">
             <span>🗑️ Delete</span>
         </div>
         <div class="context-menu-item" onclick="selectAllCells(event)">
@@ -386,8 +386,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 </div>
             </div>
             <div class="delete-dialog-footer">
-                <button type="button" class="btn btn-cancel" onclick="closeDeleteDialog()">Cancel</button>
-                <button type="button" class="btn btn-save" onclick="confirmDelete()">OK</button>
+                <button type="button" class="btn btn-cancel" onclick="closeDeleteDialog(); event.stopPropagation();">Cancel</button>
+                <button type="button" class="btn btn-save" onclick="confirmDelete(); event.stopPropagation();">OK</button>
             </div>
         </div>
     </div>
@@ -1459,10 +1459,15 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Show delete dialog
-        function showDeleteDialog() {
+        function showDeleteDialog(e) {
             if (selectedCells.size === 0) {
                 hideContextMenu();
                 return;
+            }
+            
+            // Prevent the click event from clearing selections
+            if (e) {
+                e.stopPropagation();
             }
             
             hideContextMenu();
@@ -1471,16 +1476,28 @@ if ($current_user_id && count($user_companies) > 0) {
             if (deleteDialog) {
                 deleteDialog.style.display = 'block';
                 // Reset to default option
-                document.querySelector('input[name="deleteOption"][value="shiftLeft"]').checked = true;
+                const shiftLeftOption = document.querySelector('input[name="deleteOption"][value="shiftLeft"]');
+                if (shiftLeftOption) {
+                    shiftLeftOption.checked = true;
+                }
+                
+                // Prevent clicks inside dialog from propagating
+                const dialogContent = deleteDialog.querySelector('.delete-dialog-content');
+                if (dialogContent) {
+                    dialogContent.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                    });
+                }
                 
                 // Close dialog when clicking outside
                 setTimeout(() => {
-                    deleteDialog.addEventListener('click', function closeOnOutsideClick(e) {
+                    const closeOnOutsideClick = function(e) {
                         if (e.target === deleteDialog) {
                             closeDeleteDialog();
                             deleteDialog.removeEventListener('click', closeOnOutsideClick);
                         }
-                    }, { once: true });
+                    };
+                    deleteDialog.addEventListener('click', closeOnOutsideClick, { once: true });
                 }, 0);
             }
         }
@@ -1495,33 +1512,50 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // Confirm delete and execute deletion
         function confirmDelete() {
+            console.log('confirmDelete called, selectedCells.size:', selectedCells.size);
+            
             if (selectedCells.size === 0) {
+                console.log('No cells selected');
                 closeDeleteDialog();
                 return;
             }
 
             const selectedOption = document.querySelector('input[name="deleteOption"]:checked');
             if (!selectedOption) {
+                console.log('No option selected');
                 closeDeleteDialog();
                 return;
             }
 
             const deleteType = selectedOption.value;
+            console.log('Delete type:', deleteType);
+            
             const tableBody = document.getElementById('tableBody');
             const tableHeader = document.querySelector('#tableHeader tr');
             
             if (!tableBody || !tableHeader) {
+                console.log('Table body or header not found');
                 closeDeleteDialog();
                 return;
             }
 
+            // Create a copy of selectedCells before clearing, as the cells might be removed
+            const selectedCellsCopy = Array.from(selectedCells);
+            console.log('Selected cells count:', selectedCellsCopy.length);
+
             // Get all selected cells with their coordinates
-            const cellsToDelete = Array.from(selectedCells).map(cell => ({
-                cell: cell,
-                coords: getCellCoordinates(cell)
-            })).filter(item => item.coords !== null);
+            const cellsToDelete = selectedCellsCopy.map(cell => {
+                const coords = getCellCoordinates(cell);
+                return {
+                    cell: cell,
+                    coords: coords
+                };
+            }).filter(item => item.coords !== null);
+
+            console.log('Cells to delete:', cellsToDelete.length);
 
             if (cellsToDelete.length === 0) {
+                console.log('No valid cells to delete');
                 closeDeleteDialog();
                 return;
             }
@@ -1534,20 +1568,27 @@ if ($current_user_id && count($user_companies) > 0) {
                 return a.coords.colIndex - b.coords.colIndex;
             });
 
+            console.log('Executing deletion:', deleteType);
+
             // Execute deletion based on selected option
-            switch (deleteType) {
-                case 'shiftLeft':
-                    deleteCellsShiftLeft(cellsToDelete, tableBody);
-                    break;
-                case 'shiftUp':
-                    deleteCellsShiftUp(cellsToDelete, tableBody);
-                    break;
-                case 'entireRow':
-                    deleteEntireRows(cellsToDelete, tableBody);
-                    break;
-                case 'entireColumn':
-                    deleteEntireColumns(cellsToDelete, tableBody, tableHeader);
-                    break;
+            try {
+                switch (deleteType) {
+                    case 'shiftLeft':
+                        deleteCellsShiftLeft(cellsToDelete, tableBody);
+                        break;
+                    case 'shiftUp':
+                        deleteCellsShiftUp(cellsToDelete, tableBody);
+                        break;
+                    case 'entireRow':
+                        deleteEntireRows(cellsToDelete, tableBody);
+                        break;
+                    case 'entireColumn':
+                        deleteEntireColumns(cellsToDelete, tableBody, tableHeader);
+                        break;
+                }
+                console.log('Deletion completed successfully');
+            } catch (error) {
+                console.error('Error during deletion:', error);
             }
 
             // Clear selection and close dialog
@@ -1579,15 +1620,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 const maxCols = row.children.length - 1; // Exclude row header
 
                 colsToDelete.forEach(colIndex => {
-                    const cell = row.children[colIndex + 1]; // +1 for row header
-                    if (!cell || cell.contentEditable !== 'true') return;
-
-                    // Shift cells left
+                    // Shift cells left: copy content from right to left
                     for (let c = colIndex + 1; c < maxCols; c++) {
+                        const currentCell = row.children[c];
                         const nextCell = row.children[c + 1];
-                        if (nextCell && nextCell.contentEditable === 'true') {
-                            cell.textContent = nextCell.textContent;
-                            cell = nextCell;
+                        if (currentCell && nextCell && currentCell.contentEditable === 'true' && nextCell.contentEditable === 'true') {
+                            currentCell.textContent = nextCell.textContent;
                         }
                     }
 
@@ -1618,20 +1656,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 const maxRows = tableBody.children.length;
 
                 rowsToDelete.forEach(rowIndex => {
-                    const row = tableBody.children[rowIndex];
-                    if (!row) return;
-
-                    const cell = row.children[colIndex + 1]; // +1 for row header
-                    if (!cell || cell.contentEditable !== 'true') return;
-
-                    // Shift cells up
-                    for (let r = rowIndex + 1; r < maxRows; r++) {
-                        const nextRow = tableBody.children[r];
-                        if (!nextRow) break;
+                    // Shift cells up: copy content from below to above
+                    for (let r = rowIndex; r < maxRows - 1; r++) {
+                        const currentRow = tableBody.children[r];
+                        const nextRow = tableBody.children[r + 1];
+                        if (!currentRow || !nextRow) break;
+                        
+                        const currentCell = currentRow.children[colIndex + 1]; // +1 for row header
                         const nextCell = nextRow.children[colIndex + 1];
-                        if (nextCell && nextCell.contentEditable === 'true') {
-                            cell.textContent = nextCell.textContent;
-                            cell = nextCell;
+                        if (currentCell && nextCell && currentCell.contentEditable === 'true' && nextCell.contentEditable === 'true') {
+                            currentCell.textContent = nextCell.textContent;
                         }
                     }
 
