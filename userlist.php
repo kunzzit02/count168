@@ -676,6 +676,59 @@ try {
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
+        /* C168公司：密码和二级密码在同一行左右排版 */
+        .password-row-container {
+            display: flex;
+            gap: clamp(8px, 0.83vw, 16px);
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .password-field-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0; /* 防止flex子元素溢出 */
+        }
+
+        .password-field-wrapper label {
+            display: block;
+            margin: clamp(2px, 0.21vw, 4px) 0px;
+            font-weight: bold;
+            color: #374151;
+            font-size: clamp(10px, 0.73vw, 14px);
+        }
+
+        .password-field-wrapper input {
+            width: 100%;
+            padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+            border: 1px solid #d1d5db;
+            border-radius: clamp(4px, 0.42vw, 8px);
+            font-size: clamp(8px, 0.73vw, 14px);
+            box-sizing: border-box;
+            transition: all 0.2s;
+            background-color: white;
+        }
+
+        .password-field-wrapper input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        /* 编辑模式下缩小 password-field-wrapper 的样式 */
+        .modal-content.edit-mode .password-row-container {
+            margin-bottom: clamp(6px, 0.63vw, 12px);
+        }
+
+        .modal-content.edit-mode .password-field-wrapper label {
+            margin-bottom: clamp(2px, 0.21vw, 4px);
+        }
+
+        .modal-content.edit-mode .password-field-wrapper input {
+            padding: clamp(3px, 0.31vw, 6px) clamp(6px, 0.73vw, 14px);
+        }
+
         .form-actions {
             display: flex;
             justify-content: flex-end;
@@ -1770,11 +1823,6 @@ try {
                                  <input type="text" id="login_id" name="login_id" required>
                              </div>
 
-                            <div class="form-group user-info-field" id="passwordGroup">
-                                <label for="password">Password *</label>
-                                <input type="password" id="password" name="password">
-                            </div>
-
                             <?php 
                             // 检查当前公司是否是c168
                             $is_c168_company = false;
@@ -1790,11 +1838,27 @@ try {
                                 }
                             }
                             ?>
+                            
                             <?php if ($is_c168_company): ?>
-                            <div class="form-group user-info-field" id="secondaryPasswordGroup">
-                                <label for="secondary_password">Secondary Password (6 digits)</label>
-                                <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit password">
-                                <small style="color: #64748b; font-size: 12px; margin-top: 4px; display: block;">Optional: 6-digit secondary password for additional security</small>
+                            <!-- C168公司：密码和二级密码在同一行左右排版 -->
+                            <div class="form-group user-info-field password-row-container" id="passwordRowContainer">
+                                <div class="password-field-wrapper" id="passwordGroup">
+                                    <label for="password">Password *</label>
+                                    <input type="password" id="password" name="password">
+                                </div>
+                                <div class="password-field-wrapper" id="secondaryPasswordGroup">
+                                    <label for="secondary_password">Secondary Password (6 digits)</label>
+                                    <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit password">
+                                </div>
+                            </div>
+                            <div class="form-group user-info-field" style="margin-top: -10px; margin-bottom: 10px;">
+                                <small style="color: #64748b; font-size: 12px; display: block;">Optional: 6-digit secondary password for additional security</small>
+                            </div>
+                            <?php else: ?>
+                            <!-- 非C168公司：只显示密码字段 -->
+                            <div class="form-group user-info-field" id="passwordGroup">
+                                <label for="password">Password *</label>
+                                <input type="password" id="password" name="password">
                             </div>
                             <?php endif; ?>
 
@@ -2587,7 +2651,16 @@ try {
             document.getElementById('userId').value = '';
             document.getElementById('status').value = 'active';
             document.getElementById('password').required = true;
-            document.getElementById('passwordGroup').style.display = 'block';
+            // 显示密码字段（根据是否是c168公司显示不同的布局）
+            const passwordRowContainer = document.getElementById('passwordRowContainer');
+            const passwordGroup = document.getElementById('passwordGroup');
+            if (passwordRowContainer) {
+                // C168公司：显示密码行容器
+                passwordRowContainer.style.display = 'flex';
+            } else if (passwordGroup) {
+                // 非C168公司：显示单个密码字段
+                passwordGroup.style.display = 'block';
+            }
             document.getElementById('login_id').disabled = false;
             const hiddenLoginId = document.getElementById('hidden_login_id');
             if (hiddenLoginId) {
@@ -2741,7 +2814,16 @@ try {
             isEditMode = true;
             document.getElementById('modalTitle').textContent = isOwnerShadow ? 'Edit Owner' : 'Edit User';
             document.getElementById('password').required = false;
-            document.getElementById('passwordGroup').style.display = 'block';
+            // 显示密码字段（根据是否是c168公司显示不同的布局）
+            const passwordRowContainer = document.getElementById('passwordRowContainer');
+            const passwordGroup = document.getElementById('passwordGroup');
+            if (passwordRowContainer) {
+                // C168公司：显示密码行容器
+                passwordRowContainer.style.display = 'flex';
+            } else if (passwordGroup) {
+                // 非C168公司：显示单个密码字段
+                passwordGroup.style.display = 'block';
+            }
             
              // 添加编辑模式的 class（用于调整样式）
              const modalContent = document.querySelector('#userModal .modal-content');
