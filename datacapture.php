@@ -317,6 +317,9 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="context-menu-item" onclick="clearSelectedCells()">
             <span>🗑️ Clear</span>
         </div>
+        <div class="context-menu-item" onclick="showDeleteDialog()">
+            <span>🗑️ Delete</span>
+        </div>
         <div class="context-menu-item" onclick="selectAllCells(event)">
             <span>☑️ Select All</span>
         </div>
@@ -351,6 +354,41 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
         <div class="context-menu-item" onclick="clearRow()">
             <span>❌ Clear row</span>
+        </div>
+    </div>
+
+    <!-- Delete Dialog -->
+    <div id="deleteDialog" class="delete-dialog" style="display: none;">
+        <div class="delete-dialog-content">
+            <div class="delete-dialog-header">
+                <span>Delete</span>
+                <span class="delete-dialog-close" onclick="closeDeleteDialog()">&times;</span>
+            </div>
+            <div class="delete-dialog-body">
+                <div class="delete-dialog-title">Delete</div>
+                <div class="delete-options">
+                    <label class="delete-option">
+                        <input type="radio" name="deleteOption" value="shiftLeft" checked>
+                        <span>Shift cells left</span>
+                    </label>
+                    <label class="delete-option">
+                        <input type="radio" name="deleteOption" value="shiftUp">
+                        <span>Shift cells up</span>
+                    </label>
+                    <label class="delete-option">
+                        <input type="radio" name="deleteOption" value="entireRow">
+                        <span>Entire row</span>
+                    </label>
+                    <label class="delete-option">
+                        <input type="radio" name="deleteOption" value="entireColumn">
+                        <span>Entire column</span>
+                    </label>
+                </div>
+            </div>
+            <div class="delete-dialog-footer">
+                <button type="button" class="btn btn-cancel" onclick="closeDeleteDialog()">Cancel</button>
+                <button type="button" class="btn btn-save" onclick="confirmDelete()">OK</button>
+            </div>
         </div>
     </div>
 
@@ -1404,6 +1442,334 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // Update submit button state after clearing cells
             updateSubmitButtonState();
+        }
+
+        // Get cell coordinates (row and column indices)
+        function getCellCoordinates(cell) {
+            const tableBody = document.getElementById('tableBody');
+            if (!tableBody || !cell) return null;
+            
+            const row = cell.parentElement;
+            const rowIndex = Array.from(tableBody.children).indexOf(row);
+            
+            // Get column index (skip the first column which is row header)
+            const colIndex = Array.from(row.children).indexOf(cell) - 1;
+            
+            return { rowIndex, colIndex };
+        }
+
+        // Show delete dialog
+        function showDeleteDialog() {
+            if (selectedCells.size === 0) {
+                hideContextMenu();
+                return;
+            }
+            
+            hideContextMenu();
+            
+            const deleteDialog = document.getElementById('deleteDialog');
+            if (deleteDialog) {
+                deleteDialog.style.display = 'block';
+                // Reset to default option
+                document.querySelector('input[name="deleteOption"][value="shiftLeft"]').checked = true;
+                
+                // Close dialog when clicking outside
+                setTimeout(() => {
+                    deleteDialog.addEventListener('click', function closeOnOutsideClick(e) {
+                        if (e.target === deleteDialog) {
+                            closeDeleteDialog();
+                            deleteDialog.removeEventListener('click', closeOnOutsideClick);
+                        }
+                    }, { once: true });
+                }, 0);
+            }
+        }
+
+        // Close delete dialog
+        function closeDeleteDialog() {
+            const deleteDialog = document.getElementById('deleteDialog');
+            if (deleteDialog) {
+                deleteDialog.style.display = 'none';
+            }
+        }
+
+        // Confirm delete and execute deletion
+        function confirmDelete() {
+            if (selectedCells.size === 0) {
+                closeDeleteDialog();
+                return;
+            }
+
+            const selectedOption = document.querySelector('input[name="deleteOption"]:checked');
+            if (!selectedOption) {
+                closeDeleteDialog();
+                return;
+            }
+
+            const deleteType = selectedOption.value;
+            const tableBody = document.getElementById('tableBody');
+            const tableHeader = document.querySelector('#tableHeader tr');
+            
+            if (!tableBody || !tableHeader) {
+                closeDeleteDialog();
+                return;
+            }
+
+            // Get all selected cells with their coordinates
+            const cellsToDelete = Array.from(selectedCells).map(cell => ({
+                cell: cell,
+                coords: getCellCoordinates(cell)
+            })).filter(item => item.coords !== null);
+
+            if (cellsToDelete.length === 0) {
+                closeDeleteDialog();
+                return;
+            }
+
+            // Sort cells by row (ascending) and column (ascending) for proper deletion order
+            cellsToDelete.sort((a, b) => {
+                if (a.coords.rowIndex !== b.coords.rowIndex) {
+                    return a.coords.rowIndex - b.coords.rowIndex;
+                }
+                return a.coords.colIndex - b.coords.colIndex;
+            });
+
+            // Execute deletion based on selected option
+            switch (deleteType) {
+                case 'shiftLeft':
+                    deleteCellsShiftLeft(cellsToDelete, tableBody);
+                    break;
+                case 'shiftUp':
+                    deleteCellsShiftUp(cellsToDelete, tableBody);
+                    break;
+                case 'entireRow':
+                    deleteEntireRows(cellsToDelete, tableBody);
+                    break;
+                case 'entireColumn':
+                    deleteEntireColumns(cellsToDelete, tableBody, tableHeader);
+                    break;
+            }
+
+            // Clear selection and close dialog
+            clearAllSelections();
+            closeDeleteDialog();
+            
+            // Update submit button state
+            updateSubmitButtonState();
+        }
+
+        // Delete cells and shift left
+        function deleteCellsShiftLeft(cellsToDelete, tableBody) {
+            // Group cells by row
+            const cellsByRow = {};
+            cellsToDelete.forEach(({ cell, coords }) => {
+                if (!cellsByRow[coords.rowIndex]) {
+                    cellsByRow[coords.rowIndex] = [];
+                }
+                cellsByRow[coords.rowIndex].push(coords.colIndex);
+            });
+
+            // Process each row
+            Object.keys(cellsByRow).forEach(rowIndexStr => {
+                const rowIndex = parseInt(rowIndexStr);
+                const row = tableBody.children[rowIndex];
+                if (!row) return;
+
+                const colsToDelete = cellsByRow[rowIndex].sort((a, b) => b - a); // Sort descending
+                const maxCols = row.children.length - 1; // Exclude row header
+
+                colsToDelete.forEach(colIndex => {
+                    const cell = row.children[colIndex + 1]; // +1 for row header
+                    if (!cell || cell.contentEditable !== 'true') return;
+
+                    // Shift cells left
+                    for (let c = colIndex + 1; c < maxCols; c++) {
+                        const nextCell = row.children[c + 1];
+                        if (nextCell && nextCell.contentEditable === 'true') {
+                            cell.textContent = nextCell.textContent;
+                            cell = nextCell;
+                        }
+                    }
+
+                    // Clear the last cell
+                    const lastCell = row.children[maxCols];
+                    if (lastCell && lastCell.contentEditable === 'true') {
+                        lastCell.textContent = '';
+                    }
+                });
+            });
+        }
+
+        // Delete cells and shift up
+        function deleteCellsShiftUp(cellsToDelete, tableBody) {
+            // Group cells by column
+            const cellsByCol = {};
+            cellsToDelete.forEach(({ cell, coords }) => {
+                if (!cellsByCol[coords.colIndex]) {
+                    cellsByCol[coords.colIndex] = [];
+                }
+                cellsByCol[coords.colIndex].push(coords.rowIndex);
+            });
+
+            // Process each column
+            Object.keys(cellsByCol).forEach(colIndexStr => {
+                const colIndex = parseInt(colIndexStr);
+                const rowsToDelete = cellsByCol[colIndex].sort((a, b) => b - a); // Sort descending
+                const maxRows = tableBody.children.length;
+
+                rowsToDelete.forEach(rowIndex => {
+                    const row = tableBody.children[rowIndex];
+                    if (!row) return;
+
+                    const cell = row.children[colIndex + 1]; // +1 for row header
+                    if (!cell || cell.contentEditable !== 'true') return;
+
+                    // Shift cells up
+                    for (let r = rowIndex + 1; r < maxRows; r++) {
+                        const nextRow = tableBody.children[r];
+                        if (!nextRow) break;
+                        const nextCell = nextRow.children[colIndex + 1];
+                        if (nextCell && nextCell.contentEditable === 'true') {
+                            cell.textContent = nextCell.textContent;
+                            cell = nextCell;
+                        }
+                    }
+
+                    // Clear the last cell in this column
+                    const lastRow = tableBody.children[maxRows - 1];
+                    if (lastRow) {
+                        const lastCell = lastRow.children[colIndex + 1];
+                        if (lastCell && lastCell.contentEditable === 'true') {
+                            lastCell.textContent = '';
+                        }
+                    }
+                });
+            });
+        }
+
+        // Delete entire rows
+        function deleteEntireRows(cellsToDelete, tableBody) {
+            // Get unique row indices
+            const rowsToDelete = [...new Set(cellsToDelete.map(({ coords }) => coords.rowIndex))].sort((a, b) => b - a);
+
+            const currentRows = tableBody.children.length;
+            const remainingRows = currentRows - rowsToDelete.length;
+            
+            if (remainingRows < 1) {
+                showNotification('Cannot delete the last row', 'danger');
+                return;
+            }
+
+            // Delete rows from back to front
+            rowsToDelete.forEach(rowIndex => {
+                const row = tableBody.children[rowIndex];
+                if (row) {
+                    row.remove();
+                }
+            });
+
+            // Update row header labels and rebind event handlers
+            Array.from(tableBody.children).forEach((row, index) => {
+                const rowHeader = row.querySelector('.row-header');
+                if (rowHeader) {
+                    rowHeader.textContent = getColumnLabel(index);
+                    // Remove old event listeners by cloning
+                    const newRowHeader = rowHeader.cloneNode(true);
+                    row.replaceChild(newRowHeader, rowHeader);
+                    
+                    // Rebind event handlers with dynamic index calculation
+                    newRowHeader.addEventListener('mousedown', (e) => {
+                        if (e.button === 0) {
+                            handleRowHeaderClick(e, -1); // -1 means calculate from DOM
+                        }
+                    });
+                    newRowHeader.addEventListener('contextmenu', (e) => {
+                        showRowContextMenu(e, -1); // -1 means calculate from DOM
+                    });
+                    newRowHeader.addEventListener('mouseover', (e) => {
+                        if (!e.ctrlKey && !e.metaKey) {
+                            handleRowHeaderMouseOver(e, -1); // -1 means calculate from DOM
+                        }
+                    });
+                    newRowHeader.style.cursor = 'pointer';
+                }
+            });
+        }
+
+        // Delete entire columns
+        function deleteEntireColumns(cellsToDelete, tableBody, tableHeader) {
+            const headerRow = tableHeader;
+            if (!headerRow) return;
+
+            // Get unique column indices
+            const colsToDelete = [...new Set(cellsToDelete.map(({ coords }) => coords.colIndex))].sort((a, b) => b - a);
+
+            const currentCols = headerRow.children.length - 1;
+            const remainingCols = currentCols - colsToDelete.length;
+            
+            if (remainingCols < 1) {
+                showNotification('Cannot delete the last column', 'danger');
+                return;
+            }
+
+            // Delete columns from back to front
+            colsToDelete.forEach(colIndex => {
+                // Remove column header
+                const headerToRemove = headerRow.children[colIndex + 1];
+                if (headerToRemove) {
+                    headerToRemove.remove();
+                }
+                
+                // Remove cells from each row
+                Array.from(tableBody.children).forEach(row => {
+                    const cellToRemove = row.children[colIndex + 1];
+                    if (cellToRemove) {
+                        cellToRemove.remove();
+                    }
+                });
+            });
+            
+            // Update dataset.col for all remaining cells
+            Array.from(tableBody.children).forEach(row => {
+                for (let c = 1; c < row.children.length - 1; c++) {
+                    const cell = row.children[c];
+                    if (cell && cell.contentEditable === 'true') {
+                        const oldCol = parseInt(cell.dataset.col);
+                        if (!isNaN(oldCol)) {
+                            // Count how many deleted columns were before this column
+                            const deletedBefore = colsToDelete.filter(idx => idx < oldCol).length;
+                            cell.dataset.col = oldCol - deletedBefore;
+                        }
+                    }
+                }
+            });
+            
+            // Update header numbers and rebind event handlers
+            const headers = Array.from(headerRow.querySelectorAll('th'));
+            headers.forEach((header, index) => {
+                if (index > 0) {
+                    header.textContent = index;
+                    // Remove old event listeners by cloning
+                    const newHeader = header.cloneNode(true);
+                    header.parentNode.replaceChild(newHeader, header);
+                    
+                    // Rebind event handlers with dynamic index calculation
+                    newHeader.addEventListener('mousedown', (e) => {
+                        if (e.button === 0) {
+                            handleColumnHeaderClick(e, -1); // -1 means calculate from DOM
+                        }
+                    });
+                    newHeader.addEventListener('contextmenu', (e) => {
+                        showColumnContextMenu(e, -1); // -1 means calculate from DOM
+                    });
+                    newHeader.addEventListener('mouseover', (e) => {
+                        if (!e.ctrlKey && !e.metaKey) {
+                            handleColumnHeaderMouseOver(e, -1); // -1 means calculate from DOM
+                        }
+                    });
+                    newHeader.style.cursor = 'pointer';
+                }
+            });
         }
 
         // Column context menu functions
@@ -15452,6 +15818,112 @@ if ($current_user_id && count($user_companies) > 0) {
 
         .context-menu-item:active {
             background-color: #e1e4e8;
+        }
+
+        /* Delete Dialog Styles */
+        .delete-dialog {
+            position: fixed;
+            z-index: 10001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(0.25rem);
+        }
+
+        .delete-dialog-content {
+            background-color: #ffffff;
+            margin: 15% auto;
+            padding: 0;
+            border: 1px solid #d0d7de;
+            border-radius: 8px;
+            width: 400px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        .delete-dialog-header {
+            background-color: #f8fafc;
+            padding: 12px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            color: #1e293b;
+            font-size: 14px;
+        }
+
+        .delete-dialog-close {
+            color: #64748b;
+            font-size: 20px;
+            font-weight: 300;
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .delete-dialog-close:hover {
+            background-color: #f1f5f9;
+            color: #334155;
+        }
+
+        .delete-dialog-body {
+            padding: 20px 16px;
+        }
+
+        .delete-dialog-title {
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #1e293b;
+            font-size: 14px;
+        }
+
+        .delete-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .delete-option {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .delete-option:hover {
+            background-color: #f8fafc;
+        }
+
+        .delete-option input[type="radio"] {
+            margin-right: 10px;
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        .delete-option span {
+            font-size: 14px;
+            color: #1e293b;
+            cursor: pointer;
+        }
+
+        .delete-dialog-footer {
+            padding: 12px 16px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
         }
         
         /* Company Filter Styles */
