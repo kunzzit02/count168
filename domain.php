@@ -311,7 +311,7 @@ try {
             display: flex;
             gap: 32px;
             align-items: stretch;
-            min-height: 300px; /* 添加这行 */
+            min-height: 400px; /* 添加这行 */
         }
 
         /* 确保信息面板高度一致 */
@@ -1144,24 +1144,6 @@ try {
         </div>
     </div>
 
-    <!-- Year Input Modal -->
-    <div id="yearInputModal" class="modal" style="z-index: 10003;">
-        <div class="modal-content" style="max-width: 400px;">
-            <span class="close" onclick="closeYearInputModal()">&times;</span>
-            <h2>Enter Number of Years</h2>
-            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
-                <div class="form-group">
-                    <label for="yearInput">Number of Years</label>
-                    <input type="number" id="yearInput" placeholder="Enter number of years" min="1" max="100" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-save" onclick="confirmYearInput()">Confirm</button>
-                    <button type="button" class="btn btn-cancel" onclick="closeYearInputModal()">Cancel</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Domain Modal -->
     <div id="domainModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
@@ -1233,9 +1215,6 @@ try {
         let selectedCompanies = [];
         let tempCompanies = [];
         
-        // 年数输入相关变量
-        let currentYearInputCompanyId = null;
-        
         // 计算到期日期
         // startDate: 可选的起始日期（YYYY-MM-DD格式），如果提供则从该日期开始计算，否则从今天开始
         function calculateExpirationDate(period, startDate = null) {
@@ -1250,35 +1229,24 @@ try {
             
             const expDate = new Date(baseDate);
             
-            // 检查是否是自定义年数格式（如 "2year", "3year"）
-            if (period && period.toString().endsWith('year') && period.toString().length > 4) {
-                const years = parseInt(period.toString().replace('year', ''));
-                if (!isNaN(years) && years > 0) {
-                    expDate.setFullYear(baseDate.getFullYear() + years);
-                } else {
+            switch(period) {
+                case '7days':
+                    expDate.setDate(baseDate.getDate() + 7);
+                    break;
+                case '1month':
+                    expDate.setMonth(baseDate.getMonth() + 1);
+                    break;
+                case '3months':
+                    expDate.setMonth(baseDate.getMonth() + 3);
+                    break;
+                case '6months':
+                    expDate.setMonth(baseDate.getMonth() + 6);
+                    break;
+                case '1year':
                     expDate.setFullYear(baseDate.getFullYear() + 1);
-                }
-            } else {
-                switch(period) {
-                    case '7days':
-                        expDate.setDate(baseDate.getDate() + 7);
-                        break;
-                    case '1month':
-                        expDate.setMonth(baseDate.getMonth() + 1);
-                        break;
-                    case '3months':
-                        expDate.setMonth(baseDate.getMonth() + 3);
-                        break;
-                    case '6months':
-                        expDate.setMonth(baseDate.getMonth() + 6);
-                        break;
-                    case 'year':
-                        // 默认1年，但通常不会到这里，因为year会先弹出输入框
-                        expDate.setFullYear(baseDate.getFullYear() + 1);
-                        break;
-                    default:
-                        expDate.setMonth(baseDate.getMonth() + 1);
-                }
+                    break;
+                default:
+                    expDate.setMonth(baseDate.getMonth() + 1);
             }
             
             return expDate.toISOString().split('T')[0]; // 返回 YYYY-MM-DD 格式
@@ -1598,15 +1566,6 @@ try {
             if (!period || period === '') {
                 return;
             }
-            
-            // 如果选择的是 "year"，显示年数输入弹窗
-            if (period === 'year') {
-                currentYearInputCompanyId = companyId;
-                document.getElementById('yearInput').value = '';
-                document.getElementById('yearInputModal').style.display = 'block';
-                return;
-            }
-            
             const company = tempCompanies.find(c => c.company_id === companyId);
             if (company) {
                 // 从原始到期日期开始计算，而不是从当前已修改的到期日期计算
@@ -1617,40 +1576,6 @@ try {
                 company.selectedPeriod = period;
                 updateCompanyDisplay();
             }
-        }
-        
-        // 确认年数输入
-        function confirmYearInput() {
-            const yearInput = document.getElementById('yearInput');
-            const years = parseInt(yearInput.value);
-            
-            if (!years || years < 1 || years > 100) {
-                showAlert('Please enter a valid number between 1 and 100', 'danger');
-                return;
-            }
-            
-            if (!currentYearInputCompanyId) {
-                closeYearInputModal();
-                return;
-            }
-            
-            const company = tempCompanies.find(c => c.company_id === currentYearInputCompanyId);
-            if (company) {
-                const period = years + 'year'; // 例如 "2year", "3year"
-                const startDate = company.originalExpirationDate || null;
-                company.expiration_date = calculateExpirationDate(period, startDate);
-                company.selectedPeriod = period;
-                updateCompanyDisplay();
-            }
-            
-            closeYearInputModal();
-        }
-        
-        // 关闭年数输入弹窗
-        function closeYearInputModal() {
-            document.getElementById('yearInputModal').style.display = 'none';
-            document.getElementById('yearInput').value = '';
-            currentYearInputCompanyId = null;
         }
         
         // 根据到期日期判断对应的期限选项
@@ -1665,26 +1590,13 @@ try {
             const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
             
             if (diffDays >= 360 && diffDays <= 370) return '1year';
-            // 检查是否是自定义年数（超过1年）
-            if (diffDays > 370) {
-                const years = Math.round(diffDays / 365);
-                if (years >= 1 && years <= 100) {
-                    return years + 'year';
-                }
-            }
             if (diffDays >= 175 && diffDays <= 190) return '6months';
             if (diffDays >= 88 && diffDays <= 95) return '3months';
             if (diffDays >= 28 && diffDays <= 32) return '1month';
             if (diffDays >= 5 && diffDays <= 9) return '7days';
             
             // 默认返回最接近的选项
-            if (diffMonths >= 11) {
-                const years = Math.round(diffDays / 365);
-                if (years >= 1 && years <= 100) {
-                    return years + 'year';
-                }
-                return '1year';
-            }
+            if (diffMonths >= 11) return '1year';
             if (diffMonths >= 5) return '6months';
             if (diffMonths >= 2) return '3months';
             if (diffDays >= 28) return '1month';
@@ -1720,14 +1632,6 @@ try {
                     if (!isC168) {
                         // 如果有记录的selectedPeriod，显示它；否则显示占位符选项
                         const selectedPeriod = company.selectedPeriod || '';
-                        // 检查是否是自定义年数（如 "2year", "3year"）
-                        let displayPeriod = selectedPeriod;
-                        let isCustomYear = false;
-                        if (selectedPeriod && selectedPeriod.toString().endsWith('year') && selectedPeriod.toString().length > 4) {
-                            displayPeriod = 'year';
-                            isCustomYear = true;
-                        }
-                        
                         expirationControls = `
                             <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
                                 <option value="" ${selectedPeriod === '' ? 'selected' : ''}>Period</option>
@@ -1735,7 +1639,7 @@ try {
                                 <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
                                 <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
                                 <option value="6months" ${selectedPeriod === '6months' ? 'selected' : ''}>6 Months</option>
-                                <option value="year" ${displayPeriod === 'year' ? 'selected' : ''}>Year${isCustomYear ? ` (${selectedPeriod.replace('year', '')})` : ''}</option>
+                                <option value="1year" ${selectedPeriod === '1year' ? 'selected' : ''}>1 Year</option>
                             </select>
                             <span class="exp-date-display">${formatDate(company.expiration_date)}</span>
                         `;
@@ -2374,27 +2278,10 @@ try {
         // Close modal when clicking outside
         window.onclick = function(event) {
             const companyExpModal = document.getElementById('companyExpirationModal');
-            const yearInputModal = document.getElementById('yearInputModal');
             if (event.target === companyExpModal) {
                 closeCompanyExpirationModal();
             }
-            if (event.target === yearInputModal) {
-                closeYearInputModal();
-            }
         }
-        
-        // 允许Enter键确认年数输入
-        document.addEventListener('DOMContentLoaded', function() {
-            const yearInput = document.getElementById('yearInput');
-            if (yearInput) {
-                yearInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        confirmYearInput();
-                    }
-                });
-            }
-        });
 
         document.getElementById('domainForm').addEventListener('submit', function(e) {
             e.preventDefault();
