@@ -277,9 +277,11 @@ try {
                 }
             }
             
-            // 只有当用户已经设置了账户权限（且权限列表不为空）时，才自动添加新账户
-            // 如果用户没有设置权限或权限列表为空，他们默认可以看到所有账户，不需要更新
-            if ($hasPermissionsSet && !empty($currentPermissions)) {
+            // 如果用户已经设置了账户权限（hasPermissionsSet = true），需要将新账户添加到权限列表
+            // 注意：如果 account_permissions 是空数组 []，用户在 accountlistapi.php 中看不到任何账户
+            // 所以即使 currentPermissions 为空，只要 hasPermissionsSet = true，也应该添加新账户
+            // 如果用户没有设置权限（account_permissions 是 null），他们默认可以看到所有账户，不需要更新
+            if ($hasPermissionsSet) {
                 // 检查是否已经存在这个账户权限
                 $accountExists = false;
                 foreach ($currentPermissions as $permission) {
