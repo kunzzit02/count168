@@ -49,6 +49,7 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            height: auto !important;
             font-weight: 700;
             background-color: #e9f1ff;
             background-image:
@@ -58,8 +59,8 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                 radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
                 linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
             background-blend-mode: screen, screen, multiply, screen, normal;
-            overflow-x: hidden;
-            overflow-y: auto;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
         }
 
         .container {
@@ -68,7 +69,9 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
             width: 100%;
             min-height: 100vh;
+            height: auto !important;
             box-sizing: border-box;
+            overflow: visible !important;
         }
 
         h1 {
