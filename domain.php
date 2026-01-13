@@ -311,7 +311,7 @@ try {
             display: flex;
             gap: 32px;
             align-items: stretch;
-            min-height: 400px; /* 添加这行 */
+            min-height: 300px; /* 添加这行 */
         }
 
         /* 确保信息面板高度一致 */
