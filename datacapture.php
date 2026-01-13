@@ -660,6 +660,14 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // Handle mouse down
         function handleCellMouseDown(e) {
+            // Check if this is a right-click (button === 2)
+            // If right-click, don't modify selection - let contextmenu event handle it
+            if (e.button === 2) {
+                // Right-click: don't prevent default or modify selection
+                // The contextmenu event will handle showing the menu
+                return;
+            }
+            
             e.preventDefault();
             
             // Activate table when user clicks on it
@@ -1390,54 +1398,32 @@ if ($current_user_id && count($user_companies) > 0) {
             console.log('showContextMenu called, current selectedCells.size:', selectedCells.size);
             console.log('Right-clicked cell is selected:', selectedCells.has(cell));
             
-            // Check if Ctrl/Cmd is pressed
-            const isCtrlPressed = e.ctrlKey || e.metaKey;
-            
-            // IMPORTANT: If multiple cells are already selected, preserve all selections
-            // Only modify selection if user explicitly wants to change it (Ctrl pressed or no selection)
+            // CRITICAL: If multiple cells are already selected, ALWAYS preserve all selections
+            // Don't modify selection when right-clicking - user wants to operate on all selected cells
             if (selectedCells.size > 1) {
-                // Multiple cells are selected - preserve all selections
-                // Only add current cell if it's not already selected
-                if (!selectedCells.has(cell)) {
-                    if (isCtrlPressed) {
-                        // Ctrl pressed: add to selection
-                        selectedCells.add(cell);
-                        cell.classList.add('multi-selected');
-                    }
-                    // If Ctrl not pressed but multiple cells selected, keep all selections
-                    // Don't add current cell unless Ctrl is pressed
-                }
-                // If cell is already in selection, do nothing - keep all selections
+                // Multiple cells are selected - preserve ALL selections
+                // Don't modify selection at all when right-clicking
+                console.log('Multiple cells selected, preserving all selections');
             } else if (selectedCells.size === 1) {
                 // Only one cell selected
-                if (!selectedCells.has(cell)) {
-                    if (isCtrlPressed) {
-                        // Ctrl pressed: add to selection (now multi-select)
-                        selectedCells.add(cell);
-                        cell.classList.add('multi-selected');
-                    } else {
-                        // No Ctrl: replace selection with current cell
-                        clearAllSelections();
-                        selectedCells.add(cell);
-                        cell.classList.add('multi-selected');
-                    }
-                }
-                // If cell is already selected, keep it selected
-            } else {
-                // No cells selected
-                if (isCtrlPressed) {
-                    // Ctrl pressed: add to selection
-                    selectedCells.add(cell);
-                    cell.classList.add('multi-selected');
-                } else {
-                    // No Ctrl: select only current cell
+                // If right-clicked cell is not the selected one, and Ctrl is not pressed, select only right-clicked cell
+                const isCtrlPressed = e.ctrlKey || e.metaKey;
+                if (!selectedCells.has(cell) && !isCtrlPressed) {
+                    // Replace selection with right-clicked cell
                     clearAllSelections();
                     selectedCells.add(cell);
                     cell.classList.add('multi-selected');
                 }
+                // If right-clicked cell is already selected, keep it selected
+            } else {
+                // No cells selected - select the right-clicked cell
+                clearAllSelections();
+                selectedCells.add(cell);
+                cell.classList.add('multi-selected');
             }
             
             console.log('After showContextMenu, selectedCells.size:', selectedCells.size);
+            console.log('Selected cells:', Array.from(selectedCells).map(c => c.textContent || '(empty)'));
             
             // Set menu position
             contextMenu.style.left = e.pageX + 'px';
