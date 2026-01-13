@@ -303,6 +303,100 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
             margin-left: -50vw;
             margin-right: -50vw;
         }
+
+        /* 维护内容管理样式 */
+        .maintenance-layout {
+            display: flex;
+            gap: 24px;
+            margin-top: 40px;
+            overflow: hidden;
+        }
+
+        .maintenance-form-section {
+            flex: 0 0 400px;
+            background: white;
+            border-radius: 12px;
+            padding: clamp(16px, 1.25vw, 24px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+            max-height: 100%;
+            overflow-y: auto;
+        }
+
+        .maintenance-list-section {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            padding: clamp(16px, 1.25vw, 24px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            height: 100%;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .maintenance-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: clamp(10px, 0.83vw, 16px);
+            margin-bottom: clamp(10px, 0.83vw, 16px);
+            transition: all 0.3s;
+        }
+
+        .maintenance-item:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .maintenance-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: clamp(8px, 0.625vw, 12px);
+        }
+
+        .maintenance-content {
+            color: #6b7280;
+            font-size: clamp(12px, 0.73vw, 14px);
+            line-height: 1.6;
+            margin-bottom: clamp(8px, 0.625vw, 12px);
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .maintenance-delete-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: clamp(4px, 0.31vw, 6px) clamp(8px, 0.625vw, 12px);
+            font-size: clamp(8px, 0.625vw, 12px);
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: 12px;
+        }
+
+        .maintenance-delete-btn:hover {
+            background: #dc2626;
+        }
+
+        .maintenance-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: clamp(14px, 1.04vw, 20px);
+            padding-bottom: clamp(10px, 0.83vw, 16px);
+            border-bottom: 2px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+
+        .maintenance-list-header h2 {
+            margin: 0;
+            color: #002C49;
+            font-size: clamp(16px, 1.25vw, 24px);
+            font-family: 'Amaranth';
+        }
     </style>
 </head>
 <body>
@@ -335,6 +429,35 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
                 </div>
                 <div id="announcementList" style="flex: 1; overflow-y: auto;">
                     <!-- 公告列表将在这里动态加载 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Maintenance Content Management Section -->
+        <div class="separator-line" style="margin-top: 40px;"></div>
+        
+        <h1 style="margin-top: 40px;">Maintenance Content Management</h1>
+        
+        <div class="maintenance-layout">
+            <!-- Left: Create Maintenance Content Form -->
+            <div class="maintenance-form-section">
+                <h2 style="margin-top: 0; color: #002C49; font-family: 'Amaranth'; font-size: clamp(16px, 1.25vw, 24px); margin-bottom: clamp(8px, 0.73vw, 14px);">Create New Maintenance Content</h2>
+                <form id="maintenanceForm">
+                    <div class="form-group">
+                        <label for="maintenanceContent">Content *</label>
+                        <textarea id="maintenanceContent" name="content" required placeholder="Enter maintenance content"></textarea>
+                    </div>
+                    <button type="submit" class="submit-btn">Publish Maintenance Content</button>
+                </form>
+            </div>
+
+            <!-- Right: Published Maintenance Content List -->
+            <div class="maintenance-list-section">
+                <div class="maintenance-list-header">
+                    <h2>Published Maintenance Content</h2>
+                </div>
+                <div id="maintenanceList" style="flex: 1; overflow-y: auto;">
+                    <!-- 维护内容列表将在这里动态加载 -->
                 </div>
             </div>
         </div>
@@ -479,6 +602,110 @@ if (!$user_id || !$isOwnerOrAdmin || !$hasC168Context) {
         // 页面加载时获取公告列表
         document.addEventListener('DOMContentLoaded', function() {
             loadAnnouncements();
+            loadMaintenanceContent();
+        });
+
+        // ========== Maintenance Content Functions ==========
+        
+        // 加载维护内容列表
+        async function loadMaintenanceContent() {
+            try {
+                const response = await fetch('maintenance_list_api.php');
+                const result = await response.json();
+                
+                const listContainer = document.getElementById('maintenanceList');
+                
+                if (result.success && result.data.length > 0) {
+                    listContainer.innerHTML = result.data.map(maintenance => `
+                        <div class="maintenance-item">
+                            <div class="maintenance-item-header">
+                                <div style="flex: 1;"></div>
+                                <button class="maintenance-delete-btn" onclick="deleteMaintenanceContent(${maintenance.id})">
+                                    Delete
+                                </button>
+                            </div>
+                            <div class="maintenance-content">${escapeHtml(maintenance.content)}</div>
+                            <div class="announcement-meta">
+                                <span>Created by: ${escapeHtml(maintenance.created_by)}</span>
+                                <span>Created at: ${escapeHtml(maintenance.created_at)}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    listContainer.innerHTML = `
+                        <div class="empty-state">
+                            <p>No maintenance content</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load maintenance content:', error);
+                showNotification('Failed to load maintenance content: ' + error.message, 'error');
+            }
+        }
+
+        // Delete maintenance content
+        async function deleteMaintenanceContent(id) {
+            if (!confirm(`Are you sure you want to delete this maintenance content? This action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('id', id);
+
+                const response = await fetch('maintenance_delete_api.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Maintenance content deleted successfully', 'success');
+                    loadMaintenanceContent();
+                } else {
+                    showNotification('Delete failed: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Failed to delete maintenance content:', error);
+                showNotification('Failed to delete maintenance content: ' + error.message, 'error');
+            }
+        }
+
+        // Submit maintenance form
+        document.getElementById('maintenanceForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const content = document.getElementById('maintenanceContent').value.trim();
+
+            if (!content) {
+                showNotification('Please fill in the content', 'error');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('content', content);
+
+                const response = await fetch('maintenance_create_api.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Maintenance content published successfully', 'success');
+                    document.getElementById('maintenanceForm').reset();
+                    loadMaintenanceContent();
+                } else {
+                    showNotification('Publish failed: ' + result.error, 'error');
+                }
+            } catch (error) {
+                console.error('Failed to publish maintenance content:', error);
+                showNotification('Failed to publish maintenance content: ' + error.message, 'error');
+            }
         });
     </script>
 </body>
