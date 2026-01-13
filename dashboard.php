@@ -561,7 +561,7 @@ if (isset($_GET['logout'])) {
         .dropdown {
             position: relative;
             display: inline-block;
-            width: clamp(120px, 10.4vw, 140px);
+            width: clamp(110px, 9.4vw, 130px);
         }
 
         .dropdown-toggle {
