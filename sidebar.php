@@ -1893,14 +1893,16 @@ if ($companyId) {
         const currentLang = document.getElementById('current-lang');
         
         // 更新按钮显示
-        if (lang === 'en') {
-            currentFlag.src = 'images/uk.png';
-            currentFlag.alt = 'English';
-            currentLang.textContent = 'English';
-        } else if (lang === 'zh') {
-            currentFlag.src = 'images/china.png';
-            currentFlag.alt = '中文';
-            currentLang.textContent = '中文';
+        if (currentFlag && currentLang) {
+            if (lang === 'en') {
+                currentFlag.src = 'images/uk.png';
+                currentFlag.alt = 'English';
+                currentLang.textContent = 'English';
+            } else if (lang === 'zh') {
+                currentFlag.src = 'images/china.png';
+                currentFlag.alt = '中文';
+                currentLang.textContent = '中文';
+            }
         }
         
         // 关闭下拉菜单
@@ -1937,14 +1939,16 @@ if ($companyId) {
         const currentFlag = document.getElementById('current-flag');
         const currentLangText = document.getElementById('current-lang');
         
-        if (currentLang === 'zh') {
-            currentFlag.src = 'images/china.png';
-            currentFlag.alt = '中文';
-            currentLangText.textContent = '中文';
-        } else {
-            currentFlag.src = 'images/uk.png';
-            currentFlag.alt = 'English';
-            currentLangText.textContent = 'English';
+        if (currentFlag && currentLangText) {
+            if (currentLang === 'zh') {
+                currentFlag.src = 'images/china.png';
+                currentFlag.alt = '中文';
+                currentLangText.textContent = '中文';
+            } else {
+                currentFlag.src = 'images/uk.png';
+                currentFlag.alt = 'English';
+                currentLangText.textContent = 'English';
+            }
         }
         
         // 保存当前语言到localStorage
