@@ -1148,13 +1148,13 @@ try {
     <div id="yearInputModal" class="modal" style="z-index: 10003;">
         <div class="modal-content" style="max-width: 400px;">
             <span class="close" onclick="closeYearInputModal()">&times;</span>
-            <h2 style="padding: clamp(8px, 0.83vw, 16px) clamp(22px, 1.67vw, 32px); margin: 0; font-size: clamp(16px, 1.25vw, 20px);">Enter Number of Years</h2>
-            <div class="modal-body" style="display: block; padding: clamp(12px, 1.04vw, 16px) clamp(20px, 1.67vw, 32px);">
-                <div class="form-group" style="margin-bottom: clamp(8px, 0.625vw, 12px);">
-                    <label for="yearInput" style="margin-bottom: clamp(3px, 0.31vw, 6px); font-size: clamp(11px, 0.73vw, 13px);">Number of Years</label>
+            <h2>Enter Number of Years</h2>
+            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
+                <div class="form-group">
+                    <label for="yearInput">Number of Years</label>
                     <input type="number" id="yearInput" placeholder="Enter number of years" min="1" max="100" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
                 </div>
-                <div class="form-actions" style="margin-top: clamp(12px, 1.04vw, 16px); padding-top: clamp(12px, 1.04vw, 16px); gap: 8px;">
+                <div class="form-actions">
                     <button type="button" class="btn btn-save" onclick="confirmYearInput()">Confirm</button>
                     <button type="button" class="btn btn-cancel" onclick="closeYearInputModal()">Cancel</button>
                 </div>
