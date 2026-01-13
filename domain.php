@@ -281,6 +281,10 @@ try {
             overflow: hidden;
             background-color: rgba(0,0,0,0.5);
             backdrop-filter: blur(4px);
+            /* 性能优化：减少重绘 */
+            transform: translateZ(0);
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
         }
 
         .modal-content {
@@ -538,6 +542,9 @@ try {
             gap: 4px;
             min-width: 0;
             overflow: hidden;
+            /* 性能优化：启用硬件加速，减少重绘 */
+            transform: translateZ(0);
+            backface-visibility: hidden;
         }
         
         .company-item-left {
@@ -580,12 +587,29 @@ try {
             height: 0px;
             min-height: clamp(18px, 1.56vw, 30px) !important;
             flex-shrink: 1;
+            /* 性能优化：启用硬件加速，创建独立渲染层 */
+            transform: translateZ(0);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            isolation: isolate;
+            position: relative;
+            z-index: 1;
         }
         
         .company-exp-select:focus {
             outline: none;
             border-color: #6366f1;
             box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+        }
+        
+        /* 优化下拉选项的渲染性能 */
+        .company-exp-select option {
+            padding: 4px 8px;
+            background: white;
+            color: #334155;
+            /* 禁用选项的hover效果，使用浏览器默认行为 */
         }
         
         .company-remove-btn {
@@ -1119,8 +1143,8 @@ try {
                 </div>
                 <div class="form-group">
                     <label>Selected Companies:</label>
-                    <div id="companyListDisplay" style="min-height: 100px; max-height: 300px; overflow-y: auto; border: 1px solid #d1d5db; border-radius: 8px; padding: 10px; background: #f9fafb;">
-                        <div id="companyItems"></div>
+                    <div id="companyListDisplay" style="min-height: 100px; max-height: 300px; overflow-y: auto; border: 1px solid #d1d5db; border-radius: 8px; padding: 10px; background: #f9fafb; transform: translateZ(0); -webkit-overflow-scrolling: touch;">
+                        <div id="companyItems" style="transform: translateZ(0);"></div>
                     </div>
                 </div>
                 <div class="form-actions">
