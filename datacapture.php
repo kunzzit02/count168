@@ -308,16 +308,16 @@ if ($current_user_id && count($user_companies) > 0) {
 
     <!-- Context Menu -->
     <div id="contextMenu" class="context-menu" style="display: none;">
-        <div class="context-menu-item" onclick="copySelectedCells()">
+        <div class="context-menu-item" onclick="copySelectedCells(); event.stopPropagation();">
             <span>📋 Copy</span>
         </div>
-        <div class="context-menu-item" onclick="pasteToSelectedCells()">
+        <div class="context-menu-item" onclick="pasteToSelectedCells(); event.stopPropagation();">
             <span>📄 Paste</span>
         </div>
-        <div class="context-menu-item" onclick="clearSelectedCells()">
+        <div class="context-menu-item" onclick="clearSelectedCells(); event.stopPropagation();">
             <span>🗑️ Clear</span>
         </div>
-        <div class="context-menu-item" onclick="showDeleteDialog(event)">
+        <div class="context-menu-item" onclick="showDeleteDialog(event); event.stopPropagation();">
             <span>🗑️ Delete</span>
         </div>
         <div class="context-menu-item" onclick="selectAllCells(event)">
@@ -1387,32 +1387,57 @@ if ($current_user_id && count($user_companies) > 0) {
         function showContextMenu(e, cell) {
             const contextMenu = document.getElementById('contextMenu');
             
+            console.log('showContextMenu called, current selectedCells.size:', selectedCells.size);
+            console.log('Right-clicked cell is selected:', selectedCells.has(cell));
+            
             // Check if Ctrl/Cmd is pressed
             const isCtrlPressed = e.ctrlKey || e.metaKey;
             
-            // If current cell is not selected
-            if (!selectedCells.has(cell)) {
-                if (isCtrlPressed) {
-                    // If Ctrl is pressed, add to selection (multi-select mode)
-                    selectedCells.add(cell);
-                    cell.classList.add('multi-selected');
-                } else {
-                    // If no Ctrl and multiple cells are already selected, keep them all and add current cell
-                    // This allows right-clicking on any cell to add it to the selection
-                    if (selectedCells.size > 0) {
+            // IMPORTANT: If multiple cells are already selected, preserve all selections
+            // Only modify selection if user explicitly wants to change it (Ctrl pressed or no selection)
+            if (selectedCells.size > 1) {
+                // Multiple cells are selected - preserve all selections
+                // Only add current cell if it's not already selected
+                if (!selectedCells.has(cell)) {
+                    if (isCtrlPressed) {
+                        // Ctrl pressed: add to selection
+                        selectedCells.add(cell);
+                        cell.classList.add('multi-selected');
+                    }
+                    // If Ctrl not pressed but multiple cells selected, keep all selections
+                    // Don't add current cell unless Ctrl is pressed
+                }
+                // If cell is already in selection, do nothing - keep all selections
+            } else if (selectedCells.size === 1) {
+                // Only one cell selected
+                if (!selectedCells.has(cell)) {
+                    if (isCtrlPressed) {
+                        // Ctrl pressed: add to selection (now multi-select)
                         selectedCells.add(cell);
                         cell.classList.add('multi-selected');
                     } else {
-                        // If no cells selected, select only current cell
+                        // No Ctrl: replace selection with current cell
                         clearAllSelections();
                         selectedCells.add(cell);
                         cell.classList.add('multi-selected');
                     }
                 }
+                // If cell is already selected, keep it selected
+            } else {
+                // No cells selected
+                if (isCtrlPressed) {
+                    // Ctrl pressed: add to selection
+                    selectedCells.add(cell);
+                    cell.classList.add('multi-selected');
+                } else {
+                    // No Ctrl: select only current cell
+                    clearAllSelections();
+                    selectedCells.add(cell);
+                    cell.classList.add('multi-selected');
+                }
             }
-            // If cell is already selected, keep all selections (don't clear)
-            // This ensures that when right-clicking on an already selected cell in a multi-selection,
-            // all selections are preserved
+            
+            console.log('After showContextMenu, selectedCells.size:', selectedCells.size);
             
             // Set menu position
             contextMenu.style.left = e.pageX + 'px';
@@ -1420,8 +1445,18 @@ if ($current_user_id && count($user_companies) > 0) {
             contextMenu.style.display = 'block';
             
             // Click elsewhere to close menu
+            // But don't close if clicking on menu items
             setTimeout(() => {
-                document.addEventListener('click', hideContextMenu, { once: true });
+                const clickHandler = function(e) {
+                    const contextMenu = document.getElementById('contextMenu');
+                    // Don't close if clicking inside the context menu
+                    if (contextMenu && contextMenu.contains(e.target)) {
+                        return;
+                    }
+                    hideContextMenu();
+                    document.removeEventListener('click', clickHandler);
+                };
+                document.addEventListener('click', clickHandler, { once: true });
             }, 0);
         }
 
@@ -1481,9 +1516,20 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // Clear selected cells
         function clearSelectedCells() {
-            selectedCells.forEach(cell => {
+            console.log('clearSelectedCells called, selectedCells.size:', selectedCells.size);
+            
+            // Create a copy of selectedCells to avoid issues if cells are removed during iteration
+            // Also filter to ensure we only process valid cells
+            const cellsToClear = Array.from(selectedCells).filter(cell => {
+                return cell && cell.contentEditable === 'true' && cell.closest('#dataTable');
+            });
+            
+            console.log('Cells to clear:', cellsToClear.length);
+            cellsToClear.forEach((cell, index) => {
+                console.log(`Clearing cell ${index + 1}:`, cell.textContent || '(empty)', 'at row:', Array.from(cell.parentElement.parentElement.children).indexOf(cell.parentElement), 'col:', parseInt(cell.dataset.col));
                 cell.textContent = '';
             });
+            
             hideContextMenu();
             
             // Update submit button state after clearing cells
