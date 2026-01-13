@@ -561,6 +561,7 @@ if (isset($_GET['logout'])) {
         .dropdown {
             position: relative;
             display: inline-block;
+            width: clamp(120px, 10.4vw, 140px);
         }
 
         .dropdown-toggle {
@@ -568,6 +569,7 @@ if (isset($_GET['logout'])) {
             align-items: center;
             font-size: clamp(8px, 0.74vw, 14px);
             gap: 8px;
+            width: 100%;
         }
 
         .dropdown-menu {
@@ -581,7 +583,6 @@ if (isset($_GET['logout'])) {
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
             z-index: 1000;
             width: 100%;
-            min-width: clamp(140px, 12.5vw, 160px);
             box-sizing: border-box;
         }
 
@@ -628,6 +629,11 @@ if (isset($_GET['logout'])) {
             transition: all 0.2s;
             text-decoration: none;
             font-family: 'Amaranth', sans-serif;
+        }
+        
+        .dropdown .btn {
+            width: 100%;
+            justify-content: center;
         }
 
         /* 确保 sidebar 中的 logout button 文字居中 */
