@@ -123,6 +123,57 @@ if (isset($_SESSION['user_id'])) {
         }
     }
     
+    // 检查user（c168公司）是否已通过二级密码验证（排除二级密码验证页面本身）
+    if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'user' && $currentFile !== 'user_secondary_password.php') {
+        // 检查是否是c168公司的用户
+        $company_code = $_SESSION['company_code'] ?? null;
+        $company_id = $_SESSION['company_id'] ?? null;
+        $is_c168 = false;
+        
+        if ($company_code && strtoupper($company_code) === 'C168') {
+            $is_c168 = true;
+        } elseif ($company_id) {
+            try {
+                $stmt = $pdo->prepare("SELECT company_id FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
+                $stmt->execute([$company_id]);
+                if ($stmt->fetch()) {
+                    $is_c168 = true;
+                }
+            } catch (PDOException $e) {
+                error_log("Company check error in session_check: " . $e->getMessage());
+            }
+        }
+        
+        // 如果是c168公司的用户，检查是否设置了二级密码
+        if ($is_c168) {
+            try {
+                $user_id = $_SESSION['user_id'];
+                $stmt = $pdo->prepare("SELECT secondary_password FROM user WHERE id = ?");
+                $stmt->execute([$user_id]);
+                $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                // 如果用户设置了二级密码，则必须验证
+                if ($user && !empty($user['secondary_password'])) {
+                    if (!isset($_SESSION['secondary_password_verified']) || $_SESSION['secondary_password_verified'] !== true) {
+                        // User未通过二级密码验证，重定向到二级密码验证页面
+                        if ($isApiRequest) {
+                            if (!headers_sent()) {
+                                header('Content-Type: application/json');
+                            }
+                            echo json_encode(['status' => 'error', 'message' => 'Secondary password verification required.', 'redirect' => 'user_secondary_password.php']);
+                            exit();
+                        }
+                        
+                        header("Location: user_secondary_password.php");
+                        exit();
+                    }
+                }
+            } catch (PDOException $e) {
+                error_log("Secondary password check error: " . $e->getMessage());
+            }
+        }
+    }
+    
     // 更新活动时间戳 - 每次页面访问都更新
     $_SESSION['last_activity'] = time();
     

@@ -1770,15 +1770,38 @@ try {
                                  <input type="text" id="login_id" name="login_id" required>
                              </div>
 
-                             <div class="form-group user-info-field" id="passwordGroup">
-                                 <label for="password">Password *</label>
-                                 <input type="password" id="password" name="password">
-                             </div>
+                            <div class="form-group user-info-field" id="passwordGroup">
+                                <label for="password">Password *</label>
+                                <input type="password" id="password" name="password">
+                            </div>
 
-                             <div class="form-group user-info-field">
-                                 <label for="name">Name *</label>
-                                 <input type="text" id="name" name="name" required>
-                             </div>
+                            <?php 
+                            // 检查当前公司是否是c168
+                            $is_c168_company = false;
+                            if ($company_id) {
+                                try {
+                                    $stmt = $pdo->prepare("SELECT company_id FROM company WHERE id = ? AND UPPER(company_id) = 'C168'");
+                                    $stmt->execute([$company_id]);
+                                    if ($stmt->fetch()) {
+                                        $is_c168_company = true;
+                                    }
+                                } catch (PDOException $e) {
+                                    error_log("Company check error: " . $e->getMessage());
+                                }
+                            }
+                            ?>
+                            <?php if ($is_c168_company): ?>
+                            <div class="form-group user-info-field" id="secondaryPasswordGroup">
+                                <label for="secondary_password">Secondary Password (6 digits)</label>
+                                <input type="password" id="secondary_password" name="secondary_password" maxlength="6" pattern="[0-9]{6}" placeholder="Enter 6-digit password">
+                                <small style="color: #64748b; font-size: 12px; margin-top: 4px; display: block;">Optional: 6-digit secondary password for additional security</small>
+                            </div>
+                            <?php endif; ?>
+
+                            <div class="form-group user-info-field">
+                                <label for="name">Name *</label>
+                                <input type="text" id="name" name="name" required>
+                            </div>
 
                              <div class="form-group user-info-field">
                                  <label for="role">Role *</label>
@@ -3906,6 +3929,26 @@ try {
             // 初始化斑马纹类名
             updateZebraStriping();
             
+            // 为二级密码输入框添加限制（只允许6位数字）
+            const secondaryPasswordInput = document.getElementById('secondary_password');
+            if (secondaryPasswordInput) {
+                secondaryPasswordInput.addEventListener('input', function() {
+                    // 只保留数字
+                    this.value = this.value.replace(/[^0-9]/g, '');
+                    // 限制为6位
+                    if (this.value.length > 6) {
+                        this.value = this.value.slice(0, 6);
+                    }
+                });
+                
+                secondaryPasswordInput.addEventListener('paste', function(e) {
+                    e.preventDefault();
+                    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+                    const numericOnly = pastedText.replace(/[^0-9]/g, '').slice(0, 6);
+                    this.value = numericOnly;
+                });
+            }
+            
             // 为 role 下拉框添加 change 事件监听器
             const roleSelect = document.getElementById('role');
             if (roleSelect) {
@@ -4098,6 +4141,17 @@ try {
             // Remove password if empty during edit
             if (isEditMode && !data.password) {
                 delete data.password;
+            }
+            
+            // 处理二级密码：如果为空或未填写，则不提交
+            if (!data.secondary_password || data.secondary_password.trim() === '') {
+                delete data.secondary_password;
+            } else {
+                // 验证二级密码格式：必须是6位数字
+                if (!/^\d{6}$/.test(data.secondary_password)) {
+                    showAlert('Secondary password must be exactly 6 digits', 'danger');
+                    return;
+                }
             }
             
             // 如果是owner影子，移除role字段（因为role不能改变）

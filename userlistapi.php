@@ -229,6 +229,19 @@ try {
                 sendResponse(false, 'Failed to hash password');
             }
             
+            // Hash secondary_password if provided (for c168 company users)
+            $hashedSecondaryPassword = null;
+            if (isset($input['secondary_password']) && trim($input['secondary_password']) !== '') {
+                // 验证二级密码：必须是6位数字
+                if (!preg_match('/^\d{6}$/', $input['secondary_password'])) {
+                    sendResponse(false, 'Secondary password must be exactly 6 digits');
+                }
+                $hashedSecondaryPassword = password_hash($input['secondary_password'], PASSWORD_DEFAULT);
+                if ($hashedSecondaryPassword === false) {
+                    sendResponse(false, 'Failed to hash secondary password');
+                }
+            }
+            
             // 处理权限数据
             $permissions = isset($input['permissions']) ? json_encode($input['permissions']) : null;
 
@@ -237,14 +250,15 @@ try {
             
             try {
                 // Insert new user (不再使用 company_id，因为已移除)
-                $sql = "INSERT INTO user (login_id, name, password, email, role, permissions, status, created_by, created_at) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                $sql = "INSERT INTO user (login_id, name, password, secondary_password, email, role, permissions, status, created_by, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
                 
                 $stmt = $pdo->prepare($sql);
                 $result = $stmt->execute([
                     $input['login_id'],
                     $input['name'],
                     $hashedPassword,
+                    $hashedSecondaryPassword,
                     $input['email'],
                     $input['role'],
                     $permissions,
@@ -386,6 +400,16 @@ try {
                     $updateValues[] = password_hash($input['password'], PASSWORD_DEFAULT);
                 }
                 
+                // Only update secondary_password if provided (for c168 company)
+                if (isset($input['secondary_password']) && trim($input['secondary_password']) !== '') {
+                    // 验证二级密码：必须是6位数字
+                    if (!preg_match('/^\d{6}$/', $input['secondary_password'])) {
+                        sendResponse(false, 'Secondary password must be exactly 6 digits');
+                    }
+                    $updateFields[] = "secondary_password = ?";
+                    $updateValues[] = password_hash($input['secondary_password'], PASSWORD_DEFAULT);
+                }
+                
                 if (empty($updateFields)) {
                     sendResponse(false, 'No fields to update');
                 }
@@ -505,6 +529,16 @@ try {
             if (isset($input['password']) && trim($input['password']) !== '') {
                 $updateFields[] = "password = ?";
                 $updateValues[] = password_hash($input['password'], PASSWORD_DEFAULT);
+            }
+            
+            // Only update secondary_password if provided (for c168 company users)
+            if (isset($input['secondary_password']) && trim($input['secondary_password']) !== '') {
+                // 验证二级密码：必须是6位数字
+                if (!preg_match('/^\d{6}$/', $input['secondary_password'])) {
+                    sendResponse(false, 'Secondary password must be exactly 6 digits');
+                }
+                $updateFields[] = "secondary_password = ?";
+                $updateValues[] = password_hash($input['secondary_password'], PASSWORD_DEFAULT);
             }
             
             // 添加 WHERE 条件的参数

@@ -157,7 +157,26 @@ try {
         $stmt = $pdo->prepare("UPDATE user SET last_login = NOW() WHERE id = ?");
         $stmt->execute([$user['id']]);
 
-        echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
+        // 检查是否是c168公司的用户，且已设置二级密码，则需要二级密码验证
+        $needs_secondary_password = false;
+        if (strtoupper($user['company_code']) === 'C168') {
+            // 检查用户是否设置了二级密码
+            $stmt = $pdo->prepare("SELECT secondary_password FROM user WHERE id = ?");
+            $stmt->execute([$user['id']]);
+            $user_secondary = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($user_secondary && !empty($user_secondary['secondary_password'])) {
+                $needs_secondary_password = true;
+            }
+        }
+
+        if ($needs_secondary_password) {
+            // 需要二级密码验证，跳转到二级密码验证页面
+            echo json_encode(['status' => 'success', 'redirect' => 'user_secondary_password.php']);
+        } else {
+            // 不需要二级密码验证，直接跳转到dashboard
+            $_SESSION['secondary_password_verified'] = true; // 标记为已验证（对于不需要二级密码的用户）
+            echo json_encode(['status' => 'success', 'redirect' => 'dashboard.php']);
+        }
         exit;
         
     } else {
