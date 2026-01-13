@@ -239,7 +239,7 @@ try {
         // 使用 account_company 和 user_company_map 来获取属于这些公司的所有用户
         $placeholders = str_repeat('?,', count($company_ids_to_link) - 1) . '?';
         $stmt = $pdo->prepare("
-            SELECT DISTINCT u.id, ucm.company_id, ucp.account_permissions 
+            SELECT DISTINCT u.id, ucp.account_permissions 
             FROM user u
             INNER JOIN user_company_map ucm ON u.id = ucm.user_id
             LEFT JOIN user_company_permissions ucp ON u.id = ucp.user_id AND ucm.company_id = ucp.company_id
@@ -256,9 +256,6 @@ try {
         ");
 
         foreach ($users as $user) {
-            $user_id = $user['id'];
-            $user_company_id = $user['company_id'];
-            
             // 解析现有的account_permissions
             $currentPermissions = [];
             $hasPermissionsSet = false;
@@ -280,19 +277,16 @@ try {
                 }
             }
             
-            // 如果用户在该公司下设置了账户权限（无论权限列表是否为空），都需要将新账户添加到权限列表中
-            // 因为如果 account_permissions 不为 null，说明用户想要控制可见的账户
-            // 如果 account_permissions 为 null，用户默认可以看到所有账户，不需要更新
-            if ($hasPermissionsSet) {
+            // 只有当用户已经设置了账户权限（且权限列表不为空）时，才自动添加新账户
+            // 如果用户没有设置权限或权限列表为空，他们默认可以看到所有账户，不需要更新
+            if ($hasPermissionsSet && !empty($currentPermissions)) {
                 // 检查是否已经存在这个账户权限
                 $accountExists = false;
-                if (!empty($currentPermissions)) {
-                    foreach ($currentPermissions as $permission) {
-                        // 兼容字符串和整数类型的 ID
-                        if (isset($permission['id']) && (int)$permission['id'] == (int)$newAccountId) {
-                            $accountExists = true;
-                            break;
-                        }
+                foreach ($currentPermissions as $permission) {
+                    // 兼容字符串和整数类型的 ID
+                    if (isset($permission['id']) && (int)$permission['id'] == (int)$newAccountId) {
+                        $accountExists = true;
+                        break;
                     }
                 }
                 
@@ -303,8 +297,10 @@ try {
                         'account_id' => $account_id
                     ];
                     
-                    // 只为该用户在该公司下的权限更新（而不是所有公司）
-                    $updateStmt->execute([$user_id, $user_company_id, json_encode($currentPermissions)]);
+                    // 更新用户的account_permissions（需要为每个公司更新）
+                    foreach ($company_ids_to_link as $comp_id) {
+                        $updateStmt->execute([$user['id'], $comp_id, json_encode($currentPermissions)]);
+                    }
                 }
             }
         }
