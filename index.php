@@ -83,20 +83,11 @@ if (isset($_COOKIE['remember_token'])) {
     <div class="login-container">
 
         <!-- 整个登录表单上方的跑马灯维护提示（不在 form 里面） -->
-        <!-- <div class="maintenance-marquee-wrapper">
-                <div class="maintenance-marquee-track">
-                    <div class="maintenance-marquee-item">
-                        <span class="maintenance-marquee-dot"></span>
-                        <span class="maintenance-marquee-label">系统维护中:</span>
-                        <span>Data Capture 页面正在维护，预计完成时间约 1个星期，如有影响请稍后再试，感谢您的理解与支持。</span>
-                    </div>
-                    <div class="maintenance-marquee-item">
-                        <span class="maintenance-marquee-dot"></span>
-                        <span class="maintenance-marquee-label">系统维护中:</span>
-                        <span>Data Capture 页面正在维护，预计完成时间约 1个星期，如有影响请稍后再试，感谢您的理解与支持。</span>
-                    </div>
+        <div class="maintenance-marquee-wrapper" id="maintenanceMarqueeWrapper" style="display: none;">
+                <div class="maintenance-marquee-track" id="maintenanceMarqueeTrack">
+                    <!-- 维护内容将在这里动态加载 -->
                 </div>
-        </div> -->
+        </div>
     
         <div class="role-tabs">
                 <button class="role-tab <?php echo (!isset($_GET['role']) || $_GET['role'] === 'admin') ? 'active' : ''; ?>" id="admin-tab">Admin</button>
@@ -395,11 +386,68 @@ if (isset($_COOKIE['remember_token'])) {
             this.setSelectionRange(cursorPosition, cursorPosition);
         });
 
-        // 语言切换时保持角色状态
-        document.getElementById('lang-switch').addEventListener('click', function(e) {
-            e.preventDefault();
-            const currentRole = memberTab.classList.contains('active') ? 'member' : 'admin';
-            window.location.href = `/cn/index.php?role=${currentRole}`;
+        // 加载维护内容
+        async function loadMaintenanceContent() {
+            try {
+                const response = await fetch('maintenance_get_public_api.php');
+                const result = await response.json();
+                
+                const wrapper = document.getElementById('maintenanceMarqueeWrapper');
+                const track = document.getElementById('maintenanceMarqueeTrack');
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    // 清空现有内容
+                    track.innerHTML = '';
+                    
+                    // 为每个维护内容创建项目，并复制一次以实现无缝循环
+                    result.data.forEach(maintenance => {
+                        // 创建第一个项目
+                        const item1 = document.createElement('div');
+                        item1.className = 'maintenance-marquee-item';
+                        item1.innerHTML = `
+                            <span class="maintenance-marquee-dot"></span>
+                            <span class="maintenance-marquee-label">系统维护中:</span>
+                            <span>${escapeHtml(maintenance.content)}</span>
+                        `;
+                        track.appendChild(item1);
+                        
+                        // 创建第二个项目（用于无缝循环）
+                        const item2 = document.createElement('div');
+                        item2.className = 'maintenance-marquee-item';
+                        item2.innerHTML = `
+                            <span class="maintenance-marquee-dot"></span>
+                            <span class="maintenance-marquee-label">系统维护中:</span>
+                            <span>${escapeHtml(maintenance.content)}</span>
+                        `;
+                        track.appendChild(item2);
+                    });
+                    
+                    // 显示跑马灯
+                    wrapper.style.display = 'block';
+                } else {
+                    // 没有维护内容，隐藏跑马灯
+                    wrapper.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Failed to load maintenance content:', error);
+                // 出错时隐藏跑马灯
+                const wrapper = document.getElementById('maintenanceMarqueeWrapper');
+                if (wrapper) {
+                    wrapper.style.display = 'none';
+                }
+            }
+        }
+
+        // HTML转义函数
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 页面加载时获取维护内容
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMaintenanceContent();
         });
     </script>
 </body>
