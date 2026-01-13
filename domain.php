@@ -1503,7 +1503,7 @@ try {
         function openCompanyModal() {
             // 复制当前选中的companies到临时列表（深拷贝）
             tempCompanies = selectedCompanies.map(c => ({ ...c }));
-            // 重置所有公司的selectedPeriod，这样下拉框会显示"Select Period"
+            // 重置所有公司的selectedPeriod，这样下拉框会显示"Period"
             // 同时保存原始到期日期，这样每次选择period时都从原始日期开始计算
             tempCompanies.forEach(company => {
                 company.selectedPeriod = null;
@@ -1632,7 +1632,7 @@ try {
                         const selectedPeriod = company.selectedPeriod || '';
                         expirationControls = `
                             <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
-                                <option value="" ${selectedPeriod === '' ? 'selected' : ''}>Select Period</option>
+                                <option value="" ${selectedPeriod === '' ? 'selected' : ''}>Period</option>
                                 <option value="7days" ${selectedPeriod === '7days' ? 'selected' : ''}>7 Days</option>
                                 <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
                                 <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
