@@ -665,11 +665,37 @@ if ($current_user_id && count($user_companies) > 0) {
             // Activate table when user clicks on it
             tableActive = true;
             
-            // Only used as starting point for drag multi-select, do not clear existing selections or force focus here
-            isSelecting = true;
-            startCell = e.target;
-            selectedCells.add(e.target);
-            e.target.classList.add('multi-selected');
+            const cell = e.target;
+            const isCtrlPressed = e.ctrlKey || e.metaKey;
+            
+            // If Ctrl/Cmd is pressed, toggle cell selection (multi-select mode)
+            if (isCtrlPressed) {
+                // Toggle selection: if already selected, remove it; if not selected, add it
+                if (selectedCells.has(cell)) {
+                    // Deselect this cell
+                    selectedCells.delete(cell);
+                    cell.classList.remove('multi-selected');
+                } else {
+                    // Add to selection
+                    selectedCells.add(cell);
+                    cell.classList.add('multi-selected');
+                }
+                // Don't start drag selection when Ctrl is pressed
+                isSelecting = false;
+                startCell = null;
+            } else {
+                // Normal click: clear previous selections and start new selection
+                // Only clear if not already dragging
+                if (!isSelecting) {
+                    clearAllSelections();
+                }
+                
+                // Start drag selection
+                isSelecting = true;
+                startCell = cell;
+                selectedCells.add(cell);
+                cell.classList.add('multi-selected');
+            }
         }
 
         // Handle mouse hover
@@ -2133,6 +2159,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 cell.addEventListener('paste', handleCellPaste);
                 cell.addEventListener('click', function(e) {
                     tableActive = true;
+                    
+                    // If Ctrl/Cmd is pressed, don't change focus or clear selections (multi-select mode)
+                    const isCtrlPressed = e.ctrlKey || e.metaKey;
+                    if (isCtrlPressed) {
+                        // Just ensure the cell is in the selection (already handled in mousedown)
+                        // Don't change focus or clear other selections
+                        return;
+                    }
+                    
                     const hasFocus = document.activeElement === this;
                     if (hasFocus) {
                         moveCaretToClickPosition(this, e);
@@ -3508,6 +3543,14 @@ if ($current_user_id && count($user_companies) > 0) {
                         // Activate table when user clicks on it
                         tableActive = true;
                         
+                        // If Ctrl/Cmd is pressed, don't change focus or clear selections (multi-select mode)
+                        const isCtrlPressed = e.ctrlKey || e.metaKey;
+                        if (isCtrlPressed) {
+                            // Just ensure the cell is in the selection (already handled in mousedown)
+                            // Don't change focus or clear other selections
+                            return;
+                        }
+                        
                         // Check if cell already has focus (being edited)
                         const hasFocus = document.activeElement === this;
                         
@@ -3628,6 +3671,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     // Activate table when user clicks on it
                     tableActive = true;
                     
+                    // If Ctrl/Cmd is pressed, don't change focus or clear selections (multi-select mode)
+                    const isCtrlPressed = e.ctrlKey || e.metaKey;
+                    if (isCtrlPressed) {
+                        // Just ensure the cell is in the selection (already handled in mousedown)
+                        // Don't change focus or clear other selections
+                        return;
+                    }
+                    
                     // 检查单元格是否已经有焦点（正在编辑）
                     const hasFocus = document.activeElement === this;
                     
@@ -3715,6 +3766,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 cell.addEventListener('click', function(e) {
                     // Activate table when user clicks on it
                     tableActive = true;
+                    
+                    // If Ctrl/Cmd is pressed, don't change focus or clear selections (multi-select mode)
+                    const isCtrlPressed = e.ctrlKey || e.metaKey;
+                    if (isCtrlPressed) {
+                        // Just ensure the cell is in the selection (already handled in mousedown)
+                        // Don't change focus or clear other selections
+                        return;
+                    }
                     
                     // 检查单元格是否已经有焦点（正在编辑）
                     const hasFocus = document.activeElement === this;
