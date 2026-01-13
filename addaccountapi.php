@@ -23,11 +23,11 @@ try {
     if (isset($_POST['company_id']) && !empty($_POST['company_id'])) {
         $company_id = (int)$_POST['company_id'];
     } elseif (isset($_SESSION['company_id'])) {
-        $company_id = $_SESSION['company_id'];
+        $company_id = (int)$_SESSION['company_id']; // 确保类型一致
     }
     
-    if (!$company_id) {
-        throw new Exception('缺少公司信息');
+    if (!$company_id || $company_id <= 0) {
+        throw new Exception('缺少有效的公司信息');
     }
     
     // 验证 company_id 是否属于当前用户
@@ -214,21 +214,39 @@ try {
         
         // 如果没有提供有效的 company_ids，使用当前 company_id 作为默认关联
         if (empty($company_ids_to_link)) {
-            $company_ids_to_link[] = $company_id;
+            if ($company_id && $company_id > 0) {
+                $company_ids_to_link[] = $company_id;
+            } else {
+                // 如果 company_id 无效，记录错误但不抛出异常（让事务回滚）
+                error_log("Error: No valid company_id provided for account creation. company_id: " . json_encode($company_id));
+                throw new Exception('缺少有效的公司信息，无法创建账户');
+            }
         }
         
         // 插入公司关联到 account_company 表
         $stmt = $pdo->prepare("INSERT INTO account_company (account_id, company_id) VALUES (?, ?)");
+        $linked_companies = [];
         foreach ($company_ids_to_link as $comp_id) {
             try {
                 $stmt->execute([$newAccountId, $comp_id]);
+                $linked_companies[] = $comp_id;
             } catch (PDOException $e) {
                 // 忽略重复键错误
                 if ($e->getCode() != 23000) {
-                    error_log("Error linking company to account: " . $e->getMessage());
+                    error_log("Error linking company to account: Account ID: $newAccountId, Company ID: $comp_id, Error: " . $e->getMessage());
                     throw $e; // 重新抛出非重复键错误
+                } else {
+                    // 重复键错误也记录，但继续执行
+                    error_log("Duplicate company link ignored: Account ID: $newAccountId, Company ID: $comp_id");
+                    $linked_companies[] = $comp_id; // 仍然算作已关联
                 }
             }
+        }
+        
+        // 确保至少关联了一个公司
+        if (empty($linked_companies)) {
+            error_log("Error: Failed to link account to any company. Account ID: $newAccountId");
+            throw new Exception('无法将账户关联到公司，请重试');
         }
         
         // 货币关联现在通过前端界面单独管理，不在创建账户时设置
