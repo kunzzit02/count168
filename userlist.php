@@ -1852,7 +1852,7 @@ try {
                                 </div>
                             </div>
                             <div class="form-group user-info-field" style="margin-top: -10px; margin-bottom: 10px;">
-                                <small style="color: #64748b; font-size: 12px; display: block;">Optional: 6-digit secondary password for additional security</small>
+                                <small style="color: #64748b; font-size: 12px; display: block;"></small>
                             </div>
                             <?php else: ?>
                             <!-- 非C168公司：只显示密码字段 -->
