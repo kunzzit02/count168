@@ -665,34 +665,11 @@ if ($current_user_id && count($user_companies) > 0) {
             // Activate table when user clicks on it
             tableActive = true;
             
-            const cell = e.target;
-            const isCtrlPressed = e.ctrlKey || e.metaKey;
-            
-            // If Ctrl/Cmd is pressed, toggle cell selection (multi-select mode)
-            if (isCtrlPressed) {
-                if (selectedCells.has(cell)) {
-                    // If cell is already selected, deselect it
-                    selectedCells.delete(cell);
-                    cell.classList.remove('multi-selected');
-                } else {
-                    // If cell is not selected, add it to selection
-                    selectedCells.add(cell);
-                    cell.classList.add('multi-selected');
-                }
-                // Don't start drag selection when Ctrl is pressed
-                isSelecting = false;
-                startCell = null;
-            } else {
-                // Normal click: clear previous selections and start new selection
-                // Only used as starting point for drag multi-select
-                isSelecting = true;
-                startCell = cell;
-                
-                // Clear all previous selections and select this cell
-                clearAllSelections();
-                selectedCells.add(cell);
-                cell.classList.add('multi-selected');
-            }
+            // Only used as starting point for drag multi-select, do not clear existing selections or force focus here
+            isSelecting = true;
+            startCell = e.target;
+            selectedCells.add(e.target);
+            e.target.classList.add('multi-selected');
         }
 
         // Handle mouse hover
