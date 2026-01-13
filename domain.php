@@ -1122,8 +1122,8 @@ try {
                     </div>
                 </div>
                 <div class="form-actions">
+                <button type="button" class="btn btn-save" onclick="confirmCompanies()">Confirm</button>
                     <button type="button" class="btn btn-cancel" onclick="closeCompanyModal()">Cancel</button>
-                    <button type="button" class="btn btn-save" onclick="confirmCompanies()">Confirm</button>
                 </div>
             </div>
         </div>
@@ -1190,8 +1190,8 @@ try {
                     </div>
                     
                     <div class="form-actions">
+                    <button type="submit" class="btn btn-save">Save</button>
                         <button type="button" class="btn btn-cancel" onclick="closeModal()">Cancel</button>
-                        <button type="submit" class="btn btn-save">Save</button>
                     </div>
                 </form>
             </div>

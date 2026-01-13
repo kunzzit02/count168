@@ -296,8 +296,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 </div>
                 
                 <div class="modal-footer">
+                <button type="button" class="btn btn-save" id="confirmDescriptionsBtn" onclick="confirmDescriptions()">Confirm</button>
                     <button type="button" class="btn btn-cancel" onclick="closeDescriptionSelectionModal()">Cancel</button>
-                    <button type="button" class="btn btn-save" id="confirmDescriptionsBtn" onclick="confirmDescriptions()">Confirm</button>
                 </div>
             </div>
         </div>
@@ -386,8 +386,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 </div>
             </div>
             <div class="delete-dialog-footer">
+            <button type="button" class="btn btn-save" onclick="confirmDelete(); event.stopPropagation();">OK</button>
                 <button type="button" class="btn btn-cancel" onclick="closeDeleteDialog(); event.stopPropagation();">Cancel</button>
-                <button type="button" class="btn btn-save" onclick="confirmDelete(); event.stopPropagation();">OK</button>
             </div>
         </div>
     </div>
