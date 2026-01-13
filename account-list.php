@@ -1139,9 +1139,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
         let deletedCurrencyIds = [];
         
         // 存储添加账户时选中的公司ID（临时存储，在账户创建后关联）
-        // 默认选中当前公司（过滤掉 null 值）
-        const currentCompanyIdForAdd = <?php echo json_encode($company_id); ?>;
-        let selectedCompanyIdsForAdd = currentCompanyIdForAdd ? [currentCompanyIdForAdd] : [];
+        // 默认选中当前公司
+        let selectedCompanyIdsForAdd = [<?php echo json_encode($company_id); ?>];
 
         // 存储编辑账户时选中的公司ID（在点击 Update 时一次性保存）
         let selectedCompanyIdsForEdit = [];
@@ -2573,13 +2572,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
             }
             
             // 添加选中的公司ID（如果有）
-            // 如果 selectedCompanyIdsForAdd 为空，确保至少包含当前公司
-            const companyIdsToSubmit = selectedCompanyIdsForAdd.length > 0 
-                ? selectedCompanyIdsForAdd.filter(id => id != null && id > 0)  // 过滤掉 null 和无效值
-                : (currentCompanyId ? [currentCompanyId] : []);
-            
-            if (companyIdsToSubmit.length > 0) {
-                formData.set('company_ids', JSON.stringify(companyIdsToSubmit));
+            if (selectedCompanyIdsForAdd.length > 0) {
+                formData.set('company_ids', JSON.stringify(selectedCompanyIdsForAdd));
             }
             
             try {
