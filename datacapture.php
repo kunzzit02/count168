@@ -11810,100 +11810,106 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 如果HTML解析都失败，尝试纯文本格式（制表符分隔的表格数据）
                 console.log('MAXBET: HTML parsing failed, trying text format...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
+                // 保留所有行，包括空行（但空行会被跳过）
+                const allLines = normalizedData.split('\n');
                 
-                if (lines.length > 0) {
-                    // 检查是否包含制表符（标准表格格式）
-                    const hasTabSeparator = lines.some(line => line.includes('\t'));
+                if (allLines.length > 0) {
+                    const dataMatrix = [];
+                    let maxCols = 0;
                     
-                    if (hasTabSeparator) {
-                        const dataMatrix = [];
-                        let maxCols = 0;
+                    // 处理每一行：复制多少行就粘贴多少行
+                    allLines.forEach(line => {
+                        const trimmed = line.trim();
                         
-                        lines.forEach(line => {
-                            if (line.includes('\t')) {
-                                const cells = line.split('\t').map(c => {
-                                    const trimmed = c.trim();
-                                    // 格式化数值为2位小数
-                                    return formatNumberToTwoDecimals(trimmed);
-                                });
-                                dataMatrix.push(cells);
-                                maxCols = Math.max(maxCols, cells.length);
-                            } else if (line.trim() !== '') {
-                                // 单列数据
-                                const trimmed = line.trim();
-                                dataMatrix.push([formatNumberToTwoDecimals(trimmed)]);
-                                maxCols = Math.max(maxCols, 1);
-                            }
-                        });
+                        // 跳过完全空白的行
+                        if (trimmed === '') {
+                            return;
+                        }
                         
-                        // 确保所有行都有相同的列数
+                        // 如果包含制表符，按制表符分割
+                        if (line.includes('\t')) {
+                            const cells = line.split('\t').map(c => {
+                                const cellTrimmed = c.trim();
+                                // 格式化数值为2位小数
+                                return formatNumberToTwoDecimals(cellTrimmed);
+                            });
+                            dataMatrix.push(cells);
+                            maxCols = Math.max(maxCols, cells.length);
+                        } else {
+                            // 没有制表符的行，作为单列数据（第一列）
+                            dataMatrix.push([formatNumberToTwoDecimals(trimmed)]);
+                            maxCols = Math.max(maxCols, 1);
+                        }
+                    });
+                    
+                    // 确保所有行都有相同的列数（对齐到最大列数）
+                    if (maxCols > 0) {
                         dataMatrix.forEach(row => {
                             while (row.length < maxCols) {
                                 row.push('');
                             }
                         });
+                    }
+                    
+                    // 填充到表格，从用户点击的单元格开始
+                    if (dataMatrix.length > 0 && maxCols > 0) {
+                        const startCell = e.target;
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = parseInt(startCell.dataset.col);
                         
-                        // 填充到表格，从用户点击的单元格开始
-                        if (dataMatrix.length > 0 && maxCols > 0) {
-                            const startCell = e.target;
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + dataMatrix.length;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
                             
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + dataMatrix.length;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            dataMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
                                 
-                                rowData.forEach((cellData, colIndex) => {
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                                if (cell && cell.contentEditable === 'true') {
+                                    const cellValue = cellData || '';
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: cellValue
+                                    });
                                     
-                                    if (cell && cell.contentEditable === 'true') {
-                                        const cellValue = cellData || '';
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellValue
-                                        });
-                                        
-                                        cell.textContent = cellValue;
-                                        if (cellValue) {
-                                            successCount++;
-                                        }
+                                    cell.textContent = cellValue;
+                                    if (cellValue) {
+                                        successCount++;
                                     }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
                                 }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
                             }
-                            
-                            if (successCount > 0) {
-                                console.log('MAXBET: Text format paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                showNotification(`MAXBET: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            console.log('MAXBET: Text format paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                            showNotification(`MAXBET: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
                         }
                     }
                 }
