@@ -7240,6 +7240,109 @@ if ($current_user_id && count($user_companies) > 0) {
             return null;
         }
 
+        // ===== 智能格式识别函数：识别 ALIPAY, WBET, PEGASUS, VPOWER =====
+        // 该函数通过分析数据特征来判断数据来源，返回格式类型字符串
+        function identifyFormatFromData(pastedData, e) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            
+            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+            const upperData = pastedData.toUpperCase();
+            
+            // 1. 检测 WBET 格式特征
+            // WBET 特征：包含 "SUB TOTAL" 和 "GRAND TOTAL" 关键词
+            const hasSubTotal = upperData.includes('SUB TOTAL') || upperData.includes('SUBTOTAL');
+            const hasGrandTotal = upperData.includes('GRAND TOTAL') || upperData.includes('GRANDTOTAL');
+            if (hasSubTotal && hasGrandTotal) {
+                console.log('Format identifier: Detected WBET format (contains SUB TOTAL and GRAND TOTAL)');
+                return 'WBET';
+            }
+            
+            // 2. 检测 VPOWER 格式特征
+            // VPOWER 特征：
+            //   - 表头包含 "User Name" 和 "profit" 列
+            //   - 或者无表头时：每2-3行为一组（#, User Name, profit 或 User Name, profit）
+            if (lines.length >= 2) {
+                const firstLine = lines[0].toLowerCase();
+                const hasUserName = firstLine.includes('user name') || firstLine.includes('username');
+                const hasProfit = firstLine.includes('profit');
+                
+                if (hasUserName && hasProfit) {
+                    console.log('Format identifier: Detected VPOWER format (header contains User Name and profit)');
+                    return 'VPOWER';
+                }
+                
+                // 检测无表头的 VPOWER 格式
+                // 格式A：第一行是数字（#列），第二行是用户名，第三行是profit
+                // 格式B：第一行是用户名，第二行是profit
+                if (lines.length >= 2) {
+                    const formatA_firstLineIsNumber = /^\d+$/.test(lines[0]);
+                    const formatA_secondLineIsUsername = lines.length > 1 && /^[a-z0-9]+$/i.test(lines[1]);
+                    const formatA_thirdLineIsNumber = lines.length > 2 && /^-?\d+\.?\d*$/.test(lines[2]);
+                    
+                    const formatB_firstLineIsUsername = /^[a-z0-9]+$/i.test(lines[0]);
+                    const formatB_secondLineIsNumber = lines.length > 1 && /^-?\d+\.?\d*$/.test(lines[1]);
+                    
+                    if ((formatA_firstLineIsNumber && formatA_secondLineIsUsername && formatA_thirdLineIsNumber) ||
+                        (formatB_firstLineIsUsername && formatB_secondLineIsNumber)) {
+                        console.log('Format identifier: Detected VPOWER format (no header, pattern matches)');
+                        return 'VPOWER';
+                    }
+                }
+            }
+            
+            // 3. 检测 ALIPAY 格式特征
+            // ALIPAY 特征：
+            //   - 包含标识符行（2-10个大写字母，如BWGMA、AW9966、BSAM2424）
+            //   - 可能包含 "Grand Total" 或 "Total" 行
+            //   - 标识符行不以数字开头
+            let alipayIdentifierCount = 0;
+            let alipayTotalCount = 0;
+            for (let i = 0; i < Math.min(lines.length, 50); i++) {
+                const trimmedLine = lines[i].trim();
+                const upperTrimmedLine = trimmedLine.toUpperCase();
+                
+                // 检测标识符（2-10个大写字母，可能包含数字，但不以数字开头）
+                const isShortIdentifier = /^[A-Z0-9]{2,10}$/.test(trimmedLine) && 
+                                        !trimmedLine.includes(' ') && 
+                                        !trimmedLine.includes(',') &&
+                                        !trimmedLine.includes('.') &&
+                                        !trimmedLine.includes('-') &&
+                                        !/^\d/.test(trimmedLine);
+                
+                // 检测 Total 行
+                const isTotalLine = upperTrimmedLine === 'GRAND TOTAL' || 
+                                   upperTrimmedLine === 'TOTAL' ||
+                                   upperTrimmedLine.startsWith('GRAND TOTAL') ||
+                                   upperTrimmedLine.startsWith('TOTAL ');
+                
+                if (isShortIdentifier) {
+                    alipayIdentifierCount++;
+                }
+                if (isTotalLine) {
+                    alipayTotalCount++;
+                }
+            }
+            
+            // 如果找到多个标识符（至少2个），很可能是 ALIPAY 格式
+            if (alipayIdentifierCount >= 2) {
+                console.log('Format identifier: Detected ALIPAY format (found', alipayIdentifierCount, 'identifiers)');
+                return 'ALIPAY';
+            }
+            
+            // 4. 检测 PEGASUS 格式特征
+            // PEGASUS 特征：
+            //   - 数据量较小（通常少于20行）
+            //   - 或者数据格式不规则（不是标准的表格格式）
+            //   - 注意：PEGASUS 是"兜底"格式，如果其他格式都不匹配，可能是 PEGASUS
+            //   但这里我们先不返回 PEGASUS，让它在最后尝试
+            
+            // 如果都不匹配，返回 null，让代码继续尝试其他格式
+            console.log('Format identifier: No specific format detected, will try all formats');
+            return null;
+        }
+        // ===== 智能格式识别函数结束 =====
+
         // VPOWER 表格格式解析函数
         // 解析格式：包含 #, User Name, profit, Name, Tel, Remarks 列的表格
         // 忽略第一列（#列），将 User Name 映射到第一列，profit 映射到第二列
@@ -7917,7 +8020,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('1.GENERAL: All parsing methods failed, continuing with default logic');
             }
             
-            // ===== 2.SPECIAL 专用解析：自动检测并应用6种格式（CITIBET, VPOWER, PS3838, WBET, ALIPAY, PEGASUS） =====
+            // ===== 2.SPECIAL 专用解析：智能识别并应用格式（优先识别 ALIPAY, WBET, PEGASUS, VPOWER） =====
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '2.SPECIAL') {
                 console.log('2.SPECIAL mode detected, attempting to auto-detect format...');
                 console.log('Pasted data length:', pastedData.length);
@@ -7926,6 +8029,150 @@ if ($current_user_id && count($user_companies) > 0) {
                 let formatDetected = false;
                 const startCell = e.target;
                 
+                // ===== 步骤1：智能识别格式（优先识别 ALIPAY, WBET, PEGASUS, VPOWER） =====
+                const identifiedFormat = identifyFormatFromData(pastedData, e);
+                // 将识别结果存储到全局变量，以便后续的 ALIPAY 处理逻辑可以使用
+                window._identifiedFormatForSpecial = identifiedFormat;
+                
+                // ===== 步骤2：根据识别结果，优先处理这四种格式 =====
+                if (identifiedFormat === 'WBET') {
+                    console.log('2.SPECIAL: Format identified as WBET, processing...');
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    
+                    if (htmlDataFromDetect) {
+                        const filled = parseAndFillHTMLTableForWBET(htmlDataFromDetect, startCell);
+                        if (filled) {
+                            console.log('2.SPECIAL: Successfully processed WBET format (2.4) - HTML');
+                            formatDetected = true;
+                            showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                    
+                    let htmlData = null;
+                    try {
+                        htmlData = e.clipboardData.getData('text/html');
+                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                            htmlData = null;
+                        }
+                    } catch (err) {
+                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                    }
+                    
+                    if (htmlData && !formatDetected) {
+                        const filled = parseAndFillHTMLTableForWBET(htmlData, startCell);
+                        if (filled) {
+                            console.log('2.SPECIAL: Successfully processed WBET format (2.4) - HTML manual');
+                            formatDetected = true;
+                            showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                    
+                    // 如果 HTML 解析失败，继续尝试文本解析（使用原有的 WBET 文本处理逻辑）
+                    // 注意：这里不直接调用，而是让代码继续执行到后面的 WBET 处理部分
+                }
+                
+                if (identifiedFormat === 'VPOWER' && !formatDetected) {
+                    console.log('2.SPECIAL: Format identified as VPOWER, processing...');
+                    let vpowerParsed = parseVPowerTableFormat(pastedData);
+                    if (vpowerParsed) {
+                        console.log('2.SPECIAL: Detected VPOWER format (2.2)');
+                        formatDetected = true;
+                        const { dataMatrix, maxRows, maxCols } = vpowerParsed;
+                        
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = 0; // VPOWER: 强制从第一列开始
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + maxRows;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
+                            
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
+                                
+                                if (cell && cell.contentEditable === 'true') {
+                                    const trimmedData = (cellData || '').trim();
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: trimmedData
+                                    });
+                                    
+                                    if (colIndex === 0) {
+                                        cell.textContent = trimmedData.toUpperCase();
+                                    } else {
+                                        cell.textContent = trimmedData;
+                                    }
+                                    
+                                    if (trimmedData) {
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`2.SPECIAL: 检测到VPOWER格式 (2.2)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                }
+                
+                if (identifiedFormat === 'ALIPAY' && !formatDetected) {
+                    console.log('2.SPECIAL: Format identified as ALIPAY, processing...');
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    let alipayParsed = null;
+                    
+                    if (htmlDataFromDetect) {
+                        const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
+                        if (filled) {
+                            console.log('2.SPECIAL: Detected ALIPAY format (2.5) - HTML');
+                            formatDetected = true;
+                            showNotification('2.SPECIAL: 检测到ALIPAY格式 (2.5)!', 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                    
+                    // ALIPAY 的完整文本处理逻辑在后面的代码中，这里先标记已识别
+                    // 如果 HTML 解析失败，会继续执行到后面的 ALIPAY 处理部分
+                }
+                
+                if (identifiedFormat === 'PEGASUS' && !formatDetected) {
+                    console.log('2.SPECIAL: Format identified as PEGASUS, processing...');
+                    // PEGASUS 的处理逻辑在后面的代码中，这里先标记已识别
+                }
+                
+                // ===== 步骤3：如果智能识别失败，按原有顺序尝试所有格式 =====
                 // ===== 2.1 CITIBET 格式检测和处理 =====
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
@@ -7990,8 +8237,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // ===== 2.2 VPOWER 格式检测和处理 =====
-                if (!formatDetected) {
+                // ===== 2.2 VPOWER 格式检测和处理（如果之前未识别） =====
+                if (!formatDetected && identifiedFormat !== 'VPOWER') {
                     console.log('2.SPECIAL: Trying 2.2 VPOWER format...');
                     let vpowerParsed = parseVPowerTableFormat(pastedData);
                     if (vpowerParsed) {
@@ -8233,8 +8480,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // ===== 2.4 WBET 格式检测和处理 =====
-                if (!formatDetected) {
+                // ===== 2.4 WBET 格式检测和处理（如果之前未识别） =====
+                if (!formatDetected && identifiedFormat !== 'WBET') {
                     console.log('2.SPECIAL: Trying 2.4 WBET format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     
@@ -8274,8 +8521,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 由于WBET的文本处理逻辑非常复杂，如果HTML解析失败，可以继续尝试其他格式
                 }
                 
-                // ===== 2.5 ALIPAY 格式检测和处理 =====
-                if (!formatDetected) {
+                // ===== 2.5 ALIPAY 格式检测和处理（如果之前未识别） =====
+                if (!formatDetected && identifiedFormat !== 'ALIPAY') {
                     console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     let alipayParsed = null;
@@ -8295,9 +8542,156 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 如果HTML解析失败，可以继续尝试其他格式
                 }
                 
-                // ===== 2.6 PEGASUS 格式检测和处理 =====
-                if (!formatDetected) {
+                // ===== 2.6 PEGASUS 格式检测和处理（如果之前未识别） =====
+                if (!formatDetected && identifiedFormat !== 'PEGASUS') {
                     console.log('2.SPECIAL: Trying 2.6 PEGASUS format...');
+                    let dataMatrix = [];
+                    let allCells = [];
+                    
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    if (htmlDataFromDetect) {
+                        dataMatrix = htmlDataFromDetect;
+                    } else {
+                        let htmlData = null;
+                        try {
+                            htmlData = e.clipboardData.getData('text/html');
+                            if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = htmlData;
+                                const table = tempDiv.querySelector('table');
+                                if (table) {
+                                    const thead = table.querySelector('thead');
+                                    if (thead) {
+                                        const headerRows = thead.querySelectorAll('tr');
+                                        headerRows.forEach(tr => {
+                                            const cells = tr.querySelectorAll('th, td');
+                                            cells.forEach(cell => {
+                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                                let text = cell.textContent || cell.innerText || '';
+                                                text = text.replace(/\s+/g, ' ').trim();
+                                                if (text) allCells.push(text);
+                                                for (let i = 1; i < colspan; i++) {
+                                                    allCells.push('');
+                                                }
+                                            });
+                                        });
+                                    }
+                                    
+                                    let bodyContainer = table.querySelector('tbody');
+                                    if (!bodyContainer) {
+                                        bodyContainer = table;
+                                    }
+                                    
+                                    const bodyRows = bodyContainer.querySelectorAll('tr');
+                                    bodyRows.forEach((tr) => {
+                                        if (thead && tr.closest('thead')) {
+                                            return;
+                                        }
+                                        
+                                        const cells = tr.querySelectorAll('td, th');
+                                        cells.forEach(cell => {
+                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                            let text = cell.textContent || cell.innerText || '';
+                                            text = text.replace(/\s+/g, ' ').trim();
+                                            if (text) allCells.push(text);
+                                            for (let i = 1; i < colspan; i++) {
+                                                allCells.push('');
+                                            }
+                                        });
+                                    });
+                                }
+                            }
+                        } catch (err) {
+                            console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                        }
+                    }
+                    
+                    if (dataMatrix && dataMatrix.length > 0) {
+                        dataMatrix.forEach(row => {
+                            if (Array.isArray(row)) {
+                                row.forEach(cell => {
+                                    const trimmed = (cell || '').toString().trim();
+                                    if (trimmed) allCells.push(trimmed);
+                                });
+                            }
+                        });
+                    }
+                    
+                    if (allCells.length === 0) {
+                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                        
+                        lines.forEach(line => {
+                            if (line.includes('\t')) {
+                                const cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                allCells.push(...cells);
+                            } else {
+                                const cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                allCells.push(...cells);
+                            }
+                        });
+                    }
+                    
+                    if (allCells.length > 0) {
+                        console.log('2.SPECIAL: Detected PEGASUS format (2.6)');
+                        formatDetected = true;
+                        
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = 0; // PEGASUS: 强制从第一列开始
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredCols = startCol + allCells.length;
+                        
+                        if (requiredCols > currentCols) {
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(currentRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const tableRow = tableBody.children[startRow];
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        allCells.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1];
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: startRow,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                cell.textContent = trimmedData;
+                                
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.6)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                }
+                
+                // ===== 如果已识别为 PEGASUS 但还未处理，现在处理 =====
+                if (identifiedFormat === 'PEGASUS' && !formatDetected) {
+                    console.log('2.SPECIAL: Processing identified PEGASUS format...');
                     let dataMatrix = [];
                     let allCells = [];
                     
@@ -9395,9 +9789,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
-            // ALIPAY 专用解析（仅在 ALIPAY 类型时启用）
+            // ALIPAY 专用解析（仅在 ALIPAY 类型时启用，或在 2.SPECIAL 模式下识别为 ALIPAY 时）
             // ALIPAY 格式：保持原始格式，不做任何转换或拆分
-            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'ALIPAY') {
+            // 注意：在 2.SPECIAL 模式下，如果识别为 ALIPAY，也会执行这里的逻辑
+            const shouldProcessAlipay = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'ALIPAY') ||
+                                        (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '2.SPECIAL' && 
+                                         typeof window._identifiedFormatForSpecial !== 'undefined' && window._identifiedFormatForSpecial === 'ALIPAY');
+            if (shouldProcessAlipay) {
                 console.log('ALIPAY mode detected, attempting to parse...');
                 console.log('Pasted data length:', pastedData.length);
                 console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
