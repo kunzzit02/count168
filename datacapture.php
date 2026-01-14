@@ -4528,6 +4528,146 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
+        // AWC 专用的 HTML 表格解析：保持表格行格式（2.7）
+        function parseAndFillHTMLTableForAWC(htmlString, startCell) {
+            try {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlString;
+                
+                const table = tempDiv.querySelector('table');
+                if (!table) {
+                    return false;
+                }
+                
+                console.log('AWC (2.7): Parsing HTML table and preserving row format...');
+                
+                // 获取所有行（包括表头）
+                const allRows = table.querySelectorAll('tr');
+                if (allRows.length === 0) {
+                    return false;
+                }
+                
+                // 计算最大列数
+                let maxCols = 0;
+                allRows.forEach(tr => {
+                    const cells = tr.querySelectorAll('td, th');
+                    let colCount = 0;
+                    cells.forEach(cell => {
+                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                        colCount += colspan;
+                    });
+                    maxCols = Math.max(maxCols, colCount);
+                });
+                
+                if (maxCols === 0) {
+                    return false;
+                }
+                
+                // 获取起始位置
+                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                const startCol = parseInt(startCell.dataset.col);
+                
+                // 扩展表格（如果需要）
+                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                const requiredRows = startRow + allRows.length;
+                const requiredCols = startCol + maxCols;
+                
+                if (requiredRows > currentRows || requiredCols > currentCols) {
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
+                    const targetCols = Math.max(currentCols, requiredCols);
+                    initializeTable(targetRows, targetCols);
+                }
+                
+                // 填充数据并记录粘贴历史（用于撤销）
+                const tableBody = document.getElementById('tableBody');
+                // 重新获取列数（扩展表格后可能已改变）
+                const actualCols = document.querySelectorAll('#tableHeader th').length - 1;
+                const currentPasteChanges = [];
+                let successCount = 0;
+                
+                allRows.forEach((sourceRow, rowIndex) => {
+                    const actualRowIndex = startRow + rowIndex;
+                    const tableRow = tableBody.children[actualRowIndex];
+                    if (!tableRow) return;
+                    
+                    const sourceCells = sourceRow.querySelectorAll('td, th');
+                    let currentCol = startCol;
+                    
+                    sourceCells.forEach(sourceCell => {
+                        const colspan = parseInt(sourceCell.getAttribute('colspan') || '1', 10);
+                        
+                        // 获取源单元格的文本内容（AWC格式使用纯文本）
+                        let cellContent = sourceCell.textContent || '';
+                        
+                        // 处理第一个单元格（colspan的主单元格）
+                        if (currentCol < actualCols) {
+                            const targetCell = tableRow.children[currentCol + 1]; // +1 跳过行号列
+                            
+                            if (targetCell && targetCell.contentEditable === 'true') {
+                                const oldValue = targetCell.textContent || '';
+                                const trimmedContent = cellContent.trim();
+                                
+                                // 使用纯文本内容
+                                targetCell.textContent = trimmedContent;
+                                
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: currentCol,
+                                    oldValue: oldValue,
+                                    newValue: trimmedContent
+                                });
+                                
+                                if (trimmedContent) {
+                                    successCount++;
+                                }
+                            }
+                        }
+                        
+                        // 处理colspan的后续列（填充空单元格）
+                        for (let i = 1; i < colspan; i++) {
+                            currentCol++;
+                            if (currentCol < actualCols) {
+                                const targetCell = tableRow.children[currentCol + 1];
+                                if (targetCell && targetCell.contentEditable === 'true') {
+                                    const oldValue = targetCell.textContent || '';
+                                    targetCell.textContent = '';
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: currentCol,
+                                        oldValue: oldValue,
+                                        newValue: ''
+                                    });
+                                }
+                            }
+                        }
+                        
+                        currentCol++;
+                    });
+                });
+                
+                // 将本次粘贴操作添加到历史记录
+                if (currentPasteChanges.length > 0) {
+                    pasteHistory.push(currentPasteChanges);
+                    if (pasteHistory.length > maxHistorySize) {
+                        pasteHistory.shift();
+                    }
+                }
+                
+                if (successCount > 0) {
+                    showNotification(`AWC (2.7): 成功粘贴 ${successCount} 个单元格 (${allRows.length} 行 x ${maxCols} 列)，已保持表格行格式!`, 'success');
+                    setTimeout(updateSubmitButtonState, 0);
+                    return true;
+                } else {
+                    console.log('AWC (2.7): No cells were pasted');
+                    return false;
+                }
+            } catch (error) {
+                console.error('AWC (2.7): Error parsing HTML table:', error);
+                return false;
+            }
+        }
+        
         // WBET 专用的 HTML 表格解析：保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
         function parseAndFillHTMLTableForWBET(htmlString, startCell) {
             try {
@@ -9511,6 +9651,144 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             // ===== 2.SPECIAL 处理结束 =====
             
+            // ===== AWC 专用解析：保持表格行格式（2.7） =====
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'AWC') {
+                console.log('AWC mode detected (2.7), attempting to preserve table row format...');
+                console.log('Pasted data length:', pastedData.length);
+                console.log('Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
+                
+                const startCell = e.target;
+                let formatDetected = false;
+                
+                // 方法1：优先尝试HTML表格格式（从网页复制的内容通常是HTML格式）
+                try {
+                    let htmlData = e.clipboardData.getData('text/html');
+                    if (htmlData && htmlData.includes('<table')) {
+                        console.log('AWC (2.7): HTML table format detected');
+                        const filled = parseAndFillHTMLTableForAWC(htmlData, startCell);
+                        if (filled) {
+                            formatDetected = true;
+                            return; // 成功处理，直接返回
+                        }
+                    }
+                } catch (err) {
+                    console.log('AWC (2.7): Could not get HTML data from clipboard:', err);
+                }
+                
+                // 方法2：如果HTML解析失败，尝试使用detectAndParseHTML
+                if (!formatDetected) {
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    if (htmlDataFromDetect) {
+                        console.log('AWC (2.7): HTML data detected via detectAndParseHTML');
+                        const filled = parseAndFillHTMLTableForAWC(htmlDataFromDetect, startCell);
+                        if (filled) {
+                            formatDetected = true;
+                            return; // 成功处理，直接返回
+                        }
+                    }
+                }
+                
+                // 方法3：如果HTML解析都失败，尝试制表符分隔格式（Excel格式）
+                if (!formatDetected) {
+                    console.log('AWC (2.7): HTML parsing failed, trying tab-separated format...');
+                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
+                    
+                    if (lines.length > 0) {
+                        // 检查是否是多行制表符分隔的数据（标准Excel格式）
+                        const hasTabSeparator = lines.some(line => line.includes('\t'));
+                        
+                        if (hasTabSeparator) {
+                            const dataMatrix = [];
+                            let maxCols = 0;
+                            
+                            lines.forEach(line => {
+                                if (line.includes('\t')) {
+                                    // 制表符分隔，保持原始格式
+                                    const cells = line.split('\t');
+                                    dataMatrix.push(cells);
+                                    maxCols = Math.max(maxCols, cells.length);
+                                } else if (line !== '') {
+                                    dataMatrix.push([line]);
+                                    maxCols = Math.max(maxCols, 1);
+                                }
+                            });
+                            
+                            // 确保所有行都有相同的列数
+                            dataMatrix.forEach(row => {
+                                while (row.length < maxCols) {
+                                    row.push('');
+                                }
+                            });
+                            
+                            // 填充到表格
+                            if (dataMatrix.length > 0 && maxCols > 0) {
+                                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                const startCol = parseInt(startCell.dataset.col);
+                                
+                                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                const requiredRows = startRow + dataMatrix.length;
+                                const requiredCols = startCol + maxCols;
+                                
+                                if (requiredRows > currentRows || requiredCols > currentCols) {
+                                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                    const targetCols = Math.max(currentCols, requiredCols);
+                                    initializeTable(targetRows, targetCols);
+                                }
+                                
+                                const tableBody = document.getElementById('tableBody');
+                                const currentPasteChanges = [];
+                                let successCount = 0;
+                                
+                                dataMatrix.forEach((rowData, rowIndex) => {
+                                    const actualRowIndex = startRow + rowIndex;
+                                    const tableRow = tableBody.children[actualRowIndex];
+                                    if (!tableRow) return;
+                                    
+                                    rowData.forEach((cellData, colIndex) => {
+                                        const actualColIndex = startCol + colIndex;
+                                        const cell = tableRow.children[actualColIndex + 1];
+                                        
+                                        if (cell && cell.contentEditable === 'true') {
+                                            const cellValue = (cellData || '').trim();
+                                            currentPasteChanges.push({
+                                                row: actualRowIndex,
+                                                col: actualColIndex,
+                                                oldValue: cell.textContent,
+                                                newValue: cellValue
+                                            });
+                                            
+                                            cell.textContent = cellValue;
+                                            if (cellValue) {
+                                                successCount++;
+                                            }
+                                        }
+                                    });
+                                });
+                                
+                                if (currentPasteChanges.length > 0) {
+                                    pasteHistory.push(currentPasteChanges);
+                                    if (pasteHistory.length > maxHistorySize) {
+                                        pasteHistory.shift();
+                                    }
+                                }
+                                
+                                if (successCount > 0) {
+                                    showNotification(`AWC (2.7): 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持表格行格式!`, 'success');
+                                    setTimeout(updateSubmitButtonState, 0);
+                                    return; // 成功处理，直接返回
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // 方法4：如果所有解析都失败，继续使用默认处理逻辑（但会智能检测列数，不会强制1列）
+                console.log('AWC (2.7): All parsing methods failed, continuing with default logic (will auto-detect columns)');
+            }
+            // ===== AWC 处理结束 =====
+            
             // PEGASUS 专用解析（仅在 PEGASUS 类型时启用）
             // PEGASUS 格式：无论粘贴什么数据（多行或多列），都合并成一行
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'PEGASUS') {
@@ -14256,9 +14534,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         const secondInterval = rowIdentifierIndices[2] - rowIdentifierIndices[1];
                         if (secondInterval === firstInterval) {
                             // 如果两个间隔相同，说明这是正确的列数
-                            force18Columns = true;
-                            detectedColumnCount = firstInterval;
-                            console.log(`Detected pattern: Consistent intervals (${firstInterval}), will use ${firstInterval} columns`);
+                            // 但是，对于AWC格式，如果间隔为1，不应该强制使用1列（因为数据应该是多列的）
+                            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'AWC' && firstInterval === 1) {
+                                console.log(`AWC (2.7): Detected consistent intervals (1), but skipping force 1 column (will use smart detection instead)`);
+                                // 不强制使用1列，继续使用智能检测
+                            } else {
+                                force18Columns = true;
+                                detectedColumnCount = firstInterval;
+                                console.log(`Detected pattern: Consistent intervals (${firstInterval}), will use ${firstInterval} columns`);
+                            }
                         }
                     }
                 }
