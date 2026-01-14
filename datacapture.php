@@ -7986,6 +7986,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
+                        } else {
+                            // CITIBET解析成功但没有成功粘贴，仍然标记为已检测，避免继续尝试其他格式
+                            console.log('2.SPECIAL: CITIBET format detected but no cells were pasted');
+                            formatDetected = true;
+                            return;
                         }
                     }
                 }
@@ -8068,6 +8073,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (successCount > 0) {
                                 showNotification(`2.SPECIAL: 检测到VPOWER格式 (2.2)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                                 setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            } else {
+                                // VPOWER解析成功但没有成功粘贴，仍然标记为已检测，避免继续尝试其他格式
+                                console.log('2.SPECIAL: VPOWER format detected but no cells were pasted');
+                                formatDetected = true;
                                 return;
                             }
                         }
@@ -8240,6 +8250,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification(`2.SPECIAL: 检测到PS3838格式 (2.3)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
+                        } else {
+                            // PS3838解析成功但没有成功粘贴，仍然标记为已检测，避免继续尝试其他格式
+                            console.log('2.SPECIAL: PS3838 format detected but no cells were pasted');
+                            formatDetected = true;
+                            return;
                         }
                     }
                 }
@@ -8295,14 +8310,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
                     
-                    // 检测是否包含 WBET 特征：Sub Total 或 Grand Total
-                    const hasWBETFeature = lines.some(line => {
-                        const upperLine = line.toUpperCase();
-                        return upperLine.includes('SUB TOTAL') || upperLine.includes('SUBTOTAL') ||
-                               upperLine.includes('GRAND TOTAL') || upperLine.includes('GRANDTOTAL');
-                    });
-                    
-                    if (hasWBETFeature && lines.length > 0) {
+                    if (lines.length > 0) {
                         // 第一步：解析原始数据成行
                         const rawDataMatrix = [];
                         lines.forEach(line => {
@@ -8628,6 +8636,11 @@ if ($current_user_id && count($user_companies) > 0) {
                                 showNotification(`2.SPECIAL: 检测到WBET格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${processedMatrix.length} 行 x ${maxCols} 列)!`, 'success');
                                 setTimeout(updateSubmitButtonState, 0);
                                 return;
+                            } else {
+                                // WBET解析成功但没有成功粘贴，仍然标记为已检测，避免继续尝试其他格式
+                                console.log('2.SPECIAL: WBET format detected but no cells were pasted');
+                                formatDetected = true;
+                                return;
                             }
                         }
                     }
@@ -8766,18 +8779,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                         const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
                         
-                        // 检测是否包含 ALIPAY 特征：标识符行（2-10个大写字母）
-                        const hasALIPAYFeature = lines.some(line => {
-                            const trimmed = line.trim();
-                            return /^[A-Z0-9]{2,10}$/.test(trimmed) && 
-                                   !trimmed.includes(' ') && 
-                                   !trimmed.includes(',') &&
-                                   !trimmed.includes('.') &&
-                                   !trimmed.includes('-') &&
-                                   !/^\d/.test(trimmed);
-                        });
-                        
-                        if (hasALIPAYFeature && lines.length > 0) {
+                        if (lines.length > 0) {
                             const dataMatrix = [];
                             let maxCols = 0;
                             
@@ -9106,6 +9108,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification(`2.SPECIAL: 检测到ALIPAY格式 (2.5)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
+                        } else if (alipayParsed) {
+                            // ALIPAY解析成功但没有成功粘贴，仍然标记为已检测，避免继续尝试其他格式
+                            console.log('2.SPECIAL: ALIPAY format detected but no cells were pasted');
+                            formatDetected = true;
+                            return;
                         }
                     }
                 }
@@ -9217,35 +9224,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         });
                     }
                     
-                    // PEGASUS 格式验证：确保不是其他格式
-                    // 如果数据量太少（少于3个单元格），可能不是 PEGASUS 格式
-                    // 如果包含明显的其他格式特征，跳过 PEGASUS
-                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
-                    
-                    // 检查是否包含其他格式的特征
-                    const hasOtherFormatFeatures = 
-                        // 检查是否包含 WBET 特征
-                        lines.some(line => {
-                            const upperLine = line.toUpperCase();
-                            return upperLine.includes('SUB TOTAL') || upperLine.includes('SUBTOTAL') ||
-                                   upperLine.includes('GRAND TOTAL') || upperLine.includes('GRANDTOTAL');
-                        }) ||
-                        // 检查是否包含 VPOWER 特征（表头包含 User Name 和 profit）
-                        (lines.length > 0 && lines[0].toLowerCase().includes('user name') && lines[0].toLowerCase().includes('profit')) ||
-                        // 检查是否包含 ALIPAY 特征（标识符行）
-                        lines.some(line => {
-                            const trimmed = line.trim();
-                            return /^[A-Z0-9]{2,10}$/.test(trimmed) && 
-                                   !trimmed.includes(' ') && 
-                                   !trimmed.includes(',') &&
-                                   !trimmed.includes('.') &&
-                                   !trimmed.includes('-') &&
-                                   !/^\d/.test(trimmed);
-                        });
-                    
                     // 合并所有单元格成一行
-                    if (allCells.length > 0 && !hasOtherFormatFeatures && allCells.length >= 3) {
+                    if (allCells.length > 0) {
                         console.log('2.SPECIAL: PEGASUS - Merged all data into single row with', allCells.length, 'cells');
                         console.log('2.SPECIAL: PEGASUS - First 10 cells:', allCells.slice(0, 10));
                         
@@ -9302,12 +9282,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.6)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
-                        }
-                    } else {
-                        if (hasOtherFormatFeatures) {
-                            console.log('2.SPECIAL: PEGASUS - Skipped due to other format features detected');
-                        } else if (allCells.length < 3) {
-                            console.log('2.SPECIAL: PEGASUS - Skipped due to insufficient data (less than 3 cells)');
+                        } else if (allCells.length > 0) {
+                            // PEGASUS解析成功但没有成功粘贴，仍然标记为已检测，避免继续尝试其他格式
+                            console.log('2.SPECIAL: PEGASUS format detected but no cells were pasted');
+                            formatDetected = true;
+                            return;
                         }
                     }
                 }
