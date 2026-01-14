@@ -11224,16 +11224,16 @@ if ($current_user_id && count($user_companies) > 0) {
                             } else {
                                 console.log('C8PLAY: HTML table found but no data rows extracted');
                             }
-                        } else {
-                            console.log('C8PLAY: HTML data exists but no table element found');
-                        }
                         } catch (htmlErr) {
                             console.error('C8PLAY: HTML parser error:', htmlErr);
                             console.error('C8PLAY: HTML parser error stack:', htmlErr.stack);
                         }
                     } else {
-                        console.log('C8PLAY: HTML data does not contain <table> tag');
+                        console.log('C8PLAY: HTML data exists but no table element found');
                     }
+                } else {
+                    console.log('C8PLAY: HTML data does not contain <table> tag');
+                }
                 } catch (err) {
                     console.log('C8PLAY: Could not get HTML data from clipboard:', err);
                 }
@@ -13438,6 +13438,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log(`  Trying ${cols} cols -> ${rows} rows (remainder: ${remainder}, score: ${score.toFixed(2)}, expected: ${expectedCells} cells)`);
                     }
                 }
+                } // 闭合 else 块
                 
                 if (bestMatch.cols > 0 && (!isTotalRow || detectedColumns === 0 || Math.ceil(allCells.length / detectedColumns) > 1)) {
                     detectedColumns = bestMatch.cols;
