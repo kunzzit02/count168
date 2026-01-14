@@ -8074,7 +8074,433 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // ===== 2.3 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
+                // ===== 2.3 MAXBET 格式检测和处理（优先于 ALIPAY） =====
+                // 2.3 MAXBET: 以下代码从 MAXBET 选项复制而来，用于在 2.SPECIAL 模式下支持 MAXBET 格式的粘贴
+                if (!formatDetected) {
+                    // MAXBET 特征检测：检查数据是否包含 MAXBET 格式的特征
+                    // 特征1: 数据以 "Super" 开头
+                    // 特征2: 包含 "RM" 或 "MYR" 货币代码
+                    // 特征3: 数据格式符合每3行合并成一行（Super, 用户名, 数据行）
+                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    const hasSuperKeyword = pastedData.toLowerCase().includes('super');
+                    const hasCurrencyCode = /(RM|MYR)/i.test(pastedData);
+                    const hasMaxbetPattern = hasSuperKeyword && hasCurrencyCode && linesForCheck.length >= 3 && linesForCheck.length % 3 === 0;
+                    
+                    // 如果不符合 MAXBET 特征，跳过检测
+                    if (!hasMaxbetPattern && !hasSuperKeyword) {
+                        console.log('2.SPECIAL: MAXBET format check failed, skipping...');
+                    } else {
+                        console.log('2.SPECIAL: Trying 2.3 MAXBET format...');
+                        console.log('2.SPECIAL: MAXBET raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                        
+                        // 辅助函数：格式化数值为2位小数
+                        function formatNumberToTwoDecimals(value) {
+                            if (!value || typeof value !== 'string') return value;
+                            
+                            // 移除千位分隔符（逗号）
+                            let cleaned = value.replace(/,/g, '');
+                            
+                            // 尝试解析为数字
+                            const num = parseFloat(cleaned);
+                            if (!isNaN(num)) {
+                                // 格式化为2位小数，保留负号
+                                return num.toFixed(2);
+                            }
+                            
+                            // 如果不是数字，返回原值
+                            return value;
+                        }
+                        
+                        // 优先尝试获取HTML格式的数据（Excel/网页粘贴通常包含HTML格式）
+                        let htmlData = null;
+                        try {
+                            htmlData = e.clipboardData.getData('text/html');
+                            console.log('2.SPECIAL: MAXBET HTML data available:', htmlData ? 'Yes (length: ' + htmlData.length + ')' : 'No');
+                            if (htmlData && htmlData.includes('<table')) {
+                                console.log('2.SPECIAL: MAXBET HTML table format detected');
+                                
+                                try {
+                                    const tempDiv = document.createElement('div');
+                                    tempDiv.innerHTML = htmlData;
+                                    
+                                    const table = tempDiv.querySelector('table');
+                                    if (table) {
+                                        console.log('2.SPECIAL: MAXBET HTML table found');
+                                        let dataMatrix = [];
+                                        
+                                        // 处理表头（如果有）
+                                        const thead = table.querySelector('thead');
+                                        if (thead) {
+                                            const headerRows = thead.querySelectorAll('tr');
+                                            headerRows.forEach(tr => {
+                                                const row = [];
+                                                const cells = tr.querySelectorAll('th, td');
+                                                cells.forEach(cell => {
+                                                    const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                                    let text = cell.textContent || cell.innerText || '';
+                                                    text = text.replace(/\s+/g, ' ').trim();
+                                                    row.push(text);
+                                                    for (let i = 1; i < colspan; i++) {
+                                                        row.push('');
+                                                    }
+                                                });
+                                                if (row.length > 0) {
+                                                    dataMatrix.push(row);
+                                                }
+                                            });
+                                        }
+                                        
+                                        // 处理表体，保持行格式
+                                        let bodyContainer = table.querySelector('tbody');
+                                        if (!bodyContainer) {
+                                            bodyContainer = table;
+                                        }
+                                        
+                                        const bodyRows = bodyContainer.querySelectorAll('tr');
+                                        bodyRows.forEach((tr) => {
+                                            // 跳过已经在 thead 中处理过的行
+                                            if (thead && tr.closest('thead')) {
+                                                return;
+                                            }
+                                            
+                                            const row = [];
+                                            const cells = tr.querySelectorAll('td, th');
+                                            cells.forEach(cell => {
+                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                                let text = cell.textContent || cell.innerText || '';
+                                                text = text.replace(/\s+/g, ' ').trim();
+                                                
+                                                // 格式化数值为2位小数
+                                                text = formatNumberToTwoDecimals(text);
+                                                
+                                                row.push(text);
+                                                for (let i = 1; i < colspan; i++) {
+                                                    row.push('');
+                                                }
+                                            });
+                                            if (row.length > 0) {
+                                                dataMatrix.push(row);
+                                            }
+                                        });
+                                        
+                                        if (dataMatrix.length > 0) {
+                                            // 确保所有行的列数相同
+                                            let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                            dataMatrix.forEach(row => {
+                                                while (row.length < maxCols) {
+                                                    row.push('');
+                                                }
+                                            });
+                                            
+                                            console.log('2.SPECIAL: MAXBET HTML parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                            
+                                            // 填充到表格，从用户点击的单元格开始
+                                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                            const startCol = parseInt(startCell.dataset.col);
+                                            
+                                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                            const requiredRows = startRow + dataMatrix.length;
+                                            const requiredCols = startCol + maxCols;
+                                            
+                                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                                const targetCols = Math.max(currentCols, requiredCols);
+                                                initializeTable(targetRows, targetCols);
+                                            }
+                                            
+                                            const tableBody = document.getElementById('tableBody');
+                                            const currentPasteChanges = [];
+                                            let successCount = 0;
+                                            
+                                            dataMatrix.forEach((rowData, rowIndex) => {
+                                                const actualRowIndex = startRow + rowIndex;
+                                                const tableRow = tableBody.children[actualRowIndex];
+                                                if (!tableRow) return;
+                                                
+                                                rowData.forEach((cellData, colIndex) => {
+                                                    const actualColIndex = startCol + colIndex;
+                                                    const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                                                    
+                                                    if (cell && cell.contentEditable === 'true') {
+                                                        const cellValue = cellData || '';
+                                                        currentPasteChanges.push({
+                                                            row: actualRowIndex,
+                                                            col: actualColIndex,
+                                                            oldValue: cell.textContent,
+                                                            newValue: cellValue
+                                                        });
+                                                        
+                                                        cell.textContent = cellValue;
+                                                        if (cellValue) {
+                                                            successCount++;
+                                                        }
+                                                    }
+                                                });
+                                            });
+                                            
+                                            if (currentPasteChanges.length > 0) {
+                                                pasteHistory.push(currentPasteChanges);
+                                                if (pasteHistory.length > maxHistorySize) {
+                                                    pasteHistory.shift();
+                                                }
+                                            }
+                                            
+                                            if (successCount > 0) {
+                                                formatDetected = true;
+                                                console.log('2.SPECIAL: MAXBET HTML paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                                showNotification(`2.SPECIAL: 检测到MAXBET格式 (2.3)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
+                                                setTimeout(updateSubmitButtonState, 0);
+                                                return;
+                                            }
+                                        }
+                                    }
+                                } catch (htmlErr) {
+                                    console.error('2.SPECIAL: MAXBET HTML parser error:', htmlErr);
+                                }
+                            }
+                        } catch (err) {
+                            console.log('2.SPECIAL: MAXBET Could not get HTML data from clipboard:', err);
+                        }
+                        
+                        // 如果HTML解析失败，尝试使用detectAndParseHTML
+                        const htmlDataFromDetect = detectAndParseHTML(e);
+                        if (htmlDataFromDetect) {
+                            console.log('2.SPECIAL: MAXBET HTML data detected via detectAndParseHTML');
+                            try {
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = htmlDataFromDetect;
+                                
+                                const table = tempDiv.querySelector('table');
+                                if (table) {
+                                    let dataMatrix = [];
+                                    const bodyRows = table.querySelectorAll('tr');
+                                    
+                                    bodyRows.forEach((tr) => {
+                                        const row = [];
+                                        const cells = tr.querySelectorAll('td, th');
+                                        cells.forEach(cell => {
+                                            let text = cell.textContent || cell.innerText || '';
+                                            text = text.replace(/\s+/g, ' ').trim();
+                                            
+                                            // 格式化数值为2位小数
+                                            text = formatNumberToTwoDecimals(text);
+                                            
+                                            row.push(text);
+                                        });
+                                        if (row.length > 0) {
+                                            dataMatrix.push(row);
+                                        }
+                                    });
+                                    
+                                    if (dataMatrix.length > 0) {
+                                        let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                        dataMatrix.forEach(row => {
+                                            while (row.length < maxCols) {
+                                                row.push('');
+                                            }
+                                        });
+                                        
+                                        // 从用户点击的单元格开始粘贴
+                                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                        const startCol = parseInt(startCell.dataset.col);
+                                        
+                                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                        const requiredRows = startRow + dataMatrix.length;
+                                        const requiredCols = startCol + maxCols;
+                                        
+                                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                            const targetCols = Math.max(currentCols, requiredCols);
+                                            initializeTable(targetRows, targetCols);
+                                        }
+                                        
+                                        const tableBody = document.getElementById('tableBody');
+                                        const currentPasteChanges = [];
+                                        let successCount = 0;
+                                        
+                                        dataMatrix.forEach((rowData, rowIndex) => {
+                                            const actualRowIndex = startRow + rowIndex;
+                                            const tableRow = tableBody.children[actualRowIndex];
+                                            if (!tableRow) return;
+                                            
+                                            rowData.forEach((cellData, colIndex) => {
+                                                const actualColIndex = startCol + colIndex;
+                                                const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                                                
+                                                if (cell && cell.contentEditable === 'true') {
+                                                    const cellValue = cellData || '';
+                                                    currentPasteChanges.push({
+                                                        row: actualRowIndex,
+                                                        col: actualColIndex,
+                                                        oldValue: cell.textContent,
+                                                        newValue: cellValue
+                                                    });
+                                                    
+                                                    cell.textContent = cellValue;
+                                                    if (cellValue) {
+                                                        successCount++;
+                                                    }
+                                                }
+                                            });
+                                        });
+                                        
+                                        if (currentPasteChanges.length > 0) {
+                                            pasteHistory.push(currentPasteChanges);
+                                            if (pasteHistory.length > maxHistorySize) {
+                                                pasteHistory.shift();
+                                            }
+                                        }
+                                        
+                                        if (successCount > 0) {
+                                            formatDetected = true;
+                                            console.log('2.SPECIAL: MAXBET detectAndParseHTML paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                            showNotification(`2.SPECIAL: 检测到MAXBET格式 (2.3)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
+                                            setTimeout(updateSubmitButtonState, 0);
+                                            return;
+                                        }
+                                    }
+                                }
+                            } catch (err) {
+                                console.log('2.SPECIAL: MAXBET detectAndParseHTML processing failed:', err);
+                            }
+                        }
+                        
+                        // 如果HTML解析都失败，尝试纯文本格式（制表符分隔的表格数据）
+                        console.log('2.SPECIAL: MAXBET HTML parsing failed, trying text format...');
+                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        // 保留所有行，包括空行（但空行会被跳过）
+                        const allLines = normalizedData.split('\n');
+                        
+                        if (allLines.length > 0) {
+                            const dataMatrix = [];
+                            let maxCols = 0;
+                            
+                            // MAXBET 特殊格式：每3行合并成一行
+                            // 格式：行1="Super", 行2="LMK1", 行3="RM\t6,000.00\t..."
+                            // 需要将这3行合并成表格的一行
+                            const nonEmptyLines = allLines.filter(line => line.trim() !== '');
+                            
+                            // 每3行合并成一行
+                            for (let i = 0; i < nonEmptyLines.length; i += 3) {
+                                const row1 = nonEmptyLines[i] || '';
+                                const row2 = nonEmptyLines[i + 1] || '';
+                                const row3 = nonEmptyLines[i + 2] || '';
+                                
+                                const mergedRow = [];
+                                
+                                // 第一行（通常是"Super"）
+                                if (row1.trim()) {
+                                    mergedRow.push(formatNumberToTwoDecimals(row1.trim()));
+                                }
+                                
+                                // 第二行（通常是用户名如"LMK1"）
+                                if (row2.trim()) {
+                                    mergedRow.push(formatNumberToTwoDecimals(row2.trim()));
+                                }
+                                
+                                // 第三行（包含制表符分隔的数据）
+                                if (row3.trim()) {
+                                    if (row3.includes('\t')) {
+                                        // 按制表符分割，格式化数值
+                                        const cells = row3.split('\t').map(c => {
+                                            const cellTrimmed = c.trim();
+                                            return formatNumberToTwoDecimals(cellTrimmed);
+                                        });
+                                        mergedRow.push(...cells);
+                                    } else {
+                                        // 没有制表符，作为单个单元格
+                                        mergedRow.push(formatNumberToTwoDecimals(row3.trim()));
+                                    }
+                                }
+                                
+                                if (mergedRow.length > 0) {
+                                    dataMatrix.push(mergedRow);
+                                    maxCols = Math.max(maxCols, mergedRow.length);
+                                }
+                            }
+                            
+                            // 确保所有行都有相同的列数（对齐到最大列数）
+                            if (maxCols > 0) {
+                                dataMatrix.forEach(row => {
+                                    while (row.length < maxCols) {
+                                        row.push('');
+                                    }
+                                });
+                            }
+                            
+                            // 填充到表格，从用户点击的单元格开始
+                            if (dataMatrix.length > 0 && maxCols > 0) {
+                                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                const startCol = parseInt(startCell.dataset.col);
+                                
+                                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                const requiredRows = startRow + dataMatrix.length;
+                                const requiredCols = startCol + maxCols;
+                                
+                                if (requiredRows > currentRows || requiredCols > currentCols) {
+                                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                    const targetCols = Math.max(currentCols, requiredCols);
+                                    initializeTable(targetRows, targetCols);
+                                }
+                                
+                                const tableBody = document.getElementById('tableBody');
+                                const currentPasteChanges = [];
+                                let successCount = 0;
+                                
+                                dataMatrix.forEach((rowData, rowIndex) => {
+                                    const actualRowIndex = startRow + rowIndex;
+                                    const tableRow = tableBody.children[actualRowIndex];
+                                    if (!tableRow) return;
+                                    
+                                    rowData.forEach((cellData, colIndex) => {
+                                        const actualColIndex = startCol + colIndex;
+                                        const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                                        
+                                        if (cell && cell.contentEditable === 'true') {
+                                            const cellValue = cellData || '';
+                                            currentPasteChanges.push({
+                                                row: actualRowIndex,
+                                                col: actualColIndex,
+                                                oldValue: cell.textContent,
+                                                newValue: cellValue
+                                            });
+                                            
+                                            cell.textContent = cellValue;
+                                            if (cellValue) {
+                                                successCount++;
+                                            }
+                                        }
+                                    });
+                                });
+                                
+                                if (currentPasteChanges.length > 0) {
+                                    pasteHistory.push(currentPasteChanges);
+                                    if (pasteHistory.length > maxHistorySize) {
+                                        pasteHistory.shift();
+                                    }
+                                }
+                                
+                                if (successCount > 0) {
+                                    formatDetected = true;
+                                    console.log('2.SPECIAL: MAXBET Text format paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                    showNotification(`2.SPECIAL: 检测到MAXBET格式 (2.3)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
+                                    setTimeout(updateSubmitButtonState, 0);
+                                    return;
+                                }
+                            }
+                        }
+                        
+                        // 如果所有解析都失败，继续尝试其他格式
+                        console.log('2.SPECIAL: MAXBET All parsing methods failed, will continue trying other formats');
+                    }
+                }
+                // 2.3 MAXBET 代码结束
+                
+                // ===== 2.4 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
                 // 2.1 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
@@ -8923,417 +9349,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 // 2.6 PEGASUS 代码结束
-                
-                // ===== 2.7 MAXBET 格式检测和处理 =====
-                // 2.7 MAXBET: 以下代码从 MAXBET 选项复制而来，用于在 2.SPECIAL 模式下支持 MAXBET 格式的粘贴
-                if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.7 MAXBET format...');
-                    console.log('2.SPECIAL: MAXBET raw data sample (first 500 chars):', pastedData.substring(0, 500));
-                    
-                    // 辅助函数：格式化数值为2位小数
-                    function formatNumberToTwoDecimals(value) {
-                        if (!value || typeof value !== 'string') return value;
-                        
-                        // 移除千位分隔符（逗号）
-                        let cleaned = value.replace(/,/g, '');
-                        
-                        // 尝试解析为数字
-                        const num = parseFloat(cleaned);
-                        if (!isNaN(num)) {
-                            // 格式化为2位小数，保留负号
-                            return num.toFixed(2);
-                        }
-                        
-                        // 如果不是数字，返回原值
-                        return value;
-                    }
-                    
-                    // 优先尝试获取HTML格式的数据（Excel/网页粘贴通常包含HTML格式）
-                    let htmlData = null;
-                    try {
-                        htmlData = e.clipboardData.getData('text/html');
-                        console.log('2.SPECIAL: MAXBET HTML data available:', htmlData ? 'Yes (length: ' + htmlData.length + ')' : 'No');
-                        if (htmlData && htmlData.includes('<table')) {
-                            console.log('2.SPECIAL: MAXBET HTML table format detected');
-                            
-                            try {
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = htmlData;
-                                
-                                const table = tempDiv.querySelector('table');
-                                if (table) {
-                                    console.log('2.SPECIAL: MAXBET HTML table found');
-                                    let dataMatrix = [];
-                                    
-                                    // 处理表头（如果有）
-                                    const thead = table.querySelector('thead');
-                                    if (thead) {
-                                        const headerRows = thead.querySelectorAll('tr');
-                                        headerRows.forEach(tr => {
-                                            const row = [];
-                                            const cells = tr.querySelectorAll('th, td');
-                                            cells.forEach(cell => {
-                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                                let text = cell.textContent || cell.innerText || '';
-                                                text = text.replace(/\s+/g, ' ').trim();
-                                                row.push(text);
-                                                for (let i = 1; i < colspan; i++) {
-                                                    row.push('');
-                                                }
-                                            });
-                                            if (row.length > 0) {
-                                                dataMatrix.push(row);
-                                            }
-                                        });
-                                    }
-                                    
-                                    // 处理表体，保持行格式
-                                    let bodyContainer = table.querySelector('tbody');
-                                    if (!bodyContainer) {
-                                        bodyContainer = table;
-                                    }
-                                    
-                                    const bodyRows = bodyContainer.querySelectorAll('tr');
-                                    bodyRows.forEach((tr) => {
-                                        // 跳过已经在 thead 中处理过的行
-                                        if (thead && tr.closest('thead')) {
-                                            return;
-                                        }
-                                        
-                                        const row = [];
-                                        const cells = tr.querySelectorAll('td, th');
-                                        cells.forEach(cell => {
-                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                            let text = cell.textContent || cell.innerText || '';
-                                            text = text.replace(/\s+/g, ' ').trim();
-                                            
-                                            // 格式化数值为2位小数
-                                            text = formatNumberToTwoDecimals(text);
-                                            
-                                            row.push(text);
-                                            for (let i = 1; i < colspan; i++) {
-                                                row.push('');
-                                            }
-                                        });
-                                        if (row.length > 0) {
-                                            dataMatrix.push(row);
-                                        }
-                                    });
-                                    
-                                    if (dataMatrix.length > 0) {
-                                        // 确保所有行的列数相同
-                                        let maxCols = Math.max(...dataMatrix.map(row => row.length));
-                                        dataMatrix.forEach(row => {
-                                            while (row.length < maxCols) {
-                                                row.push('');
-                                            }
-                                        });
-                                        
-                                        console.log('2.SPECIAL: MAXBET HTML parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                        
-                                        // 填充到表格，从用户点击的单元格开始
-                                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                                        const startCol = parseInt(startCell.dataset.col);
-                                        
-                                        const currentRows = document.querySelectorAll('#tableBody tr').length;
-                                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                                        const requiredRows = startRow + dataMatrix.length;
-                                        const requiredCols = startCol + maxCols;
-                                        
-                                        if (requiredRows > currentRows || requiredCols > currentCols) {
-                                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                            const targetCols = Math.max(currentCols, requiredCols);
-                                            initializeTable(targetRows, targetCols);
-                                        }
-                                        
-                                        const tableBody = document.getElementById('tableBody');
-                                        const currentPasteChanges = [];
-                                        let successCount = 0;
-                                        
-                                        dataMatrix.forEach((rowData, rowIndex) => {
-                                            const actualRowIndex = startRow + rowIndex;
-                                            const tableRow = tableBody.children[actualRowIndex];
-                                            if (!tableRow) return;
-                                            
-                                            rowData.forEach((cellData, colIndex) => {
-                                                const actualColIndex = startCol + colIndex;
-                                                const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
-                                                
-                                                if (cell && cell.contentEditable === 'true') {
-                                                    const cellValue = cellData || '';
-                                                    currentPasteChanges.push({
-                                                        row: actualRowIndex,
-                                                        col: actualColIndex,
-                                                        oldValue: cell.textContent,
-                                                        newValue: cellValue
-                                                    });
-                                                    
-                                                    cell.textContent = cellValue;
-                                                    if (cellValue) {
-                                                        successCount++;
-                                                    }
-                                                }
-                                            });
-                                        });
-                                        
-                                        if (currentPasteChanges.length > 0) {
-                                            pasteHistory.push(currentPasteChanges);
-                                            if (pasteHistory.length > maxHistorySize) {
-                                                pasteHistory.shift();
-                                            }
-                                        }
-                                        
-                                        if (successCount > 0) {
-                                            formatDetected = true;
-                                            console.log('2.SPECIAL: MAXBET HTML paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                            showNotification(`2.SPECIAL: 检测到MAXBET格式 (2.7)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
-                                            setTimeout(updateSubmitButtonState, 0);
-                                            return;
-                                        }
-                                    }
-                                }
-                            } catch (htmlErr) {
-                                console.error('2.SPECIAL: MAXBET HTML parser error:', htmlErr);
-                            }
-                        }
-                    } catch (err) {
-                        console.log('2.SPECIAL: MAXBET Could not get HTML data from clipboard:', err);
-                    }
-                    
-                    // 如果HTML解析失败，尝试使用detectAndParseHTML
-                    const htmlDataFromDetect = detectAndParseHTML(e);
-                    if (htmlDataFromDetect) {
-                        console.log('2.SPECIAL: MAXBET HTML data detected via detectAndParseHTML');
-                        try {
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = htmlDataFromDetect;
-                            
-                            const table = tempDiv.querySelector('table');
-                            if (table) {
-                                let dataMatrix = [];
-                                const bodyRows = table.querySelectorAll('tr');
-                                
-                                bodyRows.forEach((tr) => {
-                                    const row = [];
-                                    const cells = tr.querySelectorAll('td, th');
-                                    cells.forEach(cell => {
-                                        let text = cell.textContent || cell.innerText || '';
-                                        text = text.replace(/\s+/g, ' ').trim();
-                                        
-                                        // 格式化数值为2位小数
-                                        text = formatNumberToTwoDecimals(text);
-                                        
-                                        row.push(text);
-                                    });
-                                    if (row.length > 0) {
-                                        dataMatrix.push(row);
-                                    }
-                                });
-                                
-                                if (dataMatrix.length > 0) {
-                                    let maxCols = Math.max(...dataMatrix.map(row => row.length));
-                                    dataMatrix.forEach(row => {
-                                        while (row.length < maxCols) {
-                                            row.push('');
-                                        }
-                                    });
-                                    
-                                    // 从用户点击的单元格开始粘贴
-                                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                                    const startCol = parseInt(startCell.dataset.col);
-                                    
-                                    const currentRows = document.querySelectorAll('#tableBody tr').length;
-                                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                                    const requiredRows = startRow + dataMatrix.length;
-                                    const requiredCols = startCol + maxCols;
-                                    
-                                    if (requiredRows > currentRows || requiredCols > currentCols) {
-                                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                        const targetCols = Math.max(currentCols, requiredCols);
-                                        initializeTable(targetRows, targetCols);
-                                    }
-                                    
-                                    const tableBody = document.getElementById('tableBody');
-                                    const currentPasteChanges = [];
-                                    let successCount = 0;
-                                    
-                                    dataMatrix.forEach((rowData, rowIndex) => {
-                                        const actualRowIndex = startRow + rowIndex;
-                                        const tableRow = tableBody.children[actualRowIndex];
-                                        if (!tableRow) return;
-                                        
-                                        rowData.forEach((cellData, colIndex) => {
-                                            const actualColIndex = startCol + colIndex;
-                                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
-                                            
-                                            if (cell && cell.contentEditable === 'true') {
-                                                const cellValue = cellData || '';
-                                                currentPasteChanges.push({
-                                                    row: actualRowIndex,
-                                                    col: actualColIndex,
-                                                    oldValue: cell.textContent,
-                                                    newValue: cellValue
-                                                });
-                                                
-                                                cell.textContent = cellValue;
-                                                if (cellValue) {
-                                                    successCount++;
-                                                }
-                                            }
-                                        });
-                                    });
-                                    
-                                    if (currentPasteChanges.length > 0) {
-                                        pasteHistory.push(currentPasteChanges);
-                                        if (pasteHistory.length > maxHistorySize) {
-                                            pasteHistory.shift();
-                                        }
-                                    }
-                                    
-                                    if (successCount > 0) {
-                                        formatDetected = true;
-                                        console.log('2.SPECIAL: MAXBET detectAndParseHTML paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                        showNotification(`2.SPECIAL: 检测到MAXBET格式 (2.7)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
-                                        setTimeout(updateSubmitButtonState, 0);
-                                        return;
-                                    }
-                                }
-                            }
-                        } catch (err) {
-                            console.log('2.SPECIAL: MAXBET detectAndParseHTML processing failed:', err);
-                        }
-                    }
-                    
-                    // 如果HTML解析都失败，尝试纯文本格式（制表符分隔的表格数据）
-                    console.log('2.SPECIAL: MAXBET HTML parsing failed, trying text format...');
-                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    // 保留所有行，包括空行（但空行会被跳过）
-                    const allLines = normalizedData.split('\n');
-                    
-                    if (allLines.length > 0) {
-                        const dataMatrix = [];
-                        let maxCols = 0;
-                        
-                        // MAXBET 特殊格式：每3行合并成一行
-                        // 格式：行1="Super", 行2="LMK1", 行3="RM\t6,000.00\t..."
-                        // 需要将这3行合并成表格的一行
-                        const nonEmptyLines = allLines.filter(line => line.trim() !== '');
-                        
-                        // 每3行合并成一行
-                        for (let i = 0; i < nonEmptyLines.length; i += 3) {
-                            const row1 = nonEmptyLines[i] || '';
-                            const row2 = nonEmptyLines[i + 1] || '';
-                            const row3 = nonEmptyLines[i + 2] || '';
-                            
-                            const mergedRow = [];
-                            
-                            // 第一行（通常是"Super"）
-                            if (row1.trim()) {
-                                mergedRow.push(formatNumberToTwoDecimals(row1.trim()));
-                            }
-                            
-                            // 第二行（通常是用户名如"LMK1"）
-                            if (row2.trim()) {
-                                mergedRow.push(formatNumberToTwoDecimals(row2.trim()));
-                            }
-                            
-                            // 第三行（包含制表符分隔的数据）
-                            if (row3.trim()) {
-                                if (row3.includes('\t')) {
-                                    // 按制表符分割，格式化数值
-                                    const cells = row3.split('\t').map(c => {
-                                        const cellTrimmed = c.trim();
-                                        return formatNumberToTwoDecimals(cellTrimmed);
-                                    });
-                                    mergedRow.push(...cells);
-                                } else {
-                                    // 没有制表符，作为单个单元格
-                                    mergedRow.push(formatNumberToTwoDecimals(row3.trim()));
-                                }
-                            }
-                            
-                            if (mergedRow.length > 0) {
-                                dataMatrix.push(mergedRow);
-                                maxCols = Math.max(maxCols, mergedRow.length);
-                            }
-                        }
-                        
-                        // 确保所有行都有相同的列数（对齐到最大列数）
-                        if (maxCols > 0) {
-                            dataMatrix.forEach(row => {
-                                while (row.length < maxCols) {
-                                    row.push('');
-                                }
-                            });
-                        }
-                        
-                        // 填充到表格，从用户点击的单元格开始
-                        if (dataMatrix.length > 0 && maxCols > 0) {
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
-                            
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + dataMatrix.length;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            dataMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
-                                
-                                rowData.forEach((cellData, colIndex) => {
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
-                                    
-                                    if (cell && cell.contentEditable === 'true') {
-                                        const cellValue = cellData || '';
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellValue
-                                        });
-                                        
-                                        cell.textContent = cellValue;
-                                        if (cellValue) {
-                                            successCount++;
-                                        }
-                                    }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
-                                }
-                            }
-                            
-                            if (successCount > 0) {
-                                formatDetected = true;
-                                console.log('2.SPECIAL: MAXBET Text format paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                showNotification(`2.SPECIAL: 检测到MAXBET格式 (2.7)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            }
-                        }
-                    }
-                    
-                    // 如果所有解析都失败，继续尝试其他格式
-                    console.log('2.SPECIAL: MAXBET All parsing methods failed, will continue trying other formats');
-                }
-                // 2.7 MAXBET 代码结束
                 
                 if (!formatDetected) {
                     console.log('2.SPECIAL: No format detected, continuing with default logic');
