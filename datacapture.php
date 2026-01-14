@@ -8065,30 +8065,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // ===== 2.3 PS3838 格式检测和处理 =====
                 if (!formatDetected) {
-                    // 快速检查：如果数据看起来像WBET格式，跳过PS3838检测，让WBET检测处理
-                    const normalizedCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const linesCheck = normalizedCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
-                    const upperCheck = pastedData.toUpperCase();
-                    const hasSubTotalCheck = upperCheck.includes('SUB TOTAL') || upperCheck.includes('SUBTOTAL');
-                    const hasGrandTotalCheck = upperCheck.includes('GRAND TOTAL') || upperCheck.includes('GRANDTOTAL');
-                    const wbetPatternCheck = /^[A-Z]{2,3}\s+/;
-                    let wbetIdentifierCountCheck = 0;
-                    for (let i = 0; i < Math.min(linesCheck.length, 20); i++) {
-                        if (wbetPatternCheck.test(linesCheck[i])) {
-                            wbetIdentifierCountCheck++;
-                        }
-                    }
-                    const looksLikeWBETCheck = (hasSubTotalCheck || hasGrandTotalCheck) && wbetIdentifierCountCheck >= 2;
+                    console.log('2.SPECIAL: Trying 2.3 PS3838 format...');
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    let agentLinkParsed = null;
                     
-                    if (looksLikeWBETCheck) {
-                        console.log('2.SPECIAL: Skipping PS3838 detection - data looks like WBET format');
-                        // 不设置formatDetected，让WBET检测继续处理
-                    } else {
-                        console.log('2.SPECIAL: Trying 2.3 PS3838 format...');
-                        const htmlDataFromDetect = detectAndParseHTML(e);
-                        let agentLinkParsed = null;
-                        
-                        if (htmlDataFromDetect) {
+                    if (htmlDataFromDetect) {
                         const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
                         if (filled) {
                             console.log('2.SPECIAL: Detected PS3838 format (2.3) - HTML');
@@ -8250,7 +8231,6 @@ if ($current_user_id && count($user_companies) > 0) {
                             return;
                         }
                     }
-                    }
                 }
                 
                 // ===== 2.4 WBET 格式检测和处理 =====
@@ -8258,30 +8238,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('2.SPECIAL: Trying 2.4 WBET format...');
                     console.log('2.SPECIAL: Pasted data length:', pastedData.length);
                     console.log('2.SPECIAL: Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
-                    
-                    // 快速特征检测：WBET格式通常包含2-3个大写字母的标识符（如OB, OD, OKZ等）
-                    // 以及Sub Total/Grand Total行
-                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
-                    const upperData = pastedData.toUpperCase();
-                    const hasSubTotal = upperData.includes('SUB TOTAL') || upperData.includes('SUBTOTAL');
-                    const hasGrandTotal = upperData.includes('GRAND TOTAL') || upperData.includes('GRANDTOTAL');
-                    
-                    // 检测WBET特征标识符（2-3个大写字母，如OB, OD, OKZ等）
-                    let wbetIdentifierCount = 0;
-                    const wbetPattern = /^[A-Z]{2,3}\s+/; // 2-3个大写字母后跟空格
-                    for (let i = 0; i < Math.min(lines.length, 20); i++) {
-                        if (wbetPattern.test(lines[i])) {
-                            wbetIdentifierCount++;
-                        }
-                    }
-                    
-                    // 如果检测到WBET特征，优先处理WBET格式
-                    const looksLikeWBET = (hasSubTotal || hasGrandTotal) && wbetIdentifierCount >= 2;
-                    
-                    if (looksLikeWBET) {
-                        console.log('2.SPECIAL: WBET format characteristics detected (', wbetIdentifierCount, 'identifiers, SubTotal:', hasSubTotal, ', GrandTotal:', hasGrandTotal, ')');
-                    }
                     
                     // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                     const htmlDataFromDetect = detectAndParseHTML(e);
