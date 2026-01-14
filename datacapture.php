@@ -7991,24 +7991,28 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // ===== 2.2 VPOWER 格式检测和处理 =====
+                // 2.2 VPOWER: 以下代码从 VPOWER 选项复制而来，用于在 2.SPECIAL 模式下支持 VPOWER 格式的粘贴
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.2 VPOWER format...');
+                    console.log('2.SPECIAL: VPOWER raw data sample (first 200 chars):', pastedData.substring(0, 200));
                     let vpowerParsed = parseVPowerTableFormat(pastedData);
+                    console.log('2.SPECIAL: VPOWER parse result:', vpowerParsed);
+                    
                     if (vpowerParsed) {
-                        console.log('2.SPECIAL: Detected VPOWER format (2.2)');
-                        formatDetected = true;
                         const { dataMatrix, maxRows, maxCols } = vpowerParsed;
                         
                         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = 0; // VPOWER: 强制从第一列开始
+                        // VPOWER 格式：强制从第一列（Column 1）开始粘贴，每行数据都从第一列开始
+                        const startCol = 0;
                         
                         const currentRows = document.querySelectorAll('#tableBody tr').length;
                         const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        
                         const requiredRows = startRow + maxRows;
                         const requiredCols = startCol + maxCols;
                         
                         if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
                             const targetCols = Math.max(currentCols, requiredCols);
                             initializeTable(targetRows, targetCols);
                         }
@@ -8023,8 +8027,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (!tableRow) return;
                             
                             rowData.forEach((cellData, colIndex) => {
+                                // 每行数据都从第一列（Column 1）开始
                                 const actualColIndex = startCol + colIndex;
-                                const cell = tableRow.children[actualColIndex + 1];
+                                const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
                                 
                                 if (cell && cell.contentEditable === 'true') {
                                     const trimmedData = (cellData || '').trim();
@@ -8035,6 +8040,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         newValue: trimmedData
                                     });
                                     
+                                    // User Name 转为大写，profit 保持原样
                                     if (colIndex === 0) {
                                         cell.textContent = trimmedData.toUpperCase();
                                     } else {
@@ -8056,10 +8062,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (successCount > 0) {
+                            formatDetected = true;
                             showNotification(`2.SPECIAL: 检测到VPOWER格式 (2.2)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
+                    } else {
+                        console.log('2.SPECIAL: VPOWER parser returned null, will continue trying other formats');
                     }
                 }
                 
