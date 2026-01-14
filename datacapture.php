@@ -8274,25 +8274,472 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 由于WBET的文本处理逻辑非常复杂，如果HTML解析失败，可以继续尝试其他格式
                 }
                 
+                // 2.1 ALIPAY - 将 ALIPAY 粘贴格式完整复用到 2.SPECIAL
                 // ===== 2.5 ALIPAY 格式检测和处理 =====
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
+                    console.log('2.SPECIAL: Trying 2.5 ALIPAY format (same as ALIPAY option)...');
+
+                    // ===== ALIPAY 专用解析（在 2.SPECIAL 中启用，复用 ALIPAY 粘贴格式）=====
+                    // ALIPAY 格式：保持原始格式，不做任何转换或拆分
+                    console.log('2.SPECIAL: ALIPAY mode detected, attempting to parse (reuse ALIPAY logic)...');
+                    console.log('2.SPECIAL / ALIPAY: Pasted data length:', pastedData.length);
+                    console.log('2.SPECIAL / ALIPAY: Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
+
+                    // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     let alipayParsed = null;
-                    
+
                     if (htmlDataFromDetect) {
+                        console.log('2.SPECIAL / ALIPAY: HTML data detected via detectAndParseHTML');
                         const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
                         if (filled) {
-                            console.log('2.SPECIAL: Detected ALIPAY format (2.5) - HTML');
+                            console.log('2.SPECIAL / ALIPAY: Successfully filled using parseAndFillHTMLTable');
                             formatDetected = true;
                             showNotification('2.SPECIAL: 检测到ALIPAY格式 (2.5)!', 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
+                        } else {
+                            console.log('2.SPECIAL / ALIPAY: parseAndFillHTMLTable returned false, trying manual HTML parsing');
                         }
                     }
-                    
-                    // ALIPAY的完整文本处理逻辑非常复杂，这里可以继续使用HTML解析
-                    // 如果HTML解析失败，可以继续尝试其他格式
+
+                    // 如果上面的方法失败，尝试手动解析HTML
+                    let htmlData = null;
+                    try {
+                        htmlData = e.clipboardData.getData('text/html');
+                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                            htmlData = null;
+                        }
+                    } catch (err) {
+                        console.log('2.SPECIAL / ALIPAY: Could not get HTML data from clipboard:', err);
+                    }
+
+                    if (htmlData) {
+                        console.log('2.SPECIAL / ALIPAY: HTML data detected, length:', htmlData.length);
+                        // 解析 HTML 表格，保持原始格式
+                        try {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = htmlData;
+
+                            const table = tempDiv.querySelector('table');
+                            if (table) {
+                                console.log('2.SPECIAL / ALIPAY: HTML table found');
+                                let dataMatrix = [];
+
+                                // 处理表头（如果有）
+                                const thead = table.querySelector('thead');
+                                if (thead) {
+                                    const headerRows = thead.querySelectorAll('tr');
+                                    headerRows.forEach(tr => {
+                                        const row = [];
+                                        const cells = tr.querySelectorAll('th, td');
+                                        cells.forEach(cell => {
+                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                            let text = cell.textContent || cell.innerText || '';
+                                            text = text.replace(/\s+/g, ' ').trim();
+                                            row.push(text);
+                                            for (let i = 1; i < colspan; i++) {
+                                                row.push('');
+                                            }
+                                        });
+                                        if (row.length > 0) {
+                                            dataMatrix.push(row);
+                                        }
+                                    });
+                                }
+
+                                // 处理表体，保持原始格式
+                                let bodyContainer = table.querySelector('tbody');
+                                if (!bodyContainer) {
+                                    bodyContainer = table;
+                                }
+
+                                const bodyRows = bodyContainer.querySelectorAll('tr');
+                                bodyRows.forEach((tr) => {
+                                    // 跳过已经在 thead 中处理过的行
+                                    if (thead && tr.closest('thead')) {
+                                        return;
+                                    }
+
+                                    const row = [];
+                                    const cells = tr.querySelectorAll('td, th');
+                                    cells.forEach(cell => {
+                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                        let text = cell.textContent || cell.innerText || '';
+                                        text = text.replace(/\s+/g, ' ').trim();
+                                        row.push(text);
+                                        for (let i = 1; i < colspan; i++) {
+                                            row.push('');
+                                        }
+                                    });
+                                    if (row.length > 0) {
+                                        dataMatrix.push(row);
+                                    }
+                                });
+
+                                if (dataMatrix.length > 0) {
+                                    // 确保所有行的列数相同
+                                    let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                    dataMatrix.forEach(row => {
+                                        while (row.length < maxCols) {
+                                            row.push('');
+                                        }
+                                    });
+
+                                    console.log('2.SPECIAL / ALIPAY: HTML parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+
+                                    alipayParsed = {
+                                        dataMatrix: dataMatrix,
+                                        maxRows: dataMatrix.length,
+                                        maxCols: maxCols
+                                    };
+                                } else {
+                                    console.log('2.SPECIAL / ALIPAY: HTML table found but no data rows extracted');
+                                }
+                            } else {
+                                console.log('2.SPECIAL / ALIPAY: HTML data exists but no table element found');
+                            }
+                        } catch (htmlErr) {
+                            console.error('2.SPECIAL / ALIPAY HTML parser error:', htmlErr);
+                        }
+                    } else {
+                        console.log('2.SPECIAL / ALIPAY: No HTML data detected, will try text parsing');
+                    }
+
+                    // 如果 HTML 解析失败，尝试纯文本解析
+                    if (!alipayParsed) {
+                        console.log('2.SPECIAL / ALIPAY: Attempting text format parsing...');
+                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+
+                        if (lines.length > 0) {
+                            const dataMatrix = [];
+                            let maxCols = 0;
+
+                            // 首先检测是否包含 Name 列的格式（标识符 -> Name -> 数值数据）
+                            // 检测模式：标识符行后面跟着一个可能是 Name 的行（空或短文本，不包含数值），然后才是数值数据
+                            let hasNameColumnFormat = false;
+                            if (lines.length >= 3) {
+                                let identifierCount = 0;
+                                let nameLikeLineCount = 0;
+                                for (let i = 0; i < Math.min(lines.length, 30); i++) {
+                                    const testLine = lines[i].trim();
+                                    const isShortId = /^[A-Z0-9]{2,10}$/.test(testLine) &&
+                                                    !testLine.includes(' ') &&
+                                                    !testLine.includes(',') &&
+                                                    !testLine.includes('.') &&
+                                                    !testLine.includes('-') &&
+                                                    !/^\d/.test(testLine);
+
+                                    if (isShortId) {
+                                        identifierCount++;
+                                        // 检查下一行是否是 Name 行（空或短文本，不包含数值）
+                                        if (i + 1 < lines.length) {
+                                            const nextLine = lines[i + 1].trim();
+                                            // Name 行特征：空行，或短文本（通常不超过50字符），不包含逗号分隔的数字
+                                            // 也不应该包含多个空格分隔的数值
+                                            const hasNumericPattern = nextLine.match(/^-?\d+[.,]\d+/) ||
+                                                                     nextLine.match(/^-?\d{1,3}(,\d{3})+\.\d{2}/) ||
+                                                                     nextLine.split(/\s+/).filter(c => {
+                                                                         const trimmed = c.trim();
+                                                                         return trimmed !== '' &&
+                                                                                (/^-?\d+[.,]\d+/.test(trimmed) ||
+                                                                                 /^-?\d{1,3}(,\d{3})+\.\d{2}/.test(trimmed));
+                                                                     }).length >= 2; // 至少2个数值
+
+                                            const isNameLike = (nextLine === '' ||
+                                                              (nextLine.length < 50 && !hasNumericPattern));
+
+                                            if (isNameLike && i + 2 < lines.length) {
+                                                // 检查第三行是否包含数值数据
+                                                const thirdLine = lines[i + 2].trim();
+                                                const hasNumbers = thirdLine.match(/^-?\d+[.,]\d+/) ||
+                                                                  thirdLine.match(/^-?\d{1,3}(,\d{3})+\.\d{2}/) ||
+                                                                  thirdLine.split(/\s+/).filter(c => {
+                                                                      const trimmed = c.trim();
+                                                                      return trimmed !== '' &&
+                                                                             (/^-?\d+[.,]\d+/.test(trimmed) ||
+                                                                              /^-?\d{1,3}(,\d{3})+\.\d{2}/.test(trimmed));
+                                                                  }).length >= 2; // 至少2个数值
+
+                                                if (hasNumbers) {
+                                                    nameLikeLineCount++;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                // 如果至少有一半的标识符后面跟着 Name 行，则认为是 Name 列格式
+                                if (identifierCount >= 2 && nameLikeLineCount >= identifierCount * 0.5) {
+                                    hasNameColumnFormat = true;
+                                    console.log('2.SPECIAL / ALIPAY: Detected Name column format (', nameLikeLineCount, 'out of', identifierCount, 'identifiers)');
+                                }
+                            }
+
+                            // ALIPAY 专用解析：识别标识符行（2-10个大写字母）并合并后续数据行
+                            let currentRow = null;
+
+                            for (let i = 0; i < lines.length; i++) {
+                                const line = lines[i];
+                                const trimmedLine = line.trim();
+
+                                // 检查是否是标识符行
+                                // 1. 短标识符（2-10个大写字母，可能包含数字，如BWGMA、BWWAY、BWWS、AW9966、BSAM2424）
+                                // 2. Grand Total 或 Total 这样的特殊标识符
+                                const isShortIdentifier = /^[A-Z0-9]{2,10}$/.test(trimmedLine) &&
+                                                        !trimmedLine.includes(' ') &&
+                                                        !trimmedLine.includes(',') &&
+                                                        !trimmedLine.includes('.') &&
+                                                        !trimmedLine.includes('-') &&
+                                                        !/^\d/.test(trimmedLine); // 不以数字开头
+
+                                // 检查是否是 Grand Total 或 Total 行（不区分大小写）
+                                const upperTrimmedLine = trimmedLine.toUpperCase();
+                                const isTotalIdentifier = upperTrimmedLine === 'GRAND TOTAL' ||
+                                                          upperTrimmedLine === 'TOTAL' ||
+                                                          upperTrimmedLine.startsWith('GRAND TOTAL') ||
+                                                          upperTrimmedLine.startsWith('TOTAL ');
+
+                                const isIdentifier = isShortIdentifier || isTotalIdentifier;
+
+                                if (isIdentifier) {
+                                    // 如果之前有未完成的行，先保存它
+                                    if (currentRow !== null) {
+                                        dataMatrix.push(currentRow);
+                                        maxCols = Math.max(maxCols, currentRow.length);
+                                    }
+
+                                    // 开始新行
+                                    // 如果是 Total 标识符，检查这一行是否包含其他数据
+                                    if (isTotalIdentifier) {
+                                        // 解析整行数据（Grand Total 行可能在同一行包含多个数据）
+                                        let cells = [];
+                                        if (line.includes('\t')) {
+                                            // 制表符分隔
+                                            cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                        } else {
+                                            // 使用空格分割，但要确保 "Grand Total" 作为一个整体
+                                            // 先检查是否以 "Grand Total" 或 "Total" 开头
+                                            let remainingLine = trimmedLine;
+                                            if (upperTrimmedLine.startsWith('GRAND TOTAL')) {
+                                                // 提取 "Grand Total" 和剩余部分
+                                                const match = trimmedLine.match(/^(Grand\s+Total)\s+(.*)$/i);
+                                                if (match) {
+                                                    cells.push(match[1]); // "Grand Total"
+                                                    if (match[2]) {
+                                                        // 解析剩余部分的数据
+                                                        const remainingCells = match[2].split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                                        cells.push(...remainingCells);
+                                                    }
+                                                } else {
+                                                    // 如果匹配失败，使用原始分割
+                                                    cells = trimmedLine.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                                }
+                                            } else if (upperTrimmedLine.startsWith('TOTAL ')) {
+                                                // 提取 "Total" 和剩余部分
+                                                const match = trimmedLine.match(/^(Total)\s+(.*)$/i);
+                                                if (match) {
+                                                    cells.push(match[1]); // "Total"
+                                                    if (match[2]) {
+                                                        // 解析剩余部分的数据
+                                                        const remainingCells = match[2].split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                                        cells.push(...remainingCells);
+                                                    }
+                                                } else {
+                                                    // 如果匹配失败，使用原始分割
+                                                    cells = trimmedLine.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                                }
+                                            } else {
+                                                // 完全匹配 "Grand Total" 或 "Total"
+                                                cells = [trimmedLine];
+                                            }
+                                        }
+
+                                        // 如果解析出多个单元格，使用所有单元格；否则只使用标识符
+                                        if (cells.length > 1) {
+                                            currentRow = cells;
+                                        } else {
+                                            currentRow = [trimmedLine];
+                                        }
+                                    } else {
+                                        // 短标识符（如AW07, AW9966），检查该行是否包含其他数据
+                                        // 如果标识符后面还有数据（在同一行），需要解析整行
+                                        let cells = [];
+                                        if (line.includes('\t')) {
+                                            // 制表符分隔
+                                            cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                        } else {
+                                            // 使用空格分割
+                                            // 检查标识符后面是否还有内容
+                                            // 匹配 2-10 个字符的标识符，后面跟着空格和数据
+                                            const identifierMatch = trimmedLine.match(/^([A-Z0-9]{2,10})\s+(.*)$/);
+                                            if (identifierMatch && identifierMatch[2]) {
+                                                // 标识符后面有数据，解析整行
+                                                cells.push(identifierMatch[1]); // 标识符
+                                                // 解析剩余部分的数据
+                                                const remainingCells = identifierMatch[2].split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                                cells.push(...remainingCells);
+                                            } else {
+                                                // 只有标识符，没有其他数据
+                                                cells = [trimmedLine];
+
+                                                // 如果检测到 Name 列格式，且下一行可能是 Name 行，则将其作为第二列
+                                                if (hasNameColumnFormat && i + 1 < lines.length) {
+                                                    const nextLine = lines[i + 1].trim();
+                                                    // 检查下一行是否是 Name 行（空或短文本，不包含数值）
+                                                    const hasNumericPattern = nextLine.match(/^-?\d+[.,]\d+/) ||
+                                                                             nextLine.match(/^-?\d{1,3}(,\d{3})+\.\d{2}/) ||
+                                                                             nextLine.split(/\s+/).filter(c => {
+                                                                                 const trimmed = c.trim();
+                                                                                 return trimmed !== '' &&
+                                                                                        (/^-?\d+[.,]\d+/.test(trimmed) ||
+                                                                                         /^-?\d{1,3}(,\d{3})+\.\d{2}/.test(trimmed));
+                                                                             }).length >= 2; // 至少2个数值
+
+                                                    const isNameLike = (nextLine === '' ||
+                                                                      (nextLine.length < 50 && !hasNumericPattern));
+
+                                                    if (isNameLike) {
+                                                        // 认为这是 Name 行，将其作为第二列
+                                                        cells.push(nextLine);
+                                                        // 跳过 Name 行
+                                                        i++;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        currentRow = cells;
+                                    }
+                                } else {
+                                    // 非标识符行：将其视为当前标识符的附加数据，或新的数据行的一部分
+                                    if (currentRow === null) {
+                                        // 如果没有当前行，则将整行作为新行
+                                        let cells = [];
+                                        if (line.includes('\t')) {
+                                            cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                        } else {
+                                            cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                        }
+                                        if (cells.length > 0) {
+                                            currentRow = cells;
+                                        }
+                                    } else {
+                                        // 如果已有当前行，将该行的数据追加到当前行
+                                        let cells = [];
+                                        if (line.includes('\t')) {
+                                            cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                        } else {
+                                            cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                        }
+                                        if (cells.length > 0) {
+                                            currentRow.push(...cells);
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 处理最后一行
+                            if (currentRow !== null) {
+                                dataMatrix.push(currentRow);
+                                maxCols = Math.max(maxCols, currentRow.length);
+                            }
+
+                            if (dataMatrix.length > 0) {
+                                // 确保所有行的列数相同
+                                dataMatrix.forEach(row => {
+                                    while (row.length < maxCols) {
+                                        row.push('');
+                                    }
+                                });
+
+                                console.log('2.SPECIAL / ALIPAY: Text parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                console.log('2.SPECIAL / ALIPAY: First row sample:', dataMatrix[0] ? dataMatrix[0].slice(0, 10) : 'empty');
+                                alipayParsed = {
+                                    dataMatrix: dataMatrix,
+                                    maxRows: dataMatrix.length,
+                                    maxCols: maxCols
+                                };
+                            } else {
+                                console.log('2.SPECIAL / ALIPAY: No valid rows found in text data');
+                            }
+                        } else {
+                            console.log('2.SPECIAL / ALIPAY: No lines found in text data');
+                        }
+                    }
+
+                    // 如果成功解析出数据矩阵，则进行粘贴
+                    if (alipayParsed) {
+                        const { dataMatrix, maxRows, maxCols } = alipayParsed;
+
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        // ALIPAY 格式：强制从第一列（Column 1）开始粘贴
+                        const startCol = 0;
+
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + maxRows;
+                        const requiredCols = startCol + maxCols;
+
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
+                        }
+
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
+
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
+                                if (cell && cell.contentEditable === 'true') {
+                                    const trimmedData = (cellData || '').trim();
+
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: trimmedData
+                                    });
+
+                                    // ALIPAY 格式：保持原始格式，不做任何转换
+                                    cell.textContent = trimmedData;
+
+                                    if (trimmedData) {
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        });
+
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+
+                        if (successCount > 0) {
+                            showNotification(`2.SPECIAL: 成功粘贴 ALIPAY 格式数据 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                        } else {
+                            showNotification('2.SPECIAL: 从 ALIPAY 格式中未粘贴任何单元格。', 'danger');
+                        }
+
+                        setTimeout(updateSubmitButtonState, 0);
+                        formatDetected = true;
+                        return;
+                    } else {
+                        // 2.SPECIAL 中 ALIPAY 模式下解析失败，给出提示但不阻止（让用户知道）
+                        console.log('2.SPECIAL / ALIPAY parser returned null, data may not match expected format');
+                        // 不 return，继续尝试其他解析器（例如 PEGASUS）
+                    }
                 }
                 
                 // ===== 2.6 PEGASUS 格式检测和处理 =====
