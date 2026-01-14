@@ -7995,8 +7995,77 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.2 VPOWER format...');
                     console.log('2.SPECIAL: VPOWER raw data sample (first 200 chars):', pastedData.substring(0, 200));
-                    let vpowerParsed = parseVPowerTableFormat(pastedData);
-                    console.log('2.SPECIAL: VPOWER parse result:', vpowerParsed);
+                    
+                    // 优先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    let vpowerParsed = null;
+                    let vpowerDataMatrix = null;
+                    
+                    if (htmlDataFromDetect && Array.isArray(htmlDataFromDetect) && htmlDataFromDetect.length > 0) {
+                        console.log('2.SPECIAL: VPOWER HTML data detected via detectAndParseHTML');
+                        // 检查是否是 VPOWER 格式（包含 User Name 和 profit 列）
+                        if (htmlDataFromDetect.length >= 2) {
+                            const firstRow = htmlDataFromDetect[0].map(c => (c || '').toString().toLowerCase().trim());
+                            const hasUserName = firstRow.includes('user name') || firstRow.includes('username');
+                            const hasProfit = firstRow.includes('profit');
+                            
+                            if (hasUserName && hasProfit) {
+                                console.log('2.SPECIAL: Detected VPOWER format in HTML table');
+                                
+                                // 找到各列的索引
+                                const userNameColIndex = firstRow.findIndex(c => 
+                                    c.includes('user name') || c.includes('username'));
+                                const profitColIndex = firstRow.findIndex(c => 
+                                    c.includes('profit'));
+                                
+                                if (userNameColIndex >= 0 && profitColIndex >= 0) {
+                                    const newMatrix = [];
+                                    
+                                    // 处理数据行（跳过表头）
+                                    for (let i = 1; i < htmlDataFromDetect.length; i++) {
+                                        const row = htmlDataFromDetect[i];
+                                        const userName = (row[userNameColIndex] || '').toString().trim();
+                                        const profit = (row[profitColIndex] || '').toString().trim();
+                                        
+                                        // 如果 User Name 或 profit 为空，跳过这一行
+                                        if (!userName && !profit) {
+                                            continue;
+                                        }
+                                        
+                                        // 创建新行：User Name 在第一列，profit 在第二列
+                                        const newRow = [];
+                                        newRow[0] = userName.toUpperCase(); // Column 1: User Name
+                                        newRow[1] = profit;                // Column 2: profit
+                                        newRow[2] = '-';                   // Column 3
+                                        newRow[3] = '-';                   // Column 4
+                                        newRow[4] = '-';                   // Column 5
+                                        newRow[5] = '';                    // Column 6
+                                        newRow[6] = '';                    // Column 7
+                                        newRow[7] = '';                    // Column 8
+                                        newRow[8] = '';                    // Column 9
+                                        
+                                        newMatrix.push(newRow);
+                                    }
+                                    
+                                    if (newMatrix.length > 0) {
+                                        console.log('2.SPECIAL: VPOWER format parsed rows:', newMatrix.length);
+                                        vpowerDataMatrix = newMatrix;
+                                        vpowerParsed = {
+                                            dataMatrix: newMatrix,
+                                            maxRows: newMatrix.length,
+                                            maxCols: 9
+                                        };
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 如果 HTML 解析失败或不是 VPOWER 格式，尝试文本格式解析
+                    if (!vpowerParsed) {
+                        vpowerParsed = parseVPowerTableFormat(pastedData);
+                        console.log('2.SPECIAL: VPOWER parse result:', vpowerParsed);
+                    }
                     
                     if (vpowerParsed) {
                         const { dataMatrix, maxRows, maxCols } = vpowerParsed;
