@@ -14431,8 +14431,8 @@ if ($current_user_id && count($user_companies) > 0) {
             // 在提交前转换表格格式
             convertTableFormatOnSubmit();
             
-            // 1.GENERAL 模式：如果第一列为空，自动调整 id product 列
-            adjustIdProductColumnForGeneral();
+            // 注意：1.GENERAL 模式的 id product 自动识别在 captureTableData() 函数中处理
+            // 不会在界面上移动数据，只在数据捕获时自动识别
             
             const form = document.getElementById('dataCaptureForm');
             const formData = new FormData(form);
@@ -14648,6 +14648,47 @@ if ($current_user_id && count($user_companies) > 0) {
                             // The colspan info is saved for restoration purposes
                         }
                     });
+                    
+                    // 1.GENERAL 模式：如果第一列为空，自动将第一个有数据的列识别为 id product
+                    if (currentDataCaptureType === '1.GENERAL' && rowData.length > 1) {
+                        const firstDataCell = rowData[1]; // 第一列数据（index 1 是行号，index 1 之后是第一列数据）
+                        if (firstDataCell && firstDataCell.type === 'data') {
+                            const firstCellValue = (firstDataCell.value || '').trim();
+                            
+                            // 如果第一列为空，找到第一个有数据的列
+                            if (firstCellValue === '') {
+                                for (let i = 2; i < rowData.length; i++) {
+                                    const cell = rowData[i];
+                                    if (cell && cell.type === 'data') {
+                                        const cellValue = (cell.value || '').trim();
+                                        if (cellValue !== '') {
+                                            // 找到第一个有数据的列，将其值放到第一列的位置
+                                            const firstValue = firstDataCell.value;
+                                            const targetValue = cell.value;
+                                            
+                                            // 交换值：将第一个有数据的列的值放到第一列
+                                            firstDataCell.value = targetValue;
+                                            cell.value = firstValue;
+                                            
+                                            // 交换其他属性
+                                            const firstColspan = firstDataCell.colspan;
+                                            const targetColspan = cell.colspan;
+                                            firstDataCell.colspan = targetColspan;
+                                            cell.colspan = firstColspan;
+                                            
+                                            const firstCol = firstDataCell.col;
+                                            const targetCol = cell.col;
+                                            firstDataCell.col = targetCol;
+                                            cell.col = firstCol;
+                                            
+                                            console.log(`1.GENERAL: Row ${rowIndex} - adjusted id product from column ${targetCol + 1} (value: "${targetValue}") to first column`);
+                                            break; // 找到后停止查找
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     
                     // Track maximum number of data columns (excluding row header)
                     const dataCols = rowData.length - 1; // Subtract 1 for row header
