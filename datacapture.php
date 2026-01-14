@@ -8236,47 +8236,329 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.4 WBET 格式检测和处理 =====
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.4 WBET format...');
-                    const htmlDataFromDetect = detectAndParseHTML(e);
                     
-                    if (htmlDataFromDetect) {
-                        const filled = parseAndFillHTMLTableForWBET(htmlDataFromDetect, startCell);
-                        if (filled) {
-                            console.log('2.SPECIAL: Detected WBET format (2.4) - HTML');
-                            formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
+                    // 检测 WBET 格式特征：包含 SUB TOTAL 和 GRAND TOTAL 行
+                    const wbetDetected = pastedData.toUpperCase().includes('SUB TOTAL') || 
+                                        pastedData.toUpperCase().includes('SUBTOTAL') ||
+                                        pastedData.toUpperCase().includes('GRAND TOTAL') ||
+                                        pastedData.toUpperCase().includes('GRANDTOTAL');
+                    
+                    if (wbetDetected) {
+                        // 优先尝试 HTML 格式解析
+                        const htmlDataFromDetect = detectAndParseHTML(e);
+                        
+                        if (htmlDataFromDetect) {
+                            const filled = parseAndFillHTMLTableForWBET(htmlDataFromDetect, startCell);
+                            if (filled) {
+                                console.log('2.SPECIAL: Detected WBET format (2.4) - HTML');
+                                formatDetected = true;
+                                showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            }
+                        }
+                        
+                        let htmlData = null;
+                        try {
+                            htmlData = e.clipboardData.getData('text/html');
+                            if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                                htmlData = null;
+                            }
+                        } catch (err) {
+                            console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                        }
+                        
+                        if (htmlData && !formatDetected) {
+                            const filled = parseAndFillHTMLTableForWBET(htmlData, startCell);
+                            if (filled) {
+                                console.log('2.SPECIAL: Detected WBET format (2.4) - HTML manual');
+                                formatDetected = true;
+                                showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            }
+                        }
+                        
+                        // 如果 HTML 解析失败，尝试文本格式解析
+                        if (!formatDetected) {
+                            console.log('2.SPECIAL: Trying WBET text format parsing...');
+                            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                            const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                            
+                            if (lines.length > 0) {
+                                // 解析原始数据成行
+                                const rawDataMatrix = [];
+                                lines.forEach(line => {
+                                    let cells = [];
+                                    if (line.includes('\t')) {
+                                        cells = line.split('\t').map(c => c.trim());
+                                    } else {
+                                        cells = line.split(/\s{2,}/).map(c => c.trim());
+                                    }
+                                    if (cells.length > 0) {
+                                        rawDataMatrix.push(cells);
+                                    }
+                                });
+                                
+                                // 处理数据 - 移除行号、合并 Sub Total 和 Grand Total 的数据
+                                const processedMatrix = [];
+                                const rowsToSkip = new Set();
+                                
+                                rawDataMatrix.forEach((row, rowIndex) => {
+                                    if (rowsToSkip.has(rowIndex)) {
+                                        return;
+                                    }
+                                    
+                                    const firstCell = (row[0] || '').toString().trim();
+                                    const isRowNumber = /^\d+$/.test(firstCell);
+                                    
+                                    let processedRow;
+                                    if (isRowNumber && row.length > 1) {
+                                        processedRow = row.slice(1);
+                                    } else {
+                                        processedRow = [...row];
+                                    }
+                                    
+                                    const rowText = processedRow.join(' ').toUpperCase();
+                                    const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                                    const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
+                                    
+                                    if (isSubTotal || isGrandTotal) {
+                                        const totalRowIndices = [];
+                                        rawDataMatrix.forEach((r, idx) => {
+                                            if (idx > rowIndex) {
+                                                const firstCell = (r[0] || '').toString().trim();
+                                                const firstIsNumber = /^\d+$/.test(firstCell);
+                                                const processedR = firstIsNumber && r.length > 1 ? r.slice(1) : r;
+                                                const processedRText = processedR.join(' ').toUpperCase();
+                                                if (processedRText.includes('SUB TOTAL') || processedRText.includes('SUBTOTAL') ||
+                                                    processedRText.includes('GRAND TOTAL') || processedRText.includes('GRANDTOTAL')) {
+                                                    totalRowIndices.push(idx);
+                                                }
+                                            }
+                                        });
+                                        
+                                        const nextTotalRowIndex = totalRowIndices.length > 0 ? totalRowIndices[0] : rawDataMatrix.length;
+                                        
+                                        let mergeIndex = rowIndex + 1;
+                                        while (mergeIndex < nextTotalRowIndex && mergeIndex < rawDataMatrix.length) {
+                                            const nextRow = rawDataMatrix[mergeIndex];
+                                            if (rowsToSkip.has(mergeIndex)) {
+                                                mergeIndex++;
+                                                continue;
+                                            }
+                                            
+                                            const nextFirstCell = (nextRow[0] || '').toString().trim();
+                                            const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
+                                            const nextProcessedRow = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : [...nextRow];
+                                            const nextRowText = nextProcessedRow.join(' ').toUpperCase();
+                                            const nextIsSubTotal = nextRowText.includes('SUB TOTAL') || nextRowText.includes('SUBTOTAL');
+                                            const nextIsGrandTotal = nextRowText.includes('GRAND TOTAL') || nextRowText.includes('GRANDTOTAL');
+                                            
+                                            if (nextIsSubTotal || nextIsGrandTotal) {
+                                                break;
+                                            }
+                                            
+                                            const nextProcessedFirstCell = (nextProcessedRow[0] || '').toString().trim();
+                                            if (/^[A-Z]{2,3}$/.test(nextProcessedFirstCell)) {
+                                                break;
+                                            }
+                                            
+                                            const dataToAdd = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : nextRow;
+                                            
+                                            let startIndex = 0;
+                                            if (processedRow.length > 0 && dataToAdd.length > 0) {
+                                                const lastValue = processedRow[processedRow.length - 1];
+                                                const firstValue = dataToAdd[0];
+                                                if (lastValue && firstValue && lastValue.toString().trim() === firstValue.toString().trim()) {
+                                                    startIndex = 1;
+                                                }
+                                            }
+                                            
+                                            for (let i = startIndex; i < dataToAdd.length; i++) {
+                                                const cellValue = (dataToAdd[i] || '').toString().trim();
+                                                if (cellValue) {
+                                                    const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
+                                                    if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
+                                                        continue;
+                                                    }
+                                                    
+                                                    if (processedRow.length >= 2) {
+                                                        const secondLastValue = processedRow[processedRow.length - 2];
+                                                        if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
+                                                            continue;
+                                                        }
+                                                    }
+                                                    
+                                                    processedRow.push(cellValue);
+                                                }
+                                            }
+                                            
+                                            rowsToSkip.add(mergeIndex);
+                                            mergeIndex++;
+                                            
+                                            if (processedRow.length > 100) {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    
+                                    processedMatrix.push(processedRow);
+                                });
+                                
+                                // 后处理：确保 Sub Total 和 Grand Total 完全分开
+                                let subTotalRowIndex = -1;
+                                let grandTotalRowIndex = -1;
+                                
+                                processedMatrix.forEach((row, idx) => {
+                                    const rowText = row.join(' ').toUpperCase();
+                                    if ((rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL')) && 
+                                        !rowText.includes('GRAND TOTAL') && !rowText.includes('GRANDTOTAL')) {
+                                        if (subTotalRowIndex < 0) subTotalRowIndex = idx;
+                                    }
+                                    if ((rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL')) && 
+                                        !rowText.includes('SUB TOTAL') && !rowText.includes('SUBTOTAL')) {
+                                        if (grandTotalRowIndex < 0) grandTotalRowIndex = idx;
+                                    }
+                                });
+                                
+                                if (subTotalRowIndex >= 0 && grandTotalRowIndex >= 0 && grandTotalRowIndex > subTotalRowIndex) {
+                                    const subTotalRow = processedMatrix[subTotalRowIndex];
+                                    const grandTotalRow = processedMatrix[grandTotalRowIndex];
+                                    
+                                    const getDataCells = (row) => {
+                                        return row.filter((cell, idx) => {
+                                            const cellText = (cell || '').toString().trim().toUpperCase();
+                                            return idx > 0 && cellText !== '' && 
+                                                   cellText !== 'SUB TOTAL' && 
+                                                   cellText !== 'SUBTOTAL' &&
+                                                   cellText !== 'GRAND TOTAL' && 
+                                                   cellText !== 'GRANDTOTAL';
+                                        });
+                                    };
+                                    
+                                    const subTotalDataCells = getDataCells(subTotalRow);
+                                    const grandTotalDataCells = getDataCells(grandTotalRow);
+                                    
+                                    if (subTotalDataCells.length === 0 && grandTotalDataCells.length > 0) {
+                                        processedMatrix[subTotalRowIndex] = ['SUB TOTAL', ...grandTotalDataCells];
+                                    } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length === 0) {
+                                        processedMatrix[grandTotalRowIndex] = ['GRAND TOTAL', ...subTotalDataCells];
+                                    } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length > 0) {
+                                        processedMatrix[subTotalRowIndex] = ['SUB TOTAL', ...grandTotalDataCells];
+                                    }
+                                }
+                                
+                                // 最终去重
+                                const deduplicatedMatrix = processedMatrix.map((row, rowIdx) => {
+                                    const rowText = row.join(' ').toUpperCase();
+                                    const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                                    const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
+                                    
+                                    if (isSubTotal || isGrandTotal) {
+                                        const deduplicatedRow = [];
+                                        let lastValue = null;
+                                        
+                                        row.forEach((cell, cellIdx) => {
+                                            const cellValue = (cell || '').toString().trim();
+                                            const cellText = cellValue.toUpperCase();
+                                            
+                                            if (cellIdx === 0 && (cellText.includes('SUB TOTAL') || cellText.includes('SUBTOTAL') || 
+                                                cellText.includes('GRAND TOTAL') || cellText.includes('GRANDTOTAL'))) {
+                                                deduplicatedRow.push(cell);
+                                                lastValue = null;
+                                            } else if (cellValue) {
+                                                if (lastValue === null || lastValue.toString().trim() !== cellValue) {
+                                                    deduplicatedRow.push(cell);
+                                                    lastValue = cell;
+                                                }
+                                            } else {
+                                                deduplicatedRow.push(cell);
+                                            }
+                                        });
+                                        
+                                        return deduplicatedRow;
+                                    }
+                                    
+                                    return row;
+                                });
+                                
+                                // 确保所有行的列数相同
+                                const maxCols = Math.max(...deduplicatedMatrix.map(row => row.length), 0);
+                                deduplicatedMatrix.forEach(row => {
+                                    while (row.length < maxCols) {
+                                        row.push('');
+                                    }
+                                });
+                                
+                                if (deduplicatedMatrix.length > 0) {
+                                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                    const startCol = 0; // WBET: 强制从第一列开始
+                                    
+                                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                    const requiredRows = startRow + deduplicatedMatrix.length;
+                                    const requiredCols = startCol + maxCols;
+                                    
+                                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                        const targetCols = Math.max(currentCols, requiredCols);
+                                        initializeTable(targetRows, targetCols);
+                                    }
+                                    
+                                    const tableBody = document.getElementById('tableBody');
+                                    const currentPasteChanges = [];
+                                    let successCount = 0;
+                                    
+                                    deduplicatedMatrix.forEach((rowData, rowIndex) => {
+                                        const actualRowIndex = startRow + rowIndex;
+                                        const tableRow = tableBody.children[actualRowIndex];
+                                        if (!tableRow) return;
+                                        
+                                        rowData.forEach((cellData, colIndex) => {
+                                            const actualColIndex = startCol + colIndex;
+                                            const cell = tableRow.children[actualColIndex + 1];
+                                            if (cell && cell.contentEditable === 'true') {
+                                                currentPasteChanges.push({
+                                                    row: actualRowIndex,
+                                                    col: actualColIndex,
+                                                    oldValue: cell.textContent,
+                                                    newValue: cellData
+                                                });
+                                                cell.textContent = cellData;
+                                                if (cellData) {
+                                                    successCount++;
+                                                }
+                                            }
+                                        });
+                                    });
+                                    
+                                    if (currentPasteChanges.length > 0) {
+                                        pasteHistory.push(currentPasteChanges);
+                                        if (pasteHistory.length > maxHistorySize) {
+                                            pasteHistory.shift();
+                                        }
+                                    }
+                                    
+                                    if (successCount > 0) {
+                                        console.log('2.SPECIAL: Detected WBET format (2.4) - Text');
+                                        formatDetected = true;
+                                        showNotification(`2.SPECIAL: 检测到WBET格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${deduplicatedMatrix.length} 行 x ${maxCols} 列)!`, 'success');
+                                        setTimeout(updateSubmitButtonState, 0);
+                                        return;
+                                    }
+                                }
+                            }
                         }
                     }
-                    
-                    let htmlData = null;
-                    try {
-                        htmlData = e.clipboardData.getData('text/html');
-                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
-                            htmlData = null;
-                        }
-                    } catch (err) {
-                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
-                    }
-                    
-                    if (htmlData && !formatDetected) {
-                        const filled = parseAndFillHTMLTableForWBET(htmlData, startCell);
-                        if (filled) {
-                            console.log('2.SPECIAL: Detected WBET format (2.4) - HTML manual');
-                            formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    }
-                    
-                    // WBET文本格式处理逻辑较长，这里简化为直接调用现有逻辑
-                    // 由于WBET的文本处理逻辑非常复杂，如果HTML解析失败，可以继续尝试其他格式
                 }
                 
                 // ===== 2.5 ALIPAY 格式检测和处理 =====
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
+                    
+                    // ALIPAY 格式特征：保持原始格式，不做任何转换，强制从第一列开始
+                    // 优先尝试 HTML 格式解析
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     let alipayParsed = null;
                     
@@ -8291,8 +8573,162 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                     
-                    // ALIPAY的完整文本处理逻辑非常复杂，这里可以继续使用HTML解析
-                    // 如果HTML解析失败，可以继续尝试其他格式
+                    // 如果上面的方法失败，尝试手动解析HTML
+                    let htmlData = null;
+                    try {
+                        htmlData = e.clipboardData.getData('text/html');
+                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                            htmlData = null;
+                        }
+                    } catch (err) {
+                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                    }
+                    
+                    if (htmlData && !formatDetected) {
+                        try {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = htmlData;
+                            const table = tempDiv.querySelector('table');
+                            if (table) {
+                                let dataMatrix = [];
+                                
+                                // 处理表头（如果有）
+                                const thead = table.querySelector('thead');
+                                if (thead) {
+                                    const headerRows = thead.querySelectorAll('tr');
+                                    headerRows.forEach(tr => {
+                                        const row = [];
+                                        const cells = tr.querySelectorAll('th, td');
+                                        cells.forEach(cell => {
+                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                            let text = cell.textContent || cell.innerText || '';
+                                            text = text.replace(/\s+/g, ' ').trim();
+                                            row.push(text);
+                                            for (let i = 1; i < colspan; i++) {
+                                                row.push('');
+                                            }
+                                        });
+                                        if (row.length > 0) {
+                                            dataMatrix.push(row);
+                                        }
+                                    });
+                                }
+                                
+                                // 处理表体，保持原始格式
+                                let bodyContainer = table.querySelector('tbody');
+                                if (!bodyContainer) {
+                                    bodyContainer = table;
+                                }
+                                
+                                const bodyRows = bodyContainer.querySelectorAll('tr');
+                                bodyRows.forEach((tr) => {
+                                    if (thead && tr.closest('thead')) {
+                                        return;
+                                    }
+                                    
+                                    const row = [];
+                                    const cells = tr.querySelectorAll('td, th');
+                                    cells.forEach(cell => {
+                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                        let text = cell.textContent || cell.innerText || '';
+                                        text = text.replace(/\s+/g, ' ').trim();
+                                        row.push(text);
+                                        for (let i = 1; i < colspan; i++) {
+                                            row.push('');
+                                        }
+                                    });
+                                    if (row.length > 0) {
+                                        dataMatrix.push(row);
+                                    }
+                                });
+                                
+                                if (dataMatrix.length > 0) {
+                                    let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                    dataMatrix.forEach(row => {
+                                        while (row.length < maxCols) {
+                                            row.push('');
+                                        }
+                                    });
+                                    
+                                    alipayParsed = {
+                                        dataMatrix: dataMatrix,
+                                        maxRows: dataMatrix.length,
+                                        maxCols: maxCols
+                                    };
+                                }
+                            }
+                        } catch (htmlErr) {
+                            console.error('2.SPECIAL: ALIPAY HTML parser error:', htmlErr);
+                        }
+                    }
+                    
+                    // 如果 HTML 解析成功，填充数据
+                    if (alipayParsed && !formatDetected) {
+                        const { dataMatrix, maxRows, maxCols } = alipayParsed;
+                        
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = 0; // ALIPAY: 强制从第一列开始
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + maxRows;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
+                            
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
+                                
+                                if (cell && cell.contentEditable === 'true') {
+                                    const trimmedData = (cellData || '').trim();
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: trimmedData
+                                    });
+                                    
+                                    // ALIPAY: 保持原始格式，不做任何转换
+                                    cell.textContent = trimmedData;
+                                    
+                                    if (trimmedData) {
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            console.log('2.SPECIAL: Detected ALIPAY format (2.5)');
+                            formatDetected = true;
+                            showNotification(`2.SPECIAL: 检测到ALIPAY格式 (2.5)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                    
+                    // 如果 HTML 解析失败，可以继续尝试其他格式
                 }
                 
                 // ===== 2.6 PEGASUS 格式检测和处理 =====
@@ -8448,7 +8884,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             // ===== 2.SPECIAL 处理结束 =====
             
-            // PEGASUS 专用解析（仅在 PEGASUS 类型时启用）
+            // PEGASUS 专用解析（仅在 PEGASUS 类型时启用，排除 2.SPECIAL 模式）
             // PEGASUS 格式：无论粘贴什么数据（多行或多列），都合并成一行
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'PEGASUS') {
                 console.log('PEGASUS mode detected, attempting to parse and merge into single row...');
@@ -8622,7 +9058,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
-            // WBET 专用解析（仅在 WBET 类型时启用）
+            // WBET 专用解析（仅在 WBET 类型时启用，排除 2.SPECIAL 模式）
             // 保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET') {
                 console.log('WBET mode detected, attempting to parse...');
@@ -9006,7 +9442,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('WBET parser failed, continuing with other parsers');
             }
             
-            // VPOWER 专用解析（仅在 VPOWER 类型时启用）
+            // VPOWER 专用解析（仅在 VPOWER 类型时启用，排除 2.SPECIAL 模式）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'VPOWER') {
                 console.log('VPOWER mode detected, attempting to parse...');
                 console.log('Pasted data:', pastedData.substring(0, 200));
@@ -9397,6 +9833,7 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // ALIPAY 专用解析（仅在 ALIPAY 类型时启用）
             // ALIPAY 格式：保持原始格式，不做任何转换或拆分
+            // ALIPAY 专用解析（仅在 ALIPAY 类型时启用，排除 2.SPECIAL 模式）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'ALIPAY') {
                 console.log('ALIPAY mode detected, attempting to parse...');
                 console.log('Pasted data length:', pastedData.length);
