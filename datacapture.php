@@ -11817,30 +11817,49 @@ if ($current_user_id && count($user_companies) > 0) {
                     const dataMatrix = [];
                     let maxCols = 0;
                     
-                    // 处理每一行：复制多少行就粘贴多少行
-                    allLines.forEach(line => {
-                        const trimmed = line.trim();
+                    // MAXBET 特殊格式：每3行合并成一行
+                    // 格式：行1="Super", 行2="LMK1", 行3="RM\t6,000.00\t..."
+                    // 需要将这3行合并成表格的一行
+                    const nonEmptyLines = allLines.filter(line => line.trim() !== '');
+                    
+                    // 每3行合并成一行
+                    for (let i = 0; i < nonEmptyLines.length; i += 3) {
+                        const row1 = nonEmptyLines[i] || '';
+                        const row2 = nonEmptyLines[i + 1] || '';
+                        const row3 = nonEmptyLines[i + 2] || '';
                         
-                        // 跳过完全空白的行
-                        if (trimmed === '') {
-                            return;
+                        const mergedRow = [];
+                        
+                        // 第一行（通常是"Super"）
+                        if (row1.trim()) {
+                            mergedRow.push(formatNumberToTwoDecimals(row1.trim()));
                         }
                         
-                        // 如果包含制表符，按制表符分割
-                        if (line.includes('\t')) {
-                            const cells = line.split('\t').map(c => {
-                                const cellTrimmed = c.trim();
-                                // 格式化数值为2位小数
-                                return formatNumberToTwoDecimals(cellTrimmed);
-                            });
-                            dataMatrix.push(cells);
-                            maxCols = Math.max(maxCols, cells.length);
-                        } else {
-                            // 没有制表符的行，作为单列数据（第一列）
-                            dataMatrix.push([formatNumberToTwoDecimals(trimmed)]);
-                            maxCols = Math.max(maxCols, 1);
+                        // 第二行（通常是用户名如"LMK1"）
+                        if (row2.trim()) {
+                            mergedRow.push(formatNumberToTwoDecimals(row2.trim()));
                         }
-                    });
+                        
+                        // 第三行（包含制表符分隔的数据）
+                        if (row3.trim()) {
+                            if (row3.includes('\t')) {
+                                // 按制表符分割，格式化数值
+                                const cells = row3.split('\t').map(c => {
+                                    const cellTrimmed = c.trim();
+                                    return formatNumberToTwoDecimals(cellTrimmed);
+                                });
+                                mergedRow.push(...cells);
+                            } else {
+                                // 没有制表符，作为单个单元格
+                                mergedRow.push(formatNumberToTwoDecimals(row3.trim()));
+                            }
+                        }
+                        
+                        if (mergedRow.length > 0) {
+                            dataMatrix.push(mergedRow);
+                            maxCols = Math.max(maxCols, mergedRow.length);
+                        }
+                    }
                     
                     // 确保所有行都有相同的列数（对齐到最大列数）
                     if (maxCols > 0) {
