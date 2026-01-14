@@ -4365,66 +4365,6 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
-        // 自动调整 id product 列：如果第一列（id product）为空，自动查找下一个有数据的列并移动到第一列
-        // 此函数在提交时调用，用于 "1.GENERAL" 模式
-        function autoAdjustIdProductColumnOnSubmit() {
-            // 只在 "1.GENERAL" 模式下执行
-            if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '1.GENERAL') {
-                return;
-            }
-            
-            const tableBody = document.getElementById('tableBody');
-            if (!tableBody) return;
-            
-            const rows = Array.from(tableBody.children);
-            if (rows.length === 0) return;
-            
-            console.log('1.GENERAL: Auto-adjusting id product column on submit...');
-            let adjustedCount = 0;
-            
-            // 遍历所有行
-            rows.forEach((tableRow, rowIndex) => {
-                // 检查 id product 列（第二列，index 1，因为第一列是行号）
-                const idProductCell = tableRow.children[1];
-                if (!idProductCell || idProductCell.contentEditable !== 'true') return;
-                
-                const idProductValue = (idProductCell.textContent || idProductCell.innerHTML || '').trim();
-                
-                // 如果 id product 列为空，查找下一个有数据的列
-                if (idProductValue === '') {
-                    // 从第二列开始查找（index 2，因为 index 0 是行号，index 1 是 id product）
-                    for (let colIndex = 2; colIndex < tableRow.children.length; colIndex++) {
-                        const cell = tableRow.children[colIndex];
-                        if (!cell || cell.contentEditable !== 'true') continue;
-                        
-                        const cellValue = (cell.textContent || cell.innerHTML || '').trim();
-                        
-                        // 找到第一个有数据的列
-                        if (cellValue !== '') {
-                            // 将数据移动到 id product 列
-                            // 保持格式：如果原单元格有 HTML，使用 innerHTML；否则使用 textContent
-                            if (cell.innerHTML && cell.innerHTML !== cell.textContent) {
-                                idProductCell.innerHTML = cell.innerHTML;
-                            } else {
-                                idProductCell.textContent = cellValue;
-                            }
-                            
-                            // 清空原列
-                            cell.textContent = '';
-                            
-                            adjustedCount++;
-                            console.log(`1.GENERAL: Auto-adjusted id product for row ${rowIndex}: moved data from column ${colIndex - 1} to id product column`);
-                            break; // 找到后停止查找
-                        }
-                    }
-                }
-            });
-            
-            if (adjustedCount > 0) {
-                console.log(`1.GENERAL: Auto-adjusted ${adjustedCount} rows for id product column on submit`);
-            }
-        }
-        
         // 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换
         function parseAndFillHTMLTableForGeneral(htmlString, startCell) {
             try {
@@ -13942,9 +13882,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('WBET format detected: Skipping format conversion to preserve Sub Total and Grand Total as separate rows');
                 return;
             }
-            
-            // 1.GENERAL 模式：自动调整 id product 列（如果第一列为空，自动查找下一个有数据的列）
-            autoAdjustIdProductColumnOnSubmit();
             
             const tableBody = document.getElementById('tableBody');
             if (!tableBody) return;
