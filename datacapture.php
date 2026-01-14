@@ -11810,130 +11810,102 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 如果HTML解析都失败，尝试纯文本格式（制表符分隔的表格数据）
                 console.log('MAXBET: HTML parsing failed, trying text format...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                const allLines = normalizedData.split('\n');
-                const lines = allLines.map(line => line.trim()).filter(line => line !== '');
+                const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
                 
                 if (lines.length > 0) {
-                    // MAXBET特殊格式：每3行合并成1行
-                    // 格式：第1行=Super，第2行=标识符（如LMK1），第3行=RM + 制表符分隔的数据
-                    const dataMatrix = [];
-                    let maxCols = 0;
-                    let i = 0;
+                    // 检查是否包含制表符（标准表格格式）
+                    const hasTabSeparator = lines.some(line => line.includes('\t'));
                     
-                    while (i < lines.length) {
-                        const line1 = lines[i]; // Super
-                        const line2 = i + 1 < lines.length ? lines[i + 1] : ''; // 标识符（如LMK1）
-                        const line3 = i + 2 < lines.length ? lines[i + 2] : ''; // RM + 数据
+                    if (hasTabSeparator) {
+                        const dataMatrix = [];
+                        let maxCols = 0;
                         
-                        // 检查第3行是否包含制表符（数据行）
-                        if (line3.includes('\t')) {
-                            // 合并3行为1行
-                            const row = [];
-                            
-                            // 第1列：Super
-                            row.push(line1);
-                            
-                            // 第2列：标识符
-                            row.push(line2);
-                            
-                            // 第3列开始：解析第3行的制表符分隔数据
-                            const cells = line3.split('\t').map(c => {
-                                const trimmed = c.trim();
-                                // 格式化数值为2位小数
-                                return formatNumberToTwoDecimals(trimmed);
-                            });
-                            row.push(...cells);
-                            
-                            dataMatrix.push(row);
-                            maxCols = Math.max(maxCols, row.length);
-                            i += 3; // 跳过3行
-                        } else {
-                            // 如果不是标准格式，尝试按制表符分隔处理
-                            if (line1.includes('\t')) {
-                                const cells = line1.split('\t').map(c => {
+                        lines.forEach(line => {
+                            if (line.includes('\t')) {
+                                const cells = line.split('\t').map(c => {
                                     const trimmed = c.trim();
+                                    // 格式化数值为2位小数
                                     return formatNumberToTwoDecimals(trimmed);
                                 });
                                 dataMatrix.push(cells);
                                 maxCols = Math.max(maxCols, cells.length);
-                            } else if (line1.trim() !== '') {
+                            } else if (line.trim() !== '') {
                                 // 单列数据
-                                dataMatrix.push([formatNumberToTwoDecimals(line1)]);
+                                const trimmed = line.trim();
+                                dataMatrix.push([formatNumberToTwoDecimals(trimmed)]);
                                 maxCols = Math.max(maxCols, 1);
                             }
-                            i += 1;
-                        }
-                    }
-                    
-                    // 确保所有行都有相同的列数
-                    dataMatrix.forEach(row => {
-                        while (row.length < maxCols) {
-                            row.push('');
-                        }
-                    });
-                    
-                    // 填充到表格，从用户点击的单元格开始
-                    if (dataMatrix.length > 0 && maxCols > 0) {
-                        const startCell = e.target;
-                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = parseInt(startCell.dataset.col);
-                        
-                        const currentRows = document.querySelectorAll('#tableBody tr').length;
-                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredRows = startRow + dataMatrix.length;
-                        const requiredCols = startCol + maxCols;
-                        
-                        if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                            const targetCols = Math.max(currentCols, requiredCols);
-                            initializeTable(targetRows, targetCols);
-                        }
-                        
-                        const tableBody = document.getElementById('tableBody');
-                        const currentPasteChanges = [];
-                        let successCount = 0;
-                        
-                        dataMatrix.forEach((rowData, rowIndex) => {
-                            const actualRowIndex = startRow + rowIndex;
-                            const tableRow = tableBody.children[actualRowIndex];
-                            if (!tableRow) return;
-                            
-                            rowData.forEach((cellData, colIndex) => {
-                                const actualColIndex = startCol + colIndex;
-                                const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
-                                
-                                if (cell && cell.contentEditable === 'true') {
-                                    const cellValue = cellData || '';
-                                    currentPasteChanges.push({
-                                        row: actualRowIndex,
-                                        col: actualColIndex,
-                                        oldValue: cell.textContent,
-                                        newValue: cellValue
-                                    });
-                                    
-                                    cell.textContent = cellValue;
-                                    if (cellValue) {
-                                        successCount++;
-                                    }
-                                }
-                            });
                         });
                         
-                        if (currentPasteChanges.length > 0) {
-                            pasteHistory.push(currentPasteChanges);
-                            if (pasteHistory.length > maxHistorySize) {
-                                pasteHistory.shift();
+                        // 确保所有行都有相同的列数
+                        dataMatrix.forEach(row => {
+                            while (row.length < maxCols) {
+                                row.push('');
+                            }
+                        });
+                        
+                        // 填充到表格，从用户点击的单元格开始
+                        if (dataMatrix.length > 0 && maxCols > 0) {
+                            const startCell = e.target;
+                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                            const startCol = parseInt(startCell.dataset.col);
+                            
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                            const requiredRows = startRow + dataMatrix.length;
+                            const requiredCols = startCol + maxCols;
+                            
+                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                const targetCols = Math.max(currentCols, requiredCols);
+                                initializeTable(targetRows, targetCols);
+                            }
+                            
+                            const tableBody = document.getElementById('tableBody');
+                            const currentPasteChanges = [];
+                            let successCount = 0;
+                            
+                            dataMatrix.forEach((rowData, rowIndex) => {
+                                const actualRowIndex = startRow + rowIndex;
+                                const tableRow = tableBody.children[actualRowIndex];
+                                if (!tableRow) return;
+                                
+                                rowData.forEach((cellData, colIndex) => {
+                                    const actualColIndex = startCol + colIndex;
+                                    const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                                    
+                                    if (cell && cell.contentEditable === 'true') {
+                                        const cellValue = cellData || '';
+                                        currentPasteChanges.push({
+                                            row: actualRowIndex,
+                                            col: actualColIndex,
+                                            oldValue: cell.textContent,
+                                            newValue: cellValue
+                                        });
+                                        
+                                        cell.textContent = cellValue;
+                                        if (cellValue) {
+                                            successCount++;
+                                        }
+                                    }
+                                });
+                            });
+                            
+                            if (currentPasteChanges.length > 0) {
+                                pasteHistory.push(currentPasteChanges);
+                                if (pasteHistory.length > maxHistorySize) {
+                                    pasteHistory.shift();
+                                }
+                            }
+                            
+                            if (successCount > 0) {
+                                console.log('MAXBET: Text format paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                showNotification(`MAXBET: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
                             }
                         }
-                        
-                        if (successCount > 0) {
-                            console.log('MAXBET: Text format paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
-                            showNotification(`MAXBET: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
                     }
-                }
                 }
                 
                 // 如果所有解析都失败，继续使用默认处理逻辑
