@@ -11639,7 +11639,10 @@ if ($current_user_id && count($user_companies) > 0) {
                             const actualRowIndex = startRow + rowIndex;
                             const tableRow = tableBody.children[actualRowIndex];
                             if (!tableRow) {
-                                console.log('MAXBET: Warning - table row', actualRowIndex, 'does not exist');
+                                console.error('MAXBET: ERROR - table row', actualRowIndex, 'does not exist! Creating it...');
+                                // 如果行不存在，需要扩展表格
+                                const targetRows = Math.max(currentRows, actualRowIndex + 1);
+                                initializeTable(Math.min(targetRows, 702), currentCols);
                                 return;
                             }
                             
@@ -11658,17 +11661,19 @@ if ($current_user_id && count($user_companies) > 0) {
                                     });
                                     
                                     cell.textContent = cellValue;
+                                    // 无论cellValue是否为空，都计数（因为空值也是有效的数据）
+                                    successCount++;
                                     if (cellValue) {
-                                        successCount++;
                                         rowCellCount++;
                                     }
+                                } else {
+                                    console.warn('MAXBET: Cell at row', actualRowIndex, 'col', actualColIndex, 'is not editable or does not exist');
                                 }
                             });
                             
-                            if (rowCellCount > 0) {
-                                filledRowCount++;
-                                console.log('MAXBET: Filled row', actualRowIndex, 'with', rowCellCount, 'cells');
-                            }
+                            // 每行都算作已填充，即使某些单元格为空
+                            filledRowCount++;
+                            console.log('MAXBET: Filled row', actualRowIndex, '(table row', actualRowIndex, ') with', rowCellCount, 'non-empty cells out of', rowData.length, 'total columns');
                         });
                         
                         console.log('MAXBET: Filled', filledRowCount, 'rows with', successCount, 'total cells');
