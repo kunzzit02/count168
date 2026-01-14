@@ -7917,7 +7917,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('1.GENERAL: All parsing methods failed, continuing with default logic');
             }
             
-            // ===== 2.SPECIAL 专用解析：自动检测并应用6种格式（CITIBET, VPOWER, PS3838, WBET, ALIPAY, PEGASUS） =====
+            // ===== 2.SPECIAL 专用解析：自动检测并应用6种格式（CITIBET, VPOWER, ALIPAY, PS3838, WBET, PEGASUS） =====
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '2.SPECIAL') {
                 console.log('2.SPECIAL mode detected, attempting to auto-detect format...');
                 console.log('Pasted data length:', pastedData.length);
@@ -8063,561 +8063,18 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // ===== 2.3 PS3838 格式检测和处理 =====
+                // ===== 2.3 ALIPAY 格式检测和处理（提前检测，避免被PS3838误判） =====
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.3 PS3838 format...');
-                    const htmlDataFromDetect = detectAndParseHTML(e);
-                    let agentLinkParsed = null;
-                    
-                    if (htmlDataFromDetect) {
-                        const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
-                        if (filled) {
-                            console.log('2.SPECIAL: Detected PS3838 format (2.3) - HTML');
-                            formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到PS3838格式 (2.3)!', 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    }
-                    
-                    let htmlData = null;
-                    try {
-                        htmlData = e.clipboardData.getData('text/html');
-                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
-                            htmlData = null;
-                        }
-                    } catch (err) {
-                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
-                    }
-                    
-                    if (htmlData && !formatDetected) {
-                        try {
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = htmlData;
-                            const table = tempDiv.querySelector('table');
-                            if (table) {
-                                let dataMatrix = [];
-                                const thead = table.querySelector('thead');
-                                if (thead) {
-                                    const headerRows = thead.querySelectorAll('tr');
-                                    headerRows.forEach(tr => {
-                                        const row = [];
-                                        const cells = tr.querySelectorAll('th, td');
-                                        cells.forEach(cell => {
-                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                            let text = cell.textContent || cell.innerText || '';
-                                            text = text.replace(/\s+/g, ' ').trim();
-                                            row.push(text);
-                                            for (let i = 1; i < colspan; i++) {
-                                                row.push('');
-                                            }
-                                        });
-                                        if (row.length > 0) {
-                                            dataMatrix.push(row);
-                                        }
-                                    });
-                                }
-                                
-                                let bodyContainer = table.querySelector('tbody');
-                                if (!bodyContainer) {
-                                    bodyContainer = table;
-                                }
-                                
-                                const bodyRows = bodyContainer.querySelectorAll('tr');
-                                bodyRows.forEach((tr) => {
-                                    if (thead && tr.closest('thead')) {
-                                        return;
-                                    }
-                                    
-                                    const row = [];
-                                    const cells = tr.querySelectorAll('td, th');
-                                    cells.forEach(cell => {
-                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                        let text = cell.textContent || cell.innerText || '';
-                                        text = text.replace(/\s+/g, ' ').trim();
-                                        row.push(text);
-                                        for (let i = 1; i < colspan; i++) {
-                                            row.push('');
-                                        }
-                                    });
-                                    if (row.length > 0) {
-                                        dataMatrix.push(row);
-                                    }
-                                });
-                                
-                                if (dataMatrix.length > 0) {
-                                    let maxCols = Math.max(...dataMatrix.map(row => row.length));
-                                    dataMatrix.forEach(row => {
-                                        while (row.length < maxCols) {
-                                            row.push('');
-                                        }
-                                    });
-                                    agentLinkParsed = {
-                                        dataMatrix: dataMatrix,
-                                        maxRows: dataMatrix.length,
-                                        maxCols: maxCols
-                                    };
-                                }
-                            }
-                        } catch (htmlErr) {
-                            console.error('2.SPECIAL: HTML parser error:', htmlErr);
-                        }
-                    }
-                    
-                    if (!agentLinkParsed) {
-                        agentLinkParsed = parseAgentLinkTableFormat(pastedData);
-                    }
-                    
-                    if (agentLinkParsed) {
-                        console.log('2.SPECIAL: Detected PS3838 format (2.3)');
-                        formatDetected = true;
-                        const { dataMatrix, maxRows, maxCols } = agentLinkParsed;
-                        
-                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = 0; // PS3838: 强制从第一列开始
-                        
-                        const currentRows = document.querySelectorAll('#tableBody tr').length;
-                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredRows = startRow + maxRows;
-                        const requiredCols = startCol + maxCols;
-                        
-                        if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                            const targetCols = Math.max(currentCols, requiredCols);
-                            initializeTable(targetRows, targetCols);
-                        }
-                        
-                        const tableBody = document.getElementById('tableBody');
-                        const currentPasteChanges = [];
-                        let successCount = 0;
-                        
-                        dataMatrix.forEach((rowData, rowIndex) => {
-                            const actualRowIndex = startRow + rowIndex;
-                            const tableRow = tableBody.children[actualRowIndex];
-                            if (!tableRow) return;
-                            
-                            rowData.forEach((cellData, colIndex) => {
-                                const actualColIndex = startCol + colIndex;
-                                const cell = tableRow.children[actualColIndex + 1];
-                                
-                                if (cell && cell.contentEditable === 'true') {
-                                    const trimmedData = (cellData || '').trim();
-                                    currentPasteChanges.push({
-                                        row: actualRowIndex,
-                                        col: actualColIndex,
-                                        oldValue: cell.textContent,
-                                        newValue: trimmedData
-                                    });
-                                    
-                                    cell.textContent = trimmedData;
-                                    
-                                    if (trimmedData) {
-                                        successCount++;
-                                    }
-                                }
-                            });
-                        });
-                        
-                        if (currentPasteChanges.length > 0) {
-                            pasteHistory.push(currentPasteChanges);
-                            if (pasteHistory.length > maxHistorySize) {
-                                pasteHistory.shift();
-                            }
-                        }
-                        
-                        if (successCount > 0) {
-                            showNotification(`2.SPECIAL: 检测到PS3838格式 (2.3)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    }
-                }
-                
-                // ===== 2.4 WBET 格式检测和处理 =====
-                if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.4 WBET format...');
-                    const htmlDataFromDetect = detectAndParseHTML(e);
-                    
-                    if (htmlDataFromDetect) {
-                        const filled = parseAndFillHTMLTableForWBET(htmlDataFromDetect, startCell);
-                        if (filled) {
-                            console.log('2.SPECIAL: Detected WBET format (2.4) - HTML');
-                            formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    }
-                    
-                    let htmlData = null;
-                    try {
-                        htmlData = e.clipboardData.getData('text/html');
-                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
-                            htmlData = null;
-                        }
-                    } catch (err) {
-                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
-                    }
-                    
-                    if (htmlData && !formatDetected) {
-                        const filled = parseAndFillHTMLTableForWBET(htmlData, startCell);
-                        if (filled) {
-                            console.log('2.SPECIAL: Detected WBET format (2.4) - HTML manual');
-                            formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    }
-                    
-                    // 如果 HTML 解析失败，尝试纯文本解析
-                    console.log('2.SPECIAL: WBET - Trying text-based parsing...');
-                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
-                    
-                    if (lines.length > 0) {
-                        // 第一步：解析原始数据成行
-                        const rawDataMatrix = [];
-                        lines.forEach(line => {
-                            let cells = [];
-                            if (line.includes('\t')) {
-                                cells = line.split('\t').map(c => c.trim());
-                            } else {
-                                // 使用多个空格分割
-                                cells = line.split(/\s{2,}/).map(c => c.trim());
-                            }
-                            if (cells.length > 0) {
-                                rawDataMatrix.push(cells);
-                            }
-                        });
-                        
-                        console.log('2.SPECIAL: WBET - Raw parsed data:', rawDataMatrix.length, 'rows');
-                        
-                        // 第二步：处理数据 - 移除行号、合并 Sub Total 和 Grand Total 的数据
-                        const processedMatrix = [];
-                        const rowsToSkip = new Set();
-                        
-                        rawDataMatrix.forEach((row, rowIndex) => {
-                            if (rowsToSkip.has(rowIndex)) {
-                                return;
-                            }
-                            
-                            // 检查第一列是否是行号（纯数字）
-                            const firstCell = (row[0] || '').toString().trim();
-                            const isRowNumber = /^\d+$/.test(firstCell);
-                            
-                            // 如果是行号，跳过第一列
-                            let processedRow;
-                            if (isRowNumber && row.length > 1) {
-                                processedRow = row.slice(1);
-                            } else {
-                                processedRow = [...row];
-                            }
-                            
-                            // 检查是否是 Sub Total 或 Grand Total 行
-                            const rowText = processedRow.join(' ').toUpperCase();
-                            const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
-                            const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
-                            
-                            if (isSubTotal || isGrandTotal) {
-                                // 先找到所有 Total 行的位置，以便确定合并的边界
-                                const totalRowIndices = [];
-                                rawDataMatrix.forEach((r, idx) => {
-                                    if (idx > rowIndex) {
-                                        const firstCell = (r[0] || '').toString().trim();
-                                        const firstIsNumber = /^\d+$/.test(firstCell);
-                                        const processedR = firstIsNumber && r.length > 1 ? r.slice(1) : r;
-                                        const processedRText = processedR.join(' ').toUpperCase();
-                                        if (processedRText.includes('SUB TOTAL') || processedRText.includes('SUBTOTAL') ||
-                                            processedRText.includes('GRAND TOTAL') || processedRText.includes('GRANDTOTAL')) {
-                                            totalRowIndices.push(idx);
-                                        }
-                                    }
-                                });
-                                
-                                // 确定合并的边界：下一个 Total 行的位置
-                                const nextTotalRowIndex = totalRowIndices.length > 0 ? totalRowIndices[0] : rawDataMatrix.length;
-                                
-                                console.log(`2.SPECIAL: WBET - ${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'} at row ${rowIndex}, next Total at row ${nextTotalRowIndex}`);
-                                
-                                // 合并后续行的所有数据，直到遇到另一个 Total 行
-                                let mergeIndex = rowIndex + 1;
-                                
-                                while (mergeIndex < nextTotalRowIndex && mergeIndex < rawDataMatrix.length) {
-                                    const nextRow = rawDataMatrix[mergeIndex];
-                                    if (rowsToSkip.has(mergeIndex)) {
-                                        mergeIndex++;
-                                        continue;
-                                    }
-                                    
-                                    // 再次检查（双重保险）：确保不是另一个 Total 行
-                                    const nextFirstCell = (nextRow[0] || '').toString().trim();
-                                    const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
-                                    const nextProcessedRow = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : [...nextRow];
-                                    const nextRowText = nextProcessedRow.join(' ').toUpperCase();
-                                    const nextIsSubTotal = nextRowText.includes('SUB TOTAL') || nextRowText.includes('SUBTOTAL');
-                                    const nextIsGrandTotal = nextRowText.includes('GRAND TOTAL') || nextRowText.includes('GRANDTOTAL');
-                                    
-                                    // 如果遇到另一个 Total 行，立即停止合并
-                                    if (nextIsSubTotal || nextIsGrandTotal) {
-                                        console.log(`2.SPECIAL: WBET - Stopping merge at row ${mergeIndex} - found another Total row`);
-                                        break;
-                                    }
-                                    
-                                    // 检查下一行是否是新的数据行标识（2-3个字母，如 OB, OC, OD）
-                                    const nextProcessedFirstCell = (nextProcessedRow[0] || '').toString().trim();
-                                    
-                                    // 检查是否是用户名标识（2-3个大写字母）
-                                    if (/^[A-Z]{2,3}$/.test(nextProcessedFirstCell)) {
-                                        console.log(`2.SPECIAL: WBET - Stopping merge at row ${mergeIndex} - found new data row (${nextProcessedFirstCell})`);
-                                        break; // 这是新的数据行，停止合并
-                                    }
-                                    
-                                    // 将下一行的数据追加到当前行（如果是行号，跳过它）
-                                    const dataToAdd = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : nextRow;
-                                    
-                                    // 检测并去除重叠数据：如果当前行的最后一个值和下一行的第一个值相同，跳过第一个值
-                                    let startIndex = 0;
-                                    if (processedRow.length > 0 && dataToAdd.length > 0) {
-                                        const lastValue = processedRow[processedRow.length - 1];
-                                        const firstValue = dataToAdd[0];
-                                        if (lastValue && firstValue && lastValue.toString().trim() === firstValue.toString().trim()) {
-                                            startIndex = 1; // 跳过第一个值（因为它是重复的）
-                                            console.log(`2.SPECIAL: WBET - Detected duplicate value "${firstValue}", skipping first cell of next row`);
-                                        }
-                                    }
-                                    
-                                    // 添加数据（跳过重复的第一个值）
-                                    // 智能去重：检查是否与 processedRow 中的值重复
-                                    for (let i = startIndex; i < dataToAdd.length; i++) {
-                                        const cellValue = (dataToAdd[i] || '').toString().trim();
-                                        if (cellValue) {
-                                            // 检查是否与 processedRow 的最后一个值重复（避免连续重复）
-                                            const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
-                                            if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
-                                                // 如果与最后一个值相同，跳过（避免重复）
-                                                console.log(`2.SPECIAL: WBET - Skipping duplicate value "${cellValue}" (same as last value)`);
-                                                continue;
-                                            }
-                                            
-                                            // 检查是否与 processedRow 的倒数第二个值也相同（避免 A-B-B 模式变成 A-B-B-B）
-                                            if (processedRow.length >= 2) {
-                                                const secondLastValue = processedRow[processedRow.length - 2];
-                                                if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
-                                                    console.log(`2.SPECIAL: WBET - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
-                                                    continue;
-                                                }
-                                            }
-                                            
-                                            processedRow.push(cellValue);
-                                        }
-                                    }
-                                    
-                                    rowsToSkip.add(mergeIndex);
-                                    mergeIndex++;
-                                    
-                                    // 防止合并过多（超过100列可能是误判）
-                                    if (processedRow.length > 100) {
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            processedMatrix.push(processedRow);
-                        });
-                        
-                        // 后处理：确保 Sub Total 和 Grand Total 完全分开
-                        // 查找 Sub Total 和 Grand Total 行的索引
-                        let subTotalRowIndex = -1;
-                        let grandTotalRowIndex = -1;
-                        
-                        processedMatrix.forEach((row, idx) => {
-                            const rowText = row.join(' ').toUpperCase();
-                            if ((rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL')) && 
-                                !rowText.includes('GRAND TOTAL') && !rowText.includes('GRANDTOTAL')) {
-                                if (subTotalRowIndex < 0) subTotalRowIndex = idx;
-                            }
-                            if ((rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL')) && 
-                                !rowText.includes('SUB TOTAL') && !rowText.includes('SUBTOTAL')) {
-                                if (grandTotalRowIndex < 0) grandTotalRowIndex = idx;
-                            }
-                        });
-                        
-                        console.log(`2.SPECIAL: WBET - Found Sub Total at row ${subTotalRowIndex}, Grand Total at row ${grandTotalRowIndex}`);
-                        
-                        // 如果找到了 Sub Total 和 Grand Total，智能检测并修复数据分配
-                        if (subTotalRowIndex >= 0 && grandTotalRowIndex >= 0 && grandTotalRowIndex > subTotalRowIndex) {
-                            const subTotalRow = processedMatrix[subTotalRowIndex];
-                            const grandTotalRow = processedMatrix[grandTotalRowIndex];
-                            
-                            // 提取数据单元格（排除标签）
-                            const getDataCells = (row) => {
-                                return row.filter((cell, idx) => {
-                                    const cellText = (cell || '').toString().trim().toUpperCase();
-                                    return idx > 0 && cellText !== '' && 
-                                           cellText !== 'SUB TOTAL' && 
-                                           cellText !== 'SUBTOTAL' &&
-                                           cellText !== 'GRAND TOTAL' && 
-                                           cellText !== 'GRANDTOTAL';
-                                });
-                            };
-                            
-                            const subTotalDataCells = getDataCells(subTotalRow);
-                            const grandTotalDataCells = getDataCells(grandTotalRow);
-                            
-                            console.log(`2.SPECIAL: WBET - Sub Total has ${subTotalDataCells.length} data cells, Grand Total has ${grandTotalDataCells.length} data cells`);
-                            
-                            // 根据用户需求：Sub Total 和 Grand Total 的数据应该是一样的
-                            // 如果 Sub Total 行数据为空，而 Grand Total 行有数据，将 Grand Total 的数据复制到 Sub Total
-                            if (subTotalDataCells.length === 0 && grandTotalDataCells.length > 0) {
-                                console.log('2.SPECIAL: WBET - Sub Total is empty but Grand Total has data. Copying Grand Total data to Sub Total.');
-                                const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
-                                processedMatrix[subTotalRowIndex] = newSubTotalRow;
-                            } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length === 0) {
-                                console.log('2.SPECIAL: WBET - Grand Total is empty but Sub Total has data. Copying Sub Total data to Grand Total.');
-                                const newGrandTotalRow = ['GRAND TOTAL', ...subTotalDataCells];
-                                processedMatrix[grandTotalRowIndex] = newGrandTotalRow;
-                            } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length > 0) {
-                                // 两者都有数据，使用 Grand Total 的数据作为标准（因为通常 Grand Total 更完整）
-                                console.log('2.SPECIAL: WBET - Both have data. Ensuring Sub Total matches Grand Total.');
-                                const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
-                                processedMatrix[subTotalRowIndex] = newSubTotalRow;
-                            }
-                        }
-                        
-                        // 使用处理后的矩阵
-                        const finalMatrix = [...processedMatrix];
-                        
-                        // 最终去重：去除所有行中的连续重复值
-                        const deduplicatedMatrix = finalMatrix.map((row, rowIdx) => {
-                            const rowText = row.join(' ').toUpperCase();
-                            const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
-                            const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
-                            
-                            // 只对 Sub Total 和 Grand Total 行进行去重
-                            if (isSubTotal || isGrandTotal) {
-                                const deduplicatedRow = [];
-                                let lastValue = null;
-                                
-                                row.forEach((cell, cellIdx) => {
-                                    const cellValue = (cell || '').toString().trim();
-                                    const cellText = cellValue.toUpperCase();
-                                    
-                                    // 保留标签（SUB TOTAL 或 GRAND TOTAL）
-                                    if (cellIdx === 0 && (cellText.includes('SUB TOTAL') || cellText.includes('SUBTOTAL') || 
-                                        cellText.includes('GRAND TOTAL') || cellText.includes('GRANDTOTAL'))) {
-                                        deduplicatedRow.push(cell);
-                                        lastValue = null; // 重置，因为标签不是数据
-                                    } else if (cellValue) {
-                                        // 检查是否与上一个值重复
-                                        if (lastValue === null || lastValue.toString().trim() !== cellValue) {
-                                            deduplicatedRow.push(cell);
-                                            lastValue = cell;
-                                        } else {
-                                            console.log(`2.SPECIAL: WBET - Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
-                                        }
-                                    } else {
-                                        // 空值也添加（保持列对齐）
-                                        deduplicatedRow.push(cell);
-                                    }
-                                });
-                                
-                                console.log(`2.SPECIAL: WBET - Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
-                                return deduplicatedRow;
-                            }
-                            
-                            // 普通数据行保持不变
-                            return row;
-                        });
-                        
-                        // 使用处理后的矩阵
-                        processedMatrix.length = 0;
-                        processedMatrix.push(...deduplicatedMatrix);
-                        
-                        // 确保所有行的列数相同
-                        const maxCols = Math.max(...processedMatrix.map(row => row.length), 0);
-                        processedMatrix.forEach(row => {
-                            while (row.length < maxCols) {
-                                row.push('');
-                            }
-                        });
-                        
-                        console.log('2.SPECIAL: WBET - Processed text data:', processedMatrix.length, 'rows x', maxCols, 'cols');
-                        console.log('2.SPECIAL: WBET - First few processed rows:', processedMatrix.slice(0, 5));
-                        
-                        if (processedMatrix.length > 0) {
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = 0; // WBET: 强制从第一列开始
-                            
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + processedMatrix.length;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            processedMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
-                                
-                                rowData.forEach((cellData, colIndex) => {
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1];
-                                    if (cell && cell.contentEditable === 'true') {
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellData
-                                        });
-                                        // 保持原始格式，不做任何转换
-                                        cell.textContent = cellData;
-                                        if (cellData) {
-                                            successCount++;
-                                        }
-                                    }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
-                                }
-                            }
-                            
-                            if (successCount > 0) {
-                                console.log('2.SPECIAL: Detected WBET format (2.4) - Text');
-                                formatDetected = true;
-                                showNotification(`2.SPECIAL: 检测到WBET格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${processedMatrix.length} 行 x ${maxCols} 列)!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            }
-                        }
-                    }
-                }
-                
-                // ===== 2.5 ALIPAY 格式检测和处理 =====
-                if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
+                    console.log('2.SPECIAL: Trying 2.3 ALIPAY format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     let alipayParsed = null;
                     
                     if (htmlDataFromDetect) {
                         const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
                         if (filled) {
-                            console.log('2.SPECIAL: Detected ALIPAY format (2.5) - HTML');
+                            console.log('2.SPECIAL: Detected ALIPAY format (2.3) - HTML');
                             formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到ALIPAY格式 (2.5)!', 'success');
+                            showNotification('2.SPECIAL: 检测到ALIPAY格式 (2.3)!', 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
@@ -9056,11 +8513,554 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (successCount > 0) {
-                            console.log('2.SPECIAL: Detected ALIPAY format (2.5)');
+                            console.log('2.SPECIAL: Detected ALIPAY format (2.3)');
                             formatDetected = true;
-                            showNotification(`2.SPECIAL: 检测到ALIPAY格式 (2.5)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            showNotification(`2.SPECIAL: 检测到ALIPAY格式 (2.3)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
+                        }
+                    }
+                }
+                
+                // ===== 2.4 PS3838 格式检测和处理 =====
+                if (!formatDetected) {
+                    console.log('2.SPECIAL: Trying 2.4 PS3838 format...');
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    let agentLinkParsed = null;
+                    
+                    if (htmlDataFromDetect) {
+                        const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
+                        if (filled) {
+                            console.log('2.SPECIAL: Detected PS3838 format (2.4) - HTML');
+                            formatDetected = true;
+                            showNotification('2.SPECIAL: 检测到PS3838格式 (2.4)!', 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                    
+                    let htmlData = null;
+                    try {
+                        htmlData = e.clipboardData.getData('text/html');
+                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                            htmlData = null;
+                        }
+                    } catch (err) {
+                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                    }
+                    
+                    if (htmlData && !formatDetected) {
+                        try {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = htmlData;
+                            const table = tempDiv.querySelector('table');
+                            if (table) {
+                                let dataMatrix = [];
+                                const thead = table.querySelector('thead');
+                                if (thead) {
+                                    const headerRows = thead.querySelectorAll('tr');
+                                    headerRows.forEach(tr => {
+                                        const row = [];
+                                        const cells = tr.querySelectorAll('th, td');
+                                        cells.forEach(cell => {
+                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                            let text = cell.textContent || cell.innerText || '';
+                                            text = text.replace(/\s+/g, ' ').trim();
+                                            row.push(text);
+                                            for (let i = 1; i < colspan; i++) {
+                                                row.push('');
+                                            }
+                                        });
+                                        if (row.length > 0) {
+                                            dataMatrix.push(row);
+                                        }
+                                    });
+                                }
+                                
+                                let bodyContainer = table.querySelector('tbody');
+                                if (!bodyContainer) {
+                                    bodyContainer = table;
+                                }
+                                
+                                const bodyRows = bodyContainer.querySelectorAll('tr');
+                                bodyRows.forEach((tr) => {
+                                    if (thead && tr.closest('thead')) {
+                                        return;
+                                    }
+                                    
+                                    const row = [];
+                                    const cells = tr.querySelectorAll('td, th');
+                                    cells.forEach(cell => {
+                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                        let text = cell.textContent || cell.innerText || '';
+                                        text = text.replace(/\s+/g, ' ').trim();
+                                        row.push(text);
+                                        for (let i = 1; i < colspan; i++) {
+                                            row.push('');
+                                        }
+                                    });
+                                    if (row.length > 0) {
+                                        dataMatrix.push(row);
+                                    }
+                                });
+                                
+                                if (dataMatrix.length > 0) {
+                                    let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                    dataMatrix.forEach(row => {
+                                        while (row.length < maxCols) {
+                                            row.push('');
+                                        }
+                                    });
+                                    agentLinkParsed = {
+                                        dataMatrix: dataMatrix,
+                                        maxRows: dataMatrix.length,
+                                        maxCols: maxCols
+                                    };
+                                }
+                            }
+                        } catch (htmlErr) {
+                            console.error('2.SPECIAL: HTML parser error:', htmlErr);
+                        }
+                    }
+                    
+                    if (!agentLinkParsed) {
+                        agentLinkParsed = parseAgentLinkTableFormat(pastedData);
+                    }
+                    
+                    if (agentLinkParsed) {
+                        console.log('2.SPECIAL: Detected PS3838 format (2.4)');
+                        formatDetected = true;
+                        const { dataMatrix, maxRows, maxCols } = agentLinkParsed;
+                        
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = 0; // PS3838: 强制从第一列开始
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + maxRows;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
+                            
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
+                                
+                                if (cell && cell.contentEditable === 'true') {
+                                    const trimmedData = (cellData || '').trim();
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: trimmedData
+                                    });
+                                    
+                                    cell.textContent = trimmedData;
+                                    
+                                    if (trimmedData) {
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`2.SPECIAL: 检测到PS3838格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                }
+                
+                // ===== 2.5 WBET 格式检测和处理 =====
+                if (!formatDetected) {
+                    console.log('2.SPECIAL: Trying 2.5 WBET format...');
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    
+                    if (htmlDataFromDetect) {
+                        const filled = parseAndFillHTMLTableForWBET(htmlDataFromDetect, startCell);
+                        if (filled) {
+                            console.log('2.SPECIAL: Detected WBET format (2.5) - HTML');
+                            formatDetected = true;
+                            showNotification('2.SPECIAL: 检测到WBET格式 (2.5)!', 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                    
+                    let htmlData = null;
+                    try {
+                        htmlData = e.clipboardData.getData('text/html');
+                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                            htmlData = null;
+                        }
+                    } catch (err) {
+                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                    }
+                    
+                    if (htmlData && !formatDetected) {
+                        const filled = parseAndFillHTMLTableForWBET(htmlData, startCell);
+                        if (filled) {
+                            console.log('2.SPECIAL: Detected WBET format (2.5) - HTML manual');
+                            formatDetected = true;
+                            showNotification('2.SPECIAL: 检测到WBET格式 (2.5)!', 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                    
+                    // 如果 HTML 解析失败，尝试纯文本解析
+                    console.log('2.SPECIAL: WBET - Trying text-based parsing...');
+                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    if (lines.length > 0) {
+                        // 第一步：解析原始数据成行
+                        const rawDataMatrix = [];
+                        lines.forEach(line => {
+                            let cells = [];
+                            if (line.includes('\t')) {
+                                cells = line.split('\t').map(c => c.trim());
+                            } else {
+                                // 使用多个空格分割
+                                cells = line.split(/\s{2,}/).map(c => c.trim());
+                            }
+                            if (cells.length > 0) {
+                                rawDataMatrix.push(cells);
+                            }
+                        });
+                        
+                        console.log('2.SPECIAL: WBET - Raw parsed data:', rawDataMatrix.length, 'rows');
+                        
+                        // 第二步：处理数据 - 移除行号、合并 Sub Total 和 Grand Total 的数据
+                        const processedMatrix = [];
+                        const rowsToSkip = new Set();
+                        
+                        rawDataMatrix.forEach((row, rowIndex) => {
+                            if (rowsToSkip.has(rowIndex)) {
+                                return;
+                            }
+                            
+                            // 检查第一列是否是行号（纯数字）
+                            const firstCell = (row[0] || '').toString().trim();
+                            const isRowNumber = /^\d+$/.test(firstCell);
+                            
+                            // 如果是行号，跳过第一列
+                            let processedRow;
+                            if (isRowNumber && row.length > 1) {
+                                processedRow = row.slice(1);
+                            } else {
+                                processedRow = [...row];
+                            }
+                            
+                            // 检查是否是 Sub Total 或 Grand Total 行
+                            const rowText = processedRow.join(' ').toUpperCase();
+                            const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                            const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
+                            
+                            if (isSubTotal || isGrandTotal) {
+                                // 先找到所有 Total 行的位置，以便确定合并的边界
+                                const totalRowIndices = [];
+                                rawDataMatrix.forEach((r, idx) => {
+                                    if (idx > rowIndex) {
+                                        const firstCell = (r[0] || '').toString().trim();
+                                        const firstIsNumber = /^\d+$/.test(firstCell);
+                                        const processedR = firstIsNumber && r.length > 1 ? r.slice(1) : r;
+                                        const processedRText = processedR.join(' ').toUpperCase();
+                                        if (processedRText.includes('SUB TOTAL') || processedRText.includes('SUBTOTAL') ||
+                                            processedRText.includes('GRAND TOTAL') || processedRText.includes('GRANDTOTAL')) {
+                                            totalRowIndices.push(idx);
+                                        }
+                                    }
+                                });
+                                
+                                // 确定合并的边界：下一个 Total 行的位置
+                                const nextTotalRowIndex = totalRowIndices.length > 0 ? totalRowIndices[0] : rawDataMatrix.length;
+                                
+                                console.log(`2.SPECIAL: WBET - ${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'} at row ${rowIndex}, next Total at row ${nextTotalRowIndex}`);
+                                
+                                // 合并后续行的所有数据，直到遇到另一个 Total 行
+                                let mergeIndex = rowIndex + 1;
+                                
+                                while (mergeIndex < nextTotalRowIndex && mergeIndex < rawDataMatrix.length) {
+                                    const nextRow = rawDataMatrix[mergeIndex];
+                                    if (rowsToSkip.has(mergeIndex)) {
+                                        mergeIndex++;
+                                        continue;
+                                    }
+                                    
+                                    // 再次检查（双重保险）：确保不是另一个 Total 行
+                                    const nextFirstCell = (nextRow[0] || '').toString().trim();
+                                    const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
+                                    const nextProcessedRow = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : [...nextRow];
+                                    const nextRowText = nextProcessedRow.join(' ').toUpperCase();
+                                    const nextIsSubTotal = nextRowText.includes('SUB TOTAL') || nextRowText.includes('SUBTOTAL');
+                                    const nextIsGrandTotal = nextRowText.includes('GRAND TOTAL') || nextRowText.includes('GRANDTOTAL');
+                                    
+                                    // 如果遇到另一个 Total 行，立即停止合并
+                                    if (nextIsSubTotal || nextIsGrandTotal) {
+                                        console.log(`2.SPECIAL: WBET - Stopping merge at row ${mergeIndex} - found another Total row`);
+                                        break;
+                                    }
+                                    
+                                    // 检查下一行是否是新的数据行标识（2-3个字母，如 OB, OC, OD）
+                                    const nextProcessedFirstCell = (nextProcessedRow[0] || '').toString().trim();
+                                    
+                                    // 检查是否是用户名标识（2-3个大写字母）
+                                    if (/^[A-Z]{2,3}$/.test(nextProcessedFirstCell)) {
+                                        console.log(`2.SPECIAL: WBET - Stopping merge at row ${mergeIndex} - found new data row (${nextProcessedFirstCell})`);
+                                        break; // 这是新的数据行，停止合并
+                                    }
+                                    
+                                    // 将下一行的数据追加到当前行（如果是行号，跳过它）
+                                    const dataToAdd = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : nextRow;
+                                    
+                                    // 检测并去除重叠数据：如果当前行的最后一个值和下一行的第一个值相同，跳过第一个值
+                                    let startIndex = 0;
+                                    if (processedRow.length > 0 && dataToAdd.length > 0) {
+                                        const lastValue = processedRow[processedRow.length - 1];
+                                        const firstValue = dataToAdd[0];
+                                        if (lastValue && firstValue && lastValue.toString().trim() === firstValue.toString().trim()) {
+                                            startIndex = 1; // 跳过第一个值（因为它是重复的）
+                                            console.log(`2.SPECIAL: WBET - Detected duplicate value "${firstValue}", skipping first cell of next row`);
+                                        }
+                                    }
+                                    
+                                    // 添加数据（跳过重复的第一个值）
+                                    // 智能去重：检查是否与 processedRow 中的值重复
+                                    for (let i = startIndex; i < dataToAdd.length; i++) {
+                                        const cellValue = (dataToAdd[i] || '').toString().trim();
+                                        if (cellValue) {
+                                            // 检查是否与 processedRow 的最后一个值重复（避免连续重复）
+                                            const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
+                                            if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
+                                                // 如果与最后一个值相同，跳过（避免重复）
+                                                console.log(`2.SPECIAL: WBET - Skipping duplicate value "${cellValue}" (same as last value)`);
+                                                continue;
+                                            }
+                                            
+                                            // 检查是否与 processedRow 的倒数第二个值也相同（避免 A-B-B 模式变成 A-B-B-B）
+                                            if (processedRow.length >= 2) {
+                                                const secondLastValue = processedRow[processedRow.length - 2];
+                                                if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
+                                                    console.log(`2.SPECIAL: WBET - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
+                                                    continue;
+                                                }
+                                            }
+                                            
+                                            processedRow.push(cellValue);
+                                        }
+                                    }
+                                    
+                                    rowsToSkip.add(mergeIndex);
+                                    mergeIndex++;
+                                    
+                                    // 防止合并过多（超过100列可能是误判）
+                                    if (processedRow.length > 100) {
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            processedMatrix.push(processedRow);
+                        });
+                        
+                        // 后处理：确保 Sub Total 和 Grand Total 完全分开
+                        // 查找 Sub Total 和 Grand Total 行的索引
+                        let subTotalRowIndex = -1;
+                        let grandTotalRowIndex = -1;
+                        
+                        processedMatrix.forEach((row, idx) => {
+                            const rowText = row.join(' ').toUpperCase();
+                            if ((rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL')) && 
+                                !rowText.includes('GRAND TOTAL') && !rowText.includes('GRANDTOTAL')) {
+                                if (subTotalRowIndex < 0) subTotalRowIndex = idx;
+                            }
+                            if ((rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL')) && 
+                                !rowText.includes('SUB TOTAL') && !rowText.includes('SUBTOTAL')) {
+                                if (grandTotalRowIndex < 0) grandTotalRowIndex = idx;
+                            }
+                        });
+                        
+                        console.log(`2.SPECIAL: WBET - Found Sub Total at row ${subTotalRowIndex}, Grand Total at row ${grandTotalRowIndex}`);
+                        
+                        // 如果找到了 Sub Total 和 Grand Total，智能检测并修复数据分配
+                        if (subTotalRowIndex >= 0 && grandTotalRowIndex >= 0 && grandTotalRowIndex > subTotalRowIndex) {
+                            const subTotalRow = processedMatrix[subTotalRowIndex];
+                            const grandTotalRow = processedMatrix[grandTotalRowIndex];
+                            
+                            // 提取数据单元格（排除标签）
+                            const getDataCells = (row) => {
+                                return row.filter((cell, idx) => {
+                                    const cellText = (cell || '').toString().trim().toUpperCase();
+                                    return idx > 0 && cellText !== '' && 
+                                           cellText !== 'SUB TOTAL' && 
+                                           cellText !== 'SUBTOTAL' &&
+                                           cellText !== 'GRAND TOTAL' && 
+                                           cellText !== 'GRANDTOTAL';
+                                });
+                            };
+                            
+                            const subTotalDataCells = getDataCells(subTotalRow);
+                            const grandTotalDataCells = getDataCells(grandTotalRow);
+                            
+                            console.log(`2.SPECIAL: WBET - Sub Total has ${subTotalDataCells.length} data cells, Grand Total has ${grandTotalDataCells.length} data cells`);
+                            
+                            // 根据用户需求：Sub Total 和 Grand Total 的数据应该是一样的
+                            // 如果 Sub Total 行数据为空，而 Grand Total 行有数据，将 Grand Total 的数据复制到 Sub Total
+                            if (subTotalDataCells.length === 0 && grandTotalDataCells.length > 0) {
+                                console.log('2.SPECIAL: WBET - Sub Total is empty but Grand Total has data. Copying Grand Total data to Sub Total.');
+                                const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
+                                processedMatrix[subTotalRowIndex] = newSubTotalRow;
+                            } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length === 0) {
+                                console.log('2.SPECIAL: WBET - Grand Total is empty but Sub Total has data. Copying Sub Total data to Grand Total.');
+                                const newGrandTotalRow = ['GRAND TOTAL', ...subTotalDataCells];
+                                processedMatrix[grandTotalRowIndex] = newGrandTotalRow;
+                            } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length > 0) {
+                                // 两者都有数据，使用 Grand Total 的数据作为标准（因为通常 Grand Total 更完整）
+                                console.log('2.SPECIAL: WBET - Both have data. Ensuring Sub Total matches Grand Total.');
+                                const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
+                                processedMatrix[subTotalRowIndex] = newSubTotalRow;
+                            }
+                        }
+                        
+                        // 使用处理后的矩阵
+                        const finalMatrix = [...processedMatrix];
+                        
+                        // 最终去重：去除所有行中的连续重复值
+                        const deduplicatedMatrix = finalMatrix.map((row, rowIdx) => {
+                            const rowText = row.join(' ').toUpperCase();
+                            const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                            const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
+                            
+                            // 只对 Sub Total 和 Grand Total 行进行去重
+                            if (isSubTotal || isGrandTotal) {
+                                const deduplicatedRow = [];
+                                let lastValue = null;
+                                
+                                row.forEach((cell, cellIdx) => {
+                                    const cellValue = (cell || '').toString().trim();
+                                    const cellText = cellValue.toUpperCase();
+                                    
+                                    // 保留标签（SUB TOTAL 或 GRAND TOTAL）
+                                    if (cellIdx === 0 && (cellText.includes('SUB TOTAL') || cellText.includes('SUBTOTAL') || 
+                                        cellText.includes('GRAND TOTAL') || cellText.includes('GRANDTOTAL'))) {
+                                        deduplicatedRow.push(cell);
+                                        lastValue = null; // 重置，因为标签不是数据
+                                    } else if (cellValue) {
+                                        // 检查是否与上一个值重复
+                                        if (lastValue === null || lastValue.toString().trim() !== cellValue) {
+                                            deduplicatedRow.push(cell);
+                                            lastValue = cell;
+                                        } else {
+                                            console.log(`2.SPECIAL: WBET - Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
+                                        }
+                                    } else {
+                                        // 空值也添加（保持列对齐）
+                                        deduplicatedRow.push(cell);
+                                    }
+                                });
+                                
+                                console.log(`2.SPECIAL: WBET - Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
+                                return deduplicatedRow;
+                            }
+                            
+                            // 普通数据行保持不变
+                            return row;
+                        });
+                        
+                        // 使用处理后的矩阵
+                        processedMatrix.length = 0;
+                        processedMatrix.push(...deduplicatedMatrix);
+                        
+                        // 确保所有行的列数相同
+                        const maxCols = Math.max(...processedMatrix.map(row => row.length), 0);
+                        processedMatrix.forEach(row => {
+                            while (row.length < maxCols) {
+                                row.push('');
+                            }
+                        });
+                        
+                        console.log('2.SPECIAL: WBET - Processed text data:', processedMatrix.length, 'rows x', maxCols, 'cols');
+                        console.log('2.SPECIAL: WBET - First few processed rows:', processedMatrix.slice(0, 5));
+                        
+                        if (processedMatrix.length > 0) {
+                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                            const startCol = 0; // WBET: 强制从第一列开始
+                            
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                            const requiredRows = startRow + processedMatrix.length;
+                            const requiredCols = startCol + maxCols;
+                            
+                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                const targetCols = Math.max(currentCols, requiredCols);
+                                initializeTable(targetRows, targetCols);
+                            }
+                            
+                            const tableBody = document.getElementById('tableBody');
+                            const currentPasteChanges = [];
+                            let successCount = 0;
+                            
+                            processedMatrix.forEach((rowData, rowIndex) => {
+                                const actualRowIndex = startRow + rowIndex;
+                                const tableRow = tableBody.children[actualRowIndex];
+                                if (!tableRow) return;
+                                
+                                rowData.forEach((cellData, colIndex) => {
+                                    const actualColIndex = startCol + colIndex;
+                                    const cell = tableRow.children[actualColIndex + 1];
+                                    if (cell && cell.contentEditable === 'true') {
+                                        currentPasteChanges.push({
+                                            row: actualRowIndex,
+                                            col: actualColIndex,
+                                            oldValue: cell.textContent,
+                                            newValue: cellData
+                                        });
+                                        // 保持原始格式，不做任何转换
+                                        cell.textContent = cellData;
+                                        if (cellData) {
+                                            successCount++;
+                                        }
+                                    }
+                                });
+                            });
+                            
+                            if (currentPasteChanges.length > 0) {
+                                pasteHistory.push(currentPasteChanges);
+                                if (pasteHistory.length > maxHistorySize) {
+                                    pasteHistory.shift();
+                                }
+                            }
+                            
+                            if (successCount > 0) {
+                                console.log('2.SPECIAL: Detected WBET format (2.5) - Text');
+                                formatDetected = true;
+                                showNotification(`2.SPECIAL: 检测到WBET格式 (2.5)，成功粘贴 ${successCount} 个单元格 (${processedMatrix.length} 行 x ${maxCols} 列)!`, 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            }
                         }
                     }
                 }
