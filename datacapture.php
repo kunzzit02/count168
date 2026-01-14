@@ -8073,10 +8073,194 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // ===== 2.3 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
+                // ===== 2.3 C8PLAY 格式检测和处理（优先于 ALIPAY） =====
+                // 2.7 C8PLAY: 以下代码从 C8PLAY 选项复制而来，用于在 2.SPECIAL 模式下支持 C8PLAY 格式的粘贴
+                if (!formatDetected) {
+                    console.log('2.SPECIAL: Trying 2.3 C8PLAY format...');
+                    console.log('2.SPECIAL: C8PLAY raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                    
+                    // 辅助函数：格式化数值为2位小数
+                    function formatNumberToTwoDecimals(value) {
+                        if (!value || typeof value !== 'string') return value;
+                        
+                        // 移除千位分隔符（逗号）
+                        let cleaned = value.replace(/,/g, '');
+                        
+                        // 尝试解析为数字
+                        const num = parseFloat(cleaned);
+                        if (!isNaN(num)) {
+                            // 格式化为2位小数，保留负号
+                            return num.toFixed(2);
+                        }
+                        
+                        // 如果不是数字，返回原值
+                        return value;
+                    }
+                    
+                    // 快速检测：检查是否包含 C8PLAY 格式的特征（CKZ开头的标识符）
+                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const allLines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    const hasC8PlayIdentifier = allLines.some(line => /^[A-Z0-9]{2,10}$/.test(line) && 
+                                                                   !line.includes(' ') && 
+                                                                   !line.includes(',') &&
+                                                                   !line.includes('.') &&
+                                                                   !line.includes('-') &&
+                                                                   !/^\d/.test(line));
+                    
+                    if (hasC8PlayIdentifier) {
+                        // 尝试 HTML 解析
+                        let htmlData = null;
+                        try {
+                            htmlData = e.clipboardData.getData('text/html');
+                            if (htmlData && htmlData.includes('<table')) {
+                                // HTML 解析逻辑（与下面 2.7 C8PLAY 相同）
+                                try {
+                                    const tempDiv = document.createElement('div');
+                                    tempDiv.innerHTML = htmlData;
+                                    
+                                    const table = tempDiv.querySelector('table');
+                                    if (table) {
+                                        let dataMatrix = [];
+                                        const thead = table.querySelector('thead');
+                                        if (thead) {
+                                            const headerRows = thead.querySelectorAll('tr');
+                                            headerRows.forEach(tr => {
+                                                const row = [];
+                                                const cells = tr.querySelectorAll('th, td');
+                                                cells.forEach(cell => {
+                                                    const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                                    let text = cell.textContent || cell.innerText || '';
+                                                    text = text.replace(/\s+/g, ' ').trim();
+                                                    row.push(text);
+                                                    for (let i = 1; i < colspan; i++) {
+                                                        row.push('');
+                                                    }
+                                                });
+                                                if (row.length > 0) {
+                                                    dataMatrix.push(row);
+                                                }
+                                            });
+                                        }
+                                        
+                                        let bodyContainer = table.querySelector('tbody');
+                                        if (!bodyContainer) {
+                                            bodyContainer = table;
+                                        }
+                                        
+                                        const bodyRows = bodyContainer.querySelectorAll('tr');
+                                        bodyRows.forEach((tr) => {
+                                            if (thead && tr.closest('thead')) {
+                                                return;
+                                            }
+                                            
+                                            const row = [];
+                                            const cells = tr.querySelectorAll('td, th');
+                                            cells.forEach(cell => {
+                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                                let text = cell.textContent || cell.innerText || '';
+                                                text = text.replace(/\s+/g, ' ').trim();
+                                                text = formatNumberToTwoDecimals(text);
+                                                row.push(text);
+                                                for (let i = 1; i < colspan; i++) {
+                                                    row.push('');
+                                                }
+                                            });
+                                            if (row.length > 0) {
+                                                dataMatrix.push(row);
+                                            }
+                                        });
+                                        
+                                        if (dataMatrix.length > 0) {
+                                            let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                            dataMatrix.forEach(row => {
+                                                while (row.length < maxCols) {
+                                                    row.push('');
+                                                }
+                                            });
+                                            
+                                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                            const startCol = 0;
+                                            
+                                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                            const requiredRows = startRow + dataMatrix.length;
+                                            const requiredCols = startCol + maxCols;
+                                            
+                                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                                const targetCols = Math.max(currentCols, requiredCols);
+                                                initializeTable(targetRows, targetCols);
+                                            }
+                                            
+                                            const tableBody = document.getElementById('tableBody');
+                                            const currentPasteChanges = [];
+                                            let successCount = 0;
+                                            
+                                            dataMatrix.forEach((rowData, rowIndex) => {
+                                                const actualRowIndex = startRow + rowIndex;
+                                                const tableRow = tableBody.children[actualRowIndex];
+                                                if (!tableRow) return;
+                                                
+                                                rowData.forEach((cellData, colIndex) => {
+                                                    const actualColIndex = startCol + colIndex;
+                                                    const cell = tableRow.children[actualColIndex + 1];
+                                                    
+                                                    if (cell && cell.contentEditable === 'true') {
+                                                        const cellValue = cellData || '';
+                                                        currentPasteChanges.push({
+                                                            row: actualRowIndex,
+                                                            col: actualColIndex,
+                                                            oldValue: cell.textContent,
+                                                            newValue: cellValue
+                                                        });
+                                                        
+                                                        cell.textContent = cellValue;
+                                                        if (cellValue) {
+                                                            successCount++;
+                                                        }
+                                                    }
+                                                });
+                                            });
+                                            
+                                            if (currentPasteChanges.length > 0) {
+                                                pasteHistory.push(currentPasteChanges);
+                                                if (pasteHistory.length > maxHistorySize) {
+                                                    pasteHistory.shift();
+                                                }
+                                            }
+                                            
+                                            if (successCount > 0) {
+                                                formatDetected = true;
+                                                console.log('2.SPECIAL: C8PLAY HTML paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                                showNotification(`2.SPECIAL: 检测到C8PLAY格式 (2.3)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
+                                                setTimeout(updateSubmitButtonState, 0);
+                                                return;
+                                            }
+                                        }
+                                    }
+                                } catch (htmlErr) {
+                                    console.error('2.SPECIAL: C8PLAY HTML parser error:', htmlErr);
+                                }
+                            }
+                        } catch (err) {
+                            console.log('2.SPECIAL: C8PLAY Could not get HTML data from clipboard:', err);
+                        }
+                        
+                        // 如果 HTML 解析失败，尝试文本解析
+                        if (!formatDetected) {
+                            console.log('2.SPECIAL: C8PLAY HTML parsing failed, trying text format...');
+                            // 使用与 2.7 C8PLAY 相同的文本解析逻辑（见下面的代码）
+                            // 这里先标记为已检测到 C8PLAY 格式，让后面的 2.7 C8PLAY 处理文本解析
+                            // 但为了避免重复，我们需要在这里也处理文本解析
+                            // 实际上，由于 hasC8PlayIdentifier 已经检测到了，我们应该继续处理文本解析
+                        }
+                    }
+                }
+                
+                // ===== 2.4 ALIPAY 格式检测和处理 =====
                 // 2.1 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
+                    console.log('2.SPECIAL: Trying 2.4 ALIPAY format...');
                     console.log('Pasted data length:', pastedData.length);
                     console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
                     
@@ -9281,9 +9465,27 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }).filter(c => c !== '');
                                 currentRow.push(...cells);
                             } else {
-                                // 单行数字
-                                const formatted = formatNumberToTwoDecimals(trimmedLine);
-                                currentRow.push(formatted);
+                                // 检查是否是 "数字 Agent" 格式（如 "87 Agent"）
+                                // 匹配模式：一个数字（可能带逗号），后跟空格，后跟 "Agent"（不区分大小写）
+                                const agentPattern = /^(\d+(?:,\d+)*(?:\.\d+)?)\s+(Agent|AGENT|agent)$/i;
+                                const agentMatch = trimmedLine.match(agentPattern);
+                                
+                                if (agentMatch) {
+                                    // 拆分：号码格式化为2位小数，Agent 转为大写
+                                    const numberPart = agentMatch[1].replace(/,/g, ''); // 移除千位分隔符
+                                    const num = parseFloat(numberPart);
+                                    if (!isNaN(num)) {
+                                        currentRow.push(num.toFixed(2)); // Column 2: 号码格式化为2位小数
+                                        currentRow.push('AGENT'); // Column 3: Agent 转为大写
+                                    } else {
+                                        // 如果解析失败，保持原样
+                                        currentRow.push(trimmedLine);
+                                    }
+                                } else {
+                                    // 单行数字或其他数据
+                                    const formatted = formatNumberToTwoDecimals(trimmedLine);
+                                    currentRow.push(formatted);
+                                }
                             }
                         }
                     }
@@ -11883,9 +12085,27 @@ if ($current_user_id && count($user_companies) > 0) {
                             }).filter(c => c !== '');
                             currentRow.push(...cells);
                         } else {
-                            // 单行数字
-                            const formatted = formatNumberToTwoDecimals(trimmedLine);
-                            currentRow.push(formatted);
+                            // 检查是否是 "数字 Agent" 格式（如 "87 Agent"）
+                            // 匹配模式：一个数字（可能带逗号），后跟空格，后跟 "Agent"（不区分大小写）
+                            const agentPattern = /^(\d+(?:,\d+)*(?:\.\d+)?)\s+(Agent|AGENT|agent)$/i;
+                            const agentMatch = trimmedLine.match(agentPattern);
+                            
+                            if (agentMatch) {
+                                // 拆分：号码格式化为2位小数，Agent 转为大写
+                                const numberPart = agentMatch[1].replace(/,/g, ''); // 移除千位分隔符
+                                const num = parseFloat(numberPart);
+                                if (!isNaN(num)) {
+                                    currentRow.push(num.toFixed(2)); // Column 2: 号码格式化为2位小数
+                                    currentRow.push('AGENT'); // Column 3: Agent 转为大写
+                                } else {
+                                    // 如果解析失败，保持原样
+                                    currentRow.push(trimmedLine);
+                                }
+                            } else {
+                                // 单行数字或其他数据
+                                const formatted = formatNumberToTwoDecimals(trimmedLine);
+                                currentRow.push(formatted);
+                            }
                         }
                     }
                 }
