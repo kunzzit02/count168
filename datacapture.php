@@ -233,6 +233,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <option value="ALIPAY">ALIPAY</option>
                             <option value="PEGASUS">PEGASUS</option>
                             <option value="C8PLAY">C8PLAY</option>
+                            <option value="MAXBET">MAXBET</option>
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
