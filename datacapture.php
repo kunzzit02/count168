@@ -8500,7 +8500,161 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 // 2.3 MAXBET 代码结束
                 
-                // ===== 2.4 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
+                // ===== 2.4 S88 格式检测和处理（优先于 ALIPAY） =====
+                // 2.4 S88: 多行数据格式，每行数据包含标识符、Agent和多个数值
+                if (!formatDetected) {
+                    console.log('2.SPECIAL: Trying 2.4 S88 format...');
+                    console.log('2.SPECIAL: S88 raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                    
+                    // S88 格式特征检测：数据包含标识符、Agent和多个数值，每个数值占一行
+                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const allLines = normalizedData.split('\n');
+                    
+                    // 检测是否符合 S88 格式：包含 "Agent" 关键字，且数据格式为标识符+Agent+多行数值
+                    // 更严格的检测：必须有多行，且每行以标识符+Agent开头，后面跟着数值行
+                    const hasAgentKeyword = /Agent/i.test(pastedData);
+                    const linesWithAgent = allLines.filter(line => /Agent/i.test(line.trim()));
+                    const hasMultipleAgentLines = linesWithAgent.length >= 2; // 至少2个标识符+Agent行
+                    const hasIdentifierPattern = /[A-Z0-9]{6,12}[\s\t]+Agent/i.test(pastedData);
+                    
+                    if (hasAgentKeyword && hasIdentifierPattern && hasMultipleAgentLines) {
+                        console.log('2.SPECIAL: S88 format pattern detected');
+                        
+                        const dataMatrix = [];
+                        let currentRow = null;
+                        let maxCols = 0;
+                        
+                        for (let i = 0; i < allLines.length; i++) {
+                            const line = allLines[i];
+                            const trimmedLine = line.trim();
+                            if (!trimmedLine) continue; // 跳过空行
+                            
+                            // 检测是否是标识符行（格式：标识符 + 制表符/空格 + Agent）
+                            // 匹配模式：6-12个字母数字，后面跟着空格或制表符，然后是 Agent
+                            const identifierMatch = trimmedLine.match(/^([A-Z0-9]{6,12})[\s\t]+Agent/i);
+                            
+                            if (identifierMatch) {
+                                // 如果之前有未完成的行，先保存它
+                                if (currentRow !== null && currentRow.length > 0) {
+                                    dataMatrix.push(currentRow);
+                                    maxCols = Math.max(maxCols, currentRow.length);
+                                }
+                                
+                                // 开始新行：标识符 + Agent
+                                const identifier = identifierMatch[1];
+                                currentRow = [identifier, 'Agent'];
+                            } else {
+                                // 这是数值行，添加到当前行
+                                if (currentRow === null) {
+                                    // 如果没有标识符行，从第一行开始
+                                    currentRow = [];
+                                }
+                                
+                                // 检查是否是数值（可能是负数、带逗号的数字等）
+                                const trimmedValue = trimmedLine;
+                                if (trimmedValue !== '') {
+                                    // 移除千位分隔符（逗号）用于检测，但保留原值
+                                    const cleanedValue = trimmedValue.replace(/,/g, '');
+                                    const isNumber = /^-?\d+\.?\d*$/.test(cleanedValue);
+                                    
+                                    if (isNumber || trimmedValue === '0.00' || trimmedValue === '0') {
+                                        // 是数值，添加到当前行
+                                        currentRow.push(trimmedValue);
+                                    } else {
+                                        // 不是数值，可能是其他数据，也添加
+                                        currentRow.push(trimmedValue);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 保存最后一行
+                        if (currentRow !== null && currentRow.length > 0) {
+                            dataMatrix.push(currentRow);
+                            maxCols = Math.max(maxCols, currentRow.length);
+                        }
+                        
+                        // 确保所有行的列数相同
+                        if (maxCols > 0) {
+                            dataMatrix.forEach(row => {
+                                while (row.length < maxCols) {
+                                    row.push('');
+                                }
+                            });
+                        }
+                        
+                        if (dataMatrix.length > 0 && maxCols > 0) {
+                            console.log('2.SPECIAL: S88 parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                            
+                            // 填充到表格，从用户点击的单元格开始
+                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                            const startCol = parseInt(startCell.dataset.col);
+                            
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                            const requiredRows = startRow + dataMatrix.length;
+                            const requiredCols = startCol + maxCols;
+                            
+                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                const targetCols = Math.max(currentCols, requiredCols);
+                                initializeTable(targetRows, targetCols);
+                            }
+                            
+                            const tableBody = document.getElementById('tableBody');
+                            const currentPasteChanges = [];
+                            let successCount = 0;
+                            
+                            dataMatrix.forEach((rowData, rowIndex) => {
+                                const actualRowIndex = startRow + rowIndex;
+                                const tableRow = tableBody.children[actualRowIndex];
+                                if (!tableRow) return;
+                                
+                                rowData.forEach((cellData, colIndex) => {
+                                    const actualColIndex = startCol + colIndex;
+                                    const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                                    
+                                    if (cell && cell.contentEditable === 'true') {
+                                        const cellValue = (cellData || '').trim();
+                                        currentPasteChanges.push({
+                                            row: actualRowIndex,
+                                            col: actualColIndex,
+                                            oldValue: cell.textContent,
+                                            newValue: cellValue
+                                        });
+                                        
+                                        cell.textContent = cellValue;
+                                        if (cellValue) {
+                                            successCount++;
+                                        }
+                                    }
+                                });
+                            });
+                            
+                            if (currentPasteChanges.length > 0) {
+                                pasteHistory.push(currentPasteChanges);
+                                if (pasteHistory.length > maxHistorySize) {
+                                    pasteHistory.shift();
+                                }
+                            }
+                            
+                            if (successCount > 0) {
+                                formatDetected = true;
+                                console.log('2.SPECIAL: S88 paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                showNotification(`2.SPECIAL: 检测到S88格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)!`, 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            }
+                        } else {
+                            console.log('2.SPECIAL: S88 parsing failed, no data extracted');
+                        }
+                    } else {
+                        console.log('2.SPECIAL: S88 format check failed, skipping...');
+                    }
+                }
+                // 2.4 S88 代码结束
+                
+                // ===== 2.5 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
                 // 2.1 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
@@ -9349,157 +9503,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 // 2.6 PEGASUS 代码结束
-                
-                // ===== 2.8 S88 格式检测和处理 =====
-                // 2.8 S88: 多行数据格式，每行数据包含标识符、Agent和多个数值
-                if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.8 S88 format...');
-                    console.log('2.SPECIAL: S88 raw data sample (first 500 chars):', pastedData.substring(0, 500));
-                    
-                    // S88 格式特征检测：数据包含标识符、Agent和多个数值，每个数值占一行
-                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const allLines = normalizedData.split('\n');
-                    
-                    // 检测是否符合 S88 格式：包含 "Agent" 关键字，且数据格式为标识符+Agent+多行数值
-                    const hasAgentKeyword = /Agent/i.test(pastedData);
-                    const hasIdentifierPattern = /[A-Z0-9]{6,12}[\s\t]+Agent/i.test(pastedData);
-                    
-                    if (hasAgentKeyword && hasIdentifierPattern) {
-                        console.log('2.SPECIAL: S88 format pattern detected');
-                        
-                        const dataMatrix = [];
-                        let currentRow = null;
-                        let maxCols = 0;
-                        
-                        for (let i = 0; i < allLines.length; i++) {
-                            const line = allLines[i];
-                            const trimmedLine = line.trim();
-                            if (!trimmedLine) continue; // 跳过空行
-                            
-                            // 检测是否是标识符行（格式：标识符 + 制表符/空格 + Agent）
-                            // 匹配模式：6-12个字母数字，后面跟着空格或制表符，然后是 Agent
-                            const identifierMatch = trimmedLine.match(/^([A-Z0-9]{6,12})[\s\t]+Agent/i);
-                            
-                            if (identifierMatch) {
-                                // 如果之前有未完成的行，先保存它
-                                if (currentRow !== null && currentRow.length > 0) {
-                                    dataMatrix.push(currentRow);
-                                    maxCols = Math.max(maxCols, currentRow.length);
-                                }
-                                
-                                // 开始新行：标识符 + Agent
-                                const identifier = identifierMatch[1];
-                                currentRow = [identifier, 'Agent'];
-                            } else {
-                                // 这是数值行，添加到当前行
-                                if (currentRow === null) {
-                                    // 如果没有标识符行，从第一行开始
-                                    currentRow = [];
-                                }
-                                
-                                // 检查是否是数值（可能是负数、带逗号的数字等）
-                                const trimmedValue = trimmedLine;
-                                if (trimmedValue !== '') {
-                                    // 移除千位分隔符（逗号）用于检测，但保留原值
-                                    const cleanedValue = trimmedValue.replace(/,/g, '');
-                                    const isNumber = /^-?\d+\.?\d*$/.test(cleanedValue);
-                                    
-                                    if (isNumber || trimmedValue === '0.00' || trimmedValue === '0') {
-                                        // 是数值，添加到当前行
-                                        currentRow.push(trimmedValue);
-                                    } else {
-                                        // 不是数值，可能是其他数据，也添加
-                                        currentRow.push(trimmedValue);
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // 保存最后一行
-                        if (currentRow !== null && currentRow.length > 0) {
-                            dataMatrix.push(currentRow);
-                            maxCols = Math.max(maxCols, currentRow.length);
-                        }
-                        
-                        // 确保所有行的列数相同
-                        if (maxCols > 0) {
-                            dataMatrix.forEach(row => {
-                                while (row.length < maxCols) {
-                                    row.push('');
-                                }
-                            });
-                        }
-                        
-                        if (dataMatrix.length > 0 && maxCols > 0) {
-                            console.log('2.SPECIAL: S88 parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
-                            
-                            // 填充到表格，从用户点击的单元格开始
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
-                            
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + dataMatrix.length;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            dataMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
-                                
-                                rowData.forEach((cellData, colIndex) => {
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
-                                    
-                                    if (cell && cell.contentEditable === 'true') {
-                                        const cellValue = (cellData || '').trim();
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellValue
-                                        });
-                                        
-                                        cell.textContent = cellValue;
-                                        if (cellValue) {
-                                            successCount++;
-                                        }
-                                    }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
-                                }
-                            }
-                            
-                            if (successCount > 0) {
-                                formatDetected = true;
-                                console.log('2.SPECIAL: S88 paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                showNotification(`2.SPECIAL: 检测到S88格式 (2.8)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            }
-                        } else {
-                            console.log('2.SPECIAL: S88 parsing failed, no data extracted');
-                        }
-                    } else {
-                        console.log('2.SPECIAL: S88 format check failed, skipping...');
-                    }
-                }
-                // 2.8 S88 代码结束
                 
                 if (!formatDetected) {
                     console.log('2.SPECIAL: No format detected, continuing with default logic');
