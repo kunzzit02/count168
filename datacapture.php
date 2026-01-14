@@ -11334,207 +11334,161 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 如果HTML解析都失败，尝试纯文本格式（制表符分隔）
+                // 如果HTML解析都失败，尝试纯文本格式（C8PLAY特殊格式：数据块合并为行）
                 console.log('C8PLAY: HTML parsing failed, trying text format...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
+                const allLines = normalizedData.split('\n');
                 
-                console.log('C8PLAY: Text format - Total lines:', lines.length);
-                console.log('C8PLAY: First few lines:', lines.slice(0, 5));
+                console.log('C8PLAY: Text format - Total lines:', allLines.length);
                 
-                if (lines.length > 0) {
-                    // 检查是否是多行制表符分隔的数据（标准Excel格式）
-                    const hasTabSeparator = lines.some(line => line.includes('\t'));
-                    console.log('C8PLAY: Has tab separator:', hasTabSeparator);
+                // C8PLAY特殊格式解析：将数据块合并为行
+                // 格式：标识符行（如CKZ03）-> 数字+Agent行 -> 多个数字行 -> 空行或下一个标识符
+                const dataMatrix = [];
+                let currentRow = null;
+                let maxCols = 0;
+                
+                for (let i = 0; i < allLines.length; i++) {
+                    const line = allLines[i];
+                    const trimmedLine = line.trim();
                     
-                    if (hasTabSeparator) {
-                        const dataMatrix = [];
-                        let maxCols = 0;
-                        
-                        lines.forEach((line, lineIndex) => {
-                            if (line.includes('\t')) {
-                                // 制表符分隔，保持行格式
-                                const cells = line.split('\t').map(c => {
-                                    const trimmed = c.trim();
-                                    // 格式化数值为2位小数
-                                    return formatNumberToTwoDecimals(trimmed);
-                                });
-                                console.log(`C8PLAY: Line ${lineIndex}: ${cells.length} cells -`, cells.slice(0, 5));
-                                dataMatrix.push(cells);
-                                maxCols = Math.max(maxCols, cells.length);
-                            } else if (line.trim() !== '') {
-                                // 单行数据，也格式化数值
-                                const formatted = formatNumberToTwoDecimals(line.trim());
-                                dataMatrix.push([formatted]);
-                                maxCols = Math.max(maxCols, 1);
-                            }
-                        });
-                        
-                        console.log('C8PLAY: Parsed dataMatrix:', dataMatrix.length, 'rows x', maxCols, 'cols');
-                        
-                        // 确保所有行都有相同的列数
-                        dataMatrix.forEach(row => {
-                            while (row.length < maxCols) {
-                                row.push('');
-                            }
-                        });
-                        
-                        // 填充到表格，保持行格式
-                        // C8PLAY 格式：强制从第一列（Column 1）开始粘贴，每行数据都从第一列开始
-                        if (dataMatrix.length > 0 && maxCols > 0) {
-                            const startCell = e.target;
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = 0; // C8PLAY: 强制从第一列开始
-                            
-                            console.log('C8PLAY: Starting paste at row', startRow, 'col', startCol);
-                            
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + dataMatrix.length;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            dataMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
-                                
-                                rowData.forEach((cellData, colIndex) => {
-                                    // 每行数据都从第一列（Column 1）开始
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
-                                    
-                                    if (cell && cell.contentEditable === 'true') {
-                                        const cellValue = cellData || '';
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellValue
-                                        });
-                                        
-                                        cell.textContent = cellValue;
-                                        if (cellValue) {
-                                            successCount++;
-                                        }
-                                    }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
-                                }
-                            }
-                            
-                            if (successCount > 0) {
-                                console.log('C8PLAY: Successfully pasted', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                showNotification(`C8PLAY: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            }
+                    // 跳过空行
+                    if (trimmedLine === '') {
+                        // 如果当前有未完成的行，保存它
+                        if (currentRow !== null && currentRow.length > 0) {
+                            dataMatrix.push(currentRow);
+                            maxCols = Math.max(maxCols, currentRow.length);
+                            currentRow = null;
+                        }
+                        continue;
+                    }
+                    
+                    // 检查是否是标识符行（如CKZ03, CKZ16）- 通常是大写字母+数字，长度2-10
+                    const isIdentifier = /^[A-Z0-9]{2,10}$/.test(trimmedLine) && 
+                                        !trimmedLine.includes(' ') && 
+                                        !trimmedLine.includes(',') &&
+                                        !trimmedLine.includes('.') &&
+                                        !trimmedLine.includes('-') &&
+                                        !/^\d/.test(trimmedLine);
+                    
+                    if (isIdentifier) {
+                        // 如果之前有未完成的行，先保存它
+                        if (currentRow !== null && currentRow.length > 0) {
+                            dataMatrix.push(currentRow);
+                            maxCols = Math.max(maxCols, currentRow.length);
+                        }
+                        // 开始新行，标识符作为第一列
+                        currentRow = [trimmedLine];
+                    } else if (currentRow === null) {
+                        // 如果没有标识符，从第一行开始（可能是总计行）
+                        currentRow = [];
+                        // 检查这一行是否包含制表符
+                        if (line.includes('\t')) {
+                            const cells = line.split('\t').map(c => {
+                                const trimmed = c.trim();
+                                return formatNumberToTwoDecimals(trimmed);
+                            }).filter(c => c !== '');
+                            currentRow.push(...cells);
+                        } else {
+                            // 单行数据
+                            const formatted = formatNumberToTwoDecimals(trimmedLine);
+                            currentRow.push(formatted);
                         }
                     } else {
-                        // 没有制表符，尝试空格分隔（但保持行结构）
-                        console.log('C8PLAY: No tab separator, trying space-separated format...');
-                        const dataMatrix = [];
-                        let maxCols = 0;
+                        // 这是数据行，需要添加到当前行
+                        if (line.includes('\t')) {
+                            // 制表符分隔（如 "87	Agent	"）
+                            const cells = line.split('\t').map(c => {
+                                const trimmed = c.trim();
+                                return formatNumberToTwoDecimals(trimmed);
+                            }).filter(c => c !== '');
+                            currentRow.push(...cells);
+                        } else {
+                            // 单行数字
+                            const formatted = formatNumberToTwoDecimals(trimmedLine);
+                            currentRow.push(formatted);
+                        }
+                    }
+                }
+                
+                // 保存最后一行
+                if (currentRow !== null && currentRow.length > 0) {
+                    dataMatrix.push(currentRow);
+                    maxCols = Math.max(maxCols, currentRow.length);
+                }
+                
+                console.log('C8PLAY: Parsed dataMatrix:', dataMatrix.length, 'rows x', maxCols, 'cols');
+                console.log('C8PLAY: First row sample:', dataMatrix[0] ? dataMatrix[0].slice(0, 10) : 'empty');
+                
+                // 确保所有行都有相同的列数
+                dataMatrix.forEach(row => {
+                    while (row.length < maxCols) {
+                        row.push('');
+                    }
+                });
+                
+                // 填充到表格，保持行格式
+                // C8PLAY 格式：强制从第一列（Column 1）开始粘贴，每行数据都从第一列开始
+                if (dataMatrix.length > 0 && maxCols > 0) {
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = 0; // C8PLAY: 强制从第一列开始
+                    
+                    console.log('C8PLAY: Starting paste at row', startRow, 'col', startCol);
+                    
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredRows = startRow + dataMatrix.length;
+                    const requiredCols = startCol + maxCols;
+                    
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
+                    }
+                    
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    
+                    dataMatrix.forEach((rowData, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
                         
-                        lines.forEach((line, lineIndex) => {
-                            if (line.trim() !== '') {
-                                // 尝试按多个空格或制表符分割
-                                const cells = line.split(/\s{2,}|\t/).map(c => {
-                                    const trimmed = c.trim();
-                                    return formatNumberToTwoDecimals(trimmed);
-                                }).filter(c => c !== ''); // 过滤空单元格
+                        rowData.forEach((cellData, colIndex) => {
+                            // 每行数据都从第一列（Column 1）开始
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const cellValue = cellData || '';
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: cellValue
+                                });
                                 
-                                if (cells.length > 0) {
-                                    console.log(`C8PLAY: Line ${lineIndex}: ${cells.length} cells -`, cells.slice(0, 5));
-                                    dataMatrix.push(cells);
-                                    maxCols = Math.max(maxCols, cells.length);
+                                cell.textContent = cellValue;
+                                if (cellValue) {
+                                    successCount++;
                                 }
                             }
                         });
-                        
-                        if (dataMatrix.length > 0 && maxCols > 0) {
-                            console.log('C8PLAY: Space-separated parsing -', dataMatrix.length, 'rows x', maxCols, 'cols');
-                            
-                            // 确保所有行都有相同的列数
-                            dataMatrix.forEach(row => {
-                                while (row.length < maxCols) {
-                                    row.push('');
-                                }
-                            });
-                            
-                            const startCell = e.target;
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = 0; // C8PLAY: 强制从第一列开始
-                            
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + dataMatrix.length;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            dataMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
-                                
-                                rowData.forEach((cellData, colIndex) => {
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1];
-                                    
-                                    if (cell && cell.contentEditable === 'true') {
-                                        const cellValue = cellData || '';
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellValue
-                                        });
-                                        
-                                        cell.textContent = cellValue;
-                                        if (cellValue) {
-                                            successCount++;
-                                        }
-                                    }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
-                                }
-                            }
-                            
-                            if (successCount > 0) {
-                                console.log('C8PLAY: Successfully pasted', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                showNotification(`C8PLAY: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            }
+                    });
+                    
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) {
+                            pasteHistory.shift();
                         }
+                    }
+                    
+                    if (successCount > 0) {
+                        console.log('C8PLAY: Successfully pasted', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                        showNotification(`C8PLAY: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
                     }
                 }
                 
