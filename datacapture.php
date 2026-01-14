@@ -8443,7 +8443,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: No format detected, continuing with default logic');
+                    console.log('2.SPECIAL: No format detected, showing error and stopping default logic');
+                    // 2.SPECIAL 模式下如果无法识别为任意一种特殊格式，则给出明确错误提示，而不是继续走通用粘贴逻辑
+                    e.preventDefault();
+                    showNotification(
+                        '2.SPECIAL: 未能识别粘贴格式，请确认数据为 CITIBET / VPOWER / PS3838 / WBET / ALIPAY / PEGASUS 报表格式，然后重试。',
+                        'error'
+                    );
+                    return;
                 }
             }
             // ===== 2.SPECIAL 处理结束 =====
