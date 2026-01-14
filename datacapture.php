@@ -11055,6 +11055,7 @@ if ($current_user_id && count($user_companies) > 0) {
             // ===== C8PLAY 专用解析：保持行格式，数值格式化为2位小数 =====
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'C8PLAY') {
                 console.log('C8PLAY mode detected, preserving row format with 2 decimal places...');
+                console.log('C8PLAY: Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
                 
                 // 辅助函数：格式化数值为2位小数
                 function formatNumberToTwoDecimals(value) {
@@ -11078,6 +11079,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 let htmlData = null;
                 try {
                     htmlData = e.clipboardData.getData('text/html');
+                    console.log('C8PLAY: HTML data available:', htmlData ? 'Yes (length: ' + htmlData.length + ')' : 'No');
                     if (htmlData && htmlData.includes('<table')) {
                         console.log('C8PLAY: HTML table format detected');
                         
@@ -11157,9 +11159,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                     console.log('C8PLAY: HTML parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
                                     
                                     // 填充到表格
+                                    // C8PLAY 格式：强制从第一列（Column 1）开始粘贴
                                     const startCell = e.target;
                                     const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                                    const startCol = parseInt(startCell.dataset.col);
+                                    const startCol = 0; // C8PLAY: 强制从第一列开始
                                     
                                     const currentRows = document.querySelectorAll('#tableBody tr').length;
                                     const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
@@ -11182,8 +11185,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                         if (!tableRow) return;
                                         
                                         rowData.forEach((cellData, colIndex) => {
+                                            // 每行数据都从第一列（Column 1）开始
                                             const actualColIndex = startCol + colIndex;
-                                            const cell = tableRow.children[actualColIndex + 1];
+                                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
                                             
                                             if (cell && cell.contentEditable === 'true') {
                                                 const cellValue = cellData || '';
@@ -11210,6 +11214,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                     
                                     if (successCount > 0) {
+                                        console.log('C8PLAY: HTML paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
                                         showNotification(`C8PLAY: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
                                         setTimeout(updateSubmitButtonState, 0);
                                         return;
@@ -11262,9 +11267,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                 });
                                 
+                                // C8PLAY 格式：强制从第一列（Column 1）开始粘贴
                                 const startCell = e.target;
                                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                                const startCol = parseInt(startCell.dataset.col);
+                                const startCol = 0; // C8PLAY: 强制从第一列开始
                                 
                                 const currentRows = document.querySelectorAll('#tableBody tr').length;
                                 const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
@@ -11287,8 +11293,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                     if (!tableRow) return;
                                     
                                     rowData.forEach((cellData, colIndex) => {
+                                        // 每行数据都从第一列（Column 1）开始
                                         const actualColIndex = startCol + colIndex;
-                                        const cell = tableRow.children[actualColIndex + 1];
+                                        const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
                                         
                                         if (cell && cell.contentEditable === 'true') {
                                             const cellValue = cellData || '';
@@ -11315,6 +11322,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                                 
                                 if (successCount > 0) {
+                                    console.log('C8PLAY: detectAndParseHTML paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
                                     showNotification(`C8PLAY: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
                                     setTimeout(updateSubmitButtonState, 0);
                                     return;
@@ -11331,15 +11339,19 @@ if ($current_user_id && count($user_companies) > 0) {
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
                 
+                console.log('C8PLAY: Text format - Total lines:', lines.length);
+                console.log('C8PLAY: First few lines:', lines.slice(0, 5));
+                
                 if (lines.length > 0) {
                     // 检查是否是多行制表符分隔的数据（标准Excel格式）
                     const hasTabSeparator = lines.some(line => line.includes('\t'));
+                    console.log('C8PLAY: Has tab separator:', hasTabSeparator);
                     
                     if (hasTabSeparator) {
                         const dataMatrix = [];
                         let maxCols = 0;
                         
-                        lines.forEach(line => {
+                        lines.forEach((line, lineIndex) => {
                             if (line.includes('\t')) {
                                 // 制表符分隔，保持行格式
                                 const cells = line.split('\t').map(c => {
@@ -11347,15 +11359,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                     // 格式化数值为2位小数
                                     return formatNumberToTwoDecimals(trimmed);
                                 });
+                                console.log(`C8PLAY: Line ${lineIndex}: ${cells.length} cells -`, cells.slice(0, 5));
                                 dataMatrix.push(cells);
                                 maxCols = Math.max(maxCols, cells.length);
-                            } else if (line !== '') {
+                            } else if (line.trim() !== '') {
                                 // 单行数据，也格式化数值
                                 const formatted = formatNumberToTwoDecimals(line.trim());
                                 dataMatrix.push([formatted]);
                                 maxCols = Math.max(maxCols, 1);
                             }
                         });
+                        
+                        console.log('C8PLAY: Parsed dataMatrix:', dataMatrix.length, 'rows x', maxCols, 'cols');
                         
                         // 确保所有行都有相同的列数
                         dataMatrix.forEach(row => {
@@ -11365,10 +11380,105 @@ if ($current_user_id && count($user_companies) > 0) {
                         });
                         
                         // 填充到表格，保持行格式
+                        // C8PLAY 格式：强制从第一列（Column 1）开始粘贴，每行数据都从第一列开始
                         if (dataMatrix.length > 0 && maxCols > 0) {
                             const startCell = e.target;
                             const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
+                            const startCol = 0; // C8PLAY: 强制从第一列开始
+                            
+                            console.log('C8PLAY: Starting paste at row', startRow, 'col', startCol);
+                            
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                            const requiredRows = startRow + dataMatrix.length;
+                            const requiredCols = startCol + maxCols;
+                            
+                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                const targetCols = Math.max(currentCols, requiredCols);
+                                initializeTable(targetRows, targetCols);
+                            }
+                            
+                            const tableBody = document.getElementById('tableBody');
+                            const currentPasteChanges = [];
+                            let successCount = 0;
+                            
+                            dataMatrix.forEach((rowData, rowIndex) => {
+                                const actualRowIndex = startRow + rowIndex;
+                                const tableRow = tableBody.children[actualRowIndex];
+                                if (!tableRow) return;
+                                
+                                rowData.forEach((cellData, colIndex) => {
+                                    // 每行数据都从第一列（Column 1）开始
+                                    const actualColIndex = startCol + colIndex;
+                                    const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                                    
+                                    if (cell && cell.contentEditable === 'true') {
+                                        const cellValue = cellData || '';
+                                        currentPasteChanges.push({
+                                            row: actualRowIndex,
+                                            col: actualColIndex,
+                                            oldValue: cell.textContent,
+                                            newValue: cellValue
+                                        });
+                                        
+                                        cell.textContent = cellValue;
+                                        if (cellValue) {
+                                            successCount++;
+                                        }
+                                    }
+                                });
+                            });
+                            
+                            if (currentPasteChanges.length > 0) {
+                                pasteHistory.push(currentPasteChanges);
+                                if (pasteHistory.length > maxHistorySize) {
+                                    pasteHistory.shift();
+                                }
+                            }
+                            
+                            if (successCount > 0) {
+                                console.log('C8PLAY: Successfully pasted', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                showNotification(`C8PLAY: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            }
+                        }
+                    } else {
+                        // 没有制表符，尝试空格分隔（但保持行结构）
+                        console.log('C8PLAY: No tab separator, trying space-separated format...');
+                        const dataMatrix = [];
+                        let maxCols = 0;
+                        
+                        lines.forEach((line, lineIndex) => {
+                            if (line.trim() !== '') {
+                                // 尝试按多个空格或制表符分割
+                                const cells = line.split(/\s{2,}|\t/).map(c => {
+                                    const trimmed = c.trim();
+                                    return formatNumberToTwoDecimals(trimmed);
+                                }).filter(c => c !== ''); // 过滤空单元格
+                                
+                                if (cells.length > 0) {
+                                    console.log(`C8PLAY: Line ${lineIndex}: ${cells.length} cells -`, cells.slice(0, 5));
+                                    dataMatrix.push(cells);
+                                    maxCols = Math.max(maxCols, cells.length);
+                                }
+                            }
+                        });
+                        
+                        if (dataMatrix.length > 0 && maxCols > 0) {
+                            console.log('C8PLAY: Space-separated parsing -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                            
+                            // 确保所有行都有相同的列数
+                            dataMatrix.forEach(row => {
+                                while (row.length < maxCols) {
+                                    row.push('');
+                                }
+                            });
+                            
+                            const startCell = e.target;
+                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                            const startCol = 0; // C8PLAY: 强制从第一列开始
                             
                             const currentRows = document.querySelectorAll('#tableBody tr').length;
                             const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
@@ -11419,6 +11529,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                             
                             if (successCount > 0) {
+                                console.log('C8PLAY: Successfully pasted', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
                                 showNotification(`C8PLAY: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
                                 setTimeout(updateSubmitButtonState, 0);
                                 return;
