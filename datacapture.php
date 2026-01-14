@@ -14335,6 +14335,145 @@ if ($current_user_id && count($user_companies) > 0) {
             // }
         }
 
+        // 调整 id product 列：如果第一列为空，找到第一个有数据的列并交换
+        function adjustIdProductColumnForGeneral() {
+            // 只在 1.GENERAL 模式下执行
+            if (currentDataCaptureType !== '1.GENERAL') {
+                return;
+            }
+            
+            const tableBody = document.getElementById('tableBody');
+            if (!tableBody) return;
+            
+            const rows = Array.from(tableBody.children);
+            if (rows.length === 0) return;
+            
+            // 检查第一列（index 1，因为 index 0 是行号）是否为空
+            let firstColumnHasData = false;
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.children.length > 1) {
+                    const firstDataCell = row.children[1]; // 第一列数据（跳过行号列）
+                    if (firstDataCell && firstDataCell.contentEditable === 'true') {
+                        const cellValue = (firstDataCell.textContent || '').trim();
+                        if (cellValue !== '') {
+                            firstColumnHasData = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // 如果第一列有数据，不需要调整
+            if (firstColumnHasData) {
+                console.log('1.GENERAL: First column has data, no adjustment needed');
+                return;
+            }
+            
+            // 找到第一个有数据的列
+            let firstDataColumnIndex = -1;
+            const maxCols = Math.max(...Array.from(rows).map(row => row.children.length));
+            
+            // 从第二列开始查找（index 2，因为 index 0 是行号，index 1 是第一列数据）
+            for (let colIndex = 2; colIndex < maxCols; colIndex++) {
+                let columnHasData = false;
+                for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+                    const row = rows[rowIndex];
+                    if (row.children.length > colIndex) {
+                        const cell = row.children[colIndex];
+                        if (cell && cell.contentEditable === 'true' && cell.style.display !== 'none') {
+                            const cellValue = (cell.textContent || '').trim();
+                            if (cellValue !== '') {
+                                columnHasData = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                if (columnHasData) {
+                    firstDataColumnIndex = colIndex;
+                    break;
+                }
+            }
+            
+            // 如果找到了有数据的列，交换第一列和该列
+            if (firstDataColumnIndex > 1) {
+                console.log(`1.GENERAL: First column is empty, swapping with column ${firstDataColumnIndex}`);
+                
+                // 交换表头列（如果有）
+                const tableHeader = document.getElementById('tableHeader');
+                if (tableHeader) {
+                    const headerRow = tableHeader.querySelector('tr');
+                    if (headerRow && headerRow.children.length > firstDataColumnIndex) {
+                        const firstHeader = headerRow.children[1]; // 第一列表头（跳过空表头）
+                        const targetHeader = headerRow.children[firstDataColumnIndex];
+                        
+                        if (firstHeader && targetHeader) {
+                            // 交换表头内容
+                            const firstHeaderText = firstHeader.textContent;
+                            const targetHeaderText = targetHeader.textContent;
+                            
+                            firstHeader.textContent = targetHeaderText;
+                            targetHeader.textContent = firstHeaderText;
+                        }
+                    }
+                }
+                
+                // 交换所有行的第一列和找到的列
+                rows.forEach((row, rowIndex) => {
+                    if (row.children.length > firstDataColumnIndex) {
+                        const firstDataCell = row.children[1];
+                        const targetCell = row.children[firstDataColumnIndex];
+                        
+                        if (firstDataCell && targetCell && 
+                            firstDataCell.contentEditable === 'true' && 
+                            targetCell.contentEditable === 'true' &&
+                            targetCell.style.display !== 'none') {
+                            
+                            // 交换单元格内容
+                            const firstValue = firstDataCell.textContent;
+                            const targetValue = targetCell.textContent;
+                            
+                            firstDataCell.textContent = targetValue;
+                            targetCell.textContent = firstValue;
+                            
+                            // 交换 colspan 属性（如果有）
+                            const firstColspan = firstDataCell.getAttribute('colspan');
+                            const targetColspan = targetCell.getAttribute('colspan');
+                            
+                            if (firstColspan) {
+                                targetCell.setAttribute('colspan', firstColspan);
+                            } else {
+                                targetCell.removeAttribute('colspan');
+                            }
+                            
+                            if (targetColspan) {
+                                firstDataCell.setAttribute('colspan', targetColspan);
+                            } else {
+                                firstDataCell.removeAttribute('colspan');
+                            }
+                            
+                            // 交换 data-col 属性（如果有）
+                            const firstDataCol = firstDataCell.getAttribute('data-col');
+                            const targetDataCol = targetCell.getAttribute('data-col');
+                            
+                            if (firstDataCol !== null) {
+                                targetCell.setAttribute('data-col', firstDataCol);
+                            }
+                            if (targetDataCol !== null) {
+                                firstDataCell.setAttribute('data-col', targetDataCol);
+                            }
+                        }
+                    }
+                });
+                
+                console.log(`1.GENERAL: Successfully swapped first column with column ${firstDataColumnIndex}`);
+            } else {
+                console.log('1.GENERAL: First column is empty, but no data column found to swap');
+            }
+        }
+
         // Handle form submission
         async function submitDataCaptureForm() {
             // Validate form before proceeding
@@ -14344,6 +14483,9 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 在提交前转换表格格式
             convertTableFormatOnSubmit();
+            
+            // 1.GENERAL 模式：如果第一列为空，自动调整 id product 列
+            adjustIdProductColumnForGeneral();
             
             const form = document.getElementById('dataCaptureForm');
             const formData = new FormData(form);
