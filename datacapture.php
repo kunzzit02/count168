@@ -11343,9 +11343,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // C8PLAY特殊格式解析：将数据块合并为行
                 // 格式：标识符行（如CKZ03）-> 数字+Agent行 -> 多个数字行 -> 空行或下一个标识符
+                // 总计行（没有标识符的行）应该从第4列开始，前面留3个空列
                 const dataMatrix = [];
                 let currentRow = null;
                 let maxCols = 0;
+                let isTotalRow = false; // 标记是否是总计行
                 
                 for (let i = 0; i < allLines.length; i++) {
                     const line = allLines[i];
@@ -11358,6 +11360,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             dataMatrix.push(currentRow);
                             maxCols = Math.max(maxCols, currentRow.length);
                             currentRow = null;
+                            isTotalRow = false;
                         }
                         continue;
                     }
@@ -11378,9 +11381,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         // 开始新行，标识符作为第一列
                         currentRow = [trimmedLine];
+                        isTotalRow = false;
                     } else if (currentRow === null) {
                         // 如果没有标识符，从第一行开始（可能是总计行）
-                        currentRow = [];
+                        // 总计行应该从第4列开始，前面留3个空列
+                        isTotalRow = true;
+                        currentRow = ['', '', '']; // 前3列为空
                         // 检查这一行是否包含制表符
                         if (line.includes('\t')) {
                             const cells = line.split('\t').map(c => {
@@ -11412,9 +11418,34 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 保存最后一行
                 if (currentRow !== null && currentRow.length > 0) {
+                    // 检查最后一行是否是总计行：
+                    // 1. 如果 isTotalRow 标记为 true，说明是总计行
+                    // 2. 或者如果第一列不是标识符格式（不是以大写字母开头的短标识符）
+                    const firstCell = currentRow[0] || '';
+                    const isIdentifierFormat = /^[A-Z0-9]{2,10}$/.test(firstCell) && 
+                                              !firstCell.includes(' ') && 
+                                              !firstCell.includes(',') &&
+                                              !firstCell.includes('.') &&
+                                              !firstCell.includes('-') &&
+                                              !/^\d/.test(firstCell);
+                    const isLastRowTotal = isTotalRow || (!isIdentifierFormat && firstCell !== '');
+                    
+                    // 如果最后一行是总计行，确保前3列为空
+                    if (isLastRowTotal) {
+                        // 检查前3列是否为空，如果不是，重新构建
+                        const firstThreeEmpty = currentRow.slice(0, 3).every(c => c === '');
+                        if (!firstThreeEmpty) {
+                            // 如果前3列不是空的，说明需要添加3个空列
+                            currentRow = ['', '', '', ...currentRow];
+                        }
+                    }
                     dataMatrix.push(currentRow);
                     maxCols = Math.max(maxCols, currentRow.length);
                 }
+                
+                console.log('C8PLAY: DataMatrix rows:', dataMatrix.map((row, idx) => {
+                    return `Row ${idx}: [${row.slice(0, 5).join(', ')}...] (length: ${row.length})`;
+                }));
                 
                 console.log('C8PLAY: Parsed dataMatrix:', dataMatrix.length, 'rows x', maxCols, 'cols');
                 console.log('C8PLAY: First row sample:', dataMatrix[0] ? dataMatrix[0].slice(0, 10) : 'empty');
