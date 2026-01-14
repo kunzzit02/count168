@@ -226,18 +226,12 @@ if ($current_user_id && count($user_companies) > 0) {
                             <option value="GENERAL">GENERAL</option>
                             <!-- <option value="CITIBET">CITIBET</option> -->
                             <option value="CITIBET_MAJOR">CITIBET</option>
-                            <!--
-                                以下四个选项的专用粘贴格式已经整合进 2.SPECIAL 的自动识别逻辑中：
-                                VPOWER / WBET / ALIPAY / PEGASUS
-                                为了避免用户误选，这里将它们从下拉列表中隐藏。
-                                如果以后需要单独选择，可以取消注释对应的 <option>。
-                            -->
-                            <!-- <option value="VPOWER">VPOWER</option> -->
+                            <option value="VPOWER">VPOWER</option>
                             <option value="AGENT_LINK">PS3838</option>
                             <option value="API_RETURN">API-RETURN</option>
-                            <!-- <option value="WBET">WBET</option> -->
-                            <!-- <option value="ALIPAY">ALIPAY</option> -->
-                            <!-- <option value="PEGASUS">PEGASUS</option> -->
+                            <option value="WBET">WBET</option>
+                            <option value="ALIPAY">ALIPAY</option>
+                            <option value="PEGASUS">PEGASUS</option>
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
