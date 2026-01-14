@@ -7240,6 +7240,248 @@ if ($current_user_id && count($user_companies) > 0) {
             return null;
         }
 
+        // ===== 智能格式识别函数：根据数据特征自动判断格式类型 =====
+        // 返回值：格式名称字符串（如 'VPOWER', 'WBET', 'ALIPAY', 'PEGASUS', 'CITIBET', 'PS3838'）或 null
+        function detectFormatType(pastedData, e) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            
+            const dataLower = pastedData.toLowerCase();
+            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+            
+            // 尝试获取 HTML 数据
+            let htmlData = null;
+            try {
+                htmlData = e.clipboardData ? e.clipboardData.getData('text/html') : null;
+            } catch (err) {
+                // 忽略错误
+            }
+            
+            // 特征分数：每个格式的匹配分数
+            const scores = {
+                VPOWER: 0,
+                WBET: 0,
+                ALIPAY: 0,
+                PEGASUS: 0,
+                CITIBET: 0,
+                PS3838: 0
+            };
+            
+            // ===== VPOWER 特征检测 =====
+            // 特征1：表头包含 "user name" 和 "profit"
+            if (dataLower.includes('user name') && dataLower.includes('profit')) {
+                scores.VPOWER += 30;
+            }
+            if (dataLower.includes('username') && dataLower.includes('profit')) {
+                scores.VPOWER += 25;
+            }
+            // 特征2：包含 "#" 列标识
+            if (dataLower.includes('#') || /^\s*#\s*/.test(lines[0] || '')) {
+                scores.VPOWER += 10;
+            }
+            // 特征3：数据格式：每2-3行为一组（User Name, profit）
+            if (lines.length >= 2) {
+                let vpowerPatternCount = 0;
+                for (let i = 0; i < Math.min(lines.length, 20); i++) {
+                    const line = lines[i];
+                    // 检查是否是用户名格式（字母数字，2-20字符）
+                    if (/^[a-z0-9]{2,20}$/i.test(line)) {
+                        // 检查下一行是否是数字（profit）
+                        if (i + 1 < lines.length && /^-?\d+\.?\d*$/.test(lines[i + 1])) {
+                            vpowerPatternCount++;
+                        }
+                    }
+                }
+                if (vpowerPatternCount >= 2) {
+                    scores.VPOWER += 20;
+                }
+            }
+            
+            // ===== WBET 特征检测 =====
+            // 特征1：包含 "SUB TOTAL" 和 "GRAND TOTAL"
+            if (dataLower.includes('sub total') || dataLower.includes('subtotal')) {
+                scores.WBET += 25;
+            }
+            if (dataLower.includes('grand total') || dataLower.includes('grandtotal')) {
+                scores.WBET += 25;
+            }
+            // 特征2：HTML表格格式，且包含 Total 行
+            if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                if (htmlData.toLowerCase().includes('sub total') || htmlData.toLowerCase().includes('grand total')) {
+                    scores.WBET += 30;
+                }
+            }
+            // 特征3：数据中有多行，且包含 Total 行
+            if (lines.length > 5) {
+                const totalLines = lines.filter(line => 
+                    line.toLowerCase().includes('sub total') || 
+                    line.toLowerCase().includes('grand total') ||
+                    line.toLowerCase().includes('subtotal') ||
+                    line.toLowerCase().includes('grandtotal')
+                );
+                if (totalLines.length >= 2) {
+                    scores.WBET += 20;
+                }
+            }
+            
+            // ===== ALIPAY 特征检测 =====
+            // 特征1：包含 "alipay" 关键字
+            if (dataLower.includes('alipay') || dataLower.includes('支付宝')) {
+                scores.ALIPAY += 30;
+            }
+            // 特征2：包含 "transaction id" 或 "商户订单号"
+            if (dataLower.includes('transaction id') || dataLower.includes('商户订单号') || dataLower.includes('订单号')) {
+                scores.ALIPAY += 25;
+            }
+            // 特征3：HTML表格格式，列数较多（通常8列左右）
+            if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                try {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlData;
+                    const table = tempDiv.querySelector('table');
+                    if (table) {
+                        const firstRow = table.querySelector('tr');
+                        if (firstRow) {
+                            const cols = firstRow.querySelectorAll('td, th').length;
+                            if (cols >= 6 && cols <= 10) {
+                                scores.ALIPAY += 15;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // 忽略错误
+                }
+            }
+            // 特征4：文本格式，有标识符行（2-10个大写字母）后跟数据行
+            if (lines.length >= 3) {
+                let alipayPatternCount = 0;
+                for (let i = 0; i < Math.min(lines.length, 30); i++) {
+                    const line = lines[i];
+                    // 标识符格式：2-10个大写字母或数字
+                    if (/^[A-Z0-9]{2,10}$/.test(line) && !line.includes(' ') && !line.includes('\t')) {
+                        // 检查后续行是否有数据
+                        if (i + 1 < lines.length && lines[i + 1].trim() !== '') {
+                            alipayPatternCount++;
+                        }
+                    }
+                }
+                if (alipayPatternCount >= 2) {
+                    scores.ALIPAY += 15;
+                }
+            }
+            
+            // ===== PEGASUS 特征检测 =====
+            // 特征1：数据量较小，且需要合并成一行
+            // PEGASUS 的特点是所有数据合并成单行，所以如果数据行数少但列数多，可能是 PEGASUS
+            if (lines.length <= 5 && lines.length > 0) {
+                const avgLineLength = lines.reduce((sum, line) => sum + line.length, 0) / lines.length;
+                if (avgLineLength > 50) {
+                    scores.PEGASUS += 20;
+                }
+            }
+            // 特征2：单行数据，包含多个值（用制表符或空格分隔）
+            if (lines.length === 1 && (lines[0].includes('\t') || lines[0].split(/\s+/).length > 5)) {
+                scores.PEGASUS += 30;
+            }
+            // 特征3：多行数据，但每行只有一个值（需要合并成一行）
+            if (lines.length > 1 && lines.length <= 50) {
+                const singleValueLines = lines.filter(line => 
+                    line.trim() !== '' && 
+                    !line.includes('\t') && 
+                    line.split(/\s+/).length <= 2
+                );
+                if (singleValueLines.length >= lines.length * 0.7) {
+                    scores.PEGASUS += 25;
+                }
+            }
+            
+            // ===== CITIBET 特征检测 =====
+            // 特征1：包含 "downline payment" 或 "upline payment"
+            if (dataLower.includes('downline payment') || dataLower.includes('upline payment')) {
+                scores.CITIBET += 30;
+            }
+            // 特征2：包含 "overall" 或 "my earnings"
+            if (dataLower.includes('overall') || dataLower.includes('my earnings')) {
+                scores.CITIBET += 20;
+            }
+            // 特征3：包含 "mg" 和 "pl" 标识
+            if (dataLower.includes(' mg ') || dataLower.includes(' pl ')) {
+                scores.CITIBET += 15;
+            }
+            
+            // ===== PS3838 特征检测 =====
+            // 特征1：HTML表格格式，3行数据，20列
+            if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                try {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlData;
+                    const table = tempDiv.querySelector('table');
+                    if (table) {
+                        const rows = table.querySelectorAll('tr');
+                        if (rows.length === 3) {
+                            const firstRow = rows[0];
+                            const cols = firstRow.querySelectorAll('td, th').length;
+                            if (cols >= 15 && cols <= 25) {
+                                scores.PS3838 += 30;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // 忽略错误
+                }
+            }
+            // 特征2：文本格式，每行一个单元格，需要按行标识符分组
+            if (lines.length >= 20 && lines.length <= 100) {
+                // 检查是否有行标识符模式（如 OB, OC, OD 等）
+                const identifierPattern = /^[A-Z]{2,3}$/i;
+                const identifierCount = lines.filter(line => identifierPattern.test(line.trim())).length;
+                if (identifierCount >= 3) {
+                    scores.PS3838 += 20;
+                }
+            }
+            
+            // 输出检测结果
+            console.log('Format detection scores:', scores);
+            
+            // 找到最高分的格式（如果分数 >= 30）
+            let maxScore = 0;
+            let detectedFormat = null;
+            for (const [format, score] of Object.entries(scores)) {
+                if (score > maxScore && score >= 30) {
+                    maxScore = score;
+                    detectedFormat = format;
+                }
+            }
+            
+            // 如果最高分相同，使用优先级：PEGASUS > WBET > ALIPAY > VPOWER > PS3838 > CITIBET
+            if (detectedFormat) {
+                const priority = ['PEGASUS', 'WBET', 'ALIPAY', 'VPOWER', 'PS3838', 'CITIBET'];
+                const sameScoreFormats = Object.entries(scores)
+                    .filter(([format, score]) => score === maxScore && score >= 30)
+                    .map(([format]) => format);
+                
+                if (sameScoreFormats.length > 1) {
+                    // 按优先级排序
+                    sameScoreFormats.sort((a, b) => {
+                        const idxA = priority.indexOf(a);
+                        const idxB = priority.indexOf(b);
+                        return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+                    });
+                    detectedFormat = sameScoreFormats[0];
+                    console.log(`Multiple formats detected with same score, using priority: ${detectedFormat}`);
+                }
+            }
+            
+            if (detectedFormat) {
+                console.log(`Detected format: ${detectedFormat} (score: ${maxScore})`);
+            } else {
+                console.log('No format detected with sufficient confidence (score >= 30)');
+            }
+            
+            return detectedFormat;
+        }
+        // ===== 智能格式识别函数结束 =====
+
         // VPOWER 表格格式解析函数
         // 解析格式：包含 #, User Name, profit, Name, Tel, Remarks 列的表格
         // 忽略第一列（#列），将 User Name 映射到第一列，profit 映射到第二列
@@ -7917,17 +8159,52 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('1.GENERAL: All parsing methods failed, continuing with default logic');
             }
             
-            // ===== 2.SPECIAL 专用解析：自动检测并应用6种格式（CITIBET, VPOWER, PS3838, WBET, ALIPAY, PEGASUS） =====
+            // ===== 2.SPECIAL 专用解析：智能自动检测并应用6种格式（CITIBET, VPOWER, PS3838, WBET, ALIPAY, PEGASUS） =====
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '2.SPECIAL') {
-                console.log('2.SPECIAL mode detected, attempting to auto-detect format...');
+                console.log('2.SPECIAL mode detected, attempting intelligent auto-detect format...');
                 console.log('Pasted data length:', pastedData.length);
                 console.log('Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
                 
                 let formatDetected = false;
                 const startCell = e.target;
                 
+                // ===== 步骤1：使用智能识别函数检测格式 =====
+                const detectedFormat = detectFormatType(pastedData, e);
+                console.log('2.SPECIAL: Intelligent detection result:', detectedFormat);
+                
+                // ===== 步骤2：根据检测结果，按优先级尝试解析 =====
+                // 优先级顺序：PEGASUS > WBET > ALIPAY > VPOWER > PS3838 > CITIBET
+                // 但如果智能识别有结果，优先使用识别结果
+                
+                // 定义格式处理顺序（如果智能识别有结果，优先处理识别的格式）
+                const formatOrder = [];
+                if (detectedFormat) {
+                    // 智能识别有结果，优先处理识别的格式
+                    formatOrder.push(detectedFormat);
+                    console.log(`2.SPECIAL: Intelligent detection found "${detectedFormat}", will try it first`);
+                }
+                // 添加其他格式（排除已识别的格式）
+                const allFormats = ['PEGASUS', 'WBET', 'ALIPAY', 'VPOWER', 'PS3838', 'CITIBET'];
+                allFormats.forEach(format => {
+                    if (!detectedFormat || format !== detectedFormat) {
+                        formatOrder.push(format);
+                    }
+                });
+                
+                console.log('2.SPECIAL: Format processing order:', formatOrder);
+                
+                // 辅助函数：判断是否应该尝试某个格式
+                const shouldTryFormat = (formatName) => {
+                    if (formatDetected) return false; // 已经检测到格式，不再尝试
+                    if (!detectedFormat) return true; // 没有智能识别结果，尝试所有格式
+                    // 有智能识别结果，优先尝试识别的格式，然后按顺序尝试其他格式
+                    const detectedIndex = formatOrder.indexOf(detectedFormat);
+                    const currentIndex = formatOrder.indexOf(formatName);
+                    return currentIndex <= detectedIndex || currentIndex < formatOrder.length;
+                };
+                
                 // ===== 2.1 CITIBET 格式检测和处理 =====
-                if (!formatDetected) {
+                if (shouldTryFormat('CITIBET')) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
                     let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
                     if (citibetParsed) {
@@ -7991,7 +8268,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // ===== 2.2 VPOWER 格式检测和处理 =====
-                if (!formatDetected) {
+                if (shouldTryFormat('VPOWER')) {
                     console.log('2.SPECIAL: Trying 2.2 VPOWER format...');
                     let vpowerParsed = parseVPowerTableFormat(pastedData);
                     if (vpowerParsed) {
@@ -8064,7 +8341,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // ===== 2.3 PS3838 格式检测和处理 =====
-                if (!formatDetected) {
+                if (shouldTryFormat('PS3838')) {
                     console.log('2.SPECIAL: Trying 2.3 PS3838 format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     let agentLinkParsed = null;
@@ -8234,7 +8511,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // ===== 2.4 WBET 格式检测和处理 =====
-                if (!formatDetected) {
+                if (shouldTryFormat('WBET')) {
                     console.log('2.SPECIAL: Trying 2.4 WBET format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     
@@ -8275,7 +8552,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // ===== 2.5 ALIPAY 格式检测和处理 =====
-                if (!formatDetected) {
+                if (shouldTryFormat('ALIPAY')) {
                     console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     let alipayParsed = null;
@@ -8296,7 +8573,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // ===== 2.6 PEGASUS 格式检测和处理 =====
-                if (!formatDetected) {
+                if (shouldTryFormat('PEGASUS')) {
                     console.log('2.SPECIAL: Trying 2.6 PEGASUS format...');
                     let dataMatrix = [];
                     let allCells = [];
@@ -8444,6 +8721,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (!formatDetected) {
                     console.log('2.SPECIAL: No format detected, continuing with default logic');
+                    if (detectedFormat) {
+                        console.warn(`2.SPECIAL: Intelligent detection suggested "${detectedFormat}" format, but parsing failed. Check data format or parser implementation.`);
+                    }
                 }
             }
             // ===== 2.SPECIAL 处理结束 =====
