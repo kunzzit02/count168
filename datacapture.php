@@ -8458,159 +8458,159 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // ===== 2.4 PS3838 格式检测和处理 =====
+                // ===== 2.4 PEGASUS 格式检测和处理 =====
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.4 PS3838 format...');
+                    console.log('2.SPECIAL: Trying 2.4 PEGASUS format...');
+                    console.log('2.SPECIAL: Pasted data length:', pastedData.length);
+                    console.log('2.SPECIAL: Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
+                    
+                    let dataMatrix = [];
+                    let allCells = [];
+                    
+                    // 优先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                     const htmlDataFromDetect = detectAndParseHTML(e);
-                    let agentLinkParsed = null;
                     
                     if (htmlDataFromDetect) {
-                        const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
-                        if (filled) {
-                            console.log('2.SPECIAL: Detected PS3838 format (2.4) - HTML');
-                            formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到PS3838格式 (2.4)!', 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    }
-                    
-                    let htmlData = null;
-                    try {
-                        htmlData = e.clipboardData.getData('text/html');
-                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
-                            htmlData = null;
-                        }
-                    } catch (err) {
-                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
-                    }
-                    
-                    if (htmlData && !formatDetected) {
+                        console.log('2.SPECIAL: HTML data detected via detectAndParseHTML');
+                        dataMatrix = htmlDataFromDetect;
+                    } else {
+                        // 如果 HTML 解析失败，尝试手动解析 HTML
+                        let htmlData = null;
                         try {
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = htmlData;
-                            const table = tempDiv.querySelector('table');
-                            if (table) {
-                                let dataMatrix = [];
-                                const thead = table.querySelector('thead');
-                                if (thead) {
-                                    const headerRows = thead.querySelectorAll('tr');
-                                    headerRows.forEach(tr => {
-                                        const row = [];
-                                        const cells = tr.querySelectorAll('th, td');
+                            htmlData = e.clipboardData.getData('text/html');
+                            if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                                console.log('2.SPECIAL: HTML data detected, parsing manually...');
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = htmlData;
+                                
+                                const table = tempDiv.querySelector('table');
+                                if (table) {
+                                    // 处理表头（如果有）
+                                    const thead = table.querySelector('thead');
+                                    if (thead) {
+                                        const headerRows = thead.querySelectorAll('tr');
+                                        headerRows.forEach(tr => {
+                                            const cells = tr.querySelectorAll('th, td');
+                                            cells.forEach(cell => {
+                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                                let text = cell.textContent || cell.innerText || '';
+                                                text = text.replace(/\s+/g, ' ').trim();
+                                                if (text) allCells.push(text);
+                                                for (let i = 1; i < colspan; i++) {
+                                                    allCells.push('');
+                                                }
+                                            });
+                                        });
+                                    }
+                                    
+                                    // 处理表体
+                                    let bodyContainer = table.querySelector('tbody');
+                                    if (!bodyContainer) {
+                                        bodyContainer = table;
+                                    }
+                                    
+                                    const bodyRows = bodyContainer.querySelectorAll('tr');
+                                    bodyRows.forEach((tr) => {
+                                        if (thead && tr.closest('thead')) {
+                                            return;
+                                        }
+                                        
+                                        const cells = tr.querySelectorAll('td, th');
                                         cells.forEach(cell => {
                                             const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
                                             let text = cell.textContent || cell.innerText || '';
                                             text = text.replace(/\s+/g, ' ').trim();
-                                            row.push(text);
+                                            if (text) allCells.push(text);
                                             for (let i = 1; i < colspan; i++) {
-                                                row.push('');
+                                                allCells.push('');
                                             }
                                         });
-                                        if (row.length > 0) {
-                                            dataMatrix.push(row);
-                                        }
                                     });
-                                }
-                                
-                                let bodyContainer = table.querySelector('tbody');
-                                if (!bodyContainer) {
-                                    bodyContainer = table;
-                                }
-                                
-                                const bodyRows = bodyContainer.querySelectorAll('tr');
-                                bodyRows.forEach((tr) => {
-                                    if (thead && tr.closest('thead')) {
-                                        return;
-                                    }
-                                    
-                                    const row = [];
-                                    const cells = tr.querySelectorAll('td, th');
-                                    cells.forEach(cell => {
-                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                        let text = cell.textContent || cell.innerText || '';
-                                        text = text.replace(/\s+/g, ' ').trim();
-                                        row.push(text);
-                                        for (let i = 1; i < colspan; i++) {
-                                            row.push('');
-                                        }
-                                    });
-                                    if (row.length > 0) {
-                                        dataMatrix.push(row);
-                                    }
-                                });
-                                
-                                if (dataMatrix.length > 0) {
-                                    let maxCols = Math.max(...dataMatrix.map(row => row.length));
-                                    dataMatrix.forEach(row => {
-                                        while (row.length < maxCols) {
-                                            row.push('');
-                                        }
-                                    });
-                                    agentLinkParsed = {
-                                        dataMatrix: dataMatrix,
-                                        maxRows: dataMatrix.length,
-                                        maxCols: maxCols
-                                    };
                                 }
                             }
-                        } catch (htmlErr) {
-                            console.error('2.SPECIAL: HTML parser error:', htmlErr);
+                        } catch (err) {
+                            console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
                         }
                     }
                     
-                    if (!agentLinkParsed) {
-                        agentLinkParsed = parseAgentLinkTableFormat(pastedData);
+                    // 如果 HTML 解析成功，从 dataMatrix 提取所有单元格
+                    if (dataMatrix && dataMatrix.length > 0) {
+                        console.log('2.SPECIAL: Extracting cells from HTML data matrix...');
+                        dataMatrix.forEach(row => {
+                            if (Array.isArray(row)) {
+                                row.forEach(cell => {
+                                    const trimmed = (cell || '').toString().trim();
+                                    if (trimmed) allCells.push(trimmed);
+                                });
+                            }
+                        });
                     }
                     
-                    if (agentLinkParsed) {
-                        console.log('2.SPECIAL: Detected PS3838 format (2.4)');
+                    // 如果 HTML 解析失败或没有数据，尝试纯文本解析
+                    if (allCells.length === 0) {
+                        console.log('2.SPECIAL: Trying text-based parsing...');
+                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                        
+                        lines.forEach(line => {
+                            if (line.includes('\t')) {
+                                // 制表符分隔
+                                const cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                allCells.push(...cells);
+                            } else {
+                                // 空格分隔（多个空格或单个空格）
+                                const cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                allCells.push(...cells);
+                            }
+                        });
+                    }
+                    
+                    // 合并所有单元格成一行
+                    if (allCells.length > 0) {
+                        console.log('2.SPECIAL: Merged all data into single row with', allCells.length, 'cells');
+                        console.log('2.SPECIAL: First 10 cells:', allCells.slice(0, 10));
+                        
+                        console.log('2.SPECIAL: Detected PEGASUS format (2.4)');
                         formatDetected = true;
-                        const { dataMatrix, maxRows, maxCols } = agentLinkParsed;
                         
                         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = 0; // PS3838: 强制从第一列开始
+                        // PEGASUS 格式：强制从第一列（Column 1）开始粘贴
+                        const startCol = 0;
                         
                         const currentRows = document.querySelectorAll('#tableBody tr').length;
                         const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredRows = startRow + maxRows;
-                        const requiredCols = startCol + maxCols;
+                        const requiredCols = startCol + allCells.length;
                         
-                        if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                        if (requiredCols > currentCols) {
                             const targetCols = Math.max(currentCols, requiredCols);
-                            initializeTable(targetRows, targetCols);
+                            initializeTable(currentRows, targetCols);
                         }
                         
                         const tableBody = document.getElementById('tableBody');
+                        const tableRow = tableBody.children[startRow];
                         const currentPasteChanges = [];
                         let successCount = 0;
                         
-                        dataMatrix.forEach((rowData, rowIndex) => {
-                            const actualRowIndex = startRow + rowIndex;
-                            const tableRow = tableBody.children[actualRowIndex];
-                            if (!tableRow) return;
+                        allCells.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
                             
-                            rowData.forEach((cellData, colIndex) => {
-                                const actualColIndex = startCol + colIndex;
-                                const cell = tableRow.children[actualColIndex + 1];
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: startRow,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
                                 
-                                if (cell && cell.contentEditable === 'true') {
-                                    const trimmedData = (cellData || '').trim();
-                                    currentPasteChanges.push({
-                                        row: actualRowIndex,
-                                        col: actualColIndex,
-                                        oldValue: cell.textContent,
-                                        newValue: trimmedData
-                                    });
-                                    
-                                    cell.textContent = trimmedData;
-                                    
-                                    if (trimmedData) {
-                                        successCount++;
-                                    }
+                                // 保持原始数据，不做任何转换
+                                cell.textContent = trimmedData;
+                                
+                                if (trimmedData) {
+                                    successCount++;
                                 }
-                            });
+                            }
                         });
                         
                         if (currentPasteChanges.length > 0) {
@@ -8621,10 +8621,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (successCount > 0) {
-                            showNotification(`2.SPECIAL: 检测到PS3838格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.4)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
+                    } else {
+                        console.log('2.SPECIAL: No data extracted from PEGASUS format, continuing with other formats');
                     }
                 }
                 
@@ -8633,6 +8635,34 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
                     console.log('2.SPECIAL: Pasted data length:', pastedData.length);
                     console.log('2.SPECIAL: Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
+                    
+                    // 快速检测：ALIPAY 格式通常包含短标识符（2-10个大写字母，可能包含数字）
+                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    let hasAlipayIdentifiers = false;
+                    
+                    if (lines.length > 0) {
+                        // 检查前几行是否包含 ALIPAY 格式的标识符
+                        let identifierCount = 0;
+                        for (let i = 0; i < Math.min(lines.length, 10); i++) {
+                            const line = lines[i].trim();
+                            // ALIPAY 标识符：2-10个大写字母或数字，不包含空格、逗号、点号、连字符，不以数字开头
+                            const isAlipayIdentifier = /^[A-Z0-9]{2,10}$/.test(line) && 
+                                                      !line.includes(' ') && 
+                                                      !line.includes(',') &&
+                                                      !line.includes('.') &&
+                                                      !line.includes('-') &&
+                                                      !/^\d/.test(line);
+                            if (isAlipayIdentifier) {
+                                identifierCount++;
+                            }
+                        }
+                        // 如果前10行中有至少2个标识符，很可能是 ALIPAY 格式
+                        if (identifierCount >= 2) {
+                            hasAlipayIdentifiers = true;
+                            console.log('2.SPECIAL: Detected potential ALIPAY identifiers:', identifierCount);
+                        }
+                    }
                     
                     // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                     const htmlDataFromDetect = detectAndParseHTML(e);
@@ -8755,12 +8785,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('2.SPECIAL: No HTML data detected, will try text parsing');
                     }
                     
-                    // 如果 HTML 解析失败，尝试纯文本解析
-                    if (!alipayParsed && !formatDetected) {
+                    // 如果 HTML 解析失败，尝试纯文本解析（仅在检测到 ALIPAY 标识符或 HTML 解析失败时）
+                    if (!alipayParsed && !formatDetected && (hasAlipayIdentifiers || !htmlData)) {
                         console.log('2.SPECIAL: Attempting text format parsing...');
-                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                        const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
-                        
                         if (lines.length > 0) {
                             const dataMatrix = [];
                             let maxCols = 0;
@@ -9091,166 +9118,166 @@ if ($current_user_id && count($user_companies) > 0) {
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
-                    } else if (!formatDetected) {
-                        // ALIPAY 模式下解析失败，给出提示但不阻止（让用户知道）
+                    } else if (!formatDetected && !hasAlipayIdentifiers) {
+                        // ALIPAY 模式下解析失败，且没有检测到 ALIPAY 标识符，给出提示但不阻止（让用户知道）
                         console.log('2.SPECIAL: ALIPAY parser returned null, data may not match expected format');
                         // 不 return，继续尝试其他格式
                     }
                 }
                 
-                // ===== 2.6 PEGASUS 格式检测和处理 =====
+                // ===== 2.6 PS3838 格式检测和处理 =====
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.6 PEGASUS format...');
-                    console.log('2.SPECIAL: Pasted data length:', pastedData.length);
-                    console.log('2.SPECIAL: Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
-                    
-                    let dataMatrix = [];
-                    let allCells = [];
-                    
-                    // 优先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
+                    console.log('2.SPECIAL: Trying 2.6 PS3838 format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
+                    let agentLinkParsed = null;
                     
                     if (htmlDataFromDetect) {
-                        console.log('2.SPECIAL: HTML data detected via detectAndParseHTML');
-                        dataMatrix = htmlDataFromDetect;
-                    } else {
-                        // 如果 HTML 解析失败，尝试手动解析 HTML
-                        let htmlData = null;
+                        const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
+                        if (filled) {
+                            console.log('2.SPECIAL: Detected PS3838 format (2.6) - HTML');
+                            formatDetected = true;
+                            showNotification('2.SPECIAL: 检测到PS3838格式 (2.6)!', 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                    
+                    let htmlData = null;
+                    try {
+                        htmlData = e.clipboardData.getData('text/html');
+                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                            htmlData = null;
+                        }
+                    } catch (err) {
+                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                    }
+                    
+                    if (htmlData && !formatDetected) {
                         try {
-                            htmlData = e.clipboardData.getData('text/html');
-                            if (htmlData && htmlData.toLowerCase().includes('<table')) {
-                                console.log('2.SPECIAL: HTML data detected, parsing manually...');
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = htmlData;
-                                
-                                const table = tempDiv.querySelector('table');
-                                if (table) {
-                                    // 处理表头（如果有）
-                                    const thead = table.querySelector('thead');
-                                    if (thead) {
-                                        const headerRows = thead.querySelectorAll('tr');
-                                        headerRows.forEach(tr => {
-                                            const cells = tr.querySelectorAll('th, td');
-                                            cells.forEach(cell => {
-                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                                let text = cell.textContent || cell.innerText || '';
-                                                text = text.replace(/\s+/g, ' ').trim();
-                                                if (text) allCells.push(text);
-                                                for (let i = 1; i < colspan; i++) {
-                                                    allCells.push('');
-                                                }
-                                            });
-                                        });
-                                    }
-                                    
-                                    // 处理表体
-                                    let bodyContainer = table.querySelector('tbody');
-                                    if (!bodyContainer) {
-                                        bodyContainer = table;
-                                    }
-                                    
-                                    const bodyRows = bodyContainer.querySelectorAll('tr');
-                                    bodyRows.forEach((tr) => {
-                                        if (thead && tr.closest('thead')) {
-                                            return;
-                                        }
-                                        
-                                        const cells = tr.querySelectorAll('td, th');
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = htmlData;
+                            const table = tempDiv.querySelector('table');
+                            if (table) {
+                                let dataMatrix = [];
+                                const thead = table.querySelector('thead');
+                                if (thead) {
+                                    const headerRows = thead.querySelectorAll('tr');
+                                    headerRows.forEach(tr => {
+                                        const row = [];
+                                        const cells = tr.querySelectorAll('th, td');
                                         cells.forEach(cell => {
                                             const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
                                             let text = cell.textContent || cell.innerText || '';
                                             text = text.replace(/\s+/g, ' ').trim();
-                                            if (text) allCells.push(text);
+                                            row.push(text);
                                             for (let i = 1; i < colspan; i++) {
-                                                allCells.push('');
+                                                row.push('');
                                             }
                                         });
+                                        if (row.length > 0) {
+                                            dataMatrix.push(row);
+                                        }
                                     });
                                 }
+                                
+                                let bodyContainer = table.querySelector('tbody');
+                                if (!bodyContainer) {
+                                    bodyContainer = table;
+                                }
+                                
+                                const bodyRows = bodyContainer.querySelectorAll('tr');
+                                bodyRows.forEach((tr) => {
+                                    if (thead && tr.closest('thead')) {
+                                        return;
+                                    }
+                                    
+                                    const row = [];
+                                    const cells = tr.querySelectorAll('td, th');
+                                    cells.forEach(cell => {
+                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                        let text = cell.textContent || cell.innerText || '';
+                                        text = text.replace(/\s+/g, ' ').trim();
+                                        row.push(text);
+                                        for (let i = 1; i < colspan; i++) {
+                                            row.push('');
+                                        }
+                                    });
+                                    if (row.length > 0) {
+                                        dataMatrix.push(row);
+                                    }
+                                });
+                                
+                                if (dataMatrix.length > 0) {
+                                    let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                    dataMatrix.forEach(row => {
+                                        while (row.length < maxCols) {
+                                            row.push('');
+                                        }
+                                    });
+                                    agentLinkParsed = {
+                                        dataMatrix: dataMatrix,
+                                        maxRows: dataMatrix.length,
+                                        maxCols: maxCols
+                                    };
+                                }
                             }
-                        } catch (err) {
-                            console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                        } catch (htmlErr) {
+                            console.error('2.SPECIAL: HTML parser error:', htmlErr);
                         }
                     }
                     
-                    // 如果 HTML 解析成功，从 dataMatrix 提取所有单元格
-                    if (dataMatrix && dataMatrix.length > 0) {
-                        console.log('2.SPECIAL: Extracting cells from HTML data matrix...');
-                        dataMatrix.forEach(row => {
-                            if (Array.isArray(row)) {
-                                row.forEach(cell => {
-                                    const trimmed = (cell || '').toString().trim();
-                                    if (trimmed) allCells.push(trimmed);
-                                });
-                            }
-                        });
+                    if (!agentLinkParsed) {
+                        agentLinkParsed = parseAgentLinkTableFormat(pastedData);
                     }
                     
-                    // 如果 HTML 解析失败或没有数据，尝试纯文本解析
-                    if (allCells.length === 0) {
-                        console.log('2.SPECIAL: Trying text-based parsing...');
-                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                        const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
-                        
-                        lines.forEach(line => {
-                            if (line.includes('\t')) {
-                                // 制表符分隔
-                                const cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
-                                allCells.push(...cells);
-                            } else {
-                                // 空格分隔（多个空格或单个空格）
-                                const cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
-                                allCells.push(...cells);
-                            }
-                        });
-                    }
-                    
-                    // 合并所有单元格成一行
-                    if (allCells.length > 0) {
-                        console.log('2.SPECIAL: Merged all data into single row with', allCells.length, 'cells');
-                        console.log('2.SPECIAL: First 10 cells:', allCells.slice(0, 10));
-                        
-                        console.log('2.SPECIAL: Detected PEGASUS format (2.6)');
+                    if (agentLinkParsed) {
+                        console.log('2.SPECIAL: Detected PS3838 format (2.6)');
                         formatDetected = true;
+                        const { dataMatrix, maxRows, maxCols } = agentLinkParsed;
                         
                         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        // PEGASUS 格式：强制从第一列（Column 1）开始粘贴
-                        const startCol = 0;
+                        const startCol = 0; // PS3838: 强制从第一列开始
                         
                         const currentRows = document.querySelectorAll('#tableBody tr').length;
                         const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredCols = startCol + allCells.length;
+                        const requiredRows = startRow + maxRows;
+                        const requiredCols = startCol + maxCols;
                         
-                        if (requiredCols > currentCols) {
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
                             const targetCols = Math.max(currentCols, requiredCols);
-                            initializeTable(currentRows, targetCols);
+                            initializeTable(targetRows, targetCols);
                         }
                         
                         const tableBody = document.getElementById('tableBody');
-                        const tableRow = tableBody.children[startRow];
                         const currentPasteChanges = [];
                         let successCount = 0;
                         
-                        allCells.forEach((cellData, colIndex) => {
-                            const actualColIndex = startCol + colIndex;
-                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
                             
-                            if (cell && cell.contentEditable === 'true') {
-                                const trimmedData = (cellData || '').trim();
-                                currentPasteChanges.push({
-                                    row: startRow,
-                                    col: actualColIndex,
-                                    oldValue: cell.textContent,
-                                    newValue: trimmedData
-                                });
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
                                 
-                                // 保持原始数据，不做任何转换
-                                cell.textContent = trimmedData;
-                                
-                                if (trimmedData) {
-                                    successCount++;
+                                if (cell && cell.contentEditable === 'true') {
+                                    const trimmedData = (cellData || '').trim();
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: trimmedData
+                                    });
+                                    
+                                    cell.textContent = trimmedData;
+                                    
+                                    if (trimmedData) {
+                                        successCount++;
+                                    }
                                 }
-                            }
+                            });
                         });
                         
                         if (currentPasteChanges.length > 0) {
@@ -9261,12 +9288,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (successCount > 0) {
-                            showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.6)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
+                            showNotification(`2.SPECIAL: 检测到PS3838格式 (2.6)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
-                    } else {
-                        console.log('2.SPECIAL: No data extracted from PEGASUS format, continuing with other formats');
                     }
                 }
                 
