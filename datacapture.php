@@ -8063,179 +8063,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // ===== 2.3 PS3838 格式检测和处理 =====
+                // ===== 2.3 WBET 格式检测和处理 =====
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.3 PS3838 format...');
-                    const htmlDataFromDetect = detectAndParseHTML(e);
-                    let agentLinkParsed = null;
-                    
-                    if (htmlDataFromDetect) {
-                        const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
-                        if (filled) {
-                            console.log('2.SPECIAL: Detected PS3838 format (2.3) - HTML');
-                            formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到PS3838格式 (2.3)!', 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    }
-                    
-                    let htmlData = null;
-                    try {
-                        htmlData = e.clipboardData.getData('text/html');
-                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
-                            htmlData = null;
-                        }
-                    } catch (err) {
-                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
-                    }
-                    
-                    if (htmlData && !formatDetected) {
-                        try {
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = htmlData;
-                            const table = tempDiv.querySelector('table');
-                            if (table) {
-                                let dataMatrix = [];
-                                const thead = table.querySelector('thead');
-                                if (thead) {
-                                    const headerRows = thead.querySelectorAll('tr');
-                                    headerRows.forEach(tr => {
-                                        const row = [];
-                                        const cells = tr.querySelectorAll('th, td');
-                                        cells.forEach(cell => {
-                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                            let text = cell.textContent || cell.innerText || '';
-                                            text = text.replace(/\s+/g, ' ').trim();
-                                            row.push(text);
-                                            for (let i = 1; i < colspan; i++) {
-                                                row.push('');
-                                            }
-                                        });
-                                        if (row.length > 0) {
-                                            dataMatrix.push(row);
-                                        }
-                                    });
-                                }
-                                
-                                let bodyContainer = table.querySelector('tbody');
-                                if (!bodyContainer) {
-                                    bodyContainer = table;
-                                }
-                                
-                                const bodyRows = bodyContainer.querySelectorAll('tr');
-                                bodyRows.forEach((tr) => {
-                                    if (thead && tr.closest('thead')) {
-                                        return;
-                                    }
-                                    
-                                    const row = [];
-                                    const cells = tr.querySelectorAll('td, th');
-                                    cells.forEach(cell => {
-                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                        let text = cell.textContent || cell.innerText || '';
-                                        text = text.replace(/\s+/g, ' ').trim();
-                                        row.push(text);
-                                        for (let i = 1; i < colspan; i++) {
-                                            row.push('');
-                                        }
-                                    });
-                                    if (row.length > 0) {
-                                        dataMatrix.push(row);
-                                    }
-                                });
-                                
-                                if (dataMatrix.length > 0) {
-                                    let maxCols = Math.max(...dataMatrix.map(row => row.length));
-                                    dataMatrix.forEach(row => {
-                                        while (row.length < maxCols) {
-                                            row.push('');
-                                        }
-                                    });
-                                    agentLinkParsed = {
-                                        dataMatrix: dataMatrix,
-                                        maxRows: dataMatrix.length,
-                                        maxCols: maxCols
-                                    };
-                                }
-                            }
-                        } catch (htmlErr) {
-                            console.error('2.SPECIAL: HTML parser error:', htmlErr);
-                        }
-                    }
-                    
-                    if (!agentLinkParsed) {
-                        agentLinkParsed = parseAgentLinkTableFormat(pastedData);
-                    }
-                    
-                    if (agentLinkParsed) {
-                        console.log('2.SPECIAL: Detected PS3838 format (2.3)');
-                        formatDetected = true;
-                        const { dataMatrix, maxRows, maxCols } = agentLinkParsed;
-                        
-                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = 0; // PS3838: 强制从第一列开始
-                        
-                        const currentRows = document.querySelectorAll('#tableBody tr').length;
-                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredRows = startRow + maxRows;
-                        const requiredCols = startCol + maxCols;
-                        
-                        if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                            const targetCols = Math.max(currentCols, requiredCols);
-                            initializeTable(targetRows, targetCols);
-                        }
-                        
-                        const tableBody = document.getElementById('tableBody');
-                        const currentPasteChanges = [];
-                        let successCount = 0;
-                        
-                        dataMatrix.forEach((rowData, rowIndex) => {
-                            const actualRowIndex = startRow + rowIndex;
-                            const tableRow = tableBody.children[actualRowIndex];
-                            if (!tableRow) return;
-                            
-                            rowData.forEach((cellData, colIndex) => {
-                                const actualColIndex = startCol + colIndex;
-                                const cell = tableRow.children[actualColIndex + 1];
-                                
-                                if (cell && cell.contentEditable === 'true') {
-                                    const trimmedData = (cellData || '').trim();
-                                    currentPasteChanges.push({
-                                        row: actualRowIndex,
-                                        col: actualColIndex,
-                                        oldValue: cell.textContent,
-                                        newValue: trimmedData
-                                    });
-                                    
-                                    cell.textContent = trimmedData;
-                                    
-                                    if (trimmedData) {
-                                        successCount++;
-                                    }
-                                }
-                            });
-                        });
-                        
-                        if (currentPasteChanges.length > 0) {
-                            pasteHistory.push(currentPasteChanges);
-                            if (pasteHistory.length > maxHistorySize) {
-                                pasteHistory.shift();
-                            }
-                        }
-                        
-                        if (successCount > 0) {
-                            showNotification(`2.SPECIAL: 检测到PS3838格式 (2.3)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    }
-                }
-                
-                // ===== 2.4 WBET 格式检测和处理 =====
-                if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.4 WBET format...');
+                    console.log('2.SPECIAL: Trying 2.3 WBET format...');
                     console.log('2.SPECIAL: Pasted data length:', pastedData.length);
                     console.log('2.SPECIAL: Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
                     
@@ -8246,9 +8076,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('2.SPECIAL: HTML data detected via detectAndParseHTML');
                         const filled = parseAndFillHTMLTableForWBET(htmlDataFromDetect, startCell);
                         if (filled) {
-                            console.log('2.SPECIAL: Detected WBET format (2.4) - HTML');
+                            console.log('2.SPECIAL: Detected WBET format (2.3) - HTML');
                             formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
+                            showNotification('2.SPECIAL: 检测到WBET格式 (2.3)!', 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         } else {
@@ -8271,9 +8101,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('2.SPECIAL: HTML data detected, length:', htmlData.length);
                         const filled = parseAndFillHTMLTableForWBET(htmlData, startCell);
                         if (filled) {
-                            console.log('2.SPECIAL: Detected WBET format (2.4) - HTML manual');
+                            console.log('2.SPECIAL: Detected WBET format (2.3) - HTML manual');
                             formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到WBET格式 (2.4)!', 'success');
+                            showNotification('2.SPECIAL: 检测到WBET格式 (2.3)!', 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
@@ -8285,7 +8115,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                         const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
                         
-                        if (lines.length > 0) {
+                        // 快速检测：如果数据中包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式
+                        const hasWbetMarkers = pastedData.toUpperCase().includes('SUB TOTAL') || 
+                                              pastedData.toUpperCase().includes('SUBTOTAL') ||
+                                              pastedData.toUpperCase().includes('GRAND TOTAL') || 
+                                              pastedData.toUpperCase().includes('GRANDTOTAL');
+                        
+                        if (lines.length > 0 && hasWbetMarkers) {
                             // 第一步：解析原始数据成行
                             const rawDataMatrix = [];
                             lines.forEach(line => {
@@ -8606,9 +8442,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                                 
                                 if (successCount > 0) {
-                                    console.log('2.SPECIAL: Detected WBET format (2.4)');
+                                    console.log('2.SPECIAL: Detected WBET format (2.3)');
                                     formatDetected = true;
-                                    showNotification(`2.SPECIAL: 检测到WBET格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${processedMatrix.length} 行 x ${maxCols} 列)!`, 'success');
+                                    showNotification(`2.SPECIAL: 检测到WBET格式 (2.3)，成功粘贴 ${successCount} 个单元格 (${processedMatrix.length} 行 x ${maxCols} 列)!`, 'success');
                                     setTimeout(updateSubmitButtonState, 0);
                                     return;
                                 }
@@ -8619,6 +8455,176 @@ if ($current_user_id && count($user_companies) > 0) {
                     // WBET 解析失败，继续尝试其他格式
                     if (!formatDetected) {
                         console.log('2.SPECIAL: WBET parser failed, continuing with other formats');
+                    }
+                }
+                
+                // ===== 2.4 PS3838 格式检测和处理 =====
+                if (!formatDetected) {
+                    console.log('2.SPECIAL: Trying 2.4 PS3838 format...');
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    let agentLinkParsed = null;
+                    
+                    if (htmlDataFromDetect) {
+                        const filled = parseAndFillHTMLTable(htmlDataFromDetect, startCell);
+                        if (filled) {
+                            console.log('2.SPECIAL: Detected PS3838 format (2.4) - HTML');
+                            formatDetected = true;
+                            showNotification('2.SPECIAL: 检测到PS3838格式 (2.4)!', 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    }
+                    
+                    let htmlData = null;
+                    try {
+                        htmlData = e.clipboardData.getData('text/html');
+                        if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                            htmlData = null;
+                        }
+                    } catch (err) {
+                        console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                    }
+                    
+                    if (htmlData && !formatDetected) {
+                        try {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = htmlData;
+                            const table = tempDiv.querySelector('table');
+                            if (table) {
+                                let dataMatrix = [];
+                                const thead = table.querySelector('thead');
+                                if (thead) {
+                                    const headerRows = thead.querySelectorAll('tr');
+                                    headerRows.forEach(tr => {
+                                        const row = [];
+                                        const cells = tr.querySelectorAll('th, td');
+                                        cells.forEach(cell => {
+                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                            let text = cell.textContent || cell.innerText || '';
+                                            text = text.replace(/\s+/g, ' ').trim();
+                                            row.push(text);
+                                            for (let i = 1; i < colspan; i++) {
+                                                row.push('');
+                                            }
+                                        });
+                                        if (row.length > 0) {
+                                            dataMatrix.push(row);
+                                        }
+                                    });
+                                }
+                                
+                                let bodyContainer = table.querySelector('tbody');
+                                if (!bodyContainer) {
+                                    bodyContainer = table;
+                                }
+                                
+                                const bodyRows = bodyContainer.querySelectorAll('tr');
+                                bodyRows.forEach((tr) => {
+                                    if (thead && tr.closest('thead')) {
+                                        return;
+                                    }
+                                    
+                                    const row = [];
+                                    const cells = tr.querySelectorAll('td, th');
+                                    cells.forEach(cell => {
+                                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                        let text = cell.textContent || cell.innerText || '';
+                                        text = text.replace(/\s+/g, ' ').trim();
+                                        row.push(text);
+                                        for (let i = 1; i < colspan; i++) {
+                                            row.push('');
+                                        }
+                                    });
+                                    if (row.length > 0) {
+                                        dataMatrix.push(row);
+                                    }
+                                });
+                                
+                                if (dataMatrix.length > 0) {
+                                    let maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                    dataMatrix.forEach(row => {
+                                        while (row.length < maxCols) {
+                                            row.push('');
+                                        }
+                                    });
+                                    agentLinkParsed = {
+                                        dataMatrix: dataMatrix,
+                                        maxRows: dataMatrix.length,
+                                        maxCols: maxCols
+                                    };
+                                }
+                            }
+                        } catch (htmlErr) {
+                            console.error('2.SPECIAL: HTML parser error:', htmlErr);
+                        }
+                    }
+                    
+                    if (!agentLinkParsed) {
+                        agentLinkParsed = parseAgentLinkTableFormat(pastedData);
+                    }
+                    
+                    if (agentLinkParsed) {
+                        console.log('2.SPECIAL: Detected PS3838 format (2.4)');
+                        formatDetected = true;
+                        const { dataMatrix, maxRows, maxCols } = agentLinkParsed;
+                        
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = 0; // PS3838: 强制从第一列开始
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + maxRows;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
+                            
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
+                                
+                                if (cell && cell.contentEditable === 'true') {
+                                    const trimmedData = (cellData || '').trim();
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: trimmedData
+                                    });
+                                    
+                                    cell.textContent = trimmedData;
+                                    
+                                    if (trimmedData) {
+                                        successCount++;
+                                    }
+                                }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`2.SPECIAL: 检测到PS3838格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
                     }
                 }
                 
