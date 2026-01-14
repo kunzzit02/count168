@@ -8751,23 +8751,34 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // ===== 2.6 PEGASUS 格式检测和处理 =====
+                // 2.6 PEGASUS: 以下代码从 PEGASUS 选项复制而来，用于在 2.SPECIAL 模式下支持 PEGASUS 格式的粘贴
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.6 PEGASUS format...');
+                    console.log('2.SPECIAL: PEGASUS raw data length:', pastedData.length);
+                    console.log('2.SPECIAL: PEGASUS raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                    
                     let dataMatrix = [];
                     let allCells = [];
                     
+                    // 优先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                     const htmlDataFromDetect = detectAndParseHTML(e);
+                    
                     if (htmlDataFromDetect) {
+                        console.log('2.SPECIAL: PEGASUS HTML data detected via detectAndParseHTML');
                         dataMatrix = htmlDataFromDetect;
                     } else {
+                        // 如果 HTML 解析失败，尝试手动解析 HTML
                         let htmlData = null;
                         try {
                             htmlData = e.clipboardData.getData('text/html');
                             if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                                console.log('2.SPECIAL: PEGASUS HTML data detected, parsing manually...');
                                 const tempDiv = document.createElement('div');
                                 tempDiv.innerHTML = htmlData;
+                                
                                 const table = tempDiv.querySelector('table');
                                 if (table) {
+                                    // 处理表头（如果有）
                                     const thead = table.querySelector('thead');
                                     if (thead) {
                                         const headerRows = thead.querySelectorAll('tr');
@@ -8785,6 +8796,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         });
                                     }
                                     
+                                    // 处理表体
                                     let bodyContainer = table.querySelector('tbody');
                                     if (!bodyContainer) {
                                         bodyContainer = table;
@@ -8810,11 +8822,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                             }
                         } catch (err) {
-                            console.log('2.SPECIAL: Could not get HTML data from clipboard:', err);
+                            console.log('2.SPECIAL: PEGASUS Could not get HTML data from clipboard:', err);
                         }
                     }
                     
+                    // 如果 HTML 解析成功，从 dataMatrix 提取所有单元格
                     if (dataMatrix && dataMatrix.length > 0) {
+                        console.log('2.SPECIAL: PEGASUS Extracting cells from HTML data matrix...');
                         dataMatrix.forEach(row => {
                             if (Array.isArray(row)) {
                                 row.forEach(cell => {
@@ -8825,27 +8839,33 @@ if ($current_user_id && count($user_companies) > 0) {
                         });
                     }
                     
+                    // 如果 HTML 解析失败或没有数据，尝试纯文本解析
                     if (allCells.length === 0) {
+                        console.log('2.SPECIAL: PEGASUS Trying text-based parsing...');
                         const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                         const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
                         
                         lines.forEach(line => {
                             if (line.includes('\t')) {
+                                // 制表符分隔
                                 const cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
                                 allCells.push(...cells);
                             } else {
+                                // 空格分隔（多个空格或单个空格）
                                 const cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
                                 allCells.push(...cells);
                             }
                         });
                     }
                     
+                    // 合并所有单元格成一行
                     if (allCells.length > 0) {
-                        console.log('2.SPECIAL: Detected PEGASUS format (2.6)');
-                        formatDetected = true;
+                        console.log('2.SPECIAL: PEGASUS Merged all data into single row with', allCells.length, 'cells');
+                        console.log('2.SPECIAL: PEGASUS First 10 cells:', allCells.slice(0, 10));
                         
                         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = 0; // PEGASUS: 强制从第一列开始
+                        // PEGASUS 格式：强制从第一列（Column 1）开始粘贴
+                        const startCol = 0;
                         
                         const currentRows = document.querySelectorAll('#tableBody tr').length;
                         const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
@@ -8863,7 +8883,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         allCells.forEach((cellData, colIndex) => {
                             const actualColIndex = startCol + colIndex;
-                            const cell = tableRow.children[actualColIndex + 1];
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
                             
                             if (cell && cell.contentEditable === 'true') {
                                 const trimmedData = (cellData || '').trim();
@@ -8874,6 +8894,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     newValue: trimmedData
                                 });
                                 
+                                // 保持原始数据，不做任何转换
                                 cell.textContent = trimmedData;
                                 
                                 if (trimmedData) {
@@ -8890,12 +8911,16 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (successCount > 0) {
+                            formatDetected = true;
                             showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.6)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
+                    } else {
+                        console.log('2.SPECIAL: PEGASUS No data extracted, will continue trying other formats');
                     }
                 }
+                // 2.6 PEGASUS 代码结束
                 
                 if (!formatDetected) {
                     console.log('2.SPECIAL: No format detected, continuing with default logic');
