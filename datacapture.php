@@ -11556,17 +11556,24 @@ if ($current_user_id && count($user_companies) > 0) {
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const allLines = normalizedData.split('\n');
                 
+                console.log('MAXBET: Total lines from paste:', allLines.length);
+                
                 if (allLines.length > 0) {
                     const dataMatrix = [];
                     let maxCols = 0;
+                    let processedLineCount = 0;
                     
-                    // 处理所有行，保持原始行结构
-                    allLines.forEach(line => {
+                    // 处理所有行，保持原始行结构 - 每一行文本对应一个表格行
+                    allLines.forEach((line, lineIndex) => {
                         const trimmed = line.trim();
                         // 跳过完全空白的行
                         if (trimmed === '') {
+                            console.log('MAXBET: Skipping empty line at index', lineIndex);
                             return;
                         }
+                        
+                        processedLineCount++;
+                        console.log('MAXBET: Processing line', processedLineCount, ':', trimmed.substring(0, 50));
                         
                         if (line.includes('\t')) {
                             // 包含制表符的行：按制表符分割
@@ -11575,16 +11582,21 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 格式化数值为2位小数
                                 return formatNumberToTwoDecimals(cellTrimmed);
                             });
+                            console.log('MAXBET: Line', processedLineCount, 'has', cells.length, 'columns');
                             dataMatrix.push(cells);
                             maxCols = Math.max(maxCols, cells.length);
                         } else {
                             // 单行文本（如 "Super", "LMK1" 等）
                             // 只格式化数值，文本保持不变
                             const formatted = formatNumberToTwoDecimals(trimmed);
+                            console.log('MAXBET: Line', processedLineCount, 'is single column:', formatted);
                             dataMatrix.push([formatted]);
                             maxCols = Math.max(maxCols, 1);
                         }
                     });
+                    
+                    console.log('MAXBET: Processed', processedLineCount, 'non-empty lines into', dataMatrix.length, 'rows');
+                    console.log('MAXBET: Maximum columns:', maxCols);
                     
                     // 确保所有行都有相同的列数
                     dataMatrix.forEach(row => {
@@ -11595,30 +11607,43 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 填充到表格，从用户点击的单元格开始
                     if (dataMatrix.length > 0 && maxCols > 0) {
+                        console.log('MAXBET: Starting to fill table with', dataMatrix.length, 'rows x', maxCols, 'cols');
+                        
                         const startCell = e.target;
                         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                         const startCol = parseInt(startCell.dataset.col);
+                        
+                        console.log('MAXBET: Starting position - row:', startRow, 'col:', startCol);
                         
                         const currentRows = document.querySelectorAll('#tableBody tr').length;
                         const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
                         const requiredRows = startRow + dataMatrix.length;
                         const requiredCols = startCol + maxCols;
                         
+                        console.log('MAXBET: Current table size - rows:', currentRows, 'cols:', currentCols);
+                        console.log('MAXBET: Required size - rows:', requiredRows, 'cols:', requiredCols);
+                        
                         if (requiredRows > currentRows || requiredCols > currentCols) {
                             const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
                             const targetCols = Math.max(currentCols, requiredCols);
+                            console.log('MAXBET: Expanding table to', targetRows, 'rows x', targetCols, 'cols');
                             initializeTable(targetRows, targetCols);
                         }
                         
                         const tableBody = document.getElementById('tableBody');
                         const currentPasteChanges = [];
                         let successCount = 0;
+                        let filledRowCount = 0;
                         
                         dataMatrix.forEach((rowData, rowIndex) => {
                             const actualRowIndex = startRow + rowIndex;
                             const tableRow = tableBody.children[actualRowIndex];
-                            if (!tableRow) return;
+                            if (!tableRow) {
+                                console.log('MAXBET: Warning - table row', actualRowIndex, 'does not exist');
+                                return;
+                            }
                             
+                            let rowCellCount = 0;
                             rowData.forEach((cellData, colIndex) => {
                                 const actualColIndex = startCol + colIndex;
                                 const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
@@ -11635,10 +11660,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                     cell.textContent = cellValue;
                                     if (cellValue) {
                                         successCount++;
+                                        rowCellCount++;
                                     }
                                 }
                             });
+                            
+                            if (rowCellCount > 0) {
+                                filledRowCount++;
+                                console.log('MAXBET: Filled row', actualRowIndex, 'with', rowCellCount, 'cells');
+                            }
                         });
+                        
+                        console.log('MAXBET: Filled', filledRowCount, 'rows with', successCount, 'total cells');
                         
                         if (currentPasteChanges.length > 0) {
                             pasteHistory.push(currentPasteChanges);
@@ -11649,14 +11682,22 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         if (successCount > 0) {
                             console.log('MAXBET: Text format paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
+                            console.log('MAXBET: Successfully created', filledRowCount, 'table rows from', dataMatrix.length, 'pasted rows');
                             showNotification(`MAXBET: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持行格式并格式化数值为2位小数!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
-                            return;
+                            return; // 立即返回，不执行后续的HTML解析
+                        } else {
+                            console.log('MAXBET: Warning - No cells were filled from text format');
                         }
+                    } else {
+                        console.log('MAXBET: Warning - dataMatrix is empty or maxCols is 0');
                     }
+                } else {
+                    console.log('MAXBET: Warning - No lines found in pasted data');
                 }
                 
-                // 如果文本解析失败，再尝试HTML格式（作为后备方案）
+                // 如果文本解析完全失败，再尝试HTML格式（作为后备方案，但通常不应该到达这里）
+                console.log('MAXBET: Text parsing did not succeed, trying HTML format as fallback...');
                 // 优先尝试获取HTML格式的数据（Excel/网页粘贴通常包含HTML格式）
                 let htmlData = null;
                 try {
