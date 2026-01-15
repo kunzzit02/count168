@@ -8726,14 +8726,23 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
                 if (!formatDetected) {
-                    // CITIBET 特征检测：检查数据是否包含 "MAJOR" 和 "MINOR" 关键词
+                    // CITIBET 特征检测：检查数据是否包含 "MAJOR" 或 "MINOR" 关键词
+                    // 同时检查是否包含 CITIBET 特有的关键词（如 "overall", "downline payment", "my earnings" 等）
                     const hasMAJOR = /MAJOR/i.test(pastedData);
                     const hasMINOR = /MINOR/i.test(pastedData);
-                    const isCITIBETFormat = hasMAJOR && hasMINOR;
+                    const hasOverall = /overall/i.test(pastedData);
+                    const hasDownlinePayment = /downline\s+payment/i.test(pastedData);
+                    const hasMyEarnings = /my\s+earnings/i.test(pastedData);
+                    const hasUplinePayment = /upline\s+payment/i.test(pastedData);
+                    
+                    // 如果包含 MAJOR 或 MINOR，并且包含 CITIBET 特有的关键词，则认为是 CITIBET 格式
+                    const isCITIBETFormat = (hasMAJOR || hasMINOR) && 
+                                           (hasOverall || hasDownlinePayment || hasMyEarnings || hasUplinePayment);
                     
                     if (isCITIBETFormat) {
                         console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                        console.log('2.SPECIAL: CITIBET format pattern detected (MAJOR and MINOR found)');
+                        console.log('2.SPECIAL: CITIBET format pattern detected (MAJOR/MINOR and CITIBET keywords found)');
+                        console.log('2.SPECIAL: CITIBET detection details - hasMAJOR:', hasMAJOR, 'hasMINOR:', hasMINOR, 'hasOverall:', hasOverall, 'hasDownlinePayment:', hasDownlinePayment, 'hasMyEarnings:', hasMyEarnings, 'hasUplinePayment:', hasUplinePayment);
                         let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
                         if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
@@ -8793,10 +8802,12 @@ if ($current_user_id && count($user_companies) > 0) {
                             return;
                         }
                     } else {
-                        console.log('2.SPECIAL: CITIBET parsing failed, will continue trying other formats');
+                        console.log('2.SPECIAL: CITIBET parsing failed - parseCitibetMajorPaymentReport and parseCitibetPaymentReport both returned null');
+                        console.log('2.SPECIAL: This may mean the data format does not fully match CITIBET requirements');
+                        console.log('2.SPECIAL: Will continue trying other formats');
                     }
                     } else {
-                        console.log('2.SPECIAL: CITIBET format check failed (no MAJOR and MINOR found), skipping...');
+                        console.log('2.SPECIAL: CITIBET format check failed (no MAJOR/MINOR or CITIBET keywords found), skipping...');
                     }
                 }
                 
