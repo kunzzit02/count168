@@ -4528,6 +4528,159 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
+        // AWC 专用的模式识别数据解析：根据数据模式将纯文本分组成行（2.7）
+        function parseAWCPatternBasedData(lines) {
+            try {
+                console.log('AWC (2.7): Parsing pattern-based data, total lines:', lines.length);
+                
+                // 识别行起始标识符：用户ID、Sub Total等
+                const isRowStart = (text) => {
+                    if (!text || text.trim() === '') return false;
+                    const trimmed = text.trim().toUpperCase();
+                    // 匹配 Sub Total[ xxx ] 格式
+                    if (trimmed.startsWith('SUB TOTAL[') || trimmed.startsWith('SUBTOTAL[')) {
+                        return true;
+                    }
+                    // 匹配用户ID格式（通常是小写字母+数字，长度3-20）
+                    // 如 op7a, tr8, victorbetvtb
+                    if (/^[a-z0-9]{3,20}$/i.test(trimmed)) {
+                        // 排除纯数字或纯百分比
+                        if (!/^\d+\.?\d*%?$/.test(trimmed)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+                
+                // 检测平台名称（如SEXYBCRT, KINGMIDAS, SV388）和类型（如LIVE, TABLE）
+                const isPlatformOrType = (text) => {
+                    if (!text || text.trim() === '') return false;
+                    const trimmed = text.trim().toUpperCase();
+                    // 全大写字母，长度4-20
+                    return /^[A-Z]{4,20}$/.test(trimmed);
+                };
+                
+                // 识别每行的起始位置
+                const rowStartIndices = [];
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (isRowStart(line)) {
+                        rowStartIndices.push(i);
+                        console.log(`AWC (2.7): Found row start at line ${i}: "${line}"`);
+                    }
+                }
+                
+                // 如果没有找到行标识符，尝试通过固定列数分组（AWC格式通常是17-18列）
+                if (rowStartIndices.length === 0) {
+                    console.log('AWC (2.7): No row identifiers found, trying fixed-column grouping...');
+                    // 尝试不同的列数（15-20列），找到最合理的分组
+                    let bestMatch = null;
+                    let bestScore = 0;
+                    
+                    for (let cols = 15; cols <= 20; cols++) {
+                        const rows = Math.ceil(lines.length / cols);
+                        const remainder = lines.length % cols;
+                        
+                        // 如果能整除或剩余很少，认为这个列数合理
+                        if (remainder === 0 || remainder / cols < 0.1) {
+                            const score = remainder === 0 ? 1000 : (1 - remainder / cols) * 100;
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestMatch = { cols: cols, rows: rows };
+                            }
+                        }
+                    }
+                    
+                    if (bestMatch) {
+                        console.log(`AWC (2.7): Using fixed-column grouping: ${bestMatch.cols} columns`);
+                        const dataMatrix = [];
+                        
+                        for (let i = 0; i < lines.length; i += bestMatch.cols) {
+                            const row = lines.slice(i, i + bestMatch.cols).map(line => line.trim());
+                            if (row.length > 0) {
+                                dataMatrix.push(row);
+                            }
+                        }
+                        
+                        console.log(`AWC (2.7): Grouped ${lines.length} lines into ${dataMatrix.length} rows`);
+                        return dataMatrix;
+                    }
+                }
+                
+                // 根据行标识符分组成行
+                const dataMatrix = [];
+                for (let i = 0; i < rowStartIndices.length; i++) {
+                    const startIndex = rowStartIndices[i];
+                    const endIndex = (i + 1 < rowStartIndices.length) ? rowStartIndices[i + 1] : lines.length;
+                    
+                    // 提取这一行的所有值（直到下一个行标识符或Sub Total）
+                    const row = [];
+                    for (let j = startIndex; j < endIndex; j++) {
+                        const value = lines[j].trim();
+                        // 跳过空行
+                        if (value !== '') {
+                            row.push(value);
+                        }
+                    }
+                    
+                    if (row.length > 0) {
+                        dataMatrix.push(row);
+                        console.log(`AWC (2.7): Row ${dataMatrix.length - 1}: ${row.length} columns, starts with: "${row[0]}"`);
+                    }
+                }
+                
+                // 验证并统一列数：找出最常见的列数（排除Sub Total行）
+                if (dataMatrix.length > 0) {
+                    const dataRowLengths = dataMatrix
+                        .filter(row => {
+                            const first = (row[0] || '').toUpperCase();
+                            return !first.includes('SUB TOTAL');
+                        })
+                        .map(row => row.length);
+                    
+                    if (dataRowLengths.length > 0) {
+                        // 找出最常见的列数
+                        const lengthCounts = {};
+                        dataRowLengths.forEach(len => {
+                            lengthCounts[len] = (lengthCounts[len] || 0) + 1;
+                        });
+                        
+                        let mostCommonLength = dataRowLengths[0];
+                        let maxCount = 0;
+                        for (const [len, count] of Object.entries(lengthCounts)) {
+                            if (count > maxCount) {
+                                maxCount = count;
+                                mostCommonLength = parseInt(len);
+                            }
+                        }
+                        
+                        console.log(`AWC (2.7): Most common row length: ${mostCommonLength} columns`);
+                        
+                        // 确保所有行都有相同的列数（填充或截断）
+                        dataMatrix.forEach((row, index) => {
+                            while (row.length < mostCommonLength) {
+                                row.push('');
+                            }
+                            if (row.length > mostCommonLength) {
+                                // 如果超过，可能需要截断（但通常不应该发生）
+                                console.warn(`AWC (2.7): Row ${index} has ${row.length} columns, expected ${mostCommonLength}`);
+                            }
+                        });
+                    }
+                }
+                
+                console.log(`AWC (2.7): Successfully grouped into ${dataMatrix.length} rows`);
+                if (dataMatrix.length > 0) {
+                    console.log(`AWC (2.7): First row: ${dataMatrix[0].length} columns, starts with: "${dataMatrix[0][0]}"`);
+                }
+                return dataMatrix;
+                
+            } catch (error) {
+                console.error('AWC (2.7): Error parsing pattern-based data:', error);
+                return null;
+            }
+        }
+        
         // AWC 专用的 HTML 表格解析：保持表格行格式（2.7）
         function parseAndFillHTMLTableForAWC(htmlString, startCell) {
             try {
@@ -9776,6 +9929,79 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 if (successCount > 0) {
                                     showNotification(`AWC (2.7): 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持表格行格式!`, 'success');
+                                    setTimeout(updateSubmitButtonState, 0);
+                                    return; // 成功处理，直接返回
+                                }
+                            }
+                        } else {
+                            // 方法3.5：纯文本格式（换行符分隔），尝试根据数据模式智能分组成行
+                            console.log('AWC (2.7): No tab separator found, trying pattern-based row grouping...');
+                            const dataMatrix = parseAWCPatternBasedData(lines);
+                            
+                            if (dataMatrix && dataMatrix.length > 0) {
+                                const maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                
+                                // 确保所有行都有相同的列数
+                                dataMatrix.forEach(row => {
+                                    while (row.length < maxCols) {
+                                        row.push('');
+                                    }
+                                });
+                                
+                                // 填充到表格
+                                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                const startCol = parseInt(startCell.dataset.col);
+                                
+                                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                const requiredRows = startRow + dataMatrix.length;
+                                const requiredCols = startCol + maxCols;
+                                
+                                if (requiredRows > currentRows || requiredCols > currentCols) {
+                                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                    const targetCols = Math.max(currentCols, requiredCols);
+                                    initializeTable(targetRows, targetCols);
+                                }
+                                
+                                const tableBody = document.getElementById('tableBody');
+                                const currentPasteChanges = [];
+                                let successCount = 0;
+                                
+                                dataMatrix.forEach((rowData, rowIndex) => {
+                                    const actualRowIndex = startRow + rowIndex;
+                                    const tableRow = tableBody.children[actualRowIndex];
+                                    if (!tableRow) return;
+                                    
+                                    rowData.forEach((cellData, colIndex) => {
+                                        const actualColIndex = startCol + colIndex;
+                                        const cell = tableRow.children[actualColIndex + 1];
+                                        
+                                        if (cell && cell.contentEditable === 'true') {
+                                            const cellValue = (cellData || '').trim();
+                                            currentPasteChanges.push({
+                                                row: actualRowIndex,
+                                                col: actualColIndex,
+                                                oldValue: cell.textContent,
+                                                newValue: cellValue
+                                            });
+                                            
+                                            cell.textContent = cellValue;
+                                            if (cellValue) {
+                                                successCount++;
+                                            }
+                                        }
+                                    });
+                                });
+                                
+                                if (currentPasteChanges.length > 0) {
+                                    pasteHistory.push(currentPasteChanges);
+                                    if (pasteHistory.length > maxHistorySize) {
+                                        pasteHistory.shift();
+                                    }
+                                }
+                                
+                                if (successCount > 0) {
+                                    showNotification(`AWC (2.7): 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已根据数据模式智能分组!`, 'success');
                                     setTimeout(updateSubmitButtonState, 0);
                                     return; // 成功处理，直接返回
                                 }
