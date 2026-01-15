@@ -8316,147 +8316,68 @@ if ($current_user_id && count($user_companies) > 0) {
                 const startCell = e.target;
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
-                // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
-                    // CITIBET 特征检测：检查数据是否包含 CITIBET 格式的特征
-                    // 特征1: 包含 "Overall" 关键词
-                    // 特征2: 包含 "Downline Payment" 关键词
-                    // 特征3: 包含 "My Earnings" 关键词
-                    // 特征4: 可能包含 "Upline Payment" 关键词（可选）
-                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
-                    
-                    const hasOverall = /^overall\b/i.test(pastedData) || linesForCheck.some(line => /^overall\b/i.test(line));
-                    const hasDownlinePayment = /downline\s+payment/i.test(pastedData);
-                    const hasMyEarnings = /my\s+earnings/i.test(pastedData);
-                    const hasUplinePayment = /upline\s+payment/i.test(pastedData);
-                    
-                    // 如果符合 CITIBET 特征，进行解析
-                    const isCITIBETFormat = hasOverall && hasDownlinePayment && hasMyEarnings;
-                    
-                    if (isCITIBETFormat) {
-                        console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                        console.log('2.SPECIAL: CITIBET format pattern detected');
-                        console.log('2.SPECIAL: CITIBET Pasted data length:', pastedData.length);
-                        console.log('2.SPECIAL: CITIBET Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
+                    console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
+                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                    if (citibetParsed) {
+                        console.log('2.SPECIAL: Detected CITIBET format (2.1)');
+                        formatDetected = true;
+                        const { dataMatrix, maxRows, maxCols } = citibetParsed;
                         
-                        // CITIBET 解析：优先尝试 CITIBET MAJOR 格式，如果失败则尝试普通 CITIBET 格式
-                        let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = parseInt(startCell.dataset.col);
                         
-                        // 如果普通CITIBET解析失败，但数据包含Overall和Downline Payment，尝试使用parseSimplePaymentReport作为备用
-                        if (!citibetParsed && hasOverall && hasDownlinePayment) {
-                            console.log('2.SPECIAL: CITIBET standard parsers failed, trying parseSimplePaymentReport as fallback...');
-                            citibetParsed = parseSimplePaymentReport(pastedData);
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + maxRows;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
                         }
                         
-                        // 如果所有CITIBET解析器都失败，但数据明显是CITIBET格式，使用简单的制表符分隔解析作为最后备用
-                        if (!citibetParsed && hasOverall && hasDownlinePayment) {
-                            console.log('2.SPECIAL: CITIBET all parsers failed, trying simple tab-separated parsing as last fallback...');
-                            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                            const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
                             
-                            if (lines.length > 0) {
-                                const dataMatrix = [];
-                                let maxCols = 0;
-                                
-                                lines.forEach(line => {
-                                    if (line.includes('\t')) {
-                                        const cells = line.split('\t').map(c => c.trim());
-                                        dataMatrix.push(cells);
-                                        maxCols = Math.max(maxCols, cells.length);
-                                    } else if (line !== '') {
-                                        // 单行数据，按空格分割
-                                        const cells = line.split(/\s{2,}/).map(c => c.trim()).filter(c => c !== '');
-                                        if (cells.length > 0) {
-                                            dataMatrix.push(cells);
-                                            maxCols = Math.max(maxCols, cells.length);
-                                        }
-                                    }
-                                });
-                                
-                                // 确保所有行的列数相同
-                                if (dataMatrix.length > 0 && maxCols > 0) {
-                                    dataMatrix.forEach(row => {
-                                        while (row.length < maxCols) {
-                                            row.push('');
-                                        }
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
+                                if (cell && cell.contentEditable === 'true') {
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: cellData
                                     });
-                                    
-                                    citibetParsed = {
-                                        dataMatrix: dataMatrix,
-                                        maxRows: dataMatrix.length,
-                                        maxCols: maxCols
-                                    };
-                                    console.log('2.SPECIAL: CITIBET fallback parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                    const finalValue = (cellData || '').toUpperCase();
+                                    cell.textContent = finalValue;
+                                    successCount++;
                                 }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
                             }
                         }
                         
-                        if (citibetParsed) {
-                            console.log('2.SPECIAL: Detected CITIBET format (2.1)');
-                            formatDetected = true;
-                            const { dataMatrix, maxRows, maxCols } = citibetParsed;
-                            
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
-                            
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + maxRows;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            dataMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
-                                
-                                rowData.forEach((cellData, colIndex) => {
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1];
-                                    if (cell && cell.contentEditable === 'true') {
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellData
-                                        });
-                                        const finalValue = (cellData || '').toUpperCase();
-                                        cell.textContent = finalValue;
-                                        successCount++;
-                                    }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
-                                }
-                            }
-                            
-                            if (successCount > 0) {
-                                showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            } else {
-                                console.log('2.SPECIAL: CITIBET format detected but parsing failed, will continue trying other formats');
-                            }
+                        if (successCount > 0) {
+                            showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
                         }
-                    } else {
-                        console.log('2.SPECIAL: CITIBET format check failed, skipping...');
                     }
                 }
-                // 2.1 CITIBET 代码结束
                 
                 // ===== 2.2 VPOWER 格式检测和处理 =====
                 // 2.2 VPOWER: 以下代码从 VPOWER 选项复制而来，用于在 2.SPECIAL 模式下支持 VPOWER 格式的粘贴
