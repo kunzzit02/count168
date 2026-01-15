@@ -9794,11 +9794,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 提取所有单元格
                         const allCells = lines;
                         
-                        // 识别用户ID模式（通常是短字母数字组合，如"op7a"、"tr8"、"victorbetvtb"或"victor"）
+                        // 识别用户ID模式（通常是短字母数字组合，如"op7a"、"tr8"、"victorbetvtb"）
                         // 以及"Sub Total"标记
-                        const userIDPattern = /^[a-z0-9]{2,20}$/i; // 匹配用户ID（支持更长的ID）
+                        const userIDPattern = /^[a-z0-9]{2,15}$/i; // 匹配短的用户ID
                         const subTotalPattern = /^sub\s*total/i;
-                        const excludedPatterns = ['LIVE', 'TABLE', 'SV388', 'SEXYBCRT', 'KINGMIDAS', 'VICTORBETVTB'];
                         
                         // 查找所有用户ID和Sub Total的位置
                         const rowMarkers = [];
@@ -9806,110 +9805,54 @@ if ($current_user_id && count($user_companies) > 0) {
                             const cell = allCells[i].trim();
                             const upperCell = cell.toUpperCase();
                             
-                            // 跳过空单元格
-                            if (!cell) continue;
-                            
-                            // 识别Sub Total标记（优先识别，因为它总是行的开始）
-                            if (subTotalPattern.test(cell)) {
-                                rowMarkers.push({ index: i, type: 'subTotal', value: cell });
-                                continue;
-                            }
-                            
                             // 识别用户ID：短字母数字组合，且不在常见非用户ID列表中
-                            // 用户ID特征：
-                            // 1. 主要是字母和数字
-                            // 2. 通常以字母开头
-                            // 3. 不在排除列表中
-                            // 4. 长度在2-20之间
                             if (userIDPattern.test(cell) && 
-                                !excludedPatterns.includes(upperCell) &&
-                                cell.length >= 2 && cell.length <= 20) {
-                                // 进一步验证：用户ID通常以小写字母开头，不是纯数字，也不是常见的平台/类型名
-                                const startsWithLetter = /^[a-z]/i.test(cell);
-                                const isNotAllDigits = !/^\d+$/.test(cell);
-                                const isNotAllNumbers = !/^[\d.()%]+$/.test(cell);
-                                
-                                // 特殊处理：识别"victor"这样的部分用户ID（可能被截断）
-                                const looksLikeUserID = startsWithLetter && isNotAllDigits && isNotAllNumbers &&
-                                    (cell.length <= 6 || cell.match(/^[a-z]+[0-9]/i) || cell.match(/^[a-z]{3,}[a-z0-9]*$/i));
-                                
-                                if (looksLikeUserID) {
+                                !['LIVE', 'TABLE', 'SV388', 'SEXYBCRT', 'KINGMIDAS'].includes(upperCell) &&
+                                cell.length >= 2 && cell.length <= 15) {
+                                // 进一步验证：用户ID通常在小写或混合大小写，且前面没有数字或特殊字符
+                                if (cell.match(/^[a-z]/) && !cell.match(/^\d/)) {
                                     rowMarkers.push({ index: i, type: 'userID', value: cell });
                                 }
                             }
+                            
+                            // 识别Sub Total标记
+                            if (subTotalPattern.test(cell)) {
+                                rowMarkers.push({ index: i, type: 'subTotal', value: cell });
+                            }
                         }
-                        
-                        // 按索引排序标记
-                        rowMarkers.sort((a, b) => a.index - b.index);
                         
                         console.log(`AWC (2.7): Found ${rowMarkers.length} row markers:`, rowMarkers.slice(0, 10));
                         
                         if (rowMarkers.length >= 2) {
-                            // 计算行标记之间的间隔来确定列数
-                            // 使用所有行标记（包括用户ID和Sub Total），因为它们都标记行的开始
-                            const intervals = [];
-                            for (let i = 1; i < rowMarkers.length; i++) {
-                                const interval = rowMarkers[i].index - rowMarkers[i-1].index;
-                                intervals.push(interval);
-                            }
-                            
-                            // 找到最常见的间隔（这应该就是每行的列数）
-                            const intervalCounts = {};
-                            intervals.forEach(interval => {
-                                intervalCounts[interval] = (intervalCounts[interval] || 0) + 1;
-                            });
-                            
-                            // 优先选择在15-25范围内且出现次数最多的间隔
-                            let mostCommonInterval = null;
-                            let maxCount = 0;
-                            for (const [interval, count] of Object.entries(intervalCounts)) {
-                                const intervalNum = parseInt(interval);
-                                // 如果间隔在合理范围内（15-25列），优先选择
-                                // 特别优先选择18列（最常见的表格列数）
-                                if (intervalNum >= 15 && intervalNum <= 25) {
-                                    let score = count;
-                                    if (intervalNum === 18) {
-                                        score += 10; // 18列额外加分
-                                    }
-                                    if (score > maxCount || (score === maxCount && intervalNum === 18)) {
-                                        maxCount = score;
+                            // 计算用户ID之间的间隔来确定列数
+                            const userIDMarkers = rowMarkers.filter(m => m.type === 'userID');
+                            if (userIDMarkers.length >= 2) {
+                                const intervals = [];
+                                for (let i = 1; i < userIDMarkers.length; i++) {
+                                    const interval = userIDMarkers[i].index - userIDMarkers[i-1].index;
+                                    intervals.push(interval);
+                                }
+                                
+                                // 找到最常见的间隔（这应该就是每行的列数）
+                                const intervalCounts = {};
+                                intervals.forEach(interval => {
+                                    intervalCounts[interval] = (intervalCounts[interval] || 0) + 1;
+                                });
+                                
+                                let mostCommonInterval = null;
+                                let maxCount = 0;
+                                for (const [interval, count] of Object.entries(intervalCounts)) {
+                                    const intervalNum = parseInt(interval);
+                                    if (count > maxCount && intervalNum >= 15 && intervalNum <= 25) {
+                                        maxCount = count;
                                         mostCommonInterval = intervalNum;
                                     }
                                 }
-                            }
-                            
-                            // 如果找到了间隔，但间隔可能是18的倍数（例如36=18*2），尝试除以倍数
-                            if (mostCommonInterval && mostCommonInterval > 18 && mostCommonInterval % 18 === 0) {
-                                const divisor = mostCommonInterval / 18;
-                                // 如果除以倍数后，这个间隔出现得更频繁，使用除以后的值
-                                const dividedInterval = 18;
-                                const dividedCount = Math.ceil(maxCount / divisor);
-                                if (dividedCount >= maxCount * 0.5) { // 如果除以后仍然有足够的出现次数
-                                    console.log(`AWC (2.7): Interval ${mostCommonInterval} appears to be ${divisor} times 18, using 18 columns instead`);
-                                    mostCommonInterval = 18;
-                                    maxCount = dividedCount;
-                                }
-                            }
-                            
-                            // 如果没有找到，尝试使用18列（最常见的表格列数）
-                            if (!mostCommonInterval && allCells.length > 18) {
-                                // 检查18列是否合理（总单元格数能被18整除或接近整除）
-                                const remainder = allCells.length % 18;
-                                const remainderRatio = remainder / 18;
-                                if (remainderRatio < 0.1) { // 剩余小于10%
-                                    mostCommonInterval = 18;
-                                    maxCount = 1;
-                                    console.log(`AWC (2.7): No clear pattern found, using default 18 columns (remainder: ${remainder})`);
-                                }
-                            }
-                            
-                            console.log(`AWC (2.7): Row marker intervals:`, intervals);
-                            console.log(`AWC (2.7): Interval counts:`, intervalCounts);
-                            console.log(`AWC (2.7): Most common interval: ${mostCommonInterval} (appears ${maxCount} times)`);
-                            
-                            // 如果找到了合理的间隔，或者回退到18列
-                            if (mostCommonInterval && mostCommonInterval >= 15 && mostCommonInterval <= 25) {
-                                console.log(`AWC (2.7): Using detected interval: ${mostCommonInterval} columns`);
+                                
+                                console.log(`AWC (2.7): User ID intervals:`, intervals);
+                                console.log(`AWC (2.7): Most common interval: ${mostCommonInterval} (appears ${maxCount} times)`);
+                                
+                                if (mostCommonInterval && mostCommonInterval >= 15 && mostCommonInterval <= 25) {
                                     // 使用检测到的列数重新组织数据
                                     const detectedColumns = mostCommonInterval;
                                     const totalRows = Math.ceil(allCells.length / detectedColumns);
