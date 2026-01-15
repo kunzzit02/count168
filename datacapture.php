@@ -8727,15 +8727,30 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.1 CITIBET 格式检测和处理（包含 MAJOR 和 MINOR 处理） =====
                 // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    console.log('2.SPECIAL: CITIBET Pasted data length:', pastedData.length);
-                    console.log('2.SPECIAL: CITIBET Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
+                    // CITIBET 特征检测：检查数据是否包含 CITIBET 格式的特征
+                    // 特征1: 包含 "MAJOR" 或 "MINOR" 关键词（CITIBET 特有的类型标识）
+                    // 特征2: 包含 "OVERALL" 关键词（CITIBET 特有的总览行）
+                    // 特征3: 包含 "Upline Payment" 或 "Downline Payment"（CITIBET 特有的段落标识）
+                    // 特征4: 包含 "My Earnings"（CITIBET 特有的收益行）
+                    const hasMajorOrMinor = /\b(MAJOR|MINOR)\b/i.test(pastedData);
+                    const hasOverall = /\bOVERALL\b/i.test(pastedData);
+                    const hasUplineOrDownline = /(Upline\s+Payment|Downline\s+Payment)/i.test(pastedData);
+                    const hasMyEarnings = /My\s+Earnings/i.test(pastedData);
                     
-                    // CITIBET 专用解析：先尝试 MAJOR 格式，如果失败则尝试通用格式
-                    // 这样可以处理包含 MAJOR 和 MINOR 的数据
-                    let citibetParsed = null;
-                    // 优先尝试 MAJOR 格式解析（包含 MAJOR 和 MINOR 的完整处理）
-                    citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                    // 如果包含 MAJOR/MINOR 或 OVERALL，很可能是 CITIBET 格式
+                    const isLikelyCITIBET = hasMajorOrMinor || (hasOverall && (hasUplineOrDownline || hasMyEarnings));
+                    
+                    if (isLikelyCITIBET) {
+                        console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
+                        console.log('2.SPECIAL: CITIBET format pattern detected (MAJOR/MINOR:', hasMajorOrMinor, ', OVERALL:', hasOverall, ', Upline/Downline:', hasUplineOrDownline, ', My Earnings:', hasMyEarnings, ')');
+                        console.log('2.SPECIAL: CITIBET Pasted data length:', pastedData.length);
+                        console.log('2.SPECIAL: CITIBET Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
+                        
+                        // CITIBET 专用解析：先尝试 MAJOR 格式，如果失败则尝试通用格式
+                        // 这样可以处理包含 MAJOR 和 MINOR 的数据
+                        let citibetParsed = null;
+                        // 优先尝试 MAJOR 格式解析（包含 MAJOR 和 MINOR 的完整处理）
+                        citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
                     
                     if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
@@ -8821,6 +8836,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     } else {
                         console.log('2.SPECIAL: CITIBET format check failed, will continue trying other formats');
+                    }
+                    } else {
+                        console.log('2.SPECIAL: CITIBET format check skipped - no CITIBET format markers detected');
                     }
                 }
                 // 2.1 CITIBET 代码结束
@@ -9363,6 +9381,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 排除 AWC 格式：AWC 有独特的特征，不应该被 C8PLAY 误判
                     // AWC 特征：用户ID（小写字母开头）、平台名（全大写）、类型标识（LIVE/TABLE/SLOT/SPORTS）、Sub Total[
+                    // 排除 CITIBET 格式：CITIBET 有 MAJOR/MINOR 特征，不应该被 C8PLAY 误判
                     const hasAWCUserID = linesForCheck.some(line => {
                         const trimmed = line.trim();
                         return /^[a-z][a-z0-9]{2,14}$/i.test(trimmed) && !/^\d+$/.test(trimmed);
@@ -9376,8 +9395,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     const hasAWCSubTotal = /SUB\s*TOTAL\[/i.test(pastedData);
                     const isLikelyAWC = (hasAWCUserID && hasAWCPlatform) || (hasAWCUserID && hasAWCTypeIdentifier) || hasAWCSubTotal;
                     
-                    // 如果符合 C8PLAY 特征，且不是 AWC 格式，进行解析
-                    const isC8PLAYFormat = !isLikelyAWC && (hasCKZIdentifier || (hasStandaloneIdentifier && hasAgentKeyword));
+                    // 检测 CITIBET 格式特征
+                    const hasMajorOrMinor = /\b(MAJOR|MINOR)\b/i.test(pastedData);
+                    const hasOverall = /\bOVERALL\b/i.test(pastedData);
+                    const isLikelyCITIBET = hasMajorOrMinor || hasOverall;
+                    
+                    // 如果符合 C8PLAY 特征，且不是 AWC 或 CITIBET 格式，进行解析
+                    const isC8PLAYFormat = !isLikelyAWC && !isLikelyCITIBET && (hasCKZIdentifier || (hasStandaloneIdentifier && hasAgentKeyword));
                     
                     if (isC8PLAYFormat) {
                         console.log('2.SPECIAL: Trying 2.4 C8PLAY format...');
@@ -9892,8 +9916,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 检测 Sub Total 格式
                     const hasSubTotal = /SUB\s*TOTAL\[/i.test(pastedData);
                     
-                    // 如果符合 AWC 特征，进行解析
-                    const isAWCFormat = (hasUserID && hasPlatformName) || (hasUserID && hasTypeIdentifier) || hasSubTotal;
+                    // 排除 CITIBET 格式：CITIBET 有 MAJOR/MINOR 特征，不应该被 AWC 误判
+                    const hasMajorOrMinor = /\b(MAJOR|MINOR)\b/i.test(pastedData);
+                    const hasOverall = /\bOVERALL\b/i.test(pastedData);
+                    const isLikelyCITIBET = hasMajorOrMinor || hasOverall;
+                    
+                    // 如果符合 AWC 特征，且不是 CITIBET 格式，进行解析
+                    const isAWCFormat = !isLikelyCITIBET && ((hasUserID && hasPlatformName) || (hasUserID && hasTypeIdentifier) || hasSubTotal);
                     
                     if (isAWCFormat) {
                         console.log('2.SPECIAL: Trying 2.5 AWC format...');
@@ -10118,24 +10147,33 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 // 2.4 AWC 代码结束
                 
-                // ===== 2.5 S88 格式检测和处理（优先于 ALIPAY） =====
-                // 2.5 S88: 多行数据格式，每行数据包含标识符、Agent和多个数值
+                // ===== 2.6 S88 格式检测和处理（优先于 ALIPAY） =====
+                // 2.6 S88: 多行数据格式，每行数据包含标识符、Agent和多个数值
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.5 S88 format...');
-                    console.log('2.SPECIAL: S88 raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                    // S88 特征检测：排除 CITIBET 格式（CITIBET 有 MAJOR/MINOR 特征）
+                    // 如果数据包含 MAJOR 或 MINOR，很可能是 CITIBET 格式，跳过 S88
+                    const hasMajorOrMinor = /\b(MAJOR|MINOR)\b/i.test(pastedData);
+                    const hasOverall = /\bOVERALL\b/i.test(pastedData);
+                    const isLikelyCITIBET = hasMajorOrMinor || hasOverall;
                     
-                    // S88 格式特征检测：数据包含标识符、Agent和多个数值，每个数值占一行
-                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const allLines = normalizedData.split('\n');
-                    
-                    // 检测是否符合 S88 格式：包含 "Agent" 关键字，且数据格式为标识符+Agent+多行数值
-                    // 更严格的检测：必须有多行，且每行以标识符+Agent开头，后面跟着数值行
-                    const hasAgentKeyword = /Agent/i.test(pastedData);
-                    const linesWithAgent = allLines.filter(line => /Agent/i.test(line.trim()));
-                    const hasMultipleAgentLines = linesWithAgent.length >= 2; // 至少2个标识符+Agent行
-                    const hasIdentifierPattern = /[A-Z0-9]{6,12}[\s\t]+Agent/i.test(pastedData);
-                    
-                    if (hasAgentKeyword && hasIdentifierPattern && hasMultipleAgentLines) {
+                    if (isLikelyCITIBET) {
+                        console.log('2.SPECIAL: S88 format check skipped - detected CITIBET format markers (MAJOR/MINOR/OVERALL)');
+                    } else {
+                        console.log('2.SPECIAL: Trying 2.6 S88 format...');
+                        console.log('2.SPECIAL: S88 raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                        
+                        // S88 格式特征检测：数据包含标识符、Agent和多个数值，每个数值占一行
+                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        const allLines = normalizedData.split('\n');
+                        
+                        // 检测是否符合 S88 格式：包含 "Agent" 关键字，且数据格式为标识符+Agent+多行数值
+                        // 更严格的检测：必须有多行，且每行以标识符+Agent开头，后面跟着数值行
+                        const hasAgentKeyword = /Agent/i.test(pastedData);
+                        const linesWithAgent = allLines.filter(line => /Agent/i.test(line.trim()));
+                        const hasMultipleAgentLines = linesWithAgent.length >= 2; // 至少2个标识符+Agent行
+                        const hasIdentifierPattern = /[A-Z0-9]{6,12}[\s\t]+Agent/i.test(pastedData);
+                        
+                        if (hasAgentKeyword && hasIdentifierPattern && hasMultipleAgentLines) {
                         console.log('2.SPECIAL: S88 format pattern detected');
                         
                         const dataMatrix = [];
@@ -10266,8 +10304,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         } else {
                             console.log('2.SPECIAL: S88 parsing failed, no data extracted');
                         }
-                    } else {
-                        console.log('2.SPECIAL: S88 format check failed, skipping...');
+                        } else {
+                            console.log('2.SPECIAL: S88 format check failed, skipping...');
+                        }
                     }
                 }
                 // 2.6 S88 代码结束
@@ -10276,13 +10315,20 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 2.7 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
                     // ALIPAY 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
+                    // 排除 CITIBET 格式（CITIBET 有 MAJOR/MINOR 特征）
                     // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 ALIPAY
+                    // 如果数据包含 MAJOR 或 MINOR，很可能是 CITIBET 格式，跳过 ALIPAY
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                    const hasMajorOrMinor = /\b(MAJOR|MINOR)\b/i.test(pastedData);
+                    const hasOverall = /\bOVERALL\b/i.test(pastedData);
                     const isLikelyWBET = hasSubTotal || hasGrandTotal;
+                    const isLikelyCITIBET = hasMajorOrMinor || hasOverall;
                     
                     if (isLikelyWBET) {
                         console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
+                    } else if (isLikelyCITIBET) {
+                        console.log('2.SPECIAL: ALIPAY format check skipped - detected CITIBET format markers (MAJOR/MINOR/OVERALL)');
                     } else {
                         console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
                         console.log('Pasted data length:', pastedData.length);
@@ -10752,13 +10798,20 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.8 PS3838 格式检测和处理 =====
                 if (!formatDetected) {
                     // PS3838 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
+                    // 排除 CITIBET 格式（CITIBET 有 MAJOR/MINOR 特征）
                     // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 PS3838
+                    // 如果数据包含 MAJOR 或 MINOR，很可能是 CITIBET 格式，跳过 PS3838
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                    const hasMajorOrMinor = /\b(MAJOR|MINOR)\b/i.test(pastedData);
+                    const hasOverall = /\bOVERALL\b/i.test(pastedData);
                     const isLikelyWBET = hasSubTotal || hasGrandTotal;
+                    const isLikelyCITIBET = hasMajorOrMinor || hasOverall;
                     
                     if (isLikelyWBET) {
                         console.log('2.SPECIAL: PS3838 format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
+                    } else if (isLikelyCITIBET) {
+                        console.log('2.SPECIAL: PS3838 format check skipped - detected CITIBET format markers (MAJOR/MINOR/OVERALL)');
                     } else {
                         console.log('2.SPECIAL: Trying 2.8 PS3838 format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
