@@ -8316,8 +8316,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 const startCell = e.target;
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
+                // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
+                    console.log('2.SPECIAL: CITIBET Pasted data length:', pastedData.length);
+                    console.log('2.SPECIAL: CITIBET Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
+                    
+                    // CITIBET 解析：优先尝试 CITIBET MAJOR 格式，如果失败则尝试普通 CITIBET 格式
                     let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
                     if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
@@ -8376,8 +8381,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
+                    } else {
+                        console.log('2.SPECIAL: CITIBET format check failed, no data parsed');
                     }
                 }
+                // 2.1 CITIBET 代码结束
                 
                 // ===== 2.2 VPOWER 格式检测和处理 =====
                 // 2.2 VPOWER: 以下代码从 VPOWER 选项复制而来，用于在 2.SPECIAL 模式下支持 VPOWER 格式的粘贴
