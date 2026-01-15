@@ -10284,8 +10284,6 @@ if ($current_user_id && count($user_companies) > 0) {
                             return;
                         }
                     }
-                    } else {
-                        console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers');
                     }
                 }
                 // 2.7 ALIPAY 代码结束
