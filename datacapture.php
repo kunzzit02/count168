@@ -8915,8 +8915,23 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 检测Agent关键词
                     const hasAgentKeyword = /Agent/i.test(pastedData);
                     
-                    // 如果符合 C8PLAY 特征，进行解析
-                    const isC8PLAYFormat = (hasCKZIdentifier || (hasStandaloneIdentifier && hasAgentKeyword));
+                    // 排除 AWC 格式：AWC 有独特的特征，不应该被 C8PLAY 误判
+                    // AWC 特征：用户ID（小写字母开头）、平台名（全大写）、类型标识（LIVE/TABLE/SLOT/SPORTS）、Sub Total[
+                    const hasAWCUserID = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        return /^[a-z][a-z0-9]{2,14}$/i.test(trimmed) && !/^\d+$/.test(trimmed);
+                    });
+                    const knownAWCPlatforms = ['SEXYBCRT', 'KINGMIDAS', 'SV388', 'KINGMASTER', 'KINGGAME', 'ALLBET', 'PP88'];
+                    const hasAWCPlatform = linesForCheck.some(line => {
+                        const trimmed = line.trim().toUpperCase();
+                        return /^[A-Z]{4,20}$/.test(trimmed) || knownAWCPlatforms.includes(trimmed);
+                    });
+                    const hasAWCTypeIdentifier = /(LIVE|TABLE|SLOT|SPORTS)/i.test(pastedData);
+                    const hasAWCSubTotal = /SUB\s*TOTAL\[/i.test(pastedData);
+                    const isLikelyAWC = (hasAWCUserID && hasAWCPlatform) || (hasAWCUserID && hasAWCTypeIdentifier) || hasAWCSubTotal;
+                    
+                    // 如果符合 C8PLAY 特征，且不是 AWC 格式，进行解析
+                    const isC8PLAYFormat = !isLikelyAWC && (hasCKZIdentifier || (hasStandaloneIdentifier && hasAgentKeyword));
                     
                     if (isC8PLAYFormat) {
                         console.log('2.SPECIAL: Trying 2.4 C8PLAY format...');
@@ -9447,7 +9462,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 const filled = parseAndFillHTMLTableForAWC(htmlData, startCell);
                                 if (filled) {
                                     formatDetected = true;
-                                    showNotification('2.SPECIAL: 检测到AWC格式 (2.4)!', 'success');
+                                    showNotification('2.SPECIAL: 检测到AWC格式 (2.5)!', 'success');
                                     setTimeout(updateSubmitButtonState, 0);
                                     return;
                                 }
@@ -9464,7 +9479,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 const filled = parseAndFillHTMLTableForAWC(htmlDataFromDetect, startCell);
                                 if (filled) {
                                     formatDetected = true;
-                                    showNotification('2.SPECIAL: 检测到AWC格式 (2.4)!', 'success');
+                                    showNotification('2.SPECIAL: 检测到AWC格式 (2.5)!', 'success');
                                     setTimeout(updateSubmitButtonState, 0);
                                     return;
                                 }
