@@ -10238,15 +10238,48 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.7 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
                 // 2.7 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
-                    // ALIPAY 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
-                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 ALIPAY
+                    // ALIPAY 特征检测：先检查是否有 ALIPAY 格式的特征（标识符行，如 JDW01, JDW02）
+                    // ALIPAY 格式特征：标识符行（2-10个大写字母/数字组合，如 JDW01, JDW02）
+                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    // 检测 ALIPAY 格式的标识符行（2-10个大写字母/数字组合，如 JDW01, JDW02）
+                    // 这些标识符通常不包含空格、逗号、小数点、负号，且不以纯数字开头
+                    let hasAlipayIdentifier = false;
+                    let alipayIdentifierCount = 0;
+                    for (let i = 0; i < Math.min(linesForCheck.length, 20); i++) {
+                        const testLine = linesForCheck[i].trim();
+                        // ALIPAY 标识符特征：2-10个字符，包含字母和数字，不包含空格、逗号、小数点、负号
+                        const isAlipayIdentifier = /^[A-Z0-9]{2,10}$/.test(testLine) && 
+                                                   !testLine.includes(' ') && 
+                                                   !testLine.includes(',') &&
+                                                   !testLine.includes('.') &&
+                                                   !testLine.includes('-') &&
+                                                   !/^\d+$/.test(testLine); // 不是纯数字
+                        
+                        if (isAlipayIdentifier) {
+                            alipayIdentifierCount++;
+                            // 如果找到至少2个 ALIPAY 标识符，认为是 ALIPAY 格式
+                            if (alipayIdentifierCount >= 2) {
+                                hasAlipayIdentifier = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 检测 WBET 格式标记（SUB TOTAL/GRAND TOTAL）
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
                     const isLikelyWBET = hasSubTotal || hasGrandTotal;
                     
-                    if (isLikelyWBET) {
-                        console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
+                    // 如果检测到 ALIPAY 标识符，即使有 Grand Total 也尝试 ALIPAY 格式
+                    // 因为 ALIPAY 格式也可能包含 Grand Total
+                    if (!hasAlipayIdentifier && isLikelyWBET) {
+                        console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL) and no ALIPAY identifiers found');
                     } else {
+                        if (hasAlipayIdentifier) {
+                            console.log('2.SPECIAL: ALIPAY identifiers detected (', alipayIdentifierCount, 'found), trying ALIPAY format even if Grand Total exists');
+                        }
                         console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
                         console.log('Pasted data length:', pastedData.length);
                         console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
