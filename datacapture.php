@@ -9824,37 +9824,110 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log(`AWC (2.7): Found ${rowMarkers.length} row markers:`, rowMarkers.slice(0, 10));
                         
                         if (rowMarkers.length >= 2) {
-                            // 计算用户ID之间的间隔来确定列数
+                            // 方法1：使用Sub Total标记来计算列数（更可靠）
+                            // Sub Total标记通常紧跟在每行数据的末尾
+                            const subTotalMarkers = rowMarkers.filter(m => m.type === 'subTotal');
                             const userIDMarkers = rowMarkers.filter(m => m.type === 'userID');
-                            if (userIDMarkers.length >= 2) {
-                                const intervals = [];
-                                for (let i = 1; i < userIDMarkers.length; i++) {
-                                    const interval = userIDMarkers[i].index - userIDMarkers[i-1].index;
-                                    intervals.push(interval);
+                            
+                            let detectedColumns = null;
+                            
+                            // 优先使用Sub Total的位置来验证列数
+                            if (subTotalMarkers.length >= 1 && userIDMarkers.length >= 1) {
+                                // 对于每个Sub Total，找到它前面的用户ID，计算它们之间的间隔
+                                for (const subTotal of subTotalMarkers) {
+                                    // 找到这个Sub Total前面的最近用户ID
+                                    const precedingUserID = userIDMarkers
+                                        .filter(uid => uid.index < subTotal.index)
+                                        .sort((a, b) => b.index - a.index)[0];
+                                    
+                                    if (precedingUserID) {
+                                        // 从用户ID到Sub Total的间隔，加上Sub Total本身（1列），就是每行的列数
+                                        const interval = subTotal.index - precedingUserID.index;
+                                        // 但是Sub Total本身通常不是列的一部分，所以间隔应该是列数
+                                        // 不过需要验证：Sub Total应该在用户ID开始的行的某个位置
+                                        // 如果间隔在15-25之间，这可能是正确的列数
+                                        if (interval >= 15 && interval <= 25) {
+                                            detectedColumns = interval;
+                                            console.log(`AWC (2.7): Detected ${detectedColumns} columns from userID "${precedingUserID.value}" (index ${precedingUserID.index}) to SubTotal (index ${subTotal.index})`);
+                                            break; // 使用第一个匹配的
+                                        }
+                                    }
                                 }
-                                
-                                // 找到最常见的间隔（这应该就是每行的列数）
-                                const intervalCounts = {};
-                                intervals.forEach(interval => {
-                                    intervalCounts[interval] = (intervalCounts[interval] || 0) + 1;
-                                });
-                                
-                                let mostCommonInterval = null;
-                                let maxCount = 0;
-                                for (const [interval, count] of Object.entries(intervalCounts)) {
-                                    const intervalNum = parseInt(interval);
-                                    if (count > maxCount && intervalNum >= 15 && intervalNum <= 25) {
-                                        maxCount = count;
-                                        mostCommonInterval = intervalNum;
+                            }
+                            
+                            // 方法2：如果Sub Total方法失败，使用用户ID之间的间隔
+                            if (!detectedColumns && userIDMarkers.length >= 2) {
+                                // 去除重复的用户ID（保留第一次出现的）
+                                const uniqueUserIDs = [];
+                                const seenUserIDs = new Set();
+                                for (const marker of userIDMarkers) {
+                                    const upperValue = marker.value.toUpperCase();
+                                    if (!seenUserIDs.has(upperValue)) {
+                                        uniqueUserIDs.push(marker);
+                                        seenUserIDs.add(upperValue);
                                     }
                                 }
                                 
-                                console.log(`AWC (2.7): User ID intervals:`, intervals);
-                                console.log(`AWC (2.7): Most common interval: ${mostCommonInterval} (appears ${maxCount} times)`);
+                                if (uniqueUserIDs.length >= 2) {
+                                    const intervals = [];
+                                    for (let i = 1; i < uniqueUserIDs.length; i++) {
+                                        const interval = uniqueUserIDs[i].index - uniqueUserIDs[i-1].index;
+                                        intervals.push(interval);
+                                    }
+                                    
+                                    // 找到最常见的间隔（这应该就是每行的列数）
+                                    const intervalCounts = {};
+                                    intervals.forEach(interval => {
+                                        intervalCounts[interval] = (intervalCounts[interval] || 0) + 1;
+                                    });
+                                    
+                                    let mostCommonInterval = null;
+                                    let maxCount = 0;
+                                    for (const [interval, count] of Object.entries(intervalCounts)) {
+                                        const intervalNum = parseInt(interval);
+                                        if (count > maxCount && intervalNum >= 15 && intervalNum <= 25) {
+                                            maxCount = count;
+                                            mostCommonInterval = intervalNum;
+                                        }
+                                    }
+                                    
+                                    console.log(`AWC (2.7): User ID intervals (unique):`, intervals);
+                                    console.log(`AWC (2.7): Most common interval: ${mostCommonInterval} (appears ${maxCount} times)`);
+                                    
+                                    if (mostCommonInterval) {
+                                        detectedColumns = mostCommonInterval;
+                                    }
+                                }
+                            }
+                            
+                            // 方法3：如果还是没有，尝试所有间隔的平均值或中位数
+                            if (!detectedColumns && userIDMarkers.length >= 2) {
+                                const uniqueUserIDs = [];
+                                const seenUserIDs = new Set();
+                                for (const marker of userIDMarkers) {
+                                    const upperValue = marker.value.toUpperCase();
+                                    if (!seenUserIDs.has(upperValue)) {
+                                        uniqueUserIDs.push(marker);
+                                        seenUserIDs.add(upperValue);
+                                    }
+                                }
                                 
-                                if (mostCommonInterval && mostCommonInterval >= 15 && mostCommonInterval <= 25) {
+                                if (uniqueUserIDs.length >= 2) {
+                                    const intervals = uniqueUserIDs.slice(1).map((m, i) => m.index - uniqueUserIDs[i].index);
+                                    // 过滤合理范围的间隔
+                                    const validIntervals = intervals.filter(iv => iv >= 15 && iv <= 25);
+                                    if (validIntervals.length > 0) {
+                                        // 使用中位数
+                                        validIntervals.sort((a, b) => a - b);
+                                        const median = validIntervals[Math.floor(validIntervals.length / 2)];
+                                        detectedColumns = median;
+                                        console.log(`AWC (2.7): Using median interval: ${detectedColumns} from ${validIntervals.length} valid intervals`);
+                                    }
+                                }
+                            }
+                            
+                            if (detectedColumns && detectedColumns >= 15 && detectedColumns <= 25) {
                                     // 使用检测到的列数重新组织数据
-                                    const detectedColumns = mostCommonInterval;
                                     const totalRows = Math.ceil(allCells.length / detectedColumns);
                                     
                                     console.log(`AWC (2.7): Reorganizing data as ${totalRows} rows x ${detectedColumns} columns`);
