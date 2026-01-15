@@ -8725,54 +8725,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 const startCell = e.target;
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
-                // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    // 先检查是否包含 CITIBET 特征关键字，避免不必要的解析尝试
-                    const lowerData = pastedData.toLowerCase();
-                    const hasCitibetKeywords = lowerData.includes('overall') || 
-                                             lowerData.includes('my earnings') || 
-                                             lowerData.includes('ringgit malaysia') ||
-                                             lowerData.includes('total :') ||
-                                             lowerData.includes('upline payment') ||
-                                             lowerData.includes('downline payment');
-                    
-                    console.log('2.SPECIAL: CITIBET keyword check:', {
-                        hasOverall: lowerData.includes('overall'),
-                        hasMyEarnings: lowerData.includes('my earnings'),
-                        hasRinggitMalaysia: lowerData.includes('ringgit malaysia'),
-                        hasTotal: lowerData.includes('total :'),
-                        hasUplinePayment: lowerData.includes('upline payment'),
-                        hasDownlinePayment: lowerData.includes('downline payment')
-                    });
-                    
-                    if (!hasCitibetKeywords) {
-                        console.log('2.SPECIAL: No CITIBET keywords found, skipping CITIBET detection');
-                    } else {
-                        // Citibet 专用解析（先于通用 Payment 逻辑）
-                        let citibetParsed = null;
-                        let isMajorFormat = false;
-                        
-                        // 先尝试 CITIBET MAJOR 格式
-                        console.log('2.SPECIAL: Trying CITIBET MAJOR parser...');
-                        citibetParsed = parseCitibetMajorPaymentReport(pastedData);
-                        if (citibetParsed) {
-                            isMajorFormat = true;
-                            console.log('2.SPECIAL: ✓ Detected CITIBET MAJOR format (2.1)', citibetParsed);
-                        } else {
-                            console.log('2.SPECIAL: CITIBET MAJOR parser returned null');
-                            // 如果 MAJOR 格式失败，尝试普通 CITIBET 格式
-                            console.log('2.SPECIAL: Trying CITIBET regular parser...');
-                            citibetParsed = parseCitibetPaymentReport(pastedData);
-                            if (citibetParsed) {
-                                isMajorFormat = false;
-                                console.log('2.SPECIAL: ✓ Detected CITIBET format (2.1)', citibetParsed);
-                            } else {
-                                console.log('2.SPECIAL: CITIBET regular parser also returned null');
-                            }
-                        }
-                        
-                        if (citibetParsed) {
+                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                    if (citibetParsed) {
+                        console.log('2.SPECIAL: Detected CITIBET format (2.1)');
                         formatDetected = true;
                         const { dataMatrix, maxRows, maxCols } = citibetParsed;
                         
@@ -8781,12 +8738,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         const currentRows = document.querySelectorAll('#tableBody tr').length;
                         const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        
                         const requiredRows = startRow + maxRows;
                         const requiredCols = startCol + maxCols;
                         
                         if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
                             const targetCols = Math.max(currentCols, requiredCols);
                             initializeTable(targetRows, targetCols);
                         }
@@ -8826,33 +8782,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         if (successCount > 0) {
                             showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
-                        } else {
-                            console.log('2.SPECIAL: CITIBET No cells were pasted from Citibet report.');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
                         }
-                        
-                        setTimeout(updateSubmitButtonState, 0);
-                        
-                        if (successCount > 0) {
-                            setTimeout(() => {
-                                // 根据检测到的格式决定是否进行后续格式转换
-                                // 如果检测到 CITIBET MAJOR 格式，已经在解析阶段生成最终 6 行 / 12 列结构，这里不再做结构重排
-                                // 否则进行格式转换
-                                if (!isMajorFormat) {
-                                    console.log('2.SPECIAL: CITIBET Executing format conversion (not MAJOR format)');
-                                    convertTableFormatOnSubmit();
-                                    // 只有在 CITIBET 模式下，才需要把 MY EARNINGS / TOTAL 金额强制移到第 11 列
-                                    fixCitibetAmountColumns();
-                                } else {
-                                    console.log('2.SPECIAL: CITIBET MAJOR format detected, skipping format conversion');
-                                }
-                                updateSubmitButtonState();
-                            }, 100);
-                        }
-                        
-                        return;
                     }
                 }
-                // 2.1 CITIBET 代码结束
                 
                 // ===== 2.2 VPOWER 格式检测和处理 =====
                 // 2.2 VPOWER: 以下代码从 VPOWER 选项复制而来，用于在 2.SPECIAL 模式下支持 VPOWER 格式的粘贴
