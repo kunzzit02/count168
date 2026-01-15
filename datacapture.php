@@ -10238,15 +10238,38 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.7 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
                 // 2.7 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
-                    // ALIPAY 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
-                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 ALIPAY
+                    // ALIPAY 特征检测：识别 Alipay 特有的数据模式
+                    // Alipay 数据特征：
+                    // 1. 包含类似 "JDW01"、"JDW02" 这样的 ID（大写字母+数字组合，2-10个字符，不以数字开头）
+                    // 2. 后面跟着名称行（如 "Darren"、"Jimmy"）
+                    // 3. 然后是数值数据行
+                    // 4. 可能包含 "Grand Total" 行
+                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    // 检测 Alipay 特有的 ID 模式（如 JDW01, JDW02, BWGMA, BWWAY 等）
+                    // 模式：2-10个大写字母和数字的组合，不以数字开头，不包含空格、逗号、点号、连字符
+                    const hasAlipayID = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        return /^[A-Z][A-Z0-9]{1,9}$/.test(trimmed) && 
+                               !trimmed.includes(' ') && 
+                               !trimmed.includes(',') &&
+                               !trimmed.includes('.') &&
+                               !trimmed.includes('-');
+                    });
+                    
+                    // 检测 WBET 格式特征（SUB TOTAL 或 GRAND TOTAL，但需要结合其他特征判断）
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
-                    const isLikelyWBET = hasSubTotal || hasGrandTotal;
+                    
+                    // 如果检测到 Alipay ID 模式，即使有 Grand Total 也认为是 Alipay 格式
+                    // 因为 Alipay 数据也可能包含 Grand Total
+                    const isLikelyWBET = (hasSubTotal || hasGrandTotal) && !hasAlipayID;
                     
                     if (isLikelyWBET) {
-                        console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
-                    } else {
+                        console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL) without Alipay ID pattern');
+                    } else if (hasAlipayID || !hasGrandTotal) {
+                        // 如果检测到 Alipay ID 模式，或者没有 Grand Total，尝试 Alipay 格式
                         console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
                         console.log('Pasted data length:', pastedData.length);
                         console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
