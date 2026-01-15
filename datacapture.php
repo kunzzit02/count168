@@ -8887,10 +8887,266 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 // 2.3 MAXBET 代码结束
                 
-                // ===== 2.4 S88 格式检测和处理（优先于 ALIPAY） =====
-                // 2.4 S88: 多行数据格式，每行数据包含标识符、Agent和多个数值
+                // ===== 2.4 AWC 格式检测和处理（优先于 S88、ALIPAY） =====
+                // 2.4 AWC: 以下代码从 AWC 选项复制而来，用于在 2.SPECIAL 模式下支持 AWC 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.4 S88 format...');
+                    // AWC 特征检测：检查数据是否包含 AWC 格式的特征
+                    // 特征1: 包含用户ID（以小写字母开头，3-15个字符，如 op7a, tr8, victorbetvtb）
+                    // 特征2: 包含平台名（全大写，4-20个字符，如 SEXYBCRT, SV388, KINGMIDAS等）
+                    // 特征3: 包含类型标识（LIVE, TABLE, SLOT, SPORTS）
+                    // 特征4: 可能包含 Sub Total[ xxx ] 格式
+                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    // 检测用户ID模式（以小写字母开头）
+                    const hasUserID = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        return /^[a-z][a-z0-9]{2,14}$/i.test(trimmed) && !/^\d+$/.test(trimmed);
+                    });
+                    
+                    // 检测平台名模式（全大写，4-20个字符）
+                    const knownPlatforms = ['SEXYBCRT', 'KINGMIDAS', 'SV388', 'KINGMASTER', 'KINGGAME', 'ALLBET', 'PP88'];
+                    const hasPlatformName = linesForCheck.some(line => {
+                        const trimmed = line.trim().toUpperCase();
+                        return /^[A-Z]{4,20}$/.test(trimmed) || knownPlatforms.includes(trimmed);
+                    });
+                    
+                    // 检测类型标识
+                    const hasTypeIdentifier = /(LIVE|TABLE|SLOT|SPORTS)/i.test(pastedData);
+                    
+                    // 检测 Sub Total 格式
+                    const hasSubTotal = /SUB\s*TOTAL\[/i.test(pastedData);
+                    
+                    // 如果符合 AWC 特征，进行解析
+                    const isAWCFormat = (hasUserID && hasPlatformName) || (hasUserID && hasTypeIdentifier) || hasSubTotal;
+                    
+                    if (isAWCFormat) {
+                        console.log('2.SPECIAL: Trying 2.4 AWC format...');
+                        console.log('2.SPECIAL: AWC format pattern detected');
+                        console.log('2.SPECIAL: AWC raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                        
+                        // 方法1：优先尝试HTML表格格式（从网页复制的内容通常是HTML格式）
+                        try {
+                            let htmlData = e.clipboardData.getData('text/html');
+                            if (htmlData && htmlData.includes('<table')) {
+                                console.log('2.SPECIAL: AWC HTML table format detected');
+                                const filled = parseAndFillHTMLTableForAWC(htmlData, startCell);
+                                if (filled) {
+                                    formatDetected = true;
+                                    showNotification('2.SPECIAL: 检测到AWC格式 (2.4)!', 'success');
+                                    setTimeout(updateSubmitButtonState, 0);
+                                    return;
+                                }
+                            }
+                        } catch (err) {
+                            console.log('2.SPECIAL: AWC Could not get HTML data from clipboard:', err);
+                        }
+                        
+                        // 方法2：如果HTML解析失败，尝试使用detectAndParseHTML
+                        if (!formatDetected) {
+                            const htmlDataFromDetect = detectAndParseHTML(e);
+                            if (htmlDataFromDetect) {
+                                console.log('2.SPECIAL: AWC HTML data detected via detectAndParseHTML');
+                                const filled = parseAndFillHTMLTableForAWC(htmlDataFromDetect, startCell);
+                                if (filled) {
+                                    formatDetected = true;
+                                    showNotification('2.SPECIAL: 检测到AWC格式 (2.4)!', 'success');
+                                    setTimeout(updateSubmitButtonState, 0);
+                                    return;
+                                }
+                            }
+                        }
+                        
+                        // 方法3：如果HTML解析都失败，尝试制表符分隔格式（Excel格式）
+                        if (!formatDetected) {
+                            console.log('2.SPECIAL: AWC HTML parsing failed, trying tab-separated format...');
+                            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                            const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
+                            
+                            if (lines.length > 0) {
+                                // 检查是否是多行制表符分隔的数据（标准Excel格式）
+                                const hasTabSeparator = lines.some(line => line.includes('\t'));
+                                
+                                if (hasTabSeparator) {
+                                    const dataMatrix = [];
+                                    let maxCols = 0;
+                                    
+                                    lines.forEach(line => {
+                                        if (line.includes('\t')) {
+                                            // 制表符分隔，保持原始格式（包括空白单元格）
+                                            // split('\t') 会保留空白单元格（空字符串）
+                                            const cells = line.split('\t').map(cell => cell || ''); // 确保空单元格是空字符串，不是undefined
+                                            dataMatrix.push(cells);
+                                            maxCols = Math.max(maxCols, cells.length);
+                                        } else if (line !== '') {
+                                            dataMatrix.push([line]);
+                                            maxCols = Math.max(maxCols, 1);
+                                        }
+                                    });
+                                    
+                                    // 确保所有行都有相同的列数（填充空白单元格以保持列位置）
+                                    dataMatrix.forEach(row => {
+                                        while (row.length < maxCols) {
+                                            row.push(''); // 填充空字符串以保持列位置
+                                        }
+                                    });
+                                    
+                                    // 填充到表格（包括空白单元格）
+                                    if (dataMatrix.length > 0 && maxCols > 0) {
+                                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                        const startCol = parseInt(startCell.dataset.col);
+                                        
+                                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                        const requiredRows = startRow + dataMatrix.length;
+                                        const requiredCols = startCol + maxCols;
+                                        
+                                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                            const targetCols = Math.max(currentCols, requiredCols);
+                                            initializeTable(targetRows, targetCols);
+                                        }
+                                        
+                                        const tableBody = document.getElementById('tableBody');
+                                        const currentPasteChanges = [];
+                                        let successCount = 0;
+                                        
+                                        dataMatrix.forEach((rowData, rowIndex) => {
+                                            const actualRowIndex = startRow + rowIndex;
+                                            const tableRow = tableBody.children[actualRowIndex];
+                                            if (!tableRow) return;
+                                            
+                                            rowData.forEach((cellData, colIndex) => {
+                                                const actualColIndex = startCol + colIndex;
+                                                const cell = tableRow.children[actualColIndex + 1];
+                                                
+                                                if (cell && cell.contentEditable === 'true') {
+                                                    // 保留空白单元格：即使cellData是空字符串，也要设置
+                                                    // trim()不会影响空字符串，但会去除空格
+                                                    const cellValue = (cellData !== null && cellData !== undefined) ? String(cellData).trim() : '';
+                                                    
+                                                    currentPasteChanges.push({
+                                                        row: actualRowIndex,
+                                                        col: actualColIndex,
+                                                        oldValue: cell.textContent,
+                                                        newValue: cellValue
+                                                    });
+                                                    
+                                                    // 明确设置单元格内容（包括空字符串以保持空白单元格）
+                                                    cell.textContent = cellValue;
+                                                    
+                                                    // 即使单元格是空的，也要计入（因为我们保留了空白单元格的位置）
+                                                    if (cellValue !== '') {
+                                                        successCount++;
+                                                    }
+                                                }
+                                            });
+                                        });
+                                        
+                                        if (currentPasteChanges.length > 0) {
+                                            pasteHistory.push(currentPasteChanges);
+                                            if (pasteHistory.length > maxHistorySize) {
+                                                pasteHistory.shift();
+                                            }
+                                        }
+                                        
+                                        if (successCount > 0) {
+                                            formatDetected = true;
+                                            showNotification(`2.SPECIAL: 检测到AWC格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持表格行格式!`, 'success');
+                                            setTimeout(updateSubmitButtonState, 0);
+                                            return;
+                                        }
+                                    }
+                                } else {
+                                    // 方法3.5：纯文本格式（换行符分隔），尝试根据数据模式智能分组成行
+                                    console.log('2.SPECIAL: AWC No tab separator found, trying pattern-based row grouping...');
+                                    const dataMatrix = parseAWCPatternBasedData(lines);
+                                    
+                                    if (dataMatrix && dataMatrix.length > 0) {
+                                        const maxCols = Math.max(...dataMatrix.map(row => row.length));
+                                        
+                                        // 确保所有行都有相同的列数
+                                        dataMatrix.forEach(row => {
+                                            while (row.length < maxCols) {
+                                                row.push('');
+                                            }
+                                        });
+                                        
+                                        // 填充到表格
+                                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                        const startCol = parseInt(startCell.dataset.col);
+                                        
+                                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                        const requiredRows = startRow + dataMatrix.length;
+                                        const requiredCols = startCol + maxCols;
+                                        
+                                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                            const targetCols = Math.max(currentCols, requiredCols);
+                                            initializeTable(targetRows, targetCols);
+                                        }
+                                        
+                                        const tableBody = document.getElementById('tableBody');
+                                        const currentPasteChanges = [];
+                                        let successCount = 0;
+                                        
+                                        dataMatrix.forEach((rowData, rowIndex) => {
+                                            const actualRowIndex = startRow + rowIndex;
+                                            const tableRow = tableBody.children[actualRowIndex];
+                                            if (!tableRow) return;
+                                            
+                                            rowData.forEach((cellData, colIndex) => {
+                                                const actualColIndex = startCol + colIndex;
+                                                const cell = tableRow.children[actualColIndex + 1];
+                                                
+                                                if (cell && cell.contentEditable === 'true') {
+                                                    const cellValue = (cellData || '').trim();
+                                                    currentPasteChanges.push({
+                                                        row: actualRowIndex,
+                                                        col: actualColIndex,
+                                                        oldValue: cell.textContent,
+                                                        newValue: cellValue
+                                                    });
+                                                    
+                                                    cell.textContent = cellValue;
+                                                    if (cellValue) {
+                                                        successCount++;
+                                                    }
+                                                }
+                                            });
+                                        });
+                                        
+                                        if (currentPasteChanges.length > 0) {
+                                            pasteHistory.push(currentPasteChanges);
+                                            if (pasteHistory.length > maxHistorySize) {
+                                                pasteHistory.shift();
+                                            }
+                                        }
+                                        
+                                        if (successCount > 0) {
+                                            formatDetected = true;
+                                            showNotification(`2.SPECIAL: 检测到AWC格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已根据数据模式智能分组!`, 'success');
+                                            setTimeout(updateSubmitButtonState, 0);
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // 如果所有解析都失败，继续尝试其他格式
+                        console.log('2.SPECIAL: AWC All parsing methods failed, will continue trying other formats');
+                    } else {
+                        console.log('2.SPECIAL: AWC format check failed, skipping...');
+                    }
+                }
+                // 2.4 AWC 代码结束
+                
+                // ===== 2.5 S88 格式检测和处理（优先于 ALIPAY） =====
+                // 2.5 S88: 多行数据格式，每行数据包含标识符、Agent和多个数值
+                if (!formatDetected) {
+                    console.log('2.SPECIAL: Trying 2.5 S88 format...');
                     console.log('2.SPECIAL: S88 raw data sample (first 500 chars):', pastedData.substring(0, 500));
                     
                     // S88 格式特征检测：数据包含标识符、Agent和多个数值，每个数值占一行
@@ -9028,7 +9284,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (successCount > 0) {
                                 formatDetected = true;
                                 console.log('2.SPECIAL: S88 paste successful -', successCount, 'cells in', dataMatrix.length, 'rows x', maxCols, 'cols');
-                                showNotification(`2.SPECIAL: 检测到S88格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)!`, 'success');
+                                showNotification(`2.SPECIAL: 检测到S88格式 (2.5)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)!`, 'success');
                                 setTimeout(updateSubmitButtonState, 0);
                                 return;
                             }
@@ -9041,10 +9297,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 // 2.4 S88 代码结束
                 
-                // ===== 2.5 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
+                // ===== 2.6 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
                 // 2.1 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.5 ALIPAY format...');
+                    console.log('2.SPECIAL: Trying 2.6 ALIPAY format...');
                     console.log('Pasted data length:', pastedData.length);
                     console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
                     
@@ -9058,7 +9314,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (filled) {
                             console.log('2.SPECIAL: ALIPAY Successfully filled using parseAndFillHTMLTable');
                             formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到ALIPAY格式 (2.5)!', 'success');
+                            showNotification('2.SPECIAL: 检测到ALIPAY格式 (2.6)!', 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         } else {
@@ -9500,7 +9756,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         if (successCount > 0) {
                             formatDetected = true;
-                            showNotification(`2.SPECIAL: 检测到ALIPAY格式 (2.5)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            showNotification(`2.SPECIAL: 检测到ALIPAY格式 (2.6)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
@@ -9508,9 +9764,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 // 2.1 ALIPAY 代码结束
 
-                // ===== 2.4 PS3838 格式检测和处理 =====
+                // ===== 2.7 PS3838 格式检测和处理 =====
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.4 PS3838 format...');
+                    console.log('2.SPECIAL: Trying 2.7 PS3838 format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     let agentLinkParsed = null;
                     
@@ -9519,7 +9775,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (filled) {
                             console.log('2.SPECIAL: Detected PS3838 format (2.4) - HTML');
                             formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到PS3838格式 (2.4)!', 'success');
+                            showNotification('2.SPECIAL: 检测到PS3838格式 (2.7)!', 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
@@ -9671,16 +9927,16 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (successCount > 0) {
-                            showNotification(`2.SPECIAL: 检测到PS3838格式 (2.4)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            showNotification(`2.SPECIAL: 检测到PS3838格式 (2.7)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
                     }
                 }
                 
-                // ===== 2.5 WBET 格式检测和处理 =====
+                // ===== 2.8 WBET 格式检测和处理 =====
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.5 WBET format...');
+                    console.log('2.SPECIAL: Trying 2.8 WBET format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     
                     if (htmlDataFromDetect) {
@@ -9688,7 +9944,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (filled) {
                             console.log('2.SPECIAL: Detected WBET format (2.5) - HTML');
                             formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到WBET格式 (2.5)!', 'success');
+                            showNotification('2.SPECIAL: 检测到WBET格式 (2.8)!', 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
@@ -9709,7 +9965,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (filled) {
                             console.log('2.SPECIAL: Detected WBET format (2.5) - HTML manual');
                             formatDetected = true;
-                            showNotification('2.SPECIAL: 检测到WBET格式 (2.5)!', 'success');
+                            showNotification('2.SPECIAL: 检测到WBET格式 (2.8)!', 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
@@ -9719,10 +9975,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 由于WBET的文本处理逻辑非常复杂，如果HTML解析失败，可以继续尝试其他格式
                 }
                 
-                // ===== 2.6 PEGASUS 格式检测和处理 =====
-                // 2.6 PEGASUS: 以下代码从 PEGASUS 选项复制而来，用于在 2.SPECIAL 模式下支持 PEGASUS 格式的粘贴
+                // ===== 2.9 PEGASUS 格式检测和处理 =====
+                // 2.9 PEGASUS: 以下代码从 PEGASUS 选项复制而来，用于在 2.SPECIAL 模式下支持 PEGASUS 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.6 PEGASUS format...');
+                    console.log('2.SPECIAL: Trying 2.9 PEGASUS format...');
                     console.log('2.SPECIAL: PEGASUS raw data length:', pastedData.length);
                     console.log('2.SPECIAL: PEGASUS raw data sample (first 500 chars):', pastedData.substring(0, 500));
                     
@@ -9881,7 +10137,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         if (successCount > 0) {
                             formatDetected = true;
-                            showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.6)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
+                            showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.9)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
@@ -9889,228 +10145,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('2.SPECIAL: PEGASUS No data extracted, will continue trying other formats');
                     }
                 }
-                // 2.6 PEGASUS 代码结束
-                
-                // ===== 2.9 AWC 格式检测和处理 =====
-                // 2.9 AWC: 以下代码从 AWC 选项复制而来，用于在 2.SPECIAL 模式下支持 AWC 格式的粘贴
-                if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.9 AWC format...');
-                    console.log('2.SPECIAL: AWC raw data sample (first 500 chars):', pastedData.substring(0, 500));
-                    
-                    // 方法1：优先尝试HTML表格格式（从网页复制的内容通常是HTML格式）
-                    try {
-                        let htmlData = e.clipboardData.getData('text/html');
-                        if (htmlData && htmlData.includes('<table')) {
-                            console.log('2.SPECIAL: AWC HTML table format detected');
-                            const filled = parseAndFillHTMLTableForAWC(htmlData, startCell);
-                            if (filled) {
-                                formatDetected = true;
-                                showNotification('2.SPECIAL: 检测到AWC格式 (2.9)!', 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            }
-                        }
-                    } catch (err) {
-                        console.log('2.SPECIAL: AWC Could not get HTML data from clipboard:', err);
-                    }
-                    
-                    // 方法2：如果HTML解析失败，尝试使用detectAndParseHTML
-                    if (!formatDetected) {
-                        const htmlDataFromDetect = detectAndParseHTML(e);
-                        if (htmlDataFromDetect) {
-                            console.log('2.SPECIAL: AWC HTML data detected via detectAndParseHTML');
-                            const filled = parseAndFillHTMLTableForAWC(htmlDataFromDetect, startCell);
-                            if (filled) {
-                                formatDetected = true;
-                                showNotification('2.SPECIAL: 检测到AWC格式 (2.9)!', 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            }
-                        }
-                    }
-                    
-                    // 方法3：如果HTML解析都失败，尝试制表符分隔格式（Excel格式）
-                    if (!formatDetected) {
-                        console.log('2.SPECIAL: AWC HTML parsing failed, trying tab-separated format...');
-                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                        const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
-                        
-                        if (lines.length > 0) {
-                            // 检查是否是多行制表符分隔的数据（标准Excel格式）
-                            const hasTabSeparator = lines.some(line => line.includes('\t'));
-                            
-                            if (hasTabSeparator) {
-                                const dataMatrix = [];
-                                let maxCols = 0;
-                                
-                                lines.forEach(line => {
-                                    if (line.includes('\t')) {
-                                        // 制表符分隔，保持原始格式（包括空白单元格）
-                                        // split('\t') 会保留空白单元格（空字符串）
-                                        const cells = line.split('\t').map(cell => cell || ''); // 确保空单元格是空字符串，不是undefined
-                                        dataMatrix.push(cells);
-                                        maxCols = Math.max(maxCols, cells.length);
-                                    } else if (line !== '') {
-                                        dataMatrix.push([line]);
-                                        maxCols = Math.max(maxCols, 1);
-                                    }
-                                });
-                                
-                                // 确保所有行都有相同的列数（填充空白单元格以保持列位置）
-                                dataMatrix.forEach(row => {
-                                    while (row.length < maxCols) {
-                                        row.push(''); // 填充空字符串以保持列位置
-                                    }
-                                });
-                                
-                                // 填充到表格（包括空白单元格）
-                                if (dataMatrix.length > 0 && maxCols > 0) {
-                                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                                    const startCol = parseInt(startCell.dataset.col);
-                                    
-                                    const currentRows = document.querySelectorAll('#tableBody tr').length;
-                                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                                    const requiredRows = startRow + dataMatrix.length;
-                                    const requiredCols = startCol + maxCols;
-                                    
-                                    if (requiredRows > currentRows || requiredCols > currentCols) {
-                                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                        const targetCols = Math.max(currentCols, requiredCols);
-                                        initializeTable(targetRows, targetCols);
-                                    }
-                                    
-                                    const tableBody = document.getElementById('tableBody');
-                                    const currentPasteChanges = [];
-                                    let successCount = 0;
-                                    
-                                    dataMatrix.forEach((rowData, rowIndex) => {
-                                        const actualRowIndex = startRow + rowIndex;
-                                        const tableRow = tableBody.children[actualRowIndex];
-                                        if (!tableRow) return;
-                                        
-                                        rowData.forEach((cellData, colIndex) => {
-                                            const actualColIndex = startCol + colIndex;
-                                            const cell = tableRow.children[actualColIndex + 1];
-                                            
-                                            if (cell && cell.contentEditable === 'true') {
-                                                // 保留空白单元格：即使cellData是空字符串，也要设置
-                                                // trim()不会影响空字符串，但会去除空格
-                                                const cellValue = (cellData !== null && cellData !== undefined) ? String(cellData).trim() : '';
-                                                
-                                                currentPasteChanges.push({
-                                                    row: actualRowIndex,
-                                                    col: actualColIndex,
-                                                    oldValue: cell.textContent,
-                                                    newValue: cellValue
-                                                });
-                                                
-                                                // 明确设置单元格内容（包括空字符串以保持空白单元格）
-                                                cell.textContent = cellValue;
-                                                
-                                                // 即使单元格是空的，也要计入（因为我们保留了空白单元格的位置）
-                                                if (cellValue !== '') {
-                                                    successCount++;
-                                                }
-                                            }
-                                        });
-                                    });
-                                    
-                                    if (currentPasteChanges.length > 0) {
-                                        pasteHistory.push(currentPasteChanges);
-                                        if (pasteHistory.length > maxHistorySize) {
-                                            pasteHistory.shift();
-                                        }
-                                    }
-                                    
-                                    if (successCount > 0) {
-                                        formatDetected = true;
-                                        showNotification(`2.SPECIAL: 检测到AWC格式 (2.9)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持表格行格式!`, 'success');
-                                        setTimeout(updateSubmitButtonState, 0);
-                                        return;
-                                    }
-                                }
-                            } else {
-                                // 方法3.5：纯文本格式（换行符分隔），尝试根据数据模式智能分组成行
-                                console.log('2.SPECIAL: AWC No tab separator found, trying pattern-based row grouping...');
-                                const dataMatrix = parseAWCPatternBasedData(lines);
-                                
-                                if (dataMatrix && dataMatrix.length > 0) {
-                                    const maxCols = Math.max(...dataMatrix.map(row => row.length));
-                                    
-                                    // 确保所有行都有相同的列数
-                                    dataMatrix.forEach(row => {
-                                        while (row.length < maxCols) {
-                                            row.push('');
-                                        }
-                                    });
-                                    
-                                    // 填充到表格
-                                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                                    const startCol = parseInt(startCell.dataset.col);
-                                    
-                                    const currentRows = document.querySelectorAll('#tableBody tr').length;
-                                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                                    const requiredRows = startRow + dataMatrix.length;
-                                    const requiredCols = startCol + maxCols;
-                                    
-                                    if (requiredRows > currentRows || requiredCols > currentCols) {
-                                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                        const targetCols = Math.max(currentCols, requiredCols);
-                                        initializeTable(targetRows, targetCols);
-                                    }
-                                    
-                                    const tableBody = document.getElementById('tableBody');
-                                    const currentPasteChanges = [];
-                                    let successCount = 0;
-                                    
-                                    dataMatrix.forEach((rowData, rowIndex) => {
-                                        const actualRowIndex = startRow + rowIndex;
-                                        const tableRow = tableBody.children[actualRowIndex];
-                                        if (!tableRow) return;
-                                        
-                                        rowData.forEach((cellData, colIndex) => {
-                                            const actualColIndex = startCol + colIndex;
-                                            const cell = tableRow.children[actualColIndex + 1];
-                                            
-                                            if (cell && cell.contentEditable === 'true') {
-                                                const cellValue = (cellData || '').trim();
-                                                currentPasteChanges.push({
-                                                    row: actualRowIndex,
-                                                    col: actualColIndex,
-                                                    oldValue: cell.textContent,
-                                                    newValue: cellValue
-                                                });
-                                                
-                                                cell.textContent = cellValue;
-                                                if (cellValue) {
-                                                    successCount++;
-                                                }
-                                            }
-                                        });
-                                    });
-                                    
-                                    if (currentPasteChanges.length > 0) {
-                                        pasteHistory.push(currentPasteChanges);
-                                        if (pasteHistory.length > maxHistorySize) {
-                                            pasteHistory.shift();
-                                        }
-                                    }
-                                    
-                                    if (successCount > 0) {
-                                        formatDetected = true;
-                                        showNotification(`2.SPECIAL: 检测到AWC格式 (2.9)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已根据数据模式智能分组!`, 'success');
-                                        setTimeout(updateSubmitButtonState, 0);
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    // 如果所有解析都失败，继续尝试其他格式
-                    console.log('2.SPECIAL: AWC All parsing methods failed, will continue trying other formats');
-                }
-                // 2.9 AWC 代码结束
+                // 2.9 PEGASUS 代码结束
                 
                 if (!formatDetected) {
                     console.log('2.SPECIAL: No format detected, continuing with default logic');
