@@ -8725,180 +8725,75 @@ if ($current_user_id && count($user_companies) > 0) {
                 const startCell = e.target;
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
-                // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    
-                    // 先检查是否包含 CITIBET 特征关键词
-                    const hasMajor = /MAJOR/i.test(pastedData);
-                    const hasMinor = /MINOR/i.test(pastedData);
-                    const hasOverall = /^OVERALL\b/i.test(pastedData) || /\bOVERALL\b/i.test(pastedData);
-                    const hasMyEarnings = /MY\s*EARNINGS/i.test(pastedData);
-                    const hasUpline = /UPLINE/i.test(pastedData);
-                    const hasDownline = /DOWNLINE/i.test(pastedData);
-                    const hasPayment = /PAYMENT/i.test(pastedData);
-                    
-                    // 如果包含 CITIBET 特征关键词，尝试解析
-                    const isLikelyCITIBET = hasMajor || hasMinor || hasOverall || (hasUpline && hasDownline && hasPayment);
-                    
-                    if (isLikelyCITIBET) {
-                        console.log('2.SPECIAL: CITIBET format pattern detected, attempting to parse...');
-                        console.log('2.SPECIAL: CITIBET detection details - hasMajor:', hasMajor, 'hasMinor:', hasMinor, 'hasOverall:', hasOverall, 'hasMyEarnings:', hasMyEarnings);
+                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                    if (citibetParsed) {
+                        console.log('2.SPECIAL: Detected CITIBET format (2.1)');
+                        formatDetected = true;
+                        const { dataMatrix, maxRows, maxCols } = citibetParsed;
                         
-                        // 先尝试 parseCitibetMajorPaymentReport（用于 MAJOR 格式）
-                        let citibetParsed = parseCitibetMajorPaymentReport(pastedData);
-                        console.log('2.SPECIAL: parseCitibetMajorPaymentReport result:', citibetParsed ? 'SUCCESS' : 'FAILED');
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = parseInt(startCell.dataset.col);
                         
-                        // 如果失败，尝试 parseCitibetPaymentReport（用于 UPLINE/DOWNLINE 格式）
-                        if (!citibetParsed) {
-                            citibetParsed = parseCitibetPaymentReport(pastedData);
-                            console.log('2.SPECIAL: parseCitibetPaymentReport result:', citibetParsed ? 'SUCCESS' : 'FAILED');
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + maxRows;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
                         }
                         
-                        // 如果两个解析器都失败，但数据明显是 CITIBET 格式，尝试使用通用的制表符分隔解析
-                        if (!citibetParsed && (hasMajor || hasMinor || hasOverall)) {
-                            console.log('2.SPECIAL: CITIBET parsers failed, attempting generic tab-separated parsing for CITIBET data...');
-                            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                            const lines = normalizedData.split('\n').map(l => l.trim()).filter(l => l !== '');
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
                             
-                            // 检查是否是制表符分隔的数据
-                            const hasTabs = pastedData.includes('\t');
-                            if (hasTabs && lines.length > 0) {
-                                const dataMatrix = [];
-                                let maxCols = 0;
-                                
-                                lines.forEach(line => {
-                                    if (line.includes('\t')) {
-                                        const cells = line.split('\t').map(c => (c || '').trim());
-                                        dataMatrix.push(cells);
-                                        maxCols = Math.max(maxCols, cells.length);
-                                    } else if (line !== '') {
-                                        dataMatrix.push([line]);
-                                        maxCols = Math.max(maxCols, 1);
-                                    }
-                                });
-                                
-                                if (dataMatrix.length > 0 && maxCols > 0) {
-                                    // 确保所有行都有相同的列数
-                                    dataMatrix.forEach(row => {
-                                        while (row.length < maxCols) {
-                                            row.push('');
-                                        }
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
+                                if (cell && cell.contentEditable === 'true') {
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: cellData
                                     });
-                                    
-                                    citibetParsed = {
-                                        dataMatrix: dataMatrix,
-                                        maxRows: dataMatrix.length,
-                                        maxCols: maxCols
-                                    };
-                                    console.log('2.SPECIAL: Generic CITIBET parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                    const finalValue = (cellData || '').toUpperCase();
+                                    cell.textContent = finalValue;
+                                    successCount++;
                                 }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
                             }
                         }
                         
-                        if (citibetParsed) {
-                            console.log('2.SPECIAL: Detected CITIBET format (2.1)');
-                            formatDetected = true;
-                            const { dataMatrix, maxRows, maxCols } = citibetParsed;
-                            
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
-                            
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + maxRows;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            dataMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
-                                
-                                rowData.forEach((cellData, colIndex) => {
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1];
-                                    if (cell && cell.contentEditable === 'true') {
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellData
-                                        });
-                                        const finalValue = (cellData || '').toUpperCase();
-                                        cell.textContent = finalValue;
-                                        successCount++;
-                                    }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
-                                }
-                            }
-                            
-                            if (successCount > 0) {
-                                showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            } else {
-                                console.log('2.SPECIAL: CITIBET parsing returned data but no cells were pasted');
-                            }
-                        } else {
-                            console.log('2.SPECIAL: CITIBET format detected but parsing failed - data may not match expected CITIBET structure');
-                            // 即使解析失败，如果包含 CITIBET 特征，尝试使用通用的 HTML 表格解析作为后备方案
-                            console.log('2.SPECIAL: Attempting to use generic HTML table parsing as fallback...');
-                            try {
-                                const htmlData = e.clipboardData.getData('text/html');
-                                if (htmlData && htmlData.toLowerCase().includes('<table')) {
-                                    console.log('2.SPECIAL: HTML table detected, attempting generic parsing...');
-                                    const htmlParsed = detectAndParseHTML(e);
-                                    if (htmlParsed) {
-                                        console.log('2.SPECIAL: Generic HTML parsing successful for CITIBET data');
-                                        formatDetected = true;
-                                        showNotification('2.SPECIAL: 检测到CITIBET格式 (2.1)，使用通用解析!', 'success');
-                                        setTimeout(updateSubmitButtonState, 0);
-                                        return;
-                                    }
-                                }
-                            } catch (err) {
-                                console.log('2.SPECIAL: Generic HTML parsing failed:', err);
-                            }
-                            console.log('2.SPECIAL: Will continue trying other formats, but CITIBET format was likely intended');
+                        if (successCount > 0) {
+                            showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
                         }
-                    } else {
-                        console.log('2.SPECIAL: No CITIBET format indicators found, skipping CITIBET detection');
                     }
                 }
-                // 2.1 CITIBET 代码结束
                 
                 // ===== 2.2 VPOWER 格式检测和处理 =====
                 // 2.2 VPOWER: 以下代码从 VPOWER 选项复制而来，用于在 2.SPECIAL 模式下支持 VPOWER 格式的粘贴
                 if (!formatDetected) {
-                    // VPOWER 特征检测：排除 CITIBET 格式（CITIBET 有 MAJOR/MINOR/OVERALL 特征）
-                    const hasMajor = /MAJOR/i.test(pastedData);
-                    const hasMinor = /MINOR/i.test(pastedData);
-                    const hasOverall = /^OVERALL\b/i.test(pastedData) || /\bOVERALL\b/i.test(pastedData);
-                    const hasMyEarnings = /MY\s*EARNINGS/i.test(pastedData);
-                    const isLikelyCITIBET = hasMajor || hasMinor || hasOverall || hasMyEarnings;
-                    
-                    if (isLikelyCITIBET) {
-                        console.log('2.SPECIAL: VPOWER format check skipped - detected CITIBET format markers (MAJOR/MINOR/OVERALL/MY EARNINGS)');
-                    } else {
-                        console.log('2.SPECIAL: Trying 2.2 VPOWER format...');
-                        console.log('2.SPECIAL: VPOWER raw data sample (first 200 chars):', pastedData.substring(0, 200));
-                        let vpowerParsed = parseVPowerTableFormat(pastedData);
+                    console.log('2.SPECIAL: Trying 2.2 VPOWER format...');
+                    console.log('2.SPECIAL: VPOWER raw data sample (first 200 chars):', pastedData.substring(0, 200));
+                    let vpowerParsed = parseVPowerTableFormat(pastedData);
                     console.log('2.SPECIAL: VPOWER parse result:', vpowerParsed);
                     
                     if (vpowerParsed) {
@@ -8972,7 +8867,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     } else {
                         console.log('2.SPECIAL: VPOWER parser returned null, will continue trying other formats');
-                    }
                     }
                 }
                 
@@ -10345,22 +10239,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 2.7 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
                     // ALIPAY 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
-                    // 排除 CITIBET 格式（CITIBET 有 MAJOR/MINOR/OVERALL/MY EARNINGS/DOWNLINE PAYMENT 特征）
+                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 ALIPAY
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
                     const isLikelyWBET = hasSubTotal || hasGrandTotal;
                     
-                    const hasMajor = /MAJOR/i.test(pastedData);
-                    const hasMinor = /MINOR/i.test(pastedData);
-                    const hasOverall = /^OVERALL\b/i.test(pastedData) || /\bOVERALL\b/i.test(pastedData);
-                    const hasMyEarnings = /MY\s*EARNINGS/i.test(pastedData);
-                    const hasDownlinePayment = /DOWNLINE\s*PAYMENT/i.test(pastedData);
-                    const isLikelyCITIBET = hasMajor || hasMinor || hasOverall || hasMyEarnings || hasDownlinePayment;
-                    
                     if (isLikelyWBET) {
                         console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
-                    } else if (isLikelyCITIBET) {
-                        console.log('2.SPECIAL: ALIPAY format check skipped - detected CITIBET format markers (MAJOR/MINOR/OVERALL/MY EARNINGS/DOWNLINE PAYMENT)');
                     } else {
                         console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
                         console.log('Pasted data length:', pastedData.length);
