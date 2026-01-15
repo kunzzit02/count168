@@ -11321,9 +11321,19 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.10 PEGASUS 格式检测和处理 =====
                 // 2.10 PEGASUS: 以下代码从 PEGASUS 选项复制而来，用于在 2.SPECIAL 模式下支持 PEGASUS 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.10 PEGASUS format...');
-                    console.log('2.SPECIAL: PEGASUS raw data length:', pastedData.length);
-                    console.log('2.SPECIAL: PEGASUS raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                    // PEGASUS 特征检测：排除 WBET_API 格式（WBET_API 有 WBET_MYR/WBET_ 特征）
+                    // 如果数据包含 WBET_MYR 或 WBET_ 标识，很可能是 WBET_API 格式，跳过 PEGASUS
+                    const hasWBET_APIIdentifier = /WBET_MYR|WBET_[A-Z_]+/i.test(pastedData);
+                    const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
+                    const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                    const isLikelyWBET_API = hasWBET_APIIdentifier || (hasSubTotal || hasGrandTotal);
+                    
+                    if (isLikelyWBET_API) {
+                        console.log('2.SPECIAL: PEGASUS format check skipped - detected WBET_API format markers (WBET_MYR/WBET_/SUB TOTAL/GRAND TOTAL)');
+                    } else {
+                        console.log('2.SPECIAL: Trying 2.10 PEGASUS format...');
+                        console.log('2.SPECIAL: PEGASUS raw data length:', pastedData.length);
+                        console.log('2.SPECIAL: PEGASUS raw data sample (first 500 chars):', pastedData.substring(0, 500));
                     
                     let dataMatrix = [];
                     let allCells = [];
@@ -11486,6 +11496,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     } else {
                         console.log('2.SPECIAL: PEGASUS No data extracted, will continue trying other formats');
+                    }
+                    } else {
+                        console.log('2.SPECIAL: PEGASUS format check skipped - detected WBET_API format markers');
                     }
                 }
                 // 2.10 PEGASUS 代码结束
