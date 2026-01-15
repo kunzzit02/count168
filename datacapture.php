@@ -10238,14 +10238,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.7 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
                 // 2.7 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
-                    // ALIPAY 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
-                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 ALIPAY
+                    // ALIPAY 特征检测：排除 WBET 和 WBET_API 格式
+                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET/WBET_API 格式，跳过 ALIPAY
+                    // 如果数据包含 WBET_MYR 或 WBET_ 标识，很可能是 WBET_API 格式，跳过 ALIPAY
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
-                    const isLikelyWBET = hasSubTotal || hasGrandTotal;
+                    const hasWBET_APIIdentifier = /WBET_MYR|WBET_[A-Z_]+/i.test(pastedData);
+                    const isLikelyWBET = hasSubTotal || hasGrandTotal || hasWBET_APIIdentifier;
                     
                     if (isLikelyWBET) {
-                        console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
+                        console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET/WBET_API format markers (SUB TOTAL/GRAND TOTAL/WBET_MYR)');
                     } else {
                         console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
                         console.log('Pasted data length:', pastedData.length);
@@ -10900,26 +10902,32 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 特征2: 包含 "GRAND TOTAL" 或 "GRANDTOTAL" 关键词
                     // 特征3: 数据行通常以2-3个大写字母开头（如 OB, OC, OD, RS等）
                     // 特征4: 可能包含行号（纯数字的第一列）
+                    // 排除 WBET_API 格式：如果包含 "WBET_MYR" 或 "WBET_" 标识，跳过 WBET
                     const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
                     
-                    // 检测 SUB TOTAL 或 SUBTOTAL
-                    const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
-                    
-                    // 检测 GRAND TOTAL 或 GRANDTOTAL
-                    const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
-                    
-                    // 检测数据行标识（2-3个大写字母，如 OB, OC, OD, RS）
-                    const hasDataRowIdentifier = linesForCheck.some(line => {
-                        const trimmed = line.trim();
-                        // 检查是否是2-3个大写字母（可能后面跟着空格和数字）
-                        return /^[A-Z]{2,3}(\s|$)/.test(trimmed) || /^[A-Z]{2,3}\s+\d+/.test(trimmed);
-                    });
-                    
-                    // 如果符合 WBET 特征，进行解析
-                    const isWBETFormat = (hasSubTotal || hasGrandTotal) && hasDataRowIdentifier;
-                    
-                    if (isWBETFormat) {
+                    // 排除 WBET_API 格式
+                    const hasWBET_APIIdentifier = /WBET_MYR|WBET_[A-Z_]+/i.test(pastedData);
+                    if (hasWBET_APIIdentifier) {
+                        console.log('2.SPECIAL: WBET format check skipped - detected WBET_API format markers (WBET_MYR/WBET_)');
+                    } else {
+                        // 检测 SUB TOTAL 或 SUBTOTAL
+                        const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
+                        
+                        // 检测 GRAND TOTAL 或 GRANDTOTAL
+                        const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                        
+                        // 检测数据行标识（2-3个大写字母，如 OB, OC, OD, RS）
+                        const hasDataRowIdentifier = linesForCheck.some(line => {
+                            const trimmed = line.trim();
+                            // 检查是否是2-3个大写字母（可能后面跟着空格和数字）
+                            return /^[A-Z]{2,3}(\s|$)/.test(trimmed) || /^[A-Z]{2,3}\s+\d+/.test(trimmed);
+                        });
+                        
+                        // 如果符合 WBET 特征，进行解析
+                        const isWBETFormat = (hasSubTotal || hasGrandTotal) && hasDataRowIdentifier;
+                        
+                        if (isWBETFormat) {
                         console.log('2.SPECIAL: Trying 2.9 WBET format...');
                         console.log('2.SPECIAL: WBET format pattern detected');
                         console.log('2.SPECIAL: WBET Pasted data length:', pastedData.length);
@@ -11303,8 +11311,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // WBET 解析失败，继续尝试其他格式
                     console.log('2.SPECIAL: WBET parser failed, will continue trying other formats');
-                    } else {
-                        console.log('2.SPECIAL: WBET format check failed, skipping...');
+                        } else {
+                            console.log('2.SPECIAL: WBET format check failed, skipping...');
+                        }
                     }
                 }
                 // 2.9 WBET 代码结束
@@ -11485,13 +11494,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 2.11 WBET_API: 以下代码从 WBET_API 选项复制而来，用于在 2.SPECIAL 模式下支持 WBET_API 格式的粘贴
                 if (!formatDetected) {
                     // WBET_API 特征检测：检查数据是否包含 WBET_API 格式的特征
-                    // 特征1: 包含 "SUB TOTAL" 或 "SUBTOTAL" 关键词
-                    // 特征2: 包含 "GRAND TOTAL" 或 "GRANDTOTAL" 关键词
-                    // 特征3: 数据行通常以2-3个大写字母开头（如 OB, OC, OD, RS等）
-                    // 特征4: 可能包含行号（纯数字的第一列）
-                    // 注意：WBET_API 和 WBET 格式非常相似，但 WBET_API 使用 parseAndFillHTMLTableForWBET_API 函数
+                    // 特征1: 包含 "WBET_MYR" 或 "WBET_" 关键词（WBET_API特有的标识）
+                    // 特征2: 包含 "SUB TOTAL" 或 "SUBTOTAL" 关键词
+                    // 特征3: 包含 "GRAND TOTAL" 或 "GRANDTOTAL" 关键词
+                    // 特征4: 数据行可能包含长标识符（如 RRMWBNX1R, RRMWBNXAB等，不是简单的2-3个大写字母）
+                    // 特征5: 可能包含 "X NX X WBET_MYR_FT" 这样的模式
                     const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    // 检测 WBET_API 特有的标识（优先检测）
+                    const hasWBET_APIIdentifier = /WBET_MYR|WBET_[A-Z_]+/i.test(pastedData);
                     
                     // 检测 SUB TOTAL 或 SUBTOTAL
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
@@ -11506,8 +11518,17 @@ if ($current_user_id && count($user_companies) > 0) {
                         return /^[A-Z]{2,3}(\s|$)/.test(trimmed) || /^[A-Z]{2,3}\s+\d+/.test(trimmed);
                     });
                     
+                    // 检测长标识符（如 RRMWBNX1R, RRMWBNXAB等，长度超过3个字符）
+                    const hasLongIdentifier = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        // 检查是否是长标识符（4个或更多字符，全大写字母和数字）
+                        return /^[A-Z0-9]{4,}$/.test(trimmed) && !trimmed.includes(' ') && !trimmed.includes('\t');
+                    });
+                    
                     // 如果符合 WBET_API 特征，进行解析
-                    const isWBET_APIFormat = (hasSubTotal || hasGrandTotal) && hasDataRowIdentifier;
+                    // 优先检测：如果有WBET_API标识，直接认为是WBET_API格式
+                    // 否则：需要SUB TOTAL/GRAND TOTAL + 数据行标识，或者长标识符
+                    const isWBET_APIFormat = hasWBET_APIIdentifier || ((hasSubTotal || hasGrandTotal) && (hasDataRowIdentifier || hasLongIdentifier));
                     
                     if (isWBET_APIFormat) {
                         console.log('2.SPECIAL: Trying 2.11 WBET_API format...');
