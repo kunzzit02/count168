@@ -8726,9 +8726,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
-                    if (citibetParsed) {
+                    // CITIBET 特征检测：检查数据是否包含 "MAJOR" 和 "MINOR" 关键词
+                    const hasMAJOR = /MAJOR/i.test(pastedData);
+                    const hasMINOR = /MINOR/i.test(pastedData);
+                    const isCITIBETFormat = hasMAJOR && hasMINOR;
+                    
+                    if (isCITIBETFormat) {
+                        console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
+                        console.log('2.SPECIAL: CITIBET format pattern detected (MAJOR and MINOR found)');
+                        let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                        if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
                         formatDetected = true;
                         const { dataMatrix, maxRows, maxCols } = citibetParsed;
@@ -8785,6 +8792,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
+                    } else {
+                        console.log('2.SPECIAL: CITIBET parsing failed, will continue trying other formats');
+                    }
+                    } else {
+                        console.log('2.SPECIAL: CITIBET format check failed (no MAJOR and MINOR found), skipping...');
                     }
                 }
                 
