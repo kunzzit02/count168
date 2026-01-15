@@ -5322,7 +5322,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
-        // WBET_API 专用的 HTML 表格解析：保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行，第一列添加 "2.几" 格式
+        // 2.11 WBET_API 专用的 HTML 表格解析：保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
         function parseAndFillHTMLTableForWBET_API(htmlString, startCell) {
             try {
                 const tempDiv = document.createElement('div');
@@ -5333,7 +5333,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     return false;
                 }
                 
-                console.log('WBET_API: Parsing HTML table and filling directly (preserving Sub Total and Grand Total as separate rows, adding 2.x format)...');
+                console.log('2.11 WBET_API: Parsing HTML table and filling directly (preserving Sub Total and Grand Total as separate rows)...');
                 
                 let dataMatrix = [];
                 
@@ -5399,9 +5399,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 });
                 
-                console.log('WBET_API: HTML table parsed:', dataMatrix.length, 'rows x', maxCols, 'columns');
+                console.log('2.11 WBET_API: HTML table parsed:', dataMatrix.length, 'rows x', maxCols, 'columns');
                 
-                // WBET_API 专用处理：
+                // 2.11 WBET_API 专用处理：
                 // 1. 移除第一列的行号（如果有），让用户名/产品ID从第一列开始
                 // 2. 确保 Sub Total 和 Grand Total 的所有数据保持在同一行（横向格式）
                 
@@ -5451,7 +5451,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 确定合并的边界：下一个 Total 行的位置
                             const nextTotalRowIndex = totalRowIndices.length > 0 ? totalRowIndices[0] : dataMatrix.length;
                             
-                            console.log(`WBET_API: ${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'} at row ${rowIndex}, next Total at row ${nextTotalRowIndex}`);
+                            console.log(`2.11 WBET_API: ${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'} at row ${rowIndex}, next Total at row ${nextTotalRowIndex}`);
                             
                             // Sub Total 或 Grand Total 行：收集后续行的数据，直到遇到另一个 Total 行
                             let mergeIndex = rowIndex + 1;
@@ -5473,7 +5473,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 如果遇到另一个 Total 行，立即停止合并
                                 if (nextIsSubTotal || nextIsGrandTotal) {
-                                    console.log(`WBET_API: Stopping HTML merge at row ${mergeIndex} - found another Total row`);
+                                    console.log(`2.11 WBET_API: Stopping HTML merge at row ${mergeIndex} - found another Total row`);
                                     break;
                                 }
                                 
@@ -5482,7 +5482,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 检查是否是用户名标识（2-3个大写字母）
                                 if (/^[A-Z]{2,3}$/.test(nextProcessedFirstCell)) {
-                                    console.log(`WBET_API: Stopping HTML merge at row ${mergeIndex} - found new data row (${nextProcessedFirstCell})`);
+                                    console.log(`2.11 WBET_API: Stopping HTML merge at row ${mergeIndex} - found new data row (${nextProcessedFirstCell})`);
                                     break; // 这是新的数据行，停止合并
                                 }
                                 
@@ -5496,7 +5496,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const firstValue = dataToAdd[0];
                                     if (lastValue && firstValue && lastValue.toString().trim() === firstValue.toString().trim()) {
                                         startIndex = 1; // 跳过第一个值（因为它是重复的）
-                                        console.log(`WBET_API: HTML - Detected duplicate value "${firstValue}", skipping first cell of next row`);
+                                        console.log(`2.11 WBET_API: HTML - Detected duplicate value "${firstValue}", skipping first cell of next row`);
                                     }
                                 }
                                 
@@ -5509,7 +5509,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
                                         if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
                                             // 如果与最后一个值相同，跳过（避免重复）
-                                            console.log(`WBET_API: HTML - Skipping duplicate value "${cellValue}" (same as last value)`);
+                                            console.log(`2.11 WBET_API: HTML - Skipping duplicate value "${cellValue}" (same as last value)`);
                                             continue;
                                         }
                                         
@@ -5517,7 +5517,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         if (processedRow.length >= 2) {
                                             const secondLastValue = processedRow[processedRow.length - 2];
                                             if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
-                                                console.log(`WBET_API: HTML - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
+                                                console.log(`2.11 WBET_API: HTML - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
                                                 continue;
                                             }
                                         }
@@ -5557,7 +5557,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     
-                    console.log(`WBET_API: Found Sub Total at row ${subTotalRowIndex}, Grand Total at row ${grandTotalRowIndex}`);
+                    console.log(`2.11 WBET_API: Found Sub Total at row ${subTotalRowIndex}, Grand Total at row ${grandTotalRowIndex}`);
                     
                     // 如果找到了 Sub Total 和 Grand Total，智能检测并修复数据分配
                     if (subTotalRowIndex >= 0 && grandTotalRowIndex >= 0 && grandTotalRowIndex > subTotalRowIndex) {
@@ -5579,21 +5579,21 @@ if ($current_user_id && count($user_companies) > 0) {
                         const subTotalDataCells = getDataCells(subTotalRow);
                         const grandTotalDataCells = getDataCells(grandTotalRow);
                         
-                        console.log(`WBET_API: Sub Total has ${subTotalDataCells.length} data cells, Grand Total has ${grandTotalDataCells.length} data cells`);
+                        console.log(`2.11 WBET_API: Sub Total has ${subTotalDataCells.length} data cells, Grand Total has ${grandTotalDataCells.length} data cells`);
                         
                         // 根据用户需求：Sub Total 和 Grand Total 的数据应该是一样的
                         // 如果 Sub Total 行数据为空，而 Grand Total 行有数据，将 Grand Total 的数据复制到 Sub Total
                         if (subTotalDataCells.length === 0 && grandTotalDataCells.length > 0) {
-                            console.log('WBET_API: Sub Total is empty but Grand Total has data. Copying Grand Total data to Sub Total.');
+                            console.log('2.11 WBET_API: Sub Total is empty but Grand Total has data. Copying Grand Total data to Sub Total.');
                             const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
                             processedMatrix[subTotalRowIndex] = newSubTotalRow;
                         } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length === 0) {
-                            console.log('WBET_API: Grand Total is empty but Sub Total has data. Copying Sub Total data to Grand Total.');
+                            console.log('2.11 WBET_API: Grand Total is empty but Sub Total has data. Copying Sub Total data to Grand Total.');
                             const newGrandTotalRow = ['GRAND TOTAL', ...subTotalDataCells];
                             processedMatrix[grandTotalRowIndex] = newGrandTotalRow;
                         } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length > 0) {
                             // 两者都有数据，使用 Grand Total 的数据作为标准（因为通常 Grand Total 更完整）
-                            console.log('WBET_API: Both have data. Ensuring Sub Total matches Grand Total.');
+                            console.log('2.11 WBET_API: Both have data. Ensuring Sub Total matches Grand Total.');
                             const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
                             processedMatrix[subTotalRowIndex] = newSubTotalRow;
                         }
@@ -5628,7 +5628,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     deduplicatedRow.push(cell);
                                     lastValue = cell;
                                 } else {
-                                    console.log(`WBET_API: HTML - Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
+                                            console.log(`2.11 WBET_API: HTML - Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
                                 }
                             } else {
                                 // 空值也添加（保持列对齐）
@@ -5636,7 +5636,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         });
                         
-                        console.log(`WBET_API: HTML - Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
+                            console.log(`2.11 WBET_API: HTML - Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
                         return deduplicatedRow;
                     }
                     
@@ -5656,18 +5656,18 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 });
                 
-                console.log('WBET_API: Processed matrix:', processedMatrix.length, 'rows x', processedMaxCols, 'columns');
-                console.log('WBET_API: First few rows:', processedMatrix.slice(0, 5));
+                console.log('2.11 WBET_API: Processed matrix:', processedMatrix.length, 'rows x', processedMaxCols, 'columns');
+                console.log('2.11 WBET_API: First few rows:', processedMatrix.slice(0, 5));
                 
-                // 直接填充到表格（保持原始格式，第一列添加 "2.几" 格式）
+                // 直接填充到表格（保持原始格式）
                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                const startCol = 0; // WBET_API: 强制从第一列开始
+                const startCol = 0; // 2.11 WBET_API: 强制从第一列开始
                 
-                // 扩展表格（如果需要，+1 for "2.几" column）
+                // 扩展表格（如果需要）
                 const currentRows = document.querySelectorAll('#tableBody tr').length;
                 const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
                 const requiredRows = startRow + processedMatrix.length;
-                const requiredCols = startCol + processedMaxCols + 1; // +1 for "2.几" column
+                const requiredCols = startCol + processedMaxCols;
                 
                 if (requiredRows > currentRows || requiredCols > currentCols) {
                     const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
@@ -5685,24 +5685,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     const tableRow = tableBody.children[actualRowIndex];
                     
                     if (tableRow) {
-                        // 第一列：添加 "2.几" 格式（基于起始行和行索引）
-                        const firstColCell = tableRow.children[1]; // index 1 is first data column (0 is row label)
-                        if (firstColCell && firstColCell.contentEditable === 'true') {
-                            const rowNumber = (startRow + rowIndex + 1).toString();
-                            const formattedRowNumber = `2.${rowNumber}`;
-                            currentPasteChanges.push({
-                                row: actualRowIndex,
-                                col: 0,
-                                oldValue: firstColCell.textContent,
-                                newValue: formattedRowNumber
-                            });
-                            firstColCell.textContent = formattedRowNumber;
-                            successCount++;
-                        }
-                        
-                        // 其余列：填充数据（从第二列开始，因为第一列是 "2.几"）
+                        // 填充数据（从第一列开始）
                         rowData.forEach((cellData, colIndex) => {
-                            const actualColIndex = startCol + colIndex + 1; // +1 because first col is "2.几"
+                            const actualColIndex = startCol + colIndex;
                             const cell = tableRow.children[actualColIndex + 1];
                             
                             if (cell && cell.contentEditable === 'true') {
@@ -5733,14 +5718,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                console.log('WBET_API: HTML table filled directly:', processedMatrix.length, 'rows x', processedMaxCols, 'columns');
-                showNotification(`Successfully pasted WBET_API data (${processedMatrix.length} rows x ${processedMaxCols} cols)! Press Ctrl+Z to undo`, 'success');
+                console.log('2.11 WBET_API: HTML table filled directly:', processedMatrix.length, 'rows x', processedMaxCols, 'columns');
+                showNotification(`2.11 WBET_API: 成功粘贴 ${processedMatrix.length} 行 x ${processedMaxCols} 列数据! Press Ctrl+Z to undo`, 'success');
                 
-                // 注意：WBET_API 格式不调用 convertTableFormatOnSubmit，以保持 Sub Total 和 Grand Total 分开成两行
+                // 注意：2.11 WBET_API 格式不调用 convertTableFormatOnSubmit，以保持 Sub Total 和 Grand Total 分开成两行
                 
                 return true;
             } catch (error) {
-                console.error('WBET_API: Error parsing HTML table:', error);
+                console.error('2.11 WBET_API: Error parsing HTML table:', error);
                 return false;
             }
         }
@@ -12367,26 +12352,26 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
-            // WBET_API 专用解析（仅在 WBET_API 类型时启用）
-            // 保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行，第一列添加 "2.几" 格式
+            // ===== 2.11 WBET_API 专用解析（仅在 WBET_API 类型时启用） =====
+            // 2.11 WBET_API: 保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'WBET_API') {
-                console.log('WBET_API mode detected, attempting to parse...');
-                console.log('Pasted data length:', pastedData.length);
-                console.log('Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
+                console.log('2.11 WBET_API mode detected, attempting to parse...');
+                console.log('2.11 WBET_API: Pasted data length:', pastedData.length);
+                console.log('2.11 WBET_API: Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
                 
                 // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                 const htmlDataFromDetect = detectAndParseHTML(e);
                 
                 if (htmlDataFromDetect) {
-                    console.log('WBET_API: HTML data detected via detectAndParseHTML');
+                    console.log('2.11 WBET_API: HTML data detected via detectAndParseHTML');
                     const startCell = e.target;
                     const filled = parseAndFillHTMLTableForWBET_API(htmlDataFromDetect, startCell);
                     if (filled) {
-                        console.log('WBET_API: Successfully filled using parseAndFillHTMLTableForWBET_API');
+                        console.log('2.11 WBET_API: Successfully filled using parseAndFillHTMLTableForWBET_API');
                         setTimeout(updateSubmitButtonState, 0);
                         return;
                     } else {
-                        console.log('WBET_API: parseAndFillHTMLTableForWBET_API returned false, trying standard HTML parsing');
+                        console.log('2.11 WBET_API: parseAndFillHTMLTableForWBET_API returned false, trying standard HTML parsing');
                     }
                 }
                 
@@ -12398,11 +12383,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         htmlData = null;
                     }
                 } catch (err) {
-                    console.log('WBET_API: Could not get HTML data from clipboard:', err);
+                    console.log('2.11 WBET_API: Could not get HTML data from clipboard:', err);
                 }
                 
                 if (htmlData) {
-                    console.log('WBET_API: HTML data detected, length:', htmlData.length);
+                    console.log('2.11 WBET_API: HTML data detected, length:', htmlData.length);
                     const filled = parseAndFillHTMLTableForWBET_API(htmlData, e.target);
                     if (filled) {
                         setTimeout(updateSubmitButtonState, 0);
@@ -12411,7 +12396,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 如果 HTML 解析失败，尝试纯文本解析
-                console.log('WBET_API: Trying text-based parsing...');
+                console.log('2.11 WBET_API: Trying text-based parsing...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
                 
@@ -12431,7 +12416,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     
-                    console.log('WBET_API: Raw parsed data:', rawDataMatrix.length, 'rows');
+                    console.log('2.11 WBET_API: Raw parsed data:', rawDataMatrix.length, 'rows');
                     
                     // 第二步：处理数据 - 移除行号、合并 Sub Total 和 Grand Total 的数据
                     const processedMatrix = [];
@@ -12478,7 +12463,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 确定合并的边界：下一个 Total 行的位置
                             const nextTotalRowIndex = totalRowIndices.length > 0 ? totalRowIndices[0] : rawDataMatrix.length;
                             
-                            console.log(`WBET_API: ${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'} at row ${rowIndex}, next Total at row ${nextTotalRowIndex}`);
+                            console.log(`2.11 WBET_API: ${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'} at row ${rowIndex}, next Total at row ${nextTotalRowIndex}`);
                             
                             // 合并后续行的所有数据，直到遇到另一个 Total 行
                             let mergeIndex = rowIndex + 1;
@@ -12500,7 +12485,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 如果遇到另一个 Total 行，立即停止合并
                                 if (nextIsSubTotal || nextIsGrandTotal) {
-                                    console.log(`WBET_API: Stopping merge at row ${mergeIndex} - found another Total row`);
+                                    console.log(`2.11 WBET_API: Stopping merge at row ${mergeIndex} - found another Total row`);
                                     break;
                                 }
                                 
@@ -12509,7 +12494,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 检查是否是用户名标识（2-3个大写字母）
                                 if (/^[A-Z]{2,3}$/.test(nextProcessedFirstCell)) {
-                                    console.log(`WBET_API: Stopping merge at row ${mergeIndex} - found new data row (${nextProcessedFirstCell})`);
+                                    console.log(`2.11 WBET_API: Stopping merge at row ${mergeIndex} - found new data row (${nextProcessedFirstCell})`);
                                     break; // 这是新的数据行，停止合并
                                 }
                                 
@@ -12523,7 +12508,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const firstValue = dataToAdd[0];
                                     if (lastValue && firstValue && lastValue.toString().trim() === firstValue.toString().trim()) {
                                         startIndex = 1; // 跳过第一个值（因为它是重复的）
-                                        console.log(`WBET_API: Text - Detected duplicate value "${firstValue}", skipping first cell of next row`);
+                                        console.log(`2.11 WBET_API: Text - Detected duplicate value "${firstValue}", skipping first cell of next row`);
                                     }
                                 }
                                 
@@ -12536,7 +12521,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
                                         if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
                                             // 如果与最后一个值相同，跳过（避免重复）
-                                            console.log(`WBET_API: Text - Skipping duplicate value "${cellValue}" (same as last value)`);
+                                            console.log(`2.11 WBET_API: Text - Skipping duplicate value "${cellValue}" (same as last value)`);
                                             continue;
                                         }
                                         
@@ -12544,7 +12529,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         if (processedRow.length >= 2) {
                                             const secondLastValue = processedRow[processedRow.length - 2];
                                             if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
-                                                console.log(`WBET_API: Text - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
+                                                console.log(`2.11 WBET_API: Text - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
                                                 continue;
                                             }
                                         }
@@ -12583,7 +12568,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     
-                    console.log(`WBET_API: Found Sub Total at row ${subTotalRowIndex}, Grand Total at row ${grandTotalRowIndex}`);
+                    console.log(`2.11 WBET_API: Found Sub Total at row ${subTotalRowIndex}, Grand Total at row ${grandTotalRowIndex}`);
                     
                     // 如果找到了 Sub Total 和 Grand Total，智能检测并修复数据分配
                     if (subTotalRowIndex >= 0 && grandTotalRowIndex >= 0 && grandTotalRowIndex > subTotalRowIndex) {
@@ -12605,21 +12590,21 @@ if ($current_user_id && count($user_companies) > 0) {
                         const subTotalDataCells = getDataCells(subTotalRow);
                         const grandTotalDataCells = getDataCells(grandTotalRow);
                         
-                        console.log(`WBET_API: Sub Total has ${subTotalDataCells.length} data cells, Grand Total has ${grandTotalDataCells.length} data cells`);
+                        console.log(`2.11 WBET_API: Sub Total has ${subTotalDataCells.length} data cells, Grand Total has ${grandTotalDataCells.length} data cells`);
                         
                         // 根据用户需求：Sub Total 和 Grand Total 的数据应该是一样的
                         // 如果 Sub Total 行数据为空，而 Grand Total 行有数据，将 Grand Total 的数据复制到 Sub Total
                         if (subTotalDataCells.length === 0 && grandTotalDataCells.length > 0) {
-                            console.log('WBET_API: Sub Total is empty but Grand Total has data. Copying Grand Total data to Sub Total.');
+                            console.log('2.11 WBET_API: Sub Total is empty but Grand Total has data. Copying Grand Total data to Sub Total.');
                             const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
                             processedMatrix[subTotalRowIndex] = newSubTotalRow;
                         } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length === 0) {
-                            console.log('WBET_API: Grand Total is empty but Sub Total has data. Copying Sub Total data to Grand Total.');
+                            console.log('2.11 WBET_API: Grand Total is empty but Sub Total has data. Copying Sub Total data to Grand Total.');
                             const newGrandTotalRow = ['GRAND TOTAL', ...subTotalDataCells];
                             processedMatrix[grandTotalRowIndex] = newGrandTotalRow;
                         } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length > 0) {
                             // 两者都有数据，使用 Grand Total 的数据作为标准（因为通常 Grand Total 更完整）
-                            console.log('WBET_API: Both have data. Ensuring Sub Total matches Grand Total.');
+                            console.log('2.11 WBET_API: Both have data. Ensuring Sub Total matches Grand Total.');
                             const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
                             processedMatrix[subTotalRowIndex] = newSubTotalRow;
                         }
@@ -12654,7 +12639,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         deduplicatedRow.push(cell);
                                         lastValue = cell;
                                     } else {
-                                        console.log(`WBET_API: Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
+                                        console.log(`2.11 WBET_API: Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
                                     }
                                 } else {
                                     // 空值也添加（保持列对齐）
@@ -12662,7 +12647,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                             });
                             
-                            console.log(`WBET_API: Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
+                            console.log(`2.11 WBET_API: Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
                             return deduplicatedRow;
                         }
                         
@@ -12682,8 +12667,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     
-                    console.log('WBET_API: Processed text data:', processedMatrix.length, 'rows x', maxCols, 'cols');
-                    console.log('WBET_API: First few processed rows:', processedMatrix.slice(0, 5));
+                    console.log('2.11 WBET_API: Processed text data:', processedMatrix.length, 'rows x', maxCols, 'cols');
+                    console.log('2.11 WBET_API: First few processed rows:', processedMatrix.slice(0, 5));
                     
                     if (processedMatrix.length > 0) {
                         const startCell = e.target;
@@ -12693,7 +12678,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const currentRows = document.querySelectorAll('#tableBody tr').length;
                         const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
                         const requiredRows = startRow + processedMatrix.length;
-                        const requiredCols = startCol + maxCols + 1; // +1 for "2.几" column
+                        const requiredCols = startCol + maxCols;
                         
                         if (requiredRows > currentRows || requiredCols > currentCols) {
                             const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
@@ -12710,24 +12695,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             const tableRow = tableBody.children[actualRowIndex];
                             if (!tableRow) return;
                             
-                            // 第一列：添加 "2.几" 格式（基于起始行和行索引）
-                            const firstColCell = tableRow.children[1]; // index 1 is first data column (0 is row label)
-                            if (firstColCell && firstColCell.contentEditable === 'true') {
-                                const rowNumber = (startRow + rowIndex + 1).toString();
-                                const formattedRowNumber = `2.${rowNumber}`;
-                                currentPasteChanges.push({
-                                    row: actualRowIndex,
-                                    col: 0,
-                                    oldValue: firstColCell.textContent,
-                                    newValue: formattedRowNumber
-                                });
-                                firstColCell.textContent = formattedRowNumber;
-                                successCount++;
-                            }
-                            
-                            // 其余列：填充数据（从第二列开始，因为第一列是 "2.几"）
+                            // 填充数据（从第一列开始）
                             rowData.forEach((cellData, colIndex) => {
-                                const actualColIndex = startCol + colIndex + 1; // +1 because first col is "2.几"
+                                const actualColIndex = startCol + colIndex;
                                 const cell = tableRow.children[actualColIndex + 1];
                                 if (cell && cell.contentEditable === 'true') {
                                     currentPasteChanges.push({
@@ -12753,9 +12723,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         if (successCount > 0) {
-                            showNotification(`Successfully pasted WBET_API data (${processedMatrix.length} rows x ${maxCols} cols)!`, 'success');
+                            showNotification(`2.11 WBET_API: 成功粘贴 ${processedMatrix.length} 行 x ${maxCols} 列数据!`, 'success');
                         } else {
-                            showNotification('No cells were pasted from WBET_API format.', 'danger');
+                            showNotification('2.11 WBET_API: 没有粘贴任何数据。', 'danger');
                         }
                         
                         setTimeout(updateSubmitButtonState, 0);
@@ -12763,8 +12733,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // WBET_API 解析失败，继续尝试其他解析器
-                console.log('WBET_API parser failed, continuing with other parsers');
+                // 2.11 WBET_API 解析失败，继续尝试其他解析器
+                console.log('2.11 WBET_API parser failed, continuing with other parsers');
             }
             
             // WBET 专用解析（仅在 WBET 类型时启用）
