@@ -4704,13 +4704,56 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log(`AWC (2.7): Most common row length: ${mostCommonLength} columns`);
                         
                         // 确保所有行都有相同的列数（填充或截断）
+                        // 特殊处理：Sub Total 行需要在前面插入空白单元格以保持列对齐
                         dataMatrix.forEach((row, index) => {
-                            while (row.length < mostCommonLength) {
-                                row.push('');
-                            }
-                            if (row.length > mostCommonLength) {
-                                // 如果超过，可能需要截断（但通常不应该发生）
-                                console.warn(`AWC (2.7): Row ${index} has ${row.length} columns, expected ${mostCommonLength}`);
+                            const firstCell = (row[0] || '').toUpperCase();
+                            const isSubTotalRow = firstCell.includes('SUB TOTAL');
+                            
+                            if (isSubTotalRow) {
+                                // Sub Total 行的格式：第一列是 "Sub Total[ xxx ]"，后面跟着数值
+                                // 但数值应该从第4列开始（跳过 User ID、Platform、Type 三列）
+                                // 所以需要在 "Sub Total[ xxx ]" 后面插入2个空白单元格
+                                
+                                // 检查当前行的结构
+                                if (row.length > 0 && row.length < mostCommonLength) {
+                                    // Sub Total 行：第一列是标签，后面是数值
+                                    // 需要在第一列后插入空白单元格，使数值从第4列开始
+                                    const subTotalLabel = row[0];
+                                    const subTotalValues = row.slice(1); // 从第二列开始的所有值
+                                    
+                                    // 重新构建行：标签 + 2个空白单元格 + 数值
+                                    const newRow = [subTotalLabel, '', '', ...subTotalValues];
+                                    
+                                    // 确保行长度正确
+                                    while (newRow.length < mostCommonLength) {
+                                        newRow.push('');
+                                    }
+                                    if (newRow.length > mostCommonLength) {
+                                        newRow.splice(mostCommonLength);
+                                    }
+                                    
+                                    // 替换原行
+                                    dataMatrix[index] = newRow;
+                                    console.log(`AWC (2.7): Sub Total row ${index} adjusted: ${newRow.length} columns (inserted 2 blank cells after label)`);
+                                } else {
+                                    // 如果列数已经足够，只需要确保长度正确
+                                    while (row.length < mostCommonLength) {
+                                        row.push('');
+                                    }
+                                    if (row.length > mostCommonLength) {
+                                        row.splice(mostCommonLength);
+                                    }
+                                }
+                            } else {
+                                // 普通数据行：直接填充或截断
+                                while (row.length < mostCommonLength) {
+                                    row.push('');
+                                }
+                                if (row.length > mostCommonLength) {
+                                    // 如果超过，可能需要截断（但通常不应该发生）
+                                    console.warn(`AWC (2.7): Row ${index} has ${row.length} columns, expected ${mostCommonLength}`);
+                                    row.splice(mostCommonLength);
+                                }
                             }
                         });
                     }
