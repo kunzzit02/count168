@@ -8318,37 +8318,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.1 CITIBET 格式检测和处理 =====
                 // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
-                    // CITIBET 特征检测：区分 CITIBET MAJOR 和普通 CITIBET 格式
-                    // CITIBET MAJOR 特征：包含 "downline payment", "overall", "my earnings"
-                    // 普通 CITIBET 特征：包含 "upline payment" 和 "downline payment"，但可能没有 "my earnings"
-                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const linesForCheck = normalizedDataForCheck.split('\n').map(l => l.trim());
-                    const lowerAll = pastedData.toLowerCase();
-                    
-                    const hasUplinePayment = lowerAll.includes('upline payment');
-                    const hasDownlinePayment = lowerAll.includes('downline payment');
-                    const hasOverall = linesForCheck.some(l => /^overall\b/i.test(l));
-                    const hasMyEarnings = lowerAll.includes('my earnings');
-                    
-                    // 判断是哪种格式
-                    const isCitibetMajor = hasDownlinePayment && hasOverall && hasMyEarnings;
-                    const isCitibetRegular = hasUplinePayment && hasDownlinePayment;
-                    
-                    if (isCitibetMajor || isCitibetRegular) {
-                        console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                        console.log('2.SPECIAL: CITIBET format detected -', isCitibetMajor ? 'MAJOR' : 'Regular');
-                        
-                        // Citibet 专用解析：根据特征选择正确的解析器
-                        let citibetParsed = null;
-                        if (isCitibetMajor) {
-                            // CITIBET MAJOR 格式：使用专用解析器（生成11列，只保留关键几行）
-                            console.log('2.SPECIAL: Using CITIBET MAJOR parser');
-                            citibetParsed = parseCitibetMajorPaymentReport(pastedData);
-                        } else {
-                            // 普通 CITIBET 格式：使用通用解析器（生成12列，完整还原原始结构）
-                            console.log('2.SPECIAL: Using CITIBET Regular parser');
-                            citibetParsed = parseCitibetPaymentReport(pastedData);
-                        }
+                    console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
+                    // Citibet 专用解析：尝试解析 CITIBET MAJOR 或普通 CITIBET 格式
+                    let citibetParsed = null;
+                    // 优先尝试 CITIBET MAJOR 格式（更严格的专用解析器）
+                    citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
                     
                     if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
@@ -8410,9 +8384,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         } else {
                             console.log('2.SPECIAL: CITIBET parsing succeeded but no cells were pasted');
                         }
-                    } else {
-                        console.log('2.SPECIAL: CITIBET parsing failed, will continue trying other formats');
-                    }
                     } else {
                         console.log('2.SPECIAL: CITIBET format check failed, will continue trying other formats');
                     }
