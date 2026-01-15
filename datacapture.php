@@ -8342,14 +8342,23 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 明确是普通 CITIBET 格式，只使用普通解析器
                         console.log('2.SPECIAL: Detected normal CITIBET format, using parseCitibetPaymentReport');
                         citibetParsed = parseCitibetPaymentReport(pastedData);
+                        if (!citibetParsed) {
+                            console.log('2.SPECIAL: Normal CITIBET parsing failed');
+                        }
                     } else if (isMajorCitibet) {
                         // 明确是 CITIBET MAJOR 格式，优先使用 MAJOR 解析器
                         console.log('2.SPECIAL: Detected CITIBET MAJOR format, using parseCitibetMajorPaymentReport');
                         citibetParsed = parseCitibetMajorPaymentReport(pastedData);
-                        // 如果 MAJOR 解析失败，尝试普通解析器（兼容性）
                         if (!citibetParsed) {
                             console.log('2.SPECIAL: CITIBET MAJOR parsing failed, trying normal CITIBET parser');
                             citibetParsed = parseCitibetPaymentReport(pastedData);
+                            if (!citibetParsed) {
+                                console.log('2.SPECIAL: Both CITIBET parsers failed, but format is detected as CITIBET - will skip other formats');
+                                // 即使解析失败，也设置formatDetected为true，避免被其他格式误判
+                                formatDetected = true;
+                                showNotification('2.SPECIAL: 检测到CITIBET格式但解析失败，请检查数据格式或直接使用CITIBET选项', 'warning');
+                                return;
+                            }
                         }
                     } else {
                         // 特征不明确，先尝试普通格式，再尝试 MAJOR 格式
@@ -8357,6 +8366,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         citibetParsed = parseCitibetPaymentReport(pastedData);
                         if (!citibetParsed) {
                             citibetParsed = parseCitibetMajorPaymentReport(pastedData);
+                            if (!citibetParsed) {
+                                console.log('2.SPECIAL: Both CITIBET parsers failed');
+                            }
                         }
                     }
                     
@@ -9861,14 +9873,25 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.7 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
                 // 2.7 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
-                    // ALIPAY 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
-                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 ALIPAY
+                    // ALIPAY 特征检测：排除 WBET 和 CITIBET 格式
+                    // 排除 WBET：如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
                     const isLikelyWBET = hasSubTotal || hasGrandTotal;
                     
+                    // 排除 CITIBET：如果数据包含 CITIBET 格式的特征，跳过 ALIPAY
+                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const rawLinesForCheck = normalizedDataForCheck.split('\n').map(l => l.trim());
+                    const hasDownlinePayment = rawLinesForCheck.some(l => l.toLowerCase().includes('downline payment'));
+                    const hasOverall = rawLinesForCheck.some(l => /^overall\b/i.test(l));
+                    const hasMyEarnings = rawLinesForCheck.some(l => l.toLowerCase().includes('my earnings'));
+                    const hasMajorMinor = rawLinesForCheck.some(l => /^(major|minor)\b/i.test(l));
+                    const isLikelyCITIBET = hasDownlinePayment && (hasOverall || hasMyEarnings || hasMajorMinor);
+                    
                     if (isLikelyWBET) {
                         console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
+                    } else if (isLikelyCITIBET) {
+                        console.log('2.SPECIAL: ALIPAY format check skipped - detected CITIBET format markers (Downline Payment/Overall/My Earnings/Major/Minor)');
                     } else {
                         console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
                         console.log('Pasted data length:', pastedData.length);
