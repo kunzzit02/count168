@@ -4794,55 +4794,58 @@ if ($current_user_id && count($user_companies) > 0) {
                     const sourceCells = sourceRow.querySelectorAll('td, th');
                     let currentCol = startCol;
                     
+                    // 创建行数据数组，确保所有列位置都被填充（包括空白单元格）
+                    const rowData = new Array(maxCols).fill('');
+                    let colIndex = 0;
+                    
                     sourceCells.forEach(sourceCell => {
                         const colspan = parseInt(sourceCell.getAttribute('colspan') || '1', 10);
                         
-                        // 获取源单元格的文本内容（AWC格式使用纯文本）
+                        // 获取源单元格的文本内容（AWC格式使用纯文本，保留空白）
                         let cellContent = sourceCell.textContent || '';
+                        const trimmedContent = cellContent.trim();
                         
-                        // 处理第一个单元格（colspan的主单元格）
-                        if (currentCol < actualCols) {
-                            const targetCell = tableRow.children[currentCol + 1]; // +1 跳过行号列
+                        // 填充当前单元格位置
+                        if (colIndex < maxCols) {
+                            rowData[colIndex] = trimmedContent;
+                            colIndex++;
+                        }
+                        
+                        // 处理colspan的后续列（填充空字符串以保持列位置）
+                        for (let i = 1; i < colspan; i++) {
+                            if (colIndex < maxCols) {
+                                rowData[colIndex] = ''; // 明确设置为空字符串
+                                colIndex++;
+                            }
+                        }
+                    });
+                    
+                    // 填充到表格（包括空白单元格）
+                    rowData.forEach((cellData, colIdx) => {
+                        const actualColIndex = startCol + colIdx;
+                        if (actualColIndex < actualCols) {
+                            const targetCell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
                             
                             if (targetCell && targetCell.contentEditable === 'true') {
                                 const oldValue = targetCell.textContent || '';
-                                const trimmedContent = cellContent.trim();
+                                const cellValue = (cellData || '').toString(); // 确保是字符串，空字符串也要保留
                                 
-                                // 使用纯文本内容
-                                targetCell.textContent = trimmedContent;
+                                // 设置单元格内容（包括空字符串）
+                                targetCell.textContent = cellValue;
                                 
                                 currentPasteChanges.push({
                                     row: actualRowIndex,
-                                    col: currentCol,
+                                    col: actualColIndex,
                                     oldValue: oldValue,
-                                    newValue: trimmedContent
+                                    newValue: cellValue
                                 });
                                 
-                                if (trimmedContent) {
+                                // 即使单元格是空的，也计入成功（因为我们保留了空白单元格的位置）
+                                if (cellValue !== '') {
                                     successCount++;
                                 }
                             }
                         }
-                        
-                        // 处理colspan的后续列（填充空单元格）
-                        for (let i = 1; i < colspan; i++) {
-                            currentCol++;
-                            if (currentCol < actualCols) {
-                                const targetCell = tableRow.children[currentCol + 1];
-                                if (targetCell && targetCell.contentEditable === 'true') {
-                                    const oldValue = targetCell.textContent || '';
-                                    targetCell.textContent = '';
-                                    currentPasteChanges.push({
-                                        row: actualRowIndex,
-                                        col: currentCol,
-                                        oldValue: oldValue,
-                                        newValue: ''
-                                    });
-                                }
-                            }
-                        }
-                        
-                        currentCol++;
                     });
                 });
                 
@@ -9904,8 +9907,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             
                             lines.forEach(line => {
                                 if (line.includes('\t')) {
-                                    // 制表符分隔，保持原始格式
-                                    const cells = line.split('\t');
+                                    // 制表符分隔，保持原始格式（包括空白单元格）
+                                    // split('\t') 会保留空白单元格（空字符串）
+                                    const cells = line.split('\t').map(cell => cell || ''); // 确保空单元格是空字符串，不是undefined
                                     dataMatrix.push(cells);
                                     maxCols = Math.max(maxCols, cells.length);
                                 } else if (line !== '') {
@@ -9914,14 +9918,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                             });
                             
-                            // 确保所有行都有相同的列数
+                            // 确保所有行都有相同的列数（填充空白单元格以保持列位置）
                             dataMatrix.forEach(row => {
                                 while (row.length < maxCols) {
-                                    row.push('');
+                                    row.push(''); // 填充空字符串以保持列位置
                                 }
                             });
                             
-                            // 填充到表格
+                            // 填充到表格（包括空白单元格）
                             if (dataMatrix.length > 0 && maxCols > 0) {
                                 const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                                 const startCol = parseInt(startCell.dataset.col);
@@ -9951,7 +9955,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const cell = tableRow.children[actualColIndex + 1];
                                         
                                         if (cell && cell.contentEditable === 'true') {
-                                            const cellValue = (cellData || '').trim();
+                                            // 保留空白单元格：即使cellData是空字符串，也要设置
+                                            // trim()不会影响空字符串，但会去除空格
+                                            const cellValue = (cellData !== null && cellData !== undefined) ? String(cellData).trim() : '';
+                                            
                                             currentPasteChanges.push({
                                                 row: actualRowIndex,
                                                 col: actualColIndex,
@@ -9959,8 +9966,11 @@ if ($current_user_id && count($user_companies) > 0) {
                                                 newValue: cellValue
                                             });
                                             
+                                            // 明确设置单元格内容（包括空字符串以保持空白单元格）
                                             cell.textContent = cellValue;
-                                            if (cellValue) {
+                                            
+                                            // 即使单元格是空的，也要计入（因为我们保留了空白单元格的位置）
+                                            if (cellValue !== '') {
                                                 successCount++;
                                             }
                                         }
