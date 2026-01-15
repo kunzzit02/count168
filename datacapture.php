@@ -10465,8 +10465,6 @@ if ($current_user_id && count($user_companies) > 0) {
                             return;
                         }
                     }
-                    } else {
-                        console.log('2.SPECIAL: PS3838 format check skipped - detected WBET format markers');
                     }
                 }
                 
