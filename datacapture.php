@@ -6455,23 +6455,10 @@ if ($current_user_id && count($user_companies) > 0) {
             const downlineStart = nonEmpty.findIndex(l => /^downline payment/i.test(l));
             if (downlineStart === -1) return null;
 
-            // MG 区块：支持 "MG m99m06" 或 "1	MG	m99m06" 格式
-            const mgIdx2 = nonEmpty.findIndex((l, idx) => {
-                if (idx <= downlineStart) return false;
-                const tokens = splitLine(l);
-                // 检查是否是MG行：MG在开头，或者MG在第二个位置（前面有编号）
-                if (tokens.length === 0) return false;
-                // MG在第一个位置
-                if (/^mg\b/i.test(tokens[0])) return true;
-                // MG在第二个位置，且第一个是数字
-                if (tokens.length >= 2 && /^\d+$/.test(tokens[0]) && /^mg\b/i.test(tokens[1])) return true;
-                return false;
-            });
+            // MG 区块
+            const mgIdx2 = nonEmpty.findIndex((l, idx) => idx > downlineStart && /^mg\b/i.test(l));
             if (mgIdx2 === -1) return null;
-            const mgIdTokens = splitLine(nonEmpty[mgIdx2]); // MG m99m06 或 1	MG	m99m06
-            // 如果第一个token是数字，跳过它
-            const mgTokenIdx = /^\d+$/.test(mgIdTokens[0]) ? 1 : 0;
-            const actualMgTokens = mgTokenIdx === 1 ? mgIdTokens.slice(1) : mgIdTokens;
+            const mgIdTokens = splitLine(nonEmpty[mgIdx2]); // MG m99m06
 
             let mgDataIdx = mgIdx2 + 1;
             while (mgDataIdx < nonEmpty.length && nonEmpty[mgDataIdx] === '') mgDataIdx++;
@@ -6480,11 +6467,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (mgDataTokens.length < 10) return null;
 
             const row4 = makeRow();
-            // 从actualMgTokens获取用户名（MG后面是用户名）
-            // actualMgTokens格式：如果原格式是"1 MG m99m06"，则actualMgTokens是["MG", "m99m06"]
-            // 如果原格式是"MG m99m06"，则actualMgTokens是["MG", "m99m06"]
-            // 用户名在MG后面（索引1）
-            row4[0] = (actualMgTokens[1] || mgIdTokens[mgTokenIdx + 1] || '').toUpperCase(); // Username
+            row4[0] = (mgIdTokens[1] || '').toUpperCase(); // Username
             row4[1] = mgDataTokens[0] || '';               // Code (m06-KZ)
             row4[2] = (mgDataTokens[1] || '').toUpperCase(); // MG
             row4[3] = 'WIN/PLC';
@@ -8333,73 +8316,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 const startCell = e.target;
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
-                // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
-                    // CITIBET 特征检测：区分 CITIBET MAJOR 和普通 CITIBET 格式
-                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const rawLines = normalizedData.split('\n').map(l => l.trim());
-                    
-                    // 检测普通 CITIBET 格式特征：必须同时包含 "upline payment" 和 "downline payment"
-                    const hasUplinePayment = rawLines.some(l => l.toLowerCase().includes('upline payment'));
-                    const hasDownlinePayment = rawLines.some(l => l.toLowerCase().includes('downline payment'));
-                    const isNormalCitibet = hasUplinePayment && hasDownlinePayment;
-                    
-                    // 检测 CITIBET MAJOR 格式特征：需要 "downline payment"、"Overall"、"My Earnings"
-                    const hasOverall = rawLines.some(l => /^overall\b/i.test(l));
-                    const hasMyEarnings = rawLines.some(l => l.toLowerCase().includes('my earnings'));
-                    const isMajorCitibet = hasDownlinePayment && hasOverall && hasMyEarnings;
-                    
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    console.log('2.SPECIAL: CITIBET format detection - Normal:', isNormalCitibet, 'Major:', isMajorCitibet);
-                    
-                    // Citibet 专用解析：根据特征选择正确的解析器
-                    let citibetParsed = null;
-                    
-                    if (isNormalCitibet && !isMajorCitibet) {
-                        // 明确是普通 CITIBET 格式，只使用普通解析器
-                        console.log('2.SPECIAL: Detected normal CITIBET format, using parseCitibetPaymentReport');
-                        citibetParsed = parseCitibetPaymentReport(pastedData);
-                        if (!citibetParsed) {
-                            console.log('2.SPECIAL: Normal CITIBET parsing failed');
-                        }
-                    } else if (isMajorCitibet) {
-                        // 明确是 CITIBET MAJOR 格式，优先使用 MAJOR 解析器
-                        console.log('2.SPECIAL: Detected CITIBET MAJOR format, using parseCitibetMajorPaymentReport');
-                        console.log('2.SPECIAL: CITIBET MAJOR data sample:', pastedData.substring(0, 300));
-                        citibetParsed = parseCitibetMajorPaymentReport(pastedData);
-                        if (!citibetParsed) {
-                            console.log('2.SPECIAL: CITIBET MAJOR parsing failed, trying normal CITIBET parser');
-                            citibetParsed = parseCitibetPaymentReport(pastedData);
-                            if (!citibetParsed) {
-                                console.log('2.SPECIAL: Both CITIBET parsers failed');
-                                console.log('2.SPECIAL: CITIBET data contains:', {
-                                    hasDownline: hasDownlinePayment,
-                                    hasOverall: hasOverall,
-                                    hasMyEarnings: hasMyEarnings,
-                                    hasMajorMinor: hasMajorMinor
-                                });
-                                // 即使解析失败，也设置formatDetected为true，避免被其他格式误判
-                                formatDetected = true;
-                                showNotification('2.SPECIAL: 检测到CITIBET格式但解析失败，请检查数据格式或直接使用CITIBET选项', 'warning');
-                                return;
-                            } else {
-                                console.log('2.SPECIAL: Normal CITIBET parser succeeded as fallback');
-                            }
-                        } else {
-                            console.log('2.SPECIAL: CITIBET MAJOR parser succeeded');
-                        }
-                    } else {
-                        // 特征不明确，先尝试普通格式，再尝试 MAJOR 格式
-                        console.log('2.SPECIAL: CITIBET format unclear, trying normal CITIBET first, then MAJOR');
-                        citibetParsed = parseCitibetPaymentReport(pastedData);
-                        if (!citibetParsed) {
-                            citibetParsed = parseCitibetMajorPaymentReport(pastedData);
-                            if (!citibetParsed) {
-                                console.log('2.SPECIAL: Both CITIBET parsers failed');
-                            }
-                        }
-                    }
-                    
+                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
                     if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
                         formatDetected = true;
@@ -8414,7 +8333,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const requiredCols = startCol + maxCols;
                         
                         if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
                             const targetCols = Math.max(currentCols, requiredCols);
                             initializeTable(targetRows, targetCols);
                         }
@@ -8438,7 +8357,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                         oldValue: cell.textContent,
                                         newValue: cellData
                                     });
-                                    // CITIBET 格式：所有值转换为大写
                                     const finalValue = (cellData || '').toUpperCase();
                                     cell.textContent = finalValue;
                                     successCount++;
@@ -8457,14 +8375,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
-                        } else {
-                            console.log('2.SPECIAL: CITIBET parsing succeeded but no cells were pasted');
                         }
-                    } else {
-                        console.log('2.SPECIAL: CITIBET format check failed, will continue trying other formats');
                     }
                 }
-                // 2.1 CITIBET 代码结束
                 
                 // ===== 2.2 VPOWER 格式检测和处理 =====
                 // 2.2 VPOWER: 以下代码从 VPOWER 选项复制而来，用于在 2.SPECIAL 模式下支持 VPOWER 格式的粘贴
@@ -9901,25 +9814,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.7 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
                 // 2.7 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
-                    // ALIPAY 特征检测：排除 WBET 和 CITIBET 格式
-                    // 排除 WBET：如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式
+                    // ALIPAY 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
+                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 ALIPAY
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
                     const isLikelyWBET = hasSubTotal || hasGrandTotal;
                     
-                    // 排除 CITIBET：如果数据包含 CITIBET 格式的特征，跳过 ALIPAY
-                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                    const rawLinesForCheck = normalizedDataForCheck.split('\n').map(l => l.trim());
-                    const hasDownlinePayment = rawLinesForCheck.some(l => l.toLowerCase().includes('downline payment'));
-                    const hasOverall = rawLinesForCheck.some(l => /^overall\b/i.test(l));
-                    const hasMyEarnings = rawLinesForCheck.some(l => l.toLowerCase().includes('my earnings'));
-                    const hasMajorMinor = rawLinesForCheck.some(l => /^(major|minor)\b/i.test(l));
-                    const isLikelyCITIBET = hasDownlinePayment && (hasOverall || hasMyEarnings || hasMajorMinor);
-                    
                     if (isLikelyWBET) {
                         console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
-                    } else if (isLikelyCITIBET) {
-                        console.log('2.SPECIAL: ALIPAY format check skipped - detected CITIBET format markers (Downline Payment/Overall/My Earnings/Major/Minor)');
                     } else {
                         console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
                         console.log('Pasted data length:', pastedData.length);
