@@ -4534,21 +4534,68 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('AWC (2.7): Parsing pattern-based data, total lines:', lines.length);
                 
                 // 识别行起始标识符：用户ID、Sub Total等
-                const isRowStart = (text) => {
+                const isRowStart = (text, index, allLines) => {
                     if (!text || text.trim() === '') return false;
-                    const trimmed = text.trim().toUpperCase();
-                    // 匹配 Sub Total[ xxx ] 格式
+                    const originalText = text.trim();
+                    const trimmed = originalText.toUpperCase();
+                    
+                    // 1. 匹配 Sub Total[ xxx ] 格式 - 优先检查
                     if (trimmed.startsWith('SUB TOTAL[') || trimmed.startsWith('SUBTOTAL[')) {
                         return true;
                     }
-                    // 匹配用户ID格式（通常是小写字母+数字，长度3-20）
-                    // 如 op7a, tr8, victorbetvtb
-                    if (/^[a-z0-9]{3,20}$/i.test(trimmed)) {
-                        // 排除纯数字或纯百分比
-                        if (!/^\d+\.?\d*%?$/.test(trimmed)) {
-                            return true;
-                        }
+                    
+                    // 2. 明确排除类型标识（必须放在前面）
+                    const isTypeIdentifier = ['LIVE', 'TABLE', 'SLOT', 'SPORTS'].includes(trimmed);
+                    if (isTypeIdentifier) {
+                        return false;
                     }
+                    
+                    // 3. 明确排除平台名（全大写，长度>=4）
+                    const isAllUppercase = /^[A-Z]+$/.test(originalText);
+                    const isPlatformName = isAllUppercase && originalText.length >= 4;
+                    
+                    // 常见的平台名列表（全大写）
+                    const knownPlatforms = ['SEXYBCRT', 'KINGMIDAS', 'SV388', 'KINGMASTER', 'KINGGAME', 'ALLBET', 'PP88'];
+                    if (isPlatformName || knownPlatforms.includes(trimmed)) {
+                        return false;
+                    }
+                    
+                    // 4. 只匹配以小写字母开头的用户ID（如op7a, tr8, victorbetvtb）
+                    // 用户ID特征：
+                    // - 以小写字母开头
+                    // - 包含字母和/或数字
+                    // - 长度3-15个字符
+                    const startsWithLowercase = /^[a-z]/.test(originalText);
+                    const isValidLength = originalText.length >= 3 && originalText.length <= 15;
+                    const isValidFormat = /^[a-z0-9]+$/i.test(originalText);
+                    const isNotNumeric = !/^\d+$/.test(originalText); // 排除纯数字
+                    
+                    if (startsWithLowercase && isValidLength && isValidFormat && isNotNumeric) {
+                        // 进一步验证：检查下一行是否是平台名或类型
+                        if (index + 1 < allLines.length) {
+                            const nextLine = (allLines[index + 1] || '').trim();
+                            const nextUpper = nextLine.toUpperCase();
+                            const isNextPlatform = /^[A-Z]{4,20}$/.test(nextLine);
+                            const isNextType = ['LIVE', 'TABLE', 'SLOT', 'SPORTS'].includes(nextUpper);
+                            
+                            // 如果下一行是平台名或类型，当前行确实是用户ID
+                            if (isNextPlatform || isNextType) {
+                                return true;
+                            }
+                        }
+                        
+                        // 检查上一行是否是Sub Total，如果是，当前行很可能是新的用户ID
+                        if (index > 0) {
+                            const prevLine = (allLines[index - 1] || '').trim().toUpperCase();
+                            if (prevLine.startsWith('SUB TOTAL[') || prevLine.startsWith('SUBTOTAL[')) {
+                                return true;
+                            }
+                        }
+                        
+                        // 如果是以小写开头且长度合理，也可能是用户ID（但优先级较低）
+                        return true;
+                    }
+                    
                     return false;
                 };
                 
@@ -4560,11 +4607,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     return /^[A-Z]{4,20}$/.test(trimmed);
                 };
                 
-                // 识别每行的起始位置
+                // 识别每行的起始位置（只识别真正的行起始：用户ID和Sub Total）
                 const rowStartIndices = [];
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i].trim();
-                    if (isRowStart(line)) {
+                    if (isRowStart(line, i, lines)) {
                         rowStartIndices.push(i);
                         console.log(`AWC (2.7): Found row start at line ${i}: "${line}"`);
                     }
