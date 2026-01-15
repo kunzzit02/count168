@@ -4663,7 +4663,18 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 提取这一行的所有值（直到下一个行标识符或Sub Total）
                     const row = [];
                     for (let j = startIndex; j < endIndex; j++) {
-                        const value = lines[j].trim();
+                        let value = lines[j];
+                        // 如果是Sub Total行，保留原始格式（包括空格）
+                        // 否则只移除首尾空格
+                        const firstValue = value.trim();
+                        const isSubTotalRow = firstValue.toUpperCase().startsWith('SUB TOTAL[') || firstValue.toUpperCase().startsWith('SUBTOTAL[');
+                        if (isSubTotalRow && j === startIndex) {
+                            // Sub Total行的第一列，保持原始格式（保留方括号内的空格）
+                            value = value.trim(); // 只移除首尾空格，保留中间空格
+                        } else {
+                            // 其他情况，正常trim
+                            value = value.trim();
+                        }
                         // 跳过空行
                         if (value !== '') {
                             row.push(value);
@@ -4806,7 +4817,23 @@ if ($current_user_id && count($user_companies) > 0) {
                             
                             if (targetCell && targetCell.contentEditable === 'true') {
                                 const oldValue = targetCell.textContent || '';
-                                const trimmedContent = cellContent.trim();
+                                
+                                // 如果是Sub Total行，保留原始格式（包括方括号内的空格）
+                                // 否则只移除首尾空格
+                                let trimmedContent = cellContent.trim();
+                                const firstCellInRow = sourceRow.querySelector('td, th');
+                                const firstCellText = (firstCellInRow?.textContent || '').trim();
+                                const isSubTotalRow = firstCellText.toUpperCase().startsWith('SUB TOTAL[') || 
+                                                      firstCellText.toUpperCase().startsWith('SUBTOTAL[');
+                                
+                                // 如果是Sub Total行的第一列，保持原始格式（只移除首尾空格，保留中间空格）
+                                if (isSubTotalRow && currentCol === startCol) {
+                                    // 保留原始文本，只移除首尾空格
+                                    trimmedContent = cellContent.trim();
+                                } else {
+                                    // 其他情况正常处理
+                                    trimmedContent = cellContent.trim();
+                                }
                                 
                                 // 使用纯文本内容
                                 targetCell.textContent = trimmedContent;
@@ -10024,7 +10051,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const cell = tableRow.children[actualColIndex + 1];
                                         
                                         if (cell && cell.contentEditable === 'true') {
-                                            const cellValue = (cellData || '').trim();
+                                            // 保留原始数据格式，特别是Sub Total行中的空格
+                                            // 只移除首尾的空白字符，保留中间的格式（包括方括号内的空格）
+                                            let cellValue = cellData || '';
+                                            // 如果是Sub Total行，保持原始格式，不进行trim
+                                            const firstCell = rowData[0] || '';
+                                            const isSubTotalRow = firstCell.toUpperCase().includes('SUB TOTAL');
+                                            if (!isSubTotalRow) {
+                                                // 非Sub Total行，可以移除首尾空格
+                                                cellValue = cellValue.trim();
+                                            }
+                                            // Sub Total行保持原样，不trim
+                                            
                                             currentPasteChanges.push({
                                                 row: actualRowIndex,
                                                 col: actualColIndex,
