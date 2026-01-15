@@ -8743,9 +8743,59 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     if (isLikelyCITIBET) {
                         console.log('2.SPECIAL: CITIBET format pattern detected, attempting to parse...');
-                        // 直接尝试解析 CITIBET，让解析函数自己判断是否符合格式
-                        // parseCitibetMajorPaymentReport 和 parseCitibetPaymentReport 内部已经有格式检测逻辑
-                        let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                        console.log('2.SPECIAL: CITIBET detection details - hasMajor:', hasMajor, 'hasMinor:', hasMinor, 'hasOverall:', hasOverall, 'hasMyEarnings:', hasMyEarnings);
+                        
+                        // 先尝试 parseCitibetMajorPaymentReport（用于 MAJOR 格式）
+                        let citibetParsed = parseCitibetMajorPaymentReport(pastedData);
+                        console.log('2.SPECIAL: parseCitibetMajorPaymentReport result:', citibetParsed ? 'SUCCESS' : 'FAILED');
+                        
+                        // 如果失败，尝试 parseCitibetPaymentReport（用于 UPLINE/DOWNLINE 格式）
+                        if (!citibetParsed) {
+                            citibetParsed = parseCitibetPaymentReport(pastedData);
+                            console.log('2.SPECIAL: parseCitibetPaymentReport result:', citibetParsed ? 'SUCCESS' : 'FAILED');
+                        }
+                        
+                        // 如果两个解析器都失败，但数据明显是 CITIBET 格式，尝试使用通用的制表符分隔解析
+                        if (!citibetParsed && (hasMajor || hasMinor || hasOverall)) {
+                            console.log('2.SPECIAL: CITIBET parsers failed, attempting generic tab-separated parsing for CITIBET data...');
+                            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                            const lines = normalizedData.split('\n').map(l => l.trim()).filter(l => l !== '');
+                            
+                            // 检查是否是制表符分隔的数据
+                            const hasTabs = pastedData.includes('\t');
+                            if (hasTabs && lines.length > 0) {
+                                const dataMatrix = [];
+                                let maxCols = 0;
+                                
+                                lines.forEach(line => {
+                                    if (line.includes('\t')) {
+                                        const cells = line.split('\t').map(c => (c || '').trim());
+                                        dataMatrix.push(cells);
+                                        maxCols = Math.max(maxCols, cells.length);
+                                    } else if (line !== '') {
+                                        dataMatrix.push([line]);
+                                        maxCols = Math.max(maxCols, 1);
+                                    }
+                                });
+                                
+                                if (dataMatrix.length > 0 && maxCols > 0) {
+                                    // 确保所有行都有相同的列数
+                                    dataMatrix.forEach(row => {
+                                        while (row.length < maxCols) {
+                                            row.push('');
+                                        }
+                                    });
+                                    
+                                    citibetParsed = {
+                                        dataMatrix: dataMatrix,
+                                        maxRows: dataMatrix.length,
+                                        maxCols: maxCols
+                                    };
+                                    console.log('2.SPECIAL: Generic CITIBET parsing successful -', dataMatrix.length, 'rows x', maxCols, 'cols');
+                                }
+                            }
+                        }
+                        
                         if (citibetParsed) {
                             console.log('2.SPECIAL: Detected CITIBET format (2.1)');
                             formatDetected = true;
@@ -10295,13 +10345,22 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 2.7 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
                     // ALIPAY 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
-                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 ALIPAY
+                    // 排除 CITIBET 格式（CITIBET 有 MAJOR/MINOR/OVERALL/MY EARNINGS/DOWNLINE PAYMENT 特征）
                     const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
                     const isLikelyWBET = hasSubTotal || hasGrandTotal;
                     
+                    const hasMajor = /MAJOR/i.test(pastedData);
+                    const hasMinor = /MINOR/i.test(pastedData);
+                    const hasOverall = /^OVERALL\b/i.test(pastedData) || /\bOVERALL\b/i.test(pastedData);
+                    const hasMyEarnings = /MY\s*EARNINGS/i.test(pastedData);
+                    const hasDownlinePayment = /DOWNLINE\s*PAYMENT/i.test(pastedData);
+                    const isLikelyCITIBET = hasMajor || hasMinor || hasOverall || hasMyEarnings || hasDownlinePayment;
+                    
                     if (isLikelyWBET) {
                         console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
+                    } else if (isLikelyCITIBET) {
+                        console.log('2.SPECIAL: ALIPAY format check skipped - detected CITIBET format markers (MAJOR/MINOR/OVERALL/MY EARNINGS/DOWNLINE PAYMENT)');
                     } else {
                         console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
                         console.log('Pasted data length:', pastedData.length);
