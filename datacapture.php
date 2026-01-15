@@ -9780,11 +9780,67 @@ if ($current_user_id && count($user_companies) > 0) {
                                     return; // 成功处理，直接返回
                                 }
                             }
+                        } else {
+                            // 方法4：如果数据是单列的（没有制表符），保持单列格式（每行一个值，垂直排列）
+                            console.log('AWC (2.7): Detected single-column format (no tabs), preserving as single column (one value per row)...');
+                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                            const startCol = parseInt(startCell.dataset.col);
+                            
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                            const requiredRows = startRow + lines.length;
+                            const requiredCols = startCol + 1; // 单列格式，只需要1列
+                            
+                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                const targetCols = Math.max(currentCols, requiredCols);
+                                initializeTable(targetRows, targetCols);
+                            }
+                            
+                            const tableBody = document.getElementById('tableBody');
+                            const currentPasteChanges = [];
+                            let successCount = 0;
+                            
+                            lines.forEach((line, rowIndex) => {
+                                const actualRowIndex = startRow + rowIndex;
+                                const tableRow = tableBody.children[actualRowIndex];
+                                if (!tableRow) return;
+                                
+                                const cell = tableRow.children[startCol + 1]; // +1 跳过行号列
+                                
+                                if (cell && cell.contentEditable === 'true') {
+                                    const cellValue = line.trim();
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: startCol,
+                                        oldValue: cell.textContent,
+                                        newValue: cellValue
+                                    });
+                                    
+                                    cell.textContent = cellValue;
+                                    if (cellValue) {
+                                        successCount++;
+                                    }
+                                }
+                            });
+                            
+                            if (currentPasteChanges.length > 0) {
+                                pasteHistory.push(currentPasteChanges);
+                                if (pasteHistory.length > maxHistorySize) {
+                                    pasteHistory.shift();
+                                }
+                            }
+                            
+                            if (successCount > 0) {
+                                showNotification(`AWC (2.7): 成功粘贴 ${successCount} 个单元格（${lines.length} 行 x 1 列），已保持单列格式!`, 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return; // 成功处理，直接返回
+                            }
                         }
                     }
                 }
                 
-                // 方法4：如果所有解析都失败，继续使用默认处理逻辑（但会智能检测列数，不会强制1列）
+                // 方法5：如果所有解析都失败，继续使用默认处理逻辑（但会智能检测列数，不会强制1列）
                 console.log('AWC (2.7): All parsing methods failed, continuing with default logic (will auto-detect columns)');
             }
             // ===== AWC 处理结束 =====
