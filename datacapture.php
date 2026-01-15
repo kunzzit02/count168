@@ -9828,35 +9828,64 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.5 AWC 格式检测和处理（优先于 S88、ALIPAY） =====
                 // 2.5 AWC: 以下代码从 AWC 选项复制而来，用于在 2.SPECIAL 模式下支持 AWC 格式的粘贴
                 if (!formatDetected) {
-                    // AWC 特征检测：检查数据是否包含 AWC 格式的特征
-                    // 特征1: 包含用户ID（以小写字母开头，3-15个字符，如 op7a, tr8, victorbetvtb）
-                    // 特征2: 包含平台名（全大写，4-20个字符，如 SEXYBCRT, SV388, KINGMIDAS等）
-                    // 特征3: 包含类型标识（LIVE, TABLE, SLOT, SPORTS）
-                    // 特征4: 可能包含 Sub Total[ xxx ] 格式
+                    // 先检查是否是 ALIPAY 格式（排除 ALIPAY，避免误判）
+                    // ALIPAY 格式特征：标识符行（2-10个大写字母/数字组合，如 JDW01, JDW02）
                     const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
                     
-                    // 检测用户ID模式（以小写字母开头）
-                    const hasUserID = linesForCheck.some(line => {
-                        const trimmed = line.trim();
-                        return /^[a-z][a-z0-9]{2,14}$/i.test(trimmed) && !/^\d+$/.test(trimmed);
-                    });
+                    // 检测 ALIPAY 格式的标识符行（2-10个大写字母/数字组合，如 JDW01, JDW02）
+                    let hasAlipayIdentifier = false;
+                    let alipayIdentifierCount = 0;
+                    for (let i = 0; i < Math.min(linesForCheck.length, 20); i++) {
+                        const testLine = linesForCheck[i].trim();
+                        // ALIPAY 标识符特征：2-10个字符，包含字母和数字，不包含空格、逗号、小数点、负号
+                        const isAlipayIdentifier = /^[A-Z0-9]{2,10}$/.test(testLine) && 
+                                                   !testLine.includes(' ') && 
+                                                   !testLine.includes(',') &&
+                                                   !testLine.includes('.') &&
+                                                   !testLine.includes('-') &&
+                                                   !/^\d+$/.test(testLine); // 不是纯数字
+                        
+                        if (isAlipayIdentifier) {
+                            alipayIdentifierCount++;
+                            // 如果找到至少2个 ALIPAY 标识符，认为是 ALIPAY 格式，跳过 AWC
+                            if (alipayIdentifierCount >= 2) {
+                                hasAlipayIdentifier = true;
+                                break;
+                            }
+                        }
+                    }
                     
-                    // 检测平台名模式（全大写，4-20个字符）
-                    const knownPlatforms = ['SEXYBCRT', 'KINGMIDAS', 'SV388', 'KINGMASTER', 'KINGGAME', 'ALLBET', 'PP88'];
-                    const hasPlatformName = linesForCheck.some(line => {
-                        const trimmed = line.trim().toUpperCase();
-                        return /^[A-Z]{4,20}$/.test(trimmed) || knownPlatforms.includes(trimmed);
-                    });
-                    
-                    // 检测类型标识
-                    const hasTypeIdentifier = /(LIVE|TABLE|SLOT|SPORTS)/i.test(pastedData);
-                    
-                    // 检测 Sub Total 格式
-                    const hasSubTotal = /SUB\s*TOTAL\[/i.test(pastedData);
-                    
-                    // 如果符合 AWC 特征，进行解析
-                    const isAWCFormat = (hasUserID && hasPlatformName) || (hasUserID && hasTypeIdentifier) || hasSubTotal;
+                    if (hasAlipayIdentifier) {
+                        console.log('2.SPECIAL: AWC format check skipped - detected ALIPAY identifiers (', alipayIdentifierCount, 'found)');
+                    } else {
+                        // AWC 特征检测：检查数据是否包含 AWC 格式的特征
+                        // 特征1: 包含用户ID（以小写字母开头，3-15个字符，如 op7a, tr8, victorbetvtb）
+                        // 特征2: 包含平台名（全大写，4-20个字符，如 SEXYBCRT, SV388, KINGMIDAS等）
+                        // 特征3: 包含类型标识（LIVE, TABLE, SLOT, SPORTS）
+                        // 特征4: 可能包含 Sub Total[ xxx ] 格式
+                        
+                        // 检测用户ID模式（以小写字母开头）
+                        const hasUserID = linesForCheck.some(line => {
+                            const trimmed = line.trim();
+                            return /^[a-z][a-z0-9]{2,14}$/i.test(trimmed) && !/^\d+$/.test(trimmed);
+                        });
+                        
+                        // 检测平台名模式（全大写，4-20个字符）
+                        const knownPlatforms = ['SEXYBCRT', 'KINGMIDAS', 'SV388', 'KINGMASTER', 'KINGGAME', 'ALLBET', 'PP88'];
+                        const hasPlatformName = linesForCheck.some(line => {
+                            const trimmed = line.trim().toUpperCase();
+                            return /^[A-Z]{4,20}$/.test(trimmed) || knownPlatforms.includes(trimmed);
+                        });
+                        
+                        // 检测类型标识
+                        const hasTypeIdentifier = /(LIVE|TABLE|SLOT|SPORTS)/i.test(pastedData);
+                        
+                        // 检测 Sub Total 格式
+                        const hasSubTotal = /SUB\s*TOTAL\[/i.test(pastedData);
+                        
+                        // 如果符合 AWC 特征，进行解析
+                        const isAWCFormat = (hasUserID && hasPlatformName) || (hasUserID && hasTypeIdentifier) || hasSubTotal;
                     
                     if (isAWCFormat) {
                         console.log('2.SPECIAL: Trying 2.5 AWC format...');
@@ -10078,8 +10107,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     } else {
                         console.log('2.SPECIAL: AWC format check failed, skipping...');
                     }
+                    }
                 }
-                // 2.4 AWC 代码结束
+                // 2.5 AWC 代码结束
                 
                 // ===== 2.5 S88 格式检测和处理（优先于 ALIPAY） =====
                 // 2.5 S88: 多行数据格式，每行数据包含标识符、Agent和多个数值
