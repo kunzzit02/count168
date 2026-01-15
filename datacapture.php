@@ -8730,11 +8730,23 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
                     // Citibet 专用解析（先于通用 Payment 逻辑）
                     let citibetParsed = null;
-                    // 尝试 CITIBET MAJOR 和 CITIBET 两种格式
-                    citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                    let isMajorFormat = false;
+                    
+                    // 先尝试 CITIBET MAJOR 格式
+                    citibetParsed = parseCitibetMajorPaymentReport(pastedData);
+                    if (citibetParsed) {
+                        isMajorFormat = true;
+                        console.log('2.SPECIAL: Detected CITIBET MAJOR format (2.1)');
+                    } else {
+                        // 如果 MAJOR 格式失败，尝试普通 CITIBET 格式
+                        citibetParsed = parseCitibetPaymentReport(pastedData);
+                        if (citibetParsed) {
+                            isMajorFormat = false;
+                            console.log('2.SPECIAL: Detected CITIBET format (2.1)');
+                        }
+                    }
                     
                     if (citibetParsed) {
-                        console.log('2.SPECIAL: Detected CITIBET format (2.1)');
                         formatDetected = true;
                         const { dataMatrix, maxRows, maxCols } = citibetParsed;
                         
@@ -8799,11 +8811,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 根据检测到的格式决定是否进行后续格式转换
                                 // 如果检测到 CITIBET MAJOR 格式，已经在解析阶段生成最终 6 行 / 12 列结构，这里不再做结构重排
                                 // 否则进行格式转换
-                                const isMajorFormat = parseCitibetMajorPaymentReport(pastedData) !== null;
                                 if (!isMajorFormat) {
+                                    console.log('2.SPECIAL: CITIBET Executing format conversion (not MAJOR format)');
                                     convertTableFormatOnSubmit();
                                     // 只有在 CITIBET 模式下，才需要把 MY EARNINGS / TOTAL 金额强制移到第 11 列
                                     fixCitibetAmountColumns();
+                                } else {
+                                    console.log('2.SPECIAL: CITIBET MAJOR format detected, skipping format conversion');
                                 }
                                 updateSubmitButtonState();
                             }, 100);
