@@ -8318,11 +8318,47 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.1 CITIBET 格式检测和处理 =====
                 // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
+                    // CITIBET 特征检测：区分 CITIBET MAJOR 和普通 CITIBET 格式
+                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const rawLines = normalizedData.split('\n').map(l => l.trim());
+                    
+                    // 检测普通 CITIBET 格式特征：必须同时包含 "upline payment" 和 "downline payment"
+                    const hasUplinePayment = rawLines.some(l => l.toLowerCase().includes('upline payment'));
+                    const hasDownlinePayment = rawLines.some(l => l.toLowerCase().includes('downline payment'));
+                    const isNormalCitibet = hasUplinePayment && hasDownlinePayment;
+                    
+                    // 检测 CITIBET MAJOR 格式特征：需要 "downline payment"、"Overall"、"My Earnings"
+                    const hasOverall = rawLines.some(l => /^overall\b/i.test(l));
+                    const hasMyEarnings = rawLines.some(l => l.toLowerCase().includes('my earnings'));
+                    const isMajorCitibet = hasDownlinePayment && hasOverall && hasMyEarnings;
+                    
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    // Citibet 专用解析：尝试解析 CITIBET MAJOR 或普通 CITIBET 格式
+                    console.log('2.SPECIAL: CITIBET format detection - Normal:', isNormalCitibet, 'Major:', isMajorCitibet);
+                    
+                    // Citibet 专用解析：根据特征选择正确的解析器
                     let citibetParsed = null;
-                    // 优先尝试 CITIBET MAJOR 格式（更严格的专用解析器）
-                    citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                    
+                    if (isNormalCitibet && !isMajorCitibet) {
+                        // 明确是普通 CITIBET 格式，只使用普通解析器
+                        console.log('2.SPECIAL: Detected normal CITIBET format, using parseCitibetPaymentReport');
+                        citibetParsed = parseCitibetPaymentReport(pastedData);
+                    } else if (isMajorCitibet) {
+                        // 明确是 CITIBET MAJOR 格式，优先使用 MAJOR 解析器
+                        console.log('2.SPECIAL: Detected CITIBET MAJOR format, using parseCitibetMajorPaymentReport');
+                        citibetParsed = parseCitibetMajorPaymentReport(pastedData);
+                        // 如果 MAJOR 解析失败，尝试普通解析器（兼容性）
+                        if (!citibetParsed) {
+                            console.log('2.SPECIAL: CITIBET MAJOR parsing failed, trying normal CITIBET parser');
+                            citibetParsed = parseCitibetPaymentReport(pastedData);
+                        }
+                    } else {
+                        // 特征不明确，先尝试普通格式，再尝试 MAJOR 格式
+                        console.log('2.SPECIAL: CITIBET format unclear, trying normal CITIBET first, then MAJOR');
+                        citibetParsed = parseCitibetPaymentReport(pastedData);
+                        if (!citibetParsed) {
+                            citibetParsed = parseCitibetMajorPaymentReport(pastedData);
+                        }
+                    }
                     
                     if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
