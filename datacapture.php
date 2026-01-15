@@ -9814,9 +9814,18 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.7 ALIPAY 格式检测和处理（优先于 PS3838、WBET） =====
                 // 2.7 ALIPAY: 以下代码从 ALIPAY 选项复制而来，用于在 2.SPECIAL 模式下支持 ALIPAY 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
-                    console.log('Pasted data length:', pastedData.length);
-                    console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
+                    // ALIPAY 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
+                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 ALIPAY
+                    const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
+                    const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                    const isLikelyWBET = hasSubTotal || hasGrandTotal;
+                    
+                    if (isLikelyWBET) {
+                        console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
+                    } else {
+                        console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
+                        console.log('Pasted data length:', pastedData.length);
+                        console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
                     
                     // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                     const htmlDataFromDetect = detectAndParseHTML(e);
@@ -10275,6 +10284,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             return;
                         }
                     }
+                    } else {
+                        console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers');
+                    }
                 }
                 // 2.7 ALIPAY 代码结束
                 
@@ -10451,9 +10463,35 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.9 WBET 格式检测和处理 =====
                 // 2.9 WBET: 以下代码从 WBET 选项复制而来，用于在 2.SPECIAL 模式下支持 WBET 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.9 WBET format...');
-                    console.log('2.SPECIAL: WBET Pasted data length:', pastedData.length);
-                    console.log('2.SPECIAL: WBET Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
+                    // WBET 特征检测：检查数据是否包含 WBET 格式的特征
+                    // 特征1: 包含 "SUB TOTAL" 或 "SUBTOTAL" 关键词
+                    // 特征2: 包含 "GRAND TOTAL" 或 "GRANDTOTAL" 关键词
+                    // 特征3: 数据行通常以2-3个大写字母开头（如 OB, OC, OD, RS等）
+                    // 特征4: 可能包含行号（纯数字的第一列）
+                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    // 检测 SUB TOTAL 或 SUBTOTAL
+                    const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
+                    
+                    // 检测 GRAND TOTAL 或 GRANDTOTAL
+                    const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                    
+                    // 检测数据行标识（2-3个大写字母，如 OB, OC, OD, RS）
+                    const hasDataRowIdentifier = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        // 检查是否是2-3个大写字母（可能后面跟着空格和数字）
+                        return /^[A-Z]{2,3}(\s|$)/.test(trimmed) || /^[A-Z]{2,3}\s+\d+/.test(trimmed);
+                    });
+                    
+                    // 如果符合 WBET 特征，进行解析
+                    const isWBETFormat = (hasSubTotal || hasGrandTotal) && hasDataRowIdentifier;
+                    
+                    if (isWBETFormat) {
+                        console.log('2.SPECIAL: Trying 2.9 WBET format...');
+                        console.log('2.SPECIAL: WBET format pattern detected');
+                        console.log('2.SPECIAL: WBET Pasted data length:', pastedData.length);
+                        console.log('2.SPECIAL: WBET Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
                     
                     // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                     const htmlDataFromDetect = detectAndParseHTML(e);
@@ -10833,6 +10871,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // WBET 解析失败，继续尝试其他格式
                     console.log('2.SPECIAL: WBET parser failed, will continue trying other formats');
+                    } else {
+                        console.log('2.SPECIAL: WBET format check failed, skipping...');
+                    }
                 }
                 // 2.9 WBET 代码结束
                 
