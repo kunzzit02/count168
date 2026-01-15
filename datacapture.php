@@ -8316,9 +8316,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 const startCell = e.target;
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
+                // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                    // Citibet 专用解析：尝试解析 CITIBET MAJOR 或普通 CITIBET 格式
+                    let citibetParsed = null;
+                    // 优先尝试 CITIBET MAJOR 格式（更严格的专用解析器）
+                    citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                    
                     if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
                         formatDetected = true;
@@ -8333,7 +8338,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const requiredCols = startCol + maxCols;
                         
                         if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
                             const targetCols = Math.max(currentCols, requiredCols);
                             initializeTable(targetRows, targetCols);
                         }
@@ -8357,6 +8362,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         oldValue: cell.textContent,
                                         newValue: cellData
                                     });
+                                    // CITIBET 格式：所有值转换为大写
                                     const finalValue = (cellData || '').toUpperCase();
                                     cell.textContent = finalValue;
                                     successCount++;
@@ -8375,9 +8381,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
+                        } else {
+                            console.log('2.SPECIAL: CITIBET parsing succeeded but no cells were pasted');
                         }
+                    } else {
+                        console.log('2.SPECIAL: CITIBET format check failed, will continue trying other formats');
                     }
                 }
+                // 2.1 CITIBET 代码结束
                 
                 // ===== 2.2 VPOWER 格式检测和处理 =====
                 // 2.2 VPOWER: 以下代码从 VPOWER 选项复制而来，用于在 2.SPECIAL 模式下支持 VPOWER 格式的粘贴
