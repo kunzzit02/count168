@@ -10290,7 +10290,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // ===== 2.8 PS3838 格式检测和处理 =====
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.8 PS3838 format...');
+                    // PS3838 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
+                    // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 PS3838
+                    const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
+                    const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                    const isLikelyWBET = hasSubTotal || hasGrandTotal;
+                    
+                    if (isLikelyWBET) {
+                        console.log('2.SPECIAL: PS3838 format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
+                    } else {
+                        console.log('2.SPECIAL: Trying 2.8 PS3838 format...');
                     const htmlDataFromDetect = detectAndParseHTML(e);
                     let agentLinkParsed = null;
                     
@@ -10455,6 +10464,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
+                    }
+                    } else {
+                        console.log('2.SPECIAL: PS3838 format check skipped - detected WBET format markers');
                     }
                 }
                 
