@@ -17437,6 +17437,15 @@ if ($current_user_id && count($user_companies) > 0) {
             setTimeout(() => {
                 document.body.classList.add('page-ready');
             }, 50);
+            
+            // 添加全局错误处理，捕获可能的 "Cannot set properties of null (setting 'src')" 错误
+            window.addEventListener('error', function(event) {
+                if (event.message && event.message.includes("Cannot set properties of null (setting 'src')")) {
+                    console.warn('Caught error: Attempted to set src on null object. Error location:', event.filename, 'Line:', event.lineno);
+                    event.preventDefault(); // 阻止错误传播
+                    return true;
+                }
+            }, true);
 
             // 初始化 Data Capture Type 选择器
             const typeSelect = document.getElementById('dataCaptureTypeSelector');
