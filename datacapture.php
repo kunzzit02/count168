@@ -8793,6 +8793,25 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (successCount > 0) {
                             showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
+                            
+                            // 2.SPECIAL: CITIBET 格式后处理（与直接选择 CITIBET 选项保持一致）
+                            // 根据解析器类型决定是否调用 convertTableFormatOnSubmit()
+                            setTimeout(() => {
+                                // 检查是否使用了 parseCitibetMajorPaymentReport（CITIBET MAJOR 格式）
+                                // 如果是 MAJOR 格式，已经在解析阶段生成最终 6 行 / 12 列结构，不需要再做格式转换
+                                const majorParsed = parseCitibetMajorPaymentReport(pastedData);
+                                
+                                if (majorParsed) {
+                                    // CITIBET MAJOR：已经在解析阶段生成最终结构，这里不再做结构重排
+                                    updateSubmitButtonState();
+                                } else {
+                                    // 其他 CITIBET 格式（parseCitibetPaymentReport 或 parseSimplePaymentReport）
+                                    // 需要调用 convertTableFormatOnSubmit() 进行格式转换
+                                    convertTableFormatOnSubmit();
+                                    updateSubmitButtonState();
+                                }
+                            }, 100);
+                            
                             return;
                         }
                     }
