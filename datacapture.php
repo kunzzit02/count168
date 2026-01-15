@@ -8725,9 +8725,19 @@ if ($current_user_id && count($user_companies) > 0) {
                 const startCell = e.target;
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
+                // 2.1 CITIBET: 支持所有 CITIBET 相关格式（包括 m99m06、downline、MAJOR/MINOR 等）
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                    console.log('2.SPECIAL: CITIBET raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                    
+                    // 尝试所有 CITIBET 相关的解析器（按优先级顺序）
+                    // 1. parseCitibetMajorPaymentReport - 处理 CITIBET MAJOR 格式（包含 m99m06、downline、MAJOR/MINOR）
+                    // 2. parseCitibetPaymentReport - 处理通用 CITIBET 格式（包含 upline/downline payment）
+                    // 3. parseSimplePaymentReport - 处理简化版 Overall/Downline Payment 报表
+                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || 
+                                       parseCitibetPaymentReport(pastedData) || 
+                                       parseSimplePaymentReport(pastedData);
+                    
                     if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
                         formatDetected = true;
