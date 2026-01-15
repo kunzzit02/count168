@@ -8725,12 +8725,30 @@ if ($current_user_id && count($user_companies) > 0) {
                 const startCell = e.target;
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
+                // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
-                    if (citibetParsed) {
-                        console.log('2.SPECIAL: Detected CITIBET format (2.1)');
-                        formatDetected = true;
+                    // CITIBET 特征检测：检查数据是否包含 CITIBET 格式的特征
+                    // 特征1: 包含 "MAJOR" 关键词
+                    // 特征2: 包含 "MINOR" 关键词
+                    // 特征3: 包含 "UPLINE" 关键词
+                    // 特征4: 包含 "DOWNLINE" 关键词
+                    // 特征5: 包含 "PAYMENT" 关键词
+                    const hasMajor = /MAJOR/i.test(pastedData);
+                    const hasMinor = /MINOR/i.test(pastedData);
+                    const hasUpline = /UPLINE/i.test(pastedData);
+                    const hasDownline = /DOWNLINE/i.test(pastedData);
+                    const hasPayment = /PAYMENT/i.test(pastedData);
+                    
+                    // 如果符合 CITIBET 特征（包含 MAJOR 和 MINOR，或者包含 UPLINE/DOWNLINE/PAYMENT），进行解析
+                    const isCITIBETFormat = (hasMajor && hasMinor) || (hasUpline && hasDownline && hasPayment);
+                    
+                    if (isCITIBETFormat) {
+                        console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
+                        console.log('2.SPECIAL: CITIBET format pattern detected (MAJOR/MINOR or UPLINE/DOWNLINE/PAYMENT)');
+                        let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                        if (citibetParsed) {
+                            console.log('2.SPECIAL: Detected CITIBET format (2.1)');
+                            formatDetected = true;
                         const { dataMatrix, maxRows, maxCols } = citibetParsed;
                         
                         const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
@@ -8785,8 +8803,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             setTimeout(updateSubmitButtonState, 0);
                             return;
                         }
+                    } else {
+                        console.log('2.SPECIAL: CITIBET parsing failed, will continue trying other formats');
+                    }
+                    } else {
+                        console.log('2.SPECIAL: CITIBET format check failed (no MAJOR/MINOR or UPLINE/DOWNLINE/PAYMENT), skipping...');
                     }
                 }
+                // 2.1 CITIBET 代码结束
                 
                 // ===== 2.2 VPOWER 格式检测和处理 =====
                 // 2.2 VPOWER: 以下代码从 VPOWER 选项复制而来，用于在 2.SPECIAL 模式下支持 VPOWER 格式的粘贴
