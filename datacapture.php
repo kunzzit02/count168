@@ -9784,7 +9784,160 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 方法4：如果所有解析都失败，继续使用默认处理逻辑（但会智能检测列数，不会强制1列）
+                // 方法4：智能解析单列格式（每行一个单元格，但实际是行优先格式）
+                if (!formatDetected) {
+                    console.log('AWC (2.7): Trying smart parsing for single-column row-major format...');
+                    const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    if (lines.length > 10) { // 确保有足够的数据
+                        // 提取所有单元格
+                        const allCells = lines;
+                        
+                        // 识别用户ID模式（通常是短字母数字组合，如"op7a"、"tr8"、"victorbetvtb"）
+                        // 以及"Sub Total"标记
+                        const userIDPattern = /^[a-z0-9]{2,15}$/i; // 匹配短的用户ID
+                        const subTotalPattern = /^sub\s*total/i;
+                        
+                        // 查找所有用户ID和Sub Total的位置
+                        const rowMarkers = [];
+                        for (let i = 0; i < allCells.length; i++) {
+                            const cell = allCells[i].trim();
+                            const upperCell = cell.toUpperCase();
+                            
+                            // 识别用户ID：短字母数字组合，且不在常见非用户ID列表中
+                            if (userIDPattern.test(cell) && 
+                                !['LIVE', 'TABLE', 'SV388', 'SEXYBCRT', 'KINGMIDAS'].includes(upperCell) &&
+                                cell.length >= 2 && cell.length <= 15) {
+                                // 进一步验证：用户ID通常在小写或混合大小写，且前面没有数字或特殊字符
+                                if (cell.match(/^[a-z]/) && !cell.match(/^\d/)) {
+                                    rowMarkers.push({ index: i, type: 'userID', value: cell });
+                                }
+                            }
+                            
+                            // 识别Sub Total标记
+                            if (subTotalPattern.test(cell)) {
+                                rowMarkers.push({ index: i, type: 'subTotal', value: cell });
+                            }
+                        }
+                        
+                        console.log(`AWC (2.7): Found ${rowMarkers.length} row markers:`, rowMarkers.slice(0, 10));
+                        
+                        if (rowMarkers.length >= 2) {
+                            // 计算用户ID之间的间隔来确定列数
+                            const userIDMarkers = rowMarkers.filter(m => m.type === 'userID');
+                            if (userIDMarkers.length >= 2) {
+                                const intervals = [];
+                                for (let i = 1; i < userIDMarkers.length; i++) {
+                                    const interval = userIDMarkers[i].index - userIDMarkers[i-1].index;
+                                    intervals.push(interval);
+                                }
+                                
+                                // 找到最常见的间隔（这应该就是每行的列数）
+                                const intervalCounts = {};
+                                intervals.forEach(interval => {
+                                    intervalCounts[interval] = (intervalCounts[interval] || 0) + 1;
+                                });
+                                
+                                let mostCommonInterval = null;
+                                let maxCount = 0;
+                                for (const [interval, count] of Object.entries(intervalCounts)) {
+                                    const intervalNum = parseInt(interval);
+                                    if (count > maxCount && intervalNum >= 15 && intervalNum <= 25) {
+                                        maxCount = count;
+                                        mostCommonInterval = intervalNum;
+                                    }
+                                }
+                                
+                                console.log(`AWC (2.7): User ID intervals:`, intervals);
+                                console.log(`AWC (2.7): Most common interval: ${mostCommonInterval} (appears ${maxCount} times)`);
+                                
+                                if (mostCommonInterval && mostCommonInterval >= 15 && mostCommonInterval <= 25) {
+                                    // 使用检测到的列数重新组织数据
+                                    const detectedColumns = mostCommonInterval;
+                                    const totalRows = Math.ceil(allCells.length / detectedColumns);
+                                    
+                                    console.log(`AWC (2.7): Reorganizing data as ${totalRows} rows x ${detectedColumns} columns`);
+                                    
+                                    // 创建数据矩阵
+                                    const dataMatrix = [];
+                                    for (let row = 0; row < totalRows; row++) {
+                                        const rowData = [];
+                                        for (let col = 0; col < detectedColumns; col++) {
+                                            const index = row * detectedColumns + col;
+                                            if (index < allCells.length) {
+                                                rowData.push(allCells[index]);
+                                            } else {
+                                                rowData.push('');
+                                            }
+                                        }
+                                        dataMatrix.push(rowData);
+                                    }
+                                    
+                                    // 填充到表格
+                                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                    const startCol = parseInt(startCell.dataset.col);
+                                    
+                                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                    const requiredRows = startRow + dataMatrix.length;
+                                    const requiredCols = startCol + detectedColumns;
+                                    
+                                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                        const targetCols = Math.max(currentCols, requiredCols);
+                                        initializeTable(targetRows, targetCols);
+                                    }
+                                    
+                                    const tableBody = document.getElementById('tableBody');
+                                    const currentPasteChanges = [];
+                                    let successCount = 0;
+                                    
+                                    dataMatrix.forEach((rowData, rowIndex) => {
+                                        const actualRowIndex = startRow + rowIndex;
+                                        const tableRow = tableBody.children[actualRowIndex];
+                                        if (!tableRow) return;
+                                        
+                                        rowData.forEach((cellData, colIndex) => {
+                                            const actualColIndex = startCol + colIndex;
+                                            const cell = tableRow.children[actualColIndex + 1];
+                                            
+                                            if (cell && cell.contentEditable === 'true') {
+                                                const cellValue = (cellData || '').trim();
+                                                currentPasteChanges.push({
+                                                    row: actualRowIndex,
+                                                    col: actualColIndex,
+                                                    oldValue: cell.textContent,
+                                                    newValue: cellValue
+                                                });
+                                                
+                                                cell.textContent = cellValue;
+                                                if (cellValue) {
+                                                    successCount++;
+                                                }
+                                            }
+                                        });
+                                    });
+                                    
+                                    if (currentPasteChanges.length > 0) {
+                                        pasteHistory.push(currentPasteChanges);
+                                        if (pasteHistory.length > maxHistorySize) {
+                                            pasteHistory.shift();
+                                        }
+                                    }
+                                    
+                                    if (successCount > 0) {
+                                        showNotification(`AWC (2.7): 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${detectedColumns} 列)，已通过智能检测保持表格行格式!`, 'success');
+                                        setTimeout(updateSubmitButtonState, 0);
+                                        return; // 成功处理，直接返回
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // 方法5：如果所有解析都失败，继续使用默认处理逻辑（但会智能检测列数，不会强制1列）
                 console.log('AWC (2.7): All parsing methods failed, continuing with default logic (will auto-detect columns)');
             }
             // ===== AWC 处理结束 =====
