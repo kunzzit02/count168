@@ -8394,62 +8394,63 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         if (citibetParsed) {
                             console.log('2.SPECIAL: Detected CITIBET format (2.1)');
-                        formatDetected = true;
-                        const { dataMatrix, maxRows, maxCols } = citibetParsed;
-                        
-                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = parseInt(startCell.dataset.col);
-                        
-                        const currentRows = document.querySelectorAll('#tableBody tr').length;
-                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredRows = startRow + maxRows;
-                        const requiredCols = startCol + maxCols;
-                        
-                        if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                            const targetCols = Math.max(currentCols, requiredCols);
-                            initializeTable(targetRows, targetCols);
-                        }
-                        
-                        const tableBody = document.getElementById('tableBody');
-                        const currentPasteChanges = [];
-                        let successCount = 0;
-                        
-                        dataMatrix.forEach((rowData, rowIndex) => {
-                            const actualRowIndex = startRow + rowIndex;
-                            const tableRow = tableBody.children[actualRowIndex];
-                            if (!tableRow) return;
+                            formatDetected = true;
+                            const { dataMatrix, maxRows, maxCols } = citibetParsed;
                             
-                            rowData.forEach((cellData, colIndex) => {
-                                const actualColIndex = startCol + colIndex;
-                                const cell = tableRow.children[actualColIndex + 1];
-                                if (cell && cell.contentEditable === 'true') {
-                                    currentPasteChanges.push({
-                                        row: actualRowIndex,
-                                        col: actualColIndex,
-                                        oldValue: cell.textContent,
-                                        newValue: cellData
-                                    });
-                                    const finalValue = (cellData || '').toUpperCase();
-                                    cell.textContent = finalValue;
-                                    successCount++;
-                                }
-                            });
-                        });
-                        
-                        if (currentPasteChanges.length > 0) {
-                            pasteHistory.push(currentPasteChanges);
-                            if (pasteHistory.length > maxHistorySize) {
-                                pasteHistory.shift();
+                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                            const startCol = parseInt(startCell.dataset.col);
+                            
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                            const requiredRows = startRow + maxRows;
+                            const requiredCols = startCol + maxCols;
+                            
+                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                const targetCols = Math.max(currentCols, requiredCols);
+                                initializeTable(targetRows, targetCols);
                             }
-                        }
-                        
-                        if (successCount > 0) {
-                            showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        } else {
-                            console.log('2.SPECIAL: CITIBET format detected but parsing failed, will continue trying other formats');
+                            
+                            const tableBody = document.getElementById('tableBody');
+                            const currentPasteChanges = [];
+                            let successCount = 0;
+                            
+                            dataMatrix.forEach((rowData, rowIndex) => {
+                                const actualRowIndex = startRow + rowIndex;
+                                const tableRow = tableBody.children[actualRowIndex];
+                                if (!tableRow) return;
+                                
+                                rowData.forEach((cellData, colIndex) => {
+                                    const actualColIndex = startCol + colIndex;
+                                    const cell = tableRow.children[actualColIndex + 1];
+                                    if (cell && cell.contentEditable === 'true') {
+                                        currentPasteChanges.push({
+                                            row: actualRowIndex,
+                                            col: actualColIndex,
+                                            oldValue: cell.textContent,
+                                            newValue: cellData
+                                        });
+                                        const finalValue = (cellData || '').toUpperCase();
+                                        cell.textContent = finalValue;
+                                        successCount++;
+                                    }
+                                });
+                            });
+                            
+                            if (currentPasteChanges.length > 0) {
+                                pasteHistory.push(currentPasteChanges);
+                                if (pasteHistory.length > maxHistorySize) {
+                                    pasteHistory.shift();
+                                }
+                            }
+                            
+                            if (successCount > 0) {
+                                showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            } else {
+                                console.log('2.SPECIAL: CITIBET format detected but parsing failed, will continue trying other formats');
+                            }
                         }
                     } else {
                         console.log('2.SPECIAL: CITIBET format check failed, skipping...');
