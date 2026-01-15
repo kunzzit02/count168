@@ -14387,7 +14387,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (alipayParsed) {
                     const { dataMatrix, maxRows, maxCols } = alipayParsed;
                     
-                    const startCell = e.target;
+                    // 使用在 2.SPECIAL 开头声明的 startCell，不重复声明
                     const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                     // ALIPAY 格式：强制从第一列（Column 1）开始粘贴
                     const startCol = 0;
