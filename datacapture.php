@@ -8727,28 +8727,24 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.1 CITIBET 格式检测和处理 =====
                 // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
-                    // CITIBET 特征检测：检查数据是否包含 CITIBET 格式的特征
-                    // 特征1: 包含 "MAJOR" 关键词
-                    // 特征2: 包含 "MINOR" 关键词
-                    // 特征3: 包含 "UPLINE" 关键词
-                    // 特征4: 包含 "DOWNLINE" 关键词
-                    // 特征5: 包含 "PAYMENT" 关键词
-                    // 特征6: 包含 "OVERALL" 关键词（CITIBET 报表常见）
-                    // 特征7: 包含 "MY EARNINGS" 关键词（CITIBET 报表常见）
+                    console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
+                    
+                    // 先检查是否包含 CITIBET 特征关键词
                     const hasMajor = /MAJOR/i.test(pastedData);
                     const hasMinor = /MINOR/i.test(pastedData);
+                    const hasOverall = /^OVERALL\b/i.test(pastedData) || /\bOVERALL\b/i.test(pastedData);
+                    const hasMyEarnings = /MY\s*EARNINGS/i.test(pastedData);
                     const hasUpline = /UPLINE/i.test(pastedData);
                     const hasDownline = /DOWNLINE/i.test(pastedData);
                     const hasPayment = /PAYMENT/i.test(pastedData);
-                    const hasOverall = /OVERALL/i.test(pastedData);
-                    const hasMyEarnings = /MY\s*EARNINGS/i.test(pastedData);
                     
-                    // 如果符合 CITIBET 特征（包含 MAJOR 或 MINOR，或者包含 UPLINE/DOWNLINE/PAYMENT，或者包含 OVERALL/MY EARNINGS），进行解析
-                    const isCITIBETFormat = hasMajor || hasMinor || (hasUpline && hasDownline && hasPayment) || (hasOverall && hasMyEarnings);
+                    // 如果包含 CITIBET 特征关键词，尝试解析
+                    const isLikelyCITIBET = hasMajor || hasMinor || hasOverall || (hasUpline && hasDownline && hasPayment);
                     
-                    if (isCITIBETFormat) {
-                        console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                        console.log('2.SPECIAL: CITIBET format pattern detected (MAJOR/MINOR or UPLINE/DOWNLINE/PAYMENT)');
+                    if (isLikelyCITIBET) {
+                        console.log('2.SPECIAL: CITIBET format pattern detected, attempting to parse...');
+                        // 直接尝试解析 CITIBET，让解析函数自己判断是否符合格式
+                        // parseCitibetMajorPaymentReport 和 parseCitibetPaymentReport 内部已经有格式检测逻辑
                         let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
                         if (citibetParsed) {
                             console.log('2.SPECIAL: Detected CITIBET format (2.1)');
@@ -8806,12 +8802,33 @@ if ($current_user_id && count($user_companies) > 0) {
                                 showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                                 setTimeout(updateSubmitButtonState, 0);
                                 return;
+                            } else {
+                                console.log('2.SPECIAL: CITIBET parsing returned data but no cells were pasted');
                             }
                         } else {
-                            console.log('2.SPECIAL: CITIBET parsing failed, will continue trying other formats');
+                            console.log('2.SPECIAL: CITIBET format detected but parsing failed - data may not match expected CITIBET structure');
+                            // 即使解析失败，如果包含 CITIBET 特征，尝试使用通用的 HTML 表格解析作为后备方案
+                            console.log('2.SPECIAL: Attempting to use generic HTML table parsing as fallback...');
+                            try {
+                                const htmlData = e.clipboardData.getData('text/html');
+                                if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                                    console.log('2.SPECIAL: HTML table detected, attempting generic parsing...');
+                                    const htmlParsed = detectAndParseHTML(e);
+                                    if (htmlParsed) {
+                                        console.log('2.SPECIAL: Generic HTML parsing successful for CITIBET data');
+                                        formatDetected = true;
+                                        showNotification('2.SPECIAL: 检测到CITIBET格式 (2.1)，使用通用解析!', 'success');
+                                        setTimeout(updateSubmitButtonState, 0);
+                                        return;
+                                    }
+                                }
+                            } catch (err) {
+                                console.log('2.SPECIAL: Generic HTML parsing failed:', err);
+                            }
+                            console.log('2.SPECIAL: Will continue trying other formats, but CITIBET format was likely intended');
                         }
                     } else {
-                        console.log('2.SPECIAL: CITIBET format check failed (no MAJOR/MINOR or UPLINE/DOWNLINE/PAYMENT), skipping...');
+                        console.log('2.SPECIAL: No CITIBET format indicators found, skipping CITIBET detection');
                     }
                 }
                 // 2.1 CITIBET 代码结束
@@ -8819,9 +8836,19 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.2 VPOWER 格式检测和处理 =====
                 // 2.2 VPOWER: 以下代码从 VPOWER 选项复制而来，用于在 2.SPECIAL 模式下支持 VPOWER 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.2 VPOWER format...');
-                    console.log('2.SPECIAL: VPOWER raw data sample (first 200 chars):', pastedData.substring(0, 200));
-                    let vpowerParsed = parseVPowerTableFormat(pastedData);
+                    // VPOWER 特征检测：排除 CITIBET 格式（CITIBET 有 MAJOR/MINOR/OVERALL 特征）
+                    const hasMajor = /MAJOR/i.test(pastedData);
+                    const hasMinor = /MINOR/i.test(pastedData);
+                    const hasOverall = /^OVERALL\b/i.test(pastedData) || /\bOVERALL\b/i.test(pastedData);
+                    const hasMyEarnings = /MY\s*EARNINGS/i.test(pastedData);
+                    const isLikelyCITIBET = hasMajor || hasMinor || hasOverall || hasMyEarnings;
+                    
+                    if (isLikelyCITIBET) {
+                        console.log('2.SPECIAL: VPOWER format check skipped - detected CITIBET format markers (MAJOR/MINOR/OVERALL/MY EARNINGS)');
+                    } else {
+                        console.log('2.SPECIAL: Trying 2.2 VPOWER format...');
+                        console.log('2.SPECIAL: VPOWER raw data sample (first 200 chars):', pastedData.substring(0, 200));
+                        let vpowerParsed = parseVPowerTableFormat(pastedData);
                     console.log('2.SPECIAL: VPOWER parse result:', vpowerParsed);
                     
                     if (vpowerParsed) {
@@ -8895,6 +8922,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     } else {
                         console.log('2.SPECIAL: VPOWER parser returned null, will continue trying other formats');
+                    }
                     }
                 }
                 
