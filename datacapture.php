@@ -10910,10 +10910,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
                     
                     // 检测数据行标识（2-3个大写字母，如 OB, OC, OD, RS）
+                    // 支持两种情况：
+                    // 1. 直接以2-3个大写字母开头（如 "OB RS 9403..."）
+                    // 2. 以数字开头，后跟2-3个大写字母（如 "1 OB RS 9403..." 或 "1\tOB\tRS..."）
                     const hasDataRowIdentifier = linesForCheck.some(line => {
                         const trimmed = line.trim();
-                        // 检查是否是2-3个大写字母（可能后面跟着空格和数字）
-                        return /^[A-Z]{2,3}(\s|$)/.test(trimmed) || /^[A-Z]{2,3}\s+\d+/.test(trimmed);
+                        // 情况1: 检查是否是2-3个大写字母开头（可能后面跟着空格/制表符和数字）
+                        if (/^[A-Z]{2,3}(\s|$|\t)/.test(trimmed) || /^[A-Z]{2,3}[\s\t]+\d+/.test(trimmed)) {
+                            return true;
+                        }
+                        // 情况2: 检查是否以数字开头，后跟2-3个大写字母（支持制表符或空格分隔）
+                        // 匹配模式：一个或多个数字 + 一个或多个空格/制表符 + 2-3个大写字母
+                        // 例如："1 OB RS..." 或 "1\tOB\tRS..." 或 "1 OB RS 9403..." 或 "1  OB  RS..."
+                        if (/^\d+[\s\t]+[A-Z]{2,3}/.test(trimmed)) {
+                            return true;
+                        }
+                        return false;
                     });
                     
                     // 如果符合 WBET 特征，进行解析
