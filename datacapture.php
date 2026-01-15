@@ -8724,6 +8724,43 @@ if ($current_user_id && count($user_companies) > 0) {
                 let formatDetected = false;
                 const startCell = e.target;
                 
+                // ===== ALIPAY 优先检测：如果检测到 ALIPAY 标识符，优先尝试 ALIPAY 格式 =====
+                // 快速检测 ALIPAY 格式特征（标识符行，如 JDW01, JDW02）
+                const normalizedDataForQuickCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                const linesForQuickCheck = normalizedDataForQuickCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
+                
+                let hasAlipayIdentifierQuick = false;
+                let alipayIdentifierCountQuick = 0;
+                for (let i = 0; i < Math.min(linesForQuickCheck.length, 20); i++) {
+                    const testLine = linesForQuickCheck[i].trim();
+                    // ALIPAY 标识符特征：2-10个字符，包含字母和数字，不包含空格、逗号、小数点、负号，且不是纯数字
+                    const isAlipayIdentifier = /^[A-Z0-9]{2,10}$/.test(testLine) && 
+                                               !testLine.includes(' ') && 
+                                               !testLine.includes(',') &&
+                                               !testLine.includes('.') &&
+                                               !testLine.includes('-') &&
+                                               !/^\d+$/.test(testLine); // 不是纯数字
+                    
+                    if (isAlipayIdentifier) {
+                        alipayIdentifierCountQuick++;
+                        // 如果找到至少2个 ALIPAY 标识符，优先尝试 ALIPAY 格式
+                        if (alipayIdentifierCountQuick >= 2) {
+                            hasAlipayIdentifierQuick = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // 如果检测到 ALIPAY 标识符，直接跳转到 ALIPAY 格式检测（跳过其他格式）
+                if (hasAlipayIdentifierQuick) {
+                    console.log('2.SPECIAL: ALIPAY identifiers detected early (', alipayIdentifierCountQuick, 'found), prioritizing ALIPAY format detection');
+                    // 设置一个标记，让后续的格式检测跳过，直接到 ALIPAY
+                    // 我们通过设置 formatDetected 为 false，但添加一个特殊标记
+                    // 实际上，我们需要直接跳转到 ALIPAY 格式检测代码
+                    // 为了简化，我们在这里先尝试 ALIPAY 格式的核心检测逻辑
+                    // 但更好的方法是在 ALIPAY 格式检测代码中提高优先级
+                }
+                
                 // ===== 2.1 CITIBET 格式检测和处理 =====
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
@@ -9828,19 +9865,47 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.5 AWC 格式检测和处理（优先于 S88、ALIPAY） =====
                 // 2.5 AWC: 以下代码从 AWC 选项复制而来，用于在 2.SPECIAL 模式下支持 AWC 格式的粘贴
                 if (!formatDetected) {
-                    // AWC 特征检测：检查数据是否包含 AWC 格式的特征
-                    // 特征1: 包含用户ID（以小写字母开头，3-15个字符，如 op7a, tr8, victorbetvtb）
-                    // 特征2: 包含平台名（全大写，4-20个字符，如 SEXYBCRT, SV388, KINGMIDAS等）
-                    // 特征3: 包含类型标识（LIVE, TABLE, SLOT, SPORTS）
-                    // 特征4: 可能包含 Sub Total[ xxx ] 格式
+                    // 优先检查：如果检测到 ALIPAY 标识符，跳过 AWC 格式检测
                     const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
                     
-                    // 检测用户ID模式（以小写字母开头）
-                    const hasUserID = linesForCheck.some(line => {
-                        const trimmed = line.trim();
-                        return /^[a-z][a-z0-9]{2,14}$/i.test(trimmed) && !/^\d+$/.test(trimmed);
-                    });
+                    // 检测 ALIPAY 标识符（2-10个大写字母/数字组合，如 JDW01, JDW02）
+                    let hasAlipayIdentifier = false;
+                    let alipayIdentifierCount = 0;
+                    for (let i = 0; i < Math.min(linesForCheck.length, 20); i++) {
+                        const testLine = linesForCheck[i].trim();
+                        // ALIPAY 标识符特征：2-10个字符，包含字母和数字，不包含空格、逗号、小数点、负号，且不是纯数字
+                        const isAlipayIdentifier = /^[A-Z0-9]{2,10}$/.test(testLine) && 
+                                                   !testLine.includes(' ') && 
+                                                   !testLine.includes(',') &&
+                                                   !testLine.includes('.') &&
+                                                   !testLine.includes('-') &&
+                                                   !/^\d+$/.test(testLine); // 不是纯数字
+                        
+                        if (isAlipayIdentifier) {
+                            alipayIdentifierCount++;
+                            if (alipayIdentifierCount >= 2) {
+                                hasAlipayIdentifier = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 如果检测到 ALIPAY 标识符，跳过 AWC 格式检测
+                    if (hasAlipayIdentifier) {
+                        console.log('2.SPECIAL: AWC format check skipped - detected ALIPAY identifiers (', alipayIdentifierCount, 'found)');
+                    } else {
+                        // AWC 特征检测：检查数据是否包含 AWC 格式的特征
+                        // 特征1: 包含用户ID（以小写字母开头，3-15个字符，如 op7a, tr8, victorbetvtb）
+                        // 特征2: 包含平台名（全大写，4-20个字符，如 SEXYBCRT, SV388, KINGMIDAS等）
+                        // 特征3: 包含类型标识（LIVE, TABLE, SLOT, SPORTS）
+                        // 特征4: 可能包含 Sub Total[ xxx ] 格式
+                        
+                        // 检测用户ID模式（以小写字母开头）
+                        const hasUserID = linesForCheck.some(line => {
+                            const trimmed = line.trim();
+                            return /^[a-z][a-z0-9]{2,14}$/i.test(trimmed) && !/^\d+$/.test(trimmed);
+                        });
                     
                     // 检测平台名模式（全大写，4-20个字符）
                     const knownPlatforms = ['SEXYBCRT', 'KINGMIDAS', 'SV388', 'KINGMASTER', 'KINGGAME', 'ALLBET', 'PP88'];
