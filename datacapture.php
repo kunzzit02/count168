@@ -8728,25 +8728,51 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 2.1 CITIBET: 以下代码从 CITIBET 选项复制而来，用于在 2.SPECIAL 模式下支持 CITIBET 格式的粘贴
                 if (!formatDetected) {
                     console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                    // Citibet 专用解析（先于通用 Payment 逻辑）
-                    let citibetParsed = null;
-                    let isMajorFormat = false;
+                    // 先检查是否包含 CITIBET 特征关键字，避免不必要的解析尝试
+                    const lowerData = pastedData.toLowerCase();
+                    const hasCitibetKeywords = lowerData.includes('overall') || 
+                                             lowerData.includes('my earnings') || 
+                                             lowerData.includes('ringgit malaysia') ||
+                                             lowerData.includes('total :') ||
+                                             lowerData.includes('upline payment') ||
+                                             lowerData.includes('downline payment');
                     
-                    // 先尝试 CITIBET MAJOR 格式
-                    citibetParsed = parseCitibetMajorPaymentReport(pastedData);
-                    if (citibetParsed) {
-                        isMajorFormat = true;
-                        console.log('2.SPECIAL: Detected CITIBET MAJOR format (2.1)');
+                    console.log('2.SPECIAL: CITIBET keyword check:', {
+                        hasOverall: lowerData.includes('overall'),
+                        hasMyEarnings: lowerData.includes('my earnings'),
+                        hasRinggitMalaysia: lowerData.includes('ringgit malaysia'),
+                        hasTotal: lowerData.includes('total :'),
+                        hasUplinePayment: lowerData.includes('upline payment'),
+                        hasDownlinePayment: lowerData.includes('downline payment')
+                    });
+                    
+                    if (!hasCitibetKeywords) {
+                        console.log('2.SPECIAL: No CITIBET keywords found, skipping CITIBET detection');
                     } else {
-                        // 如果 MAJOR 格式失败，尝试普通 CITIBET 格式
-                        citibetParsed = parseCitibetPaymentReport(pastedData);
+                        // Citibet 专用解析（先于通用 Payment 逻辑）
+                        let citibetParsed = null;
+                        let isMajorFormat = false;
+                        
+                        // 先尝试 CITIBET MAJOR 格式
+                        console.log('2.SPECIAL: Trying CITIBET MAJOR parser...');
+                        citibetParsed = parseCitibetMajorPaymentReport(pastedData);
                         if (citibetParsed) {
-                            isMajorFormat = false;
-                            console.log('2.SPECIAL: Detected CITIBET format (2.1)');
+                            isMajorFormat = true;
+                            console.log('2.SPECIAL: ✓ Detected CITIBET MAJOR format (2.1)', citibetParsed);
+                        } else {
+                            console.log('2.SPECIAL: CITIBET MAJOR parser returned null');
+                            // 如果 MAJOR 格式失败，尝试普通 CITIBET 格式
+                            console.log('2.SPECIAL: Trying CITIBET regular parser...');
+                            citibetParsed = parseCitibetPaymentReport(pastedData);
+                            if (citibetParsed) {
+                                isMajorFormat = false;
+                                console.log('2.SPECIAL: ✓ Detected CITIBET format (2.1)', citibetParsed);
+                            } else {
+                                console.log('2.SPECIAL: CITIBET regular parser also returned null');
+                            }
                         }
-                    }
-                    
-                    if (citibetParsed) {
+                        
+                        if (citibetParsed) {
                         formatDetected = true;
                         const { dataMatrix, maxRows, maxCols } = citibetParsed;
                         
