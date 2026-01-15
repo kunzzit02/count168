@@ -4663,7 +4663,20 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 提取这一行的所有值（直到下一个行标识符或Sub Total）
                     const row = [];
                     for (let j = startIndex; j < endIndex; j++) {
-                        const value = lines[j].trim();
+                        let value = lines[j];
+                        // 对于 Sub Total[ xxx ] 格式，保留原始空格（包括方括号内的空格）
+                        const trimmedValue = value.trim();
+                        const isSubTotal = trimmedValue.toUpperCase().includes('SUB TOTAL[') || trimmedValue.toUpperCase().includes('SUBTOTAL[');
+                        
+                        if (isSubTotal) {
+                            // Sub Total 行：只去除首尾空白行，但保留内容中的空格（包括方括号内的空格）
+                            // 保留原始值，但去除行首尾的换行符和制表符
+                            value = value.replace(/^[\s\t]+|[\s\t]+$/g, '');
+                        } else {
+                            // 其他行：正常 trim
+                            value = trimmedValue;
+                        }
+                        
                         // 跳过空行
                         if (value !== '') {
                             row.push(value);
@@ -4806,19 +4819,30 @@ if ($current_user_id && count($user_companies) > 0) {
                             
                             if (targetCell && targetCell.contentEditable === 'true') {
                                 const oldValue = targetCell.textContent || '';
-                                const trimmedContent = cellContent.trim();
+                                
+                                // 对于 Sub Total[ xxx ] 格式，保留原始空格（包括方括号内的空格）
+                                let finalContent;
+                                const isSubTotal = cellContent.toUpperCase().includes('SUB TOTAL[') || cellContent.toUpperCase().includes('SUBTOTAL[');
+                                
+                                if (isSubTotal) {
+                                    // Sub Total 行：只去除首尾空白，但保留内容中的空格（包括方括号内的空格）
+                                    finalContent = cellContent.replace(/^[\s\n\r\t]+|[\s\n\r\t]+$/g, '');
+                                } else {
+                                    // 其他行：正常 trim
+                                    finalContent = cellContent.trim();
+                                }
                                 
                                 // 使用纯文本内容
-                                targetCell.textContent = trimmedContent;
+                                targetCell.textContent = finalContent;
                                 
                                 currentPasteChanges.push({
                                     row: actualRowIndex,
                                     col: currentCol,
                                     oldValue: oldValue,
-                                    newValue: trimmedContent
+                                    newValue: finalContent
                                 });
                                 
-                                if (trimmedContent) {
+                                if (finalContent) {
                                     successCount++;
                                 }
                             }
@@ -9951,7 +9975,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const cell = tableRow.children[actualColIndex + 1];
                                         
                                         if (cell && cell.contentEditable === 'true') {
-                                            const cellValue = (cellData || '').trim();
+                                            let cellValue = cellData || '';
+                                            // 对于 Sub Total[ xxx ] 格式，保留原始空格（包括方括号内的空格）
+                                            const isSubTotal = cellValue.toUpperCase().includes('SUB TOTAL[') || cellValue.toUpperCase().includes('SUBTOTAL[');
+                                            
+                                            if (isSubTotal) {
+                                                // Sub Total 行：只去除首尾空白，但保留内容中的空格（包括方括号内的空格）
+                                                cellValue = cellValue.replace(/^[\s\n\r\t]+|[\s\n\r\t]+$/g, '');
+                                            } else {
+                                                // 其他行：正常 trim
+                                                cellValue = cellValue.trim();
+                                            }
+                                            
                                             currentPasteChanges.push({
                                                 row: actualRowIndex,
                                                 col: actualColIndex,
