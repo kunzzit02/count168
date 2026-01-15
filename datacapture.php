@@ -6610,6 +6610,64 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
+        // 针对 2.SPECIAL 模式的宽松 CITIBET 解析器：只需要 MAJOR/MINOR 和 OVERALL
+        function parseCitibetLooseForSpecial(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+
+            const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const rawLines = norm.split('\n').map(l => l.trim()).filter(l => l !== '');
+
+            // 检查是否包含 MAJOR 或 MINOR，以及 OVERALL
+            const hasMAJOR = rawLines.some(l => /MAJOR/i.test(l));
+            const hasMINOR = rawLines.some(l => /MINOR/i.test(l));
+            const hasOverall = rawLines.some(l => /^overall\b/i.test(l));
+            
+            if (!(hasMAJOR || hasMINOR) || !hasOverall) {
+                return null;
+            }
+
+            console.log('Using loose CITIBET parser for 2.SPECIAL mode');
+
+            // 工具：按制表符或多个空格/单空格拆列
+            const splitLine = (line) => {
+                if (line.includes('\t')) {
+                    return line.split('\t').map(c => (c || '').trim()).filter(c => c !== '');
+                }
+                const byDoubleSpace = line.split(/\s{2,}/).map(c => (c || '').trim()).filter(c => c !== '');
+                if (byDoubleSpace.length > 1) return byDoubleSpace;
+                return line.split(/\s+/).map(c => (c || '').trim()).filter(c => c !== '');
+            };
+
+            const rows = [];
+            const colCount = 12;
+            const makeRow = () => new Array(colCount).fill('');
+
+            // 尝试解析每一行数据
+            rawLines.forEach(line => {
+                const tokens = splitLine(line);
+                if (tokens.length > 0) {
+                    const row = makeRow();
+                    // 将数据填充到行中，最多填充到 colCount 列
+                    tokens.forEach((token, idx) => {
+                        if (idx < colCount) {
+                            row[idx] = token.toUpperCase();
+                        }
+                    });
+                    rows.push(row);
+                }
+            });
+
+            if (rows.length === 0) return null;
+
+            const maxCols = Math.max(...rows.map(r => r.filter(c => c !== '').length), colCount);
+
+            return {
+                dataMatrix: rows,
+                maxRows: rows.length,
+                maxCols: maxCols
+            };
+        }
+
         // 针对 Citibet 的 Upline/Downline 报表：直接生成 11 列矩阵
         // 通用版本（用于普通 CITIBET），尽量完整还原原始结构
         function parseCitibetPaymentReport(pastedData) {
@@ -8743,7 +8801,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
                         console.log('2.SPECIAL: CITIBET format pattern detected (MAJOR/MINOR and CITIBET keywords found)');
                         console.log('2.SPECIAL: CITIBET detection details - hasMAJOR:', hasMAJOR, 'hasMINOR:', hasMINOR, 'hasOverall:', hasOverall, 'hasDownlinePayment:', hasDownlinePayment, 'hasMyEarnings:', hasMyEarnings, 'hasUplinePayment:', hasUplinePayment);
+                        // 先尝试严格的解析器，如果失败则使用宽松的解析器
                         let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                        // 如果严格解析失败，使用宽松的解析器（专门用于2.SPECIAL模式）
+                        if (!citibetParsed) {
+                            console.log('2.SPECIAL: Strict CITIBET parsers failed, trying loose parser...');
+                            citibetParsed = parseCitibetLooseForSpecial(pastedData);
+                        }
                         if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
                         formatDetected = true;
