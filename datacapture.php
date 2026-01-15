@@ -6616,8 +6616,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!pastedData || typeof pastedData !== 'string') return null;
 
             const lowerAll = pastedData.toLowerCase();
-            // 放宽要求：只需要包含 "downline payment"，"upline payment" 是可选的
-            if (!lowerAll.includes('downline payment')) {
+            if (!lowerAll.includes('upline payment') || !lowerAll.includes('downline payment')) {
                 return null;
             }
 
@@ -6657,10 +6656,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (lower.includes('downline payment')) {
                     section = 'downline';
                     return;
-                }
-                // 如果没有 "Upline Payment" 标题，但包含 "Overall"，将其视为 upline 部分
-                if (section === '' && lower.includes('overall') && !lower.includes('downline')) {
-                    section = 'upline';
                 }
                 if (lower.includes('username') && lower.includes('type')) return;
 
@@ -8750,27 +8745,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (isCITIBETFormat) {
                         console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
                         console.log('2.SPECIAL: CITIBET format pattern detected (MAJOR/MINOR or UPLINE/DOWNLINE/PAYMENT)');
-                        // 尝试多种 CITIBET 解析函数，按优先级顺序
-                        let citibetParsed = null;
-                        console.log('2.SPECIAL: Trying parseCitibetMajorPaymentReport...');
-                        citibetParsed = parseCitibetMajorPaymentReport(pastedData);
-                        if (citibetParsed) {
-                            console.log('2.SPECIAL: parseCitibetMajorPaymentReport succeeded');
-                        } else {
-                            console.log('2.SPECIAL: parseCitibetMajorPaymentReport failed, trying parseCitibetPaymentReport...');
-                            citibetParsed = parseCitibetPaymentReport(pastedData);
-                            if (citibetParsed) {
-                                console.log('2.SPECIAL: parseCitibetPaymentReport succeeded');
-                            } else {
-                                console.log('2.SPECIAL: parseCitibetPaymentReport failed, trying parseSimplePaymentReport...');
-                                citibetParsed = parseSimplePaymentReport(pastedData);
-                                if (citibetParsed) {
-                                    console.log('2.SPECIAL: parseSimplePaymentReport succeeded');
-                                } else {
-                                    console.log('2.SPECIAL: All CITIBET parsers failed');
-                                }
-                            }
-                        }
+                        let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
                         if (citibetParsed) {
                             console.log('2.SPECIAL: Detected CITIBET format (2.1)');
                             formatDetected = true;
@@ -8826,15 +8801,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (successCount > 0) {
                             showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
-                            
-                            // 执行 CITIBET 格式的后续处理，确保格式与直接选择 CITIBET 选项时一致
-                            setTimeout(() => {
-                                // 转换表格格式（与原始 CITIBET 处理逻辑一致）
-                                convertTableFormatOnSubmit();
-                                // 修复 CITIBET 金额列：将 MY EARNINGS / TOTAL 金额强制移到第 11 列
-                                fixCitibetAmountColumns();
-                            }, 100);
-                            
                             return;
                         }
                     } else {
