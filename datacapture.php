@@ -11318,180 +11318,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 // 2.9 WBET 代码结束
                 
-                // ===== 2.10 PEGASUS 格式检测和处理 =====
-                // 2.10 PEGASUS: 以下代码从 PEGASUS 选项复制而来，用于在 2.SPECIAL 模式下支持 PEGASUS 格式的粘贴
-                if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.10 PEGASUS format...');
-                    console.log('2.SPECIAL: PEGASUS raw data length:', pastedData.length);
-                    console.log('2.SPECIAL: PEGASUS raw data sample (first 500 chars):', pastedData.substring(0, 500));
-                    
-                    let dataMatrix = [];
-                    let allCells = [];
-                    
-                    // 优先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
-                    const htmlDataFromDetect = detectAndParseHTML(e);
-                    
-                    if (htmlDataFromDetect) {
-                        console.log('2.SPECIAL: PEGASUS HTML data detected via detectAndParseHTML');
-                        dataMatrix = htmlDataFromDetect;
-                    } else {
-                        // 如果 HTML 解析失败，尝试手动解析 HTML
-                        let htmlData = null;
-                        try {
-                            htmlData = e.clipboardData.getData('text/html');
-                            if (htmlData && htmlData.toLowerCase().includes('<table')) {
-                                console.log('2.SPECIAL: PEGASUS HTML data detected, parsing manually...');
-                                const tempDiv = document.createElement('div');
-                                tempDiv.innerHTML = htmlData;
-                                
-                                const table = tempDiv.querySelector('table');
-                                if (table) {
-                                    // 处理表头（如果有）
-                                    const thead = table.querySelector('thead');
-                                    if (thead) {
-                                        const headerRows = thead.querySelectorAll('tr');
-                                        headerRows.forEach(tr => {
-                                            const cells = tr.querySelectorAll('th, td');
-                                            cells.forEach(cell => {
-                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                                let text = cell.textContent || cell.innerText || '';
-                                                text = text.replace(/\s+/g, ' ').trim();
-                                                if (text) allCells.push(text);
-                                                for (let i = 1; i < colspan; i++) {
-                                                    allCells.push('');
-                                                }
-                                            });
-                                        });
-                                    }
-                                    
-                                    // 处理表体
-                                    let bodyContainer = table.querySelector('tbody');
-                                    if (!bodyContainer) {
-                                        bodyContainer = table;
-                                    }
-                                    
-                                    const bodyRows = bodyContainer.querySelectorAll('tr');
-                                    bodyRows.forEach((tr) => {
-                                        if (thead && tr.closest('thead')) {
-                                            return;
-                                        }
-                                        
-                                        const cells = tr.querySelectorAll('td, th');
-                                        cells.forEach(cell => {
-                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                            let text = cell.textContent || cell.innerText || '';
-                                            text = text.replace(/\s+/g, ' ').trim();
-                                            if (text) allCells.push(text);
-                                            for (let i = 1; i < colspan; i++) {
-                                                allCells.push('');
-                                            }
-                                        });
-                                    });
-                                }
-                            }
-                        } catch (err) {
-                            console.log('2.SPECIAL: PEGASUS Could not get HTML data from clipboard:', err);
-                        }
-                    }
-                    
-                    // 如果 HTML 解析成功，从 dataMatrix 提取所有单元格
-                    if (dataMatrix && dataMatrix.length > 0) {
-                        console.log('2.SPECIAL: PEGASUS Extracting cells from HTML data matrix...');
-                        dataMatrix.forEach(row => {
-                            if (Array.isArray(row)) {
-                                row.forEach(cell => {
-                                    const trimmed = (cell || '').toString().trim();
-                                    if (trimmed) allCells.push(trimmed);
-                                });
-                            }
-                        });
-                    }
-                    
-                    // 如果 HTML 解析失败或没有数据，尝试纯文本解析
-                    if (allCells.length === 0) {
-                        console.log('2.SPECIAL: PEGASUS Trying text-based parsing...');
-                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                        const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
-                        
-                        lines.forEach(line => {
-                            if (line.includes('\t')) {
-                                // 制表符分隔
-                                const cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
-                                allCells.push(...cells);
-                            } else {
-                                // 空格分隔（多个空格或单个空格）
-                                const cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
-                                allCells.push(...cells);
-                            }
-                        });
-                    }
-                    
-                    // 合并所有单元格成一行
-                    if (allCells.length > 0) {
-                        console.log('2.SPECIAL: PEGASUS Merged all data into single row with', allCells.length, 'cells');
-                        console.log('2.SPECIAL: PEGASUS First 10 cells:', allCells.slice(0, 10));
-                        
-                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        // PEGASUS 格式：强制从第一列（Column 1）开始粘贴
-                        const startCol = 0;
-                        
-                        const currentRows = document.querySelectorAll('#tableBody tr').length;
-                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredCols = startCol + allCells.length;
-                        
-                        if (requiredCols > currentCols) {
-                            const targetCols = Math.max(currentCols, requiredCols);
-                            initializeTable(currentRows, targetCols);
-                        }
-                        
-                        const tableBody = document.getElementById('tableBody');
-                        const tableRow = tableBody.children[startRow];
-                        const currentPasteChanges = [];
-                        let successCount = 0;
-                        
-                        allCells.forEach((cellData, colIndex) => {
-                            const actualColIndex = startCol + colIndex;
-                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
-                            
-                            if (cell && cell.contentEditable === 'true') {
-                                const trimmedData = (cellData || '').trim();
-                                currentPasteChanges.push({
-                                    row: startRow,
-                                    col: actualColIndex,
-                                    oldValue: cell.textContent,
-                                    newValue: trimmedData
-                                });
-                                
-                                // 保持原始数据，不做任何转换
-                                cell.textContent = trimmedData;
-                                
-                                if (trimmedData) {
-                                    successCount++;
-                                }
-                            }
-                        });
-                        
-                        if (currentPasteChanges.length > 0) {
-                            pasteHistory.push(currentPasteChanges);
-                            if (pasteHistory.length > maxHistorySize) {
-                                pasteHistory.shift();
-                            }
-                        }
-                        
-                        if (successCount > 0) {
-                            formatDetected = true;
-                            showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.10)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    } else {
-                        console.log('2.SPECIAL: PEGASUS No data extracted, will continue trying other formats');
-                    }
-                }
-                // 2.10 PEGASUS 代码结束
-                
-                // ===== 2.11 WBET_API 格式检测和处理 =====
-                // 2.11 WBET_API: 以下代码从 WBET_API 选项复制而来，用于在 2.SPECIAL 模式下支持 WBET_API 格式的粘贴
+                // ===== 2.10 WBET_API 格式检测和处理（优先于 PEGASUS） =====
+                // 2.10 WBET_API: 以下代码从 WBET_API 选项复制而来，用于在 2.SPECIAL 模式下支持 WBET_API 格式的粘贴
                 if (!formatDetected) {
                     // WBET_API 特征检测：检查数据是否包含 WBET_API 格式的特征
                     // 特征1: 包含 "WBET_MYR" 或 "WBET_" 关键词（WBET_API特有的标识）
@@ -11531,7 +11359,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const isWBET_APIFormat = hasWBET_APIIdentifier || ((hasSubTotal || hasGrandTotal) && (hasDataRowIdentifier || hasLongIdentifier));
                     
                     if (isWBET_APIFormat) {
-                        console.log('2.SPECIAL: Trying 2.11 WBET_API format...');
+                        console.log('2.SPECIAL: Trying 2.10 WBET_API format...');
                         console.log('2.SPECIAL: WBET_API format pattern detected');
                         console.log('2.SPECIAL: WBET_API Pasted data length:', pastedData.length);
                         console.log('2.SPECIAL: WBET_API Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
@@ -11545,7 +11373,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (filled) {
                                 console.log('2.SPECIAL: WBET_API Successfully filled using parseAndFillHTMLTableForWBET_API');
                                 formatDetected = true;
-                                showNotification('2.SPECIAL: 检测到WBET_API格式 (2.11)!', 'success');
+                                showNotification('2.SPECIAL: 检测到WBET_API格式 (2.10)!', 'success');
                                 setTimeout(updateSubmitButtonState, 0);
                                 return;
                             } else {
@@ -11569,7 +11397,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             const filled = parseAndFillHTMLTableForWBET_API(htmlData, startCell);
                             if (filled) {
                                 formatDetected = true;
-                                showNotification('2.SPECIAL: 检测到WBET_API格式 (2.11)!', 'success');
+                                showNotification('2.SPECIAL: 检测到WBET_API格式 (2.10)!', 'success');
                                 setTimeout(updateSubmitButtonState, 0);
                                 return;
                             }
@@ -11905,7 +11733,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     if (successCount > 0) {
                                         formatDetected = true;
                                         console.log('2.SPECIAL: WBET_API Successfully pasted', successCount, 'cells in', processedMatrix.length, 'rows x', maxCols, 'cols');
-                                        showNotification(`2.SPECIAL: 检测到WBET_API格式 (2.11)，成功粘贴 ${successCount} 个单元格 (${processedMatrix.length} 行 x ${maxCols} 列)!`, 'success');
+                                        showNotification(`2.SPECIAL: 检测到WBET_API格式 (2.10)，成功粘贴 ${successCount} 个单元格 (${processedMatrix.length} 行 x ${maxCols} 列)!`, 'success');
                                         setTimeout(updateSubmitButtonState, 0);
                                         return;
                                     }
@@ -11919,12 +11747,783 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('2.SPECIAL: WBET_API format check failed, skipping...');
                     }
                 }
-                // 2.11 WBET_API 代码结束
+                // 2.10 WBET_API 代码结束
+                
+                // ===== 2.11 PEGASUS 格式检测和处理 =====
+                // 2.11 PEGASUS: 以下代码从 PEGASUS 选项复制而来，用于在 2.SPECIAL 模式下支持 PEGASUS 格式的粘贴
+                if (!formatDetected) {
+                    console.log('2.SPECIAL: Trying 2.11 PEGASUS format...');
+                    console.log('2.SPECIAL: PEGASUS raw data length:', pastedData.length);
+                    console.log('2.SPECIAL: PEGASUS raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                    
+                    let dataMatrix = [];
+                    let allCells = [];
+                    
+                    // 优先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    
+                    if (htmlDataFromDetect) {
+                        console.log('2.SPECIAL: PEGASUS HTML data detected via detectAndParseHTML');
+                        dataMatrix = htmlDataFromDetect;
+                    } else {
+                        // 如果 HTML 解析失败，尝试手动解析 HTML
+                        let htmlData = null;
+                        try {
+                            htmlData = e.clipboardData.getData('text/html');
+                            if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                                console.log('2.SPECIAL: PEGASUS HTML data detected, parsing manually...');
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = htmlData;
+                                
+                                const table = tempDiv.querySelector('table');
+                                if (table) {
+                                    // 处理表头（如果有）
+                                    const thead = table.querySelector('thead');
+                                    if (thead) {
+                                        const headerRows = thead.querySelectorAll('tr');
+                                        headerRows.forEach(tr => {
+                                            const cells = tr.querySelectorAll('th, td');
+                                            cells.forEach(cell => {
+                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                                let text = cell.textContent || cell.innerText || '';
+                                                text = text.replace(/\s+/g, ' ').trim();
+                                                if (text) allCells.push(text);
+                                                for (let i = 1; i < colspan; i++) {
+                                                    allCells.push('');
+                                                }
+                                            });
+                                        });
+                                    }
+                                    
+                                    // 处理表体
+                                    let bodyContainer = table.querySelector('tbody');
+                                    if (!bodyContainer) {
+                                        bodyContainer = table;
+                                    }
+                                    
+                                    const bodyRows = bodyContainer.querySelectorAll('tr');
+                                    bodyRows.forEach((tr) => {
+                                        if (thead && tr.closest('thead')) {
+                                            return;
+                                        }
+                                        
+                                        const cells = tr.querySelectorAll('td, th');
+                                        cells.forEach(cell => {
+                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                            let text = cell.textContent || cell.innerText || '';
+                                            text = text.replace(/\s+/g, ' ').trim();
+                                            if (text) allCells.push(text);
+                                            for (let i = 1; i < colspan; i++) {
+                                                allCells.push('');
+                                            }
+                                        });
+                                    });
+                                }
+                            }
+                        } catch (err) {
+                            console.log('2.SPECIAL: PEGASUS Could not get HTML data from clipboard:', err);
+                        }
+                    }
+                    
+                    // 如果 HTML 解析成功，从 dataMatrix 提取所有单元格
+                    if (dataMatrix && dataMatrix.length > 0) {
+                        console.log('2.SPECIAL: PEGASUS Extracting cells from HTML data matrix...');
+                        dataMatrix.forEach(row => {
+                            if (Array.isArray(row)) {
+                                row.forEach(cell => {
+                                    const trimmed = (cell || '').toString().trim();
+                                    if (trimmed) allCells.push(trimmed);
+                                });
+                            }
+                        });
+                    }
+                    
+                    // 如果 HTML 解析失败或没有数据，尝试纯文本解析
+                    if (allCells.length === 0) {
+                        console.log('2.SPECIAL: PEGASUS Trying text-based parsing...');
+                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                        
+                        lines.forEach(line => {
+                            if (line.includes('\t')) {
+                                // 制表符分隔
+                                const cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                allCells.push(...cells);
+                            } else {
+                                // 空格分隔（多个空格或单个空格）
+                                const cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                allCells.push(...cells);
+                            }
+                        });
+                    }
+                    
+                    // 合并所有单元格成一行
+                    if (allCells.length > 0) {
+                        console.log('2.SPECIAL: PEGASUS Merged all data into single row with', allCells.length, 'cells');
+                        console.log('2.SPECIAL: PEGASUS First 10 cells:', allCells.slice(0, 10));
+                        
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        // PEGASUS 格式：强制从第一列（Column 1）开始粘贴
+                        const startCol = 0;
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredCols = startCol + allCells.length;
+                        
+                        if (requiredCols > currentCols) {
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(currentRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const tableRow = tableBody.children[startRow];
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        allCells.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: startRow,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                // 保持原始数据，不做任何转换
+                                cell.textContent = trimmedData;
+                                
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            formatDetected = true;
+                            showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.11)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    } else {
+                        console.log('2.SPECIAL: PEGASUS No data extracted, will continue trying other formats');
+                    }
+                }
+                // 2.11 PEGASUS 代码结束
+                    // 特征1: 包含 "WBET_MYR" 或 "WBET_" 关键词（WBET_API特有的标识）
+                    // 特征2: 包含 "SUB TOTAL" 或 "SUBTOTAL" 关键词
+                    // 特征3: 包含 "GRAND TOTAL" 或 "GRANDTOTAL" 关键词
+                    // 特征4: 数据行可能包含长标识符（如 RRMWBNX1R, RRMWBNXAB等，不是简单的2-3个大写字母）
+                    // 特征5: 可能包含 "X NX X WBET_MYR_FT" 这样的模式
+                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
+                    
+                    // 检测 WBET_API 特有的标识（优先检测）
+                    const hasWBET_APIIdentifier = /WBET_MYR|WBET_[A-Z_]+/i.test(pastedData);
+                    
+                    // 检测 SUB TOTAL 或 SUBTOTAL
+                    const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
+                    
+                    // 检测 GRAND TOTAL 或 GRANDTOTAL
+                    const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                    
+                    // 检测数据行标识（2-3个大写字母，如 OB, OC, OD, RS）
+                    const hasDataRowIdentifier = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        // 检查是否是2-3个大写字母（可能后面跟着空格和数字）
+                        return /^[A-Z]{2,3}(\s|$)/.test(trimmed) || /^[A-Z]{2,3}\s+\d+/.test(trimmed);
+                    });
+                    
+                    // 检测长标识符（如 RRMWBNX1R, RRMWBNXAB等，长度超过3个字符）
+                    const hasLongIdentifier = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        // 检查是否是长标识符（4个或更多字符，全大写字母和数字）
+                        return /^[A-Z0-9]{4,}$/.test(trimmed) && !trimmed.includes(' ') && !trimmed.includes('\t');
+                    });
+                    
+                    // 如果符合 WBET_API 特征，进行解析
+                    // 优先检测：如果有WBET_API标识，直接认为是WBET_API格式
+                    // 否则：需要SUB TOTAL/GRAND TOTAL + 数据行标识，或者长标识符
+                    const isWBET_APIFormat = hasWBET_APIIdentifier || ((hasSubTotal || hasGrandTotal) && (hasDataRowIdentifier || hasLongIdentifier));
+                    
+                    if (isWBET_APIFormat) {
+                        console.log('2.SPECIAL: Trying 2.10 WBET_API format...');
+                        console.log('2.SPECIAL: WBET_API format pattern detected');
+                        console.log('2.SPECIAL: WBET_API Pasted data length:', pastedData.length);
+                        console.log('2.SPECIAL: WBET_API Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
+                        
+                        // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
+                        const htmlDataFromDetect = detectAndParseHTML(e);
+                        
+                        if (htmlDataFromDetect) {
+                            console.log('2.SPECIAL: WBET_API HTML data detected via detectAndParseHTML');
+                            const filled = parseAndFillHTMLTableForWBET_API(htmlDataFromDetect, startCell);
+                            if (filled) {
+                                console.log('2.SPECIAL: WBET_API Successfully filled using parseAndFillHTMLTableForWBET_API');
+                                formatDetected = true;
+                                showNotification('2.SPECIAL: 检测到WBET_API格式 (2.10)!', 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            } else {
+                                console.log('2.SPECIAL: WBET_API parseAndFillHTMLTableForWBET_API returned false, trying standard HTML parsing');
+                            }
+                        }
+                        
+                        // 如果上面的方法失败，尝试手动解析HTML
+                        let htmlData = null;
+                        try {
+                            htmlData = e.clipboardData.getData('text/html');
+                            if (!htmlData || !htmlData.toLowerCase().includes('<table')) {
+                                htmlData = null;
+                            }
+                        } catch (err) {
+                            console.log('2.SPECIAL: WBET_API Could not get HTML data from clipboard:', err);
+                        }
+                        
+                        if (htmlData && !formatDetected) {
+                            console.log('2.SPECIAL: WBET_API HTML data detected, length:', htmlData.length);
+                            const filled = parseAndFillHTMLTableForWBET_API(htmlData, startCell);
+                            if (filled) {
+                                formatDetected = true;
+                                showNotification('2.SPECIAL: 检测到WBET_API格式 (2.10)!', 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            }
+                        }
+                        
+                        // 如果 HTML 解析失败，尝试纯文本解析
+                        if (!formatDetected) {
+                            console.log('2.SPECIAL: WBET_API Trying text-based parsing...');
+                            const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                            const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                            
+                            if (lines.length > 0) {
+                                // 第一步：解析原始数据成行
+                                const rawDataMatrix = [];
+                                lines.forEach(line => {
+                                    let cells = [];
+                                    if (line.includes('\t')) {
+                                        cells = line.split('\t').map(c => c.trim());
+                                    } else {
+                                        // 使用多个空格分割
+                                        cells = line.split(/\s{2,}/).map(c => c.trim());
+                                    }
+                                    if (cells.length > 0) {
+                                        rawDataMatrix.push(cells);
+                                    }
+                                });
+                                
+                                console.log('2.SPECIAL: WBET_API Raw parsed data:', rawDataMatrix.length, 'rows');
+                                
+                                // 第二步：处理数据 - 移除行号、合并 Sub Total 和 Grand Total 的数据
+                                const processedMatrix = [];
+                                const rowsToSkip = new Set();
+                                
+                                rawDataMatrix.forEach((row, rowIndex) => {
+                                    if (rowsToSkip.has(rowIndex)) {
+                                        return;
+                                    }
+                                    
+                                    // 检查第一列是否是行号（纯数字）
+                                    const firstCell = (row[0] || '').toString().trim();
+                                    const isRowNumber = /^\d+$/.test(firstCell);
+                                    
+                                    // 如果是行号，跳过第一列
+                                    let processedRow;
+                                    if (isRowNumber && row.length > 1) {
+                                        processedRow = row.slice(1);
+                                    } else {
+                                        processedRow = [...row];
+                                    }
+                                    
+                                    // 检查是否是 Sub Total 或 Grand Total 行
+                                    const rowText = processedRow.join(' ').toUpperCase();
+                                    const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                                    const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
+                                    
+                                    if (isSubTotal || isGrandTotal) {
+                                        // 先找到所有 Total 行的位置，以便确定合并的边界
+                                        const totalRowIndices = [];
+                                        rawDataMatrix.forEach((r, idx) => {
+                                            if (idx > rowIndex) {
+                                                const firstCell = (r[0] || '').toString().trim();
+                                                const firstIsNumber = /^\d+$/.test(firstCell);
+                                                const processedR = firstIsNumber && r.length > 1 ? r.slice(1) : r;
+                                                const processedRText = processedR.join(' ').toUpperCase();
+                                                if (processedRText.includes('SUB TOTAL') || processedRText.includes('SUBTOTAL') ||
+                                                    processedRText.includes('GRAND TOTAL') || processedRText.includes('GRANDTOTAL')) {
+                                                    totalRowIndices.push(idx);
+                                                }
+                                            }
+                                        });
+                                        
+                                        // 确定合并的边界：下一个 Total 行的位置
+                                        const nextTotalRowIndex = totalRowIndices.length > 0 ? totalRowIndices[0] : rawDataMatrix.length;
+                                        
+                                        console.log(`2.SPECIAL: WBET_API ${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'} at row ${rowIndex}, next Total at row ${nextTotalRowIndex}`);
+                                        
+                                        // 合并后续行的所有数据，直到遇到另一个 Total 行
+                                        let mergeIndex = rowIndex + 1;
+                                        
+                                        while (mergeIndex < nextTotalRowIndex && mergeIndex < rawDataMatrix.length) {
+                                            const nextRow = rawDataMatrix[mergeIndex];
+                                            if (rowsToSkip.has(mergeIndex)) {
+                                                mergeIndex++;
+                                                continue;
+                                            }
+                                            
+                                            // 再次检查（双重保险）：确保不是另一个 Total 行
+                                            const nextFirstCell = (nextRow[0] || '').toString().trim();
+                                            const nextFirstIsNumber = /^\d+$/.test(nextFirstCell);
+                                            const nextProcessedRow = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : [...nextRow];
+                                            const nextRowText = nextProcessedRow.join(' ').toUpperCase();
+                                            const nextIsSubTotal = nextRowText.includes('SUB TOTAL') || nextRowText.includes('SUBTOTAL');
+                                            const nextIsGrandTotal = nextRowText.includes('GRAND TOTAL') || nextRowText.includes('GRANDTOTAL');
+                                            
+                                            // 如果遇到另一个 Total 行，立即停止合并
+                                            if (nextIsSubTotal || nextIsGrandTotal) {
+                                                console.log(`2.SPECIAL: WBET_API Stopping merge at row ${mergeIndex} - found another Total row`);
+                                                break;
+                                            }
+                                            
+                                            // 检查下一行是否是新的数据行标识（2-3个字母，如 OB, OC, OD）
+                                            const nextProcessedFirstCell = (nextProcessedRow[0] || '').toString().trim();
+                                            
+                                            // 检查是否是用户名标识（2-3个大写字母）
+                                            if (/^[A-Z]{2,3}$/.test(nextProcessedFirstCell)) {
+                                                console.log(`2.SPECIAL: WBET_API Stopping merge at row ${mergeIndex} - found new data row (${nextProcessedFirstCell})`);
+                                                break; // 这是新的数据行，停止合并
+                                            }
+                                            
+                                            // 将下一行的数据追加到当前行（如果是行号，跳过它）
+                                            const dataToAdd = nextFirstIsNumber && nextRow.length > 1 ? nextRow.slice(1) : nextRow;
+                                            
+                                            // 检测并去除重叠数据：如果当前行的最后一个值和下一行的第一个值相同，跳过第一个值
+                                            let startIndex = 0;
+                                            if (processedRow.length > 0 && dataToAdd.length > 0) {
+                                                const lastValue = processedRow[processedRow.length - 1];
+                                                const firstValue = dataToAdd[0];
+                                                if (lastValue && firstValue && lastValue.toString().trim() === firstValue.toString().trim()) {
+                                                    startIndex = 1; // 跳过第一个值（因为它是重复的）
+                                                    console.log(`2.SPECIAL: WBET_API Text - Detected duplicate value "${firstValue}", skipping first cell of next row`);
+                                                }
+                                            }
+                                            
+                                            // 添加数据（跳过重复的第一个值）
+                                            // 智能去重：检查是否与 processedRow 中的值重复
+                                            for (let i = startIndex; i < dataToAdd.length; i++) {
+                                                const cellValue = (dataToAdd[i] || '').toString().trim();
+                                                if (cellValue) {
+                                                    // 检查是否与 processedRow 的最后一个值重复（避免连续重复）
+                                                    const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
+                                                    if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
+                                                        // 如果与最后一个值相同，跳过（避免重复）
+                                                        console.log(`2.SPECIAL: WBET_API Text - Skipping duplicate value "${cellValue}" (same as last value)`);
+                                                        continue;
+                                                    }
+                                                    
+                                                    // 检查是否与 processedRow 的倒数第二个值也相同（避免 A-B-B 模式变成 A-B-B-B）
+                                                    if (processedRow.length >= 2) {
+                                                        const secondLastValue = processedRow[processedRow.length - 2];
+                                                        if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
+                                                            console.log(`2.SPECIAL: WBET_API Text - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
+                                                            continue;
+                                                        }
+                                                    }
+                                                    
+                                                    processedRow.push(cellValue);
+                                                }
+                                            }
+                                            
+                                            rowsToSkip.add(mergeIndex);
+                                            mergeIndex++;
+                                            
+                                            // 防止合并过多（超过100列可能是误判）
+                                            if (processedRow.length > 100) {
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    
+                                    processedMatrix.push(processedRow);
+                                });
+                                
+                                // 后处理：确保 Sub Total 和 Grand Total 完全分开
+                                // 查找 Sub Total 和 Grand Total 行的索引
+                                let subTotalRowIndex = -1;
+                                let grandTotalRowIndex = -1;
+                                
+                                processedMatrix.forEach((row, idx) => {
+                                    const rowText = row.join(' ').toUpperCase();
+                                    if ((rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL')) && 
+                                        !rowText.includes('GRAND TOTAL') && !rowText.includes('GRANDTOTAL')) {
+                                        if (subTotalRowIndex < 0) subTotalRowIndex = idx;
+                                    }
+                                    if ((rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL')) && 
+                                        !rowText.includes('SUB TOTAL') && !rowText.includes('SUBTOTAL')) {
+                                        if (grandTotalRowIndex < 0) grandTotalRowIndex = idx;
+                                    }
+                                });
+                                
+                                console.log(`2.SPECIAL: WBET_API Found Sub Total at row ${subTotalRowIndex}, Grand Total at row ${grandTotalRowIndex}`);
+                                
+                                // 如果找到了 Sub Total 和 Grand Total，智能检测并修复数据分配
+                                if (subTotalRowIndex >= 0 && grandTotalRowIndex >= 0 && grandTotalRowIndex > subTotalRowIndex) {
+                                    const subTotalRow = processedMatrix[subTotalRowIndex];
+                                    const grandTotalRow = processedMatrix[grandTotalRowIndex];
+                                    
+                                    // 提取数据单元格（排除标签）
+                                    const getDataCells = (row) => {
+                                        return row.filter((cell, idx) => {
+                                            const cellText = (cell || '').toString().trim().toUpperCase();
+                                            return idx > 0 && cellText !== '' && 
+                                                   cellText !== 'SUB TOTAL' && 
+                                                   cellText !== 'SUBTOTAL' &&
+                                                   cellText !== 'GRAND TOTAL' && 
+                                                   cellText !== 'GRANDTOTAL';
+                                        });
+                                    };
+                                    
+                                    const subTotalDataCells = getDataCells(subTotalRow);
+                                    const grandTotalDataCells = getDataCells(grandTotalRow);
+                                    
+                                    console.log(`2.SPECIAL: WBET_API Sub Total has ${subTotalDataCells.length} data cells, Grand Total has ${grandTotalDataCells.length} data cells`);
+                                    
+                                    // 根据用户需求：Sub Total 和 Grand Total 的数据应该是一样的
+                                    // 如果 Sub Total 行数据为空，而 Grand Total 行有数据，将 Grand Total 的数据复制到 Sub Total
+                                    if (subTotalDataCells.length === 0 && grandTotalDataCells.length > 0) {
+                                        console.log('2.SPECIAL: WBET_API Sub Total is empty but Grand Total has data. Copying Grand Total data to Sub Total.');
+                                        const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
+                                        processedMatrix[subTotalRowIndex] = newSubTotalRow;
+                                    } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length === 0) {
+                                        console.log('2.SPECIAL: WBET_API Grand Total is empty but Sub Total has data. Copying Sub Total data to Grand Total.');
+                                        const newGrandTotalRow = ['GRAND TOTAL', ...subTotalDataCells];
+                                        processedMatrix[grandTotalRowIndex] = newGrandTotalRow;
+                                    } else if (subTotalDataCells.length > 0 && grandTotalDataCells.length > 0) {
+                                        // 两者都有数据，使用 Grand Total 的数据作为标准（因为通常 Grand Total 更完整）
+                                        console.log('2.SPECIAL: WBET_API Both have data. Ensuring Sub Total matches Grand Total.');
+                                        const newSubTotalRow = ['SUB TOTAL', ...grandTotalDataCells];
+                                        processedMatrix[subTotalRowIndex] = newSubTotalRow;
+                                    }
+                                }
+                                
+                                // 使用处理后的矩阵
+                                const finalMatrix = [...processedMatrix];
+                                
+                                // 最终去重：去除所有行中的连续重复值
+                                const deduplicatedMatrix = finalMatrix.map((row, rowIdx) => {
+                                    const rowText = row.join(' ').toUpperCase();
+                                    const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
+                                    const isGrandTotal = rowText.includes('GRAND TOTAL') || rowText.includes('GRANDTOTAL');
+                                    
+                                    // 只对 Sub Total 和 Grand Total 行进行去重
+                                    if (isSubTotal || isGrandTotal) {
+                                        const deduplicatedRow = [];
+                                        let lastValue = null;
+                                        
+                                        row.forEach((cell, cellIdx) => {
+                                            const cellValue = (cell || '').toString().trim();
+                                            const cellText = cellValue.toUpperCase();
+                                            
+                                            // 保留标签（SUB TOTAL 或 GRAND TOTAL）
+                                            if (cellIdx === 0 && (cellText.includes('SUB TOTAL') || cellText.includes('SUBTOTAL') || 
+                                                cellText.includes('GRAND TOTAL') || cellText.includes('GRANDTOTAL'))) {
+                                                deduplicatedRow.push(cell);
+                                                lastValue = null; // 重置，因为标签不是数据
+                                            } else if (cellValue) {
+                                                // 检查是否与上一个值重复
+                                                if (lastValue === null || lastValue.toString().trim() !== cellValue) {
+                                                    deduplicatedRow.push(cell);
+                                                    lastValue = cell;
+                                                } else {
+                                                    console.log(`2.SPECIAL: WBET_API Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
+                                                }
+                                            } else {
+                                                // 空值也添加（保持列对齐）
+                                                deduplicatedRow.push(cell);
+                                            }
+                                        });
+                                        
+                                        console.log(`2.SPECIAL: WBET_API Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
+                                        return deduplicatedRow;
+                                    }
+                                    
+                                    // 普通数据行保持不变
+                                    return row;
+                                });
+                                
+                                // 使用处理后的矩阵
+                                processedMatrix.length = 0;
+                                processedMatrix.push(...deduplicatedMatrix);
+                                
+                                // 确保所有行的列数相同
+                                const maxCols = Math.max(...processedMatrix.map(row => row.length), 0);
+                                processedMatrix.forEach(row => {
+                                    while (row.length < maxCols) {
+                                        row.push('');
+                                    }
+                                });
+                                
+                                console.log('2.SPECIAL: WBET_API Processed text data:', processedMatrix.length, 'rows x', maxCols, 'cols');
+                                console.log('2.SPECIAL: WBET_API First few processed rows:', processedMatrix.slice(0, 5));
+                                
+                                if (processedMatrix.length > 0) {
+                                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                    const startCol = 0; // WBET_API: 强制从第一列开始
+                                    
+                                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                    const requiredRows = startRow + processedMatrix.length;
+                                    const requiredCols = startCol + maxCols;
+                                    
+                                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                        const targetCols = Math.max(currentCols, requiredCols);
+                                        initializeTable(targetRows, targetCols);
+                                    }
+                                    
+                                    const tableBody = document.getElementById('tableBody');
+                                    const currentPasteChanges = [];
+                                    let successCount = 0;
+                                    
+                                    processedMatrix.forEach((rowData, rowIndex) => {
+                                        const actualRowIndex = startRow + rowIndex;
+                                        const tableRow = tableBody.children[actualRowIndex];
+                                        if (!tableRow) return;
+                                        
+                                        // 填充数据（从第一列开始）
+                                        rowData.forEach((cellData, colIndex) => {
+                                            const actualColIndex = startCol + colIndex;
+                                            const cell = tableRow.children[actualColIndex + 1];
+                                            if (cell && cell.contentEditable === 'true') {
+                                                currentPasteChanges.push({
+                                                    row: actualRowIndex,
+                                                    col: actualColIndex,
+                                                    oldValue: cell.textContent,
+                                                    newValue: cellData
+                                                });
+                                                // 保持原始格式，不做任何转换
+                                                cell.textContent = cellData;
+                                                if (cellData) {
+                                                    successCount++;
+                                                }
+                                            }
+                                        });
+                                    });
+                                    
+                                    if (currentPasteChanges.length > 0) {
+                                        pasteHistory.push(currentPasteChanges);
+                                        if (pasteHistory.length > maxHistorySize) {
+                                            pasteHistory.shift();
+                                        }
+                                    }
+                                    
+                                    if (successCount > 0) {
+                                        formatDetected = true;
+                                        console.log('2.SPECIAL: WBET_API Successfully pasted', successCount, 'cells in', processedMatrix.length, 'rows x', maxCols, 'cols');
+                                        showNotification(`2.SPECIAL: 检测到WBET_API格式 (2.10)，成功粘贴 ${successCount} 个单元格 (${processedMatrix.length} 行 x ${maxCols} 列)!`, 'success');
+                                        setTimeout(updateSubmitButtonState, 0);
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // WBET_API 解析失败，继续尝试其他格式
+                        console.log('2.SPECIAL: WBET_API parser failed, will continue trying other formats');
+                    } else {
+                        console.log('2.SPECIAL: WBET_API format check failed, skipping...');
+                    }
+                }
+                // 2.10 WBET_API 代码结束
+                
+                // ===== 2.11 PEGASUS 格式检测和处理 =====
+                // 2.11 PEGASUS: 以下代码从 PEGASUS 选项复制而来，用于在 2.SPECIAL 模式下支持 PEGASUS 格式的粘贴
+                if (!formatDetected) {
+                    console.log('2.SPECIAL: Trying 2.11 PEGASUS format...');
+                    console.log('2.SPECIAL: PEGASUS raw data length:', pastedData.length);
+                    console.log('2.SPECIAL: PEGASUS raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                    
+                    let dataMatrix = [];
+                    let allCells = [];
+                    
+                    // 优先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    
+                    if (htmlDataFromDetect) {
+                        console.log('2.SPECIAL: PEGASUS HTML data detected via detectAndParseHTML');
+                        dataMatrix = htmlDataFromDetect;
+                    } else {
+                        // 如果 HTML 解析失败，尝试手动解析 HTML
+                        let htmlData = null;
+                        try {
+                            htmlData = e.clipboardData.getData('text/html');
+                            if (htmlData && htmlData.toLowerCase().includes('<table')) {
+                                console.log('2.SPECIAL: PEGASUS HTML data detected, parsing manually...');
+                                const tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = htmlData;
+                                
+                                const table = tempDiv.querySelector('table');
+                                if (table) {
+                                    // 处理表头（如果有）
+                                    const thead = table.querySelector('thead');
+                                    if (thead) {
+                                        const headerRows = thead.querySelectorAll('tr');
+                                        headerRows.forEach(tr => {
+                                            const cells = tr.querySelectorAll('th, td');
+                                            cells.forEach(cell => {
+                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                                let text = cell.textContent || cell.innerText || '';
+                                                text = text.replace(/\s+/g, ' ').trim();
+                                                if (text) allCells.push(text);
+                                                for (let i = 1; i < colspan; i++) {
+                                                    allCells.push('');
+                                                }
+                                            });
+                                        });
+                                    }
+                                    
+                                    // 处理表体
+                                    let bodyContainer = table.querySelector('tbody');
+                                    if (!bodyContainer) {
+                                        bodyContainer = table;
+                                    }
+                                    
+                                    const bodyRows = bodyContainer.querySelectorAll('tr');
+                                    bodyRows.forEach((tr) => {
+                                        if (thead && tr.closest('thead')) {
+                                            return;
+                                        }
+                                        
+                                        const cells = tr.querySelectorAll('td, th');
+                                        cells.forEach(cell => {
+                                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                            let text = cell.textContent || cell.innerText || '';
+                                            text = text.replace(/\s+/g, ' ').trim();
+                                            if (text) allCells.push(text);
+                                            for (let i = 1; i < colspan; i++) {
+                                                allCells.push('');
+                                            }
+                                        });
+                                    });
+                                }
+                            }
+                        } catch (err) {
+                            console.log('2.SPECIAL: PEGASUS Could not get HTML data from clipboard:', err);
+                        }
+                    }
+                    
+                    // 如果 HTML 解析成功，从 dataMatrix 提取所有单元格
+                    if (dataMatrix && dataMatrix.length > 0) {
+                        console.log('2.SPECIAL: PEGASUS Extracting cells from HTML data matrix...');
+                        dataMatrix.forEach(row => {
+                            if (Array.isArray(row)) {
+                                row.forEach(cell => {
+                                    const trimmed = (cell || '').toString().trim();
+                                    if (trimmed) allCells.push(trimmed);
+                                });
+                            }
+                        });
+                    }
+                    
+                    // 如果 HTML 解析失败或没有数据，尝试纯文本解析
+                    if (allCells.length === 0) {
+                        console.log('2.SPECIAL: PEGASUS Trying text-based parsing...');
+                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                        
+                        lines.forEach(line => {
+                            if (line.includes('\t')) {
+                                // 制表符分隔
+                                const cells = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                                allCells.push(...cells);
+                            } else {
+                                // 空格分隔（多个空格或单个空格）
+                                const cells = line.split(/\s+/).map(c => c.trim()).filter(c => c !== '');
+                                allCells.push(...cells);
+                            }
+                        });
+                    }
+                    
+                    // 合并所有单元格成一行
+                    if (allCells.length > 0) {
+                        console.log('2.SPECIAL: PEGASUS Merged all data into single row with', allCells.length, 'cells');
+                        console.log('2.SPECIAL: PEGASUS First 10 cells:', allCells.slice(0, 10));
+                        
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        // PEGASUS 格式：强制从第一列（Column 1）开始粘贴
+                        const startCol = 0;
+                        
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredCols = startCol + allCells.length;
+                        
+                        if (requiredCols > currentCols) {
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(currentRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const tableRow = tableBody.children[startRow];
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        allCells.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1]; // +1 跳过行号列
+                            
+                            if (cell && cell.contentEditable === 'true') {
+                                const trimmedData = (cellData || '').trim();
+                                currentPasteChanges.push({
+                                    row: startRow,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: trimmedData
+                                });
+                                
+                                // 保持原始数据，不做任何转换
+                                cell.textContent = trimmedData;
+                                
+                                if (trimmedData) {
+                                    successCount++;
+                                }
+                            }
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
+                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            formatDetected = true;
+                            showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.11)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
+                        }
+                    } else {
+                        console.log('2.SPECIAL: PEGASUS No data extracted, will continue trying other formats');
+                    }
+                }
+                // 2.11 PEGASUS 代码结束
                 
                 if (!formatDetected) {
                     console.log('2.SPECIAL: No format detected, continuing with default logic');
                 }
-                    function formatNumberToTwoDecimals(value) {
+            }
+            // ===== 2.SPECIAL 处理结束 =====
                         if (!value || typeof value !== 'string') return value;
                         
                         // 移除千位分隔符（逗号）
