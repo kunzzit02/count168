@@ -8725,58 +8725,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 const startCell = e.target;
                 
                 // ===== 2.1 CITIBET 格式检测和处理 =====
-                // 2.1 CITIBET: 支持所有 CITIBET 相关格式（包括 m99m06、downline、MAJOR/MINOR 等）
                 if (!formatDetected) {
-                    // CITIBET 特征检测：检查数据是否包含 CITIBET 格式的特征
-                    // 特征1: 包含 "OVERALL" 关键词
-                    // 特征2: 包含 "MAJOR" 或 "MINOR" 关键词
-                    // 特征3: 包含 "downline payment" 或 "upline payment"
-                    // 特征4: 包含 "my earnings" 关键词
-                    // 特征5: 包含常见的 CITIBET 用户名格式（如 IPHSP3、M99M06、m99m06 等）
-                    const lowerData = pastedData.toLowerCase();
-                    const hasOverall = /^overall\b/i.test(pastedData) || /overall/i.test(pastedData);
-                    const hasMajorMinor = /\b(major|minor)\b/i.test(pastedData);
-                    const hasDownlinePayment = /downline\s*payment/i.test(pastedData);
-                    const hasUplinePayment = /upline\s*payment/i.test(pastedData);
-                    const hasMyEarnings = /my\s*earnings/i.test(pastedData);
-                    const hasCitibetUsername = /\b(iphsp3|m99m06|m06-kz|hse)\b/i.test(pastedData);
-                    
-                    // 如果包含多个 CITIBET 特征，优先尝试 CITIBET 解析
-                    const isLikelyCitibet = (hasOverall && hasMajorMinor) || 
-                                           (hasOverall && hasDownlinePayment) ||
-                                           (hasOverall && hasMyEarnings) ||
-                                           (hasDownlinePayment && hasMajorMinor) ||
-                                           (hasUplinePayment && hasDownlinePayment) ||
-                                           (hasOverall && hasCitibetUsername);
-                    
-                    if (isLikelyCitibet) {
-                        console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
-                        console.log('2.SPECIAL: CITIBET format pattern detected');
-                        console.log('2.SPECIAL: CITIBET raw data sample (first 500 chars):', pastedData.substring(0, 500));
-                        
-                        // 尝试所有 CITIBET 相关的解析器（按优先级顺序）
-                        // 1. parseCitibetMajorPaymentReport - 处理 CITIBET MAJOR 格式（包含 m99m06、downline、MAJOR/MINOR）
-                        // 2. parseCitibetPaymentReport - 处理通用 CITIBET 格式（包含 upline/downline payment）
-                        // 3. parseSimplePaymentReport - 处理简化版 Overall/Downline Payment 报表
-                        let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || 
-                                           parseCitibetPaymentReport(pastedData) || 
-                                           parseSimplePaymentReport(pastedData);
-                        
-                        if (!citibetParsed) {
-                            console.log('2.SPECIAL: CITIBET parsers returned null, but CITIBET pattern detected');
-                            console.log('2.SPECIAL: CITIBET detection details:', {
-                                hasOverall,
-                                hasMajorMinor,
-                                hasDownlinePayment,
-                                hasUplinePayment,
-                                hasMyEarnings,
-                                hasCitibetUsername
-                            });
-                        }
-                    
+                    console.log('2.SPECIAL: Trying 2.1 CITIBET format...');
+                    let citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
                     if (citibetParsed) {
                         console.log('2.SPECIAL: Detected CITIBET format (2.1)');
-                        console.log('2.SPECIAL: CITIBET parsed result:', citibetParsed);
                         formatDetected = true;
                         const { dataMatrix, maxRows, maxCols } = citibetParsed;
                         
@@ -8830,25 +8783,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (successCount > 0) {
                             showNotification(`2.SPECIAL: 检测到CITIBET格式 (2.1)，成功粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
-                            
-                            // 2.SPECIAL: CITIBET 格式后处理（与直接选择 CITIBET 选项保持一致）
-                            // 根据解析器类型决定是否调用 convertTableFormatOnSubmit()
-                            setTimeout(() => {
-                                // 检查是否使用了 parseCitibetMajorPaymentReport（CITIBET MAJOR 格式）
-                                // 如果是 MAJOR 格式，已经在解析阶段生成最终 6 行 / 12 列结构，不需要再做格式转换
-                                const majorParsed = parseCitibetMajorPaymentReport(pastedData);
-                                
-                                if (majorParsed) {
-                                    // CITIBET MAJOR：已经在解析阶段生成最终结构，这里不再做结构重排
-                                    updateSubmitButtonState();
-                                } else {
-                                    // 其他 CITIBET 格式（parseCitibetPaymentReport 或 parseSimplePaymentReport）
-                                    // 需要调用 convertTableFormatOnSubmit() 进行格式转换
-                                    convertTableFormatOnSubmit();
-                                    updateSubmitButtonState();
-                                }
-                            }, 100);
-                            
                             return;
                         }
                     }
@@ -10310,24 +10244,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
                     const isLikelyWBET = hasSubTotal || hasGrandTotal;
                     
-                    // ALIPAY 特征检测：排除 CITIBET 格式（CITIBET 有 OVERALL、MAJOR/MINOR、downline payment 等特征）
-                    const hasOverall = /^overall\b/i.test(pastedData) || /overall/i.test(pastedData);
-                    const hasMajorMinor = /\b(major|minor)\b/i.test(pastedData);
-                    const hasDownlinePayment = /downline\s*payment/i.test(pastedData);
-                    const hasUplinePayment = /upline\s*payment/i.test(pastedData);
-                    const hasMyEarnings = /my\s*earnings/i.test(pastedData);
-                    const hasCitibetUsername = /\b(iphsp3|m99m06|m06-kz|hse)\b/i.test(pastedData);
-                    const isLikelyCitibet = (hasOverall && hasMajorMinor) || 
-                                           (hasOverall && hasDownlinePayment) ||
-                                           (hasOverall && hasMyEarnings) ||
-                                           (hasDownlinePayment && hasMajorMinor) ||
-                                           (hasUplinePayment && hasDownlinePayment) ||
-                                           (hasOverall && hasCitibetUsername);
-                    
                     if (isLikelyWBET) {
                         console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL)');
-                    } else if (isLikelyCitibet) {
-                        console.log('2.SPECIAL: ALIPAY format check skipped - detected CITIBET format markers (OVERALL/MAJOR/MINOR/downline payment)');
                     } else {
                         console.log('2.SPECIAL: Trying 2.7 ALIPAY format...');
                         console.log('Pasted data length:', pastedData.length);
@@ -14387,7 +14305,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (alipayParsed) {
                     const { dataMatrix, maxRows, maxCols } = alipayParsed;
                     
-                    // 使用在 2.SPECIAL 开头声明的 startCell，不重复声明
+                    const startCell = e.target;
                     const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                     // ALIPAY 格式：强制从第一列（Column 1）开始粘贴
                     const startCol = 0;
