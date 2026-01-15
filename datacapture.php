@@ -6455,10 +6455,23 @@ if ($current_user_id && count($user_companies) > 0) {
             const downlineStart = nonEmpty.findIndex(l => /^downline payment/i.test(l));
             if (downlineStart === -1) return null;
 
-            // MG 区块
-            const mgIdx2 = nonEmpty.findIndex((l, idx) => idx > downlineStart && /^mg\b/i.test(l));
+            // MG 区块：支持 "MG m99m06" 或 "1	MG	m99m06" 格式
+            const mgIdx2 = nonEmpty.findIndex((l, idx) => {
+                if (idx <= downlineStart) return false;
+                const tokens = splitLine(l);
+                // 检查是否是MG行：MG在开头，或者MG在第二个位置（前面有编号）
+                if (tokens.length === 0) return false;
+                // MG在第一个位置
+                if (/^mg\b/i.test(tokens[0])) return true;
+                // MG在第二个位置，且第一个是数字
+                if (tokens.length >= 2 && /^\d+$/.test(tokens[0]) && /^mg\b/i.test(tokens[1])) return true;
+                return false;
+            });
             if (mgIdx2 === -1) return null;
-            const mgIdTokens = splitLine(nonEmpty[mgIdx2]); // MG m99m06
+            const mgIdTokens = splitLine(nonEmpty[mgIdx2]); // MG m99m06 或 1	MG	m99m06
+            // 如果第一个token是数字，跳过它
+            const mgTokenIdx = /^\d+$/.test(mgIdTokens[0]) ? 1 : 0;
+            const actualMgTokens = mgTokenIdx === 1 ? mgIdTokens.slice(1) : mgIdTokens;
 
             let mgDataIdx = mgIdx2 + 1;
             while (mgDataIdx < nonEmpty.length && nonEmpty[mgDataIdx] === '') mgDataIdx++;
@@ -6467,7 +6480,11 @@ if ($current_user_id && count($user_companies) > 0) {
             if (mgDataTokens.length < 10) return null;
 
             const row4 = makeRow();
-            row4[0] = (mgIdTokens[1] || '').toUpperCase(); // Username
+            // 从actualMgTokens获取用户名（MG后面是用户名）
+            // actualMgTokens格式：如果原格式是"1 MG m99m06"，则actualMgTokens是["MG", "m99m06"]
+            // 如果原格式是"MG m99m06"，则actualMgTokens是["MG", "m99m06"]
+            // 用户名在MG后面（索引1）
+            row4[0] = (actualMgTokens[1] || mgIdTokens[mgTokenIdx + 1] || '').toUpperCase(); // Username
             row4[1] = mgDataTokens[0] || '';               // Code (m06-KZ)
             row4[2] = (mgDataTokens[1] || '').toUpperCase(); // MG
             row4[3] = 'WIN/PLC';
@@ -8348,17 +8365,28 @@ if ($current_user_id && count($user_companies) > 0) {
                     } else if (isMajorCitibet) {
                         // 明确是 CITIBET MAJOR 格式，优先使用 MAJOR 解析器
                         console.log('2.SPECIAL: Detected CITIBET MAJOR format, using parseCitibetMajorPaymentReport');
+                        console.log('2.SPECIAL: CITIBET MAJOR data sample:', pastedData.substring(0, 300));
                         citibetParsed = parseCitibetMajorPaymentReport(pastedData);
                         if (!citibetParsed) {
                             console.log('2.SPECIAL: CITIBET MAJOR parsing failed, trying normal CITIBET parser');
                             citibetParsed = parseCitibetPaymentReport(pastedData);
                             if (!citibetParsed) {
-                                console.log('2.SPECIAL: Both CITIBET parsers failed, but format is detected as CITIBET - will skip other formats');
+                                console.log('2.SPECIAL: Both CITIBET parsers failed');
+                                console.log('2.SPECIAL: CITIBET data contains:', {
+                                    hasDownline: hasDownlinePayment,
+                                    hasOverall: hasOverall,
+                                    hasMyEarnings: hasMyEarnings,
+                                    hasMajorMinor: hasMajorMinor
+                                });
                                 // 即使解析失败，也设置formatDetected为true，避免被其他格式误判
                                 formatDetected = true;
                                 showNotification('2.SPECIAL: 检测到CITIBET格式但解析失败，请检查数据格式或直接使用CITIBET选项', 'warning');
                                 return;
+                            } else {
+                                console.log('2.SPECIAL: Normal CITIBET parser succeeded as fallback');
                             }
+                        } else {
+                            console.log('2.SPECIAL: CITIBET MAJOR parser succeeded');
                         }
                     } else {
                         // 特征不明确，先尝试普通格式，再尝试 MAJOR 格式
