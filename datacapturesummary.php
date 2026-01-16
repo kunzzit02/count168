@@ -14487,6 +14487,10 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         const sourceColumnsValue = template.source_columns || '';
         const formulaOperatorsValue = template.formula_operators || '';
 
+        // CRITICAL: 检查公式中是否包含 $ 符号
+        // 如果公式中没有 $ 符号，说明是手动输入的纯公式（如 "(100+1)+(11-1)"），不应该尝试重建
+        const hasDollarSignInFormula = formulaOperatorsValue && formulaOperatorsValue.includes('$');
+
         // Always prefer the latest numbers from Data Capture Table when available
         let resolvedSourceExpression = '';
         const savedSourceValue = template.last_source_value || '';
@@ -14505,8 +14509,9 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         const isCompleteExpression = formulaOperatorsValue && /[+\-*/]/.test(formulaOperatorsValue) && /\d/.test(formulaOperatorsValue);
         let currentSourceData;
         
-        if (isNewFormat) {
+        if (isNewFormat && hasDollarSignInFormula) {
             // New format: "id_product:column_index" (e.g., "ABC123:3 DEF456:4") - read actual cell values
+            // BUT: 只有当公式中包含 $ 符号时才重建
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             const cellValues = getCellValuesFromNewFormat(sourceColumnsValue, formulaOperatorsValue);
             
@@ -14524,8 +14529,9 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
                 console.log('Cell values not found (new format, sub), using reference format:', currentSourceData);
             }
-        } else if (isCellPositionFormat) {
+        } else if (isCellPositionFormat && hasDollarSignInFormula) {
             // Cell position format (e.g., "A7 B5") - read actual cell values (backward compatibility)
+            // BUT: 只有当公式中包含 $ 符号时才重建
             const operatorsString = formulaOperatorsValue ? (extractOperatorsSequence(formulaOperatorsValue) || '+') : '+';
             const cellValues = [];
             cellPositions.forEach((cellPosition, index) => {
@@ -14549,33 +14555,45 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
                 console.log('Cell values not found (sub), using reference format:', currentSourceData);
             }
+        } else if (!hasDollarSignInFormula) {
+            // 如果公式中没有 $ 符号，直接使用保存的公式，不尝试重建
+            currentSourceData = formulaOperatorsValue;
+            console.log('Formula contains no $ symbols, using saved formulaOperatorsValue directly (sub):', currentSourceData);
         } else if (isReferenceFormat) {
             // CRITICAL: Even for reference format, if we have sourceColumnsValue, 
             // we should rebuild from current Data Capture Table to get latest data
-            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+            // BUT: 只有当公式中包含 $ 符号时才重建，否则直接使用保存的公式
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && hasDollarSignInFormula) {
                 // Rebuild from current Data Capture Table
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
                 console.log('Rebuilt reference format from current Data Capture Table (sub):', currentSourceData);
             } else {
-                // No sourceColumnsValue, use saved reference format
+                // No sourceColumnsValue or no $ in formula, use saved reference format
                 currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as reference format (no sourceColumnsValue, sub):', currentSourceData);
+                console.log('Using saved formulaOperatorsValue as reference format (no sourceColumnsValue or no $ in formula, sub):', currentSourceData);
             }
         } else if (isCompleteExpression) {
             // CRITICAL: Even for complete expression, if we have sourceColumnsValue,
             // we should rebuild from current Data Capture Table to get latest data
-            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+            // BUT: 只有当公式中包含 $ 符号时才重建，否则直接使用保存的公式
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && hasDollarSignInFormula) {
                 // Rebuild from current Data Capture Table
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
                 console.log('Rebuilt complete expression from current Data Capture Table (sub):', currentSourceData);
             } else {
-                // No sourceColumnsValue, use saved expression (preserves values from other id product rows)
+                // No sourceColumnsValue or no $ in formula, use saved expression (preserves values from other id product rows)
                 currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows, sub):', currentSourceData);
+                console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue or no $ in formula, preserves values from other rows, sub):', currentSourceData);
             }
         } else {
             // Build reference format from columns
-            currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+            // BUT: 只有当公式中包含 $ 符号时才重建，否则直接使用保存的公式
+            if (hasDollarSignInFormula) {
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+            } else {
+                currentSourceData = formulaOperatorsValue;
+                console.log('Formula contains no $ symbols, using saved formulaOperatorsValue directly (sub):', currentSourceData);
+            }
         }
         
         // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
