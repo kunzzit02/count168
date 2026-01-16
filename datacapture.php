@@ -7941,16 +7941,73 @@ if ($current_user_id && count($user_companies) > 0) {
             // 2. 提取表达式部分（冒号后的内容）
             const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
             
-            // 3. 使用正则表达式提取所有数字（包括小数和负数）
-            // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
-            const numberPattern = /-?\d+\.\d+|-?\d+/g;
-            const numbers = expression.match(numberPattern);
+            // 3. 按运算符分割提取数字（包括负数）
+            // 先移除所有括号和空格
+            let cleanFormula = expression.replace(/[()\s]/g, '');
             
-            if (numbers && numbers.length > 0) {
-                // 将提取的数字添加到结果中
-                numbers.forEach(num => {
-                    result.push(num);
-                });
+            // 使用正则表达式匹配所有数字（包括负数）
+            // 匹配模式：数字可以以-开头（负数），后面跟着数字和小数点
+            // 使用单词边界或运算符来确保正确匹配
+            const numberPattern = /(?:^|[+\-*/])(-?\d+\.?\d*)/g;
+            const numbers = [];
+            let match;
+            
+            while ((match = numberPattern.exec(cleanFormula)) !== null) {
+                const num = match[1]; // 获取捕获组（数字部分）
+                if (num) {
+                    numbers.push(num);
+                }
+            }
+            
+            // 如果正则匹配失败，使用备用方法：按运算符分割
+            if (numbers.length === 0) {
+                // 按运算符分割，但保留运算符
+                const tokens = cleanFormula.split(/([+\-*/])/);
+                
+                for (let i = 0; i < tokens.length; i++) {
+                    const token = tokens[i];
+                    if (token && token !== '+' && token !== '-' && token !== '*' && token !== '/') {
+                        // 检查前一个token是否是单独的-运算符（表示负数）
+                        if (i > 0 && tokens[i - 1] === '-' && 
+                            (i === 1 || tokens[i - 2] === '' || /[+\-*/]/.test(tokens[i - 2] || ''))) {
+                            // 这是负数
+                            const num = '-' + token;
+                            const numMatch = num.match(/^-?\d+\.?\d*$/);
+                            if (numMatch) {
+                                numbers.push(numMatch[0]);
+                            }
+                        } else {
+                            // 这是正数
+                            const numMatch = token.match(/^\d+\.?\d*$/);
+                            if (numMatch) {
+                                numbers.push(numMatch[0]);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // 将提取的数字添加到结果中
+            numbers.forEach(num => {
+                result.push(num);
+            });
+            
+            // 如果上面的方法没有提取到数字，回退到原来的正则表达式方法
+            if (result.length === (colonIndex > 0 ? 1 : 0)) {
+                const numberPattern = /-?\d+\.\d+|-?\d+/g;
+                const numbers = expression.match(numberPattern);
+                
+                if (numbers && numbers.length > 0) {
+                    // 清空之前的结果（只保留标签）
+                    const labelOnly = colonIndex > 0 ? [result[0]] : [];
+                    result.length = 0;
+                    result.push(...labelOnly);
+                    
+                    // 将提取的数字添加到结果中
+                    numbers.forEach(num => {
+                        result.push(num);
+                    });
+                }
             }
             
             return result.length > 0 ? result : null;
