@@ -9355,8 +9355,19 @@ if ($current_user_id && count($user_companies) > 0) {
                     const hasAWCSubTotal = /SUB\s*TOTAL\[/i.test(pastedData);
                     const isLikelyAWC = (hasAWCUserID && hasAWCPlatform) || (hasAWCUserID && hasAWCTypeIdentifier) || hasAWCSubTotal;
                     
-                    // 如果符合 C8PLAY 特征，且不是 AWC 格式，进行解析
-                    const isC8PLAYFormat = !isLikelyAWC && (hasCKZIdentifier || (hasStandaloneIdentifier && hasAgentKeyword));
+                    // 排除 PEGASUS 格式：PEGASUS 格式的特点是所有数据合并成一行
+                    // PEGASUS 特征：包含 "TOTAL" 行，且数据行数较少（通常少于10行），且包含货币代码（如 MYR）
+                    // 但 PEGASUS 的关键特征是：数据会被合并成一行，而不是保持多行结构
+                    const hasTotalRow = /^TOTAL$/i.test(linesForCheck.join('\n')) || /^TOTAL\s/i.test(pastedData);
+                    const hasCurrencyCode = /(MYR|RM|USD|EUR|GBP|JPY|CNY)/i.test(pastedData);
+                    const lineCount = linesForCheck.length;
+                    // PEGASUS 数据通常行数较少（少于15行），且包含 TOTAL 和货币代码
+                    // 但更重要的是，PEGASUS 数据如果被正确解析，应该是合并成一行
+                    // 如果数据包含 TOTAL 行且行数较少，可能是 PEGASUS 格式
+                    const isLikelyPEGASUS = hasTotalRow && hasCurrencyCode && lineCount < 15 && lineCount > 3;
+                    
+                    // 如果符合 C8PLAY 特征，且不是 AWC 格式，且不是 PEGASUS 格式，进行解析
+                    const isC8PLAYFormat = !isLikelyAWC && !isLikelyPEGASUS && (hasCKZIdentifier || (hasStandaloneIdentifier && hasAgentKeyword));
                     
                     if (isC8PLAYFormat) {
                         console.log('2.SPECIAL: Trying 2.4 C8PLAY format...');
@@ -11426,12 +11437,48 @@ if ($current_user_id && count($user_companies) > 0) {
                 // ===== 2.10 PEGASUS 格式检测和处理 =====
                 // 2.10 PEGASUS: 以下代码从 PEGASUS 选项复制而来，用于在 2.SPECIAL 模式下支持 PEGASUS 格式的粘贴
                 if (!formatDetected) {
-                    console.log('2.SPECIAL: Trying 2.10 PEGASUS format...');
-                    console.log('2.SPECIAL: PEGASUS raw data length:', pastedData.length);
-                    console.log('2.SPECIAL: PEGASUS raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                    // PEGASUS 特征检测：检查数据是否包含 PEGASUS 格式的特征
+                    // PEGASUS 格式的特点：所有数据合并成一行
+                    // 特征1: 包含 "TOTAL" 行（可能是独立的 "TOTAL" 行，或 "TOTAL" 后跟数据）
+                    // 特征2: 包含货币代码（如 MYR, RM, USD 等）
+                    // 特征3: 数据行数较少（通常少于15行）
+                    // 特征4: 可能包含标识符（如 BCA10A1, JH093 等）和 "AGENT" 关键词
+                    const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                    const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
                     
-                    let dataMatrix = [];
-                    let allCells = [];
+                    // 检测 TOTAL 行
+                    const hasTotalRow = linesForCheck.some(line => {
+                        const trimmed = line.trim().toUpperCase();
+                        return trimmed === 'TOTAL' || /^TOTAL\s/.test(trimmed);
+                    });
+                    
+                    // 检测货币代码
+                    const hasCurrencyCode = /(MYR|RM|USD|EUR|GBP|JPY|CNY)/i.test(pastedData);
+                    
+                    // 检测行数（PEGASUS 数据通常行数较少）
+                    const lineCount = linesForCheck.length;
+                    
+                    // 检测标识符和 Agent 关键词（这些特征可能与其他格式重叠，但结合其他特征可以识别 PEGASUS）
+                    const hasIdentifierPattern = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        // 标识符模式：字母+数字组合，如 BCA10A1, JH093
+                        return /^[A-Z]{2,5}\d+[A-Z]?\d*$/i.test(trimmed) && trimmed.length >= 4 && trimmed.length <= 10;
+                    });
+                    const hasAgentKeyword = /Agent/i.test(pastedData);
+                    
+                    // 如果符合 PEGASUS 特征，进行解析
+                    // PEGASUS 格式的关键特征：包含 TOTAL 行、货币代码，且行数较少
+                    const isPEGASUSFormat = hasTotalRow && hasCurrencyCode && lineCount < 15 && lineCount > 3;
+                    
+                    if (isPEGASUSFormat) {
+                        console.log('2.SPECIAL: Trying 2.10 PEGASUS format...');
+                        console.log('2.SPECIAL: PEGASUS format pattern detected (TOTAL row + currency code +', lineCount, 'lines)');
+                        console.log('2.SPECIAL: PEGASUS raw data length:', pastedData.length);
+                        console.log('2.SPECIAL: PEGASUS raw data sample (first 500 chars):', pastedData.substring(0, 500));
+                        
+                        const startCell = e.target;
+                        let dataMatrix = [];
+                        let allCells = [];
                     
                     // 优先尝试 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                     const htmlDataFromDetect = detectAndParseHTML(e);
@@ -11588,9 +11635,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification(`2.SPECIAL: 检测到PEGASUS格式 (2.10)，成功粘贴 ${successCount} 个单元格 (1 行 x ${allCells.length} 列)!`, 'success');
                             setTimeout(updateSubmitButtonState, 0);
                             return;
+                        } else {
+                            console.log('2.SPECIAL: PEGASUS No data extracted, will continue trying other formats');
                         }
                     } else {
                         console.log('2.SPECIAL: PEGASUS No data extracted, will continue trying other formats');
+                    }
+                    } else {
+                        console.log('2.SPECIAL: PEGASUS format check failed, skipping...');
                     }
                 }
                 // 2.10 PEGASUS 代码结束
