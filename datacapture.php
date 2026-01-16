@@ -8406,8 +8406,24 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         // 提取这一行的所有单元格
                         const rowData = [];
-                        for (let j = startIndex; j < endIndex; j++) {
-                            rowData.push(allCells[j]);
+                        const identifierValue = rowIdentifierValues[i];
+                        const isTotalRow = identifierValue.toUpperCase() === 'TOTAL';
+                        
+                        // 如果是 Total 行，第一个单元格是 "Total"，然后需要插入3个空列
+                        if (isTotalRow && startIndex < allCells.length) {
+                            // 添加 "Total" 作为第一列
+                            rowData.push(allCells[startIndex]);
+                            // 插入3个空列（对应 Username, Name, Level）
+                            rowData.push('', '', '');
+                            // 添加剩余的数据（从 startIndex + 1 开始，因为 startIndex 已经是 "Total"）
+                            for (let j = startIndex + 1; j < endIndex; j++) {
+                                rowData.push(allCells[j]);
+                            }
+                        } else {
+                            // 普通行：直接提取所有单元格
+                            for (let j = startIndex; j < endIndex; j++) {
+                                rowData.push(allCells[j]);
+                            }
                         }
                         
                         dataMatrix.push(rowData);
@@ -13859,7 +13875,28 @@ if ($current_user_id && count($user_companies) > 0) {
                                         row.push('');
                                     }
                                 });
+                                
+                                // 检查是否是 Total 行，如果是且第一个单元格是 "Total"，需要插入3个空列
                                 if (row.length > 0) {
+                                    const firstCell = row[0].trim().toUpperCase();
+                                    if (firstCell === 'TOTAL' && row.length > 1) {
+                                        // 检查第2、3、4个单元格是否都是空的（说明HTML已经正确）
+                                        // 如果第2个单元格有内容，说明需要插入3个空列
+                                        const secondCell = (row[1] || '').trim();
+                                        const thirdCell = (row[2] || '').trim();
+                                        const fourthCell = (row[3] || '').trim();
+                                        
+                                        // 如果第2、3、4个单元格不全是空的，需要插入3个空列
+                                        if (secondCell !== '' || thirdCell !== '' || fourthCell !== '') {
+                                            // 在 "Total" 后插入3个空列
+                                            const totalValue = row[0];
+                                            const restOfRow = row.slice(1);
+                                            row.length = 0; // 清空数组
+                                            row.push(totalValue);
+                                            row.push('', '', ''); // 插入3个空列
+                                            row.push(...restOfRow); // 添加剩余数据
+                                        }
+                                    }
                                     dataMatrix.push(row);
                                 }
                             });
