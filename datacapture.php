@@ -14616,19 +14616,21 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const cell = cells[colIndex] || '';
                                     
                                     // 检查是否包含公式特征
-                                    // 公式必须满足以下条件之一：
-                                    // 1. 包含括号 ( 或 )
-                                    // 2. 包含 +, *, / 运算符（不包括 -，因为日期也包含 -）
-                                    // 3. 包含冒号和运算符（如 SPORT : (...)
+                                    // 公式必须满足以下条件：
+                                    // 1. 包含括号 ( 或 )，或者
+                                    // 2. 包含冒号和运算符（如 SPORT : (...)
                                     // 排除日期格式（如 05-01-2026）
+                                    // 排除纯文本描述（如 CONTRA ACCOUNT-SPORT- / !-CAPITAL MYR-!）
                                     const isDatePattern = /^\d{2}-\d{2}-\d{4}$/.test(cell.trim());
                                     const hasParentheses = cell.includes('(') || cell.includes(')');
+                                    const hasColon = cell.includes(':');
                                     const hasMathOperators = cell.includes('+') || cell.includes('*') || cell.includes('/');
-                                    const hasColonAndOperators = cell.includes(':') && (hasParentheses || hasMathOperators);
+                                    // 只有包含括号，或者包含冒号和运算符的才认为是公式
+                                    const hasColonAndOperators = hasColon && (hasParentheses || hasMathOperators);
                                     
                                     const hasFormula = !isDatePattern && 
                                                       cell.match(/\d/) && // 包含数字
-                                                      (hasParentheses || hasMathOperators || hasColonAndOperators);
+                                                      (hasParentheses || hasColonAndOperators);
                                     
                                     if (hasFormula) {
                                         formulaFound = true;
