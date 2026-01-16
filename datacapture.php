@@ -10792,6 +10792,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 2.7 ALIPAY 代码结束
                 
                 // ===== 2.8 PS3838 格式检测和处理 =====
+                // 2.8 PS3838: 以下代码从 PS3838 选项复制而来，用于在 2.SPECIAL 模式下支持 PS3838 格式的粘贴
                 if (!formatDetected) {
                     // PS3838 特征检测：排除 WBET 格式（WBET 有 SUB TOTAL/GRAND TOTAL 特征）
                     // 如果数据包含 SUB TOTAL 或 GRAND TOTAL，很可能是 WBET 格式，跳过 PS3838
@@ -10877,7 +10878,28 @@ if ($current_user_id && count($user_companies) > 0) {
                                             row.push('');
                                         }
                                     });
+                                    
+                                    // 检查是否是 Total 行，如果是且第一个单元格是 "Total"，需要插入3个空列
                                     if (row.length > 0) {
+                                        const firstCell = row[0].trim().toUpperCase();
+                                        if (firstCell === 'TOTAL' && row.length > 1) {
+                                            // 检查第2、3、4个单元格是否都是空的（说明HTML已经正确）
+                                            // 如果第2个单元格有内容，说明需要插入3个空列
+                                            const secondCell = (row[1] || '').trim();
+                                            const thirdCell = (row[2] || '').trim();
+                                            const fourthCell = (row[3] || '').trim();
+                                            
+                                            // 如果第2、3、4个单元格不全是空的，需要插入3个空列
+                                            if (secondCell !== '' || thirdCell !== '' || fourthCell !== '') {
+                                                // 在 "Total" 后插入3个空列
+                                                const totalValue = row[0];
+                                                const restOfRow = row.slice(1);
+                                                row.length = 0; // 清空数组
+                                                row.push(totalValue);
+                                                row.push('', '', ''); // 插入3个空列
+                                                row.push(...restOfRow); // 添加剩余数据
+                                            }
+                                        }
                                         dataMatrix.push(row);
                                     }
                                 });
@@ -10897,7 +10919,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 }
                             }
                         } catch (htmlErr) {
-                            console.error('2.SPECIAL: HTML parser error:', htmlErr);
+                            console.error('2.SPECIAL: PS3838 HTML parser error:', htmlErr);
                         }
                     }
                     
@@ -10906,7 +10928,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     if (agentLinkParsed) {
-                        console.log('2.SPECIAL: Detected PS3838 format (2.4)');
+                        console.log('2.SPECIAL: Detected PS3838 format (2.8)');
                         formatDetected = true;
                         const { dataMatrix, maxRows, maxCols } = agentLinkParsed;
                         
@@ -10970,6 +10992,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     }
                 }
+                // 2.8 PS3838 代码结束
                 
                 // ===== 2.9 WBET 格式检测和处理 =====
                 // 2.9 WBET: 以下代码从 WBET 选项复制而来，用于在 2.SPECIAL 模式下支持 WBET 格式的粘贴
