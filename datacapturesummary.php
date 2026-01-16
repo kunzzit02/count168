@@ -10034,26 +10034,14 @@ function getCurrentProcessId() {
                                 formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
                             }
                         } else {
-                            // No column references - check if formulaOperators is a pure math expression (manually entered)
-                            // If it's a pure math expression (contains operators but no column references), 
-                            // prefer using formula_display if available to preserve the original formula
-                            const hasMathOperators = /[+\-*/()]/.test(formulaOperators);
-                            const isPureMathExpression = hasMathOperators && !/\[[^\]]+\s*:\s*\d+\]/.test(formulaOperators);
-                            
-                            if (isPureMathExpression && data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') {
-                                // Use formula_display directly for pure math expressions to preserve user's manual input
-                                formulaText = data.formula;
-                                console.log('updateFormulaAndProcessedAmount: Using formula_display for pure math expression:', formulaText);
-                            } else {
-                                // Use formulaOperators with source percent
-                                const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
-                                    ? data.sourcePercent.toString().trim() 
-                                    : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
-                                const enableSourcePercent = data.enableSourcePercent !== undefined 
-                                    ? data.enableSourcePercent 
-                                    : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
-                                formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
-                            }
+                            // No column references, use formulaOperators directly with source percent
+                            const sourcePercentText = data.sourcePercent !== undefined && data.sourcePercent !== null && data.sourcePercent !== '' 
+                                ? data.sourcePercent.toString().trim() 
+                                : (cells[5] ? cells[5].textContent.trim().replace('%', '') : '1');
+                            const enableSourcePercent = data.enableSourcePercent !== undefined 
+                                ? data.enableSourcePercent 
+                                : (sourcePercentText && sourcePercentText.trim() !== '' && sourcePercentText !== '1');
+                            formulaText = createFormulaDisplayFromExpression(formulaOperators, sourcePercentText, enableSourcePercent);
                         }
                     }
                 }
