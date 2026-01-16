@@ -14615,12 +14615,20 @@ if ($current_user_id && count($user_companies) > 0) {
                                 for (let colIndex = 0; colIndex < cells.length; colIndex++) {
                                     const cell = cells[colIndex] || '';
                                     
-                                    // 检查是否包含公式特征：括号和运算符（不一定需要冒号）
-                                    // 放宽条件：只要包含运算符和数字，就认为是公式
-                                    const hasFormula = (cell.includes('(') || cell.includes('+') || 
-                                                       cell.includes('-') || cell.includes('*') || 
-                                                       cell.includes('/')) && 
-                                                      cell.match(/\d/); // 包含数字
+                                    // 检查是否包含公式特征
+                                    // 公式必须满足以下条件之一：
+                                    // 1. 包含括号 ( 或 )
+                                    // 2. 包含 +, *, / 运算符（不包括 -，因为日期也包含 -）
+                                    // 3. 包含冒号和运算符（如 SPORT : (...)
+                                    // 排除日期格式（如 05-01-2026）
+                                    const isDatePattern = /^\d{2}-\d{2}-\d{4}$/.test(cell.trim());
+                                    const hasParentheses = cell.includes('(') || cell.includes(')');
+                                    const hasMathOperators = cell.includes('+') || cell.includes('*') || cell.includes('/');
+                                    const hasColonAndOperators = cell.includes(':') && (hasParentheses || hasMathOperators);
+                                    
+                                    const hasFormula = !isDatePattern && 
+                                                      cell.match(/\d/) && // 包含数字
+                                                      (hasParentheses || hasMathOperators || hasColonAndOperators);
                                     
                                     if (hasFormula) {
                                         formulaFound = true;
