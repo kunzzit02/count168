@@ -236,6 +236,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <option value="MAXBET">MAXBET</option>
                             <option value="AWC">AWC</option>
                             <option value="WBET_API">WBET_API</option>
+                            <option value="INVOICE">INVOICE</option>
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
