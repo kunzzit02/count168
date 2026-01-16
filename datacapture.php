@@ -9013,177 +9013,167 @@ if ($current_user_id && count($user_companies) > 0) {
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
                 
+                console.log('2.10 INVOICE: Total lines to process:', lines.length);
+                console.log('2.10 INVOICE: First few lines:', lines.slice(0, 5));
+                
                 if (lines.length > 0) {
-                    // 检查是否是多行制表符分隔的数据（标准表格格式）
-                    const hasTabSeparator = lines.some(line => line.includes('\t'));
+                    const dataMatrix = [];
+                    let maxCols = 0;
                     
-                    if (hasTabSeparator) {
-                        const dataMatrix = [];
-                        let maxCols = 0;
+                    // 智能解析：优先使用制表符，如果没有则使用多个空格或单个空格
+                    lines.forEach((line, lineIndex) => {
+                        if (line.trim() === '') return;
                         
-                        lines.forEach(line => {
-                            if (line.includes('\t')) {
-                                // 制表符分隔，保持原始格式（不trim，保留空格）
-                                const cells = line.split('\t');
-                                dataMatrix.push(cells);
-                                maxCols = Math.max(maxCols, cells.length);
-                            } else if (line !== '') {
-                                dataMatrix.push([line]);
-                                maxCols = Math.max(maxCols, 1);
-                            }
-                        });
+                        let cells = [];
                         
-                        // 确保所有行都有相同的列数
-                        dataMatrix.forEach(row => {
-                            while (row.length < maxCols) {
-                                row.push('');
-                            }
-                        });
-                        
-                        // 填充到表格，保持原始格式
-                        if (dataMatrix.length > 0 && maxCols > 0) {
-                            const startCell = e.target;
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
-                            
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + dataMatrix.length;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            dataMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
+                        // 方法1: 如果有制表符，使用制表符分割
+                        if (line.includes('\t')) {
+                            cells = line.split('\t').map(cell => cell.trim());
+                            console.log(`2.10 INVOICE: Line ${lineIndex + 1} split by tab: ${cells.length} columns`);
+                        } else {
+                            // 方法2: 尝试使用多个空格（2个或更多）作为分隔符
+                            const multiSpaceSplit = line.split(/\s{2,}/);
+                            if (multiSpaceSplit.length > 3) {
+                                // 如果多个空格分割得到多个列，使用这个
+                                cells = multiSpaceSplit.map(cell => cell.trim());
+                                console.log(`2.10 INVOICE: Line ${lineIndex + 1} split by multiple spaces: ${cells.length} columns`);
+                            } else {
+                                // 方法3: 使用单个空格分割，智能识别列
+                                // 对于PDF表格，通常格式是：数字 品牌 类型 百分比 金额等
+                                // 例如: "1 AG:ASIAGAMING - GSC LC - K69M PT 7.50 (MYR) 25.00 1.88"
+                                const trimmedLine = line.trim();
+                                const parts = trimmedLine.split(/\s+/);
+                                cells = [];
                                 
-                                rowData.forEach((cellData, colIndex) => {
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1];
+                                let i = 0;
+                                while (i < parts.length) {
+                                    const part = parts[i];
                                     
-                                    if (cell && cell.contentEditable === 'true') {
-                                        // 保持原始格式，不trim，保留所有空格和格式
-                                        const cellValue = cellData || '';
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellValue
-                                        });
-                                        
-                                        // 直接使用原始值，不做任何转换
-                                        cell.textContent = cellValue;
-                                        if (cellValue) {
-                                            successCount++;
-                                        }
+                                    // 如果是行号（纯数字，且是第一个）
+                                    if (cells.length === 0 && /^\d+$/.test(part)) {
+                                        cells.push(part);
+                                        i++;
                                     }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
+                                    // 如果是品牌名称（包含冒号，可能跨多个词直到遇到类型代码）
+                                    else if (part.includes(':') || (i > 0 && parts[i-1] && parts[i-1].includes(':'))) {
+                                        let brand = part;
+                                        i++;
+                                        // 继续收集品牌名称，直到遇到类型代码（2-3个大写字母，如PT）或数字
+                                        while (i < parts.length) {
+                                            const nextPart = parts[i];
+                                            // 如果遇到类型代码（2-3个大写字母）或数字（百分比），停止
+                                            if (/^[A-Z]{2,3}$/.test(nextPart) || /^\d+\.?\d*$/.test(nextPart)) {
+                                                break;
+                                            }
+                                            brand += ' ' + nextPart;
+                                            i++;
+                                        }
+                                        cells.push(brand);
+                                    }
+                                    // 如果是类型代码（2-3个大写字母）
+                                    else if (/^[A-Z]{2,3}$/.test(part)) {
+                                        cells.push(part);
+                                        i++;
+                                    }
+                                    // 如果是数字（百分比或金额）
+                                    else if (/^\d+\.?\d*$/.test(part) || /^[\d,]+\.?\d*$/.test(part)) {
+                                        cells.push(part);
+                                        i++;
+                                    }
+                                    // 如果是货币代码（括号内的）
+                                    else if (/^\([A-Z]{3}\)$/.test(part)) {
+                                        cells.push(part);
+                                        i++;
+                                    }
+                                    // 其他情况，作为单独的列
+                                    else {
+                                        cells.push(part);
+                                        i++;
+                                    }
                                 }
-                            }
-                            
-                            if (successCount > 0) {
-                                showNotification(`2.10 INVOICE: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持PDF原始格式!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
+                                
+                                console.log(`2.10 INVOICE: Line ${lineIndex + 1} split by smart parsing: ${cells.length} columns`, cells);
                             }
                         }
-                    } else {
-                        // 没有制表符，尝试按空格分割（多个空格作为分隔符）
-                        const dataMatrix = [];
-                        let maxCols = 0;
                         
-                        lines.forEach(line => {
-                            if (line.trim() !== '') {
-                                // 使用多个空格分割，保持原始格式
-                                const cells = line.split(/\s{2,}/);
-                                dataMatrix.push(cells);
-                                maxCols = Math.max(maxCols, cells.length);
-                            }
-                        });
+                        // 清理空单元格
+                        cells = cells.filter(cell => cell !== '');
                         
-                        // 确保所有行都有相同的列数
-                        dataMatrix.forEach(row => {
-                            while (row.length < maxCols) {
-                                row.push('');
-                            }
-                        });
+                        if (cells.length > 0) {
+                            dataMatrix.push(cells);
+                            maxCols = Math.max(maxCols, cells.length);
+                        }
+                    });
+                    
+                    console.log(`2.10 INVOICE: Parsed ${dataMatrix.length} rows with max ${maxCols} columns`);
+                    
+                    // 确保所有行都有相同的列数
+                    dataMatrix.forEach(row => {
+                        while (row.length < maxCols) {
+                            row.push('');
+                        }
+                    });
+                    
+                    // 填充到表格，保持原始格式
+                    if (dataMatrix.length > 0 && maxCols > 0) {
+                        const startCell = e.target;
+                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                        const startCol = parseInt(startCell.dataset.col);
                         
-                        // 填充到表格，保持原始格式
-                        if (dataMatrix.length > 0 && maxCols > 0) {
-                            const startCell = e.target;
-                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                            const startCol = parseInt(startCell.dataset.col);
+                        const currentRows = document.querySelectorAll('#tableBody tr').length;
+                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        const requiredRows = startRow + dataMatrix.length;
+                        const requiredCols = startCol + maxCols;
+                        
+                        if (requiredRows > currentRows || requiredCols > currentCols) {
+                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                            const targetCols = Math.max(currentCols, requiredCols);
+                            initializeTable(targetRows, targetCols);
+                        }
+                        
+                        const tableBody = document.getElementById('tableBody');
+                        const currentPasteChanges = [];
+                        let successCount = 0;
+                        
+                        dataMatrix.forEach((rowData, rowIndex) => {
+                            const actualRowIndex = startRow + rowIndex;
+                            const tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) return;
                             
-                            const currentRows = document.querySelectorAll('#tableBody tr').length;
-                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                            const requiredRows = startRow + dataMatrix.length;
-                            const requiredCols = startCol + maxCols;
-                            
-                            if (requiredRows > currentRows || requiredCols > currentCols) {
-                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                                const targetCols = Math.max(currentCols, requiredCols);
-                                initializeTable(targetRows, targetCols);
-                            }
-                            
-                            const tableBody = document.getElementById('tableBody');
-                            const currentPasteChanges = [];
-                            let successCount = 0;
-                            
-                            dataMatrix.forEach((rowData, rowIndex) => {
-                                const actualRowIndex = startRow + rowIndex;
-                                const tableRow = tableBody.children[actualRowIndex];
-                                if (!tableRow) return;
+                            rowData.forEach((cellData, colIndex) => {
+                                const actualColIndex = startCol + colIndex;
+                                const cell = tableRow.children[actualColIndex + 1];
                                 
-                                rowData.forEach((cellData, colIndex) => {
-                                    const actualColIndex = startCol + colIndex;
-                                    const cell = tableRow.children[actualColIndex + 1];
+                                if (cell && cell.contentEditable === 'true') {
+                                    // 保持原始格式，trim去除首尾空格但保留内容
+                                    const cellValue = (cellData || '').trim();
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: actualColIndex,
+                                        oldValue: cell.textContent,
+                                        newValue: cellValue
+                                    });
                                     
-                                    if (cell && cell.contentEditable === 'true') {
-                                        // 保持原始格式，不trim，保留所有空格和格式
-                                        const cellValue = cellData || '';
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: actualColIndex,
-                                            oldValue: cell.textContent,
-                                            newValue: cellValue
-                                        });
-                                        
-                                        // 直接使用原始值，不做任何转换
-                                        cell.textContent = cellValue;
-                                        if (cellValue) {
-                                            successCount++;
-                                        }
+                                    // 设置单元格值
+                                    cell.textContent = cellValue;
+                                    if (cellValue) {
+                                        successCount++;
                                     }
-                                });
-                            });
-                            
-                            if (currentPasteChanges.length > 0) {
-                                pasteHistory.push(currentPasteChanges);
-                                if (pasteHistory.length > maxHistorySize) {
-                                    pasteHistory.shift();
                                 }
+                            });
+                        });
+                        
+                        if (currentPasteChanges.length > 0) {
+                            pasteHistory.push(currentPasteChanges);
+                            if (pasteHistory.length > maxHistorySize) {
+                                pasteHistory.shift();
                             }
-                            
-                            if (successCount > 0) {
-                                showNotification(`2.10 INVOICE: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持PDF原始格式!`, 'success');
-                                setTimeout(updateSubmitButtonState, 0);
-                                return;
-                            }
+                        }
+                        
+                        if (successCount > 0) {
+                            showNotification(`2.10 INVOICE: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持PDF原始格式!`, 'success');
+                            setTimeout(updateSubmitButtonState, 0);
+                            return;
                         }
                     }
                 }
