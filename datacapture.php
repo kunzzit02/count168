@@ -8051,22 +8051,50 @@ if ($current_user_id && count($user_companies) > 0) {
             const expression = colonIndex >= 0 ? trimmed.substring(colonIndex + 1).trim() : trimmed;
             
             // 3. 提取数字
-            // 如果表达式包含括号，说明是公式，需要正确处理减号（减号是运算符，不是负数符号）
+            // 如果表达式包含括号，说明是公式，需要正确处理减号（减号可能是负数符号或运算符）
             let numbers = [];
             if (expression.includes('(') || expression.includes(')')) {
-                // 公式格式：按运算符分割提取数字
+                // 公式格式：按运算符分割提取数字（包括负数）
                 let cleanFormula = expression.replace(/[()\s]/g, '');
-                const parts = cleanFormula.split(/([+\-*/])/);
                 
-                parts.forEach(part => {
-                    if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
-                        // 这是一个数字（可能是小数）
-                        const numMatch = part.match(/^\d+\.?\d*$/);
-                        if (numMatch) {
-                            numbers.push(numMatch[0]);
+                // 使用正则表达式匹配所有数字（包括负数）
+                // 匹配模式：数字可以以-开头（负数），后面跟着数字和小数点
+                const numberPattern = /(?:^|[+\-*/])(-?\d+\.?\d*)/g;
+                let match;
+                
+                while ((match = numberPattern.exec(cleanFormula)) !== null) {
+                    const num = match[1]; // 获取捕获组（数字部分）
+                    if (num) {
+                        numbers.push(num);
+                    }
+                }
+                
+                // 如果正则匹配失败，使用备用方法：按运算符分割
+                if (numbers.length === 0) {
+                    const parts = cleanFormula.split(/([+\-*/])/);
+                    
+                    for (let i = 0; i < parts.length; i++) {
+                        const part = parts[i];
+                        if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
+                            // 检查前一个token是否是单独的-运算符（表示负数）
+                            if (i > 0 && parts[i - 1] === '-' && 
+                                (i === 1 || parts[i - 2] === '' || /[+\-*/]/.test(parts[i - 2] || ''))) {
+                                // 这是负数
+                                const num = '-' + part;
+                                const numMatch = num.match(/^-?\d+\.?\d*$/);
+                                if (numMatch) {
+                                    numbers.push(numMatch[0]);
+                                }
+                            } else {
+                                // 这是正数或本身就是负数（如 -8700）
+                                const numMatch = part.match(/^-?\d+\.?\d*$/);
+                                if (numMatch) {
+                                    numbers.push(numMatch[0]);
+                                }
+                            }
                         }
                     }
-                });
+                }
             } else {
                 // 非公式格式：使用正则表达式提取所有数字（包括小数和负数）
                 // 匹配模式：带小数点的数字（如 11860.00, 0.008）或整数（如 11860）
@@ -14595,24 +14623,48 @@ if ($current_user_id && count($user_companies) > 0) {
                                         if (cell.includes(':')) {
                                             parsedFormula = parseApiReturnFormat(cell);
                                         } else {
-                                            // 如果没有冒号，直接提取数字
-                                            // 需要正确处理减号：在公式中，减号是运算符，不是负数符号
-                                            // 例如 "(22.33+55.66-42*539/563)" 中的 "-42" 应该提取为 "42"
+                                            // 如果没有冒号，直接提取数字（包括负数）
                                             let numbers = [];
                                             // 先移除所有括号和空格
                                             let cleanFormula = cell.replace(/[()\s]/g, '');
-                                            // 按运算符分割，但保留运算符
-                                            const parts = cleanFormula.split(/([+\-*/])/);
                                             
-                                            parts.forEach(part => {
-                                                if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
-                                                    // 这是一个数字（可能是小数）
-                                                    const numMatch = part.match(/^\d+\.?\d*$/);
-                                                    if (numMatch) {
-                                                        numbers.push(numMatch[0]);
+                                            // 使用正则表达式匹配所有数字（包括负数）
+                                            const numberPattern = /(?:^|[+\-*/])(-?\d+\.?\d*)/g;
+                                            let match;
+                                            
+                                            while ((match = numberPattern.exec(cleanFormula)) !== null) {
+                                                const num = match[1]; // 获取捕获组（数字部分）
+                                                if (num) {
+                                                    numbers.push(num);
+                                                }
+                                            }
+                                            
+                                            // 如果正则匹配失败，使用备用方法：按运算符分割
+                                            if (numbers.length === 0) {
+                                                const parts = cleanFormula.split(/([+\-*/])/);
+                                                
+                                                for (let i = 0; i < parts.length; i++) {
+                                                    const part = parts[i];
+                                                    if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
+                                                        // 检查前一个token是否是单独的-运算符（表示负数）
+                                                        if (i > 0 && parts[i - 1] === '-' && 
+                                                            (i === 1 || parts[i - 2] === '' || /[+\-*/]/.test(parts[i - 2] || ''))) {
+                                                            // 这是负数
+                                                            const num = '-' + part;
+                                                            const numMatch = num.match(/^-?\d+\.?\d*$/);
+                                                            if (numMatch) {
+                                                                numbers.push(numMatch[0]);
+                                                            }
+                                                        } else {
+                                                            // 这是正数或本身就是负数（如 -8700）
+                                                            const numMatch = part.match(/^-?\d+\.?\d*$/);
+                                                            if (numMatch) {
+                                                                numbers.push(numMatch[0]);
+                                                            }
+                                                        }
                                                     }
                                                 }
-                                            });
+                                            }
                                             
                                             if (numbers.length > 0) {
                                                 parsedFormula = { columns: numbers };
