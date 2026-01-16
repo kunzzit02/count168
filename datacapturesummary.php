@@ -6323,9 +6323,13 @@ function getCurrentProcessId() {
             // 格式：id_product:row_label:column_index，如 "GGG:A:10 GGG:A:8"
             // IMPORTANT: 优先从 data-clicked-cell-refs 读取，因为它包含了正确的 id_product（可能来自其他 id product 的数据）
             // 重要：优先从 data-clicked-cell-refs 读取，因为它包含了正确的 id_product（可能来自其他 id product 的数据）
+            // CRITICAL: 只有当公式中包含 $ 符号时，才保存 source_columns
+            // 如果没有 $ 符号，说明是手动输入的纯公式（如 "(100+1)+(11-1)"），不应该保存列数据
             let sourceColumns = '';
             // formulaInput 已经在上面声明过了，直接使用
-            if (formulaInput && formulaValue && formulaValue.trim() !== '') {
+            // 检查公式中是否包含 $ 符号
+            const hasDollarSign = formulaValue && formulaValue.includes('$');
+            if (formulaInput && formulaValue && formulaValue.trim() !== '' && hasDollarSign) {
                 // 优先从 data-clicked-cell-refs 读取引用（格式：id_product:row_label:column_index 或 id_product:column_index）
                 // 这包含了用户从其他 id product 选择的数据的正确引用
                 const clickedCellRefs = formulaInput.getAttribute('data-clicked-cell-refs') || '';
@@ -6462,8 +6466,9 @@ function getCurrentProcessId() {
                     }
                     
                     // 如果从 $数字 格式中没有提取到列引用，尝试从 data-clicked-columns 属性中获取
-                    // 这适用于用户通过键盘直接输入数字（如"2+6"）的情况
-                    if (!sourceColumns && formulaInput) {
+                    // 这适用于用户通过键盘直接输入数字（如"$2+$6"）的情况
+                    // 注意：只有当公式中包含 $ 符号时才尝试提取列数据
+                    if (!sourceColumns && formulaInput && hasDollarSign) {
                         const clickedColumns = formulaInput.getAttribute('data-clicked-columns') || '';
                         if (clickedColumns && clickedColumns.trim() !== '') {
                             const rowLabel = getRowLabelFromProcessValue(processValue);
@@ -6482,12 +6487,21 @@ function getCurrentProcessId() {
                         }
                     }
                 }
+            } else if (formulaInput && formulaValue && formulaValue.trim() !== '' && !hasDollarSign) {
+                // 如果公式中没有 $ 符号，清空 sourceColumns，不保存列数据
+                sourceColumns = '';
+                console.log('saveFormula - Formula contains no $ symbols, clearing sourceColumns');
             }
             
             // In edit mode, prefer existing sourceColumns over extracting from formula
             // This prevents incorrect column extraction when formula contains manual inputs like /4
+            // CRITICAL: 如果公式中没有 $ 符号，不应该提取列数据
             let columnsDisplay = '';
-            if (isEditMode && window.currentEditRow) {
+            if (!hasDollarSign) {
+                // 如果公式中没有 $ 符号，清空 columnsDisplay
+                columnsDisplay = '';
+                console.log('saveFormula - Formula contains no $ symbols, clearing columnsDisplay');
+            } else if (isEditMode && window.currentEditRow) {
                 const existingSourceColumns = window.currentEditRow.getAttribute('data-source-columns') || '';
                 columnsDisplay = sourceColumns || clickedColumnsDisplay || existingSourceColumns || extractNumbersFromFormula(formulaValue);
             } else {
@@ -6577,9 +6591,10 @@ function getCurrentProcessId() {
                 const editingRow = window.currentEditRow;
                 const editingType = editingRow.getAttribute('data-product-type') || 'main';
                 const existingSourceColumns = editingRow.getAttribute('data-source-columns') || '';
-                // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
+                // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
                 // 优先使用从 $数字 提取的列引用格式（如 "GGG:A:10 GGG:A:8"）
-                const finalSourceColumns = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || existingSourceColumns || '');
+                // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns，不使用旧的 existingSourceColumns
+                const finalSourceColumns = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || existingSourceColumns || '');
                 const basePayload = {
                     idProduct: processValue,
                     description: descriptionValue,
@@ -6628,12 +6643,13 @@ function getCurrentProcessId() {
                     }, editingRow);
                 }
             } else if (isSubIdProduct) {
-                // 点击的是某个 sub row 的 +：在该 Id Product 下“当前行之后”新增一条 sub 行
+                // 点击的是某个 sub row 的 +：在该 Id Product 下"当前行之后"新增一条 sub 行
                 const baseRow = currentButton ? currentButton.closest('tr') : null;
                 const newRow = addSubIdProductRow(processValue, baseRow);
                 const baseRowSourceCols = baseRow ? (baseRow.getAttribute('data-source-columns') || '') : '';
-                // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || baseRowSourceCols || '');
+                // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
+                // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns，不使用旧的 baseRowSourceCols
+                const finalSourceColumnsForSub = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || baseRowSourceCols || '');
                 // Get row_index from the new row (should be set by addSubIdProductRow)
                 const newRowIndex = newRow ? newRow.getAttribute('data-row-index') : null;
                 const rowIndexValue = (newRowIndex && newRowIndex !== '' && newRowIndex !== '999999') ? Number(newRowIndex) : null;
@@ -6687,8 +6703,9 @@ function getCurrentProcessId() {
                     // 主行还没有数据：直接填充主行
                     if (targetRow) {
                         const targetRowSourceCols = targetRow.getAttribute('data-source-columns') || '';
-                        // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                        const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
+                        // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
+                        // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns，不使用旧的 targetRowSourceCols
+                        const finalSourceColumnsForMain = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || targetRowSourceCols || '');
                         updateSummaryTableRow(processValue, {
                             idProduct: processValue,
                             description: descriptionValue,
@@ -6712,8 +6729,9 @@ function getCurrentProcessId() {
                         }, targetRow);
                     } else {
                         const baseSourceCols = targetRow ? (targetRow.getAttribute('data-source-columns') || '') : '';
-                        // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                        const finalSourceColumnsForMain2 = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || baseSourceCols || '');
+                        // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
+                        // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns，不使用旧的 baseSourceCols
+                        const finalSourceColumnsForMain2 = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || baseSourceCols || '');
                         updateSummaryTableRow(processValue, {
                             idProduct: processValue,
                             description: descriptionValue,
@@ -6740,8 +6758,9 @@ function getCurrentProcessId() {
                     // 主行已有账号：为该 Id Product 在当前主行之后新增一条 sub 行
                     const baseRow = currentButton ? currentButton.closest('tr') : null;
                     const newRow = addSubIdProductRow(processValue, baseRow);
-                    // If formula is empty, also clear sourceColumns to prevent regeneration on page refresh
-                    const finalSourceColumnsForSub2 = (!formulaValue || formulaValue.trim() === '') ? '' : (sourceColumns || clickedColumnsDisplay || '');
+                    // If formula is empty or doesn't contain $, also clear sourceColumns to prevent regeneration on page refresh
+                    // CRITICAL: 如果公式中没有 $ 符号，清空 sourceColumns
+                    const finalSourceColumnsForSub2 = (!formulaValue || formulaValue.trim() === '' || !hasDollarSign) ? '' : (sourceColumns || clickedColumnsDisplay || '');
                     
                     // Get row_index from the new row (should be set by addSubIdProductRow)
                     const newRowIndex2 = newRow ? newRow.getAttribute('data-row-index') : null;
