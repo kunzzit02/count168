@@ -9356,15 +9356,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     const isLikelyAWC = (hasAWCUserID && hasAWCPlatform) || (hasAWCUserID && hasAWCTypeIdentifier) || hasAWCSubTotal;
                     
                     // 排除 PEGASUS 格式：PEGASUS 格式的特点是所有数据合并成一行
-                    // PEGASUS 特征：包含 "TOTAL" 行，且数据行数较少（通常少于10行），且包含货币代码（如 MYR）
-                    // 但 PEGASUS 的关键特征是：数据会被合并成一行，而不是保持多行结构
-                    const hasTotalRow = /^TOTAL$/i.test(linesForCheck.join('\n')) || /^TOTAL\s/i.test(pastedData);
-                    const hasCurrencyCode = /(MYR|RM|USD|EUR|GBP|JPY|CNY)/i.test(pastedData);
-                    const lineCount = linesForCheck.length;
-                    // PEGASUS 数据通常行数较少（少于15行），且包含 TOTAL 和货币代码
-                    // 但更重要的是，PEGASUS 数据如果被正确解析，应该是合并成一行
-                    // 如果数据包含 TOTAL 行且行数较少，可能是 PEGASUS 格式
-                    const isLikelyPEGASUS = hasTotalRow && hasCurrencyCode && lineCount < 15 && lineCount > 3;
+                    // PEGASUS 特征：
+                    // 1. 包含 "Total" 行（不区分大小写）
+                    // 2. 包含货币代码（如 MYR）
+                    // 3. 包含标识符（如 BCA10A1, JH093）和 "Agent" 关键词
+                    // 注意：PEGASUS 数据会被合并成一行，所以原始数据的行数可能很多
+                    const hasTotalRowForPEGASUS = linesForCheck.some(line => {
+                        const trimmed = line.trim().toUpperCase();
+                        return trimmed === 'TOTAL' || /^TOTAL\s/.test(trimmed);
+                    });
+                    const hasCurrencyCodeForPEGASUS = /(MYR|RM|USD|EUR|GBP|JPY|CNY)/i.test(pastedData);
+                    const hasIdentifierPatternForPEGASUS = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        return /^[A-Z]{2,5}\d+[A-Z]?\d*$/i.test(trimmed) && trimmed.length >= 4 && trimmed.length <= 10;
+                    });
+                    const hasAgentKeywordForPEGASUS = /Agent/i.test(pastedData);
+                    const isLikelyPEGASUS = hasTotalRowForPEGASUS && hasCurrencyCodeForPEGASUS && hasIdentifierPatternForPEGASUS && hasAgentKeywordForPEGASUS;
                     
                     // 如果符合 C8PLAY 特征，且不是 AWC 格式，且不是 PEGASUS 格式，进行解析
                     const isC8PLAYFormat = !isLikelyAWC && !isLikelyPEGASUS && (hasCKZIdentifier || (hasStandaloneIdentifier && hasAgentKeyword));
@@ -10300,6 +10307,20 @@ if ($current_user_id && count($user_companies) > 0) {
                     const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
                     
+                    // 先检查是否是 PEGASUS 格式（排除 PEGASUS，避免误判）
+                    // PEGASUS 特征：包含 "Total" 行（不区分大小写）、货币代码（如 MYR）、标识符（如 BCA10A1, JH093）和 "Agent" 关键词
+                    const hasTotalRowForPEGASUS = linesForCheck.some(line => {
+                        const trimmed = line.trim().toUpperCase();
+                        return trimmed === 'TOTAL' || /^TOTAL\s/.test(trimmed);
+                    });
+                    const hasCurrencyCodeForPEGASUS = /(MYR|RM|USD|EUR|GBP|JPY|CNY)/i.test(pastedData);
+                    const hasIdentifierPatternForPEGASUS = linesForCheck.some(line => {
+                        const trimmed = line.trim();
+                        return /^[A-Z]{2,5}\d+[A-Z]?\d*$/i.test(trimmed) && trimmed.length >= 4 && trimmed.length <= 10;
+                    });
+                    const hasAgentKeywordForPEGASUS = /Agent/i.test(pastedData);
+                    const isLikelyPEGASUS = hasTotalRowForPEGASUS && hasCurrencyCodeForPEGASUS && hasIdentifierPatternForPEGASUS && hasAgentKeywordForPEGASUS;
+                    
                     // 检测 ALIPAY 格式的标识符行（2-10个大写字母/数字组合，如 JDW01, JDW02）
                     // 这些标识符通常不包含空格、逗号、小数点、负号，且不以纯数字开头
                     let hasAlipayIdentifier = false;
@@ -10329,9 +10350,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
                     const isLikelyWBET = hasSubTotal || hasGrandTotal;
                     
-                    // 如果检测到 ALIPAY 标识符，即使有 Grand Total 也尝试 ALIPAY 格式
-                    // 因为 ALIPAY 格式也可能包含 Grand Total
-                    if (!hasAlipayIdentifier && isLikelyWBET) {
+                    // 如果检测到 PEGASUS 格式，跳过 ALIPAY
+                    if (isLikelyPEGASUS) {
+                        console.log('2.SPECIAL: ALIPAY format check skipped - detected PEGASUS format markers (Total + currency + identifier + Agent)');
+                    } else if (!hasAlipayIdentifier && isLikelyWBET) {
                         console.log('2.SPECIAL: ALIPAY format check skipped - detected WBET format markers (SUB TOTAL/GRAND TOTAL) and no ALIPAY identifiers found');
                     } else {
                         if (hasAlipayIdentifier) {
@@ -11446,7 +11468,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
                     
-                    // 检测 TOTAL 行
+                    // 检测 TOTAL 行（不区分大小写）
                     const hasTotalRow = linesForCheck.some(line => {
                         const trimmed = line.trim().toUpperCase();
                         return trimmed === 'TOTAL' || /^TOTAL\s/.test(trimmed);
@@ -11455,7 +11477,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 检测货币代码
                     const hasCurrencyCode = /(MYR|RM|USD|EUR|GBP|JPY|CNY)/i.test(pastedData);
                     
-                    // 检测行数（PEGASUS 数据通常行数较少）
+                    // 检测行数（PEGASUS 数据可能行数较多，因为所有数据会合并成一行）
                     const lineCount = linesForCheck.length;
                     
                     // 检测标识符和 Agent 关键词（这些特征可能与其他格式重叠，但结合其他特征可以识别 PEGASUS）
@@ -11467,8 +11489,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     const hasAgentKeyword = /Agent/i.test(pastedData);
                     
                     // 如果符合 PEGASUS 特征，进行解析
-                    // PEGASUS 格式的关键特征：包含 TOTAL 行、货币代码，且行数较少
-                    const isPEGASUSFormat = hasTotalRow && hasCurrencyCode && lineCount < 15 && lineCount > 3;
+                    // PEGASUS 格式的关键特征：
+                    // 1. 包含 "Total" 行（不区分大小写）
+                    // 2. 包含货币代码（如 MYR）
+                    // 3. 包含标识符（如 BCA10A1, JH093）和 "Agent" 关键词
+                    // 4. 行数大于3（因为 PEGASUS 数据会被合并成一行，所以原始行数可能较多）
+                    // 注意：PEGASUS 格式会将所有数据合并成一行，所以原始数据的行数可能很多
+                    const isPEGASUSFormat = hasTotalRow && hasCurrencyCode && hasIdentifierPattern && hasAgentKeyword && lineCount > 3;
                     
                     if (isPEGASUSFormat) {
                         console.log('2.SPECIAL: Trying 2.10 PEGASUS format...');
