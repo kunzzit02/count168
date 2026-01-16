@@ -4530,6 +4530,166 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
+        // 2.10 INVOICE 专用的 HTML 表格解析：保持PDF原始格式，粘贴后数据保持行格式
+        function parseAndFillHTMLTableForInvoice(htmlString, startCell) {
+            try {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlString;
+                
+                const table = tempDiv.querySelector('table');
+                if (!table) {
+                    return false;
+                }
+                
+                console.log('2.10 INVOICE: Parsing HTML table and preserving PDF format...');
+                
+                // 获取所有行（包括表头）
+                const allRows = table.querySelectorAll('tr');
+                if (allRows.length === 0) {
+                    return false;
+                }
+                
+                // 计算最大列数
+                let maxCols = 0;
+                allRows.forEach(tr => {
+                    const cells = tr.querySelectorAll('td, th');
+                    let colCount = 0;
+                    cells.forEach(cell => {
+                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                        colCount += colspan;
+                    });
+                    maxCols = Math.max(maxCols, colCount);
+                });
+                
+                if (maxCols === 0) {
+                    return false;
+                }
+                
+                // 获取起始位置
+                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                const startCol = parseInt(startCell.dataset.col);
+                
+                // 扩展表格（如果需要）
+                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                const requiredRows = startRow + allRows.length;
+                const requiredCols = startCol + maxCols;
+                
+                if (requiredRows > currentRows || requiredCols > currentCols) {
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702)); // ZZ = 702 rows
+                    const targetCols = Math.max(currentCols, requiredCols);
+                    initializeTable(targetRows, targetCols);
+                }
+                
+                // 填充数据并记录粘贴历史（用于撤销）
+                const tableBody = document.getElementById('tableBody');
+                // 重新获取列数（扩展表格后可能已改变）
+                const actualCols = document.querySelectorAll('#tableHeader th').length - 1;
+                const currentPasteChanges = [];
+                let successCount = 0;
+                
+                allRows.forEach((sourceRow, rowIndex) => {
+                    const actualRowIndex = startRow + rowIndex;
+                    const tableRow = tableBody.children[actualRowIndex];
+                    if (!tableRow) return;
+                    
+                    const sourceCells = sourceRow.querySelectorAll('td, th');
+                    let currentCol = startCol;
+                    
+                    sourceCells.forEach(sourceCell => {
+                        const colspan = parseInt(sourceCell.getAttribute('colspan') || '1', 10);
+                        
+                        // 获取源单元格的完整HTML内容（包括格式）
+                        // 保留innerHTML以保持所有格式信息
+                        let cellContent = sourceCell.innerHTML;
+                        
+                        // 如果单元格为空，使用textContent作为后备
+                        if (!cellContent || cellContent.trim() === '') {
+                            cellContent = sourceCell.textContent || '';
+                        }
+                        
+                        // 处理第一个单元格（colspan的主单元格）
+                        if (currentCol < actualCols) {
+                            const targetCell = tableRow.children[currentCol + 1]; // +1 跳过行号列
+                            
+                            if (targetCell && targetCell.contentEditable === 'true') {
+                                const oldValue = targetCell.textContent || targetCell.innerHTML || '';
+                                
+                                // 直接使用innerHTML保持PDF的原始格式
+                                // 清理并保留格式：移除可能导致问题的样式，但保留数字格式
+                                let cleanContent = cellContent;
+                                
+                                // 移除可能导致问题的外部样式标签，但保留内联样式和格式
+                                // 保留数字格式、日期格式等
+                                cleanContent = cleanContent
+                                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除style标签
+                                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // 移除script标签
+                                
+                                // 如果内容包含HTML标签，直接使用；否则使用纯文本
+                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                    targetCell.innerHTML = cleanContent;
+                                } else {
+                                    // 纯文本内容，但保留原始格式（包括空格、换行等）
+                                    targetCell.textContent = cellContent;
+                                }
+                                
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: currentCol,
+                                    oldValue: oldValue,
+                                    newValue: targetCell.textContent || targetCell.innerHTML
+                                });
+                                
+                                if (cellContent && cellContent.trim() !== '') {
+                                    successCount++;
+                                }
+                            }
+                        }
+                        
+                        // 处理colspan的后续列（填充空单元格）
+                        for (let i = 1; i < colspan; i++) {
+                            currentCol++;
+                            if (currentCol < actualCols) {
+                                const targetCell = tableRow.children[currentCol + 1];
+                                if (targetCell && targetCell.contentEditable === 'true') {
+                                    const oldValue = targetCell.textContent || targetCell.innerHTML || '';
+                                    targetCell.textContent = '';
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: currentCol,
+                                        oldValue: oldValue,
+                                        newValue: ''
+                                    });
+                                }
+                            }
+                        }
+                        
+                        currentCol++;
+                    });
+                });
+                
+                // 将本次粘贴操作添加到历史记录
+                if (currentPasteChanges.length > 0) {
+                    pasteHistory.push(currentPasteChanges);
+                    if (pasteHistory.length > maxHistorySize) {
+                        pasteHistory.shift();
+                    }
+                }
+                
+                if (successCount > 0) {
+                    showNotification(`2.10 INVOICE: 成功粘贴 ${successCount} 个单元格 (${allRows.length} 行 x ${maxCols} 列)，已保持PDF原始格式!`, 'success');
+                    setTimeout(updateSubmitButtonState, 0);
+                    return true;
+                } else {
+                    console.log('2.10 INVOICE: No cells were pasted');
+                    return false;
+                }
+            } catch (error) {
+                console.error('2.10 INVOICE: Error parsing HTML table:', error);
+                return false;
+            }
+        }
+        
         // AWC 专用的模式识别数据解析：根据数据模式将纯文本分组成行（2.7）
         function parseAWCPatternBasedData(lines) {
             try {
@@ -8815,6 +8975,221 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 如果所有解析都失败，继续使用默认处理逻辑
                 console.log('1.GENERAL: All parsing methods failed, continuing with default logic');
+            }
+            
+            // ===== 2.10 INVOICE 专用解析：完全保持PDF原始格式，粘贴后数据保持行格式 =====
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'INVOICE') {
+                console.log('2.10 INVOICE mode detected, preserving PDF format...');
+                
+                // 优先尝试获取HTML格式的数据（PDF粘贴可能包含HTML格式）
+                let htmlData = null;
+                try {
+                    htmlData = e.clipboardData.getData('text/html');
+                    if (htmlData && htmlData.includes('<table')) {
+                        console.log('2.10 INVOICE: HTML table format detected');
+                        const startCell = e.target;
+                        const filled = parseAndFillHTMLTableForInvoice(htmlData, startCell);
+                        if (filled) {
+                            return; // 成功处理，直接返回
+                        }
+                    }
+                } catch (err) {
+                    console.log('2.10 INVOICE: Could not get HTML data from clipboard:', err);
+                }
+                
+                // 如果HTML解析失败，尝试使用detectAndParseHTML
+                const htmlDataFromDetect = detectAndParseHTML(e);
+                if (htmlDataFromDetect) {
+                    console.log('2.10 INVOICE: HTML data detected via detectAndParseHTML');
+                    const startCell = e.target;
+                    const filled = parseAndFillHTMLTableForInvoice(htmlDataFromDetect, startCell);
+                    if (filled) {
+                        return; // 成功处理，直接返回
+                    }
+                }
+                
+                // 如果HTML解析都失败，尝试纯文本格式（但尽量保持格式）
+                console.log('2.10 INVOICE: HTML parsing failed, trying text format...');
+                const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
+                
+                if (lines.length > 0) {
+                    // 检查是否是多行制表符分隔的数据（标准表格格式）
+                    const hasTabSeparator = lines.some(line => line.includes('\t'));
+                    
+                    if (hasTabSeparator) {
+                        const dataMatrix = [];
+                        let maxCols = 0;
+                        
+                        lines.forEach(line => {
+                            if (line.includes('\t')) {
+                                // 制表符分隔，保持原始格式（不trim，保留空格）
+                                const cells = line.split('\t');
+                                dataMatrix.push(cells);
+                                maxCols = Math.max(maxCols, cells.length);
+                            } else if (line !== '') {
+                                dataMatrix.push([line]);
+                                maxCols = Math.max(maxCols, 1);
+                            }
+                        });
+                        
+                        // 确保所有行都有相同的列数
+                        dataMatrix.forEach(row => {
+                            while (row.length < maxCols) {
+                                row.push('');
+                            }
+                        });
+                        
+                        // 填充到表格，保持原始格式
+                        if (dataMatrix.length > 0 && maxCols > 0) {
+                            const startCell = e.target;
+                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                            const startCol = parseInt(startCell.dataset.col);
+                            
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                            const requiredRows = startRow + dataMatrix.length;
+                            const requiredCols = startCol + maxCols;
+                            
+                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                const targetCols = Math.max(currentCols, requiredCols);
+                                initializeTable(targetRows, targetCols);
+                            }
+                            
+                            const tableBody = document.getElementById('tableBody');
+                            const currentPasteChanges = [];
+                            let successCount = 0;
+                            
+                            dataMatrix.forEach((rowData, rowIndex) => {
+                                const actualRowIndex = startRow + rowIndex;
+                                const tableRow = tableBody.children[actualRowIndex];
+                                if (!tableRow) return;
+                                
+                                rowData.forEach((cellData, colIndex) => {
+                                    const actualColIndex = startCol + colIndex;
+                                    const cell = tableRow.children[actualColIndex + 1];
+                                    
+                                    if (cell && cell.contentEditable === 'true') {
+                                        // 保持原始格式，不trim，保留所有空格和格式
+                                        const cellValue = cellData || '';
+                                        currentPasteChanges.push({
+                                            row: actualRowIndex,
+                                            col: actualColIndex,
+                                            oldValue: cell.textContent,
+                                            newValue: cellValue
+                                        });
+                                        
+                                        // 直接使用原始值，不做任何转换
+                                        cell.textContent = cellValue;
+                                        if (cellValue) {
+                                            successCount++;
+                                        }
+                                    }
+                                });
+                            });
+                            
+                            if (currentPasteChanges.length > 0) {
+                                pasteHistory.push(currentPasteChanges);
+                                if (pasteHistory.length > maxHistorySize) {
+                                    pasteHistory.shift();
+                                }
+                            }
+                            
+                            if (successCount > 0) {
+                                showNotification(`2.10 INVOICE: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持PDF原始格式!`, 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            }
+                        }
+                    } else {
+                        // 没有制表符，尝试按空格分割（多个空格作为分隔符）
+                        const dataMatrix = [];
+                        let maxCols = 0;
+                        
+                        lines.forEach(line => {
+                            if (line.trim() !== '') {
+                                // 使用多个空格分割，保持原始格式
+                                const cells = line.split(/\s{2,}/);
+                                dataMatrix.push(cells);
+                                maxCols = Math.max(maxCols, cells.length);
+                            }
+                        });
+                        
+                        // 确保所有行都有相同的列数
+                        dataMatrix.forEach(row => {
+                            while (row.length < maxCols) {
+                                row.push('');
+                            }
+                        });
+                        
+                        // 填充到表格，保持原始格式
+                        if (dataMatrix.length > 0 && maxCols > 0) {
+                            const startCell = e.target;
+                            const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                            const startCol = parseInt(startCell.dataset.col);
+                            
+                            const currentRows = document.querySelectorAll('#tableBody tr').length;
+                            const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                            const requiredRows = startRow + dataMatrix.length;
+                            const requiredCols = startCol + maxCols;
+                            
+                            if (requiredRows > currentRows || requiredCols > currentCols) {
+                                const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                const targetCols = Math.max(currentCols, requiredCols);
+                                initializeTable(targetRows, targetCols);
+                            }
+                            
+                            const tableBody = document.getElementById('tableBody');
+                            const currentPasteChanges = [];
+                            let successCount = 0;
+                            
+                            dataMatrix.forEach((rowData, rowIndex) => {
+                                const actualRowIndex = startRow + rowIndex;
+                                const tableRow = tableBody.children[actualRowIndex];
+                                if (!tableRow) return;
+                                
+                                rowData.forEach((cellData, colIndex) => {
+                                    const actualColIndex = startCol + colIndex;
+                                    const cell = tableRow.children[actualColIndex + 1];
+                                    
+                                    if (cell && cell.contentEditable === 'true') {
+                                        // 保持原始格式，不trim，保留所有空格和格式
+                                        const cellValue = cellData || '';
+                                        currentPasteChanges.push({
+                                            row: actualRowIndex,
+                                            col: actualColIndex,
+                                            oldValue: cell.textContent,
+                                            newValue: cellValue
+                                        });
+                                        
+                                        // 直接使用原始值，不做任何转换
+                                        cell.textContent = cellValue;
+                                        if (cellValue) {
+                                            successCount++;
+                                        }
+                                    }
+                                });
+                            });
+                            
+                            if (currentPasteChanges.length > 0) {
+                                pasteHistory.push(currentPasteChanges);
+                                if (pasteHistory.length > maxHistorySize) {
+                                    pasteHistory.shift();
+                                }
+                            }
+                            
+                            if (successCount > 0) {
+                                showNotification(`2.10 INVOICE: 成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持PDF原始格式!`, 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return;
+                            }
+                        }
+                    }
+                }
+                
+                // 如果所有解析都失败，继续使用默认处理逻辑
+                console.log('2.10 INVOICE: All parsing methods failed, continuing with default logic');
             }
             
             // ===== 2.SPECIAL 专用解析：自动检测并应用6种格式（CITIBET, VPOWER, PS3838, WBET, ALIPAY, PEGASUS） =====
