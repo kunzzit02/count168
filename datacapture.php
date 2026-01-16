@@ -8487,6 +8487,23 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
+                // 检测 Total 行并在开头添加 3 个空列，以匹配原始数据结构
+                // 数据行有 No., Username, Name 三列，但 Total 行没有这三列
+                dataMatrix.forEach((row, rowIndex) => {
+                    if (row.length > 0) {
+                        const firstCell = (row[0] || '').trim().toUpperCase();
+                        // 检测是否是 Total 行
+                        if (firstCell === 'TOTAL') {
+                            // 在 Total 行开头插入 3 个空列
+                            row.unshift('', '', '');
+                            console.log(`PS3838: Detected Total row at index ${rowIndex}, added 3 empty columns at the beginning`);
+                        }
+                    }
+                });
+                
+                // 重新计算最大列数（因为 Total 行可能增加了列数）
+                maxCols = Math.max(...dataMatrix.map(row => row.length));
+                
                 // 确保所有行的列数相同（用空字符串填充）
                 dataMatrix.forEach(row => {
                     while (row.length < maxCols) {
@@ -8544,6 +8561,20 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (dataMatrix.length === 0) {
                     return null;
                 }
+                
+                // 检测 Total 行并在开头添加 3 个空列，以匹配原始数据结构
+                // 数据行有 No., Username, Name 三列，但 Total 行没有这三列
+                dataMatrix.forEach((row, rowIndex) => {
+                    if (row.length > 0) {
+                        const firstCell = (row[0] || '').trim().toUpperCase();
+                        // 检测是否是 Total 行
+                        if (firstCell === 'TOTAL') {
+                            // 在 Total 行开头插入 3 个空列
+                            row.unshift('', '', '');
+                            console.log(`PS3838: Detected Total row at index ${rowIndex} (standard format), added 3 empty columns at the beginning`);
+                        }
+                    }
+                });
                 
                 // 确保所有行的列数相同
                 let maxCols = Math.max(...dataMatrix.map(row => row.length));
@@ -13865,6 +13896,20 @@ if ($current_user_id && count($user_companies) > 0) {
                             });
                             
                             if (dataMatrix.length > 0) {
+                                // 检测 Total 行并在开头添加 3 个空列，以匹配原始数据结构
+                                // 数据行有 No., Username, Name 三列，但 Total 行没有这三列
+                                dataMatrix.forEach((row, rowIndex) => {
+                                    if (row.length > 0) {
+                                        const firstCell = (row[0] || '').trim().toUpperCase();
+                                        // 检测是否是 Total 行
+                                        if (firstCell === 'TOTAL') {
+                                            // 在 Total 行开头插入 3 个空列
+                                            row.unshift('', '', '');
+                                            console.log(`PS3838: Detected Total row at index ${rowIndex} (HTML format), added 3 empty columns at the beginning`);
+                                        }
+                                    }
+                                });
+                                
                                 // 确保所有行的列数相同
                                 let maxCols = Math.max(...dataMatrix.map(row => row.length));
                                 dataMatrix.forEach(row => {
