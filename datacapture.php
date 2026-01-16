@@ -14610,23 +14610,34 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const cell = cells[colIndex] || '';
                                     
                                     // 检查是否包含公式特征：括号和运算符（不一定需要冒号）
+                                    // 放宽条件：只要包含运算符和数字，就认为是公式
                                     const hasFormula = (cell.includes('(') || cell.includes('+') || 
                                                        cell.includes('-') || cell.includes('*') || 
                                                        cell.includes('/')) && 
-                                                      (cell.includes('(') || cell.match(/\d/)); // 包含数字
+                                                      cell.match(/\d/); // 包含数字
                                     
                                     if (hasFormula) {
                                         // 解析公式列
                                         let parsedFormula = null;
                                         
-                                        // 如果有冒号，使用parseApiReturnFormat
+                                        // 如果有冒号，先尝试使用parseApiReturnFormat
                                         if (cell.includes(':')) {
                                             parsedFormula = parseApiReturnFormat(cell);
-                                        } else {
-                                            // 如果没有冒号，直接提取数字（包括负数）
+                                        }
+                                        
+                                        // 如果parseApiReturnFormat返回null，或者没有冒号，使用内联解析方法
+                                        if (!parsedFormula || !parsedFormula.columns || parsedFormula.columns.length === 0) {
+                                            // 直接提取数字（包括负数）
                                             let numbers = [];
                                             // 先移除所有括号和空格
                                             let cleanFormula = cell.replace(/[()\s]/g, '');
+                                            
+                                            // 如果有冒号，提取冒号后的部分
+                                            if (cell.includes(':')) {
+                                                const colonIndex = cell.indexOf(':');
+                                                const expression = cell.substring(colonIndex + 1).trim();
+                                                cleanFormula = expression.replace(/[()\s]/g, '');
+                                            }
                                             
                                             // 使用正则表达式匹配所有数字（包括负数）
                                             const numberPattern = /(?:^|[+\-*/])(-?\d+\.?\d*)/g;
@@ -14667,7 +14678,15 @@ if ($current_user_id && count($user_companies) > 0) {
                                             }
                                             
                                             if (numbers.length > 0) {
-                                                parsedFormula = { columns: numbers };
+                                                // 如果有冒号，添加标签
+                                                let label = '';
+                                                if (cell.includes(':')) {
+                                                    const colonIndex = cell.indexOf(':');
+                                                    label = cell.substring(0, colonIndex).trim();
+                                                }
+                                                parsedFormula = { 
+                                                    columns: label ? [label, ...numbers] : numbers 
+                                                };
                                             }
                                         }
                                         
