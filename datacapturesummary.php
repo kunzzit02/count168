@@ -15021,37 +15021,38 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     }
                 } else {
                     // Formula doesn't contain Source %, use preserveFormulaStructure as before
-                if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
+                    if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
                         // 非 Batch 子行保留历史公式结构，但优先使用当前数据重新计算
-                    const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                    if (preservedFormula === null) {
-                        console.log('Sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
-                        if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                        } else if (percentValue && resolvedSourceExpression) {
-                            formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                        const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
+                        if (preservedFormula === null) {
+                            console.log('Sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                            } else if (percentValue && resolvedSourceExpression) {
+                                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                            } else {
+                                formulaDisplay = resolvedSourceExpression || 'Formula';
+                            }
+                            console.log('Sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
+                        } else if (preservedFormula === savedFormulaDisplay) {
+                            console.log('Sub-template: preserveFormulaStructure returned unchanged formula, recalculating to ensure current data');
+                            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                            } else if (percentValue && resolvedSourceExpression) {
+                                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                            } else {
+                                formulaDisplay = resolvedSourceExpression || 'Formula';
+                            }
+                            console.log('Sub-template: recalculated formula from current Data Capture Table (even though preserveFormulaStructure returned unchanged):', formulaDisplay);
                         } else {
-                            formulaDisplay = resolvedSourceExpression || 'Formula';
+                            formulaDisplay = preservedFormula;
+                            console.log('Preserved saved formula_display structure with updated source data (sub):', formulaDisplay);
                         }
-                        console.log('Sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
-                } else if (preservedFormula === savedFormulaDisplay) {
-                        console.log('Sub-template: preserveFormulaStructure returned unchanged formula, recalculating to ensure current data');
-                        if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                        } else if (percentValue && resolvedSourceExpression) {
-                            formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
-                        } else {
-                            formulaDisplay = resolvedSourceExpression || 'Formula';
-                        }
-                        console.log('Sub-template: recalculated formula from current Data Capture Table (even though preserveFormulaStructure returned unchanged):', formulaDisplay);
-                } else {
-                    formulaDisplay = preservedFormula;
-                    console.log('Preserved saved formula_display structure with updated source data (sub):', formulaDisplay);
-                }
-            } else {
-                // If no current source data, use saved formula as-is
-                formulaDisplay = savedFormulaDisplay;
-                console.log('Using saved formula_display as-is (sub, no current source data):', formulaDisplay);
+                    } else {
+                        // If no current source data, use saved formula as-is
+                        formulaDisplay = savedFormulaDisplay;
+                        console.log('Using saved formula_display as-is (sub, no current source data):', formulaDisplay);
+                    }
                 }
             }
         } else if (!hasCalculatedFormulaDisplay) {
