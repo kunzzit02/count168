@@ -14592,20 +14592,26 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     if (hasTabSeparator) {
                         // 如果包含制表符，按制表符分割，检查所有列是否包含公式
+                        console.log('API-RETURN: Processing', lines.length, 'rows with tab separator');
                         for (let i = 0; i < lines.length; i++) {
                             const line = lines[i];
                             if (line.includes('\t')) {
                                 const cells = line.split('\t').map(c => c.trim());
+                                console.log('API-RETURN: Row', i, 'has', cells.length, 'columns');
                                 
                                 // 处理所有列：去掉标签后的冒号（如 "abc:" -> "abc"）
+                                // 注意：不要去掉包含公式的列的冒号
                                 for (let colIndex = 0; colIndex < cells.length; colIndex++) {
-                                    if (cells[colIndex] && cells[colIndex].endsWith(':') && !cells[colIndex].includes('(')) {
+                                    if (cells[colIndex] && cells[colIndex].endsWith(':') && !cells[colIndex].includes('(') && 
+                                        !cells[colIndex].includes('+') && !cells[colIndex].includes('-') && 
+                                        !cells[colIndex].includes('*') && !cells[colIndex].includes('/')) {
                                         // 如果单元格以冒号结尾且不包含公式，去掉冒号
                                         cells[colIndex] = cells[colIndex].slice(0, -1);
                                     }
                                 }
                                 
                                 // 检查所有列，找到包含公式的列（有括号和运算符）
+                                let formulaFound = false;
                                 for (let colIndex = 0; colIndex < cells.length; colIndex++) {
                                     const cell = cells[colIndex] || '';
                                     
@@ -14617,6 +14623,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                                       cell.match(/\d/); // 包含数字
                                     
                                     if (hasFormula) {
+                                        formulaFound = true;
+                                        console.log('API-RETURN: Row', i, 'Column', colIndex, 'contains formula:', cell);
                                         // 解析公式列
                                         let parsedFormula = null;
                                         
@@ -14687,10 +14695,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                                 parsedFormula = { 
                                                     columns: label ? [label, ...numbers] : numbers 
                                                 };
+                                                console.log('API-RETURN: Row', i, 'inline parsing result:', parsedFormula);
                                             }
                                         }
                                         
                                         if (parsedFormula && parsedFormula.columns && parsedFormula.columns.length > 0) {
+                                            console.log('API-RETURN: Row', i, 'Column', colIndex, 'parsed formula:', parsedFormula.columns);
                                             const parsedColumns = parsedFormula.columns;
                                             
                                             // 如果有标签（第一个元素可能是标签），保留标签但去掉冒号
@@ -14710,6 +14720,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                                 }
                                             }
                                             
+                                            console.log('API-RETURN: Row', i, 'label:', label, 'numbers to insert:', numbersToInsert);
+                                            
                                             // 替换公式列为标签（如果有）
                                             if (label) {
                                                 cells[colIndex] = label;
@@ -14728,10 +14740,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                                 }
                                             }
                                             
+                                            console.log('API-RETURN: Row', i, 'final cells after split:', cells);
+                                            
                                             // 处理完一个公式列后，跳出循环（一次只处理一个公式列）
                                             break;
+                                        } else {
+                                            console.log('API-RETURN: Row', i, 'Column', colIndex, 'formula parsing failed');
                                         }
                                     }
+                                }
+                                
+                                if (!formulaFound) {
+                                    console.log('API-RETURN: Row', i, 'no formula column found');
                                 }
                                 
                                 dataMatrix.push(cells);
