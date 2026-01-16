@@ -14763,6 +14763,7 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             
             console.log('applySubTemplatesToSummaryRow: formula_operators contains $, recalculated from current table data:', formulaDisplay);
         } else if (!hasDollarSigns && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
+            // CRITICAL: 如果公式中没有 $ 符号，直接使用保存的 formula_display，不尝试解析或重建
             // Check if savedFormulaDisplay has reference format (e.g., [id_product : column])
             const savedHasReferenceFormat = /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay);
             if (savedHasReferenceFormat) {
@@ -14774,11 +14775,25 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     formulaDisplay = parsedSavedFormula;
                 }
                 console.log('applySubTemplatesToSummaryRow: Using saved formula_display with reference format (parsed):', formulaDisplay);
+            } else {
+                // 没有引用格式，直接使用保存的 formula_display
+                formulaDisplay = savedFormulaDisplay;
+                console.log('applySubTemplatesToSummaryRow: Using saved formula_display directly (no $, no reference format):', formulaDisplay);
             }
+        } else if (!hasDollarSigns && !savedFormulaDisplay) {
+            // 如果公式中没有 $ 符号，且没有保存的 formula_display，使用 formula_operators
+            // 应用 source percent 如果需要
+            if (percentValue && enableSourcePercent && formulaOperatorsValue) {
+                formulaDisplay = createFormulaDisplayFromExpression(formulaOperatorsValue, percentValue, enableSourcePercent);
+            } else {
+                formulaDisplay = formulaOperatorsValue || '';
+            }
+            console.log('applySubTemplatesToSummaryRow: Using formula_operators directly (no $, no saved formula_display):', formulaDisplay);
         }
         
-        // 如果已经计算好 formulaDisplay（包含 $数字 的情况），跳过后续的 batch selection 逻辑
-        const hasCalculatedFormulaDisplay = (hasDollarSigns || (savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay))) && formulaDisplay && formulaDisplay.trim() !== '';
+        // 如果已经计算好 formulaDisplay（包含 $数字 的情况，或者没有 $ 但已使用保存的 formula_display），跳过后续的 batch selection 逻辑
+        // CRITICAL: 如果公式中没有 $ 符号，且已经设置了 formulaDisplay，应该跳过后续的重建逻辑
+        const hasCalculatedFormulaDisplay = (hasDollarSigns || (savedFormulaDisplay && /\[[^\]]+\s*:\s*\d+\]/.test(savedFormulaDisplay)) || (!hasDollarSigns && formulaDisplay && formulaDisplay.trim() !== '')) && formulaDisplay && formulaDisplay.trim() !== '';
         
             if (isBatchSelectedTemplate && !hasCalculatedFormulaDisplay) {
                 // 对于 Batch Selection 的子模板，优先使用保存的 formula_display
@@ -14931,79 +14946,55 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                 console.log('Batch sub-template: recalculated formula from current Data Capture Table (no saved formula):', formulaDisplay);
             }
         } else if (!hasCalculatedFormulaDisplay && savedFormulaDisplay && savedFormulaDisplay.trim() !== '' && savedFormulaDisplay !== 'Formula') {
-            // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
-            // If so, extract the base expression by removing ALL trailing Source % patterns
-            // IMPORTANT: Only remove Source % patterns with parentheses like *(1) or *(0.5)
-            // Do NOT remove patterns without parentheses like *0.6, as these are user-manual multipliers
-            // Iteratively remove all trailing *(...) patterns to get the true base expression
-            let baseExpression = savedFormulaDisplay.trim();
-            let previousExpression = '';
-            
-            // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
-            // Only match patterns with parentheses to avoid removing user-manual multipliers like *0.6
-            while (baseExpression !== previousExpression) {
-                previousExpression = baseExpression;
-                
-                // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
-                // This is the Source % pattern added by the system
-                const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
-                const trailingMatch = baseExpression.match(trailingSourcePercentPattern);
-                if (trailingMatch) {
-                    // Found trailing source percent, remove it
-                    baseExpression = trailingMatch[1].trim();
-                    continue;
-                }
-                
-                // Do NOT match pattern without parentheses (*number) as this might be user-manual multiplier
-                // Source % is always added with parentheses by createFormulaDisplayFromExpression
-                
-                // No more patterns found, break
-                break;
-            }
-            
-            if (baseExpression !== savedFormulaDisplay.trim()) {
-                // Formula already contained Source %, extracted base expression
-                console.log('Sub-template: Extracted base expression from saved formula_display (removed all trailing Source %):', baseExpression, 'from:', savedFormulaDisplay);
-                
-                // Use the extracted base expression with current Source %
-                // IMPORTANT: baseExpression is already the pure expression without Source %, so we can safely apply current Source %
-                if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
-                    // Use current source data if available
-                    const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
-                    // Note: preserveFormulaStructure with enableSourcePercent=false will NOT add Source % to the result
-                    if (preservedFormula === null) {
-                        console.log('Sub-template: preserveFormulaStructure returned null, using current source data directly');
-                if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-                } else if (percentValue && resolvedSourceExpression) {
-                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
-                } else {
-                    formulaDisplay = resolvedSourceExpression || 'Formula';
-                }
-                    } else {
-                        // preservedFormula does NOT contain Source % (because enableSourcePercent=false)
-                        // Now apply current Source % to preserved formula
-                        if (percentValue && enableSourcePercent) {
-                            formulaDisplay = createFormulaDisplayFromExpression(preservedFormula, percentValue, enableSourcePercent);
-                        } else {
-                            formulaDisplay = preservedFormula;
-                        }
-                    }
-                } else {
-                    // No current source data, use base expression with current Source %
-                    if (percentValue && enableSourcePercent) {
-                        formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
-                    } else {
-                        formulaDisplay = baseExpression;
-                    }
-                }
+            // CRITICAL: 如果公式中没有 $ 符号，直接使用保存的 formula_display，不尝试使用 resolvedSourceExpression 来更新
+            if (!hasDollarSigns) {
+                // 公式中没有 $ 符号，直接使用保存的 formula_display
+                formulaDisplay = savedFormulaDisplay;
+                console.log('Sub-template: Using saved formula_display directly (no $ symbols):', formulaDisplay);
             } else {
-                // Formula doesn't contain Source %, use preserveFormulaStructure as before
-            if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
-                    // 非 Batch 子行保留历史公式结构，但优先使用当前数据重新计算
-                const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
-                if (preservedFormula === null) {
-                    console.log('Sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                // 公式中有 $ 符号，可以尝试使用 resolvedSourceExpression 来更新
+                // Check if savedFormulaDisplay already contains Source % (ends with *(number) or *(expression))
+                // If so, extract the base expression by removing ALL trailing Source % patterns
+                // IMPORTANT: Only remove Source % patterns with parentheses like *(1) or *(0.5)
+                // Do NOT remove patterns without parentheses like *0.6, as these are user-manual multipliers
+                // Iteratively remove all trailing *(...) patterns to get the true base expression
+                let baseExpression = savedFormulaDisplay.trim();
+                let previousExpression = '';
+                
+                // Remove all trailing source percent patterns: ...*(number) or ...*(expression)
+                // Only match patterns with parentheses to avoid removing user-manual multipliers like *0.6
+                while (baseExpression !== previousExpression) {
+                    previousExpression = baseExpression;
+                    
+                    // Try pattern with parentheses: ...*(number) or ...*(expression) at the end
+                    // This is the Source % pattern added by the system
+                    const trailingSourcePercentPattern = /^(.+)\*\(([0-9.]+(?:\/[0-9.]+)?)\)\s*$/;
+                    const trailingMatch = baseExpression.match(trailingSourcePercentPattern);
+                    if (trailingMatch) {
+                        // Found trailing source percent, remove it
+                        baseExpression = trailingMatch[1].trim();
+                        continue;
+                    }
+                    
+                    // Do NOT match pattern without parentheses (*number) as this might be user-manual multiplier
+                    // Source % is always added with parentheses by createFormulaDisplayFromExpression
+                    
+                    // No more patterns found, break
+                    break;
+                }
+                
+                if (baseExpression !== savedFormulaDisplay.trim()) {
+                    // Formula already contained Source %, extracted base expression
+                    console.log('Sub-template: Extracted base expression from saved formula_display (removed all trailing Source %):', baseExpression, 'from:', savedFormulaDisplay);
+                    
+                    // Use the extracted base expression with current Source %
+                    // IMPORTANT: baseExpression is already the pure expression without Source %, so we can safely apply current Source %
+                    if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
+                        // Use current source data if available
+                        const preservedFormula = preserveFormulaStructure(baseExpression, resolvedSourceExpression, percentValue, false);
+                        // Note: preserveFormulaStructure with enableSourcePercent=false will NOT add Source % to the result
+                        if (preservedFormula === null) {
+                            console.log('Sub-template: preserveFormulaStructure returned null, using current source data directly');
                     if (percentValue && resolvedSourceExpression && enableSourcePercent) {
                         formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
                     } else if (percentValue && resolvedSourceExpression) {
@@ -15011,7 +15002,38 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
                     } else {
                         formulaDisplay = resolvedSourceExpression || 'Formula';
                     }
-                    console.log('Sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
+                        } else {
+                            // preservedFormula does NOT contain Source % (because enableSourcePercent=false)
+                            // Now apply current Source % to preserved formula
+                            if (percentValue && enableSourcePercent) {
+                                formulaDisplay = createFormulaDisplayFromExpression(preservedFormula, percentValue, enableSourcePercent);
+                            } else {
+                                formulaDisplay = preservedFormula;
+                            }
+                        }
+                    } else {
+                        // No current source data, use base expression with current Source %
+                        if (percentValue && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(baseExpression, percentValue, enableSourcePercent);
+                        } else {
+                            formulaDisplay = baseExpression;
+                        }
+                    }
+                } else {
+                    // Formula doesn't contain Source %, use preserveFormulaStructure as before
+                if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
+                        // 非 Batch 子行保留历史公式结构，但优先使用当前数据重新计算
+                    const preservedFormula = preserveFormulaStructure(savedFormulaDisplay, resolvedSourceExpression, percentValue, enableSourcePercent);
+                    if (preservedFormula === null) {
+                        console.log('Sub-template: preserveFormulaStructure returned null (number count mismatch), recalculating formula from current source data');
+                        if (percentValue && resolvedSourceExpression && enableSourcePercent) {
+                            formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                        } else if (percentValue && resolvedSourceExpression) {
+                            formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                        } else {
+                            formulaDisplay = resolvedSourceExpression || 'Formula';
+                        }
+                        console.log('Sub-template: recalculated formula from current Data Capture Table:', formulaDisplay);
                 } else if (preservedFormula === savedFormulaDisplay) {
                         console.log('Sub-template: preserveFormulaStructure returned unchanged formula, recalculating to ensure current data');
                         if (percentValue && resolvedSourceExpression && enableSourcePercent) {
@@ -15034,14 +15056,29 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
             }
         } else if (!hasCalculatedFormulaDisplay) {
             // No saved formula_display, recalculate from current Data Capture Table
-            if (percentValue && resolvedSourceExpression && enableSourcePercent) {
-                formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
-            } else if (percentValue && resolvedSourceExpression) {
-                formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+            // CRITICAL: 如果公式中没有 $ 符号，直接使用 formula_operators，不尝试从表格重建
+            if (!hasDollarSigns && formulaOperatorsValue) {
+                // 公式中没有 $ 符号，直接使用 formula_operators
+                if (percentValue && enableSourcePercent) {
+                    formulaDisplay = createFormulaDisplayFromExpression(formulaOperatorsValue, percentValue, enableSourcePercent);
+                } else {
+                    formulaDisplay = formulaOperatorsValue;
+                }
+                console.log('Using formula_operators directly (no $, no saved formula_display, sub):', formulaDisplay);
+            } else if (resolvedSourceExpression && resolvedSourceExpression.trim() !== '') {
+                // 公式中有 $ 符号，使用 resolvedSourceExpression 重建
+                if (percentValue && enableSourcePercent) {
+                    formulaDisplay = createFormulaDisplayFromExpression(resolvedSourceExpression, percentValue, enableSourcePercent);
+                } else if (percentValue) {
+                    formulaDisplay = createFormulaDisplay(resolvedSourceExpression, percentValue);
+                } else {
+                    formulaDisplay = resolvedSourceExpression;
+                }
+                console.log('Recalculated formula from current Data Capture Table (sub):', formulaDisplay);
             } else {
-                formulaDisplay = resolvedSourceExpression || 'Formula';
+                formulaDisplay = 'Formula';
+                console.log('No source data available, using default (sub):', formulaDisplay);
             }
-            console.log('Recalculated formula from current Data Capture Table (sub):', formulaDisplay);
         }
 
         // Always recalculate processed amount from current formula
