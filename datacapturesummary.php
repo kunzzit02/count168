@@ -13394,7 +13394,29 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         }
 
         // Apply the template (reuse the logic from applyTemplateToSummaryRow)
-        const sourceColumnsValue = mainTemplate.source_columns || '';
+        // CRITICAL: 如果 source_columns 是 "0" 或其他无效值，应该被视为空字符串
+        // 只有当 source_columns 是有效的列引用格式时，才使用它
+        let sourceColumnsValue = mainTemplate.source_columns || '';
+        // 检查是否是无效值（如 "0" 或纯数字，但不是有效的列引用格式）
+        if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+            const trimmed = sourceColumnsValue.trim();
+            // 检查是否是有效的列引用格式：
+            // 1. 新格式：id_product:row_label:column_index 或 id_product:column_index
+            // 2. 旧格式：列号（如 "7 5"）或单元格位置（如 "A7 B5"）
+            const isNewFormat = isNewIdProductColumnFormat(trimmed);
+            const isCellPositionFormat = /^[A-Z]+\d+(\s+[A-Z]+\d+)*$/.test(trimmed); // 如 "A7 B5"
+            const isColumnNumberFormat = /^\d+(\s+\d+)*$/.test(trimmed); // 如 "7 5"
+            // 如果是单个数字（如 "0", "15680"），且不是任何有效格式，视为空字符串
+            if (/^\d+$/.test(trimmed) && !isNewFormat && !isCellPositionFormat && !isColumnNumberFormat) {
+                // 单个数字可能是无效值，但如果它看起来像是列号（小于1000），可能是有效的
+                // 如果数字很大（如 "15680", "100200300"），很可能是无效值
+                const numValue = parseInt(trimmed);
+                if (numValue > 1000 || numValue === 0) {
+                    console.log('applyMainTemplateToRow: source_columns is invalid numeric value, treating as empty:', trimmed);
+                    sourceColumnsValue = '';
+                }
+            }
+        }
         const formulaOperatorsValue = mainTemplate.formula_operators || '';
 
         // Always prefer the latest numbers from Data Capture Table when available
@@ -13477,23 +13499,39 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         } else if (isCompleteExpression) {
             // CRITICAL: Even for complete expression, if we have sourceColumnsValue,
             // we should rebuild from current Data Capture Table to get latest data
-            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+            // BUT: 如果公式中没有 $ 符号，说明是手动输入的纯公式，不应该重建
+            const hasDollarSignInFormula = formulaOperatorsValue && formulaOperatorsValue.includes('$');
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && hasDollarSignInFormula) {
                 // Rebuild from current Data Capture Table
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
                 console.log('Rebuilt complete expression from current Data Capture Table (main):', currentSourceData);
             } else {
-                // No sourceColumnsValue, use saved expression (preserves values from other id product rows)
+                // No sourceColumnsValue or no $ in formula, use saved expression (preserves values from other id product rows)
                 currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows, main):', currentSourceData);
+                if (!hasDollarSignInFormula) {
+                    console.log('Using saved formulaOperatorsValue as complete expression (no $ in formula, main):', currentSourceData);
+                } else {
+                    console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows, main):', currentSourceData);
+                }
             }
         } else {
             // Build reference format from columns
-            currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+            // BUT: 如果公式中没有 $ 符号，不应该从列重建
+            const hasDollarSignInFormula = formulaOperatorsValue && formulaOperatorsValue.includes('$');
+            if (hasDollarSignInFormula) {
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+            } else {
+                // 如果公式中没有 $ 符号，直接使用保存的公式
+                currentSourceData = formulaOperatorsValue;
+                console.log('Formula contains no $ symbols, using saved formula directly (main):', currentSourceData);
+            }
         }
 
         // If source_columns is empty but formula_operators exists (user manually entered formula),
-        // try to extract numbers from formula and find corresponding columns from Data Capture Table
-        if (!currentSourceData && !sourceColumnsValue && formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && !isCompleteExpression) {
+        // CRITICAL: 只有当公式中包含 $ 符号时，才尝试从公式中提取列数据
+        // 如果公式中没有 $ 符号，说明是手动输入的纯公式，不应该尝试提取列数据
+        const hasDollarSignInFormulaForExtraction = formulaOperatorsValue && formulaOperatorsValue.includes('$');
+        if (!currentSourceData && !sourceColumnsValue && formulaOperatorsValue && formulaOperatorsValue.trim() !== '' && !isCompleteExpression && hasDollarSignInFormulaForExtraction) {
             console.log('source_columns is empty but formula_operators exists, trying to find columns from formula:', formulaOperatorsValue);
             const processValue = idProduct;
             const foundColumns = findColumnsFromFormula(formulaOperatorsValue, processValue);
@@ -14484,7 +14522,29 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         const addCell = targetRow.querySelector('td:nth-child(3)');
         const targetButton = addCell ? addCell.querySelector('.add-account-btn') : null;
 
-        const sourceColumnsValue = template.source_columns || '';
+        // CRITICAL: 如果 source_columns 是 "0" 或其他无效值，应该被视为空字符串
+        // 只有当 source_columns 是有效的列引用格式时，才使用它
+        let sourceColumnsValue = template.source_columns || '';
+        // 检查是否是无效值（如 "0" 或纯数字，但不是有效的列引用格式）
+        if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+            const trimmed = sourceColumnsValue.trim();
+            // 检查是否是有效的列引用格式：
+            // 1. 新格式：id_product:row_label:column_index 或 id_product:column_index
+            // 2. 旧格式：列号（如 "7 5"）或单元格位置（如 "A7 B5"）
+            const isNewFormat = isNewIdProductColumnFormat(trimmed);
+            const isCellPositionFormat = /^[A-Z]+\d+(\s+[A-Z]+\d+)*$/.test(trimmed); // 如 "A7 B5"
+            const isColumnNumberFormat = /^\d+(\s+\d+)*$/.test(trimmed); // 如 "7 5"
+            // 如果是单个数字（如 "0", "15680"），且不是任何有效格式，视为空字符串
+            if (/^\d+$/.test(trimmed) && !isNewFormat && !isCellPositionFormat && !isColumnNumberFormat) {
+                // 单个数字可能是无效值，但如果它看起来像是列号（小于1000），可能是有效的
+                // 如果数字很大（如 "15680", "100200300"），很可能是无效值
+                const numValue = parseInt(trimmed);
+                if (numValue > 1000 || numValue === 0) {
+                    console.log('applySubTemplatesToSummaryRow: source_columns is invalid numeric value, treating as empty:', trimmed);
+                    sourceColumnsValue = '';
+                }
+            }
+        }
         const formulaOperatorsValue = template.formula_operators || '';
 
         // Always prefer the latest numbers from Data Capture Table when available
@@ -14564,18 +14624,32 @@ function applySubTemplatesToSummaryRow(idProduct, mainRow, subTemplates) {
         } else if (isCompleteExpression) {
             // CRITICAL: Even for complete expression, if we have sourceColumnsValue,
             // we should rebuild from current Data Capture Table to get latest data
-            if (sourceColumnsValue && sourceColumnsValue.trim() !== '') {
+            // BUT: 如果公式中没有 $ 符号，说明是手动输入的纯公式，不应该重建
+            const hasDollarSignInFormula = formulaOperatorsValue && formulaOperatorsValue.includes('$');
+            if (sourceColumnsValue && sourceColumnsValue.trim() !== '' && hasDollarSignInFormula) {
                 // Rebuild from current Data Capture Table
                 currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
                 console.log('Rebuilt complete expression from current Data Capture Table (sub):', currentSourceData);
             } else {
-                // No sourceColumnsValue, use saved expression (preserves values from other id product rows)
+                // No sourceColumnsValue or no $ in formula, use saved expression (preserves values from other id product rows)
                 currentSourceData = formulaOperatorsValue;
-                console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows, sub):', currentSourceData);
+                if (!hasDollarSignInFormula) {
+                    console.log('Using saved formulaOperatorsValue as complete expression (no $ in formula, sub):', currentSourceData);
+                } else {
+                    console.log('Using saved formulaOperatorsValue as complete expression (no sourceColumnsValue, preserves values from other rows, sub):', currentSourceData);
+                }
             }
         } else {
             // Build reference format from columns
-            currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+            // BUT: 如果公式中没有 $ 符号，不应该从列重建
+            const hasDollarSignInFormula = formulaOperatorsValue && formulaOperatorsValue.includes('$');
+            if (hasDollarSignInFormula) {
+                currentSourceData = buildSourceExpressionFromTable(idProduct, sourceColumnsValue, formulaOperatorsValue, targetRow);
+            } else {
+                // 如果公式中没有 $ 符号，直接使用保存的公式
+                currentSourceData = formulaOperatorsValue;
+                console.log('Formula contains no $ symbols, using saved formula directly (sub):', currentSourceData);
+            }
         }
         
         // 如果有当前表格数据，优先使用当前数据，并在需要时用 preserveSourceStructure
