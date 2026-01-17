@@ -9181,6 +9181,75 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     console.log(`2.10 INVOICE: Parsed ${dataMatrix.length} rows with max ${maxCols} columns`);
                     
+                    // 修复PDF上下排版问题：合并货币代码和数字到同一行
+                    // 例如: 第N行是"(MYR)"，第N+1行是"2,693.95"，应该合并到同一行
+                    const mergedDataMatrix = [];
+                    let i = 0;
+                    while (i < dataMatrix.length) {
+                        const currentRow = [...dataMatrix[i]];
+                        const nextRow = i + 1 < dataMatrix.length ? dataMatrix[i + 1] : null;
+                        
+                        // 检查当前行的最后一个非空单元格是否是货币代码（如 "(MYR)"）
+                        const trimmedCurrent = currentRow.map(c => (c || '').trim()).filter(c => c !== '');
+                        const lastCell = trimmedCurrent.length > 0 ? trimmedCurrent[trimmedCurrent.length - 1] : '';
+                        const isCurrencyCode = /^\([A-Z]{3}\)$/.test(lastCell);
+                        
+                        // 检查下一行的第一个非空单元格是否是数字（如 "2,693.95"）
+                        let isNextRowNumber = false;
+                        let nextRowNumber = null;
+                        if (nextRow && isCurrencyCode) {
+                            const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
+                            if (trimmedNext.length > 0) {
+                                const firstNextCell = trimmedNext[0];
+                                // 匹配数字格式（可能包含逗号和小数点，可能是负数）
+                                if (/^-?[\d,]+\.?\d*$/.test(firstNextCell) || /^-?[\d,]+\.\d+$/.test(firstNextCell)) {
+                                    isNextRowNumber = true;
+                                    nextRowNumber = firstNextCell;
+                                }
+                            }
+                        }
+                        
+                        if (isCurrencyCode && isNextRowNumber) {
+                            // 合并：将货币代码和数字放到同一行
+                            // 货币代码保持原位置，数字添加到下一列
+                            // 找到货币代码在当前行中的位置（最后一个非空单元格的位置）
+                            let currencyColIndex = -1;
+                            for (let j = currentRow.length - 1; j >= 0; j--) {
+                                if ((currentRow[j] || '').trim() === lastCell) {
+                                    currencyColIndex = j;
+                                    break;
+                                }
+                            }
+                            
+                            if (currencyColIndex >= 0) {
+                                // 确保行有足够的列
+                                while (currentRow.length <= currencyColIndex + 1) {
+                                    currentRow.push('');
+                                }
+                                // 将数字添加到货币代码的下一列
+                                currentRow[currencyColIndex + 1] = nextRowNumber;
+                                // 跳过下一行（因为它已经被合并到当前行）
+                                i += 2; // 跳过当前行和下一行（因为已经合并）
+                                mergedDataMatrix.push(currentRow);
+                                continue; // 继续处理下一行
+                            }
+                        }
+                        
+                        // 不需要合并，正常添加当前行
+                        mergedDataMatrix.push(currentRow);
+                        i++;
+                    }
+                    
+                    // 更新 dataMatrix 和 maxCols
+                    dataMatrix.length = 0;
+                    dataMatrix.push(...mergedDataMatrix);
+                    maxCols = 0;
+                    dataMatrix.forEach(row => {
+                        maxCols = Math.max(maxCols, row.length);
+                    });
+                    
+                    console.log(`2.10 INVOICE: After merging currency+number, ${dataMatrix.length} rows with max ${maxCols} columns`);
+                    
                     // 确保所有行都有相同的列数
                     dataMatrix.forEach(row => {
                         while (row.length < maxCols) {
