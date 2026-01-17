@@ -237,6 +237,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <option value="AWC">AWC</option>
                             <option value="WBET_API">WBET_API</option>
                             <option value="INVOICE">INVOICE</option>
+                            <option value="655">655</option>
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
@@ -4370,7 +4371,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
-        // 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换
+        // 1.GENERAL 和 655 专用解析：完全保持Excel原始格式，不做任何转换
         function parseAndFillHTMLTableForGeneral(htmlString, startCell) {
             try {
                 const tempDiv = document.createElement('div');
@@ -4381,7 +4382,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     return false;
                 }
                 
-                console.log('1.GENERAL: Parsing HTML table and preserving Excel format...');
+                const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                console.log(modeName + ': Parsing HTML table and preserving Excel format...');
                 
                 // 获取所有行（包括表头）
                 const allRows = table.querySelectorAll('tr');
@@ -4517,15 +4519,18 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 if (successCount > 0) {
+                    const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
                     showNotification(`成功粘贴 ${successCount} 个单元格 (${allRows.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`, 'success');
                     setTimeout(updateSubmitButtonState, 0);
                     return true;
                 } else {
-                    console.log('1.GENERAL: No cells were pasted');
+                    const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                    console.log(modeName + ': No cells were pasted');
                     return false;
                 }
             } catch (error) {
-                console.error('1.GENERAL: Error parsing HTML table:', error);
+                const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                console.error(modeName + ': Error parsing HTML table:', error);
                 return false;
             }
         }
@@ -8900,16 +8905,16 @@ if ($current_user_id && count($user_companies) > 0) {
             // 先拿到纯文本内容，用来判断是不是 Payment Report
             const pastedData = (e.clipboardData || window.clipboardData).getData('text');
             
-            // 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换
-            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.GENERAL') {
-                console.log('1.GENERAL mode detected, preserving Excel format...');
+            // 1.GENERAL 和 655 专用解析：完全保持Excel原始格式，不做任何转换
+            if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === '1.GENERAL' || currentDataCaptureType === '655')) {
+                console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ' mode detected, preserving Excel format...');
                 
                 // 优先尝试获取HTML格式的数据（Excel粘贴通常包含HTML格式）
                 let htmlData = null;
                 try {
                     htmlData = e.clipboardData.getData('text/html');
                     if (htmlData && htmlData.includes('<table')) {
-                        console.log('1.GENERAL: HTML table format detected');
+                        console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': HTML table format detected');
                         const startCell = e.target;
                         const filled = parseAndFillHTMLTableForGeneral(htmlData, startCell);
                         if (filled) {
@@ -8917,13 +8922,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                 } catch (err) {
-                    console.log('1.GENERAL: Could not get HTML data from clipboard:', err);
+                    console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': Could not get HTML data from clipboard:', err);
                 }
                 
                 // 如果HTML解析失败，尝试使用detectAndParseHTML
                 const htmlDataFromDetect = detectAndParseHTML(e);
                 if (htmlDataFromDetect) {
-                    console.log('1.GENERAL: HTML data detected via detectAndParseHTML');
+                    console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': HTML data detected via detectAndParseHTML');
                     const startCell = e.target;
                     const filled = parseAndFillHTMLTableForGeneral(htmlDataFromDetect, startCell);
                     if (filled) {
@@ -8932,7 +8937,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 如果HTML解析都失败，尝试纯文本格式（但尽量保持格式）
-                console.log('1.GENERAL: HTML parsing failed, trying text format...');
+                console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': HTML parsing failed, trying text format...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
                 
@@ -9029,7 +9034,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 如果所有解析都失败，继续使用默认处理逻辑
-                console.log('1.GENERAL: All parsing methods failed, continuing with default logic');
+                console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': All parsing methods failed, continuing with default logic');
             }
             
             // ===== 2.10 INVOICE 专用解析：完全保持PDF原始格式，粘贴后数据保持行格式 =====
@@ -20442,8 +20447,8 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // 调整 id product 列：如果第一列为空，找到第一个有数据的列并交换
         function adjustIdProductColumnForGeneral() {
-            // 只在 1.GENERAL 模式下执行
-            if (currentDataCaptureType !== '1.GENERAL') {
+            // 只在 1.GENERAL 和 655 模式下执行
+            if (currentDataCaptureType !== '1.GENERAL' && currentDataCaptureType !== '655') {
                 return;
             }
             
@@ -20507,7 +20512,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                                 firstDataCell.setAttribute('data-col', targetDataCol);
                                             }
                                             
-                                            console.log(`1.GENERAL: Row ${rowIndex} - swapped first column (empty) with column ${colIndex} (value: "${targetValue}")`);
+                                            const modeName = (currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                                            console.log(`${modeName}: Row ${rowIndex} - swapped first column (empty) with column ${colIndex} (value: "${targetValue}")`);
                                             swappedCount++;
                                             break; // 找到后停止查找
                                         }
@@ -20520,9 +20526,11 @@ if ($current_user_id && count($user_companies) > 0) {
             });
             
             if (swappedCount > 0) {
-                console.log(`1.GENERAL: Successfully adjusted ${swappedCount} row(s) where first column was empty`);
+                const modeName = (currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                console.log(`${modeName}: Successfully adjusted ${swappedCount} row(s) where first column was empty`);
             } else {
-                console.log('1.GENERAL: No rows needed adjustment (all first columns have data)');
+                const modeName = (currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                console.log(`${modeName}: No rows needed adjustment (all first columns have data)`);
             }
         }
 
@@ -20536,7 +20544,7 @@ if ($current_user_id && count($user_companies) > 0) {
             // 在提交前转换表格格式
             convertTableFormatOnSubmit();
             
-            // 注意：1.GENERAL 模式的 id product 自动识别在 captureTableData() 函数中处理
+            // 注意：1.GENERAL 和 655 模式的 id product 自动识别在 captureTableData() 函数中处理
             // 不会在界面上移动数据，只在数据捕获时自动识别
             
             const form = document.getElementById('dataCaptureForm');
@@ -20754,8 +20762,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     
-                    // 1.GENERAL 模式：如果第一列为空，自动将第一个有数据的列识别为 id product
-                    if (currentDataCaptureType === '1.GENERAL' && rowData.length > 1) {
+                    // 1.GENERAL 和 655 模式：如果第一列为空，自动将第一个有数据的列识别为 id product
+                    if ((currentDataCaptureType === '1.GENERAL' || currentDataCaptureType === '655') && rowData.length > 1) {
                         const firstDataCell = rowData[1]; // 第一列数据（index 1 是行号，index 1 之后是第一列数据）
                         if (firstDataCell && firstDataCell.type === 'data') {
                             const firstCellValue = (firstDataCell.value || '').trim();
@@ -20786,7 +20794,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                             firstDataCell.col = targetCol;
                                             cell.col = firstCol;
                                             
-                                            console.log(`1.GENERAL: Row ${rowIndex} - adjusted id product from column ${targetCol + 1} (value: "${targetValue}") to first column`);
+                                            const modeName = (currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                                            console.log(`${modeName}: Row ${rowIndex} - adjusted id product from column ${targetCol + 1} (value: "${targetValue}") to first column`);
                                             break; // 找到后停止查找
                                         }
                                     }
