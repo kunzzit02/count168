@@ -17543,7 +17543,8 @@ function formatPercentValue(value) {
             justify-content: center; /* keep horizontal centering within content area */
             /* Allow clicks to pass through background to reach table cells */
             pointer-events: none;
-            overflow: hidden; /* Prevent modal from causing page scroll */
+            overflow: visible !important; /* Allow dropdown to extend beyond modal */
+            max-height: none !important; /* Remove height restriction */
         }
         
         /* Make modal content clickable while allowing background clicks to pass through */
@@ -17606,7 +17607,8 @@ function formatPercentValue(value) {
             padding-left: clamp(8px, 0.63vw, 12px);
             padding-right: clamp(8px, 0.63vw, 12px);
             box-sizing: border-box;
-            overflow: visible;
+            overflow: visible !important; /* Allow dropdown to extend beyond modal */
+            max-height: none !important; /* Remove height restriction */
             /* Ensure modal content is clickable */
             pointer-events: auto;
             /* Make Edit Formula modal wider - ensure it fits within viewport */
@@ -17957,7 +17959,7 @@ function formatPercentValue(value) {
             border-radius: 4px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             margin-bottom: clamp(10px, 1.04vw, 20px);
-            overflow: hidden;
+            overflow: visible; /* Allow dropdown to extend beyond container */
             border: 1px solid #ddd;
             width: 100%;
         }
@@ -17968,6 +17970,8 @@ function formatPercentValue(value) {
             background: #f1f1f1;
             border: 1px solid #d0d7de;
             border-radius: 8px;
+            overflow: visible !important; /* Allow dropdown to extend beyond container */
+            max-height: none !important; /* Remove height restriction */
         }
 
         .edit-formula-form-container .form-header {
@@ -17986,9 +17990,10 @@ function formatPercentValue(value) {
         .edit-formula-form-container .form-content {
             padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
             overflow-x: hidden;
-            overflow-y: visible;
+            overflow-y: visible !important; /* Allow dropdown to extend beyond */
             width: 100%;
             box-sizing: border-box;
+            max-height: none !important; /* Remove height restriction */
         }
 
         .edit-formula-form-container .form-layout {
@@ -17996,7 +18001,7 @@ function formatPercentValue(value) {
             gap: clamp(20px, 1.56vw, 30px);
             flex-wrap: nowrap;
             overflow-x: hidden;
-            overflow-y: visible;
+            overflow-y: visible !important; /* Allow dropdown to extend beyond */
             justify-content: flex-start;
             align-items: flex-start;
             width: 100%;
@@ -18613,6 +18618,16 @@ function formatPercentValue(value) {
         .custom-select-wrapper {
             position: relative;
             width: 100%;
+            z-index: 1; /* Allow dropdown to overflow */
+        }
+        
+        /* Ensure dropdown in Edit Formula modal has highest priority */
+        #editFormulaModal .custom-select-wrapper {
+            z-index: 10002; /* Higher than modal container */
+        }
+        
+        #editFormulaModal .custom-select-dropdown {
+            z-index: 10002 !important; /* Highest priority to appear above everything */
         }
 
         .custom-select-button {
@@ -18654,7 +18669,7 @@ function formatPercentValue(value) {
             border: 1px solid #ddd;
             border-radius: 4px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            z-index: 1000;
+            z-index: 10001 !important; /* Higher than modal (10000) to appear above */
             display: none;
             max-height: 300px;
             overflow: hidden;
