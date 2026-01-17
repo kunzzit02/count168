@@ -17543,7 +17543,7 @@ function formatPercentValue(value) {
             justify-content: center; /* keep horizontal centering within content area */
             /* Allow clicks to pass through background to reach table cells */
             pointer-events: none;
-            overflow: hidden; /* Prevent modal from causing page scroll */
+            overflow: visible; /* Allow dropdown to overflow modal */
         }
         
         /* Make modal content clickable while allowing background clicks to pass through */
@@ -17592,7 +17592,7 @@ function formatPercentValue(value) {
             max-width: 90%;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             animation: slideDown 0.3s ease-out;
-            overflow: hidden;
+            overflow: visible;
             position: relative;
         }
 
@@ -17612,6 +17612,10 @@ function formatPercentValue(value) {
             /* Make Edit Formula modal wider - ensure it fits within viewport */
             width: clamp(900px, 75vw, 1400px);
             max-width: calc(100vw - clamp(150px, 13.02vw, 250px) - 40px); /* Account for sidebar and padding */
+            /* Prevent modal content from creating scrollbar - use max-height to fit viewport */
+            max-height: calc(100vh - clamp(123px, 14vw, 195px)); /* Account for top margin and padding */
+            display: flex;
+            flex-direction: column;
         }
 
         @keyframes slideDown {
@@ -17957,7 +17961,7 @@ function formatPercentValue(value) {
             border-radius: 4px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             margin-bottom: clamp(10px, 1.04vw, 20px);
-            overflow: hidden;
+            overflow: visible;
             border: 1px solid #ddd;
             width: 100%;
         }
@@ -17985,8 +17989,7 @@ function formatPercentValue(value) {
 
         .edit-formula-form-container .form-content {
             padding: clamp(10px, 1.04vw, 20px) clamp(22px, 1.67vw, 32px);
-            overflow-x: hidden;
-            overflow-y: visible;
+            overflow: visible;
             width: 100%;
             box-sizing: border-box;
         }
@@ -17995,8 +17998,7 @@ function formatPercentValue(value) {
             display: flex;
             gap: clamp(20px, 1.56vw, 30px);
             flex-wrap: nowrap;
-            overflow-x: hidden;
-            overflow-y: visible;
+            overflow: visible;
             justify-content: flex-start;
             align-items: flex-start;
             width: 100%;
@@ -18009,6 +18011,7 @@ function formatPercentValue(value) {
             min-width: 0;
             flex-shrink: 1;
             box-sizing: border-box;
+            overflow: visible;
         }
         
         .edit-formula-form-container .form-left-column .form-group {
@@ -18239,6 +18242,12 @@ function formatPercentValue(value) {
             align-items: center;
             gap: 12px;
             flex: 1;
+            overflow: visible;
+            position: relative;
+        }
+        
+        /* Ensure account form group allows dropdown overflow */
+        #editFormulaModal .edit-formula-form-container .form-group {
             overflow: visible;
         }
 
@@ -18607,6 +18616,20 @@ function formatPercentValue(value) {
 
         .account-select-with-buttons .custom-select-wrapper {
             flex: 1;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Ensure account dropdown wrapper allows overflow */
+        #editFormulaModal .account-select-with-buttons .custom-select-wrapper {
+            overflow: visible;
+            z-index: 10002;
+        }
+        
+        #editFormulaModal .account-select-with-buttons {
+            overflow: visible;
+            position: relative;
+            z-index: 10002;
         }
 
         /* Custom Select Styles for Account */
@@ -18654,11 +18677,16 @@ function formatPercentValue(value) {
             border: 1px solid #ddd;
             border-radius: 4px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            z-index: 1000;
+            z-index: 10001;
             display: none;
             max-height: 300px;
             overflow: hidden;
             margin-top: 2px;
+        }
+        
+        /* Ensure account dropdown in edit formula modal has highest priority and can overflow */
+        #editFormulaModal .custom-select-dropdown {
+            z-index: 10002;
         }
 
         .custom-select-dropdown.show {
