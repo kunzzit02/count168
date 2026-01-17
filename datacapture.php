@@ -9204,10 +9204,22 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (trimmedNext.length > 0) {
                                 const firstNextCell = trimmedNext[0];
                                 // 匹配数字格式（可能包含逗号和小数点，可能是负数）
-                                if (/^-?[\d,]+\.?\d*$/.test(firstNextCell) || /^-?[\d,]+\.\d+$/.test(firstNextCell)) {
+                                // 更宽松的匹配：允许逗号分隔的数字
+                                const numberPattern = /^-?[\d,]+\.?\d*$/;
+                                const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+                                if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
                                     isNextRowNumber = true;
                                     nextRowNumber = firstNextCell;
                                 }
+                            }
+                        }
+                        
+                        // 调试日志
+                        if (i < 20) { // 只记录前20行，避免日志过多
+                            console.log(`2.10 INVOICE: Row ${i + 1} - lastCell: "${lastCell}", isCurrency: ${isCurrencyCode}, isNumber: ${isLastCellNumber}`);
+                            if (nextRow) {
+                                const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
+                                console.log(`2.10 INVOICE: Row ${i + 2} - firstCell: "${trimmedNext[0] || ''}", isNumber: ${isNextRowNumber}, cols: ${trimmedNext.length}`);
                             }
                         }
                         
@@ -9230,23 +9242,53 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 将数字添加到货币代码的下一列
                                 currentRow[currencyColIndex + 1] = nextRowNumber;
                                 // 跳过下一行（因为它已经被合并到当前行）
+                                console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1}: "${lastCell}" + "${nextRowNumber}"`);
                                 i += 2; // 跳过当前行和下一行（因为已经合并）
                                 mergedDataMatrix.push(currentRow);
                                 continue; // 继续处理下一行
                             }
                         }
                         
-                        // 情况2: 数字 + 数字（如 "2,693.95" + "-188.58"）
+                        // 情况2: 检查当前行是否包含货币代码（不一定是最后一个单元格）
+                        // 如果当前行有货币代码，且下一行只有数字，也应该合并
+                        if (nextRow && isNextRowNumber) {
+                            const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
+                            // 如果下一行只有1-2列，且第一个是数字，很可能是上下排版
+                            if (trimmedNext.length <= 2) {
+                                // 在当前行中查找货币代码
+                                let currencyColIndex = -1;
+                                for (let j = 0; j < currentRow.length; j++) {
+                                    const cellValue = (currentRow[j] || '').trim();
+                                    if (/^\([A-Z]{3}\)$/.test(cellValue)) {
+                                        currencyColIndex = j;
+                                        break;
+                                    }
+                                }
+                                
+                                // 如果找到货币代码，将数字添加到货币代码的下一列
+                                if (currencyColIndex >= 0) {
+                                    // 确保行有足够的列
+                                    while (currentRow.length <= currencyColIndex + 1) {
+                                        currentRow.push('');
+                                    }
+                                    // 将数字添加到货币代码的下一列
+                                    currentRow[currencyColIndex + 1] = nextRowNumber;
+                                    console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${nextRowNumber}"`);
+                                    i += 2; // 跳过当前行和下一行（因为已经合并）
+                                    mergedDataMatrix.push(currentRow);
+                                    continue; // 继续处理下一行
+                                }
+                            }
+                        }
+                        
+                        // 情况3: 数字 + 数字（如 "2,693.95" + "-188.58"）
                         // 当前行的最后一个非空单元格是数字，且下一行的第一个非空单元格也是数字
                         // 这种情况通常发生在PDF上下排版时，数字被分到两行
                         if (isLastCellNumber && isNextRowNumber) {
                             const nextRowTrimmed = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
-                            const currentRowTrimmed = currentRow.map(c => (c || '').trim()).filter(c => c !== '');
                             
                             // 判断是否是上下排版：下一行列数很少（通常只有1-2列），且第一个就是数字
-                            // 或者当前行和下一行的列结构相似（表示可能是上下排版）
-                            const shouldMerge = nextRowTrimmed.length <= 2 || 
-                                              (nextRowTrimmed.length === 1 && /^-?[\d,]+\.?\d*$/.test(nextRowTrimmed[0]) || /^-?[\d,]+\.\d+$/.test(nextRowTrimmed[0]));
+                            const shouldMerge = nextRowTrimmed.length <= 2;
                             
                             if (shouldMerge) {
                                 // 找到当前行最后一个非空单元格的位置
@@ -9265,6 +9307,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                     // 将下一个数字添加到当前数字的下一列
                                     currentRow[numberColIndex + 1] = nextRowNumber;
+                                    console.log(`2.10 INVOICE: Merged number+number at row ${i + 1}: "${lastCell}" + "${nextRowNumber}"`);
                                     // 跳过下一行（因为它已经被合并到当前行）
                                     i += 2; // 跳过当前行和下一行（因为已经合并）
                                     mergedDataMatrix.push(currentRow);
