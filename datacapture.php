@@ -4625,12 +4625,67 @@ if ($current_user_id && count($user_companies) > 0) {
                                     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除style标签
                                     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // 移除script标签
                                 
-                                // 如果内容包含HTML标签，直接使用；否则使用纯文本
-                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                    targetCell.innerHTML = cleanContent;
+                                // 提取纯文本内容以检查是否需要分离 DESCRIPTION-AMOUNT 格式
+                                const textContent = sourceCell.textContent || '';
+                                
+                                // 检查是否是 DESCRIPTION-AMOUNT 格式（如 "Loyalty-24.79"）
+                                // 如果检测到这种格式，且下一列存在且为空，则分离
+                                if (/^[A-Za-z]+-[0-9.,-]+$/i.test(textContent.trim())) {
+                                    const match = textContent.trim().match(/^([A-Za-z]+)(-[0-9.,-]+)$/i);
+                                    if (match && currentCol + 1 < actualCols) {
+                                        const nextCell = tableRow.children[currentCol + 2]; // +2 跳过行号列和当前列
+                                        // 如果下一列存在且为空，才进行分离
+                                        if (nextCell && nextCell.contentEditable === 'true' && 
+                                            (!nextCell.textContent || nextCell.textContent.trim() === '')) {
+                                            // 分离 DESCRIPTION 和 AMOUNT
+                                            const description = match[1];
+                                            const amount = match[2];
+                                            
+                                            // 设置当前单元格为 DESCRIPTION
+                                            if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                                targetCell.innerHTML = description;
+                                            } else {
+                                                targetCell.textContent = description;
+                                            }
+                                            
+                                            // 记录下一单元格的旧值（在设置新值之前）
+                                            const nextOldValue = nextCell.textContent || nextCell.innerHTML || '';
+                                            // 设置下一单元格为 AMOUNT
+                                            nextCell.textContent = amount;
+                                            currentPasteChanges.push({
+                                                row: actualRowIndex,
+                                                col: currentCol + 1,
+                                                oldValue: nextOldValue,
+                                                newValue: amount
+                                            });
+                                            
+                                            if (amount && amount.trim() !== '') {
+                                                successCount++;
+                                            }
+                                        } else {
+                                            // 下一列不为空，保持原样
+                                            if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                                targetCell.innerHTML = cleanContent;
+                                            } else {
+                                                targetCell.textContent = cellContent;
+                                            }
+                                        }
+                                    } else {
+                                        // 无法分离或下一列不存在，保持原样
+                                        if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                            targetCell.innerHTML = cleanContent;
+                                        } else {
+                                            targetCell.textContent = cellContent;
+                                        }
+                                    }
                                 } else {
-                                    // 纯文本内容，但保留原始格式（包括空格、换行等）
-                                    targetCell.textContent = cellContent;
+                                    // 不是 DESCRIPTION-AMOUNT 格式，正常处理
+                                    if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                        targetCell.innerHTML = cleanContent;
+                                    } else {
+                                        // 纯文本内容，但保留原始格式（包括空格、换行等）
+                                        targetCell.textContent = cellContent;
+                                    }
                                 }
                                 
                                 currentPasteChanges.push({
@@ -9084,6 +9139,20 @@ if ($current_user_id && count($user_companies) > 0) {
                                     else if (/^\([A-Z]{3}\)$/.test(part)) {
                                         cells.push(part);
                                         i++;
+                                    }
+                                    // 检查是否是 DESCRIPTION-AMOUNT 格式（如 "Loyalty-24.79"）
+                                    // 匹配：字母开头的文本，连字符，然后是数字（可能包含负号和逗号）
+                                    else if (/^[A-Za-z]+-[0-9.,-]+$/i.test(part)) {
+                                        const match = part.match(/^([A-Za-z]+)(-[0-9.,-]+)$/i);
+                                        if (match) {
+                                            // 分离 DESCRIPTION 和 AMOUNT
+                                            cells.push(match[1]); // DESCRIPTION (如 "Loyalty")
+                                            cells.push(match[2]); // AMOUNT (如 "-24.79")
+                                            i++;
+                                        } else {
+                                            cells.push(part);
+                                            i++;
+                                        }
                                     }
                                     // 其他情况，作为单独的列
                                     else {
