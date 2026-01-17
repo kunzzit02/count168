@@ -1508,15 +1508,10 @@ function getCurrentProcessId() {
                                     <div class="form-group">
                                         <label for="account">Account</label>
                                         <div class="account-select-with-buttons">
-                                            <div class="custom-select-wrapper">
-                                                <button type="button" class="custom-select-button" id="account" data-placeholder="Select Account" name="account">Select Account</button>
-                                                <div class="custom-select-dropdown" id="account_dropdown">
-                                                    <div class="custom-select-search">
-                                                        <input type="text" placeholder="Search account..." autocomplete="off">
-                                                    </div>
-                                                    <div class="custom-select-options"></div>
-                                                </div>
-                                            </div>
+                                            <select id="account">
+                                                <option value="">Select Account</option>
+                                                <!-- Account options will be loaded here via JavaScript -->
+                                            </select>
                                             <button type="button" class="account-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
                                         </div>
                                     </div>
@@ -1665,12 +1660,6 @@ function getCurrentProcessId() {
                     formulaInput.removeAttribute('data-clicked-columns');
                 }
             }, 100);
-            
-            // Ensure account button is reset (in case it was previously initialized)
-            const accountButton = document.getElementById('account');
-            if (accountButton) {
-                accountButton.removeAttribute('data-initialized');
-            }
             
             // Load currency and account data
             loadFormData().then(() => {
@@ -1970,178 +1959,6 @@ function getCurrentProcessId() {
             }
         });
 
-        // ==================== Get Account ID (from custom select's data-value) ====================
-        function getAccountId(buttonElement) {
-            if (!buttonElement) return '';
-            // Custom select's data-value is the account ID
-            return buttonElement.getAttribute('data-value') || '';
-        }
-
-        // ==================== Initialize Account Custom Select ====================
-        function initAccountInput() {
-            const accountButton = document.getElementById('account');
-            const accountDropdown = document.getElementById('account_dropdown');
-            const searchInput = accountDropdown?.querySelector('.custom-select-search input');
-            const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
-            
-            if (!accountButton || !accountDropdown || !searchInput || !optionsContainer) return;
-            
-            let isOpen = false;
-            let filteredOptions = [];
-            
-            // Update options list
-            function updateOptions(filterText = '') {
-                const filterLower = filterText.toLowerCase().trim();
-                const allOptions = Array.from(optionsContainer.querySelectorAll('.custom-select-option'));
-                
-                filteredOptions = allOptions.filter(option => {
-                    const text = option.textContent.toLowerCase();
-                    const matches = !filterLower || text.includes(filterLower);
-                    option.style.display = matches ? '' : 'none';
-                    return matches;
-                });
-                
-                // Clear all selected states
-                allOptions.forEach(opt => opt.classList.remove('selected'));
-                
-                // If there are visible options, select the first one
-                const visibleOptions = filteredOptions.filter(opt => opt.style.display !== 'none');
-                if (visibleOptions.length > 0) {
-                    visibleOptions[0].classList.add('selected');
-                }
-                
-                // Show/hide "no results" message
-                let noResults = accountDropdown.querySelector('.custom-select-no-results');
-                if (filteredOptions.length === 0 && filterText) {
-                    if (!noResults) {
-                        noResults = document.createElement('div');
-                        noResults.className = 'custom-select-no-results';
-                        noResults.textContent = 'No results found';
-                        optionsContainer.appendChild(noResults);
-                    }
-                    noResults.style.display = 'block';
-                } else if (noResults) {
-                    noResults.style.display = 'none';
-                }
-            }
-            
-            // Open/close dropdown
-            function toggleDropdown() {
-                isOpen = !isOpen;
-                if (isOpen) {
-                    accountDropdown.classList.add('show');
-                    accountButton.classList.add('open');
-                    searchInput.value = '';
-                    updateOptions('');
-                    searchInput.focus();
-                } else {
-                    accountDropdown.classList.remove('show');
-                    accountButton.classList.remove('open');
-                }
-            }
-            
-            // Select option
-            function selectOption(option) {
-                const value = option.getAttribute('data-value');
-                const text = option.textContent;
-                
-                accountButton.textContent = text;
-                accountButton.setAttribute('data-value', value);
-                
-                // Update selected state
-                optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
-                    opt.classList.remove('selected');
-                });
-                option.classList.add('selected');
-                
-                // Trigger change event
-                accountButton.dispatchEvent(new Event('change', { bubbles: true }));
-                
-                toggleDropdown();
-            }
-            
-            // Button click event
-            accountButton.addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleDropdown();
-            });
-            
-            // Search input event
-            searchInput.addEventListener('input', function() {
-                updateOptions(this.value);
-            });
-            
-            // Option click event
-            optionsContainer.addEventListener('click', function(e) {
-                const option = e.target.closest('.custom-select-option');
-                if (option && option.style.display !== 'none') {
-                    selectOption(option);
-                }
-            });
-            
-            // Click outside to close
-            document.addEventListener('click', function(e) {
-                if (!accountButton.contains(e.target) && !accountDropdown.contains(e.target)) {
-                    if (isOpen) {
-                        toggleDropdown();
-                    }
-                }
-            });
-            
-            // Keyboard events
-            searchInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    toggleDropdown();
-                } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const visibleOptions = filteredOptions.filter(opt => opt.style.display !== 'none');
-                    const selectedOption = visibleOptions.find(opt => opt.classList.contains('selected'));
-                    if (selectedOption) {
-                        selectOption(selectedOption);
-                    } else if (visibleOptions.length > 0) {
-                        selectOption(visibleOptions[0]);
-                    }
-                } else if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const visibleOptions = filteredOptions.filter(opt => opt.style.display !== 'none');
-                    if (visibleOptions.length > 0) {
-                        const currentIndex = visibleOptions.findIndex(opt => opt.classList.contains('selected'));
-                        const nextIndex = (currentIndex + 1) % visibleOptions.length;
-                        visibleOptions.forEach(opt => opt.classList.remove('selected'));
-                        visibleOptions[nextIndex].classList.add('selected');
-                        visibleOptions[nextIndex].scrollIntoView({ block: 'nearest' });
-                    }
-                } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const visibleOptions = filteredOptions.filter(opt => opt.style.display !== 'none');
-                    if (visibleOptions.length > 0) {
-                        const currentIndex = visibleOptions.findIndex(opt => opt.classList.contains('selected'));
-                        const prevIndex = currentIndex <= 0 ? visibleOptions.length - 1 : currentIndex - 1;
-                        visibleOptions.forEach(opt => opt.classList.remove('selected'));
-                        visibleOptions[prevIndex].classList.add('selected');
-                        visibleOptions[prevIndex].scrollIntoView({ block: 'nearest' });
-                    }
-                }
-            });
-            
-            // Listen to change event (for updating currency dropdown)
-            accountButton.addEventListener('change', async function() {
-                const accountId = getAccountId(this);
-                if (accountId) {
-                    await loadCurrenciesForAccount(accountId);
-                } else {
-                    // Reset currency dropdown if no account selected
-                    const currencySelect = document.getElementById('currency');
-                    if (currencySelect) {
-                        currencySelect.innerHTML = '<option value="">Select Currency</option>';
-                    }
-                }
-            });
-        }
-
         // Load form data (currency and account) from database
         async function loadFormData() {
             try {
@@ -2172,72 +1989,45 @@ function getCurrentProcessId() {
                     
                     // Load account data
                     if (result.accounts && result.accounts.length > 0) {
-                        const accountButton = document.getElementById('account');
-                        const accountDropdown = document.getElementById('account_dropdown');
-                        const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
-                        
-                        if (accountButton && accountDropdown && optionsContainer) {
+                        const accountSelect = document.getElementById('account');
+                        if (accountSelect) {
                             console.log('Loading accounts:', result.accounts);
-                            
-                            // Clear existing options
-                            optionsContainer.innerHTML = '';
-                            
-                            // Save previous value
-                            const previousValue = accountButton.getAttribute('data-value') || '';
+                            // Clear existing options except the first one
+                            accountSelect.innerHTML = '<option value="">Select Account</option>';
                             
                             // Add account options
                             result.accounts.forEach(account => {
-                                const option = document.createElement('div');
-                                option.className = 'custom-select-option';
-                                option.setAttribute('data-value', account.id);
-                                
+                                const option = document.createElement('option');
+                                option.value = account.id;
                                 // If role is upline, agent, member, or company, display "Account [name]"
                                 // Otherwise, display only account_id
                                 const rolesToShowName = ['upline', 'agent', 'member', 'company'];
                                 if (account.role && rolesToShowName.includes(account.role.toLowerCase()) && account.name) {
                                     option.textContent = account.account_id + ' [' + account.name + ']';
                                 } else {
-                                    option.textContent = account.account_id;
+                                option.textContent = account.account_id;
                                 }
-                                optionsContainer.appendChild(option);
+                                accountSelect.appendChild(option);
                             });
                             
-                            // Restore previous value if it still exists
-                            if (previousValue) {
-                                const previousOption = Array.from(optionsContainer.querySelectorAll('.custom-select-option'))
-                                    .find(opt => opt.getAttribute('data-value') === String(previousValue));
-                                if (previousOption) {
-                                    accountButton.textContent = previousOption.textContent;
-                                    accountButton.setAttribute('data-value', previousValue);
-                                    // Mark as selected
-                                    optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
-                                        opt.classList.remove('selected');
-                                        if (opt.getAttribute('data-value') === String(previousValue)) {
-                                            opt.classList.add('selected');
-                                        }
-                                    });
+                            // Add event listener for account change to update currency dropdown
+                            accountSelect.addEventListener('change', async function() {
+                                const selectedAccountId = this.value;
+                                if (selectedAccountId) {
+                                    await loadCurrenciesForAccount(selectedAccountId);
                                 } else {
-                                    accountButton.textContent = accountButton.getAttribute('data-placeholder') || 'Select Account';
-                                    accountButton.removeAttribute('data-value');
+                                    // Reset currency dropdown if no account selected
+                                    const currencySelect = document.getElementById('currency');
+                                    if (currencySelect) {
+                                        currencySelect.innerHTML = '<option value="">Select Currency</option>';
+                                    }
                                 }
-                            } else {
-                                accountButton.textContent = accountButton.getAttribute('data-placeholder') || 'Select Account';
-                                accountButton.removeAttribute('data-value');
-                            }
-                            
-                            // Initialize account input (called after options are loaded)
-                            // This ensures the dropdown is set up after HTML is rendered
-                            setTimeout(() => {
-                                if (!accountButton.dataset.initialized) {
-                                    initAccountInput();
-                                    accountButton.dataset.initialized = 'true';
-                                }
-                            }, 0);
+                            });
                             
                             // After options are loaded, disable already-used accounts (allow current row if editing)
                             try {
                                 const allowAccountId = (window.isEditMode && window.currentEditRow) ? (window.currentEditRow.querySelector('td:nth-child(2)')?.getAttribute('data-account-id') || null) : null;
-                                disableUsedAccountsInSelect(accountButton, allowAccountId);
+                                disableUsedAccountsInSelect(accountSelect, allowAccountId);
                             } catch (e) {
                                 console.warn('Could not disable used accounts:', e);
                             }
@@ -2329,25 +2119,11 @@ function getCurrentProcessId() {
                     
                     // 如果指定了要选中的账户ID，则选中它
                     if (selectAccountId) {
-                        const accountButton = document.getElementById('account');
-                        const accountDropdown = document.getElementById('account_dropdown');
-                        const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
-                        if (accountButton && optionsContainer) {
-                            const option = Array.from(optionsContainer.querySelectorAll('.custom-select-option'))
-                                .find(opt => opt.getAttribute('data-value') === String(selectAccountId));
-                            if (option) {
-                                accountButton.textContent = option.textContent;
-                                accountButton.setAttribute('data-value', selectAccountId);
-                                // Update selected state
-                                optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
-                                    opt.classList.remove('selected');
-                                    if (opt.getAttribute('data-value') === String(selectAccountId)) {
-                                        opt.classList.add('selected');
-                                    }
-                                });
-                                // 触发 change 事件以加载对应的货币
-                                accountButton.dispatchEvent(new Event('change'));
-                            }
+                        const accountSelect = document.getElementById('account');
+                        if (accountSelect) {
+                            accountSelect.value = selectAccountId;
+                            // 触发 change 事件以加载对应的货币
+                            accountSelect.dispatchEvent(new Event('change'));
                         }
                     }
                 } else {
@@ -2470,10 +2246,8 @@ function getCurrentProcessId() {
             }
         }
 
-        function disableUsedAccountsInSelect(buttonEl, allowAccountId = null) {
+        function disableUsedAccountsInSelect(selectEl, allowAccountId = null) {
             // Allow selecting the same account multiple times: no-op
-            // This function is kept for compatibility but doesn't need to do anything
-            // since accounts can be selected multiple times
             return;
         }
 
@@ -5627,25 +5401,14 @@ function getCurrentProcessId() {
             // Wait for form to be fully loaded
             setTimeout(async () => {
                 if (data.account) {
-                    const accountButton = document.getElementById('account');
-                    const accountDropdown = document.getElementById('account_dropdown');
-                    const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
-                    
-                    if (accountButton && optionsContainer) {
+                    const accountSelect = document.getElementById('account');
+                    if (accountSelect) {
                         // Find and select the matching account
                         let selectedAccountId = null;
-                        const options = Array.from(optionsContainer.querySelectorAll('.custom-select-option'));
-                        for (let option of options) {
+                        for (let option of accountSelect.options) {
                             if (option.textContent === data.account) {
-                                selectedAccountId = option.getAttribute('data-value');
-                                // Update button
-                                accountButton.textContent = option.textContent;
-                                accountButton.setAttribute('data-value', selectedAccountId);
-                                // Update selected state
-                                optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => {
-                                    opt.classList.remove('selected');
-                                });
-                                option.classList.add('selected');
+                                option.selected = true;
+                                selectedAccountId = option.value;
                                 break;
                             }
                         }
@@ -6480,9 +6243,9 @@ function getCurrentProcessId() {
             // 重要：始终使用模态窗口中的 Id Product（打开模态窗口时设置的那个）
             // 用户可以选择其他 id product 的数据来构建公式，但公式应该始终保存到原始的 id product
             const processValue = document.getElementById('process').value;
-            const accountButton = document.getElementById('account');
-            const accountValue = getAccountId(accountButton); // Database ID
-            const accountId = accountButton ? accountButton.textContent : ''; // Display text
+            const accountSelect = document.getElementById('account');
+            const accountValue = accountSelect.value; // Database ID
+            const accountId = accountSelect.options[accountSelect.selectedIndex].text; // Display text
             // Source Percent：如果用户没有填写，则默认 1 (1 = 100%)
             let sourcePercentValue = document.getElementById('sourcePercent').value.trim();
             if (!sourcePercentValue) {
@@ -16913,35 +16676,30 @@ function formatPercentValue(value) {
         
         // Helper function to get account ID by account text
         function getAccountIdByAccountText(accountText) {
-            const accountDropdown = document.getElementById('account_dropdown');
-            const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
-            if (!optionsContainer) {
-                console.warn('Account dropdown element not found');
+            const accountSelect = document.getElementById('account');
+            if (!accountSelect) {
+                console.warn('Account select element not found');
                 return null;
             }
             
-            const options = Array.from(optionsContainer.querySelectorAll('.custom-select-option'));
-            
             // Try exact match first
-            for (let option of options) {
+            for (let option of accountSelect.options) {
                 if (option.textContent.trim() === accountText.trim()) {
-                    const accountId = option.getAttribute('data-value');
-                    console.log('Found account ID:', accountId, 'for text:', accountText);
-                    return accountId;
+                    console.log('Found account ID:', option.value, 'for text:', accountText);
+                    return option.value;
                 }
             }
             
             // Try partial match (in case there are extra spaces or formatting)
-            for (let option of options) {
+            for (let option of accountSelect.options) {
                 if (option.textContent.includes(accountText) || accountText.includes(option.textContent)) {
-                    const accountId = option.getAttribute('data-value');
-                    console.log('Found account ID (partial match):', accountId, 'for text:', accountText);
-                    return accountId;
+                    console.log('Found account ID (partial match):', option.value, 'for text:', accountText);
+                    return option.value;
                 }
             }
             
             console.warn('Could not find account ID for text:', accountText);
-            console.log('Available options:', options.map(o => o.textContent));
+            console.log('Available options:', Array.from(accountSelect.options).map(o => o.textContent));
             return null;
         }
         
@@ -18035,13 +17793,11 @@ function formatPercentValue(value) {
         
         .edit-formula-form-container .form-left-column .account-select-with-buttons {
             width: 100%;
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
         
-        .edit-formula-form-container .form-left-column .account-select-with-buttons .custom-select-wrapper {
-            flex: 1;
+        .edit-formula-form-container .form-left-column .account-select-with-buttons select {
+            width: 100%;
+            min-width: 0;
         }
         
         .edit-formula-form-container .form-left-column .description-select-with-buttons {
@@ -18619,7 +18375,7 @@ function formatPercentValue(value) {
             flex: 1;
         }
 
-        .account-select-with-buttons .custom-select-wrapper {
+        .account-select-with-buttons select {
             flex: 1;
         }
 
@@ -18647,112 +18403,6 @@ function formatPercentValue(value) {
 
         .account-add-btn:active {
             transform: scale(0.95);
-        }
-
-        /* Custom Select Styles for Account Dropdown */
-        .custom-select-wrapper {
-            position: relative;
-            width: 100%;
-        }
-
-        .custom-select-button {
-            width: 100%;
-            padding: 8px 30px 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background: white;
-            cursor: pointer;
-            text-align: left;
-            font-size: 14px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            position: relative;
-        }
-
-        .custom-select-button::after {
-            content: '▼';
-            position: absolute;
-            right: 8px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 10px;
-            color: #666;
-            pointer-events: none;
-        }
-
-        .custom-select-button.open::after {
-            content: '▲';
-        }
-
-        .custom-select-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            z-index: 10000;
-            display: none;
-            max-height: 300px;
-            overflow: hidden;
-            margin-top: 2px;
-        }
-
-        .custom-select-dropdown.show {
-            display: block;
-        }
-
-        .custom-select-search {
-            padding: 8px;
-            border-bottom: 1px solid #eee;
-            position: sticky;
-            top: 0;
-            background: white;
-            z-index: 1;
-        }
-
-        .custom-select-search input {
-            width: 100%;
-            padding: 6px 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-            box-sizing: border-box;
-        }
-
-        .custom-select-options {
-            max-height: 250px;
-            overflow-y: auto;
-        }
-
-        .custom-select-option {
-            padding: 8px 12px;
-            cursor: pointer;
-            font-size: 14px;
-            border-bottom: 1px solid #f5f5f5;
-        }
-
-        .custom-select-option:hover {
-            background-color: #f0f0f0;
-        }
-
-        .custom-select-option.selected {
-            background-color: #e3f2fd;
-            font-weight: bold;
-        }
-
-        .custom-select-option:last-child {
-            border-bottom: none;
-        }
-
-        .custom-select-no-results {
-            padding: 12px;
-            text-align: center;
-            color: #999;
-            font-size: 14px;
         }
 
         /* Description Select with Buttons Styles */
