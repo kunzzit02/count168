@@ -9181,23 +9181,25 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     console.log(`2.10 INVOICE: Parsed ${dataMatrix.length} rows with max ${maxCols} columns`);
                     
-                    // 修复PDF上下排版问题：合并货币代码和数字到同一行
+                    // 修复PDF上下排版问题：合并货币代码和数字、数字和数字到同一行
                     // 例如: 第N行是"(MYR)"，第N+1行是"2,693.95"，应该合并到同一行
+                    // 例如: 第N行是"2,693.95"，第N+1行是"-188.58"，应该合并到同一行
                     const mergedDataMatrix = [];
                     let i = 0;
                     while (i < dataMatrix.length) {
                         const currentRow = [...dataMatrix[i]];
                         const nextRow = i + 1 < dataMatrix.length ? dataMatrix[i + 1] : null;
                         
-                        // 检查当前行的最后一个非空单元格是否是货币代码（如 "(MYR)"）
+                        // 检查当前行的最后一个非空单元格
                         const trimmedCurrent = currentRow.map(c => (c || '').trim()).filter(c => c !== '');
                         const lastCell = trimmedCurrent.length > 0 ? trimmedCurrent[trimmedCurrent.length - 1] : '';
                         const isCurrencyCode = /^\([A-Z]{3}\)$/.test(lastCell);
+                        const isLastCellNumber = /^-?[\d,]+\.?\d*$/.test(lastCell) || /^-?[\d,]+\.\d+$/.test(lastCell);
                         
-                        // 检查下一行的第一个非空单元格是否是数字（如 "2,693.95"）
+                        // 检查下一行的第一个非空单元格是否是数字（如 "2,693.95" 或 "-188.58"）
                         let isNextRowNumber = false;
                         let nextRowNumber = null;
-                        if (nextRow && isCurrencyCode) {
+                        if (nextRow) {
                             const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
                             if (trimmedNext.length > 0) {
                                 const firstNextCell = trimmedNext[0];
@@ -9209,9 +9211,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                         
+                        // 情况1: 货币代码 + 数字（如 "(MYR)" + "2,693.95"）
                         if (isCurrencyCode && isNextRowNumber) {
-                            // 合并：将货币代码和数字放到同一行
-                            // 货币代码保持原位置，数字添加到下一列
                             // 找到货币代码在当前行中的位置（最后一个非空单元格的位置）
                             let currencyColIndex = -1;
                             for (let j = currentRow.length - 1; j >= 0; j--) {
@@ -9232,6 +9233,43 @@ if ($current_user_id && count($user_companies) > 0) {
                                 i += 2; // 跳过当前行和下一行（因为已经合并）
                                 mergedDataMatrix.push(currentRow);
                                 continue; // 继续处理下一行
+                            }
+                        }
+                        
+                        // 情况2: 数字 + 数字（如 "2,693.95" + "-188.58"）
+                        // 当前行的最后一个非空单元格是数字，且下一行的第一个非空单元格也是数字
+                        // 这种情况通常发生在PDF上下排版时，数字被分到两行
+                        if (isLastCellNumber && isNextRowNumber) {
+                            const nextRowTrimmed = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
+                            const currentRowTrimmed = currentRow.map(c => (c || '').trim()).filter(c => c !== '');
+                            
+                            // 判断是否是上下排版：下一行列数很少（通常只有1-2列），且第一个就是数字
+                            // 或者当前行和下一行的列结构相似（表示可能是上下排版）
+                            const shouldMerge = nextRowTrimmed.length <= 2 || 
+                                              (nextRowTrimmed.length === 1 && /^-?[\d,]+\.?\d*$/.test(nextRowTrimmed[0]) || /^-?[\d,]+\.\d+$/.test(nextRowTrimmed[0]));
+                            
+                            if (shouldMerge) {
+                                // 找到当前行最后一个非空单元格的位置
+                                let numberColIndex = -1;
+                                for (let j = currentRow.length - 1; j >= 0; j--) {
+                                    if ((currentRow[j] || '').trim() === lastCell) {
+                                        numberColIndex = j;
+                                        break;
+                                    }
+                                }
+                                
+                                if (numberColIndex >= 0) {
+                                    // 确保行有足够的列
+                                    while (currentRow.length <= numberColIndex + 1) {
+                                        currentRow.push('');
+                                    }
+                                    // 将下一个数字添加到当前数字的下一列
+                                    currentRow[numberColIndex + 1] = nextRowNumber;
+                                    // 跳过下一行（因为它已经被合并到当前行）
+                                    i += 2; // 跳过当前行和下一行（因为已经合并）
+                                    mergedDataMatrix.push(currentRow);
+                                    continue; // 继续处理下一行
+                                }
                             }
                         }
                         
