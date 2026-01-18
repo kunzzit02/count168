@@ -8465,7 +8465,7 @@ if ($current_user_id && count($user_companies) > 0) {
             
             console.log('VPOWER parser - lines:', lines);
             
-            if (lines.length < 2) return null; // 至少需要表头和数据行
+            if (lines.length < 1) return null;
             
             // 检测表头是否包含 VPOWER 格式的特征列
             const firstLine = lines[0].toLowerCase();
@@ -8574,6 +8574,56 @@ if ($current_user_id && count($user_companies) > 0) {
                     maxRows: dataMatrix.length,
                     maxCols: 9
                 };
+            }
+            
+            // 情况1.5：无表头，但每行是 tab/多空格分隔的 username + profit（常见“复制两列”格式）
+            // 例如：
+            //   easywin126\t1,866.29
+            //   teruskaya777\t552.3
+            // 或者用多个空格分隔
+            const maybeRowSeparated = lines.length >= 1 && lines.some(l => l.includes('\t') || /\s{2,}/.test(l));
+            if (maybeRowSeparated) {
+                const dataMatrix = [];
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = (lines[i] || '').trim();
+                    if (!line) continue;
+                    
+                    let cells = line.split(/\t+/).map(c => c.trim());
+                    if (cells.length < 2) {
+                        cells = line.split(/\s{2,}/).map(c => c.trim());
+                    }
+                    if (cells.length < 2) continue;
+                    
+                    const userName = (cells[0] || '').trim();
+                    const profit = (cells[1] || '').trim();
+                    
+                    // 基础校验：用户名必须像账号，profit 必须像数字（允许逗号与小数）
+                    if (!/^[a-z0-9]+$/i.test(userName)) continue;
+                    if (!/^-?[\d,]+(\.\d+)?$/.test(profit)) continue;
+                    
+                    const row = [];
+                    row[0] = userName.toUpperCase(); // Column 1: User Name
+                    row[1] = profit;                // Column 2: profit
+                    row[2] = '-';
+                    row[3] = '-';
+                    row[4] = '-';
+                    row[5] = '';
+                    row[6] = '';
+                    row[7] = '';
+                    row[8] = '';
+                    
+                    dataMatrix.push(row);
+                }
+                
+                if (dataMatrix.length > 0) {
+                    console.log('Detected VPOWER tab/space-separated rows (no header):', dataMatrix.length);
+                    return {
+                        dataMatrix: dataMatrix,
+                        maxRows: dataMatrix.length,
+                        maxCols: 9
+                    };
+                }
             }
             
             // 情况2：无表头的纯数据格式
@@ -8998,7 +9048,22 @@ if ($current_user_id && count($user_companies) > 0) {
             console.log('Paste event triggered');
             
             // 先拿到纯文本内容，用来判断是不是 Payment Report
-            const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+            // 注意：某些来源下 getData('text') 可能会丢失换行，导致被误判为“单行粘贴”
+            // 优先使用标准的 text/plain，再回退到 text / Text（兼容旧浏览器与模拟粘贴事件）
+            const clipboard = (e.clipboardData || window.clipboardData);
+            const getClipboardData = (type) => {
+                try {
+                    if (!clipboard || typeof clipboard.getData !== 'function') return '';
+                    return clipboard.getData(type) || '';
+                } catch (err) {
+                    return '';
+                }
+            };
+            const pastedData =
+                getClipboardData('text/plain') ||
+                getClipboardData('text') ||
+                getClipboardData('Text') ||
+                '';
             
             // 1.GENERAL 和 655 专用解析：完全保持Excel原始格式，不做任何转换
             if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === '1.GENERAL' || currentDataCaptureType === '655')) {
@@ -9812,6 +9877,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('2.SPECIAL: Trying 2.2 VPOWER format...');
                     console.log('2.SPECIAL: VPOWER raw data sample (first 200 chars):', pastedData.substring(0, 200));
                     let vpowerParsed = parseVPowerTableFormat(pastedData);
+                    
+                    // 兜底：如果纯文本解析失败，但剪贴板里有 HTML 表格（网页表格复制常见），先转成文本再解析
+                    if (!vpowerParsed) {
+                        let htmlDataForVpower = getClipboardData('text/html');
+                        if (!htmlDataForVpower) {
+                            const htmlFromDetect = detectAndParseHTML(e);
+                            if (htmlFromDetect) htmlDataForVpower = htmlFromDetect;
+                        }
+                        if (htmlDataForVpower) {
+                            const convertedText = parseHTMLTable(htmlDataForVpower);
+                            if (convertedText) {
+                                vpowerParsed = parseVPowerTableFormat(convertedText);
+                            }
+                        }
+                    }
                     console.log('2.SPECIAL: VPOWER parse result:', vpowerParsed);
                     
                     if (vpowerParsed) {
