@@ -9135,8 +9135,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                         cells.push(part);
                                         i++;
                                     }
-                                    // 如果是数字（百分比或金额，可能是负数）
-                                    else if (/^-?\d+\.?\d*$/.test(part) || /^-?[\d,]+\.?\d*$/.test(part)) {
+                                    // 如果是数字（百分比或金额）
+                                    else if (/^\d+\.?\d*$/.test(part) || /^[\d,]+\.?\d*$/.test(part)) {
                                         cells.push(part);
                                         i++;
                                     }
@@ -9206,17 +9206,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (trimmedNext.length > 0) {
                                 const firstNextCell = trimmedNext[0];
                                 
-                                // 检查是否是 "数字-数字" 格式（如 "2,693.95-188.58" 或 "2,693.95--188.58"）
-                                // 注意：第二个数字可能是负数，所以需要匹配 "-数字" 或 "--数字"
-                                // 更宽松的匹配：允许第一个数字也可能是负数
-                                const numberDashNumberPattern = /^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/;
+                                // 检查是否是 "数字-数字" 格式（如 "2,693.95-188.58"）
+                                const numberDashNumberPattern = /^([\d,]+\.?\d*)-([\d,]+\.?\d*)$/;
                                 const match = firstNextCell.match(numberDashNumberPattern);
                                 if (match) {
-                                    // 分离成两个数字，直接使用匹配结果保留原始格式（包括负号）
+                                    // 分离成两个数字
                                     isNextRowNumber = true;
                                     nextRowNumbers = [match[1], match[2]];
                                     nextRowNumber = match[1]; // 第一个数字作为主要数字
-                                    console.log(`2.10 INVOICE: Detected number-dash-number format: "${firstNextCell}" -> ["${match[1]}", "${match[2]}"]`);
                                 } else {
                                     // 匹配单个数字格式（可能包含逗号和小数点，可能是负数）
                                     const numberPattern = /^-?[\d,]+\.?\d*$/;
