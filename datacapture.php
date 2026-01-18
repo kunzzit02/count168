@@ -9197,19 +9197,38 @@ if ($current_user_id && count($user_companies) > 0) {
                         const isLastCellNumber = /^-?[\d,]+\.?\d*$/.test(lastCell) || /^-?[\d,]+\.\d+$/.test(lastCell);
                         
                         // 检查下一行的第一个非空单元格是否是数字（如 "2,693.95" 或 "-188.58"）
+                        // 或者包含数字的字符串（如 "2,693.95-188.58"）
                         let isNextRowNumber = false;
                         let nextRowNumber = null;
+                        let nextRowNumbers = null; // 用于存储多个数字（如果被连字符分隔）
                         if (nextRow) {
                             const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
                             if (trimmedNext.length > 0) {
                                 const firstNextCell = trimmedNext[0];
-                                // 匹配数字格式（可能包含逗号和小数点，可能是负数）
-                                // 更宽松的匹配：允许逗号分隔的数字
-                                const numberPattern = /^-?[\d,]+\.?\d*$/;
-                                const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
-                                if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
+                                
+                                // 检查是否是 "数字-数字" 格式（如 "2,693.95-188.58"）
+                                const numberDashNumberPattern = /^([\d,]+\.?\d*)-([\d,]+\.?\d*)$/;
+                                const match = firstNextCell.match(numberDashNumberPattern);
+                                if (match) {
+                                    // 分离成两个数字
                                     isNextRowNumber = true;
-                                    nextRowNumber = firstNextCell;
+                                    nextRowNumbers = [match[1], match[2]];
+                                    nextRowNumber = match[1]; // 第一个数字作为主要数字
+                                } else {
+                                    // 匹配单个数字格式（可能包含逗号和小数点，可能是负数）
+                                    const numberPattern = /^-?[\d,]+\.?\d*$/;
+                                    const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+                                    if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
+                                        isNextRowNumber = true;
+                                        nextRowNumber = firstNextCell;
+                                    } else {
+                                        // 更宽松的检测：如果字符串包含数字字符，也认为是数字行
+                                        // 这种情况可能发生在上下排版时，数字被合并成一个字符串
+                                        if (/[\d,]+/.test(firstNextCell) && trimmedNext.length === 1) {
+                                            isNextRowNumber = true;
+                                            nextRowNumber = firstNextCell;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -9223,7 +9242,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                         
-                        // 情况1: 货币代码 + 数字（如 "(MYR)" + "2,693.95"）
+                        // 情况1: 货币代码 + 数字（如 "(MYR)" + "2,693.95" 或 "(MYR)" + "2,693.95-188.58"）
                         if (isCurrencyCode && isNextRowNumber) {
                             // 找到货币代码在当前行中的位置（最后一个非空单元格的位置）
                             let currencyColIndex = -1;
@@ -9235,14 +9254,26 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                             
                             if (currencyColIndex >= 0) {
-                                // 确保行有足够的列
-                                while (currentRow.length <= currencyColIndex + 1) {
-                                    currentRow.push('');
+                                // 如果下一行有多个数字（如 "2,693.95-188.58"），分别添加到不同列
+                                if (nextRowNumbers && nextRowNumbers.length === 2) {
+                                    // 确保行有足够的列
+                                    while (currentRow.length <= currencyColIndex + 2) {
+                                        currentRow.push('');
+                                    }
+                                    // 将第一个数字添加到货币代码的下一列
+                                    currentRow[currencyColIndex + 1] = nextRowNumbers[0];
+                                    // 将第二个数字添加到再下一列
+                                    currentRow[currencyColIndex + 2] = nextRowNumbers[1];
+                                    console.log(`2.10 INVOICE: Merged currency+numbers at row ${i + 1}: "${lastCell}" + "${nextRowNumbers[0]}" + "${nextRowNumbers[1]}"`);
+                                } else {
+                                    // 单个数字，添加到货币代码的下一列
+                                    while (currentRow.length <= currencyColIndex + 1) {
+                                        currentRow.push('');
+                                    }
+                                    currentRow[currencyColIndex + 1] = nextRowNumber;
+                                    console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1}: "${lastCell}" + "${nextRowNumber}"`);
                                 }
-                                // 将数字添加到货币代码的下一列
-                                currentRow[currencyColIndex + 1] = nextRowNumber;
                                 // 跳过下一行（因为它已经被合并到当前行）
-                                console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1}: "${lastCell}" + "${nextRowNumber}"`);
                                 i += 2; // 跳过当前行和下一行（因为已经合并）
                                 mergedDataMatrix.push(currentRow);
                                 continue; // 继续处理下一行
@@ -9267,13 +9298,25 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 如果找到货币代码，将数字添加到货币代码的下一列
                                 if (currencyColIndex >= 0) {
-                                    // 确保行有足够的列
-                                    while (currentRow.length <= currencyColIndex + 1) {
-                                        currentRow.push('');
+                                    // 如果下一行有多个数字（如 "2,693.95-188.58"），分别添加到不同列
+                                    if (nextRowNumbers && nextRowNumbers.length === 2) {
+                                        // 确保行有足够的列
+                                        while (currentRow.length <= currencyColIndex + 2) {
+                                            currentRow.push('');
+                                        }
+                                        // 将第一个数字添加到货币代码的下一列
+                                        currentRow[currencyColIndex + 1] = nextRowNumbers[0];
+                                        // 将第二个数字添加到再下一列
+                                        currentRow[currencyColIndex + 2] = nextRowNumbers[1];
+                                        console.log(`2.10 INVOICE: Merged currency+numbers at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${nextRowNumbers[0]}" + "${nextRowNumbers[1]}"`);
+                                    } else {
+                                        // 单个数字，添加到货币代码的下一列
+                                        while (currentRow.length <= currencyColIndex + 1) {
+                                            currentRow.push('');
+                                        }
+                                        currentRow[currencyColIndex + 1] = nextRowNumber;
+                                        console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${nextRowNumber}"`);
                                     }
-                                    // 将数字添加到货币代码的下一列
-                                    currentRow[currencyColIndex + 1] = nextRowNumber;
-                                    console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${nextRowNumber}"`);
                                     i += 2; // 跳过当前行和下一行（因为已经合并）
                                     mergedDataMatrix.push(currentRow);
                                     continue; // 继续处理下一行
@@ -9293,13 +9336,25 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                     
                                     if (lastColIndex >= 0) {
-                                        // 确保行有足够的列
-                                        while (currentRow.length <= lastColIndex + 1) {
-                                            currentRow.push('');
+                                        // 如果下一行有多个数字，分别添加到不同列
+                                        if (nextRowNumbers && nextRowNumbers.length === 2) {
+                                            // 确保行有足够的列
+                                            while (currentRow.length <= lastColIndex + 2) {
+                                                currentRow.push('');
+                                            }
+                                            // 将第一个数字添加到最后一个非空单元格的下一列
+                                            currentRow[lastColIndex + 1] = nextRowNumbers[0];
+                                            // 将第二个数字添加到再下一列
+                                            currentRow[lastColIndex + 2] = nextRowNumbers[1];
+                                            console.log(`2.10 INVOICE: Merged row ${i + 1} + ${i + 2} (last cell at col ${lastColIndex}): "${currentRow[lastColIndex]}" + "${nextRowNumbers[0]}" + "${nextRowNumbers[1]}"`);
+                                        } else {
+                                            // 单个数字，添加到最后一个非空单元格的下一列
+                                            while (currentRow.length <= lastColIndex + 1) {
+                                                currentRow.push('');
+                                            }
+                                            currentRow[lastColIndex + 1] = nextRowNumber;
+                                            console.log(`2.10 INVOICE: Merged row ${i + 1} + ${i + 2} (last cell at col ${lastColIndex}): "${currentRow[lastColIndex]}" + "${nextRowNumber}"`);
                                         }
-                                        // 将数字添加到最后一个非空单元格的下一列
-                                        currentRow[lastColIndex + 1] = nextRowNumber;
-                                        console.log(`2.10 INVOICE: Merged row ${i + 1} + ${i + 2} (last cell at col ${lastColIndex}): "${currentRow[lastColIndex]}" + "${nextRowNumber}"`);
                                         i += 2; // 跳过当前行和下一行（因为已经合并）
                                         mergedDataMatrix.push(currentRow);
                                         continue; // 继续处理下一行
