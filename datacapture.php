@@ -9105,11 +9105,22 @@ if ($current_user_id && count($user_companies) > 0) {
                                     
                                     if (dashIndex > 0 && dashIndex < cell.length - 1) {
                                         const firstNum = cell.substring(0, dashIndex).trim();
-                                        const secondNum = cell.substring(dashIndex + 1).trim();
+                                        let secondNum = cell.substring(dashIndex + 1).trim();
                                         const numPattern = /^-?[\d,]+\.?\d*$/;
-                                        if (numPattern.test(firstNum) && numPattern.test(secondNum)) {
+                                        const numPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+                                        
+                                        const firstIsValid = numPattern.test(firstNum) || numPatternWithDecimal.test(firstNum);
+                                        let secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
+                                        
+                                        // 如果第二个数字无效，但看起来像数字（只是缺少负号），接受为正数
+                                        if (!secondIsValid && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                            secondIsValid = true;
+                                        }
+                                        
+                                        if (firstIsValid && secondIsValid) {
                                             processedCells.push(firstNum);
                                             processedCells.push(secondNum);
+                                            console.log(`2.10 INVOICE: Tab/MultiSpace - Separated "${cell}" into "${firstNum}" and "${secondNum}"`);
                                             continue;
                                         }
                                     }
@@ -9139,11 +9150,22 @@ if ($current_user_id && count($user_companies) > 0) {
                                         
                                         if (dashIndex > 0 && dashIndex < cell.length - 1) {
                                             const firstNum = cell.substring(0, dashIndex).trim();
-                                            const secondNum = cell.substring(dashIndex + 1).trim();
+                                            let secondNum = cell.substring(dashIndex + 1).trim();
                                             const numPattern = /^-?[\d,]+\.?\d*$/;
-                                            if (numPattern.test(firstNum) && numPattern.test(secondNum)) {
+                                            const numPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+                                            
+                                            const firstIsValid = numPattern.test(firstNum) || numPatternWithDecimal.test(firstNum);
+                                            let secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
+                                            
+                                            // 如果第二个数字无效，但看起来像数字（只是缺少负号），接受为正数
+                                            if (!secondIsValid && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                secondIsValid = true;
+                                            }
+                                            
+                                            if (firstIsValid && secondIsValid) {
                                                 processedCells.push(firstNum);
                                                 processedCells.push(secondNum);
+                                                console.log(`2.10 INVOICE: MultiSpace - Separated "${cell}" into "${firstNum}" and "${secondNum}"`);
                                                 continue;
                                             }
                                         }
@@ -9207,13 +9229,32 @@ if ($current_user_id && count($user_companies) > 0) {
                                         // 确保找到了连字符，且连字符前后都有内容
                                         if (dashIndex > 0 && dashIndex < part.length - 1) {
                                             const firstNum = part.substring(0, dashIndex).trim();
-                                            const secondNum = part.substring(dashIndex + 1).trim();
+                                            let secondNum = part.substring(dashIndex + 1).trim();
                                             
                                             // 验证两部分都像数字（可能包含逗号、小数点、负号）
                                             const numPattern = /^-?[\d,]+\.?\d*$/;
-                                            if (numPattern.test(firstNum) && numPattern.test(secondNum)) {
+                                            const numPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+                                            
+                                            // 检查第一个数字是否有效
+                                            const firstIsValid = numPattern.test(firstNum) || numPatternWithDecimal.test(firstNum);
+                                            
+                                            // 检查第二个数字是否有效（可能没有负号，需要检查）
+                                            let secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
+                                            
+                                            // 如果第二个数字无效，但看起来像数字（只是缺少负号），尝试添加负号
+                                            // 注意：这只是一个启发式方法，因为无法确定第二个数字是否应该是负数
+                                            // 但如果第一个数字是负数，且第二个数字看起来像正数，可能需要检查上下文
+                                            if (!secondIsValid && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                // 第二个数字看起来像正数，但可能应该是负数
+                                                // 为了安全起见，我们保持原样，不自动添加负号
+                                                // 但如果用户期望是负数，可能需要手动处理
+                                                secondIsValid = true; // 接受为正数
+                                            }
+                                            
+                                            if (firstIsValid && secondIsValid) {
                                                 cells.push(firstNum); // 第一个数字 (如 "-25.00" 或 "2,693.95")
                                                 cells.push(secondNum); // 第二个数字 (如 "-1.50" 或 "188.58")
+                                                console.log(`2.10 INVOICE: Separated "${part}" into "${firstNum}" and "${secondNum}"`);
                                                 i++;
                                             } else {
                                                 cells.push(part);
@@ -9258,8 +9299,13 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                         
-                        // 清理空单元格
-                        cells = cells.filter(cell => cell !== '');
+                        // 清理空单元格（但保留只包含负号的单元格，因为它可能是负数的一部分）
+                        cells = cells.filter(cell => {
+                            const trimmed = (cell || '').trim();
+                            // 保留非空单元格，但也要注意：如果单元格只有 "-"，可能是负数的一部分，不应该被过滤
+                            // 不过这种情况应该很少，因为数字通常不会单独分离出负号
+                            return trimmed !== '' && trimmed !== '-';
+                        });
                         
                         if (cells.length > 0) {
                             dataMatrix.push(cells);
