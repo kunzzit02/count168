@@ -8728,8 +8728,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 如果还有数据，检查是否是下一组的开始
                     if (i >= lines.length) break;
                     
-                    // 跳过可能的 "-" 行（Name, Tel, Remarks）以及行号（某些复制来源会在组与组之间插入 2/3/...）
-                    while (i < lines.length && (lines[i] === '-' || lines[i] === '' || /^\d+$/.test(lines[i]))) {
+                    // 跳过可能的 "-" 行（Name, Tel, Remarks）
+                    // 以及“无#格式”下的行号分隔符（某些复制来源会在组与组之间插入 2/3/...）
+                    // 注意：有#格式（Format A）里，这个数字就是下一组的 #，不能跳过
+                    while (
+                        i < lines.length &&
+                        (lines[i] === '-' || lines[i] === '' || (!hasHashColumn && /^\d+$/.test(lines[i])))
+                    ) {
                         i++;
                     }
                     
