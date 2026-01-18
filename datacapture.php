@@ -20301,6 +20301,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const dataTable = document.getElementById('dataTable');
             const textInput655 = document.getElementById('textInput655');
             const tableBody = document.getElementById('tableBody');
+            const excelTableContainer = document.querySelector('.excel-table-container');
             
             if (currentDataCaptureType === '655') {
                 // 显示表格，但清空所有内容
@@ -20309,6 +20310,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 if (textInput655) {
                     textInput655.style.display = 'none';
+                }
+                // 添加mode-655类以隐藏网格线
+                if (excelTableContainer) {
+                    excelTableContainer.classList.add('mode-655');
                 }
                 // 清空表格所有单元格内容
                 if (tableBody) {
@@ -20330,6 +20335,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 if (textInput655) {
                     textInput655.style.display = 'none';
+                }
+                // 移除mode-655类以显示网格线
+                if (excelTableContainer) {
+                    excelTableContainer.classList.remove('mode-655');
                 }
             }
         }
@@ -22625,6 +22634,17 @@ if ($current_user_id && count($user_companies) > 0) {
             text-align: center;
             min-width: clamp(30px, 3.49vw, 67px);
             position: relative;
+        }
+        
+        /* 655模式：隐藏表格网格线 */
+        .excel-table-container.mode-655 .excel-table th,
+        .excel-table-container.mode-655 .excel-table td {
+            border: none;
+        }
+        
+        .excel-table-container.mode-655 .excel-table {
+            border-collapse: separate;
+            border-spacing: 0;
         }
 
         .excel-table th {
