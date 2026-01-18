@@ -4437,39 +4437,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     const tableRow = tableBody.children[actualRowIndex];
                     if (!tableRow) return;
                     
-                    // 获取源行的背景色（用于Grand Total等行的背景色）
-                    const sourceRowStyle = sourceRow.getAttribute('style') || '';
-                    let sourceRowBgColor = null;
-                    if (sourceRowStyle) {
-                        const bgMatch = sourceRowStyle.match(/background-color:\s*([^;]+)/i);
-                        if (bgMatch) {
-                            sourceRowBgColor = bgMatch[1].trim();
-                        }
-                    }
-                    // 如果没有内联样式，尝试从第一个单元格获取背景色（某些表格会这样设置）
-                    if (!sourceRowBgColor) {
-                        const firstCell = sourceRow.querySelector('td, th');
-                        if (firstCell) {
-                            const cellStyle = firstCell.getAttribute('style') || '';
-                            const cellBgMatch = cellStyle.match(/background-color:\s*([^;]+)/i);
-                            if (cellBgMatch) {
-                                sourceRowBgColor = cellBgMatch[1].trim();
-                            }
-                        }
-                    }
-                    
-                    // 如果源行有背景色且不是白色，应用到目标行
-                    if (sourceRowBgColor && 
-                        sourceRowBgColor !== 'transparent' &&
-                        sourceRowBgColor !== 'white' &&
-                        sourceRowBgColor !== '#ffffff' &&
-                        sourceRowBgColor !== 'rgb(255, 255, 255)') {
-                        tableRow.style.backgroundColor = sourceRowBgColor;
-                    } else {
-                        // 清除背景色
-                        tableRow.style.backgroundColor = '';
-                    }
-                    
                     const sourceCells = sourceRow.querySelectorAll('td, th');
                     let currentCol = startCol;
                     
@@ -4484,10 +4451,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (!cellContent || cellContent.trim() === '') {
                             cellContent = sourceCell.textContent || '';
                         }
-                        
-                        // 获取源单元格的所有样式信息（包括背景色、文本颜色等）
-                        const sourceStyle = sourceCell.getAttribute('style') || '';
-                        const computedStyle = window.getComputedStyle(sourceCell);
                         
                         // 处理第一个单元格（colspan的主单元格）
                         if (currentCol < actualCols) {
@@ -4514,59 +4477,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                 if (cleanContent.includes('<') && cleanContent.includes('>')) {
                                     // 有HTML格式，直接使用innerHTML保持所有格式（颜色、下划线、背景等）
                                     targetCell.innerHTML = cleanContent;
-                                } else if (cellText && cellText.trim() !== '') {
-                                    // 纯文本内容，但如果有样式信息，需要包装在span中保留样式
-                                    if (sourceStyle || computedStyle.color !== 'rgb(0, 0, 0)' || 
-                                        computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)' ||
-                                        computedStyle.textDecoration !== 'none' ||
-                                        computedStyle.fontWeight !== 'normal') {
-                                        // 有样式信息，创建带样式的HTML
-                                        let styleAttr = '';
-                                        if (sourceStyle) {
-                                            styleAttr = sourceStyle;
-                                        } else {
-                                            // 从computedStyle构建样式
-                                            const styles = [];
-                                            if (computedStyle.color && computedStyle.color !== 'rgb(0, 0, 0)') {
-                                                styles.push(`color: ${computedStyle.color}`);
-                                            }
-                                            if (computedStyle.backgroundColor && computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)' && computedStyle.backgroundColor !== 'transparent') {
-                                                styles.push(`background-color: ${computedStyle.backgroundColor}`);
-                                            }
-                                            if (computedStyle.textDecoration && computedStyle.textDecoration !== 'none') {
-                                                styles.push(`text-decoration: ${computedStyle.textDecoration}`);
-                                            }
-                                            if (computedStyle.fontWeight && computedStyle.fontWeight !== 'normal' && computedStyle.fontWeight !== '400') {
-                                                styles.push(`font-weight: ${computedStyle.fontWeight}`);
-                                            }
-                                            if (computedStyle.fontStyle && computedStyle.fontStyle !== 'normal') {
-                                                styles.push(`font-style: ${computedStyle.fontStyle}`);
-                                            }
-                                            if (styles.length > 0) {
-                                                styleAttr = styles.join('; ');
-                                            }
-                                        }
-                                        
-                                        if (styleAttr) {
-                                            targetCell.innerHTML = `<span style="${styleAttr}">${cellText}</span>`;
-                                        } else {
-                                            targetCell.textContent = cellText;
-                                        }
-                                    } else {
-                                        // 没有特殊样式，直接使用文本
-                                        targetCell.textContent = cellText;
-                                    }
                                 } else {
-                                    // 空单元格
-                                    targetCell.textContent = '';
-                                }
-                                
-                                // 如果源单元格有背景色，也应用到目标单元格
-                                if (computedStyle.backgroundColor && 
-                                    computedStyle.backgroundColor !== 'rgba(0, 0, 0, 0)' && 
-                                    computedStyle.backgroundColor !== 'transparent' &&
-                                    computedStyle.backgroundColor !== 'rgb(255, 255, 255)') {
-                                    targetCell.style.backgroundColor = computedStyle.backgroundColor;
+                                    // 纯文本内容，但保留原始格式（包括空格、换行等）
+                                    targetCell.textContent = cellContent;
                                 }
                                 
                                 currentPasteChanges.push({
@@ -20300,34 +20213,17 @@ if ($current_user_id && count($user_companies) > 0) {
         function toggleTableDisplayFor655() {
             const dataTable = document.getElementById('dataTable');
             const textInput655 = document.getElementById('textInput655');
-            const tableBody = document.getElementById('tableBody');
-            const excelTableContainer = document.querySelector('.excel-table-container');
             
             if (currentDataCaptureType === '655') {
-                // 显示表格，但清空所有内容
+                // 隐藏表格，显示空白输入区域
                 if (dataTable) {
-                    dataTable.style.display = 'table';
+                    dataTable.style.display = 'none';
                 }
                 if (textInput655) {
-                    textInput655.style.display = 'none';
+                    textInput655.style.display = 'block';
+                    // 清空内容
+                    textInput655.value = '';
                 }
-                // 添加mode-655类以隐藏网格线
-                if (excelTableContainer) {
-                    excelTableContainer.classList.add('mode-655');
-                }
-                // 清空表格所有单元格内容
-                if (tableBody) {
-                    const editableCells = tableBody.querySelectorAll('td[contenteditable="true"]');
-                    editableCells.forEach(cell => {
-                        cell.textContent = '';
-                        cell.innerHTML = '';
-                        // 清除所有样式
-                        cell.removeAttribute('style');
-                        cell.className = '';
-                    });
-                }
-                // 清空所有选择
-                clearAllSelections();
             } else {
                 // 显示表格，隐藏空白输入区域
                 if (dataTable) {
@@ -20335,10 +20231,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 if (textInput655) {
                     textInput655.style.display = 'none';
-                }
-                // 移除mode-655类以显示网格线
-                if (excelTableContainer) {
-                    excelTableContainer.classList.remove('mode-655');
                 }
             }
         }
@@ -22634,17 +22526,6 @@ if ($current_user_id && count($user_companies) > 0) {
             text-align: center;
             min-width: clamp(30px, 3.49vw, 67px);
             position: relative;
-        }
-        
-        /* 655模式：隐藏表格网格线 */
-        .excel-table-container.mode-655 .excel-table th,
-        .excel-table-container.mode-655 .excel-table td {
-            border: none;
-        }
-        
-        .excel-table-container.mode-655 .excel-table {
-            border-collapse: separate;
-            border-spacing: 0;
         }
 
         .excel-table th {
