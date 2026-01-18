@@ -4457,22 +4457,43 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (targetCell && targetCell.contentEditable === 'true') {
                                 const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                                 
-                                // 直接使用innerHTML保持Excel的原始格式
-                                // 清理并保留格式：移除可能导致问题的样式，但保留数字格式
-                                let cleanContent = cellContent;
+                                // 获取单元格的文本内容（去除HTML标签）
+                                const cellText = sourceCell.textContent || sourceCell.innerText || '';
                                 
-                                // 移除可能导致问题的外部样式标签，但保留内联样式和格式
-                                // 保留数字格式、日期格式等
-                                cleanContent = cleanContent
-                                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除style标签
-                                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // 移除script标签
-                                
-                                // 如果内容包含HTML标签，直接使用；否则使用纯文本
-                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                    targetCell.innerHTML = cleanContent;
+                                // 655 模式：应用蓝色背景和下划线格式
+                                if (currentDataCaptureType === '655') {
+                                    // 清理内容
+                                    let cleanContent = cellContent
+                                        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                                        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+                                    
+                                    // 如果单元格有内容，应用蓝色背景和下划线
+                                    if (cellText && cellText.trim() !== '') {
+                                        // 创建带格式的内容
+                                        const formattedContent = `<span style="background-color: #E3F2FD; text-decoration: underline;">${cellText}</span>`;
+                                        targetCell.innerHTML = formattedContent;
+                                    } else {
+                                        targetCell.textContent = '';
+                                    }
                                 } else {
-                                    // 纯文本内容，但保留原始格式（包括空格、换行等）
-                                    targetCell.textContent = cellContent;
+                                    // 1.GENERAL 模式：保持原有逻辑
+                                    // 直接使用innerHTML保持Excel的原始格式
+                                    // 清理并保留格式：移除可能导致问题的样式，但保留数字格式
+                                    let cleanContent = cellContent;
+                                    
+                                    // 移除可能导致问题的外部样式标签，但保留内联样式和格式
+                                    // 保留数字格式、日期格式等
+                                    cleanContent = cleanContent
+                                        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除style标签
+                                        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // 移除script标签
+                                    
+                                    // 如果内容包含HTML标签，直接使用；否则使用纯文本
+                                    if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                        targetCell.innerHTML = cleanContent;
+                                    } else {
+                                        // 纯文本内容，但保留原始格式（包括空格、换行等）
+                                        targetCell.textContent = cellContent;
+                                    }
                                 }
                                 
                                 currentPasteChanges.push({
@@ -4482,7 +4503,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     newValue: targetCell.textContent || targetCell.innerHTML
                                 });
                                 
-                                if (cellContent && cellContent.trim() !== '') {
+                                if (cellText && cellText.trim() !== '') {
                                     successCount++;
                                 }
                             }
@@ -9008,8 +9029,15 @@ if ($current_user_id && count($user_companies) > 0) {
                                             newValue: cellValue
                                         });
                                         
-                                        // 直接使用原始值，不做任何转换
-                                        cell.textContent = cellValue;
+                                        // 655 模式：应用蓝色背景和下划线格式
+                                        if (currentDataCaptureType === '655' && cellValue && cellValue.trim() !== '') {
+                                            const formattedContent = `<span style="background-color: #E3F2FD; text-decoration: underline;">${cellValue}</span>`;
+                                            cell.innerHTML = formattedContent;
+                                        } else {
+                                            // 其他模式：直接使用原始值，不做任何转换
+                                            cell.textContent = cellValue;
+                                        }
+                                        
                                         if (cellValue) {
                                             successCount++;
                                         }
@@ -20201,6 +20229,24 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         });
 
+        // Clear table for 655 mode
+        function clearTableFor655() {
+            const tableBody = document.getElementById('tableBody');
+            if (tableBody) {
+                const editableCells = tableBody.querySelectorAll('td[contenteditable="true"]');
+                editableCells.forEach(cell => {
+                    cell.textContent = '';
+                    cell.innerHTML = '';
+                    // 清除所有样式和内联格式
+                    cell.removeAttribute('style');
+                    cell.className = '';
+                });
+            }
+            // Clear all selections
+            clearAllSelections();
+            console.log('Table cleared for 655 mode');
+        }
+
         // Reset form
         function resetForm() {
             document.getElementById('dataCaptureForm').reset();
@@ -21503,7 +21549,14 @@ if ($current_user_id && count($user_companies) > 0) {
             if (typeSelect) {
                 currentDataCaptureType = typeSelect.value || 'GENERAL';
                 typeSelect.addEventListener('change', () => {
+                    const previousType = currentDataCaptureType;
                     currentDataCaptureType = typeSelect.value || 'GENERAL';
+                    
+                    // 当选择 655 时，清空整个表格的所有行和列
+                    if (currentDataCaptureType === '655') {
+                        clearTableFor655();
+                    }
+                    
                     // 切换类型时，重新刷新 Submit 按钮的可用状态
                     updateSubmitButtonState();
                 });
