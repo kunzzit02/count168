@@ -10331,12 +10331,15 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 检测独立的标识符行（不包含空格、逗号、点号等）
                     const hasStandaloneIdentifier = linesForCheck.some(line => {
-                        return /^[A-Z0-9]{2,10}$/.test(line) && 
-                               !line.includes(' ') && 
-                               !line.includes(',') &&
-                               !line.includes('.') &&
-                               !line.includes('-') &&
-                               !/^\d/.test(line);
+                        const v = (line || '').trim();
+                        // 允许：CKZxx 或以 C8 结尾的 Player（例如 225C8 / 22LGC8 / KLGC8），可能数字开头
+                        const isCkz = /^CKZ\d{1,6}$/i.test(v) || /^CKZ[A-Z0-9]{1,7}$/i.test(v);
+                        const isPlayer = /^[A-Z0-9]{2,20}$/i.test(v) && /C8$/i.test(v);
+                        return (isCkz || isPlayer) &&
+                               !v.includes(' ') &&
+                               !v.includes(',') &&
+                               !v.includes('.') &&
+                               !v.includes('-');
                     });
                     
                     // 检测Agent关键词
@@ -10365,22 +10368,61 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('2.SPECIAL: C8PLAY format pattern detected');
                         console.log('2.SPECIAL: C8PLAY raw data sample (first 500 chars):', pastedData.substring(0, 500));
                         
-                        // 辅助函数：格式化数值为2位小数
+                        // 辅助函数：仅在“严格为数字”时格式化为2位小数（避免把 225C8 误判为 225.00）
                         function formatNumberToTwoDecimals(value) {
                             if (!value || typeof value !== 'string') return value;
-                            
-                            // 移除千位分隔符（逗号）
-                            let cleaned = value.replace(/,/g, '');
-                            
-                            // 尝试解析为数字
-                            const num = parseFloat(cleaned);
-                            if (!isNaN(num)) {
-                                // 格式化为2位小数，保留负号
-                                return num.toFixed(2);
+                            const trimmed = value.trim();
+
+                            // 允许：-123, 1,234.56, 123.4, 0, -0.25（不允许夹杂字母）
+                            const numericPattern = /^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/;
+                            if (!numericPattern.test(trimmed)) return value;
+
+                            const cleaned = trimmed.replace(/,/g, '');
+                            const num = Number(cleaned);
+                            if (!Number.isFinite(num)) return value;
+                            return num.toFixed(2);
+                        }
+
+                        // C8PLAY 报表复制：可能包含树状缩排/群组列，导致每行前导空白 <td> 数量不一致
+                        // 这里尝试把每行对齐到真正的 Player（通常以 C8 结尾）并跳过群组标题行
+                        function normalizeC8PlayRow(rawRow, expectedCols) {
+                            if (!Array.isArray(rawRow) || rawRow.length === 0) return null;
+
+                            const row = rawRow.map(v => (v == null ? '' : String(v)).replace(/\s+/g, ' ').trim());
+                            const nonEmpty = row.filter(v => v !== '');
+
+                            // 跳过类似 "Agent (Count: 4)" / "Member (Count: 2)" 的群组标题行
+                            if (nonEmpty.length === 1 && /\bCount\s*:\s*\d+\b/i.test(nonEmpty[0])) {
+                                return null;
                             }
-                            
-                            // 如果不是数字，返回原值
-                            return value;
+
+                            // 寻找 Player 起点：...C8 且下一个是 Name，再下一个是 User Type
+                            const isPlayer = (v) => /C8$/i.test(v) && !/\s/.test(v);
+                            const isUserType = (v) => /^(AGENT|MEMBER)$/i.test(v);
+
+                            let startIdx = 0;
+                            for (let i = 0; i <= row.length - 3; i++) {
+                                if (isPlayer(row[i]) && row[i + 1] !== '' && isUserType(row[i + 2])) {
+                                    startIdx = i;
+                                    break;
+                                }
+                            }
+
+                            let aligned = row.slice(startIdx);
+
+                            // 如果还没找到（例如 User Type 不在第3格），至少对齐到第一个 ...C8
+                            if (startIdx === 0 && !isPlayer(row[0])) {
+                                const firstPlayerIdx = row.findIndex(isPlayer);
+                                if (firstPlayerIdx > 0) {
+                                    aligned = row.slice(firstPlayerIdx);
+                                }
+                            }
+
+                            // 裁切/补齐到当前 Data Capture Table 的列数
+                            const cols = Number.isFinite(expectedCols) && expectedCols > 0 ? expectedCols : aligned.length;
+                            aligned = aligned.slice(0, cols);
+                            while (aligned.length < cols) aligned.push('');
+                            return aligned;
                         }
                         
                         // 优先尝试获取HTML格式的数据（Excel/网页粘贴通常包含HTML格式）
@@ -10400,27 +10442,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                         console.log('2.SPECIAL: C8PLAY HTML table found');
                                         let dataMatrix = [];
                                         
-                                        // 处理表头（如果有）
+                                        // 处理表头（如果有）：C8PLAY 粘贴只需要数据本体，跳过 thead 避免把表头贴进表格
                                         const thead = table.querySelector('thead');
-                                        if (thead) {
-                                            const headerRows = thead.querySelectorAll('tr');
-                                            headerRows.forEach(tr => {
-                                                const row = [];
-                                                const cells = tr.querySelectorAll('th, td');
-                                                cells.forEach(cell => {
-                                                    const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                                    let text = cell.textContent || cell.innerText || '';
-                                                    text = text.replace(/\s+/g, ' ').trim();
-                                                    row.push(text);
-                                                    for (let i = 1; i < colspan; i++) {
-                                                        row.push('');
-                                                    }
-                                                });
-                                                if (row.length > 0) {
-                                                    dataMatrix.push(row);
-                                                }
-                                            });
-                                        }
                                         
                                         // 处理表体，保持行格式
                                         let bodyContainer = table.querySelector('tbody');
@@ -10428,6 +10451,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                             bodyContainer = table;
                                         }
                                         
+                                        const expectedCols = document.querySelectorAll('#tableHeader th').length - 1;
                                         const bodyRows = bodyContainer.querySelectorAll('tr');
                                         bodyRows.forEach((tr) => {
                                             // 跳过已经在 thead 中处理过的行
@@ -10450,8 +10474,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                                     row.push('');
                                                 }
                                             });
-                                            if (row.length > 0) {
-                                                dataMatrix.push(row);
+                                            const normalizedRow = normalizeC8PlayRow(row, expectedCols);
+                                            if (normalizedRow && normalizedRow.length > 0) {
+                                                dataMatrix.push(normalizedRow);
                                             }
                                         });
                                         
@@ -10551,6 +10576,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         let dataMatrix = [];
                                         const bodyRows = table.querySelectorAll('tr');
                                         
+                                        const expectedCols = document.querySelectorAll('#tableHeader th').length - 1;
                                         bodyRows.forEach((tr) => {
                                             const row = [];
                                             const cells = tr.querySelectorAll('td, th');
@@ -10563,8 +10589,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                                 
                                                 row.push(text);
                                             });
-                                            if (row.length > 0) {
-                                                dataMatrix.push(row);
+                                            const normalizedRow = normalizeC8PlayRow(row, expectedCols);
+                                            if (normalizedRow && normalizedRow.length > 0) {
+                                                dataMatrix.push(normalizedRow);
                                             }
                                         });
                                         
@@ -10676,13 +10703,29 @@ if ($current_user_id && count($user_companies) > 0) {
                                     continue;
                                 }
                                 
-                                // 检查是否是标识符行（如CKZ03, CKZ16）- 通常是大写字母+数字，长度2-10
-                                const isIdentifier = /^[A-Z0-9]{2,10}$/.test(trimmedLine) && 
-                                                    !trimmedLine.includes(' ') && 
-                                                    !trimmedLine.includes(',') &&
-                                                    !trimmedLine.includes('.') &&
-                                                    !trimmedLine.includes('-') &&
-                                                    !/^\d/.test(trimmedLine);
+                                // 跳过群组标题行（从报表复制常见）：如 "Agent (Count: 4)" / "Member (Count: 2)"
+                                // 避免被当成总计行从第4列开始，导致列位移
+                                if (/\bCount\s*:\s*\d+\b/i.test(trimmedLine)) {
+                                    if (currentRow !== null && currentRow.length > 0) {
+                                        dataMatrix.push(currentRow);
+                                        maxCols = Math.max(maxCols, currentRow.length);
+                                        currentRow = null;
+                                        isTotalRow = false;
+                                    }
+                                    continue;
+                                }
+
+                                // 检查是否是标识符行
+                                // - CKZxx (历史C8PLAY格式)
+                                // - 或者以 C8 结尾的 Player（例如 225C8, 22LGC8, KLGC8），可能以数字开头
+                                const isCkzIdentifier = /^CKZ\d{1,6}$/i.test(trimmedLine);
+                                const isPlayerIdentifier = /^[A-Z0-9]{2,20}$/i.test(trimmedLine) &&
+                                                          !trimmedLine.includes(' ') &&
+                                                          !trimmedLine.includes(',') &&
+                                                          !trimmedLine.includes('.') &&
+                                                          !trimmedLine.includes('-') &&
+                                                          /C8$/i.test(trimmedLine);
+                                const isIdentifier = isCkzIdentifier || isPlayerIdentifier;
                                 
                                 if (isIdentifier) {
                                     // 如果之前有未完成的行，先保存它
@@ -10733,12 +10776,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 1. 如果 isTotalRow 标记为 true，说明是总计行
                                 // 2. 或者如果第一列不是标识符格式（不是以大写字母开头的短标识符）
                                 const firstCell = currentRow[0] || '';
-                                const isIdentifierFormat = /^[A-Z0-9]{2,10}$/.test(firstCell) && 
-                                                          !firstCell.includes(' ') && 
-                                                          !firstCell.includes(',') &&
-                                                          !firstCell.includes('.') &&
-                                                          !firstCell.includes('-') &&
-                                                          !/^\d/.test(firstCell);
+                                const isIdentifierFormat = (/^CKZ\d{1,6}$/i.test(firstCell)) ||
+                                                          (/^[A-Z0-9]{2,20}$/i.test(firstCell) &&
+                                                           !firstCell.includes(' ') &&
+                                                           !firstCell.includes(',') &&
+                                                           !firstCell.includes('.') &&
+                                                           !firstCell.includes('-') &&
+                                                           /C8$/i.test(firstCell));
                                 const isLastRowTotal = isTotalRow || (!isIdentifierFormat && firstCell !== '');
                                 
                                 // 如果最后一行是总计行，确保前3列为空
@@ -12583,19 +12627,51 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                     function formatNumberToTwoDecimals(value) {
                         if (!value || typeof value !== 'string') return value;
-                        
-                        // 移除千位分隔符（逗号）
-                        let cleaned = value.replace(/,/g, '');
-                        
-                        // 尝试解析为数字
-                        const num = parseFloat(cleaned);
-                        if (!isNaN(num)) {
-                            // 格式化为2位小数，保留负号
-                            return num.toFixed(2);
+                        const trimmed = value.trim();
+
+                        // 允许：-123, 1,234.56, 123.4, 0, -0.25（不允许夹杂字母）
+                        const numericPattern = /^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/;
+                        if (!numericPattern.test(trimmed)) return value;
+
+                        const cleaned = trimmed.replace(/,/g, '');
+                        const num = Number(cleaned);
+                        if (!Number.isFinite(num)) return value;
+                        return num.toFixed(2);
+                    }
+
+                    function normalizeC8PlayRow(rawRow, expectedCols) {
+                        if (!Array.isArray(rawRow) || rawRow.length === 0) return null;
+
+                        const row = rawRow.map(v => (v == null ? '' : String(v)).replace(/\s+/g, ' ').trim());
+                        const nonEmpty = row.filter(v => v !== '');
+
+                        if (nonEmpty.length === 1 && /\bCount\s*:\s*\d+\b/i.test(nonEmpty[0])) {
+                            return null;
                         }
-                        
-                        // 如果不是数字，返回原值
-                        return value;
+
+                        const isPlayer = (v) => /C8$/i.test(v) && !/\s/.test(v);
+                        const isUserType = (v) => /^(AGENT|MEMBER)$/i.test(v);
+
+                        let startIdx = 0;
+                        for (let i = 0; i <= row.length - 3; i++) {
+                            if (isPlayer(row[i]) && row[i + 1] !== '' && isUserType(row[i + 2])) {
+                                startIdx = i;
+                                break;
+                            }
+                        }
+
+                        let aligned = row.slice(startIdx);
+                        if (startIdx === 0 && !isPlayer(row[0])) {
+                            const firstPlayerIdx = row.findIndex(isPlayer);
+                            if (firstPlayerIdx > 0) {
+                                aligned = row.slice(firstPlayerIdx);
+                            }
+                        }
+
+                        const cols = Number.isFinite(expectedCols) && expectedCols > 0 ? expectedCols : aligned.length;
+                        aligned = aligned.slice(0, cols);
+                        while (aligned.length < cols) aligned.push('');
+                        return aligned;
                     }
                     
                     // 优先尝试获取HTML格式的数据（Excel/网页粘贴通常包含HTML格式）
@@ -12615,27 +12691,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                     console.log('2.SPECIAL: C8PLAY HTML table found');
                                     let dataMatrix = [];
                                     
-                                    // 处理表头（如果有）
+                                    // 处理表头（如果有）：C8PLAY 粘贴只需要数据本体，跳过 thead 避免把表头贴进表格
                                     const thead = table.querySelector('thead');
-                                    if (thead) {
-                                        const headerRows = thead.querySelectorAll('tr');
-                                        headerRows.forEach(tr => {
-                                            const row = [];
-                                            const cells = tr.querySelectorAll('th, td');
-                                            cells.forEach(cell => {
-                                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                                let text = cell.textContent || cell.innerText || '';
-                                                text = text.replace(/\s+/g, ' ').trim();
-                                                row.push(text);
-                                                for (let i = 1; i < colspan; i++) {
-                                                    row.push('');
-                                                }
-                                            });
-                                            if (row.length > 0) {
-                                                dataMatrix.push(row);
-                                            }
-                                        });
-                                    }
                                     
                                     // 处理表体，保持行格式
                                     let bodyContainer = table.querySelector('tbody');
@@ -12643,6 +12700,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         bodyContainer = table;
                                     }
                                     
+                                    const expectedCols = document.querySelectorAll('#tableHeader th').length - 1;
                                     const bodyRows = bodyContainer.querySelectorAll('tr');
                                     bodyRows.forEach((tr) => {
                                         // 跳过已经在 thead 中处理过的行
@@ -12665,8 +12723,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                                 row.push('');
                                             }
                                         });
-                                        if (row.length > 0) {
-                                            dataMatrix.push(row);
+                                        const normalizedRow = normalizeC8PlayRow(row, expectedCols);
+                                        if (normalizedRow && normalizedRow.length > 0) {
+                                            dataMatrix.push(normalizedRow);
                                         }
                                     });
                                     
@@ -12766,6 +12825,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     let dataMatrix = [];
                                     const bodyRows = table.querySelectorAll('tr');
                                     
+                                    const expectedCols = document.querySelectorAll('#tableHeader th').length - 1;
                                     bodyRows.forEach((tr) => {
                                         const row = [];
                                         const cells = tr.querySelectorAll('td, th');
@@ -12778,8 +12838,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                             
                                             row.push(text);
                                         });
-                                        if (row.length > 0) {
-                                            dataMatrix.push(row);
+                                        const normalizedRow = normalizeC8PlayRow(row, expectedCols);
+                                        if (normalizedRow && normalizedRow.length > 0) {
+                                            dataMatrix.push(normalizedRow);
                                         }
                                     });
                                     
@@ -12892,12 +12953,24 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                             
                             // 检查是否是标识符行（如CKZ03, CKZ16）- 通常是大写字母+数字，长度2-10
-                            const isIdentifier = /^[A-Z0-9]{2,10}$/.test(trimmedLine) && 
-                                                !trimmedLine.includes(' ') && 
-                                                !trimmedLine.includes(',') &&
-                                                !trimmedLine.includes('.') &&
-                                                !trimmedLine.includes('-') &&
-                                                !/^\d/.test(trimmedLine);
+                            if (/\bCount\s*:\s*\d+\b/i.test(trimmedLine)) {
+                                if (currentRow !== null && currentRow.length > 0) {
+                                    dataMatrix.push(currentRow);
+                                    maxCols = Math.max(maxCols, currentRow.length);
+                                    currentRow = null;
+                                    isTotalRow = false;
+                                }
+                                continue;
+                            }
+
+                            const isCkzIdentifier = /^CKZ\d{1,6}$/i.test(trimmedLine);
+                            const isPlayerIdentifier = /^[A-Z0-9]{2,20}$/i.test(trimmedLine) &&
+                                                      !trimmedLine.includes(' ') &&
+                                                      !trimmedLine.includes(',') &&
+                                                      !trimmedLine.includes('.') &&
+                                                      !trimmedLine.includes('-') &&
+                                                      /C8$/i.test(trimmedLine);
+                            const isIdentifier = isCkzIdentifier || isPlayerIdentifier;
                             
                             if (isIdentifier) {
                                 // 如果之前有未完成的行，先保存它
@@ -12948,12 +13021,13 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 1. 如果 isTotalRow 标记为 true，说明是总计行
                             // 2. 或者如果第一列不是标识符格式（不是以大写字母开头的短标识符）
                             const firstCell = currentRow[0] || '';
-                            const isIdentifierFormat = /^[A-Z0-9]{2,10}$/.test(firstCell) && 
-                                                      !firstCell.includes(' ') && 
-                                                      !firstCell.includes(',') &&
-                                                      !firstCell.includes('.') &&
-                                                      !firstCell.includes('-') &&
-                                                      !/^\d/.test(firstCell);
+                            const isIdentifierFormat = (/^CKZ\d{1,6}$/i.test(firstCell)) ||
+                                                      (/^[A-Z0-9]{2,20}$/i.test(firstCell) &&
+                                                       !firstCell.includes(' ') &&
+                                                       !firstCell.includes(',') &&
+                                                       !firstCell.includes('.') &&
+                                                       !firstCell.includes('-') &&
+                                                       /C8$/i.test(firstCell));
                             const isLastRowTotal = isTotalRow || (!isIdentifierFormat && firstCell !== '');
                             
                             // 如果最后一行是总计行，确保前3列为空
