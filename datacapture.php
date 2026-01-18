@@ -223,7 +223,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <option value="2.SPECIAL">2.SPECIAL</option>
                             <option value="3.API">3.API</option>
                             <option value="4.RETURN">4.RETURN</option>
-                            <option value="GENERAL">GENERAL</option>
+                            <!-- <option value="GENERAL">GENERAL</option> -->
                             <!-- <option value="CITIBET">CITIBET</option> -->
                             <option value="CITIBET_MAJOR">CITIBET</option>
                             <!-- <option value="VPOWER">VPOWER</option> -->
