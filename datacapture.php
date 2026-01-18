@@ -16605,13 +16605,29 @@ if ($current_user_id && count($user_companies) > 0) {
                         continue;
                     }
                     
-                    // 检查是否是标识符行（如CKZ03, CKZ16）- 通常是大写字母+数字，长度2-10
-                    const isIdentifier = /^[A-Z0-9]{2,10}$/.test(trimmedLine) && 
-                                        !trimmedLine.includes(' ') && 
-                                        !trimmedLine.includes(',') &&
-                                        !trimmedLine.includes('.') &&
-                                        !trimmedLine.includes('-') &&
-                                        !/^\d/.test(trimmedLine);
+                    // 跳过群组标题行（从报表复制常见）：如 "Agent (Count: 4)" / "Member (Count: 2)"
+                    // 避免被当成总计行从第4列开始，导致列位移
+                    if (/\bCount\s*:\s*\d+\b/i.test(trimmedLine)) {
+                        if (currentRow !== null && currentRow.length > 0) {
+                            dataMatrix.push(currentRow);
+                            maxCols = Math.max(maxCols, currentRow.length);
+                            currentRow = null;
+                            isTotalRow = false;
+                        }
+                        continue;
+                    }
+
+                    // 检查是否是标识符行
+                    // - CKZxx (历史C8PLAY格式)
+                    // - 或者以 C8 结尾的 Player（例如 225C8, 22LGC8, KLGC8），可能以数字开头
+                    const isCkzIdentifier = /^CKZ\d{1,6}$/i.test(trimmedLine);
+                    const isPlayerIdentifier = /^[A-Z0-9]{2,20}$/i.test(trimmedLine) &&
+                                              !trimmedLine.includes(' ') &&
+                                              !trimmedLine.includes(',') &&
+                                              !trimmedLine.includes('.') &&
+                                              !trimmedLine.includes('-') &&
+                                              /C8$/i.test(trimmedLine);
+                    const isIdentifier = isCkzIdentifier || isPlayerIdentifier;
                     
                     if (isIdentifier) {
                         // 如果之前有未完成的行，先保存它
@@ -16662,12 +16678,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 1. 如果 isTotalRow 标记为 true，说明是总计行
                     // 2. 或者如果第一列不是标识符格式（不是以大写字母开头的短标识符）
                     const firstCell = currentRow[0] || '';
-                    const isIdentifierFormat = /^[A-Z0-9]{2,10}$/.test(firstCell) && 
-                                              !firstCell.includes(' ') && 
-                                              !firstCell.includes(',') &&
-                                              !firstCell.includes('.') &&
-                                              !firstCell.includes('-') &&
-                                              !/^\d/.test(firstCell);
+                    const isIdentifierFormat = (/^CKZ\d{1,6}$/i.test(firstCell)) ||
+                                              (/^[A-Z0-9]{2,20}$/i.test(firstCell) &&
+                                               !firstCell.includes(' ') &&
+                                               !firstCell.includes(',') &&
+                                               !firstCell.includes('.') &&
+                                               !firstCell.includes('-') &&
+                                               /C8$/i.test(firstCell));
                     const isLastRowTotal = isTotalRow || (!isIdentifierFormat && firstCell !== '');
                     
                     // 如果最后一行是总计行，确保前3列为空
