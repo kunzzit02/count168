@@ -8670,12 +8670,18 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     if (hasHashColumn) {
                         // 格式A：#, User Name, profit
-                        if (i + 2 >= lines.length) break;
+                        if (i >= lines.length) break;
                         
                         const hashValue = lines[i];      // 第1行：#列（忽略）
+                        if (i + 1 >= lines.length) break; // 至少需要 User Name
                         userName = lines[i + 1];         // 第2行：User Name
-                        profit = lines[i + 2];          // 第3行：profit
-                        offset = 3;
+                        
+                        // 第3行：profit（可能不存在或不是数字，比如用户只复制到 username 就结束）
+                        const maybeProfit = (i + 2 < lines.length) ? lines[i + 2] : '';
+                        profit = isNumericLike(maybeProfit) ? maybeProfit : '';
+                        
+                        // 如果 profit 不存在/不合法，只消耗 # + username，后续再靠跳过逻辑清理 '-' 等
+                        offset = profit ? 3 : 2;
                         
                         // 验证第一行是数字（#列）
                         if (!/^\d+$/.test(hashValue)) {
@@ -8685,11 +8691,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     } else {
                         // 格式B：User Name, profit
-                        if (i + 1 >= lines.length) break;
+                        if (i >= lines.length) break;
                         
                         userName = lines[i];            // 第1行：User Name
-                        profit = lines[i + 1];          // 第2行：profit
-                        offset = 2;
+                        
+                        const maybeProfit = (i + 1 < lines.length) ? lines[i + 1] : '';
+                        profit = isNumericLike(maybeProfit) ? maybeProfit : '';
+                        
+                        // 如果 profit 不存在/不合法，只消耗 username
+                        offset = profit ? 2 : 1;
                     }
                     
                     console.log(`Processing group at index ${i}:`, { userName, profit, hasHashColumn });
@@ -8701,8 +8711,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         continue;
                     }
                     
-                    // 验证 profit 格式
-                    if (!isNumericLike(profit)) {
+                    // 验证 profit 格式（允许为空：用户可能只复制到 username）
+                    if (profit && !isNumericLike(profit)) {
                         console.log(`Skipping: profit "${profit}" is not a number`);
                         i++;
                         continue;
@@ -8711,7 +8721,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 创建数据行
                     const row = [];
                     row[0] = userName.toUpperCase(); // Column 1: User Name
-                    row[1] = profit;                 // Column 2: profit
+                    row[1] = profit || '';            // Column 2: profit（允许空）
                     row[2] = '-';                     // Column 3
                     row[3] = '-';                     // Column 4
                     row[4] = '-';                     // Column 5
