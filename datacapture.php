@@ -9112,9 +9112,16 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const firstIsValid = numPattern.test(firstNum) || numPatternWithDecimal.test(firstNum);
                                         let secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
                                         
-                                        // 如果第二个数字无效，但看起来像数字（只是缺少负号），接受为正数
+                                        // 如果第二个数字无效，但看起来像数字（只是缺少负号）
                                         if (!secondIsValid && /^[\d,]+\.?\d*$/.test(secondNum)) {
-                                            secondIsValid = true;
+                                            // 如果第一个数字是负数，假设第二个数字也应该是负数
+                                            if (firstNum.startsWith('-')) {
+                                                secondNum = '-' + secondNum;
+                                                secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
+                                            } else {
+                                                // 第一个数字是正数，第二个数字保持为正数
+                                                secondIsValid = true;
+                                            }
                                         }
                                         
                                         if (firstIsValid && secondIsValid) {
@@ -9157,9 +9164,16 @@ if ($current_user_id && count($user_companies) > 0) {
                                             const firstIsValid = numPattern.test(firstNum) || numPatternWithDecimal.test(firstNum);
                                             let secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
                                             
-                                            // 如果第二个数字无效，但看起来像数字（只是缺少负号），接受为正数
+                                            // 如果第二个数字无效，但看起来像数字（只是缺少负号）
                                             if (!secondIsValid && /^[\d,]+\.?\d*$/.test(secondNum)) {
-                                                secondIsValid = true;
+                                                // 如果第一个数字是负数，假设第二个数字也应该是负数
+                                                if (firstNum.startsWith('-')) {
+                                                    secondNum = '-' + secondNum;
+                                                    secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
+                                                } else {
+                                                    // 第一个数字是正数，第二个数字保持为正数
+                                                    secondIsValid = true;
+                                                }
                                             }
                                             
                                             if (firstIsValid && secondIsValid) {
@@ -9241,14 +9255,21 @@ if ($current_user_id && count($user_companies) > 0) {
                                             // 检查第二个数字是否有效（可能没有负号，需要检查）
                                             let secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
                                             
-                                            // 如果第二个数字无效，但看起来像数字（只是缺少负号），尝试添加负号
-                                            // 注意：这只是一个启发式方法，因为无法确定第二个数字是否应该是负数
-                                            // 但如果第一个数字是负数，且第二个数字看起来像正数，可能需要检查上下文
+                                            // 特殊处理：如果第一个数字是负数，且第二个数字没有负号但看起来像数字
+                                            // 在某些PDF格式中，"-25.00-1.50" 可能意味着两个负数："-25.00" 和 "-1.50"
+                                            // 但这只是猜测，可能不总是正确的
+                                            // 为了更准确，检查：如果第一个是负数，且原始字符串以负号开头，第二个数字也应该是负数
                                             if (!secondIsValid && /^[\d,]+\.?\d*$/.test(secondNum)) {
                                                 // 第二个数字看起来像正数，但可能应该是负数
-                                                // 为了安全起见，我们保持原样，不自动添加负号
-                                                // 但如果用户期望是负数，可能需要手动处理
-                                                secondIsValid = true; // 接受为正数
+                                                // 启发式规则：如果第一个数字是负数，第二个数字也应该是负数
+                                                if (firstNum.startsWith('-')) {
+                                                    // 第一个数字是负数，假设第二个数字也应该是负数
+                                                    secondNum = '-' + secondNum;
+                                                    secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
+                                                } else {
+                                                    // 第一个数字是正数，第二个数字保持为正数
+                                                    secondIsValid = true;
+                                                }
                                             }
                                             
                                             if (firstIsValid && secondIsValid) {
