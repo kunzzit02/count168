@@ -9206,13 +9206,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (trimmedNext.length > 0) {
                                 const firstNextCell = trimmedNext[0];
                                 
-                                // 检查是否是 "数字-数字" 格式（如 "2,693.95-188.58"）
-                                const numberDashNumberPattern = /^([\d,]+\.?\d*)-([\d,]+\.?\d*)$/;
+                                // 检查是否是 "数字-数字" 格式（如 "2,693.95-188.58" 或 "2,693.95--188.58"）
+                                // 注意：第二个数字可能是负数，所以可能是 "--188.58" 或 "-188.58"
+                                const numberDashNumberPattern = /^([\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/;
                                 const match = firstNextCell.match(numberDashNumberPattern);
                                 if (match) {
-                                    // 分离成两个数字
+                                    // 分离成两个数字，保留负号
                                     isNextRowNumber = true;
-                                    nextRowNumbers = [match[1], match[2]];
+                                    nextRowNumbers = [match[1], match[2]]; // match[2] 可能包含负号
                                     nextRowNumber = match[1]; // 第一个数字作为主要数字
                                 } else {
                                     // 匹配单个数字格式（可能包含逗号和小数点，可能是负数）
@@ -9220,13 +9221,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
                                     if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
                                         isNextRowNumber = true;
-                                        nextRowNumber = firstNextCell;
+                                        nextRowNumber = firstNextCell; // 保留完整的字符串，包括负号
+                                        // 调试：记录负数检测
+                                        if (firstNextCell.startsWith('-')) {
+                                            console.log(`2.10 INVOICE: Detected negative number: "${firstNextCell}"`);
+                                        }
                                     } else {
                                         // 更宽松的检测：如果字符串包含数字字符，也认为是数字行
                                         // 这种情况可能发生在上下排版时，数字被合并成一个字符串
+                                        // 但要确保保留负号（如果存在）
                                         if (/[\d,]+/.test(firstNextCell) && trimmedNext.length === 1) {
                                             isNextRowNumber = true;
-                                            nextRowNumber = firstNextCell;
+                                            nextRowNumber = firstNextCell; // 保留原始字符串，包括负号
                                         }
                                     }
                                 }
@@ -9460,8 +9466,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                         newValue: cellValue
                                     });
                                     
-                                    // 设置单元格值
+                                    // 设置单元格值（保留负号）
                                     cell.textContent = cellValue;
+                                    
+                                    // 调试：如果值应该包含负号但没有，记录警告
+                                    if (cellData && cellData.toString().includes('-') && !cellValue.includes('-')) {
+                                        console.warn(`2.10 INVOICE: Negative sign lost! Original: "${cellData}", Final: "${cellValue}"`);
+                                    }
                                     if (cellValue) {
                                         successCount++;
                                     }
