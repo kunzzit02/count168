@@ -4459,43 +4459,27 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (targetCell && targetCell.contentEditable === 'true') {
                                 const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                                 
-                                // 获取单元格的文本内容（去除HTML标签）
+                                // 获取单元格的文本内容（用于判断是否为空）
                                 const cellText = sourceCell.textContent || sourceCell.innerText || '';
                                 
-                                // 655 模式：应用蓝色背景和下划线格式
-                                if (currentDataCaptureType === '655') {
-                                    // 清理内容
-                                    let cleanContent = cellContent
-                                        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-                                        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-                                    
-                                    // 如果单元格有内容，应用蓝色背景和下划线
-                                    if (cellText && cellText.trim() !== '') {
-                                        // 创建带格式的内容
-                                        const formattedContent = `<span style="background-color: #E3F2FD; text-decoration: underline;">${cellText}</span>`;
-                                        targetCell.innerHTML = formattedContent;
-                                    } else {
-                                        targetCell.textContent = '';
-                                    }
+                                // 1.GENERAL 和 655 模式：完全保持Excel原始格式，不做任何转换
+                                // 直接使用innerHTML保持Excel的原始格式（包括颜色、下划线、背景色等）
+                                // 清理并保留格式：移除可能导致问题的样式，但保留内联样式和格式
+                                let cleanContent = cellContent;
+                                
+                                // 移除可能导致问题的外部样式标签，但保留内联样式和格式
+                                // 保留数字格式、日期格式、颜色、下划线等所有格式
+                                cleanContent = cleanContent
+                                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除style标签
+                                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // 移除script标签
+                                
+                                // 如果内容包含HTML标签，直接使用；否则使用纯文本
+                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                    // 有HTML格式，直接使用innerHTML保持所有格式（颜色、下划线、背景等）
+                                    targetCell.innerHTML = cleanContent;
                                 } else {
-                                    // 1.GENERAL 模式：保持原有逻辑
-                                    // 直接使用innerHTML保持Excel的原始格式
-                                    // 清理并保留格式：移除可能导致问题的样式，但保留数字格式
-                                    let cleanContent = cellContent;
-                                    
-                                    // 移除可能导致问题的外部样式标签，但保留内联样式和格式
-                                    // 保留数字格式、日期格式等
-                                    cleanContent = cleanContent
-                                        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除style标签
-                                        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // 移除script标签
-                                    
-                                    // 如果内容包含HTML标签，直接使用；否则使用纯文本
-                                    if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                        targetCell.innerHTML = cleanContent;
-                                    } else {
-                                        // 纯文本内容，但保留原始格式（包括空格、换行等）
-                                        targetCell.textContent = cellContent;
-                                    }
+                                    // 纯文本内容，但保留原始格式（包括空格、换行等）
+                                    targetCell.textContent = cellContent;
                                 }
                                 
                                 currentPasteChanges.push({
@@ -9031,14 +9015,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                             newValue: cellValue
                                         });
                                         
-                                        // 655 模式：应用蓝色背景和下划线格式
-                                        if (currentDataCaptureType === '655' && cellValue && cellValue.trim() !== '') {
-                                            const formattedContent = `<span style="background-color: #E3F2FD; text-decoration: underline;">${cellValue}</span>`;
-                                            cell.innerHTML = formattedContent;
-                                        } else {
-                                            // 其他模式：直接使用原始值，不做任何转换
-                                            cell.textContent = cellValue;
-                                        }
+                                        // 1.GENERAL 和 655 模式：直接使用原始值，不做任何转换（像Excel一样）
+                                        cell.textContent = cellValue;
                                         
                                         if (cellValue) {
                                             successCount++;
