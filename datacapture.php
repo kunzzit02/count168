@@ -9090,6 +9090,33 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (line.includes('\t')) {
                             cells = line.split('\t').map(cell => cell.trim());
                             console.log(`2.10 INVOICE: Line ${lineIndex + 1} split by tab: ${cells.length} columns`);
+                            
+                            // 后处理：检查并分离 "数字-数字" 格式的单元格
+                            const processedCells = [];
+                            for (const cell of cells) {
+                                if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(cell)) {
+                                    // 找到连字符的位置（跳过开头的负号）
+                                    let dashIndex = -1;
+                                    if (cell.startsWith('-')) {
+                                        dashIndex = cell.indexOf('-', 1);
+                                    } else {
+                                        dashIndex = cell.indexOf('-', 0);
+                                    }
+                                    
+                                    if (dashIndex > 0 && dashIndex < cell.length - 1) {
+                                        const firstNum = cell.substring(0, dashIndex).trim();
+                                        const secondNum = cell.substring(dashIndex + 1).trim();
+                                        const numPattern = /^-?[\d,]+\.?\d*$/;
+                                        if (numPattern.test(firstNum) && numPattern.test(secondNum)) {
+                                            processedCells.push(firstNum);
+                                            processedCells.push(secondNum);
+                                            continue;
+                                        }
+                                    }
+                                }
+                                processedCells.push(cell);
+                            }
+                            cells = processedCells;
                         } else {
                             // 方法2: 尝试使用多个空格（2个或更多）作为分隔符
                             const multiSpaceSplit = line.split(/\s{2,}/);
@@ -9097,6 +9124,33 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 如果多个空格分割得到多个列，使用这个
                                 cells = multiSpaceSplit.map(cell => cell.trim());
                                 console.log(`2.10 INVOICE: Line ${lineIndex + 1} split by multiple spaces: ${cells.length} columns`);
+                                
+                                // 后处理：检查并分离 "数字-数字" 格式的单元格
+                                const processedCells = [];
+                                for (const cell of cells) {
+                                    if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(cell)) {
+                                        // 找到连字符的位置（跳过开头的负号）
+                                        let dashIndex = -1;
+                                        if (cell.startsWith('-')) {
+                                            dashIndex = cell.indexOf('-', 1);
+                                        } else {
+                                            dashIndex = cell.indexOf('-', 0);
+                                        }
+                                        
+                                        if (dashIndex > 0 && dashIndex < cell.length - 1) {
+                                            const firstNum = cell.substring(0, dashIndex).trim();
+                                            const secondNum = cell.substring(dashIndex + 1).trim();
+                                            const numPattern = /^-?[\d,]+\.?\d*$/;
+                                            if (numPattern.test(firstNum) && numPattern.test(secondNum)) {
+                                                processedCells.push(firstNum);
+                                                processedCells.push(secondNum);
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                    processedCells.push(cell);
+                                }
+                                cells = processedCells;
                             } else {
                                 // 方法3: 使用单个空格分割，智能识别列
                                 // 对于PDF表格，通常格式是：数字 品牌 类型 百分比 金额等
@@ -9136,7 +9190,41 @@ if ($current_user_id && count($user_companies) > 0) {
                                         i++;
                                     }
                                     // 如果是数字（百分比或金额）
-                                    else if (/^\d+\.?\d*$/.test(part) || /^[\d,]+\.?\d*$/.test(part)) {
+                                    // 先检查是否是 "数字-数字" 格式（如 "-25.00-1.50" 或 "2,693.95-188.58"）
+                                    // 这种格式通常表示两个数字应该分开到不同的列
+                                    // 使用更宽松的检测：包含至少一个连字符，且连字符前后都是数字模式
+                                    else if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(part)) {
+                                        // 从第二个字符开始查找连字符（跳过开头的负号）
+                                        let dashIndex = -1;
+                                        if (part.startsWith('-')) {
+                                            // 如果以负号开头，从第二个字符开始找连字符
+                                            dashIndex = part.indexOf('-', 1);
+                                        } else {
+                                            // 否则从第一个字符开始找
+                                            dashIndex = part.indexOf('-', 0);
+                                        }
+                                        
+                                        // 确保找到了连字符，且连字符前后都有内容
+                                        if (dashIndex > 0 && dashIndex < part.length - 1) {
+                                            const firstNum = part.substring(0, dashIndex).trim();
+                                            const secondNum = part.substring(dashIndex + 1).trim();
+                                            
+                                            // 验证两部分都像数字（可能包含逗号、小数点、负号）
+                                            const numPattern = /^-?[\d,]+\.?\d*$/;
+                                            if (numPattern.test(firstNum) && numPattern.test(secondNum)) {
+                                                cells.push(firstNum); // 第一个数字 (如 "-25.00" 或 "2,693.95")
+                                                cells.push(secondNum); // 第二个数字 (如 "-1.50" 或 "188.58")
+                                                i++;
+                                            } else {
+                                                cells.push(part);
+                                                i++;
+                                            }
+                                        } else {
+                                            cells.push(part);
+                                            i++;
+                                        }
+                                    }
+                                    else if (/^-?\d+\.?\d*$/.test(part) || /^-?[\d,]+\.?\d*$/.test(part)) {
                                         cells.push(part);
                                         i++;
                                     }
