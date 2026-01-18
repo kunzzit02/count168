@@ -9253,11 +9253,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 如果当前行有货币代码，且下一行只有数字，也应该合并
                         if (nextRow && isNextRowNumber) {
                             const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
-                            // 如果下一行只有1-2列，且第一个是数字，很可能是上下排版
-                            if (trimmedNext.length <= 2) {
-                                // 在当前行中查找货币代码
+                            // 如果下一行只有1列，且是数字，很可能是上下排版
+                            if (trimmedNext.length === 1) {
+                                // 在当前行中查找货币代码（从后往前找，优先找后面的）
                                 let currencyColIndex = -1;
-                                for (let j = 0; j < currentRow.length; j++) {
+                                for (let j = currentRow.length - 1; j >= 0; j--) {
                                     const cellValue = (currentRow[j] || '').trim();
                                     if (/^\([A-Z]{3}\)$/.test(cellValue)) {
                                         currencyColIndex = j;
@@ -9277,6 +9277,33 @@ if ($current_user_id && count($user_companies) > 0) {
                                     i += 2; // 跳过当前行和下一行（因为已经合并）
                                     mergedDataMatrix.push(currentRow);
                                     continue; // 继续处理下一行
+                                }
+                                
+                                // 如果没找到货币代码，但当前行的最后一个非空单元格存在，也尝试合并
+                                // 这适用于数字+数字的情况，或者货币代码不在预期位置的情况
+                                if (trimmedCurrent.length > 0) {
+                                    // 找到当前行最后一个非空单元格的位置
+                                    let lastColIndex = -1;
+                                    for (let j = currentRow.length - 1; j >= 0; j--) {
+                                        const cellValue = (currentRow[j] || '').trim();
+                                        if (cellValue !== '') {
+                                            lastColIndex = j;
+                                            break;
+                                        }
+                                    }
+                                    
+                                    if (lastColIndex >= 0) {
+                                        // 确保行有足够的列
+                                        while (currentRow.length <= lastColIndex + 1) {
+                                            currentRow.push('');
+                                        }
+                                        // 将数字添加到最后一个非空单元格的下一列
+                                        currentRow[lastColIndex + 1] = nextRowNumber;
+                                        console.log(`2.10 INVOICE: Merged row ${i + 1} + ${i + 2} (last cell at col ${lastColIndex}): "${currentRow[lastColIndex]}" + "${nextRowNumber}"`);
+                                        i += 2; // 跳过当前行和下一行（因为已经合并）
+                                        mergedDataMatrix.push(currentRow);
+                                        continue; // 继续处理下一行
+                                    }
                                 }
                             }
                         }
