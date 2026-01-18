@@ -4504,7 +4504,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     .replace(/javascript:/gi, '') // 移除javascript:协议
                                     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, ''); // 移除事件处理器
                                 
-                                // 655模式：需要保留所有HTML格式，包括颜色、下划线、背景等
+                                // 655模式：需要保留所有HTML格式，包括颜色、下划线、背景等，以及表格边框
                                 if (currentDataCaptureType === '655') {
                                     // 如果有HTML标签，直接使用innerHTML保持所有格式
                                     if (cleanContent.includes('<') && cleanContent.includes('>')) {
@@ -4513,7 +4513,16 @@ if ($current_user_id && count($user_companies) > 0) {
                                         // 同时保留单元格本身的样式属性（背景色等）
                                         const sourceCellStyle = sourceCell.getAttribute('style');
                                         if (sourceCellStyle) {
-                                            targetCell.setAttribute('style', sourceCellStyle);
+                                            // 合并样式，确保边框不被覆盖
+                                            // 检查源样式是否包含border，如果不包含，添加边框
+                                            let mergedStyle = sourceCellStyle;
+                                            if (!sourceCellStyle.includes('border')) {
+                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                            }
+                                            targetCell.setAttribute('style', mergedStyle);
+                                        } else {
+                                            // 如果没有源样式，确保有边框
+                                            targetCell.style.border = '1px solid #d0d7de';
                                         }
                                     } else if (cellText && cellText.trim() !== '') {
                                         // 纯文本，但如果有样式属性，尝试保留
@@ -4522,22 +4531,35 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const sourceCellBgColor = sourceCell.style.backgroundColor;
                                         if (sourceCellStyle) {
                                             targetCell.innerHTML = `<span style="${sourceCellStyle}">${cellText}</span>`;
-                                            // 也保留单元格的样式
-                                            targetCell.setAttribute('style', sourceCellStyle);
+                                            // 也保留单元格的样式，但确保边框存在
+                                            let mergedStyle = sourceCellStyle;
+                                            if (!sourceCellStyle.includes('border')) {
+                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                            }
+                                            targetCell.setAttribute('style', mergedStyle);
                                         } else if (sourceCellBgColor) {
-                                            // 如果有背景色，应用背景色
+                                            // 如果有背景色，应用背景色，同时保持边框
                                             targetCell.style.backgroundColor = sourceCellBgColor;
+                                            targetCell.style.border = '1px solid #d0d7de';
                                             targetCell.textContent = cellText;
                                         } else {
+                                            // 纯文本，确保有边框
+                                            targetCell.style.border = '1px solid #d0d7de';
                                             targetCell.textContent = cellText;
                                         }
                                     } else {
+                                        // 空单元格也要有边框
+                                        targetCell.style.border = '1px solid #d0d7de';
                                         targetCell.textContent = '';
                                     }
                                     // 保留单元格的class属性（可能有样式相关的class）
                                     const sourceCellClass = sourceCell.getAttribute('class');
                                     if (sourceCellClass) {
                                         targetCell.setAttribute('class', sourceCellClass);
+                                    }
+                                    // 确保单元格始终显示边框（表格网格结构）
+                                    if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
+                                        targetCell.style.border = '1px solid #d0d7de';
                                     }
                                 } else {
                                     // 1.GENERAL模式：保持原有逻辑
