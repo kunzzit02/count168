@@ -9094,18 +9094,13 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 后处理：检查并分离 "数字-数字" 格式的单元格
                             const processedCells = [];
                             for (const cell of cells) {
-                                if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(cell)) {
-                                    // 找到连字符的位置（跳过开头的负号）
-                                    let dashIndex = -1;
-                                    if (cell.startsWith('-')) {
-                                        dashIndex = cell.indexOf('-', 1);
-                                    } else {
-                                        dashIndex = cell.indexOf('-', 0);
-                                    }
+                                if (/[\d,]+\.?\d*-/.test(cell)) {
+                                    // 找到最后一个连字符的位置（因为可能有多个连字符，如 "-25.00-1.50"）
+                                    const lastDashIndex = cell.lastIndexOf('-');
                                     
-                                    if (dashIndex > 0 && dashIndex < cell.length - 1) {
-                                        const firstNum = cell.substring(0, dashIndex).trim();
-                                        const secondNum = cell.substring(dashIndex + 1).trim();
+                                    if (lastDashIndex > 0 && lastDashIndex < cell.length - 1) {
+                                        const firstNum = cell.substring(0, lastDashIndex).trim();
+                                        const secondNum = cell.substring(lastDashIndex + 1).trim();
                                         const numPattern = /^-?[\d,]+\.?\d*$/;
                                         if (numPattern.test(firstNum) && numPattern.test(secondNum)) {
                                             processedCells.push(firstNum);
@@ -9128,18 +9123,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 后处理：检查并分离 "数字-数字" 格式的单元格
                                 const processedCells = [];
                                 for (const cell of cells) {
-                                    if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(cell)) {
-                                        // 找到连字符的位置（跳过开头的负号）
-                                        let dashIndex = -1;
-                                        if (cell.startsWith('-')) {
-                                            dashIndex = cell.indexOf('-', 1);
-                                        } else {
-                                            dashIndex = cell.indexOf('-', 0);
-                                        }
+                                    if (/[\d,]+\.?\d*-/.test(cell)) {
+                                        // 找到最后一个连字符的位置（因为可能有多个连字符，如 "-25.00-1.50"）
+                                        const lastDashIndex = cell.lastIndexOf('-');
                                         
-                                        if (dashIndex > 0 && dashIndex < cell.length - 1) {
-                                            const firstNum = cell.substring(0, dashIndex).trim();
-                                            const secondNum = cell.substring(dashIndex + 1).trim();
+                                        if (lastDashIndex > 0 && lastDashIndex < cell.length - 1) {
+                                            const firstNum = cell.substring(0, lastDashIndex).trim();
+                                            const secondNum = cell.substring(lastDashIndex + 1).trim();
                                             const numPattern = /^-?[\d,]+\.?\d*$/;
                                             if (numPattern.test(firstNum) && numPattern.test(secondNum)) {
                                                 processedCells.push(firstNum);
@@ -9191,30 +9181,36 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                     // 如果是数字（百分比或金额）
                                     // 先检查是否是 "数字-数字" 格式（如 "-25.00-1.50" 或 "2,693.95-188.58"）
-                                    // 这种格式通常表示两个数字应该分开到不同的列
-                                    // 使用更宽松的检测：包含至少一个连字符，且连字符前后都是数字模式
-                                    else if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(part)) {
-                                        // 从第二个字符开始查找连字符（跳过开头的负号）
-                                        let dashIndex = -1;
-                                        if (part.startsWith('-')) {
-                                            // 如果以负号开头，从第二个字符开始找连字符
-                                            dashIndex = part.indexOf('-', 1);
-                                        } else {
-                                            // 否则从第一个字符开始找
-                                            dashIndex = part.indexOf('-', 0);
-                                        }
+                                    // 使用正则表达式精确匹配并捕获两个数字（包括负数）
+                                    // 匹配模式：第一个数字（可选负号，可含逗号），连字符，第二个数字（可选负号，可含逗号）
+                                    // 注意：使用非贪婪匹配，并确保第二个数字的负号被正确捕获
+                                    else if (/[\d,]+\.?\d*-/.test(part)) {
+                                        // 找到最后一个连字符的位置（因为可能有多个连字符，如 "-25.00-1.50"）
+                                        // 最后一个连字符才是分隔两个数字的
+                                        const lastDashIndex = part.lastIndexOf('-');
                                         
-                                        // 确保找到了连字符，且连字符前后都有内容
-                                        if (dashIndex > 0 && dashIndex < part.length - 1) {
-                                            const firstNum = part.substring(0, dashIndex).trim();
-                                            const secondNum = part.substring(dashIndex + 1).trim();
+                                        if (lastDashIndex > 0 && lastDashIndex < part.length - 1) {
+                                            // 分离两个部分
+                                            const firstNum = part.substring(0, lastDashIndex).trim();
+                                            const secondNum = part.substring(lastDashIndex + 1).trim();
                                             
-                                            // 验证两部分都像数字（可能包含逗号、小数点、负号）
+                                            // 验证两部分都是有效数字格式（可能包含逗号、小数点、负号）
                                             const numPattern = /^-?[\d,]+\.?\d*$/;
-                                            if (numPattern.test(firstNum) && numPattern.test(secondNum)) {
-                                                cells.push(firstNum); // 第一个数字 (如 "-25.00" 或 "2,693.95")
-                                                cells.push(secondNum); // 第二个数字 (如 "-1.50" 或 "188.58")
-                                                i++;
+                                            
+                                            // 检查第一部分是否是数字格式
+                                            if (numPattern.test(firstNum)) {
+                                                // 检查第二部分是否是数字格式
+                                                // 注意：secondNum 可能已经是负数格式（如 "-1.50"）或正数格式（如 "188.58"）
+                                                if (numPattern.test(secondNum)) {
+                                                    cells.push(firstNum); // 第一个数字 (如 "-25.00" 或 "2,693.95")
+                                                    cells.push(secondNum); // 第二个数字 (如 "-1.50" 或 "-188.58")
+                                                    i++;
+                                                } else {
+                                                    // 如果第二部分不符合数字格式，可能需要检查原始字符串
+                                                    // 例如 "2,693.95-188.58" 可能被错误地分割
+                                                    cells.push(part);
+                                                    i++;
+                                                }
                                             } else {
                                                 cells.push(part);
                                                 i++;
