@@ -9288,25 +9288,40 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 或者包含数字的字符串（如 "2,693.95-188.58"）
                         let isNextRowNumber = false;
                         let nextRowNumber = null;
-                        let nextRowNumbers = null; // 用于存储多个数字（如果被连字符分隔）
+                        let nextRowNumbers = null; // 用于存储多个数字（如果被连字符分隔或已经分离）
                         if (nextRow) {
                             const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
                             if (trimmedNext.length > 0) {
                                 const firstNextCell = trimmedNext[0];
                                 
-                                // 检查是否是 "数字-数字" 格式（如 "2,693.95-188.58"）
-                                const numberDashNumberPattern = /^([\d,]+\.?\d*)-([\d,]+\.?\d*)$/;
-                                const match = firstNextCell.match(numberDashNumberPattern);
-                                if (match) {
-                                    // 分离成两个数字
-                                    isNextRowNumber = true;
-                                    nextRowNumbers = [match[1], match[2]];
-                                    nextRowNumber = match[1]; // 第一个数字作为主要数字
+                                // 检查是否已经分离成两个数字单元格（如 ["2,693.95", "-188.58"]）
+                                const numberPattern = /^-?[\d,]+\.?\d*$/;
+                                const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+                                if (trimmedNext.length >= 2) {
+                                    const secondNextCell = trimmedNext[1];
+                                    // 如果第一个和第二个单元格都是数字，说明已经分离了
+                                    if ((numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) &&
+                                        (numberPattern.test(secondNextCell) || numberPatternWithDecimal.test(secondNextCell))) {
+                                        isNextRowNumber = true;
+                                        nextRowNumbers = [firstNextCell, secondNextCell];
+                                        nextRowNumber = firstNextCell;
+                                    } else if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
+                                        // 只有第一个是数字
+                                        isNextRowNumber = true;
+                                        nextRowNumber = firstNextCell;
+                                    }
                                 } else {
-                                    // 匹配单个数字格式（可能包含逗号和小数点，可能是负数）
-                                    const numberPattern = /^-?[\d,]+\.?\d*$/;
-                                    const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
-                                    if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
+                                    // 只有一个单元格，检查是否是 "数字-数字" 格式（如 "2,693.95-188.58"）
+                                    // 改进正则以支持负号：/^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/
+                                    const numberDashNumberPattern = /^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/;
+                                    const match = firstNextCell.match(numberDashNumberPattern);
+                                    if (match) {
+                                        // 分离成两个数字
+                                        isNextRowNumber = true;
+                                        nextRowNumbers = [match[1], match[2]];
+                                        nextRowNumber = match[1]; // 第一个数字作为主要数字
+                                    } else if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
+                                        // 单个数字格式
                                         isNextRowNumber = true;
                                         nextRowNumber = firstNextCell;
                                     } else {
