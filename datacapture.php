@@ -226,18 +226,18 @@ if ($current_user_id && count($user_companies) > 0) {
                             <option value="GENERAL">GENERAL</option>
                             <!-- <option value="CITIBET">CITIBET</option> -->
                             <option value="CITIBET_MAJOR">CITIBET</option>
-                            <option value="VPOWER">VPOWER</option>
+                            <!-- <option value="VPOWER">VPOWER</option> -->
                             <option value="AGENT_LINK">PS3838</option>
-                            <option value="API_RETURN">API-RETURN</option>
+                            <!-- <option value="API_RETURN">API-RETURN</option>
                             <option value="WBET">WBET</option>
                             <option value="ALIPAY">ALIPAY</option>
                             <option value="PEGASUS">PEGASUS</option>
                             <option value="C8PLAY">C8PLAY</option>
-                            <option value="MAXBET">MAXBET</option>
+                            <option value="MAXBET">MAXBET</option> -->
                             <option value="AWC">AWC</option>
-                            <option value="WBET_API">WBET_API</option>
+                            <!-- <option value="WBET_API">WBET_API</option> -->
                             <option value="INVOICE">INVOICE</option>
-                            <option value="655">655</option>
+                            <!-- <option value="655">655</option> -->
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
