@@ -8631,14 +8631,20 @@ if ($current_user_id && count($user_companies) > 0) {
             // 格式A：有#列 - 每3-6行为一组（#, User Name, profit, -, -, -）
             // 格式B：无#列 - 每2-5行为一组（User Name, profit, -, -, -）
             
+            // 工具：判断“像数字”的字符串（允许逗号与小数）
+            const isNumericLike = (v) => {
+                const s = (v || '').toString().trim();
+                return /^-?[\d,]+(\.\d+)?$/.test(s);
+            };
+            
             // 检测格式A：第一行是数字，第二行是用户名，第三行是profit
             const formatA_firstLineIsNumber = /^\d+$/.test(lines[0]);
             const formatA_secondLineIsUsername = lines.length > 1 && /^[a-z0-9]+$/i.test(lines[1]);
-            const formatA_thirdLineIsNumber = lines.length > 2 && /^-?\d+\.?\d*$/.test(lines[2]);
+            const formatA_thirdLineIsNumber = lines.length > 2 && isNumericLike(lines[2]);
             
             // 检测格式B：第一行是用户名，第二行是profit
             const formatB_firstLineIsUsername = lines.length > 0 && /^[a-z0-9]+$/i.test(lines[0]);
-            const formatB_secondLineIsNumber = lines.length > 1 && /^-?\d+\.?\d*$/.test(lines[1]);
+            const formatB_secondLineIsNumber = lines.length > 1 && isNumericLike(lines[1]);
             
             console.log('VPOWER format detection:', {
                 formatA: { firstLineIsNumber: formatA_firstLineIsNumber, secondLineIsUsername: formatA_secondLineIsUsername, thirdLineIsNumber: formatA_thirdLineIsNumber },
@@ -8696,7 +8702,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     
                     // 验证 profit 格式
-                    if (!/^-?\d+\.?\d*$/.test(profit)) {
+                    if (!isNumericLike(profit)) {
                         console.log(`Skipping: profit "${profit}" is not a number`);
                         i++;
                         continue;
@@ -8722,8 +8728,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 如果还有数据，检查是否是下一组的开始
                     if (i >= lines.length) break;
                     
-                    // 跳过可能的 "-" 行（Name, Tel, Remarks）
-                    while (i < lines.length && (lines[i] === '-' || lines[i] === '')) {
+                    // 跳过可能的 "-" 行（Name, Tel, Remarks）以及行号（某些复制来源会在组与组之间插入 2/3/...）
+                    while (i < lines.length && (lines[i] === '-' || lines[i] === '' || /^\d+$/.test(lines[i]))) {
                         i++;
                     }
                     
