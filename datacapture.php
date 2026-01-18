@@ -4437,6 +4437,36 @@ if ($current_user_id && count($user_companies) > 0) {
                     const tableRow = tableBody.children[actualRowIndex];
                     if (!tableRow) return;
                     
+                    // 655模式：保留行的样式（如背景色，如Grand Total行的黄色背景）
+                    if (currentDataCaptureType === '655') {
+                        // 保留行的style属性（最直接的方法）
+                        const sourceRowStyle = sourceRow.getAttribute('style');
+                        if (sourceRowStyle) {
+                            tableRow.setAttribute('style', sourceRowStyle);
+                            // 同时设置style属性，确保样式生效
+                            tableRow.style.cssText = sourceRowStyle;
+                        }
+                        // 保留行的class属性（可能有样式相关的class）
+                        const sourceRowClass = sourceRow.getAttribute('class');
+                        if (sourceRowClass) {
+                            tableRow.setAttribute('class', sourceRowClass);
+                        }
+                        // 尝试从源行的第一个单元格获取背景色（如果行本身没有style）
+                        if (!sourceRowStyle) {
+                            const firstCell = sourceRow.querySelector('td, th');
+                            if (firstCell) {
+                                const cellStyle = firstCell.getAttribute('style');
+                                if (cellStyle && cellStyle.includes('background')) {
+                                    // 从单元格的style中提取背景色
+                                    const bgMatch = cellStyle.match(/background[^;]*:[^;]*([^;]+)/i);
+                                    if (bgMatch) {
+                                        tableRow.style.cssText = `background-color: ${bgMatch[1].trim()}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
                     const sourceCells = sourceRow.querySelectorAll('td, th');
                     let currentCol = startCol;
                     
@@ -4463,23 +4493,59 @@ if ($current_user_id && count($user_companies) > 0) {
                                 const cellText = sourceCell.textContent || sourceCell.innerText || '';
                                 
                                 // 1.GENERAL 和 655 模式：完全保持Excel原始格式，不做任何转换
-                                // 直接使用innerHTML保持Excel的原始格式（包括颜色、下划线、背景色等）
-                                // 清理并保留格式：移除可能导致问题的样式，但保留内联样式和格式
+                                // 对于655模式，特别强调保留所有样式（颜色、下划线、背景色等）
                                 let cleanContent = cellContent;
                                 
-                                // 移除可能导致问题的外部样式标签，但保留内联样式和格式
-                                // 保留数字格式、日期格式、颜色、下划线等所有格式
+                                // 只移除可能导致安全问题的标签，保留所有格式标签和样式
+                                // 移除style标签和script标签，但保留所有内联样式（style属性）
                                 cleanContent = cleanContent
-                                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除style标签
-                                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // 移除script标签
+                                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除独立的style标签
+                                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // 移除script标签
+                                    .replace(/javascript:/gi, '') // 移除javascript:协议
+                                    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, ''); // 移除事件处理器
                                 
-                                // 如果内容包含HTML标签，直接使用；否则使用纯文本
-                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                    // 有HTML格式，直接使用innerHTML保持所有格式（颜色、下划线、背景等）
-                                    targetCell.innerHTML = cleanContent;
+                                // 655模式：需要保留所有HTML格式，包括颜色、下划线、背景等
+                                if (currentDataCaptureType === '655') {
+                                    // 如果有HTML标签，直接使用innerHTML保持所有格式
+                                    if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                        // 直接使用innerHTML，保留所有格式标签（如<u>, <b>, <span>等）和样式属性
+                                        targetCell.innerHTML = cleanContent;
+                                        // 同时保留单元格本身的样式属性（背景色等）
+                                        const sourceCellStyle = sourceCell.getAttribute('style');
+                                        if (sourceCellStyle) {
+                                            targetCell.setAttribute('style', sourceCellStyle);
+                                        }
+                                    } else if (cellText && cellText.trim() !== '') {
+                                        // 纯文本，但如果有样式属性，尝试保留
+                                        // 检查源单元格是否有style属性
+                                        const sourceCellStyle = sourceCell.getAttribute('style');
+                                        const sourceCellBgColor = sourceCell.style.backgroundColor;
+                                        if (sourceCellStyle) {
+                                            targetCell.innerHTML = `<span style="${sourceCellStyle}">${cellText}</span>`;
+                                            // 也保留单元格的样式
+                                            targetCell.setAttribute('style', sourceCellStyle);
+                                        } else if (sourceCellBgColor) {
+                                            // 如果有背景色，应用背景色
+                                            targetCell.style.backgroundColor = sourceCellBgColor;
+                                            targetCell.textContent = cellText;
+                                        } else {
+                                            targetCell.textContent = cellText;
+                                        }
+                                    } else {
+                                        targetCell.textContent = '';
+                                    }
+                                    // 保留单元格的class属性（可能有样式相关的class）
+                                    const sourceCellClass = sourceCell.getAttribute('class');
+                                    if (sourceCellClass) {
+                                        targetCell.setAttribute('class', sourceCellClass);
+                                    }
                                 } else {
-                                    // 纯文本内容，但保留原始格式（包括空格、换行等）
-                                    targetCell.textContent = cellContent;
+                                    // 1.GENERAL模式：保持原有逻辑
+                                    if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                        targetCell.innerHTML = cleanContent;
+                                    } else {
+                                        targetCell.textContent = cellContent;
+                                    }
                                 }
                                 
                                 currentPasteChanges.push({
