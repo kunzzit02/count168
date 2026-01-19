@@ -226,7 +226,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <!-- <option value="GENERAL">GENERAL</option> -->
                             <!-- <option value="CITIBET">CITIBET</option> -->
                             <option value="CITIBET_MAJOR">CITIBET</option>
-                            <option value="VPOWER">VPOWER</option>
+                            <!-- <option value="VPOWER">VPOWER</option> -->
                             <option value="AGENT_LINK">PS3838</option>
                             <!-- <option value="API_RETURN">API-RETURN</option>
                             <option value="WBET">WBET</option>
