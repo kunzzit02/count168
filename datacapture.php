@@ -21895,6 +21895,35 @@ if ($current_user_id && count($user_companies) > 0) {
             return false;
         }
 
+        // 655模式：将纯文字直接放入table（避免贴到页面上方其它输入框）
+        function pastePlainTextIntoTable655(text) {
+            if (currentDataCaptureType !== '655') return false;
+            if (typeof text !== 'string' || text.length === 0) return false;
+
+            const dataTable = document.getElementById('dataTable');
+            const pasteArea655 = document.getElementById('pasteArea655');
+            const tableBody = document.getElementById('tableBody');
+            if (!tableBody || tableBody.children.length === 0) return false;
+
+            // 切换到表格显示
+            if (dataTable) dataTable.style.display = 'table';
+            if (pasteArea655) {
+                pasteArea655.style.display = 'none';
+                pasteArea655.innerHTML = '';
+            }
+
+            const firstRow = tableBody.children[0];
+            if (!firstRow || firstRow.children.length <= 1) return false;
+
+            const firstCell = firstRow.children[1];
+            if (!firstCell || firstCell.contentEditable !== 'true') return false;
+
+            // 直接写入首格（A1），确保用户粘贴的内容进到table里
+            firstCell.textContent = text;
+            setTimeout(updateSubmitButtonState, 0);
+            return true;
+        }
+
         // 为655模式的粘贴区域添加paste事件监听（支持直接粘贴整张表格）
         function init655PasteArea() {
             const pasteArea655 = document.getElementById('pasteArea655');
@@ -21920,17 +21949,30 @@ if ($current_user_id && count($user_companies) > 0) {
                     return;
                 }
 
+                // 655模式：无论如何都阻止默认粘贴，避免内容跑到页面其它位置
+                e.preventDefault();
+                e.stopPropagation();
+
                 const clipboard = (e.clipboardData || window.clipboardData);
 
                 // 先尝试直接从clipboard解析（成功则阻止默认粘贴）
                 const handled = handle655PasteFromClipboard(clipboard, null);
                 if (handled) {
-                    e.preventDefault();
-                    e.stopPropagation();
                     return;
                 }
 
-                // fallback：允许浏览器把富文本表格粘贴进contenteditable，再从DOM抓取<table>
+                // fallback：如果浏览器不给读text/html，让我们先读text/plain；再尝试从area.innerHTML抓<table>
+                try {
+                    const plain = clipboard && typeof clipboard.getData === 'function' ? (clipboard.getData('text/plain') || '') : '';
+                    if (plain) {
+                        // 如果是tab分隔，handle655PasteFromClipboard已处理；这里处理“纯文字”
+                        if (!plain.includes('\t')) {
+                            pastePlainTextIntoTable655(plain);
+                            return;
+                        }
+                    }
+                } catch (_) {}
+
                 setTimeout(() => {
                     const pastedHTML = area.innerHTML || '';
                     if (pastedHTML && pastedHTML.includes('<table')) {
@@ -23006,25 +23048,28 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // 全局粘贴事件处理
         document.addEventListener('paste', function(e) {
-            // 655模式：如果粘贴区域可见，优先处理粘贴区域的粘贴
+            // 655模式：无论当前焦点在哪，都优先把粘贴内容灌进table（避免内容跑到页面上方其它输入框）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
-                const pasteArea655 = document.getElementById('pasteArea655');
-                if (pasteArea655 && pasteArea655.style.display !== 'none' && pasteArea655.offsetParent !== null) {
-                    console.log('655: Global paste event - paste-area is visible, handling paste');
-                    const clipboard = (e.clipboardData || window.clipboardData);
-                    const handled = handle655PasteFromClipboard(clipboard, null);
-                    if (handled) {
-                        e.preventDefault();
-                        e.stopPropagation();
+                const clipboard = (e.clipboardData || window.clipboardData);
+
+                // 一律阻止默认粘贴（否则会贴到当前焦点的输入框/页面上方）
+                e.preventDefault();
+                e.stopPropagation();
+
+                // 优先解析HTML table / tab分隔
+                const handled = handle655PasteFromClipboard(clipboard, null);
+                if (handled) return;
+
+                // 纯文字：直接进到table首格（A1）
+                try {
+                    const plain = clipboard && typeof clipboard.getData === 'function' ? (clipboard.getData('text/plain') || '') : '';
+                    if (plain) {
+                        pastePlainTextIntoTable655(plain);
                         return;
                     }
-                    // 如果无法从clipboard直接读取HTML（浏览器限制），让默认粘贴发生在pasteArea里，再由其自身事件处理
-                    setTimeout(() => {
-                        try {
-                            pasteArea655.focus();
-                        } catch (_) {}
-                    }, 0);
-                }
+                } catch (_) {}
+
+                return;
             }
             
             // 检查是否在表格单元格中粘贴
