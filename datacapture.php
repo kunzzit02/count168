@@ -8741,23 +8741,43 @@ if ($current_user_id && count($user_companies) > 0) {
                 const hasHashColumn = isFormatA; // 是否有#列
                 
                 while (i < lines.length) {
-                    let userName, profit;
+                    let userName, profit, name, tel, remarks;
                     let offset = 0;
                     
                     if (hasHashColumn) {
-                        // 格式A：#, User Name, profit
+                        // 格式A：#, User Name, profit, Name, Tel, Remarks
                         if (i >= lines.length) break;
                         
                         const hashValue = lines[i];      // 第1行：#列（忽略）
                         if (i + 1 >= lines.length) break; // 至少需要 User Name
                         userName = lines[i + 1];         // 第2行：User Name
                         
-                        // 第3行：profit（可能不存在或不是数字，比如用户只复制到 username 就结束）
+                        // 第3行：profit（可能不存在或不是数字）
                         const maybeProfit = (i + 2 < lines.length) ? lines[i + 2] : '';
                         profit = isNumericLike(maybeProfit) ? maybeProfit : '';
                         
-                        // 如果 profit 不存在/不合法，只消耗 # + username，后续再靠跳过逻辑清理 '-' 等
-                        offset = profit ? 3 : 2;
+                        // 第4行：Name（如果存在且不是"-"）
+                        const maybeName = (i + 3 < lines.length) ? lines[i + 3] : '';
+                        name = (maybeName && maybeName !== '-') ? maybeName : '-';
+                        
+                        // 第5行：Tel（如果存在，否则设为"-"）
+                        const maybeTel = (i + 4 < lines.length) ? lines[i + 4] : '';
+                        tel = (maybeTel && maybeTel !== '') ? maybeTel : '-';
+                        
+                        // 第6行：Remarks（如果存在，否则设为"-"）
+                        const maybeRemarks = (i + 5 < lines.length) ? lines[i + 5] : '';
+                        remarks = (maybeRemarks && maybeRemarks !== '') ? maybeRemarks : '-';
+                        
+                        // 计算offset：对于格式A，每组数据最多6行（#, User Name, profit, Name, Tel, Remarks）
+                        // 如果 profit 存在，至少消耗3行；然后检查后续行是否存在（即使值为"-"也要跳过）
+                        offset = 2; // # + username（至少）
+                        if (profit) {
+                            offset = 3; // + profit
+                            // 检查后续行是否存在（即使值为"-"也要计入offset）
+                            if (i + 3 < lines.length) offset = 4; // + Name（即使为"-"）
+                            if (i + 4 < lines.length) offset = 5; // + Tel（即使为"-"）
+                            if (i + 5 < lines.length) offset = 6; // + Remarks（即使为"-"）
+                        }
                         
                         // 验证第一行是数字（#列）
                         if (!/^\d+$/.test(hashValue)) {
@@ -8766,7 +8786,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             continue;
                         }
                     } else {
-                        // 格式B：User Name, profit
+                        // 格式B：User Name, profit, Name, Tel, Remarks
                         if (i >= lines.length) break;
                         
                         userName = lines[i];            // 第1行：User Name
@@ -8774,11 +8794,30 @@ if ($current_user_id && count($user_companies) > 0) {
                         const maybeProfit = (i + 1 < lines.length) ? lines[i + 1] : '';
                         profit = isNumericLike(maybeProfit) ? maybeProfit : '';
                         
-                        // 如果 profit 不存在/不合法，只消耗 username
-                        offset = profit ? 2 : 1;
+                        // 第3行：Name（如果存在且不是"-"）
+                        const maybeName = (i + 2 < lines.length) ? lines[i + 2] : '';
+                        name = (maybeName && maybeName !== '-') ? maybeName : '-';
+                        
+                        // 第4行：Tel（如果存在，否则设为"-"）
+                        const maybeTel = (i + 3 < lines.length) ? lines[i + 3] : '';
+                        tel = (maybeTel && maybeTel !== '') ? maybeTel : '-';
+                        
+                        // 第5行：Remarks（如果存在，否则设为"-"）
+                        const maybeRemarks = (i + 4 < lines.length) ? lines[i + 4] : '';
+                        remarks = (maybeRemarks && maybeRemarks !== '') ? maybeRemarks : '-';
+                        
+                        // 计算offset：对于格式B，每组数据最多5行（User Name, profit, Name, Tel, Remarks）
+                        offset = 1; // username（至少）
+                        if (profit) {
+                            offset = 2; // + profit
+                            // 检查后续行是否存在（即使值为"-"也要计入offset）
+                            if (i + 2 < lines.length) offset = 3; // + Name（即使为"-"）
+                            if (i + 3 < lines.length) offset = 4; // + Tel（即使为"-"）
+                            if (i + 4 < lines.length) offset = 5; // + Remarks（即使为"-"）
+                        }
                     }
                     
-                    console.log(`Processing group at index ${i}:`, { userName, profit, hasHashColumn });
+                    console.log(`Processing group at index ${i}:`, { userName, profit, name, tel, remarks, hasHashColumn });
                     
                     // 验证用户名格式
                     if (!/^[a-z0-9]+$/i.test(userName)) {
@@ -8798,9 +8837,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     const row = [];
                     row[0] = userName.toUpperCase(); // Column 1: User Name
                     row[1] = profit || '';            // Column 2: profit（允许空）
-                    row[2] = '-';                     // Column 3
-                    row[3] = '-';                     // Column 4
-                    row[4] = '-';                     // Column 5
+                    row[2] = name || '-';             // Column 3: Name
+                    row[3] = tel || '-';              // Column 4: Tel
+                    row[4] = remarks || '-';         // Column 5: Remarks
                     row[5] = '';                      // Column 6
                     row[6] = '';                      // Column 7
                     row[7] = '';                      // Column 8
