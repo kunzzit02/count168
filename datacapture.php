@@ -4354,14 +4354,14 @@ if ($current_user_id && count($user_companies) > 0) {
             try {
                 // 尝试获取 HTML 格式的数据
                 const htmlData = e.clipboardData.getData('text/html');
-                if (htmlData && htmlData.includes('<table')) {
+                if (htmlData && /<table\b/i.test(htmlData)) {
                     console.log('Detected HTML table format in clipboard');
                     return htmlData; // 直接返回HTML，让后续处理
                 }
                 
                 // 如果 HTML 格式解析失败，尝试从 text/plain 中检测 HTML
                 const textData = e.clipboardData.getData('text/plain');
-                if (textData && textData.includes('<table')) {
+                if (textData && /<table\b/i.test(textData)) {
                     console.log('Detected HTML table format in plain text');
                     return textData; // 直接返回HTML
                 }
@@ -21859,8 +21859,8 @@ if ($current_user_id && count($user_companies) > 0) {
 
             // 1) Prefer HTML table
             const htmlData = getClipboardData('text/html') || '';
-            const htmlToUse = (htmlData && htmlData.includes('<table')) ? htmlData : (fallbackHTML || '');
-            if (htmlToUse && htmlToUse.includes('<table')) {
+            const htmlToUse = (htmlData && /<table\b/i.test(htmlData)) ? htmlData : (fallbackHTML || '');
+            if (htmlToUse && /<table\b/i.test(htmlToUse)) {
                 setTimeout(() => {
                     parseAndFillHTMLTableForGeneral655(htmlToUse);
                 }, 10);
@@ -21919,28 +21919,46 @@ if ($current_user_id && count($user_companies) > 0) {
                     return;
                 }
 
-                const clipboard = (e.clipboardData || window.clipboardData);
+                // 始终拦截默认粘贴，避免Excel HTML自带的position/fixed把内容“顶到页面最上面”
+                e.preventDefault();
+                e.stopPropagation();
 
-                // 先尝试直接从clipboard解析（能读到HTML/TSV时，直接填表并阻止默认粘贴）
-                const handledFromClipboard = handle655PasteFromClipboard(clipboard, null);
-                if (handledFromClipboard) {
-                    e.preventDefault();
-                    e.stopPropagation();
+                const clipboard = (e.clipboardData || window.clipboardData);
+                let html = '';
+                let text = '';
+                try { html = clipboard && clipboard.getData ? (clipboard.getData('text/html') || '') : ''; } catch (_) {}
+                try { text = clipboard && clipboard.getData ? (clipboard.getData('text/plain') || '') : ''; } catch (_) {}
+
+                // 1) HTML table（Excel/Sheets常给<TABLE>大写，所以用正则不区分大小写）
+                if (html && /<table\b/i.test(html)) {
+                    const sanitized = sanitizePastedHTML(html);
+                    if (sanitized) {
+                        area.innerHTML = sanitized; // 让用户看到预览（在容器内）
+                        parseAndFillHTMLTableForGeneral655(sanitized);
+                        return;
+                    }
+                }
+
+                // 2) plain text 里也可能包含HTML table
+                if (text && /<table\b/i.test(text)) {
+                    const sanitized = sanitizePastedHTML(text);
+                    if (sanitized) {
+                        area.innerHTML = sanitized;
+                        parseAndFillHTMLTableForGeneral655(sanitized);
+                        return;
+                    }
+                }
+
+                // 3) TSV（制表符分隔）
+                if (text && text.includes('\t')) {
+                    const tableHtml = tsvToHtmlTable(text);
+                    area.innerHTML = tableHtml;
+                    parseAndFillHTMLTableForGeneral655(tableHtml);
                     return;
                 }
 
-                // 读不到clipboard时：允许默认粘贴把富文本<table>贴进容器，再从DOM抓取<table>并填表
-                setTimeout(() => {
-                    const pastedHTML = area.innerHTML || '';
-                    if (pastedHTML && pastedHTML.includes('<table')) {
-                        // 这里不需要clipboard也能解析
-                        const ok = handle655PasteFromClipboard({ getData: () => '' }, pastedHTML);
-                        if (ok) {
-                            // 清空容器，避免用户看到临时粘贴的table残留
-                            area.innerHTML = '';
-                        }
-                    }
-                }, 0);
+                // 4) 纯文本就放在容器里（仍然不会跑到页面上方）
+                area.textContent = text || '';
             });
         }
 
@@ -23177,7 +23195,7 @@ if ($current_user_id && count($user_companies) > 0) {
             } catch (_) {}
             try {
                 const html = (clipboard && clipboard.getData) ? (clipboard.getData('text/html') || '') : '';
-                if (html && html.includes('<table')) return true;
+                if (html && /<table\b/i.test(html)) return true;
             } catch (_) {}
             try {
                 const text = (clipboard && clipboard.getData) ? (clipboard.getData('text/plain') || '') : '';
@@ -23217,7 +23235,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 html = clipboard.getData('text/html') || '';
             } catch (_) {}
 
-            if (html && html.includes('<table')) {
+            if (html && /<table\b/i.test(html)) {
                 pasteArea655.innerHTML = sanitizePastedHTML(html);
                 // 同时填充到内部数据表（用于后续提交/处理）
                 parseAndFillHTMLTableForGeneral655(pasteArea655.innerHTML);
@@ -24463,6 +24481,7 @@ if ($current_user_id && count($user_companies) > 0) {
             box-sizing: border-box;
             overflow: auto;
             white-space: pre-wrap;
+            position: relative;
         }
 
         .paste-area-655:focus {
@@ -24488,6 +24507,18 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: 4px 8px;
             text-align: left;
             white-space: nowrap;
+        }
+
+        /* 655粘贴兜底：强制任何粘贴内容不要用fixed/absolute跑位 */
+        .paste-area-655 * {
+            position: static !important;
+            top: auto !important;
+            left: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            z-index: auto !important;
+            float: none !important;
+            transform: none !important;
         }
 
         .excel-table {
