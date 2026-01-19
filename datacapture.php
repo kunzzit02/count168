@@ -9329,12 +9329,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 如果HTML解析都失败，尝试纯文本格式（但尽量保持格式）
                 console.log('2.10 INVOICE: HTML parsing failed, trying text format...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                // 保留只包含负号的行（用于处理 "(MYR)\n-\n2,693.95" 格式）
-                const lines = normalizedData.split('\n').filter(line => {
-                    const trimmed = line.trim();
-                    // 保留非空行（包括只包含负号的行）
-                    return trimmed !== '';
-                });
+                const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
                 
                 console.log('2.10 INVOICE: Total lines to process:', lines.length);
                 console.log('2.10 INVOICE: First few lines:', lines.slice(0, 5));
@@ -9585,26 +9580,17 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                         
-                        // 清理空单元格，但保留只包含负号的行（用于处理 "(MYR)\n-\n2,693.95" 格式）
-                        // 如果整行只包含负号，保留它作为一个单独的行，以便后续合并逻辑处理
-                        const trimmedCells = cells.map(cell => (cell || '').trim());
-                        const isOnlyDash = trimmedCells.length === 1 && trimmedCells[0] === '-';
+                        // 清理空单元格（但保留只包含负号的单元格，因为它可能是负数的一部分）
+                        cells = cells.filter(cell => {
+                            const trimmed = (cell || '').trim();
+                            // 保留非空单元格，但也要注意：如果单元格只有 "-"，可能是负数的一部分，不应该被过滤
+                            // 不过这种情况应该很少，因为数字通常不会单独分离出负号
+                            return trimmed !== '' && trimmed !== '-';
+                        });
                         
-                        if (isOnlyDash) {
-                            // 整行只包含负号，保留它
-                            dataMatrix.push(['-']);
-                            maxCols = Math.max(maxCols, 1);
-                        } else {
-                            // 清理空单元格
-                            cells = cells.filter(cell => {
-                                const trimmed = (cell || '').trim();
-                                return trimmed !== '';
-                            });
-                            
-                            if (cells.length > 0) {
-                                dataMatrix.push(cells);
-                                maxCols = Math.max(maxCols, cells.length);
-                            }
+                        if (cells.length > 0) {
+                            dataMatrix.push(cells);
+                            maxCols = Math.max(maxCols, cells.length);
                         }
                     });
                     
@@ -9627,92 +9613,50 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         // 检查下一行的第一个非空单元格是否是数字（如 "2,693.95" 或 "-188.58"）
                         // 或者包含数字的字符串（如 "2,693.95-188.58"）
-                        // 特殊处理：如果下一行是单独的 "-"，检查下下行是否是数字
                         let isNextRowNumber = false;
                         let nextRowNumber = null;
                         let nextRowNumbers = null; // 用于存储多个数字（如果被连字符分隔或已经分离）
-                        let skipNextRow = false; // 标记是否需要跳过下一行（当下一行是单独的 "-" 时）
                         if (nextRow) {
                             const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
                             if (trimmedNext.length > 0) {
                                 const firstNextCell = trimmedNext[0];
                                 
-                                // 检查下一行是否是单独的负号（如 "-"）
-                                // 如果是，检查下下行是否是数字
-                                if (trimmedNext.length === 1 && firstNextCell === '-') {
-                                    const nextNextRow = i + 2 < dataMatrix.length ? dataMatrix[i + 2] : null;
-                                    if (nextNextRow) {
-                                        const trimmedNextNext = nextNextRow.map(c => (c || '').trim()).filter(c => c !== '');
-                                        if (trimmedNextNext.length > 0) {
-                                            const firstNextNextCell = trimmedNextNext[0];
-                                            const numberPattern = /^-?[\d,]+\.?\d*$/;
-                                            const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
-                                            
-                                            // 检查下下行是否是 "数字-数字" 格式
-                                            const numberDashNumberPattern = /^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/;
-                                            const match = firstNextNextCell.match(numberDashNumberPattern);
-                                            if (match) {
-                                                // 下下行是 "数字-数字" 格式，第一个数字需要加上负号
-                                                isNextRowNumber = true;
-                                                const firstNum = '-' + match[1].replace(/^-/, ''); // 确保是负数
-                                                nextRowNumbers = [firstNum, match[2]];
-                                                nextRowNumber = firstNum;
-                                                skipNextRow = true; // 需要跳过下一行（负号行）
-                                            } else if (numberPattern.test(firstNextNextCell) || numberPatternWithDecimal.test(firstNextNextCell)) {
-                                                // 下下行是单个数字，需要加上负号
-                                                isNextRowNumber = true;
-                                                nextRowNumber = '-' + firstNextNextCell.replace(/^-/, ''); // 确保是负数
-                                                skipNextRow = true; // 需要跳过下一行（负号行）
-                                            }
-                                        }
+                                // 检查是否已经分离成两个数字单元格（如 ["2,693.95", "-188.58"]）
+                                const numberPattern = /^-?[\d,]+\.?\d*$/;
+                                const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+                                if (trimmedNext.length >= 2) {
+                                    const secondNextCell = trimmedNext[1];
+                                    // 如果第一个和第二个单元格都是数字，说明已经分离了
+                                    if ((numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) &&
+                                        (numberPattern.test(secondNextCell) || numberPatternWithDecimal.test(secondNextCell))) {
+                                        isNextRowNumber = true;
+                                        nextRowNumbers = [firstNextCell, secondNextCell];
+                                        nextRowNumber = firstNextCell;
+                                    } else if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
+                                        // 只有第一个是数字
+                                        isNextRowNumber = true;
+                                        nextRowNumber = firstNextCell;
                                     }
-                                }
-                                
-                                // 如果下一行不是单独的负号，或者下下行不是数字，按原来的逻辑处理
-                                if (!isNextRowNumber) {
-                                    // 检查是否已经分离成两个数字单元格（如 ["2,693.95", "-188.58"]）
-                                    // 或者负号和数字分离（如 ["-", "2,693.95"]）
-                                    const numberPattern = /^-?[\d,]+\.?\d*$/;
-                                    const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
-                                    if (trimmedNext.length >= 2) {
-                                        const secondNextCell = trimmedNext[1];
-                                        // 检查是否是负号和数字分离的格式（如 ["-", "2,693.95"]）
-                                        if (firstNextCell === '-' && (numberPattern.test(secondNextCell) || numberPatternWithDecimal.test(secondNextCell))) {
-                                            isNextRowNumber = true;
-                                            nextRowNumber = '-' + secondNextCell.replace(/^-/, ''); // 确保是负数
-                                        }
-                                        // 如果第一个和第二个单元格都是数字，说明已经分离了
-                                        else if ((numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) &&
-                                            (numberPattern.test(secondNextCell) || numberPatternWithDecimal.test(secondNextCell))) {
-                                            isNextRowNumber = true;
-                                            nextRowNumbers = [firstNextCell, secondNextCell];
-                                            nextRowNumber = firstNextCell;
-                                        } else if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
-                                            // 只有第一个是数字
-                                            isNextRowNumber = true;
-                                            nextRowNumber = firstNextCell;
-                                        }
+                                } else {
+                                    // 只有一个单元格，检查是否是 "数字-数字" 格式（如 "2,693.95-188.58"）
+                                    // 改进正则以支持负号：/^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/
+                                    const numberDashNumberPattern = /^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/;
+                                    const match = firstNextCell.match(numberDashNumberPattern);
+                                    if (match) {
+                                        // 分离成两个数字
+                                        isNextRowNumber = true;
+                                        nextRowNumbers = [match[1], match[2]];
+                                        nextRowNumber = match[1]; // 第一个数字作为主要数字
+                                    } else if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
+                                        // 单个数字格式
+                                        isNextRowNumber = true;
+                                        nextRowNumber = firstNextCell;
                                     } else {
-                                        // 只有一个单元格，检查是否是 "数字-数字" 格式（如 "2,693.95-188.58"）
-                                        // 改进正则以支持负号：/^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/
-                                        const numberDashNumberPattern = /^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/;
-                                        const match = firstNextCell.match(numberDashNumberPattern);
-                                        if (match) {
-                                            // 分离成两个数字
-                                            isNextRowNumber = true;
-                                            nextRowNumbers = [match[1], match[2]];
-                                            nextRowNumber = match[1]; // 第一个数字作为主要数字
-                                        } else if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
-                                            // 单个数字格式
+                                        // 更宽松的检测：如果字符串包含数字字符，也认为是数字行
+                                        // 这种情况可能发生在上下排版时，数字被合并成一个字符串
+                                        if (/[\d,]+/.test(firstNextCell) && trimmedNext.length === 1) {
                                             isNextRowNumber = true;
                                             nextRowNumber = firstNextCell;
-                                        } else {
-                                            // 更宽松的检测：如果字符串包含数字字符，也认为是数字行
-                                            // 这种情况可能发生在上下排版时，数字被合并成一个字符串
-                                            if (/[\d,]+/.test(firstNextCell) && trimmedNext.length === 1) {
-                                                isNextRowNumber = true;
-                                                nextRowNumber = firstNextCell;
-                                            }
                                         }
                                     }
                                 }
@@ -9729,7 +9673,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                         
                         // 情况1: 货币代码 + 数字（如 "(MYR)" + "2,693.95" 或 "(MYR)" + "2,693.95-188.58"）
-                        // 或者 "(MYR)" + "-" + "2,693.95"（负号单独一行的情况）
                         if (isCurrencyCode && isNextRowNumber) {
                             // 找到货币代码在当前行中的位置（最后一个非空单元格的位置）
                             let currencyColIndex = -1;
@@ -9760,12 +9703,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                     currentRow[currencyColIndex + 1] = nextRowNumber;
                                     console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1}: "${lastCell}" + "${nextRowNumber}"`);
                                 }
-                                // 跳过行数取决于是否跳过了负号行
-                                if (skipNextRow) {
-                                    i += 3; // 跳过当前行、负号行和下下行（因为已经合并）
-                                } else {
-                                    i += 2; // 跳过当前行和下一行（因为已经合并）
-                                }
+                                // 跳过下一行（因为它已经被合并到当前行）
+                                i += 2; // 跳过当前行和下一行（因为已经合并）
                                 mergedDataMatrix.push(currentRow);
                                 continue; // 继续处理下一行
                             }
@@ -9787,7 +9726,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                 }
                                 
-                                    // 如果找到货币代码，将数字添加到货币代码的下一列
+                                // 如果找到货币代码，将数字添加到货币代码的下一列
                                 if (currencyColIndex >= 0) {
                                     // 如果下一行有多个数字（如 "2,693.95-188.58"），分别添加到不同列
                                     if (nextRowNumbers && nextRowNumbers.length === 2) {
@@ -9808,12 +9747,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         currentRow[currencyColIndex + 1] = nextRowNumber;
                                         console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${nextRowNumber}"`);
                                     }
-                                    // 跳过行数取决于是否跳过了负号行
-                                    if (skipNextRow) {
-                                        i += 3; // 跳过当前行、负号行和下下行（因为已经合并）
-                                    } else {
-                                        i += 2; // 跳过当前行和下一行（因为已经合并）
-                                    }
+                                    i += 2; // 跳过当前行和下一行（因为已经合并）
                                     mergedDataMatrix.push(currentRow);
                                     continue; // 继续处理下一行
                                 }
@@ -9851,12 +9785,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                             currentRow[lastColIndex + 1] = nextRowNumber;
                                             console.log(`2.10 INVOICE: Merged row ${i + 1} + ${i + 2} (last cell at col ${lastColIndex}): "${currentRow[lastColIndex]}" + "${nextRowNumber}"`);
                                         }
-                                        // 跳过行数取决于是否跳过了负号行
-                                        if (skipNextRow) {
-                                            i += 3; // 跳过当前行、负号行和下下行（因为已经合并）
-                                        } else {
-                                            i += 2; // 跳过当前行和下一行（因为已经合并）
-                                        }
+                                        i += 2; // 跳过当前行和下一行（因为已经合并）
                                         mergedDataMatrix.push(currentRow);
                                         continue; // 继续处理下一行
                                     }
