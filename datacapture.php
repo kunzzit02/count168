@@ -23291,32 +23291,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     });
                 });
 
-                const pickLargestTable = (root) => {
-                    const tables = Array.from(root.querySelectorAll('table'));
-                    if (tables.length === 0) return null;
-                    let best = tables[0];
-                    let bestScore = -1;
-                    tables.forEach(t => {
-                        const score = t.querySelectorAll('td, th').length;
-                        if (score > bestScore) {
-                            bestScore = score;
-                            best = t;
-                        }
-                    });
-                    return best;
-                };
-
-                // Prefer the largest table in document
-                // 优先用fragment里的table（更贴近用户复制的范围）
-                const table = pickLargestTable(fragDoc) || pickLargestTable(doc);
-                if (!table) return '';
-
                 // Collect style blocks (Excel often uses classes like .xl65)
-                const styles = Array.from(doc.querySelectorAll('style'))
-                    .map(s => s.outerHTML)
-                    .join('\n');
+                // 有些复制内容会把style放在fragment里，也一起带上
+                const stylesFromDoc = Array.from(doc.querySelectorAll('style')).map(s => s.textContent || '').join('\n');
+                const stylesFromFrag = Array.from(fragDoc.querySelectorAll('style')).map(s => s.textContent || '').join('\n');
 
-                return `${styles}\n${table.outerHTML}`;
+                // 内容：优先使用StartFragment的body内容（更贴近用户实际复制范围）
+                const fragBodyHtml = (fragDoc.body && fragDoc.body.innerHTML) ? fragDoc.body.innerHTML : '';
+                if (!fragBodyHtml || !/<table\b/i.test(fragBodyHtml)) {
+                    // fallback：如果fragment里没有table，就退回整份HTML里最大的片段
+                    const docBodyHtml = (doc.body && doc.body.innerHTML) ? doc.body.innerHTML : '';
+                    if (!docBodyHtml) return '';
+                    return `<style>${stylesFromDoc}\n${stylesFromFrag}</style>\n<div class="clip">${docBodyHtml}</div>`;
+                }
+
+                return `<style>${stylesFromDoc}\n${stylesFromFrag}</style>\n<div class="clip">${fragBodyHtml}</div>`;
             } catch (_) {
                 // Fallback: at least return the original html (caller may still render something)
                 return String(rawHtml);
@@ -23373,13 +23362,32 @@ if ($current_user_id && count($user_companies) > 0) {
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
       body { font-family: Arial, sans-serif; font-size: 12px; }
-      .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; }
-      /* Only minimal baseline CSS; keep pasted table's own styles/alignment */
+      /* mimic "Table Format" container: grey outer, white inner with scroll */
+      html, body { width: 100%; height: 100%; }
+      body { background: #e6e6e6; }
+      .wrap {
+        padding: 8px;
+        width: 100%;
+        height: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      .viewport {
+        width: 100%;
+        height: 100%;
+        background: #fff;
+        border: 1px solid #9e9e9e;
+        overflow: auto;
+        box-sizing: border-box;
+      }
+      /* Do NOT force text-align/width; keep clipboard styles */
       table { border-collapse: collapse; }
     </style>
   </head>
   <body>
-    <div class="wrap">${safeTable}</div>
+    <div class="wrap">
+      <div class="viewport">${safeTable}</div>
+    </div>
   </body>
 </html>`;
 
