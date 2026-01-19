@@ -23000,8 +23000,6 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!el) return false;
             const tag = (el.tagName || '').toLowerCase();
             if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
-            // contenteditable inputs (not our table/paste area) should still be allowed for normal text paste
-            if (el.isContentEditable && !el.closest('#dataTable') && !el.closest('#pasteArea655')) return true;
             return false;
         }
 
@@ -23029,11 +23027,36 @@ if ($current_user_id && count($user_companies) > 0) {
 
         function sanitizePastedHTML(html) {
             if (!html) return '';
-            return String(html)
+            const temp = document.createElement('div');
+            temp.innerHTML = String(html)
                 .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
                 .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
                 .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
                 .replace(/javascript:/gi, '');
+
+            // 只保留table相关内容，避免Excel HTML带来的布局污染
+            const table = temp.querySelector('table');
+            if (!table) return '';
+
+            // 清除会把table“顶到页面最上面”的定位类样式
+            const stripPosStyles = (el) => {
+                try {
+                    if (!el || !el.style) return;
+                    el.style.removeProperty('position');
+                    el.style.removeProperty('top');
+                    el.style.removeProperty('left');
+                    el.style.removeProperty('right');
+                    el.style.removeProperty('bottom');
+                    el.style.removeProperty('z-index');
+                    el.style.removeProperty('float');
+                    el.style.removeProperty('transform');
+                } catch (_) {}
+            };
+
+            stripPosStyles(table);
+            table.querySelectorAll('*').forEach(stripPosStyles);
+
+            return table.outerHTML;
         }
 
         function tsvToHtmlTable(tsv) {
@@ -23054,6 +23077,14 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function clipboardLooksLikeTable(clipboard) {
+            // 先用types判断（某些浏览器在某些阶段getData会返回空/抛错）
+            try {
+                const types = (clipboard && clipboard.types) ? Array.from(clipboard.types) : [];
+                // 如果连text/plain都没有，大概率不是表格粘贴
+                if (types.length > 0 && !types.includes('text/plain') && !types.includes('text/html')) {
+                    return false;
+                }
+            } catch (_) {}
             try {
                 const html = (clipboard && clipboard.getData) ? (clipboard.getData('text/html') || '') : '';
                 if (html && html.includes('<table')) return true;
