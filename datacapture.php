@@ -21814,6 +21814,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     textInput655.style.display = 'block';
                     // 清空内容
                     textInput655.value = '';
+                    // 自动获得焦点，方便用户直接粘贴
+                    setTimeout(() => {
+                        textInput655.focus();
+                    }, 100);
                 }
             } else {
                 // 显示表格，隐藏空白输入区域
@@ -21829,21 +21833,51 @@ if ($current_user_id && count($user_companies) > 0) {
         // 为655模式的textarea添加paste事件监听
         function init655TextareaPaste() {
             const textInput655 = document.getElementById('textInput655');
-            if (!textInput655) return;
+            if (!textInput655) {
+                console.log('655: textInput655 element not found');
+                return;
+            }
             
-            textInput655.addEventListener('paste', function(e) {
+            console.log('655: Initializing textarea paste handler');
+            
+            // 移除旧的监听器（如果存在）
+            const newTextInput655 = textInput655.cloneNode(true);
+            textInput655.parentNode.replaceChild(newTextInput655, textInput655);
+            
+            // 重新获取元素
+            const textarea = document.getElementById('textInput655');
+            
+            textarea.addEventListener('paste', function(e) {
+                console.log('655: Paste event triggered in textarea');
+                
                 // 只在655模式下处理
-                if (currentDataCaptureType !== '655') return;
+                if (currentDataCaptureType !== '655') {
+                    console.log('655: Not in 655 mode, current mode:', currentDataCaptureType);
+                    return;
+                }
                 
                 e.preventDefault();
                 e.stopPropagation();
                 
+                console.log('655: Processing paste event');
+                
                 const clipboard = (e.clipboardData || window.clipboardData);
+                if (!clipboard) {
+                    console.error('655: No clipboard data available');
+                    return;
+                }
+                
                 const getClipboardData = (type) => {
                     try {
-                        if (!clipboard || typeof clipboard.getData !== 'function') return '';
-                        return clipboard.getData(type) || '';
+                        if (!clipboard || typeof clipboard.getData !== 'function') {
+                            console.log('655: getData function not available');
+                            return '';
+                        }
+                        const data = clipboard.getData(type) || '';
+                        console.log('655: Got clipboard data type:', type, 'length:', data.length);
+                        return data;
                     } catch (err) {
+                        console.error('655: Error getting clipboard data:', err);
                         return '';
                     }
                 };
@@ -21852,6 +21886,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 let htmlData = null;
                 try {
                     htmlData = getClipboardData('text/html');
+                    console.log('655: HTML data length:', htmlData ? htmlData.length : 0);
                     if (htmlData && htmlData.includes('<table')) {
                         console.log('655: HTML table format detected in textarea paste');
                         // 切换到表格显示
@@ -21859,51 +21894,80 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (dataTable) {
                             dataTable.style.display = 'table';
                         }
-                        if (textInput655) {
-                            textInput655.style.display = 'none';
+                        if (textarea) {
+                            textarea.style.display = 'none';
                         }
                         
                         // 等待DOM更新后，处理粘贴
                         setTimeout(() => {
-                            parseAndFillHTMLTableForGeneral655(htmlData);
+                            console.log('655: Calling parseAndFillHTMLTableForGeneral655');
+                            const result = parseAndFillHTMLTableForGeneral655(htmlData);
+                            if (!result) {
+                                console.error('655: Failed to parse and fill HTML table');
+                            }
                         }, 10);
                         return;
                     }
                 } catch (err) {
-                    console.log('655: Could not get HTML data from clipboard:', err);
+                    console.error('655: Could not get HTML data from clipboard:', err);
                 }
                 
                 // 如果HTML解析失败，尝试纯文本格式
                 const textData = getClipboardData('text/plain');
-                if (textData && textData.includes('\t')) {
-                    // 可能是制表符分隔的表格数据，也切换到表格显示
-                    const dataTable = document.getElementById('dataTable');
-                    if (dataTable) {
-                        dataTable.style.display = 'table';
-                    }
-                    if (textInput655) {
-                        textInput655.style.display = 'none';
-                    }
-                    
-                    // 创建一个模拟的paste事件，传递给表格处理
-                    setTimeout(() => {
-                        const tableBody = document.getElementById('tableBody');
-                        if (tableBody && tableBody.children.length > 0) {
-                            const firstRow = tableBody.children[0];
-                            if (firstRow && firstRow.children.length > 1) {
-                                const firstCell = firstRow.children[1];
-                                if (firstCell) {
-                                    const mockEvent = {
-                                        target: firstCell,
-                                        clipboardData: clipboard,
-                                        preventDefault: () => {},
-                                        stopPropagation: () => {}
-                                    };
-                                    handleCellPaste(mockEvent);
-                                }
-                            }
+                console.log('655: Text data length:', textData ? textData.length : 0);
+                if (textData) {
+                    if (textData.includes('\t')) {
+                        console.log('655: Tab-separated data detected');
+                        // 可能是制表符分隔的表格数据，也切换到表格显示
+                        const dataTable = document.getElementById('dataTable');
+                        if (dataTable) {
+                            dataTable.style.display = 'table';
                         }
-                    }, 10);
+                        if (textarea) {
+                            textarea.style.display = 'none';
+                        }
+                        
+                        // 创建一个模拟的paste事件，传递给表格处理
+                        setTimeout(() => {
+                            const tableBody = document.getElementById('tableBody');
+                            if (tableBody && tableBody.children.length > 0) {
+                                const firstRow = tableBody.children[0];
+                                if (firstRow && firstRow.children.length > 1) {
+                                    const firstCell = firstRow.children[1];
+                                    if (firstCell) {
+                                        const mockEvent = {
+                                            target: firstCell,
+                                            clipboardData: clipboard,
+                                            preventDefault: () => {},
+                                            stopPropagation: () => {}
+                                        };
+                                        console.log('655: Calling handleCellPaste for text data');
+                                        handleCellPaste(mockEvent);
+                                    } else {
+                                        console.error('655: First cell not found');
+                                    }
+                                } else {
+                                    console.error('655: First row has no cells');
+                                }
+                            } else {
+                                console.error('655: Table body or rows not found');
+                            }
+                        }, 10);
+                    } else {
+                        console.log('655: Plain text data (no tabs), showing in textarea');
+                        // 纯文本，直接显示在textarea中
+                        textarea.value = textData;
+                    }
+                } else {
+                    console.error('655: No clipboard data available');
+                }
+            });
+            
+            // 也添加键盘事件监听，确保Ctrl+V能触发
+            textarea.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                    console.log('655: Ctrl+V detected in textarea');
+                    // 让paste事件自然触发
                 }
             });
         }
@@ -22974,6 +23038,27 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // 全局粘贴事件处理
         document.addEventListener('paste', function(e) {
+            // 655模式：如果textarea可见，优先处理textarea的粘贴
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
+                const textInput655 = document.getElementById('textInput655');
+                if (textInput655 && textInput655.style.display !== 'none' && textInput655.offsetParent !== null) {
+                    console.log('655: Global paste event - textarea is visible, handling paste');
+                    // 如果textarea有焦点或者可见，直接处理粘贴
+                    if (document.activeElement === textInput655 || textInput655.offsetParent !== null) {
+                        // 触发textarea的paste事件
+                        const pasteEvent = new ClipboardEvent('paste', {
+                            clipboardData: e.clipboardData,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        textInput655.dispatchEvent(pasteEvent);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return;
+                    }
+                }
+            }
+            
             // 检查是否在表格单元格中粘贴
             const target = e.target;
             if (target && target.contentEditable === 'true' && target.closest('#dataTable')) {
