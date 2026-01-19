@@ -4373,8 +4373,68 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
+        // 处理655模式textarea的粘贴事件
+        function handle655TextareaPaste(e) {
+            if (currentDataCaptureType !== '655') {
+                return; // 只在655模式下处理
+            }
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const clipboard = (e.clipboardData || window.clipboardData);
+            const getClipboardData = (type) => {
+                try {
+                    if (!clipboard || typeof clipboard.getData !== 'function') return '';
+                    return clipboard.getData(type) || '';
+                } catch (err) {
+                    return '';
+                }
+            };
+            
+            // 优先尝试获取HTML格式的数据
+            let htmlData = getClipboardData('text/html');
+            if (!htmlData || !htmlData.includes('<table')) {
+                // 如果HTML格式不存在，尝试从text/plain中检测
+                const textData = getClipboardData('text/plain');
+                if (textData && textData.includes('<table')) {
+                    htmlData = textData;
+                } else {
+                    // 不是HTML表格格式，允许默认粘贴行为
+                    return;
+                }
+            }
+            
+            // 检测到HTML表格，切换到表格视图并粘贴
+            const dataTable = document.getElementById('dataTable');
+            const textInput655 = document.getElementById('textInput655');
+            
+            if (dataTable && textInput655) {
+                // 显示表格，隐藏textarea
+                dataTable.style.display = 'table';
+                textInput655.style.display = 'none';
+                
+                // 确保表格已初始化
+                const tableBody = document.getElementById('tableBody');
+                if (!tableBody || tableBody.children.length === 0) {
+                    initializeTable(26, 20);
+                }
+                
+                // 获取第一个单元格作为起始位置
+                const firstCell = tableBody.querySelector('td[contenteditable="true"]');
+                if (firstCell) {
+                    // 使用parseAndFillHTMLTableForGeneral处理粘贴
+                    const success = parseAndFillHTMLTableForGeneral(htmlData, firstCell, true);
+                    if (success) {
+                        // 清空textarea
+                        textInput655.value = '';
+                    }
+                }
+            }
+        }
+        
         // 1.GENERAL 和 655 专用解析：完全保持Excel原始格式，不做任何转换
-        function parseAndFillHTMLTableForGeneral(htmlString, startCell) {
+        function parseAndFillHTMLTableForGeneral(htmlString, startCell, isFromTextarea = false) {
             try {
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = htmlString;
@@ -4393,6 +4453,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     return false;
                 }
                 
+                // 检查第一行是否是表头（包含th标签）
+                const firstRow = allRows[0];
+                const firstRowHasTh = firstRow.querySelector('th') !== null;
+                const hasHeaderRow = firstRowHasTh;
+                
                 // 计算最大列数
                 let maxCols = 0;
                 allRows.forEach(tr => {
@@ -4410,8 +4475,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 获取起始位置
-                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                const startCol = parseInt(startCell.dataset.col);
+                let startRow, startCol;
+                if (isFromTextarea) {
+                    // 从textarea粘贴，从第一行第一列开始
+                    startRow = 0;
+                    startCol = 0;
+                } else {
+                    startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    startCol = parseInt(startCell.dataset.col);
+                }
                 
                 // 扩展表格（如果需要）
                 const currentRows = document.querySelectorAll('#tableBody tr').length;
@@ -4425,6 +4497,56 @@ if ($current_user_id && count($user_companies) > 0) {
                     initializeTable(targetRows, targetCols);
                 }
                 
+                // 如果第一行是表头，更新表头
+                if (hasHeaderRow && isFromTextarea) {
+                    const tableHeader = document.getElementById('tableHeader');
+                    const headerRow = tableHeader.querySelector('tr');
+                    if (headerRow) {
+                        // 清空现有表头（保留第一个空表头）
+                        headerRow.innerHTML = '<th></th>';
+                        
+                        // 从第一行提取表头内容
+                        const headerCells = firstRow.querySelectorAll('th, td');
+                        headerCells.forEach((headerCell, index) => {
+                            if (index < maxCols) {
+                                const newHeader = document.createElement('th');
+                                // 保留表头的HTML内容和样式
+                                newHeader.innerHTML = headerCell.innerHTML || headerCell.textContent || '';
+                                
+                                // 保留表头的样式
+                                const headerStyle = headerCell.getAttribute('style');
+                                if (headerStyle) {
+                                    newHeader.setAttribute('style', headerStyle);
+                                }
+                                
+                                // 保留表头的class
+                                const headerClass = headerCell.getAttribute('class');
+                                if (headerClass) {
+                                    newHeader.setAttribute('class', headerClass);
+                                }
+                                
+                                // 添加事件监听器
+                                newHeader.addEventListener('mousedown', (e) => {
+                                    if (e.button === 0) {
+                                        handleColumnHeaderClick(e, -1);
+                                    }
+                                });
+                                newHeader.addEventListener('contextmenu', (e) => {
+                                    showColumnContextMenu(e, -1);
+                                });
+                                newHeader.addEventListener('mouseover', (e) => {
+                                    if (!e.ctrlKey && !e.metaKey) {
+                                        handleColumnHeaderMouseOver(e, -1);
+                                    }
+                                });
+                                newHeader.style.cursor = 'pointer';
+                                
+                                headerRow.appendChild(newHeader);
+                            }
+                        });
+                    }
+                }
+                
                 // 填充数据并记录粘贴历史（用于撤销）
                 const tableBody = document.getElementById('tableBody');
                 // 重新获取列数（扩展表格后可能已改变）
@@ -4432,8 +4554,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 const currentPasteChanges = [];
                 let successCount = 0;
                 
+                // 如果第一行是表头，从第二行开始填充数据
+                const dataStartIndex = hasHeaderRow && isFromTextarea ? 1 : 0;
+                
                 allRows.forEach((sourceRow, rowIndex) => {
-                    const actualRowIndex = startRow + rowIndex;
+                    // 如果第一行是表头且从textarea粘贴，跳过第一行（已经在表头中处理）
+                    if (hasHeaderRow && isFromTextarea && rowIndex === 0) {
+                        return;
+                    }
+                    
+                    const actualRowIndex = startRow + (hasHeaderRow && isFromTextarea ? rowIndex - 1 : rowIndex);
                     const tableRow = tableBody.children[actualRowIndex];
                     if (!tableRow) return;
                     
@@ -22804,6 +22934,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 切换类型时，重新刷新 Submit 按钮的可用状态
                     updateSubmitButtonState();
                 });
+            }
+            
+            // 为655模式的textarea添加paste事件监听器
+            const textInput655 = document.getElementById('textInput655');
+            if (textInput655) {
+                textInput655.addEventListener('paste', handle655TextareaPaste);
             }
 
             // 初始化 Process 输入框事件
