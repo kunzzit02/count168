@@ -21812,24 +21812,28 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         });
 
+        // 655：是否已经成功解析并填充到网格表
+        let is655GridReady = false;
+
         // Toggle table display for 655 mode
         function toggleTableDisplayFor655() {
             const dataTable = document.getElementById('dataTable');
             const pasteArea655 = document.getElementById('pasteArea655');
             
             if (currentDataCaptureType === '655') {
-                // 隐藏表格，显示空白粘贴区域
-                if (dataTable) {
-                    dataTable.style.display = 'none';
-                }
-                if (pasteArea655) {
-                    pasteArea655.style.display = 'block';
-                    // 清空内容
-                    pasteArea655.innerHTML = '';
-                    // 自动获得焦点，方便用户直接粘贴整张表格
-                    setTimeout(() => {
-                        pasteArea655.focus();
-                    }, 100);
+                // 655：未粘贴时显示粘贴区；粘贴成功后显示网格表（避免HTML table预览错位）
+                if (is655GridReady) {
+                    if (dataTable) dataTable.style.display = 'table';
+                    if (pasteArea655) pasteArea655.style.display = 'none';
+                } else {
+                    if (dataTable) dataTable.style.display = 'none';
+                    if (pasteArea655) {
+                        pasteArea655.style.display = 'block';
+                        pasteArea655.innerHTML = '';
+                        setTimeout(() => {
+                            pasteArea655.focus();
+                        }, 100);
+                    }
                 }
             } else {
                 // 显示表格，隐藏空白粘贴区域
@@ -21931,8 +21935,16 @@ if ($current_user_id && count($user_companies) > 0) {
                     e.stopPropagation();
                     const sanitized = sanitizePastedHTML(html);
                     if (sanitized) {
-                        area.innerHTML = sanitized; // 让用户看到预览（在容器内）
-                        parseAndFillHTMLTableForGeneral655(sanitized);
+                        // 填充到网格表，并切换显示网格表（不要用HTML table预览，容易“乱”）
+                        const ok = parseAndFillHTMLTableForGeneral655(sanitized);
+                        if (ok) {
+                            is655GridReady = true;
+                            area.innerHTML = '';
+                            toggleTableDisplayFor655();
+                        } else {
+                            // 解析失败才退回预览
+                            area.innerHTML = sanitized;
+                        }
                         return;
                     }
                 }
@@ -21943,8 +21955,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     e.stopPropagation();
                     const sanitized = sanitizePastedHTML(text);
                     if (sanitized) {
-                        area.innerHTML = sanitized;
-                        parseAndFillHTMLTableForGeneral655(sanitized);
+                        const ok = parseAndFillHTMLTableForGeneral655(sanitized);
+                        if (ok) {
+                            is655GridReady = true;
+                            area.innerHTML = '';
+                            toggleTableDisplayFor655();
+                        } else {
+                            area.innerHTML = sanitized;
+                        }
                         return;
                     }
                 }
@@ -21954,8 +21972,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     e.preventDefault();
                     e.stopPropagation();
                     const tableHtml = tsvToHtmlTable(text);
-                    area.innerHTML = tableHtml;
-                    parseAndFillHTMLTableForGeneral655(tableHtml);
+                    const ok = parseAndFillHTMLTableForGeneral655(tableHtml);
+                    if (ok) {
+                        is655GridReady = true;
+                        area.innerHTML = '';
+                        toggleTableDisplayFor655();
+                    } else {
+                        area.innerHTML = tableHtml;
+                    }
                     return;
                 }
 
@@ -21967,8 +21991,14 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (pastedHTML && /<table\b/i.test(pastedHTML)) {
                             const sanitized = sanitizePastedHTML(pastedHTML);
                             if (sanitized) {
-                                area.innerHTML = sanitized;
-                                parseAndFillHTMLTableForGeneral655(sanitized);
+                                const ok = parseAndFillHTMLTableForGeneral655(sanitized);
+                                if (ok) {
+                                    is655GridReady = true;
+                                    area.innerHTML = '';
+                                    toggleTableDisplayFor655();
+                                } else {
+                                    area.innerHTML = sanitized;
+                                }
                                 return;
                             }
                         }
@@ -22051,6 +22081,10 @@ if ($current_user_id && count($user_companies) > 0) {
             if (pasteArea655) {
                 pasteArea655.innerHTML = '';
             }
+
+            // Reset 655 grid state (show paste area again)
+            is655GridReady = false;
+            toggleTableDisplayFor655();
             
             // Clear all selections
             clearAllSelections();
@@ -23521,6 +23555,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 typeSelect.addEventListener('change', () => {
                     const previousType = currentDataCaptureType;
                     currentDataCaptureType = typeSelect.value || 'GENERAL';
+
+                    // 切到655时默认显示粘贴区（让用户重新粘贴）；其它模式不受影响
+                    if (currentDataCaptureType === '655') {
+                        is655GridReady = false;
+                    }
                     
                     // 切换表格和输入区域的显示
                     toggleTableDisplayFor655();
