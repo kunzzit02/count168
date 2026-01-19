@@ -23179,12 +23179,22 @@ if ($current_user_id && count($user_companies) > 0) {
                 .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
                 .replace(/javascript:/gi, '');
 
-            const pickLargestTable = (root) => {
-                const tables = Array.from(root.querySelectorAll('table')).filter(t => {
-                    // exclude nested tables
-                    const parentTable = t.parentElement ? t.parentElement.closest('table') : null;
-                    return !parentTable;
+            const getTopLevelTables = (root) => Array.from(root.querySelectorAll('table')).filter(t => {
+                const parentTable = t.parentElement ? t.parentElement.closest('table') : null;
+                return !parentTable;
+            });
+
+            const getRowKey = (tr) => {
+                if (!tr) return '';
+                const first = Array.from(tr.children || []).find(el => {
+                    const tag = (el.tagName || '').toUpperCase();
+                    return tag === 'TD' || tag === 'TH';
                 });
+                return (first && first.textContent ? first.textContent : '').trim();
+            };
+
+            const pickLargestTable = (root) => {
+                const tables = getTopLevelTables(root);
                 if (tables.length === 0) return null;
                 let best = tables[0];
                 let bestScore = -1;
@@ -23240,11 +23250,69 @@ if ($current_user_id && count($user_companies) > 0) {
                 return merged;
             };
 
-            const pickBestMergedTable = (root) => {
-                const tables = Array.from(root.querySelectorAll('table')).filter(t => {
-                    const parentTable = t.parentElement ? t.parentElement.closest('table') : null;
-                    return !parentTable;
+            const rowKeySet = (table) => {
+                const keys = new Set();
+                getTableRows(table).forEach(tr => {
+                    const k = getRowKey(tr);
+                    if (k) keys.add(k);
                 });
+                return keys;
+            };
+
+            const intersectionSize = (a, b) => {
+                let cnt = 0;
+                a.forEach(v => { if (b.has(v)) cnt++; });
+                return cnt;
+            };
+
+            const mergeTablesSideBySideByKey = (leftTable, rightTable) => {
+                const leftRows = getTableRows(leftTable);
+                const rightRows = getTableRows(rightTable);
+
+                const leftMap = new Map();
+                leftRows.forEach((tr, idx) => {
+                    const k = getRowKey(tr) || `__idx_${idx}`;
+                    leftMap.set(k, tr);
+                });
+
+                const rightMap = new Map();
+                rightRows.forEach((tr, idx) => {
+                    const k = getRowKey(tr) || `__idx_${idx}`;
+                    rightMap.set(k, tr);
+                });
+
+                const merged = document.createElement('table');
+                const tbody = document.createElement('tbody');
+                merged.appendChild(tbody);
+
+                const allKeys = Array.from(new Set([...leftMap.keys(), ...rightMap.keys()]));
+                allKeys.forEach(k => {
+                    const lRow = leftMap.get(k);
+                    const rRow = rightMap.get(k);
+                    const tr = document.createElement('tr');
+
+                    const lCells = lRow ? getDirectCells(lRow) : [];
+                    const rCellsAll = rRow ? getDirectCells(rRow) : [];
+
+                    let rCells = rCellsAll;
+                    if (lCells.length && rCellsAll.length) {
+                        const lt = cellText(lCells[0]);
+                        const rt = cellText(rCellsAll[0]);
+                        if (lt && rt && lt === rt) {
+                            rCells = rCellsAll.slice(1);
+                        }
+                    }
+
+                    lCells.forEach(c => tr.appendChild(c.cloneNode(true)));
+                    rCells.forEach(c => tr.appendChild(c.cloneNode(true)));
+                    tbody.appendChild(tr);
+                });
+
+                return merged;
+            };
+
+            const pickBestMergedTable = (root) => {
+                const tables = getTopLevelTables(root);
                 if (tables.length === 0) return null;
                 if (tables.length === 1) return tables[0];
 
@@ -23253,26 +23321,31 @@ if ($current_user_id && count($user_companies) > 0) {
                 const singleScore = single ? single.querySelectorAll('td, th').length : 0;
 
                 // Best pair merge (fixed-table copy often yields 2 side-by-side tables)
+                // Prefer tables that share the most row keys (more reliable than raw cell count)
                 let bestPair = null;
-                let bestPairScore = -1;
+                let bestShared = -1;
                 for (let i = 0; i < tables.length; i++) {
                     for (let j = i + 1; j < tables.length; j++) {
                         const a = tables[i], b = tables[j];
                         const aRows = getTableRows(a).length;
                         const bRows = getTableRows(b).length;
                         if (aRows < 2 || bRows < 2) continue;
-                        if (Math.abs(aRows - bRows) > 1) continue;
-                        const score = a.querySelectorAll('td, th').length + b.querySelectorAll('td, th').length;
-                        if (score > bestPairScore) {
-                            bestPairScore = score;
+                        if (Math.abs(aRows - bRows) > 3) continue;
+                        const shared = intersectionSize(rowKeySet(a), rowKeySet(b));
+                        if (shared > bestShared) {
+                            bestShared = shared;
                             bestPair = [a, b];
                         }
                     }
                 }
 
                 // Use merged if it clearly contains more cells than any single
-                if (bestPair && bestPairScore > singleScore) {
-                    // Keep document order: earlier table is the left side
+                if (bestPair && bestShared > 0) {
+                    // Merge by row-key alignment first (handles header/total better)
+                    const merged = mergeTablesSideBySideByKey(bestPair[0], bestPair[1]);
+                    const mergedScore = merged.querySelectorAll('td, th').length;
+                    if (mergedScore > singleScore) return merged;
+                    // fallback to index-based merge
                     return mergeTablesSideBySide(bestPair[0], bestPair[1]);
                 }
 
