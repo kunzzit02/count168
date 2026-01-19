@@ -9329,7 +9329,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 如果HTML解析都失败，尝试纯文本格式（但尽量保持格式）
                 console.log('2.10 INVOICE: HTML parsing failed, trying text format...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
+                // 保留只包含负号的行（用于处理 "(MYR)\n-\n2,693.95" 格式）
+                const lines = normalizedData.split('\n').filter(line => {
+                    const trimmed = line.trim();
+                    // 保留非空行（包括只包含负号的行）
+                    return trimmed !== '';
+                });
                 
                 console.log('2.10 INVOICE: Total lines to process:', lines.length);
                 console.log('2.10 INVOICE: First few lines:', lines.slice(0, 5));
@@ -9580,17 +9585,26 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                         
-                        // 清理空单元格（但保留只包含负号的单元格，因为它可能是负数的一部分）
-                        cells = cells.filter(cell => {
-                            const trimmed = (cell || '').trim();
-                            // 保留非空单元格，但也要注意：如果单元格只有 "-"，可能是负数的一部分，不应该被过滤
-                            // 不过这种情况应该很少，因为数字通常不会单独分离出负号
-                            return trimmed !== '' && trimmed !== '-';
-                        });
+                        // 清理空单元格，但保留只包含负号的行（用于处理 "(MYR)\n-\n2,693.95" 格式）
+                        // 如果整行只包含负号，保留它作为一个单独的行，以便后续合并逻辑处理
+                        const trimmedCells = cells.map(cell => (cell || '').trim());
+                        const isOnlyDash = trimmedCells.length === 1 && trimmedCells[0] === '-';
                         
-                        if (cells.length > 0) {
-                            dataMatrix.push(cells);
-                            maxCols = Math.max(maxCols, cells.length);
+                        if (isOnlyDash) {
+                            // 整行只包含负号，保留它
+                            dataMatrix.push(['-']);
+                            maxCols = Math.max(maxCols, 1);
+                        } else {
+                            // 清理空单元格
+                            cells = cells.filter(cell => {
+                                const trimmed = (cell || '').trim();
+                                return trimmed !== '';
+                            });
+                            
+                            if (cells.length > 0) {
+                                dataMatrix.push(cells);
+                                maxCols = Math.max(maxCols, cells.length);
+                            }
                         }
                     });
                     
