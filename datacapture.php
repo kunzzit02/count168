@@ -9684,13 +9684,25 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                             
                             if (currencyColIndex >= 0) {
+                                // 检查货币代码后面是否有负号（如 "(MYR) - 2,693.95" 格式）
+                                // 如果货币代码后面是负号，且再后面是数字，需要将负号与数字合并
+                                let nextCellAfterCurrency = (currentRow[currencyColIndex + 1] || '').trim();
+                                let cellAfterNext = (currentRow[currencyColIndex + 2] || '').trim();
+                                
+                                // 如果货币代码后面是负号，且再后面是数字，将负号与数字合并
+                                if (nextCellAfterCurrency === '-' && /^[\d,]+\.?\d*$/.test(cellAfterNext)) {
+                                    // 将负号与数字合并，并清除负号单元格
+                                    currentRow[currencyColIndex + 1] = '-' + cellAfterNext;
+                                    currentRow[currencyColIndex + 2] = '';
+                                }
+                                
                                 // 如果下一行有多个数字（如 "2,693.95-188.58"），分别添加到不同列
                                 if (nextRowNumbers && nextRowNumbers.length === 2) {
                                     // 确保行有足够的列
                                     while (currentRow.length <= currencyColIndex + 2) {
                                         currentRow.push('');
                                     }
-                                    // 将第一个数字添加到货币代码的下一列
+                                    // 将第一个数字添加到货币代码的下一列（如果该列已有负号+数字，则覆盖）
                                     currentRow[currencyColIndex + 1] = nextRowNumbers[0];
                                     // 将第二个数字添加到再下一列
                                     currentRow[currencyColIndex + 2] = nextRowNumbers[1];
@@ -9700,8 +9712,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                     while (currentRow.length <= currencyColIndex + 1) {
                                         currentRow.push('');
                                     }
-                                    currentRow[currencyColIndex + 1] = nextRowNumber;
-                                    console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1}: "${lastCell}" + "${nextRowNumber}"`);
+                                    // 如果该列已经有负号+数字（从上面合并的），则保留；否则使用下一行的数字
+                                    if (currentRow[currencyColIndex + 1] && currentRow[currencyColIndex + 1].startsWith('-') && /^-[\d,]+\.?\d*$/.test(currentRow[currencyColIndex + 1])) {
+                                        // 已经合并了负号+数字，保持不变
+                                        console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1}: "${lastCell}" + "${currentRow[currencyColIndex + 1]}" (preserved from current row)`);
+                                    } else {
+                                        currentRow[currencyColIndex + 1] = nextRowNumber;
+                                        console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1}: "${lastCell}" + "${nextRowNumber}"`);
+                                    }
                                 }
                                 // 跳过下一行（因为它已经被合并到当前行）
                                 i += 2; // 跳过当前行和下一行（因为已经合并）
@@ -9728,13 +9746,24 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 如果找到货币代码，将数字添加到货币代码的下一列
                                 if (currencyColIndex >= 0) {
+                                    // 检查货币代码后面是否有负号（如 "(MYR) - 2,693.95" 格式）
+                                    let nextCellAfterCurrency = (currentRow[currencyColIndex + 1] || '').trim();
+                                    let cellAfterNext = (currentRow[currencyColIndex + 2] || '').trim();
+                                    
+                                    // 如果货币代码后面是负号，且再后面是数字，将负号与数字合并
+                                    if (nextCellAfterCurrency === '-' && /^[\d,]+\.?\d*$/.test(cellAfterNext)) {
+                                        // 将负号与数字合并，并清除负号单元格
+                                        currentRow[currencyColIndex + 1] = '-' + cellAfterNext;
+                                        currentRow[currencyColIndex + 2] = '';
+                                    }
+                                    
                                     // 如果下一行有多个数字（如 "2,693.95-188.58"），分别添加到不同列
                                     if (nextRowNumbers && nextRowNumbers.length === 2) {
                                         // 确保行有足够的列
                                         while (currentRow.length <= currencyColIndex + 2) {
                                             currentRow.push('');
                                         }
-                                        // 将第一个数字添加到货币代码的下一列
+                                        // 将第一个数字添加到货币代码的下一列（如果该列已有负号+数字，则覆盖）
                                         currentRow[currencyColIndex + 1] = nextRowNumbers[0];
                                         // 将第二个数字添加到再下一列
                                         currentRow[currencyColIndex + 2] = nextRowNumbers[1];
@@ -9744,8 +9773,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                         while (currentRow.length <= currencyColIndex + 1) {
                                             currentRow.push('');
                                         }
-                                        currentRow[currencyColIndex + 1] = nextRowNumber;
-                                        console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${nextRowNumber}"`);
+                                        // 如果该列已经有负号+数字（从上面合并的），则保留；否则使用下一行的数字
+                                        if (currentRow[currencyColIndex + 1] && currentRow[currencyColIndex + 1].startsWith('-') && /^-[\d,]+\.?\d*$/.test(currentRow[currencyColIndex + 1])) {
+                                            // 已经合并了负号+数字，保持不变
+                                            console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${currentRow[currencyColIndex + 1]}" (preserved from current row)`);
+                                        } else {
+                                            currentRow[currencyColIndex + 1] = nextRowNumber;
+                                            console.log(`2.10 INVOICE: Merged currency+number at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${nextRowNumber}"`);
+                                        }
                                     }
                                     i += 2; // 跳过当前行和下一行（因为已经合并）
                                     mergedDataMatrix.push(currentRow);
