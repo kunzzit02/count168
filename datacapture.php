@@ -9364,6 +9364,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                     if (dashIndex > 0 && dashIndex < cell.length - 1) {
                                         const firstNum = cell.substring(0, dashIndex).trim();
                                         let secondNum = cell.substring(dashIndex + 1).trim();
+                                        
+                                        // 在PDF数据中，连字符通常表示第二个数字是负数
+                                        // 例如: "2,693.95-188.58" 应该分离为 "2,693.95" 和 "-188.58"
+                                        // 或者: "-25.00-1.50" 应该分离为 "-25.00" 和 "-1.50"
+                                        if (!secondNum.startsWith('-') && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                            secondNum = '-' + secondNum;
+                                        }
+                                        
                                         const numPattern = /^-?[\d,]+\.?\d*$/;
                                         const numPatternWithDecimal = /^-?[\d,]+\.\d+$/;
                                         
@@ -9409,6 +9417,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                         if (dashIndex > 0 && dashIndex < cell.length - 1) {
                                             const firstNum = cell.substring(0, dashIndex).trim();
                                             let secondNum = cell.substring(dashIndex + 1).trim();
+                                            
+                                            // 在PDF数据中，连字符通常表示第二个数字是负数
+                                            // 例如: "2,693.95-188.58" 应该分离为 "2,693.95" 和 "-188.58"
+                                            // 或者: "-25.00-1.50" 应该分离为 "-25.00" 和 "-1.50"
+                                            if (!secondNum.startsWith('-') && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                secondNum = '-' + secondNum;
+                                            }
+                                            
                                             const numPattern = /^-?[\d,]+\.?\d*$/;
                                             const numPatternWithDecimal = /^-?[\d,]+\.\d+$/;
                                             
@@ -9489,6 +9505,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                             const firstNum = part.substring(0, dashIndex).trim();
                                             let secondNum = part.substring(dashIndex + 1).trim();
                                             
+                                            // 在PDF数据中，连字符通常表示第二个数字是负数
+                                            // 例如: "2,693.95-188.58" 应该分离为 "2,693.95" 和 "-188.58"
+                                            // 或者: "-25.00-1.50" 应该分离为 "-25.00" 和 "-1.50"
+                                            if (!secondNum.startsWith('-') && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                secondNum = '-' + secondNum;
+                                            }
+                                            
                                             // 验证两部分都像数字（可能包含逗号、小数点、负号）
                                             const numPattern = /^-?[\d,]+\.?\d*$/;
                                             const numPatternWithDecimal = /^-?[\d,]+\.\d+$/;
@@ -9511,7 +9534,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                             
                                             if (firstIsValid && secondIsValid) {
                                                 cells.push(firstNum); // 第一个数字 (如 "-25.00" 或 "2,693.95")
-                                                cells.push(secondNum); // 第二个数字 (如 "-1.50" 或 "188.58")
+                                                cells.push(secondNum); // 第二个数字 (如 "-1.50" 或 "-188.58")
                                                 console.log(`2.10 INVOICE: Separated "${part}" into "${firstNum}" and "${secondNum}"`);
                                                 i++;
                                             } else {
