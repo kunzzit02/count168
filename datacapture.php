@@ -23247,17 +23247,40 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // 655预览：尽量还原Excel复制的样式（保留<style>与class），并挑选“单元格最多”的table作为主表
+        function extractClipboardHtmlFragment(rawHtml) {
+            const s = String(rawHtml || '');
+            const start = s.search(/<!--\s*StartFragment\s*-->/i);
+            const end = s.search(/<!--\s*EndFragment\s*-->/i);
+            if (start >= 0 && end > start) {
+                return s.slice(start, end).replace(/<!--\s*StartFragment\s*-->/i, '');
+            }
+            return s;
+        }
+
         function build655PreviewFragmentFromClipboardHtml(rawHtml) {
             if (!rawHtml) return '';
             try {
+                const fragmentHtml = extractClipboardHtmlFragment(rawHtml);
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(String(rawHtml), 'text/html');
+                const fragDoc = parser.parseFromString(String(fragmentHtml), 'text/html');
 
                 // Remove scripts
                 doc.querySelectorAll('script').forEach(n => n.remove());
+                fragDoc.querySelectorAll('script').forEach(n => n.remove());
 
                 // Remove event handlers + javascript: URLs
                 doc.querySelectorAll('*').forEach(el => {
+                    Array.from(el.attributes || []).forEach(attr => {
+                        if (/^on/i.test(attr.name)) {
+                            el.removeAttribute(attr.name);
+                        }
+                        if ((attr.name === 'href' || attr.name === 'src') && /^javascript:/i.test(attr.value || '')) {
+                            el.removeAttribute(attr.name);
+                        }
+                    });
+                });
+                fragDoc.querySelectorAll('*').forEach(el => {
                     Array.from(el.attributes || []).forEach(attr => {
                         if (/^on/i.test(attr.name)) {
                             el.removeAttribute(attr.name);
@@ -23284,7 +23307,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 };
 
                 // Prefer the largest table in document
-                const table = pickLargestTable(doc);
+                // 优先用fragment里的table（更贴近用户复制的范围）
+                const table = pickLargestTable(fragDoc) || pickLargestTable(doc);
                 if (!table) return '';
 
                 // Collect style blocks (Excel often uses classes like .xl65)
@@ -23404,11 +23428,13 @@ if ($current_user_id && count($user_companies) > 0) {
             } catch (_) {}
 
             if (html && /<table\b/i.test(html)) {
+                const previewFragment = build655PreviewFragmentFromClipboardHtml(html);
                 const sanitized = sanitizePastedHTML(html);
-                if (!sanitized) return;
-                render655Preview(sanitized);
+                if (!previewFragment && !sanitized) return;
+                // 预览优先用“还原片段”（保留<style>/class），否则退回清洗后的table
+                render655Preview(previewFragment || sanitized);
                 // 同时填充到内部数据表（用于后续提交/处理）
-                parseAndFillHTMLTableForGeneral655(sanitized);
+                parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
                 is655GridReady = true;
                 toggleTableDisplayFor655();
                 return;
