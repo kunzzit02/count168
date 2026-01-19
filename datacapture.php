@@ -23096,7 +23096,8 @@ if ($current_user_id && count($user_companies) > 0) {
             return false;
         }
 
-        // 全局粘贴强制落入容器（capture阶段）：655模式下把“表格粘贴”拦截并插入到pasteArea容器，避免跑到页面最上面
+        // 全局粘贴强制落入容器（capture阶段）
+        // 655模式下：只要不是在 input/textarea/select 里粘贴，就一律阻止默认粘贴，并把内容渲染到 pasteArea 容器内
         document.addEventListener('paste', function(e) {
             if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '655') return;
 
@@ -23108,11 +23109,14 @@ if ($current_user_id && count($user_companies) > 0) {
             if (isEditableFormField(target)) return;
 
             const clipboard = (e.clipboardData || window.clipboardData);
-            if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
+            if (!clipboard) return;
 
             // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
             e.preventDefault();
             e.stopPropagation();
+            if (typeof e.stopImmediatePropagation === 'function') {
+                e.stopImmediatePropagation();
+            }
 
             // 确保容器可见并接收内容
             const dataTable = document.getElementById('dataTable');
@@ -23141,6 +23145,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 const tableHtml = tsvToHtmlTable(text);
                 pasteArea655.innerHTML = tableHtml;
                 parseAndFillHTMLTableForGeneral655(pasteArea655.innerHTML);
+                return;
+            }
+
+            // 非表格内容：也放到容器里，避免被贴到页面其他位置
+            if (text) {
+                pasteArea655.textContent = text;
+            } else {
+                pasteArea655.innerHTML = '';
             }
         }, true);
 
@@ -24397,6 +24409,19 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: 4px 8px;
             text-align: left;
             white-space: nowrap;
+        }
+
+        /* 兜底：避免粘贴内容使用fixed/absolute把表格顶到页面最上面 */
+        .paste-area-655 table,
+        .paste-area-655 table * {
+            position: static !important;
+            top: auto !important;
+            left: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            z-index: auto !important;
+            transform: none !important;
+            float: none !important;
         }
 
         .excel-table {
