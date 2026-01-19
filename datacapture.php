@@ -16207,10 +16207,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                 for (let colIndex = 0; colIndex < cells.length; colIndex++) {
                                     const cell = cells[colIndex] || '';
                                     
+                                    // 先检查是否是日期格式，如果是日期，跳过公式检测
+                                    const isDate = /^\d{2}[-/]\d{2}[-/]\d{4}$/.test(cell) || 
+                                                   /^\d{4}[-/]\d{2}[-/]\d{2}$/.test(cell);
+                                    if (isDate) {
+                                        continue; // 跳过日期列
+                                    }
+                                    
                                     // 检查是否包含公式特征：括号和运算符（不一定需要冒号）
+                                    // 公式应该包含括号或运算符，并且不是简单的数字或日期
                                     const hasFormula = (cell.includes('(') || cell.includes('+') || 
-                                                       cell.includes('-') || cell.includes('*') || 
-                                                       cell.includes('/')) && 
+                                                       cell.includes('*') || cell.includes('/') ||
+                                                       (cell.includes('-') && !/^-?\d+\.?\d*$/.test(cell))) && 
                                                       (cell.includes('(') || cell.match(/\d/)); // 包含数字
                                     
                                     if (hasFormula) {
@@ -16348,10 +16356,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                         for (let colIndex = 0; colIndex < columns.length; colIndex++) {
                                             const cell = columns[colIndex] || '';
                                             
+                                            // 先检查是否是日期格式，如果是日期，跳过公式检测
+                                            const isDate = /^\d{2}[-/]\d{2}[-/]\d{4}$/.test(cell) || 
+                                                           /^\d{4}[-/]\d{2}[-/]\d{2}$/.test(cell);
+                                            if (isDate) {
+                                                continue; // 跳过日期列
+                                            }
+                                            
                                             // 检查是否包含公式特征：括号和运算符
+                                            // 公式应该包含括号或运算符，并且不是简单的数字或日期
                                             const isFormula = (cell.includes('(') || cell.includes('+') || 
-                                                               cell.includes('-') || cell.includes('*') || 
-                                                               cell.includes('/')) && 
+                                                               cell.includes('*') || cell.includes('/') ||
+                                                               (cell.includes('-') && !/^-?\d+\.?\d*$/.test(cell))) && 
                                                               (cell.includes('(') || cell.match(/\d/));
                                             
                                             if (isFormula) {
