@@ -8110,6 +8110,58 @@ if ($current_user_id && count($user_companies) > 0) {
         // API-RETURN 表格格式解析函数
         // 解析表格格式：29/12/2025  C2BT200  MYR  -  -  -2,953.02  0.00  -5,206.22  KING855 : (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)  -  ZERO
         // 输出：['29/12/2025', 'C2BT200', 'MYR', '-', '-', '-2,953.02', '0.00', '-5,206.22', 'KING855:', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225', '-', 'ZERO']
+        // 智能分割函数：保留日期格式，只拆分其他列
+        function smartSplitPreservingDates(text) {
+            if (!text || typeof text !== 'string') return [];
+            
+            // 首先尝试按多个空格（2个或更多）分割
+            const multiSpaceSplit = text.split(/\s{2,}/).map(part => part.trim()).filter(part => part !== '');
+            if (multiSpaceSplit.length >= 8) {
+                return multiSpaceSplit;
+            }
+            
+            // 如果多个空格分割不够，使用智能单空格分割，但要合并日期部分
+            const words = text.split(/\s+/).filter(w => w.trim() !== '');
+            if (words.length < 8) {
+                return words;
+            }
+            
+            // 合并日期部分：检测日期模式并合并
+            // 日期模式：DD-MM-YYYY, DD/MM/YYYY, 或 DD MM YYYY (三个连续的数字，中间是-或/或空格)
+            const result = [];
+            let i = 0;
+            while (i < words.length) {
+                const word = words[i];
+                
+                // 检查是否是日期的一部分（DD格式，后面跟着MM和YYYY）
+                // 日期模式：DD-MM-YYYY 或 DD/MM/YYYY (已经是一个词)
+                if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(word)) {
+                    // 已经是完整日期格式（带-或/）
+                    result.push(word);
+                    i++;
+                } else if (/^\d{2}$/.test(word) && i + 2 < words.length) {
+                    // 可能是 DD MM YYYY 格式的开始
+                    const next1 = words[i + 1];
+                    const next2 = words[i + 2];
+                    
+                    // 检查是否是日期模式：DD MM YYYY
+                    if (/^\d{2}$/.test(next1) && /^\d{4}$/.test(next2)) {
+                        // 合并为日期
+                        result.push(`${word}-${next1}-${next2}`);
+                        i += 3;
+                    } else {
+                        result.push(word);
+                        i++;
+                    }
+                } else {
+                    result.push(word);
+                    i++;
+                }
+            }
+            
+            return result;
+        }
+        
         function parseApiReturnTableFormat(pastedData) {
             if (!pastedData || typeof pastedData !== 'string') return null;
             
@@ -8121,22 +8173,11 @@ if ($current_user_id && count($user_companies) > 0) {
             
             const singleLine = lines[0];
             
-            // 检查是否包含多个列（至少8列以上，且包含日期格式和Description列）
-            // 尝试按多个空格分割
-            const multiSpaceSplit = singleLine.split(/\s{2,}/).map(part => part.trim());
+            // 使用智能分割函数，保留日期格式
+            const columns = smartSplitPreservingDates(singleLine);
             
-            // 如果多个空格分割结果少于8列，尝试按单个空格分割
-            let columns = [];
-            if (multiSpaceSplit.length >= 8) {
-                columns = multiSpaceSplit;
-            } else {
-                // 尝试智能分割：识别日期、产品ID、货币、数值等
-                const words = singleLine.split(/\s+/).filter(w => w.trim() !== '');
-                if (words.length >= 8) {
-                    columns = words;
-                } else {
-                    return null;
-                }
+            if (columns.length < 8) {
+                return null;
             }
             
             // 查找 Description 列（包含冒号和运算符的列，通常是第9列）
@@ -16319,11 +16360,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     let apiReturnParsed = parseApiReturnTableFormat(pastedData);
                     
                     if (!apiReturnParsed) {
-                        // 如果表格格式解析失败，尝试通用单行处理：按空格分割，保留所有列，只解析公式列
+                        // 如果表格格式解析失败，尝试通用单行处理：使用智能分割保留日期，只解析公式列
                         const trimmed = pastedData.trim();
                         if (trimmed) {
-                            // 按空格分割所有列
-                            const columns = trimmed.split(/\s+/).filter(c => c.trim() !== '');
+                            // 使用智能分割函数，保留日期格式
+                            const columns = smartSplitPreservingDates(trimmed);
                             
                             if (columns.length > 0) {
                                 // 处理所有列：去掉标签后的冒号
