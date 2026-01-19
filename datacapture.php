@@ -4725,59 +4725,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // 移除style标签
                                     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // 移除script标签
                                 
-                                // 提取纯文本内容以检查是否需要分离 DESCRIPTION-AMOUNT 格式或 数字-数字 格式
+                                // 提取纯文本内容以检查是否需要分离 DESCRIPTION-AMOUNT 格式
                                 const textContent = sourceCell.textContent || '';
-                                const trimmedText = textContent.trim();
                                 
-                                // 检查是否是 "数字-数字" 格式（如 "2,693.95-188.58" 或 "-25.00-1.50"）
-                                // 更新正则以支持负数：允许第一个数字以负号开头，第二个数字也可能以负号开头
-                                const numberDashNumberPattern = /^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/;
-                                const numberDashNumberMatch = trimmedText.match(numberDashNumberPattern);
-                                
-                                if (numberDashNumberMatch && currentCol + 1 < actualCols) {
-                                    // 找到 "数字-数字" 格式，尝试分离
-                                    const nextCell = tableRow.children[currentCol + 2]; // +2 跳过行号列和当前列
-                                    // 如果下一列存在且为空，才进行分离
-                                    if (nextCell && nextCell.contentEditable === 'true' && 
-                                        (!nextCell.textContent || nextCell.textContent.trim() === '')) {
-                                        // 分离两个数字
-                                        const firstNum = numberDashNumberMatch[1];
-                                        const secondNum = numberDashNumberMatch[2];
-                                        
-                                        // 设置当前单元格为第一个数字
-                                        if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                            targetCell.innerHTML = firstNum;
-                                        } else {
-                                            targetCell.textContent = firstNum;
-                                        }
-                                        
-                                        // 记录下一单元格的旧值（在设置新值之前）
-                                        const nextOldValue = nextCell.textContent || nextCell.innerHTML || '';
-                                        // 设置下一单元格为第二个数字（保留负号）
-                                        nextCell.textContent = secondNum;
-                                        currentPasteChanges.push({
-                                            row: actualRowIndex,
-                                            col: currentCol + 1,
-                                            oldValue: nextOldValue,
-                                            newValue: secondNum
-                                        });
-                                        
-                                        if (secondNum && secondNum.trim() !== '') {
-                                            successCount++;
-                                        }
-                                    } else {
-                                        // 下一列不为空，保持原样
-                                        if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                            targetCell.innerHTML = cleanContent;
-                                        } else {
-                                            targetCell.textContent = cellContent;
-                                        }
-                                    }
-                                }
                                 // 检查是否是 DESCRIPTION-AMOUNT 格式（如 "Loyalty-24.79"）
                                 // 如果检测到这种格式，且下一列存在且为空，则分离
-                                else if (/^[A-Za-z]+-[0-9.,-]+$/i.test(trimmedText)) {
-                                    const match = trimmedText.match(/^([A-Za-z]+)(-[0-9.,-]+)$/i);
+                                if (/^[A-Za-z]+-[0-9.,-]+$/i.test(textContent.trim())) {
+                                    const match = textContent.trim().match(/^([A-Za-z]+)(-[0-9.,-]+)$/i);
                                     if (match && currentCol + 1 < actualCols) {
                                         const nextCell = tableRow.children[currentCol + 2]; // +2 跳过行号列和当前列
                                         // 如果下一列存在且为空，才进行分离
@@ -4825,12 +4779,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                         }
                                     }
                                 } else {
-                                    // 不是特殊格式，正常处理
-                                    if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                        targetCell.innerHTML = cleanContent;
-                                    } else {
-                                        // 纯文本内容，但保留原始格式（包括空格、换行等）
-                                        targetCell.textContent = cellContent;
+                                    // 不是 DESCRIPTION-AMOUNT 格式，正常处理
+                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                    targetCell.innerHTML = cleanContent;
+                                } else {
+                                    // 纯文本内容，但保留原始格式（包括空格、换行等）
+                                    targetCell.textContent = cellContent;
                                     }
                                 }
                                 
@@ -9398,9 +9352,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 后处理：检查并分离 "数字-数字" 格式的单元格
                             const processedCells = [];
                             for (const cell of cells) {
-                                // 更新正则以支持负数：允许第一个数字以负号开头，第二个数字也可能以负号开头
-                                // 匹配模式：-?[\d,]+\.?\d*-.*-?[\d,]+\.?\d*
-                                if (/-?[\d,]+\.?\d*-.*-?[\d,]+\.?\d*/.test(cell)) {
+                                if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(cell)) {
                                     // 找到连字符的位置（跳过开头的负号）
                                     let dashIndex = -1;
                                     if (cell.startsWith('-')) {
@@ -9445,9 +9397,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 // 后处理：检查并分离 "数字-数字" 格式的单元格
                                 const processedCells = [];
                                 for (const cell of cells) {
-                                    // 更新正则以支持负数：允许第一个数字以负号开头，第二个数字也可能以负号开头
-                                    // 匹配模式：-?[\d,]+\.?\d*-.*-?[\d,]+\.?\d*
-                                    if (/-?[\d,]+\.?\d*-.*-?[\d,]+\.?\d*/.test(cell)) {
+                                    if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(cell)) {
                                         // 找到连字符的位置（跳过开头的负号）
                                         let dashIndex = -1;
                                         if (cell.startsWith('-')) {
@@ -9522,9 +9472,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                     // 如果是数字（百分比或金额）
                                     // 先检查是否是 "数字-数字" 格式（如 "-25.00-1.50" 或 "2,693.95-188.58"）
                                     // 这种格式通常表示两个数字应该分开到不同的列
-                                    // 更新正则以支持负数：允许第一个数字以负号开头，第二个数字也可能以负号开头
-                                    // 匹配模式：-?[\d,]+\.?\d*-.*-?[\d,]+\.?\d*
-                                    else if (/-?[\d,]+\.?\d*-.*-?[\d,]+\.?\d*/.test(part)) {
+                                    // 使用更宽松的检测：包含至少一个连字符，且连字符前后都是数字模式
+                                    else if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(part)) {
                                         // 从第二个字符开始查找连字符（跳过开头的负号）
                                         let dashIndex = -1;
                                         if (part.startsWith('-')) {
