@@ -21463,14 +21463,45 @@ if ($current_user_id && count($user_companies) > 0) {
             const textInput655 = document.getElementById('textInput655');
             
             if (currentDataCaptureType === '655') {
-                // 隐藏表格，显示空白输入区域
+                // 显示表格，清空内容以便粘贴整个表格结构（类似Excel）
                 if (dataTable) {
-                    dataTable.style.display = 'none';
+                    dataTable.style.display = 'table';
+                    // 清空表格内容，使其从空白开始
+                    const tableBody = document.getElementById('tableBody');
+                    const tableHeader = document.getElementById('tableHeader');
+                    if (tableBody) {
+                        tableBody.innerHTML = '';
+                    }
+                    // 初始化一个空白的表格（默认大小，用户粘贴时会自动扩展）
+                    if (tableBody && tableHeader) {
+                        // 检查表格是否已初始化，如果没有则初始化
+                        const existingRows = tableBody.querySelectorAll('tr').length;
+                        const existingCols = tableHeader.querySelectorAll('th').length - 1;
+                        if (existingRows === 0 || existingCols === 0) {
+                            // 初始化一个默认大小的空白表格
+                            initializeTable(26, 20);
+                        } else {
+                            // 如果表格已存在，只清空内容
+                            tableBody.querySelectorAll('tr').forEach(row => {
+                                const cells = row.querySelectorAll('td[contenteditable="true"]');
+                                cells.forEach(cell => {
+                                    cell.textContent = '';
+                                    cell.innerHTML = '';
+                                    // 清除样式（除了边框）
+                                    cell.removeAttribute('style');
+                                    cell.removeAttribute('class');
+                                    // 确保有边框
+                                    cell.style.border = '1px solid #d0d7de';
+                                });
+                                // 清除行的样式
+                                row.removeAttribute('style');
+                                row.removeAttribute('class');
+                            });
+                        }
+                    }
                 }
                 if (textInput655) {
-                    textInput655.style.display = 'block';
-                    // 清空内容
-                    textInput655.value = '';
+                    textInput655.style.display = 'none';
                 }
             } else {
                 // 显示表格，隐藏空白输入区域
