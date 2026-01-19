@@ -23306,17 +23306,25 @@ if ($current_user_id && count($user_companies) > 0) {
                     return best;
                 };
 
-                // Prefer the largest table in document
-                // 优先用fragment里的table（更贴近用户复制的范围）
-                const table = pickLargestTable(fragDoc) || pickLargestTable(doc);
-                if (!table) return '';
-
                 // Collect style blocks (Excel often uses classes like .xl65)
-                const styles = Array.from(doc.querySelectorAll('style'))
-                    .map(s => s.outerHTML)
-                    .join('\n');
+                const styleNodes = [
+                    ...Array.from(doc.querySelectorAll('style')),
+                    ...Array.from(fragDoc.querySelectorAll('style'))
+                ];
+                const styles = styleNodes.map(s => s.outerHTML).join('\n');
+                // Remove styles from body content to avoid duplication; render() will move them to <head>
+                fragDoc.querySelectorAll('style').forEach(n => n.remove());
 
-                return `${styles}\n${table.outerHTML}`;
+                // Prefer showing the whole copied fragment (can include multiple tables / wrappers)
+                let bodyHtml = (fragDoc.body && fragDoc.body.innerHTML) ? fragDoc.body.innerHTML : '';
+
+                // Fallback: if fragment body is empty, show the largest table
+                if (!bodyHtml) {
+                    const table = pickLargestTable(fragDoc) || pickLargestTable(doc);
+                    bodyHtml = table ? table.outerHTML : '';
+                }
+
+                return `${styles}\n${bodyHtml}`;
             } catch (_) {
                 // Fallback: at least return the original html (caller may still render something)
                 return String(rawHtml);
@@ -23365,6 +23373,18 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!frame) return;
 
             const safeTable = tableHtml ? String(tableHtml) : '';
+            // Extract <style> blocks from content and move to <head> for reliable application
+            let extractedStyles = '';
+            let extractedBody = safeTable;
+            try {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = safeTable;
+                const styles = Array.from(tmp.querySelectorAll('style')).map(s => s.textContent || '').filter(Boolean);
+                extractedStyles = styles.length ? `<style>${styles.join('\n')}</style>` : '';
+                tmp.querySelectorAll('style').forEach(s => s.remove());
+                extractedBody = tmp.innerHTML;
+            } catch (_) {}
+
             const docHtml = `<!doctype html>
 <html>
   <head>
@@ -23374,12 +23394,13 @@ if ($current_user_id && count($user_companies) > 0) {
       html, body { margin: 0; padding: 0; background: #fff; }
       body { font-family: Arial, sans-serif; font-size: 12px; }
       .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; }
-      /* Only minimal baseline CSS; keep pasted table's own styles/alignment */
+      /* Keep pasted styles; only basic table defaults */
       table { border-collapse: collapse; }
     </style>
+    ${extractedStyles}
   </head>
   <body>
-    <div class="wrap">${safeTable}</div>
+    <div class="wrap">${extractedBody}</div>
   </body>
 </html>`;
 
