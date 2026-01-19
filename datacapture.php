@@ -22769,12 +22769,15 @@ if ($current_user_id && count($user_companies) > 0) {
             const processId = getProcessId(processInput);
             const processCode = processInput ? (processInput.getAttribute('data-process-code') || '').trim() : '';
             const processDisplayText = processInput ? processInput.textContent.trim() : '';
+            const typeSelectEl = document.getElementById('dataCaptureTypeSelector');
+            const selectedDataCaptureType = typeSelectEl ? String(typeSelectEl.value || '').trim() : '';
 
             const processData = {
                 date: formData.get('capture_date'),
                 process: processId,
                 processName: processDisplayText,
                 processCode: processCode,
+                dataCaptureType: selectedDataCaptureType,
                 descriptions: window.selectedDescriptions || [],
                 currency: formData.get('currency'),
                 currencyName: currencySelect.options[currencySelect.selectedIndex].text,
@@ -22800,6 +22803,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 // Save table data to localStorage
                 localStorage.setItem('capturedTableData', JSON.stringify(tableData));
                 localStorage.setItem('capturedProcessData', JSON.stringify(processData));
+                // Also store capture type separately for easier restore/backward compatibility
+                localStorage.setItem('capturedDataCaptureType', selectedDataCaptureType);
                 
                 // Note: Do NOT record submitted process here. It will be recorded
                 // after final submission on datacapturesummary.php
@@ -23507,6 +23512,10 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!frame) return;
 
             const safeTable = tableHtml ? String(tableHtml) : '';
+            // Cache preview HTML for restore/back flow
+            try {
+                localStorage.setItem('captured655PreviewHtml', safeTable);
+            } catch (_) {}
             const docHtml = `<!doctype html>
 <html>
   <head>
@@ -23630,6 +23639,60 @@ if ($current_user_id && count($user_companies) > 0) {
                 const processData = JSON.parse(processDataStr);
                 
                 console.log('Restoring data from localStorage:', { tableData, processData });
+
+                // Restore Data Capture Type selector
+                const typeSelect = document.getElementById('dataCaptureTypeSelector');
+                const savedTypeRaw =
+                    (processData && (processData.dataCaptureType || processData.captureType)) ||
+                    localStorage.getItem('capturedDataCaptureType') ||
+                    '';
+                const savedType = String(savedTypeRaw || '').trim();
+                if (typeSelect && savedType) {
+                    const hasOption = Array.from(typeSelect.options || []).some(opt => opt && opt.value === savedType);
+                    if (hasOption) {
+                        typeSelect.value = savedType;
+                        currentDataCaptureType = savedType;
+
+                        // 655：恢复时重建预览，避免回到空白粘贴区/空白预览
+                        if (currentDataCaptureType === '655') {
+                            let previewHtml = '';
+                            try {
+                                previewHtml = localStorage.getItem('captured655PreviewHtml') || '';
+                            } catch (_) {}
+
+                            // Fallback: build a simple HTML table from captured grid data
+                            if (!previewHtml) {
+                                try {
+                                    if (tableData && Array.isArray(tableData.rows) && tableData.rows.length > 0) {
+                                        let html = '<table border="1" cellspacing="0" cellpadding="2"><tbody>';
+                                        tableData.rows.forEach(rowData => {
+                                            html += '<tr>';
+                                            (rowData || []).forEach(cell => {
+                                                const v = cell && typeof cell.value !== 'undefined' ? cell.value : '';
+                                                html += `<td>${escapeHtml(v)}</td>`;
+                                            });
+                                            html += '</tr>';
+                                        });
+                                        html += '</tbody></table>';
+                                        previewHtml = html;
+                                    }
+                                } catch (_) {}
+                            }
+
+                            if (previewHtml) {
+                                render655Preview(previewHtml);
+                                is655GridReady = true;
+                            } else {
+                                is655GridReady = false;
+                            }
+                        }
+
+                        toggleTableDisplayFor655();
+                        updateSubmitButtonState();
+                    } else {
+                        console.warn('Saved data capture type not found in selector options:', savedType);
+                    }
+                }
                 
                 // Restore date
                 const dateInput = document.getElementById('capture_date');
