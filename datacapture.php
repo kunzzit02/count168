@@ -23390,8 +23390,21 @@ if ($current_user_id && count($user_companies) > 0) {
         overflow: auto;
         box-sizing: border-box;
       }
-      /* Do NOT force text-align/width; keep clipboard styles */
-      table { border-collapse: collapse; }
+      /*
+        Keep clipboard text alignment/colors, but stop the common "full-width stretch"
+        that creates a huge blank gap (your 1st screenshot).
+      */
+      table {
+        border-collapse: collapse;
+        width: max-content !important;
+        table-layout: auto !important;
+        display: inline-table !important;
+      }
+      td, th {
+        white-space: nowrap;
+        /* baseline grid; clipboard styles can still override */
+        border: 1px solid #d0d7de;
+      }
     </style>
   </head>
   <body>
