@@ -4475,7 +4475,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
                                 
                                 if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                    targetHeader.innerHTML = cleanContent;
+                                    // 655：移除class/id与布局样式，避免跑到页面最上面
+                                    targetHeader.innerHTML = sanitize655HtmlFragment(cleanContent);
                                 } else {
                                     targetHeader.textContent = cellText;
                                 }
@@ -4485,8 +4486,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                 const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
                                 
                                 if (sourceCellStyle) {
-                                    targetHeader.setAttribute('style', sourceCellStyle);
-                                    targetHeader.style.cssText = sourceCellStyle;
+                                    const sanitizedStyle = sanitizeCopiedStyleString(sourceCellStyle);
+                                    if (sanitizedStyle) {
+                                        targetHeader.setAttribute('style', sanitizedStyle);
+                                        targetHeader.style.cssText = sanitizedStyle;
+                                    } else {
+                                        targetHeader.removeAttribute('style');
+                                        targetHeader.style.cssText = '';
+                                    }
                                 } else {
                                     // 即使没有style属性，也尝试从computed style获取样式
                                     const bgColor = sourceCellComputedStyle.backgroundColor;
@@ -4513,10 +4520,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                 }
                                 
-                                const sourceCellClass = sourceCell.getAttribute('class');
-                                if (sourceCellClass) {
-                                    targetHeader.setAttribute('class', sourceCellClass);
-                                }
+                                // 655：不要复制class，避免外部CSS（如fixedDataTable...）影响布局
                                 
                                 currentPasteChanges.push({
                                     type: 'header',
@@ -4556,8 +4560,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     const sourceRowComputedStyle = window.getComputedStyle(sourceRow);
                     
                     if (sourceRowStyle) {
-                        tableRow.setAttribute('style', sourceRowStyle);
-                        tableRow.style.cssText = sourceRowStyle;
+                        const sanitizedRowStyle = sanitizeCopiedStyleString(sourceRowStyle);
+                        if (sanitizedRowStyle) {
+                            tableRow.setAttribute('style', sanitizedRowStyle);
+                            tableRow.style.cssText = sanitizedRowStyle;
+                        } else {
+                            tableRow.removeAttribute('style');
+                            tableRow.style.cssText = '';
+                        }
                     } else {
                         // 即使没有style属性，也尝试从computed style获取背景色
                         const bgColor = sourceRowComputedStyle.backgroundColor;
@@ -4567,10 +4577,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                     
-                    const sourceRowClass = sourceRow.getAttribute('class');
-                    if (sourceRowClass) {
-                        tableRow.setAttribute('class', sourceRowClass);
-                    }
+                    // 655：不要复制class，避免外部CSS影响布局
                     
                     const sourceCells = sourceRow.querySelectorAll('td, th');
                     let currentCol = 0;
@@ -4600,11 +4607,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 保留所有HTML格式
                                 if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                    targetCell.innerHTML = cleanContent;
+                                    // 655：移除class/id与布局样式，避免跑到页面最上面
+                                    targetCell.innerHTML = sanitize655HtmlFragment(cleanContent);
                                 } else if (cellText && cellText.trim() !== '') {
                                     const sourceCellStyle = sourceCell.getAttribute('style');
                                     if (sourceCellStyle) {
-                                        targetCell.innerHTML = `<span style="${sourceCellStyle}">${cellText}</span>`;
+                                        const sanitizedSpanStyle = sanitizeCopiedStyleString(sourceCellStyle);
+                                        targetCell.innerHTML = `<span style="${sanitizedSpanStyle}">${cellText}</span>`;
                                     } else {
                                         targetCell.textContent = cellText;
                                     }
@@ -4618,9 +4627,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 if (sourceCellStyle) {
                                     // 保留原始样式，确保边框存在
-                                    let mergedStyle = sourceCellStyle;
-                                    if (!sourceCellStyle.includes('border')) {
-                                        mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                    const sanitizedCellStyle = sanitizeCopiedStyleString(sourceCellStyle);
+                                    let mergedStyle = sanitizedCellStyle;
+                                    if (sanitizedCellStyle && !sanitizedCellStyle.includes('border')) {
+                                        mergedStyle = `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}`;
+                                    } else if (!sanitizedCellStyle) {
+                                        mergedStyle = 'border: 1px solid #d0d7de !important;';
                                     }
                                     targetCell.setAttribute('style', mergedStyle);
                                     targetCell.style.cssText = mergedStyle;
@@ -4648,11 +4660,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     targetCell.style.cssText = styleString;
                                 }
                                 
-                                // 保留class属性
-                                const sourceCellClass = sourceCell.getAttribute('class');
-                                if (sourceCellClass) {
-                                    targetCell.setAttribute('class', sourceCellClass);
-                                }
+                                // 655：不要复制class，避免外部CSS影响布局
                                 
                                 // 确保边框存在
                                 if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
@@ -4785,15 +4793,17 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 保留行的style属性（最直接的方法）
                         const sourceRowStyle = sourceRow.getAttribute('style');
                         if (sourceRowStyle) {
-                            tableRow.setAttribute('style', sourceRowStyle);
-                            // 同时设置style属性，确保样式生效
-                            tableRow.style.cssText = sourceRowStyle;
+                            const sanitizedRowStyle = sanitizeCopiedStyleString(sourceRowStyle);
+                            if (sanitizedRowStyle) {
+                                tableRow.setAttribute('style', sanitizedRowStyle);
+                                // 同时设置style属性，确保样式生效
+                                tableRow.style.cssText = sanitizedRowStyle;
+                            } else {
+                                tableRow.removeAttribute('style');
+                                tableRow.style.cssText = '';
+                            }
                         }
-                        // 保留行的class属性（可能有样式相关的class）
-                        const sourceRowClass = sourceRow.getAttribute('class');
-                        if (sourceRowClass) {
-                            tableRow.setAttribute('class', sourceRowClass);
-                        }
+                        // 655：不要复制行class，避免外部CSS（如fixedDataTable...）影响布局
                         // 尝试从源行的第一个单元格获取背景色（如果行本身没有style）
                         if (!sourceRowStyle) {
                             const firstCell = sourceRow.querySelector('td, th');
@@ -4852,15 +4862,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                     // 如果有HTML标签，直接使用innerHTML保持所有格式
                                     if (cleanContent.includes('<') && cleanContent.includes('>')) {
                                         // 直接使用innerHTML，保留所有格式标签（如<u>, <b>, <span>等）和样式属性
-                                        targetCell.innerHTML = cleanContent;
+                                        targetCell.innerHTML = sanitize655HtmlFragment(cleanContent);
                                         // 同时保留单元格本身的样式属性（背景色等）
                                         const sourceCellStyle = sourceCell.getAttribute('style');
                                         if (sourceCellStyle) {
                                             // 合并样式，确保边框不被覆盖
                                             // 检查源样式是否包含border，如果不包含，添加边框
-                                            let mergedStyle = sourceCellStyle;
-                                            if (!sourceCellStyle.includes('border')) {
-                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                            const sanitizedCellStyle = sanitizeCopiedStyleString(sourceCellStyle);
+                                            let mergedStyle = sanitizedCellStyle;
+                                            if (sanitizedCellStyle && !sanitizedCellStyle.includes('border')) {
+                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}`;
+                                            } else if (!sanitizedCellStyle) {
+                                                mergedStyle = 'border: 1px solid #d0d7de !important;';
                                             }
                                             targetCell.setAttribute('style', mergedStyle);
                                         } else {
@@ -4873,11 +4886,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const sourceCellStyle = sourceCell.getAttribute('style');
                                         const sourceCellBgColor = sourceCell.style.backgroundColor;
                                         if (sourceCellStyle) {
-                                            targetCell.innerHTML = `<span style="${sourceCellStyle}">${cellText}</span>`;
+                                            const sanitizedSpanStyle = sanitizeCopiedStyleString(sourceCellStyle);
+                                            targetCell.innerHTML = `<span style="${sanitizedSpanStyle}">${cellText}</span>`;
                                             // 也保留单元格的样式，但确保边框存在
-                                            let mergedStyle = sourceCellStyle;
-                                            if (!sourceCellStyle.includes('border')) {
-                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                            let mergedStyle = sanitizedSpanStyle;
+                                            if (sanitizedSpanStyle && !sanitizedSpanStyle.includes('border')) {
+                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sanitizedSpanStyle}`;
+                                            } else if (!sanitizedSpanStyle) {
+                                                mergedStyle = 'border: 1px solid #d0d7de !important;';
                                             }
                                             targetCell.setAttribute('style', mergedStyle);
                                         } else if (sourceCellBgColor) {
@@ -4895,11 +4911,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         targetCell.style.border = '1px solid #d0d7de';
                                         targetCell.textContent = '';
                                     }
-                                    // 保留单元格的class属性（可能有样式相关的class）
-                                    const sourceCellClass = sourceCell.getAttribute('class');
-                                    if (sourceCellClass) {
-                                        targetCell.setAttribute('class', sourceCellClass);
-                                    }
+                                    // 655：不要复制单元格class，避免外部CSS影响布局
                                     // 确保单元格始终显示边框（表格网格结构）
                                     if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
                                         targetCell.style.border = '1px solid #d0d7de';
@@ -23025,6 +23037,57 @@ if ($current_user_id && count($user_companies) > 0) {
                 .replace(/'/g, '&#039;');
         }
 
+        // 655：过滤会影响布局/跑位的CSS属性（避免position:fixed等导致表格跑到页面最上面）
+        function sanitizeCopiedStyleString(styleString) {
+            if (!styleString) return '';
+            const blocked = new Set([
+                'position',
+                'top',
+                'left',
+                'right',
+                'bottom',
+                'z-index',
+                'float',
+                'transform'
+            ]);
+
+            const parts = String(styleString).split(';')
+                .map(s => s.trim())
+                .filter(Boolean)
+                .filter(decl => {
+                    const idx = decl.indexOf(':');
+                    const prop = (idx >= 0 ? decl.slice(0, idx) : decl).trim().toLowerCase();
+                    return !blocked.has(prop);
+                });
+
+            return parts.length ? (parts.join('; ') + ';') : '';
+        }
+
+        // 655：清洗HTML片段，移除class/id，并过滤style里的布局属性（保留颜色/下划线/背景等）
+        function sanitize655HtmlFragment(html) {
+            if (!html) return '';
+            try {
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = String(html);
+
+                const all = wrapper.querySelectorAll('*');
+                all.forEach(el => {
+                    el.removeAttribute('class');
+                    el.removeAttribute('id');
+                    const styleAttr = el.getAttribute('style');
+                    if (styleAttr) {
+                        const sanitized = sanitizeCopiedStyleString(styleAttr);
+                        if (sanitized) el.setAttribute('style', sanitized);
+                        else el.removeAttribute('style');
+                    }
+                });
+
+                return wrapper.innerHTML;
+            } catch (_) {
+                return String(html);
+            }
+        }
+
         function sanitizePastedHTML(html) {
             if (!html) return '';
             const temp = document.createElement('div');
@@ -23054,7 +23117,34 @@ if ($current_user_id && count($user_companies) > 0) {
             };
 
             stripPosStyles(table);
-            table.querySelectorAll('*').forEach(stripPosStyles);
+            table.querySelectorAll('*').forEach(el => {
+                // 也移除class/id，避免外部CSS（例如fixedDataTable...）影响布局
+                try {
+                    el.removeAttribute('class');
+                    el.removeAttribute('id');
+                } catch (_) {}
+                stripPosStyles(el);
+                // 同步过滤style属性字符串（以防复制出来是style属性而不是CSSStyleDeclaration）
+                try {
+                    const styleAttr = el.getAttribute && el.getAttribute('style');
+                    if (styleAttr) {
+                        const sanitized = sanitizeCopiedStyleString(styleAttr);
+                        if (sanitized) el.setAttribute('style', sanitized);
+                        else el.removeAttribute('style');
+                    }
+                } catch (_) {}
+            });
+
+            try {
+                table.removeAttribute('class');
+                table.removeAttribute('id');
+                const tableStyle = table.getAttribute('style');
+                if (tableStyle) {
+                    const sanitized = sanitizeCopiedStyleString(tableStyle);
+                    if (sanitized) table.setAttribute('style', sanitized);
+                    else table.removeAttribute('style');
+                }
+            } catch (_) {}
 
             return table.outerHTML;
         }
