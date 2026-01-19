@@ -23185,7 +23185,17 @@ if ($current_user_id && count($user_companies) > 0) {
                 let best = tables[0];
                 let bestScore = -1;
                 tables.forEach(t => {
-                    const score = t.querySelectorAll('td, th').length;
+                    const rows = t.querySelectorAll('tr').length || 0;
+                    let maxCols = 0;
+                    t.querySelectorAll('tr').forEach(tr => {
+                        let colCount = 0;
+                        tr.querySelectorAll('td, th').forEach(cell => {
+                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                            colCount += Number.isFinite(colspan) ? colspan : 1;
+                        });
+                        if (colCount > maxCols) maxCols = colCount;
+                    });
+                    const score = rows * maxCols;
                     if (score > bestScore) {
                         bestScore = score;
                         best = t;
@@ -23297,7 +23307,17 @@ if ($current_user_id && count($user_companies) > 0) {
                     let best = tables[0];
                     let bestScore = -1;
                     tables.forEach(t => {
-                        const score = t.querySelectorAll('td, th').length;
+                        const rows = t.querySelectorAll('tr').length || 0;
+                        let maxCols = 0;
+                        t.querySelectorAll('tr').forEach(tr => {
+                            let colCount = 0;
+                            tr.querySelectorAll('td, th').forEach(cell => {
+                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                                colCount += Number.isFinite(colspan) ? colspan : 1;
+                            });
+                            if (colCount > maxCols) maxCols = colCount;
+                        });
+                        const score = rows * maxCols;
                         if (score > bestScore) {
                             bestScore = score;
                             best = t;
@@ -23312,19 +23332,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     ...Array.from(fragDoc.querySelectorAll('style'))
                 ];
                 const styles = styleNodes.map(s => s.outerHTML).join('\n');
-                // Remove styles from body content to avoid duplication; render() will move them to <head>
-                fragDoc.querySelectorAll('style').forEach(n => n.remove());
 
-                // Prefer showing the whole copied fragment (can include multiple tables / wrappers)
-                let bodyHtml = (fragDoc.body && fragDoc.body.innerHTML) ? fragDoc.body.innerHTML : '';
-
-                // Fallback: if fragment body is empty, show the largest table
-                if (!bodyHtml) {
-                    const table = pickLargestTable(fragDoc) || pickLargestTable(doc);
-                    bodyHtml = table ? table.outerHTML : '';
-                }
-
-                return `${styles}\n${bodyHtml}`;
+                // 预览只展示“主表”（避免渲染到布局用的多余table导致错位/看起来没变化）
+                const table = pickLargestTable(fragDoc) || pickLargestTable(doc);
+                if (!table) return styles || '';
+                return `${styles}\n${table.outerHTML}`;
             } catch (_) {
                 // Fallback: at least return the original html (caller may still render something)
                 return String(rawHtml);
@@ -23391,16 +23403,19 @@ if ($current_user_id && count($user_companies) > 0) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-      html, body { margin: 0; padding: 0; background: #fff; }
+      html, body { margin: 0; padding: 0; background: #fff; height: 100%; }
       body { font-family: Arial, sans-serif; font-size: 12px; }
-      .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; }
-      /* Keep pasted styles; only basic table defaults */
-      table { border-collapse: collapse; }
+      .wrap { padding: 10px; overflow: auto; width: 100%; height: 100%; box-sizing: border-box; }
+      /* Table Format：让表格按内容宽度显示 + 居中，横向超出时出现滚动条 */
+      .wrap-inner { min-width: 100%; display: flex; justify-content: center; align-items: flex-start; }
+      /* 不强制 text-align，保持原始对齐；但避免被width:100%拉伸 */
+      table { border-collapse: collapse; width: max-content !important; table-layout: auto !important; display: inline-table; }
+      td, th { white-space: nowrap; }
     </style>
     ${extractedStyles}
   </head>
   <body>
-    <div class="wrap">${extractedBody}</div>
+    <div class="wrap"><div class="wrap-inner">${extractedBody}</div></div>
   </body>
 </html>`;
 
