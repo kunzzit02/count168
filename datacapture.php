@@ -2992,14 +2992,14 @@ if ($current_user_id && count($user_companies) > 0) {
             updateSubmitButtonState();
         }
 
-        // Generate date options (today ± 6 days)
+        // Generate date options (today ± 6 days, newest first)
         function generateDateOptions() {
             const dateSelect = document.getElementById('capture_date');
             const today = new Date();
             const options = [];
             
             // Generate 13 days (6 before + today + 6 after)
-            for (let i = -6; i <= 6; i++) {
+            for (let i = 6; i >= -6; i--) {
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
                 
