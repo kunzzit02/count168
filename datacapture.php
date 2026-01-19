@@ -4379,8 +4379,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 return; // 只在655模式下处理
             }
             
-            e.preventDefault();
-            e.stopPropagation();
+            console.log('655 mode: Paste event detected');
             
             const clipboard = (e.clipboardData || window.clipboardData);
             const getClipboardData = (type) => {
@@ -4388,49 +4387,110 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (!clipboard || typeof clipboard.getData !== 'function') return '';
                     return clipboard.getData(type) || '';
                 } catch (err) {
+                    console.error('Error getting clipboard data:', err);
                     return '';
                 }
             };
             
             // 优先尝试获取HTML格式的数据
             let htmlData = getClipboardData('text/html');
-            if (!htmlData || !htmlData.includes('<table')) {
+            let isTableData = false;
+            
+            console.log('HTML data length:', htmlData ? htmlData.length : 0);
+            
+            if (htmlData && htmlData.includes('<table')) {
+                console.log('655 mode: HTML table detected');
+                isTableData = true;
+            } else {
                 // 如果HTML格式不存在，尝试从text/plain中检测
                 const textData = getClipboardData('text/plain');
+                console.log('Text data length:', textData ? textData.length : 0);
+                
                 if (textData && textData.includes('<table')) {
+                    console.log('655 mode: HTML table in plain text detected');
                     htmlData = textData;
+                    isTableData = true;
                 } else {
-                    // 不是HTML表格格式，允许默认粘贴行为
-                    return;
-                }
-            }
-            
-            // 检测到HTML表格，切换到表格视图并粘贴
-            const dataTable = document.getElementById('dataTable');
-            const textInput655 = document.getElementById('textInput655');
-            
-            if (dataTable && textInput655) {
-                // 显示表格，隐藏textarea
-                dataTable.style.display = 'table';
-                textInput655.style.display = 'none';
-                
-                // 确保表格已初始化
-                const tableBody = document.getElementById('tableBody');
-                if (!tableBody || tableBody.children.length === 0) {
-                    initializeTable(26, 20);
-                }
-                
-                // 获取第一个单元格作为起始位置
-                const firstCell = tableBody.querySelector('td[contenteditable="true"]');
-                if (firstCell) {
-                    // 使用parseAndFillHTMLTableForGeneral处理粘贴
-                    const success = parseAndFillHTMLTableForGeneral(htmlData, firstCell, true);
-                    if (success) {
-                        // 清空textarea
-                        textInput655.value = '';
+                    // 检查是否是制表符分隔的表格数据（Excel格式）
+                    if (textData && textData.includes('\t') && textData.split('\n').length > 1) {
+                        console.log('655 mode: Tab-separated table data detected');
+                        isTableData = true;
+                        // 将制表符分隔的数据转换为HTML表格
+                        htmlData = convertTabSeparatedToHTML(textData);
+                    } else {
+                        // 不是表格格式，允许默认粘贴行为
+                        console.log('655 mode: Not table data, allowing default paste');
+                        return;
                     }
                 }
             }
+            
+            // 检测到表格数据，阻止默认粘贴行为并处理
+            if (isTableData) {
+                console.log('655 mode: Processing table data...');
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // 检测到HTML表格，切换到表格视图并粘贴
+                const dataTable = document.getElementById('dataTable');
+                const textInput655 = document.getElementById('textInput655');
+                
+                if (dataTable && textInput655) {
+                    console.log('655 mode: Switching to table view');
+                    // 显示表格，隐藏textarea
+                    dataTable.style.display = 'table';
+                    textInput655.style.display = 'none';
+                    
+                    // 确保表格已初始化
+                    const tableBody = document.getElementById('tableBody');
+                    if (!tableBody || tableBody.children.length === 0) {
+                        console.log('655 mode: Initializing table');
+                        initializeTable(26, 20);
+                    }
+                    
+                    // 获取第一个单元格作为起始位置
+                    const firstCell = tableBody.querySelector('td[contenteditable="true"]');
+                    if (firstCell) {
+                        console.log('655 mode: Pasting to table');
+                        // 使用parseAndFillHTMLTableForGeneral处理粘贴
+                        const success = parseAndFillHTMLTableForGeneral(htmlData, firstCell, true);
+                        if (success) {
+                            console.log('655 mode: Paste successful');
+                            // 清空textarea
+                            textInput655.value = '';
+                        } else {
+                            console.error('655 mode: Paste failed, restoring textarea');
+                            // 如果解析失败，恢复textarea显示
+                            dataTable.style.display = 'none';
+                            textInput655.style.display = 'block';
+                            showNotification('粘贴失败，请重试', 'danger');
+                        }
+                    } else {
+                        console.error('655 mode: No editable cell found');
+                        showNotification('无法找到可编辑的单元格', 'danger');
+                    }
+                } else {
+                    console.error('655 mode: Table elements not found');
+                }
+            }
+        }
+        
+        // 将制表符分隔的数据转换为HTML表格
+        function convertTabSeparatedToHTML(textData) {
+            const lines = textData.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim() !== '');
+            if (lines.length === 0) return '';
+            
+            let html = '<table>';
+            lines.forEach(line => {
+                html += '<tr>';
+                const cells = line.split('\t');
+                cells.forEach(cell => {
+                    html += `<td>${cell}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</table>';
+            return html;
         }
         
         // 1.GENERAL 和 655 专用解析：完全保持Excel原始格式，不做任何转换
