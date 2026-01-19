@@ -8814,27 +8814,33 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 如果还有数据，检查是否是下一组的开始
                     if (i >= lines.length) break;
                     
-                    // 跳过可能的 "-" 行（Name, Tel, Remarks）
-                    // 以及“无#格式”下的行号分隔符（某些复制来源会在组与组之间插入 2/3/...）
-                    // 注意：有#格式（Format A）里，这个数字就是下一组的 #，不能跳过
-                    while (
-                        i < lines.length &&
-                        (lines[i] === '-' || lines[i] === '' || (!hasHashColumn && /^\d+$/.test(lines[i])))
-                    ) {
-                        i++;
-                    }
-                    
-                    // 检查下一组数据的开始
-                    if (i >= lines.length) break;
-                    
+                    // 跳过可能的额外列（Name, Tel, Remarks 等）
+                    // 对于格式A（有#列），跳过所有非数字行，直到找到下一个数字（下一组的#）
+                    // 对于格式B（无#列），跳过所有非用户名行，直到找到下一个用户名
                     if (hasHashColumn) {
-                        // 格式A：下一组应该以数字（#列）开始
+                        // 格式A：跳过所有行直到找到下一个数字（下一组的#列）
+                        while (i < lines.length && !/^\d+$/.test(lines[i])) {
+                            i++;
+                        }
+                        // 检查是否找到了下一组
+                        if (i >= lines.length) break;
+                        // 验证确实是下一组的开始
                         if (!/^\d+$/.test(lines[i])) {
                             console.log(`No more data groups found at index ${i} (expected number)`);
                             break;
                         }
                     } else {
-                        // 格式B：下一组应该以用户名开始
+                        // 格式B：跳过所有行直到找到下一个用户名
+                        // 跳过 "-" 行、空行、以及行号分隔符（2/3/...）
+                        while (
+                            i < lines.length &&
+                            (lines[i] === '-' || lines[i] === '' || /^\d+$/.test(lines[i]) || !/^[a-z0-9]+$/i.test(lines[i]))
+                        ) {
+                            i++;
+                        }
+                        // 检查是否找到了下一组
+                        if (i >= lines.length) break;
+                        // 验证确实是下一组的开始
                         if (!/^[a-z0-9]+$/i.test(lines[i])) {
                             console.log(`No more data groups found at index ${i} (expected username)`);
                             break;
