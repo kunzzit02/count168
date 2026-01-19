@@ -23185,17 +23185,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 let best = tables[0];
                 let bestScore = -1;
                 tables.forEach(t => {
-                    const rows = t.querySelectorAll('tr').length || 0;
-                    let maxCols = 0;
-                    t.querySelectorAll('tr').forEach(tr => {
-                        let colCount = 0;
-                        tr.querySelectorAll('td, th').forEach(cell => {
-                            const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                            colCount += Number.isFinite(colspan) ? colspan : 1;
-                        });
-                        if (colCount > maxCols) maxCols = colCount;
-                    });
-                    const score = rows * maxCols;
+                    const score = t.querySelectorAll('td, th').length;
                     if (score > bestScore) {
                         bestScore = score;
                         best = t;
@@ -23307,17 +23297,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     let best = tables[0];
                     let bestScore = -1;
                     tables.forEach(t => {
-                        const rows = t.querySelectorAll('tr').length || 0;
-                        let maxCols = 0;
-                        t.querySelectorAll('tr').forEach(tr => {
-                            let colCount = 0;
-                            tr.querySelectorAll('td, th').forEach(cell => {
-                                const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
-                                colCount += Number.isFinite(colspan) ? colspan : 1;
-                            });
-                            if (colCount > maxCols) maxCols = colCount;
-                        });
-                        const score = rows * maxCols;
+                        const score = t.querySelectorAll('td, th').length;
                         if (score > bestScore) {
                             bestScore = score;
                             best = t;
@@ -23326,16 +23306,16 @@ if ($current_user_id && count($user_companies) > 0) {
                     return best;
                 };
 
-                // Collect style blocks (Excel often uses classes like .xl65)
-                const styleNodes = [
-                    ...Array.from(doc.querySelectorAll('style')),
-                    ...Array.from(fragDoc.querySelectorAll('style'))
-                ];
-                const styles = styleNodes.map(s => s.outerHTML).join('\n');
-
-                // 预览只展示“主表”（避免渲染到布局用的多余table导致错位/看起来没变化）
+                // Prefer the largest table in document
+                // 优先用fragment里的table（更贴近用户复制的范围）
                 const table = pickLargestTable(fragDoc) || pickLargestTable(doc);
-                if (!table) return styles || '';
+                if (!table) return '';
+
+                // Collect style blocks (Excel often uses classes like .xl65)
+                const styles = Array.from(doc.querySelectorAll('style'))
+                    .map(s => s.outerHTML)
+                    .join('\n');
+
                 return `${styles}\n${table.outerHTML}`;
             } catch (_) {
                 // Fallback: at least return the original html (caller may still render something)
@@ -23385,37 +23365,21 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!frame) return;
 
             const safeTable = tableHtml ? String(tableHtml) : '';
-            // Extract <style> blocks from content and move to <head> for reliable application
-            let extractedStyles = '';
-            let extractedBody = safeTable;
-            try {
-                const tmp = document.createElement('div');
-                tmp.innerHTML = safeTable;
-                const styles = Array.from(tmp.querySelectorAll('style')).map(s => s.textContent || '').filter(Boolean);
-                extractedStyles = styles.length ? `<style>${styles.join('\n')}</style>` : '';
-                tmp.querySelectorAll('style').forEach(s => s.remove());
-                extractedBody = tmp.innerHTML;
-            } catch (_) {}
-
             const docHtml = `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-      html, body { margin: 0; padding: 0; background: #fff; height: 100%; }
+      html, body { margin: 0; padding: 0; background: #fff; }
       body { font-family: Arial, sans-serif; font-size: 12px; }
-      .wrap { padding: 10px; overflow: auto; width: 100%; height: 100%; box-sizing: border-box; }
-      /* Table Format：让表格按内容宽度显示 + 居中，横向超出时出现滚动条 */
-      .wrap-inner { min-width: 100%; display: flex; justify-content: center; align-items: flex-start; }
-      /* 不强制 text-align，保持原始对齐；但避免被width:100%拉伸 */
-      table { border-collapse: collapse; width: max-content !important; table-layout: auto !important; display: inline-table; }
-      td, th { white-space: nowrap; }
+      .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; }
+      /* Only minimal baseline CSS; keep pasted table's own styles/alignment */
+      table { border-collapse: collapse; }
     </style>
-    ${extractedStyles}
   </head>
   <body>
-    <div class="wrap"><div class="wrap-inner">${extractedBody}</div></div>
+    <div class="wrap">${safeTable}</div>
   </body>
 </html>`;
 
