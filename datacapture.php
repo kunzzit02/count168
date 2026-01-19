@@ -4373,6 +4373,288 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
+        // 655模式专用解析：支持识别表头行并填充到tableHeader，完整保留表格结构和样式
+        function parseAndFillHTMLTableForGeneral655(htmlString) {
+            try {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlString;
+                
+                const table = tempDiv.querySelector('table');
+                if (!table) {
+                    return false;
+                }
+                
+                console.log('655: Parsing HTML table with header support...');
+                
+                // 获取所有行（包括表头）
+                const allRows = table.querySelectorAll('tr');
+                if (allRows.length === 0) {
+                    return false;
+                }
+                
+                // 分离表头行和数据行
+                const headerRows = [];
+                const dataRows = [];
+                
+                allRows.forEach(tr => {
+                    const hasTh = tr.querySelectorAll('th').length > 0;
+                    if (hasTh) {
+                        headerRows.push(tr);
+                    } else {
+                        dataRows.push(tr);
+                    }
+                });
+                
+                // 计算最大列数（包括表头和数据行）
+                let maxCols = 0;
+                allRows.forEach(tr => {
+                    const cells = tr.querySelectorAll('td, th');
+                    let colCount = 0;
+                    cells.forEach(cell => {
+                        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+                        colCount += colspan;
+                    });
+                    maxCols = Math.max(maxCols, colCount);
+                });
+                
+                if (maxCols === 0) {
+                    return false;
+                }
+                
+                // 确保表格有足够的行和列
+                const tableBody = document.getElementById('tableBody');
+                const tableHeader = document.getElementById('tableHeader');
+                if (!tableBody || !tableHeader) {
+                    return false;
+                }
+                
+                const currentRows = tableBody.children.length;
+                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                const requiredRows = dataRows.length;
+                const requiredCols = Math.max(maxCols, currentCols);
+                
+                if (requiredRows > currentRows || requiredCols > currentCols) {
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                    const targetCols = Math.max(currentCols, requiredCols);
+                    initializeTable(targetRows, targetCols);
+                }
+                
+                // 重新获取表头和表体（因为可能被重新初始化）
+                const headerRow = tableHeader.querySelector('tr');
+                const actualCols = document.querySelectorAll('#tableHeader th').length - 1;
+                const currentPasteChanges = [];
+                let successCount = 0;
+                
+                // 处理表头行：填充到tableHeader
+                if (headerRows.length > 0 && headerRow) {
+                    const firstHeaderRow = headerRows[0];
+                    const headerCells = firstHeaderRow.querySelectorAll('th, td');
+                    let currentCol = 0;
+                    
+                    headerCells.forEach((sourceCell, index) => {
+                        if (index === 0 && currentCol === 0) {
+                            // 跳过第一个空表头（行号列的表头）
+                            currentCol++;
+                        }
+                        
+                        const colspan = parseInt(sourceCell.getAttribute('colspan') || '1', 10);
+                        const cellContent = sourceCell.innerHTML || sourceCell.textContent || '';
+                        const cellText = sourceCell.textContent || sourceCell.innerText || '';
+                        
+                        // 处理表头单元格
+                        if (currentCol < actualCols) {
+                            const targetHeader = headerRow.children[currentCol + 1];
+                            if (targetHeader) {
+                                const oldValue = targetHeader.textContent || targetHeader.innerHTML || '';
+                                
+                                // 保留所有格式和样式
+                                let cleanContent = cellContent
+                                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                                    .replace(/javascript:/gi, '')
+                                    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+                                
+                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                    targetHeader.innerHTML = cleanContent;
+                                } else {
+                                    targetHeader.textContent = cellText;
+                                }
+                                
+                                // 保留样式
+                                const sourceCellStyle = sourceCell.getAttribute('style');
+                                if (sourceCellStyle) {
+                                    targetHeader.setAttribute('style', sourceCellStyle);
+                                    targetHeader.style.cssText = sourceCellStyle;
+                                }
+                                
+                                const sourceCellClass = sourceCell.getAttribute('class');
+                                if (sourceCellClass) {
+                                    targetHeader.setAttribute('class', sourceCellClass);
+                                }
+                                
+                                currentPasteChanges.push({
+                                    type: 'header',
+                                    col: currentCol,
+                                    oldValue: oldValue,
+                                    newValue: cellText || cleanContent
+                                });
+                                
+                                if (cellText && cellText.trim() !== '') {
+                                    successCount++;
+                                }
+                            }
+                        }
+                        
+                        // 处理colspan
+                        for (let i = 1; i < colspan; i++) {
+                            currentCol++;
+                            if (currentCol < actualCols) {
+                                const targetHeader = headerRow.children[currentCol + 1];
+                                if (targetHeader) {
+                                    targetHeader.textContent = '';
+                                }
+                            }
+                        }
+                        
+                        currentCol++;
+                    });
+                }
+                
+                // 处理数据行：填充到tableBody
+                dataRows.forEach((sourceRow, rowIndex) => {
+                    const tableRow = tableBody.children[rowIndex];
+                    if (!tableRow) return;
+                    
+                    // 保留行的样式
+                    const sourceRowStyle = sourceRow.getAttribute('style');
+                    if (sourceRowStyle) {
+                        tableRow.setAttribute('style', sourceRowStyle);
+                        tableRow.style.cssText = sourceRowStyle;
+                    }
+                    
+                    const sourceRowClass = sourceRow.getAttribute('class');
+                    if (sourceRowClass) {
+                        tableRow.setAttribute('class', sourceRowClass);
+                    }
+                    
+                    const sourceCells = sourceRow.querySelectorAll('td, th');
+                    let currentCol = 0;
+                    
+                    sourceCells.forEach(sourceCell => {
+                        const colspan = parseInt(sourceCell.getAttribute('colspan') || '1', 10);
+                        let cellContent = sourceCell.innerHTML;
+                        
+                        if (!cellContent || cellContent.trim() === '') {
+                            cellContent = sourceCell.textContent || '';
+                        }
+                        
+                        const cellText = sourceCell.textContent || sourceCell.innerText || '';
+                        
+                        // 处理第一个单元格（colspan的主单元格）
+                        if (currentCol < actualCols) {
+                            const targetCell = tableRow.children[currentCol + 1];
+                            
+                            if (targetCell && targetCell.contentEditable === 'true') {
+                                const oldValue = targetCell.textContent || targetCell.innerHTML || '';
+                                
+                                let cleanContent = cellContent
+                                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                                    .replace(/javascript:/gi, '')
+                                    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+                                
+                                // 保留所有HTML格式
+                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                    targetCell.innerHTML = cleanContent;
+                                } else if (cellText && cellText.trim() !== '') {
+                                    const sourceCellStyle = sourceCell.getAttribute('style');
+                                    if (sourceCellStyle) {
+                                        targetCell.innerHTML = `<span style="${sourceCellStyle}">${cellText}</span>`;
+                                    } else {
+                                        targetCell.textContent = cellText;
+                                    }
+                                } else {
+                                    targetCell.textContent = '';
+                                }
+                                
+                                // 保留单元格样式
+                                const sourceCellStyle = sourceCell.getAttribute('style');
+                                if (sourceCellStyle) {
+                                    let mergedStyle = sourceCellStyle;
+                                    if (!sourceCellStyle.includes('border')) {
+                                        mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                    }
+                                    targetCell.setAttribute('style', mergedStyle);
+                                } else {
+                                    targetCell.style.border = '1px solid #d0d7de';
+                                }
+                                
+                                const sourceCellClass = sourceCell.getAttribute('class');
+                                if (sourceCellClass) {
+                                    targetCell.setAttribute('class', sourceCellClass);
+                                }
+                                
+                                if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
+                                    targetCell.style.border = '1px solid #d0d7de';
+                                }
+                                
+                                currentPasteChanges.push({
+                                    row: rowIndex,
+                                    col: currentCol,
+                                    oldValue: oldValue,
+                                    newValue: targetCell.textContent || targetCell.innerHTML
+                                });
+                                
+                                if (cellText && cellText.trim() !== '') {
+                                    successCount++;
+                                }
+                            }
+                        }
+                        
+                        // 处理colspan的后续列
+                        for (let i = 1; i < colspan; i++) {
+                            currentCol++;
+                            if (currentCol < actualCols) {
+                                const targetCell = tableRow.children[currentCol + 1];
+                                if (targetCell && targetCell.contentEditable === 'true') {
+                                    const oldValue = targetCell.textContent || targetCell.innerHTML || '';
+                                    targetCell.textContent = '';
+                                    currentPasteChanges.push({
+                                        row: rowIndex,
+                                        col: currentCol,
+                                        oldValue: oldValue,
+                                        newValue: ''
+                                    });
+                                }
+                            }
+                        }
+                        
+                        currentCol++;
+                    });
+                });
+                
+                // 将本次粘贴操作添加到历史记录
+                if (currentPasteChanges.length > 0) {
+                    pasteHistory.push(currentPasteChanges);
+                    if (pasteHistory.length > maxHistorySize) {
+                        pasteHistory.shift();
+                    }
+                }
+                
+                if (successCount > 0) {
+                    showNotification(`成功粘贴表格 (${headerRows.length} 个表头行, ${dataRows.length} 个数据行 x ${maxCols} 列)，已保持完整表格结构!`, 'success');
+                    setTimeout(updateSubmitButtonState, 0);
+                    return true;
+                } else {
+                    console.log('655: No cells were pasted');
+                    return false;
+                }
+            } catch (error) {
+                console.error('655: Error parsing HTML table:', error);
+                return false;
+            }
+        }
+        
         // 1.GENERAL 和 655 专用解析：完全保持Excel原始格式，不做任何转换
         function parseAndFillHTMLTableForGeneral(htmlString, startCell) {
             try {
@@ -4384,7 +4666,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     return false;
                 }
                 
-                console.log('1.GENERAL: Parsing HTML table and preserving Excel format...');
+                const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                console.log(modeName + ': Parsing HTML table and preserving Excel format...');
                 
                 // 获取所有行（包括表头）
                 const allRows = table.querySelectorAll('tr');
@@ -4436,6 +4719,36 @@ if ($current_user_id && count($user_companies) > 0) {
                     const tableRow = tableBody.children[actualRowIndex];
                     if (!tableRow) return;
                     
+                    // 655模式：保留行的样式（如背景色，如Grand Total行的黄色背景）
+                    if (currentDataCaptureType === '655') {
+                        // 保留行的style属性（最直接的方法）
+                        const sourceRowStyle = sourceRow.getAttribute('style');
+                        if (sourceRowStyle) {
+                            tableRow.setAttribute('style', sourceRowStyle);
+                            // 同时设置style属性，确保样式生效
+                            tableRow.style.cssText = sourceRowStyle;
+                        }
+                        // 保留行的class属性（可能有样式相关的class）
+                        const sourceRowClass = sourceRow.getAttribute('class');
+                        if (sourceRowClass) {
+                            tableRow.setAttribute('class', sourceRowClass);
+                        }
+                        // 尝试从源行的第一个单元格获取背景色（如果行本身没有style）
+                        if (!sourceRowStyle) {
+                            const firstCell = sourceRow.querySelector('td, th');
+                            if (firstCell) {
+                                const cellStyle = firstCell.getAttribute('style');
+                                if (cellStyle && cellStyle.includes('background')) {
+                                    // 从单元格的style中提取背景色
+                                    const bgMatch = cellStyle.match(/background[^;]*:[^;]*([^;]+)/i);
+                                    if (bgMatch) {
+                                        tableRow.style.cssText = `background-color: ${bgMatch[1].trim()}`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
                     const sourceCells = sourceRow.querySelectorAll('td, th');
                     let currentCol = startCol;
                     
@@ -4458,7 +4771,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (targetCell && targetCell.contentEditable === 'true') {
                                 const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                                 
-                                // 1.GENERAL 模式：完全保持Excel原始格式，不做任何转换
+                                // 获取单元格的文本内容（用于判断是否为空）
+                                const cellText = sourceCell.textContent || sourceCell.innerText || '';
+                                
+                                // 1.GENERAL 和 655 模式：完全保持Excel原始格式，不做任何转换
+                                // 对于655模式，特别强调保留所有样式（颜色、下划线、背景色等）
                                 let cleanContent = cellContent;
                                 
                                 // 只移除可能导致安全问题的标签，保留所有格式标签和样式
@@ -4469,11 +4786,70 @@ if ($current_user_id && count($user_companies) > 0) {
                                     .replace(/javascript:/gi, '') // 移除javascript:协议
                                     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, ''); // 移除事件处理器
                                 
-                                // 1.GENERAL模式：保持原有逻辑
-                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                    targetCell.innerHTML = cleanContent;
+                                // 655模式：需要保留所有HTML格式，包括颜色、下划线、背景等，以及表格边框
+                                if (currentDataCaptureType === '655') {
+                                    // 如果有HTML标签，直接使用innerHTML保持所有格式
+                                    if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                        // 直接使用innerHTML，保留所有格式标签（如<u>, <b>, <span>等）和样式属性
+                                        targetCell.innerHTML = cleanContent;
+                                        // 同时保留单元格本身的样式属性（背景色等）
+                                        const sourceCellStyle = sourceCell.getAttribute('style');
+                                        if (sourceCellStyle) {
+                                            // 合并样式，确保边框不被覆盖
+                                            // 检查源样式是否包含border，如果不包含，添加边框
+                                            let mergedStyle = sourceCellStyle;
+                                            if (!sourceCellStyle.includes('border')) {
+                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                            }
+                                            targetCell.setAttribute('style', mergedStyle);
+                                        } else {
+                                            // 如果没有源样式，确保有边框
+                                            targetCell.style.border = '1px solid #d0d7de';
+                                        }
+                                    } else if (cellText && cellText.trim() !== '') {
+                                        // 纯文本，但如果有样式属性，尝试保留
+                                        // 检查源单元格是否有style属性
+                                        const sourceCellStyle = sourceCell.getAttribute('style');
+                                        const sourceCellBgColor = sourceCell.style.backgroundColor;
+                                        if (sourceCellStyle) {
+                                            targetCell.innerHTML = `<span style="${sourceCellStyle}">${cellText}</span>`;
+                                            // 也保留单元格的样式，但确保边框存在
+                                            let mergedStyle = sourceCellStyle;
+                                            if (!sourceCellStyle.includes('border')) {
+                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                            }
+                                            targetCell.setAttribute('style', mergedStyle);
+                                        } else if (sourceCellBgColor) {
+                                            // 如果有背景色，应用背景色，同时保持边框
+                                            targetCell.style.backgroundColor = sourceCellBgColor;
+                                            targetCell.style.border = '1px solid #d0d7de';
+                                            targetCell.textContent = cellText;
+                                        } else {
+                                            // 纯文本，确保有边框
+                                            targetCell.style.border = '1px solid #d0d7de';
+                                            targetCell.textContent = cellText;
+                                        }
+                                    } else {
+                                        // 空单元格也要有边框
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                        targetCell.textContent = '';
+                                    }
+                                    // 保留单元格的class属性（可能有样式相关的class）
+                                    const sourceCellClass = sourceCell.getAttribute('class');
+                                    if (sourceCellClass) {
+                                        targetCell.setAttribute('class', sourceCellClass);
+                                    }
+                                    // 确保单元格始终显示边框（表格网格结构）
+                                    if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                    }
                                 } else {
-                                    targetCell.textContent = cellContent;
+                                    // 1.GENERAL模式：保持原有逻辑
+                                    if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                        targetCell.innerHTML = cleanContent;
+                                    } else {
+                                        targetCell.textContent = cellContent;
+                                    }
                                 }
                                 
                                 currentPasteChanges.push({
@@ -4483,7 +4859,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                     newValue: targetCell.textContent || targetCell.innerHTML
                                 });
                                 
-                                const cellText = sourceCell.textContent || sourceCell.innerText || '';
                                 if (cellText && cellText.trim() !== '') {
                                     successCount++;
                                 }
@@ -4521,15 +4896,18 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 if (successCount > 0) {
+                    const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
                     showNotification(`成功粘贴 ${successCount} 个单元格 (${allRows.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`, 'success');
                     setTimeout(updateSubmitButtonState, 0);
                     return true;
                 } else {
-                    console.log('1.GENERAL: No cells were pasted');
+                    const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                    console.log(modeName + ': No cells were pasted');
                     return false;
                 }
             } catch (error) {
-                console.error('1.GENERAL: Error parsing HTML table:', error);
+                const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
+                console.error(modeName + ': Error parsing HTML table:', error);
                 return false;
             }
         }
@@ -9192,16 +9570,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 getClipboardData('Text') ||
                 '';
             
-            // 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换
-            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.GENERAL') {
-                console.log('1.GENERAL mode detected, preserving Excel format...');
+            // 1.GENERAL 和 655 专用解析：完全保持Excel原始格式，不做任何转换
+            if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === '1.GENERAL' || currentDataCaptureType === '655')) {
+                console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ' mode detected, preserving Excel format...');
                 
                 // 优先尝试获取HTML格式的数据（Excel粘贴通常包含HTML格式）
                 let htmlData = null;
                 try {
                     htmlData = e.clipboardData.getData('text/html');
                     if (htmlData && htmlData.includes('<table')) {
-                        console.log('1.GENERAL: HTML table format detected');
+                        console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': HTML table format detected');
                         const startCell = e.target;
                         const filled = parseAndFillHTMLTableForGeneral(htmlData, startCell);
                         if (filled) {
@@ -9209,13 +9587,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
                 } catch (err) {
-                    console.log('1.GENERAL: Could not get HTML data from clipboard:', err);
+                    console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': Could not get HTML data from clipboard:', err);
                 }
                 
                 // 如果HTML解析失败，尝试使用detectAndParseHTML
                 const htmlDataFromDetect = detectAndParseHTML(e);
                 if (htmlDataFromDetect) {
-                    console.log('1.GENERAL: HTML data detected via detectAndParseHTML');
+                    console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': HTML data detected via detectAndParseHTML');
                     const startCell = e.target;
                     const filled = parseAndFillHTMLTableForGeneral(htmlDataFromDetect, startCell);
                     if (filled) {
@@ -9224,7 +9602,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 如果HTML解析都失败，尝试纯文本格式（但尽量保持格式）
-                console.log('1.GENERAL: HTML parsing failed, trying text format...');
+                console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': HTML parsing failed, trying text format...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
                 
@@ -9295,7 +9673,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                             newValue: cellValue
                                         });
                                         
-                                        // 1.GENERAL 模式：直接使用原始值，不做任何转换（像Excel一样）
+                                        // 1.GENERAL 和 655 模式：直接使用原始值，不做任何转换（像Excel一样）
                                         cell.textContent = cellValue;
                                         
                                         if (cellValue) {
@@ -9322,7 +9700,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 如果所有解析都失败，继续使用默认处理逻辑
-                console.log('1.GENERAL: All parsing methods failed, continuing with default logic');
+                console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': All parsing methods failed, continuing with default logic');
             }
             
             // ===== 2.10 INVOICE 专用解析：完全保持PDF原始格式，粘贴后数据保持行格式 =====
@@ -21387,6 +21765,87 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
+        // 为655模式的textarea添加paste事件监听
+        function init655TextareaPaste() {
+            const textInput655 = document.getElementById('textInput655');
+            if (!textInput655) return;
+            
+            textInput655.addEventListener('paste', function(e) {
+                // 只在655模式下处理
+                if (currentDataCaptureType !== '655') return;
+                
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const clipboard = (e.clipboardData || window.clipboardData);
+                const getClipboardData = (type) => {
+                    try {
+                        if (!clipboard || typeof clipboard.getData !== 'function') return '';
+                        return clipboard.getData(type) || '';
+                    } catch (err) {
+                        return '';
+                    }
+                };
+                
+                // 尝试获取HTML格式的数据
+                let htmlData = null;
+                try {
+                    htmlData = getClipboardData('text/html');
+                    if (htmlData && htmlData.includes('<table')) {
+                        console.log('655: HTML table format detected in textarea paste');
+                        // 切换到表格显示
+                        const dataTable = document.getElementById('dataTable');
+                        if (dataTable) {
+                            dataTable.style.display = 'table';
+                        }
+                        if (textInput655) {
+                            textInput655.style.display = 'none';
+                        }
+                        
+                        // 等待DOM更新后，处理粘贴
+                        setTimeout(() => {
+                            parseAndFillHTMLTableForGeneral655(htmlData);
+                        }, 10);
+                        return;
+                    }
+                } catch (err) {
+                    console.log('655: Could not get HTML data from clipboard:', err);
+                }
+                
+                // 如果HTML解析失败，尝试纯文本格式
+                const textData = getClipboardData('text/plain');
+                if (textData && textData.includes('\t')) {
+                    // 可能是制表符分隔的表格数据，也切换到表格显示
+                    const dataTable = document.getElementById('dataTable');
+                    if (dataTable) {
+                        dataTable.style.display = 'table';
+                    }
+                    if (textInput655) {
+                        textInput655.style.display = 'none';
+                    }
+                    
+                    // 创建一个模拟的paste事件，传递给表格处理
+                    setTimeout(() => {
+                        const tableBody = document.getElementById('tableBody');
+                        if (tableBody && tableBody.children.length > 0) {
+                            const firstRow = tableBody.children[0];
+                            if (firstRow && firstRow.children.length > 1) {
+                                const firstCell = firstRow.children[1];
+                                if (firstCell) {
+                                    const mockEvent = {
+                                        target: firstCell,
+                                        clipboardData: clipboard,
+                                        preventDefault: () => {},
+                                        stopPropagation: () => {}
+                                    };
+                                    handleCellPaste(mockEvent);
+                                }
+                            }
+                        }
+                    }, 10);
+                }
+            });
+        }
 
         // Reset form
         function resetForm() {
@@ -22698,6 +23157,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 初始化显示状态
                 toggleTableDisplayFor655();
+                
+                // 初始化655模式的textarea粘贴监听
+                init655TextareaPaste();
                 
                 typeSelect.addEventListener('change', () => {
                     const previousType = currentDataCaptureType;
