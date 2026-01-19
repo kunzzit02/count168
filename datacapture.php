@@ -23377,110 +23377,15 @@ if ($current_user_id && count($user_companies) > 0) {
                     });
                 });
 
-                const pickLargestTable = (root) => {
-                    const tables = Array.from(root.querySelectorAll('table')).filter(t => {
-                        const parentTable = t.parentElement ? t.parentElement.closest('table') : null;
-                        return !parentTable;
-                    });
-                    if (tables.length === 0) return null;
-                    let best = tables[0];
-                    let bestScore = -1;
-                    tables.forEach(t => {
-                        const score = t.querySelectorAll('td, th').length;
-                        if (score > bestScore) {
-                            bestScore = score;
-                            best = t;
-                        }
-                    });
-                    return best;
-                };
-
-                // Prefer the largest table in document
-                // 优先用fragment里的table（更贴近用户复制的范围）
-                const getTableRows = (table) => Array.from(table.querySelectorAll('tr'));
-                const getDirectCells = (tr) => Array.from(tr.children || []).filter(el => {
-                    const tag = (el.tagName || '').toUpperCase();
-                    return tag === 'TD' || tag === 'TH';
-                });
-                const cellText = (cell) => (cell && cell.textContent ? cell.textContent : '').trim();
-
-                const mergeTablesSideBySide = (leftTable, rightTable) => {
-                    const leftRows = getTableRows(leftTable);
-                    const rightRows = getTableRows(rightTable);
-                    const rowCount = Math.max(leftRows.length, rightRows.length);
-
-                    const merged = fragDoc.createElement('table');
-                    const tbody = fragDoc.createElement('tbody');
-                    merged.appendChild(tbody);
-
-                    for (let i = 0; i < rowCount; i++) {
-                        const tr = fragDoc.createElement('tr');
-                        const lRow = leftRows[i];
-                        const rRow = rightRows[i];
-
-                        const lCells = lRow ? getDirectCells(lRow) : [];
-                        const rCells = rRow ? getDirectCells(rRow) : [];
-
-                        let rStart = 0;
-                        if (lCells.length && rCells.length) {
-                            const lt = cellText(lCells[0]);
-                            const rt = cellText(rCells[0]);
-                            if (lt && rt && lt === rt && (/^\d+$/.test(lt) || /^total$/i.test(lt))) {
-                                rStart = 1;
-                            }
-                        }
-
-                        lCells.forEach(c => tr.appendChild(c.cloneNode(true)));
-                        rCells.slice(rStart).forEach(c => tr.appendChild(c.cloneNode(true)));
-                        tbody.appendChild(tr);
-                    }
-
-                    return merged;
-                };
-
-                const pickBestMergedTable = (root) => {
-                    const tables = Array.from(root.querySelectorAll('table')).filter(t => {
-                        const parentTable = t.parentElement ? t.parentElement.closest('table') : null;
-                        return !parentTable;
-                    });
-                    if (tables.length === 0) return null;
-                    if (tables.length === 1) return tables[0];
-
-                    const single = pickLargestTable(root);
-                    const singleScore = single ? single.querySelectorAll('td, th').length : 0;
-
-                    let bestPair = null;
-                    let bestPairScore = -1;
-                    for (let i = 0; i < tables.length; i++) {
-                        for (let j = i + 1; j < tables.length; j++) {
-                            const a = tables[i], b = tables[j];
-                            const aRows = getTableRows(a).length;
-                            const bRows = getTableRows(b).length;
-                            if (aRows < 2 || bRows < 2) continue;
-                            if (Math.abs(aRows - bRows) > 1) continue;
-                            const score = a.querySelectorAll('td, th').length + b.querySelectorAll('td, th').length;
-                            if (score > bestPairScore) {
-                                bestPairScore = score;
-                                bestPair = [a, b];
-                            }
-                        }
-                    }
-
-                    if (bestPair && bestPairScore > singleScore) {
-                        return mergeTablesSideBySide(bestPair[0], bestPair[1]);
-                    }
-                    return single;
-                };
-
-                const table = pickBestMergedTable(fragDoc) || pickBestMergedTable(doc);
-                if (!table) return '';
-
-                // Collect style blocks (Excel often uses classes like .xl65)
+                // 预览目标：尽量“原样还原你复制的Table Format”，因此：
+                // - 保留原始<style>（Excel/第三方表格常用class + style块定义颜色/对齐）
+                // - 直接渲染StartFragment的body内容（可能包含左右两张table的wrapper结构）
                 const styles = Array.from(doc.querySelectorAll('style'))
                     .map(s => s.outerHTML)
                     .join('\n');
 
-                return `${styles}\n${table.outerHTML}`;
+                const fragmentBody = (fragDoc && fragDoc.body) ? (fragDoc.body.innerHTML || '') : '';
+                return `${styles}\n${fragmentBody}`;
             } catch (_) {
                 // Fallback: at least return the original html (caller may still render something)
                 return String(rawHtml);
@@ -23537,10 +23442,9 @@ if ($current_user_id && count($user_companies) > 0) {
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
       body { font-family: Arial, sans-serif; font-size: 12px; }
-      .wrap { padding: 14px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; background: #f3f3f3; }
-      /* 655 preview baseline: mimic "Table Format" look */
-      table { border-collapse: collapse; margin: 0 auto; background: #fff; }
-      td, th { border: 1px solid #d0d7de; padding: 4px 10px; text-align: center; vertical-align: middle; white-space: nowrap; }
+      .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; background: #fff; }
+      /* 不覆盖你复制出来的对齐/样式；仅做最小化默认 */
+      table { border-collapse: collapse; }
     </style>
   </head>
   <body>
