@@ -21939,19 +21939,24 @@ if ($current_user_id && count($user_companies) > 0) {
 
                 const clipboard = (e.clipboardData || window.clipboardData);
 
-                // 先尝试直接从clipboard解析（成功则阻止默认粘贴）
-                const handled = handle655PasteFromClipboard(clipboard, null);
-                if (handled) {
+                // 先尝试直接从clipboard解析（能读到HTML/TSV时，直接填表并阻止默认粘贴）
+                const handledFromClipboard = handle655PasteFromClipboard(clipboard, null);
+                if (handledFromClipboard) {
                     e.preventDefault();
                     e.stopPropagation();
                     return;
                 }
 
-                // fallback：允许浏览器把富文本表格粘贴进contenteditable，再从DOM抓取<table>
+                // 读不到clipboard时：允许默认粘贴把富文本<table>贴进容器，再从DOM抓取<table>并填表
                 setTimeout(() => {
                     const pastedHTML = area.innerHTML || '';
                     if (pastedHTML && pastedHTML.includes('<table')) {
-                        handle655PasteFromClipboard(clipboard, pastedHTML);
+                        // 这里不需要clipboard也能解析
+                        const ok = handle655PasteFromClipboard({ getData: () => '' }, pastedHTML);
+                        if (ok) {
+                            // 清空容器，避免用户看到临时粘贴的table残留
+                            area.innerHTML = '';
+                        }
                     }
                 }, 0);
             });
@@ -23021,20 +23026,51 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        // 全局粘贴事件处理
+        function isEditableFormField(el) {
+            if (!el) return false;
+            const tag = (el.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+            // contenteditable inputs (not our table/paste area) should still be allowed for normal text paste
+            if (el.isContentEditable && !el.closest('#dataTable') && !el.closest('#pasteArea655')) return true;
+            return false;
+        }
+
+        function placeCaretAtEnd(el) {
+            try {
+                el.focus();
+                const selection = window.getSelection && window.getSelection();
+                if (!selection) return;
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } catch (_) {}
+        }
+
+        // 全局粘贴引导（capture阶段）：655模式下把“表格粘贴”强制引导进pasteArea容器，避免贴到页面其它位置（跑到最上面）
         document.addEventListener('paste', function(e) {
-            // 655模式：当剪贴板看起来像“表格粘贴”(HTML table / TSV) 时，强制拦截，避免<table>被默认粘贴到页面其它位置（跑到上面）
-            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
-                const clipboard = (e.clipboardData || window.clipboardData);
-                const handled = handle655PasteFromClipboard(clipboard, null);
-                if (handled) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                }
-            }
-            
-            // 检查是否在表格单元格中粘贴
+            if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '655') return;
+
+            const pasteArea655 = document.getElementById('pasteArea655');
+            if (!pasteArea655) return;
+
+            const target = e.target;
+            // 用户在输入框/textarea里粘贴备注等，保持原行为
+            if (isEditableFormField(target)) return;
+
+            // 只要655的粘贴容器存在，就把粘贴引导到容器内
+            // 确保容器可见（如果用户已经切到表格显示，也会拉回容器以便继续粘贴整表）
+            const dataTable = document.getElementById('dataTable');
+            if (dataTable) dataTable.style.display = 'none';
+            pasteArea655.style.display = 'block';
+
+            placeCaretAtEnd(pasteArea655);
+            // 注意：这里不preventDefault，让浏览器把HTML table默认粘贴到pasteArea里（然后由pasteArea自身事件接管解析）
+        }, true);
+
+        // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴
+        document.addEventListener('paste', function(e) {
             const target = e.target;
             if (target && target.contentEditable === 'true' && target.closest('#dataTable')) {
                 console.log('Global paste event triggered on table cell');
