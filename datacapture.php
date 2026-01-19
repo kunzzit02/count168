@@ -23076,49 +23076,6 @@ if ($current_user_id && count($user_companies) > 0) {
             return html;
         }
 
-        function looksLikeSingleRowMultiColumn(lines) {
-            if (!Array.isArray(lines)) return false;
-            const cleaned = lines.map(l => String(l).trim()).filter(Boolean);
-            if (cleaned.length < 6 || cleaned.length > 60) return false;
-
-            const hasAlphaToken = cleaned.some(v => /^[A-Za-z][A-Za-z0-9._-]{0,10}$/.test(v));
-            const hasNumberToken = cleaned.some(v => /[0-9]/.test(v));
-            // 像你截图那样：一串字段（代码/名字/币种/数字）被换行分开
-            return hasAlphaToken && hasNumberToken;
-        }
-
-        function textToHtmlTable(text) {
-            const raw = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-            // 先按空行分组（多行表格有时会用空行分隔行）
-            const chunks = raw.split(/\n\s*\n+/).map(c => c.trim()).filter(Boolean);
-
-            const rowChunks = chunks.length > 0 ? chunks : [raw.trim()];
-            const rows = rowChunks.map(chunk => chunk.split('\n').map(v => v.trim()).filter(Boolean));
-            const flatLines = raw.split('\n').map(v => v.trim()).filter(Boolean);
-
-            // 如果看起来像“单行多列”，把每一行当作一个单元格（1 row, N cols）
-            if (looksLikeSingleRowMultiColumn(flatLines)) {
-                const cells = flatLines;
-                let html = '<table><tbody><tr>';
-                cells.forEach(c => {
-                    html += `<td>${escapeHtml(c)}</td>`;
-                });
-                html += '</tr></tbody></table>';
-                return html;
-            }
-
-            // 否则：按“多行单列”渲染（每行一个row，一个cell）
-            let html = '<table><tbody>';
-            rows.forEach(r => {
-                // r 是该 chunk 的多行：作为多行单列
-                r.forEach(cell => {
-                    html += `<tr><td>${escapeHtml(cell)}</td></tr>`;
-                });
-            });
-            html += '</tbody></table>';
-            return html;
-        }
-
         function clipboardLooksLikeTable(clipboard) {
             // 先用types判断（某些浏览器在某些阶段getData会返回空/抛错）
             try {
@@ -23139,8 +23096,7 @@ if ($current_user_id && count($user_companies) > 0) {
             return false;
         }
 
-        // 全局粘贴强制落入容器（capture阶段）
-        // 655模式下：只要不是在 input/textarea/select 里粘贴，就一律阻止默认粘贴，并把内容渲染到 pasteArea 容器内
+        // 全局粘贴强制落入容器（capture阶段）：655模式下把“表格粘贴”拦截并插入到pasteArea容器，避免跑到页面最上面
         document.addEventListener('paste', function(e) {
             if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '655') return;
 
@@ -23152,14 +23108,11 @@ if ($current_user_id && count($user_companies) > 0) {
             if (isEditableFormField(target)) return;
 
             const clipboard = (e.clipboardData || window.clipboardData);
-            if (!clipboard) return;
+            if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
 
             // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
             e.preventDefault();
             e.stopPropagation();
-            if (typeof e.stopImmediatePropagation === 'function') {
-                e.stopImmediatePropagation();
-            }
 
             // 确保容器可见并接收内容
             const dataTable = document.getElementById('dataTable');
@@ -23188,22 +23141,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 const tableHtml = tsvToHtmlTable(text);
                 pasteArea655.innerHTML = tableHtml;
                 parseAndFillHTMLTableForGeneral655(pasteArea655.innerHTML);
-                return;
-            }
-
-            // 没有tab但有多行：把“换行分隔”的内容也转成表格（避免变成一列长文本）
-            if (text && (text.includes('\n') || text.includes('\r'))) {
-                const tableHtml = textToHtmlTable(text);
-                pasteArea655.innerHTML = tableHtml;
-                parseAndFillHTMLTableForGeneral655(pasteArea655.innerHTML);
-                return;
-            }
-
-            // 非表格内容：也放到容器里，避免被贴到页面其他位置
-            if (text) {
-                pasteArea655.textContent = text;
-            } else {
-                pasteArea655.innerHTML = '';
             }
         }, true);
 
@@ -24460,19 +24397,6 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: 4px 8px;
             text-align: left;
             white-space: nowrap;
-        }
-
-        /* 兜底：避免粘贴内容使用fixed/absolute把表格顶到页面最上面 */
-        .paste-area-655 table,
-        .paste-area-655 table * {
-            position: static !important;
-            top: auto !important;
-            left: auto !important;
-            right: auto !important;
-            bottom: auto !important;
-            z-index: auto !important;
-            transform: none !important;
-            float: none !important;
         }
 
         .excel-table {
