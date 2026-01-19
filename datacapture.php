@@ -4417,15 +4417,29 @@ if ($current_user_id && count($user_companies) > 0) {
                 const hasMultipleRows = lines.length > 1;
                 const hasTabSeparator = textData.includes('\t');
                 
-                // 如果有多行且包含制表符，或者有多行且每行有多个空格分隔的值，认为是表格
-                if (hasMultipleRows && (hasTabSeparator || lines.some(line => line.trim().split(/\s{2,}/).length > 1))) {
-                    console.log('655 mode: Tab-separated or multi-column table data detected');
+                // 更宽松的检测：只要有多行数据，就认为是表格
+                // 或者包含制表符（即使只有一行，如果有制表符也认为是表格）
+                // 或者每行有多个值（用空格或制表符分隔）
+                const hasMultipleColumns = lines.some(line => {
+                    const trimmed = line.trim();
+                    return trimmed.includes('\t') || trimmed.split(/\s{2,}/).length > 1;
+                });
+                
+                // 只要有制表符，就认为是表格数据（Excel复制的数据通常包含制表符）
+                if (hasTabSeparator || (hasMultipleRows && hasMultipleColumns) || (hasMultipleRows && lines.length >= 2)) {
+                    console.log('655 mode: Table-like data detected');
+                    console.log('655 mode: Lines count:', lines.length);
+                    console.log('655 mode: Has tab separator:', hasTabSeparator);
+                    console.log('655 mode: Has multiple columns:', hasMultipleColumns);
+                    console.log('655 mode: First few lines:', lines.slice(0, 3));
                     isTableData = true;
                     // 将制表符分隔的数据转换为HTML表格
                     htmlData = convertTabSeparatedToHTML(textData);
+                    console.log('655 mode: Converted HTML preview:', htmlData.substring(0, 500));
                 } else {
                     // 不是表格格式，允许默认粘贴行为
                     console.log('655 mode: Not table data, allowing default paste');
+                    console.log('655 mode: Text preview:', textData.substring(0, 200));
                     return;
                 }
             } else {
@@ -23036,7 +23050,11 @@ if ($current_user_id && count($user_companies) > 0) {
             // 为655模式的textarea添加paste事件监听器
             const textInput655 = document.getElementById('textInput655');
             if (textInput655) {
-                textInput655.addEventListener('paste', handle655TextareaPaste);
+                // 使用capture阶段确保能捕获事件
+                textInput655.addEventListener('paste', handle655TextareaPaste, true);
+                console.log('655 mode: Paste event listener attached to textarea');
+            } else {
+                console.warn('655 mode: textInput655 element not found');
             }
 
             // 初始化 Process 输入框事件
