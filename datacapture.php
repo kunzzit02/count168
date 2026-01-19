@@ -4450,6 +4450,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     dataTable.style.display = 'table';
                     textInput655.style.display = 'none';
                     
+                    // 调整容器高度以适应表格内容
+                    const container = dataTable.closest('.excel-table-container');
+                    if (container) {
+                        container.classList.remove('textarea-mode');
+                        container.classList.add('table-mode');
+                    }
+                    
                     // 确保表格已初始化
                     const tableBody = document.getElementById('tableBody');
                     if (!tableBody || tableBody.children.length === 0) {
@@ -21686,6 +21693,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 清空内容
                     textInput655.value = '';
                 }
+                // 调整容器样式
+                const container = dataTable ? dataTable.closest('.excel-table-container') : null;
+                if (container) {
+                    container.classList.remove('table-mode');
+                    container.classList.add('textarea-mode');
+                }
             } else {
                 // 显示表格，隐藏空白输入区域
                 if (dataTable) {
@@ -23961,6 +23974,17 @@ if ($current_user_id && count($user_companies) > 0) {
             height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
         }
         
+        /* 655模式下，当显示表格时，容器应该能容纳更多内容 */
+        .excel-table-container.table-mode {
+            height: auto !important;
+            min-height: clamp(230px, 17.19vw, 330px);
+            max-height: 80vh;
+        }
+        
+        .excel-table-container.textarea-mode {
+            height: clamp(230px, 17.19vw, 330px);
+        }
+        
         .text-input-655 {
             width: 100%;
             height: 100%;
@@ -23984,16 +24008,19 @@ if ($current_user_id && count($user_companies) > 0) {
             border-collapse: collapse;
             font-size: 12px;
             font-family: Arial, sans-serif;
+            border: 1px solid #d0d7de;
+            background: white;
         }
 
         .excel-table th,
         .excel-table td {
-            border: 1px solid #d0d7de;
+            border: 1px solid #d0d7de !important;
             font-size: clamp(10px, 0.63vw, 12px);
             padding: clamp(2px, 0.31vw, 6px) clamp(8px, 0.83vw, 16px);
             text-align: center;
             min-width: clamp(30px, 3.49vw, 67px);
             position: relative;
+            background-color: white;
         }
 
         .excel-table th {
