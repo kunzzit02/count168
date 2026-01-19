@@ -21830,7 +21830,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
-        function handle655PasteFromClipboard(clipboard, fallbackHTML) {
+        async function handle655PasteFromClipboard(clipboard, fallbackHTML) {
             if (currentDataCaptureType !== '655') return false;
 
             const dataTable = document.getElementById('dataTable');
@@ -21846,17 +21846,25 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             };
 
-            const isLikelyTablePaste = () => {
-                const html = getClipboardData('text/html') || '';
-                if (html && html.includes('<table')) return true;
-                const text = getClipboardData('text/plain') || '';
-                // 判断是否像Excel/Sheets复制出来的TSV（至少两列 & 至少一行换行）
-                if (text && text.includes('\t') && (text.includes('\n') || text.includes('\r'))) return true;
-                return false;
-            };
+            const getFromItems = (mime) => new Promise(resolve => {
+                try {
+                    if (!clipboard.items || !clipboard.items.length) return resolve('');
+                    const item = Array.from(clipboard.items).find(i => i && i.type === mime);
+                    if (!item || typeof item.getAsString !== 'function') return resolve('');
+                    item.getAsString(str => resolve(str || ''));
+                } catch (_) {
+                    resolve('');
+                }
+            });
+
+            let htmlData = getClipboardData('text/html') || '';
+            let textData = getClipboardData('text/plain') || '';
+
+            // 某些浏览器/环境下 getData 会拿不到，但 items.getAsString 仍可用
+            if (!htmlData) htmlData = await getFromItems('text/html');
+            if (!textData) textData = await getFromItems('text/plain');
 
             // 1) Prefer HTML table
-            const htmlData = getClipboardData('text/html') || '';
             const htmlToUse = (htmlData && htmlData.includes('<table')) ? htmlData : (fallbackHTML || '');
             if (htmlToUse && htmlToUse.includes('<table')) {
                 // 切换到表格显示
@@ -21871,8 +21879,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 return true;
             }
 
-            // 2) Fallback to tab-separated plain text
-            const textData = getClipboardData('text/plain') || '';
+            // 2) Fallback to tab-separated plain text (TSV)
             if (textData && textData.includes('\t')) {
                 if (dataTable) dataTable.style.display = 'table';
                 if (pasteArea655) {
@@ -21901,12 +21908,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 return true;
             }
 
-            // 如果看起来是表格粘贴，但读取不到内容（某些浏览器限制），不要让默认粘贴把<table>插到页面其它位置
-            if (isLikelyTablePaste()) {
-                try {
-                    if (pasteArea655) pasteArea655.focus();
-                } catch (_) {}
-                return true; // 让调用方去 preventDefault
+            // 3) Plain text (not a table) – keep it in paste area (no DOM injection elsewhere)
+            if (pasteArea655 && typeof textData === 'string' && textData.length) {
+                pasteArea655.style.display = 'block';
+                pasteArea655.innerText = textData;
+                return true;
             }
 
             return false;
@@ -21928,7 +21934,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
             const area = document.getElementById('pasteArea655');
 
-            area.addEventListener('paste', function(e) {
+            area.addEventListener('paste', async function(e) {
                 console.log('655: Paste event triggered in paste-area');
                 
                 // 只在655模式下处理
@@ -21938,22 +21944,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
 
                 const clipboard = (e.clipboardData || window.clipboardData);
+                
+                // 关键：655模式永远阻止默认粘贴，避免<table>被浏览器插到页面其它位置（跑到最上面）
+                e.preventDefault();
+                e.stopPropagation();
 
-                // 先尝试直接从clipboard解析（成功则阻止默认粘贴）
-                const handled = handle655PasteFromClipboard(clipboard, null);
-                if (handled) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                }
+                const handled = await handle655PasteFromClipboard(clipboard, null);
+                if (handled) return;
 
-                // fallback：允许浏览器把富文本表格粘贴进contenteditable，再从DOM抓取<table>
-                setTimeout(() => {
-                    const pastedHTML = area.innerHTML || '';
-                    if (pastedHTML && pastedHTML.includes('<table')) {
-                        handle655PasteFromClipboard(clipboard, pastedHTML);
-                    }
-                }, 0);
+                // 最后兜底：如果浏览器限制导致读不到clipboard（极少数），不做默认粘贴（避免污染页面）
             });
         }
 
@@ -23022,16 +23021,26 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // 全局粘贴事件处理
-        document.addEventListener('paste', function(e) {
-            // 655模式：当剪贴板看起来像“表格粘贴”(HTML table / TSV) 时，强制拦截，避免<table>被默认粘贴到页面其它位置（跑到上面）
+        document.addEventListener('paste', async function(e) {
+            // 655模式：防止浏览器把HTML table默认插到页面其它位置
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
-                const clipboard = (e.clipboardData || window.clipboardData);
-                const handled = handle655PasteFromClipboard(clipboard, null);
-                if (handled) {
-                    e.preventDefault();
-                    e.stopPropagation();
+                const target = e.target;
+                const isTextInput =
+                    target &&
+                    (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') &&
+                    target.id !== 'pasteArea655';
+
+                // 允许在普通输入框里粘贴普通文字，不要影响用户日常操作
+                if (isTextInput) {
                     return;
                 }
+
+                const clipboard = (e.clipboardData || window.clipboardData);
+                // 在655模式下，非输入框的粘贴一律拦截并尝试填表（避免跑到页面最上方）
+                e.preventDefault();
+                e.stopPropagation();
+                await handle655PasteFromClipboard(clipboard, null);
+                return;
             }
             
             // 检查是否在表格单元格中粘贴
