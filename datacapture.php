@@ -21946,13 +21946,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (html && /<table\b/i.test(html)) {
                     e.preventDefault();
                     e.stopPropagation();
+                    const previewFragment = build655PreviewFragmentFromClipboardHtml(html);
                     const sanitized = sanitizePastedHTML(html);
-                    if (sanitized) {
-                        // 1) 预览：显示在专用container（像截图Table Format）
-                        render655Preview(sanitized);
+                    if (previewFragment) {
+                        // 1) 预览：尽量还原Excel原始样式（保留<style>与class）
+                        render655Preview(previewFragment);
 
                         // 2) 数据：同时填充到网格表（用于submit逻辑），但不展示网格表
-                        const ok = parseAndFillHTMLTableForGeneral655(sanitized);
+                        const ok = parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
                         if (ok) is655GridReady = true;
                         area.innerHTML = '';
                         toggleTableDisplayFor655();
@@ -21964,11 +21965,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (text && /<table\b/i.test(text)) {
                     e.preventDefault();
                     e.stopPropagation();
+                    const previewFragment = build655PreviewFragmentFromClipboardHtml(text);
                     const sanitized = sanitizePastedHTML(text);
-                    if (sanitized) {
-                        render655Preview(sanitized);
+                    if (previewFragment) {
+                        render655Preview(previewFragment);
 
-                        const ok = parseAndFillHTMLTableForGeneral655(sanitized);
+                        const ok = parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
                         if (ok) is655GridReady = true;
                         area.innerHTML = '';
                         toggleTableDisplayFor655();
@@ -21996,11 +21998,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     try {
                         const pastedHTML = area.innerHTML || '';
                         if (pastedHTML && /<table\b/i.test(pastedHTML)) {
+                            const previewFragment = build655PreviewFragmentFromClipboardHtml(pastedHTML);
                             const sanitized = sanitizePastedHTML(pastedHTML);
-                            if (sanitized) {
-                                render655Preview(sanitized);
+                            if (previewFragment) {
+                                render655Preview(previewFragment);
 
-                                const ok = parseAndFillHTMLTableForGeneral655(sanitized);
+                                const ok = parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
                                 if (ok) is655GridReady = true;
                                 area.innerHTML = '';
                                 toggleTableDisplayFor655();
@@ -23176,8 +23179,23 @@ if ($current_user_id && count($user_companies) > 0) {
                 .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
                 .replace(/javascript:/gi, '');
 
-            // 只保留table相关内容，避免Excel HTML带来的布局污染
-            const table = temp.querySelector('table');
+            const pickLargestTable = (root) => {
+                const tables = Array.from(root.querySelectorAll('table'));
+                if (tables.length === 0) return null;
+                let best = tables[0];
+                let bestScore = -1;
+                tables.forEach(t => {
+                    const score = t.querySelectorAll('td, th').length;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = t;
+                    }
+                });
+                return best;
+            };
+
+            // 只保留“最像主表”的那一张（Excel有时会带多个table，拿错会只剩一半列）
+            const table = pickLargestTable(temp);
             if (!table) return '';
 
             // 清除会把table“顶到页面最上面”的定位类样式
@@ -23226,6 +23244,59 @@ if ($current_user_id && count($user_companies) > 0) {
             } catch (_) {}
 
             return table.outerHTML;
+        }
+
+        // 655预览：尽量还原Excel复制的样式（保留<style>与class），并挑选“单元格最多”的table作为主表
+        function build655PreviewFragmentFromClipboardHtml(rawHtml) {
+            if (!rawHtml) return '';
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(String(rawHtml), 'text/html');
+
+                // Remove scripts
+                doc.querySelectorAll('script').forEach(n => n.remove());
+
+                // Remove event handlers + javascript: URLs
+                doc.querySelectorAll('*').forEach(el => {
+                    Array.from(el.attributes || []).forEach(attr => {
+                        if (/^on/i.test(attr.name)) {
+                            el.removeAttribute(attr.name);
+                        }
+                        if ((attr.name === 'href' || attr.name === 'src') && /^javascript:/i.test(attr.value || '')) {
+                            el.removeAttribute(attr.name);
+                        }
+                    });
+                });
+
+                const pickLargestTable = (root) => {
+                    const tables = Array.from(root.querySelectorAll('table'));
+                    if (tables.length === 0) return null;
+                    let best = tables[0];
+                    let bestScore = -1;
+                    tables.forEach(t => {
+                        const score = t.querySelectorAll('td, th').length;
+                        if (score > bestScore) {
+                            bestScore = score;
+                            best = t;
+                        }
+                    });
+                    return best;
+                };
+
+                // Prefer the largest table in document
+                const table = pickLargestTable(doc);
+                if (!table) return '';
+
+                // Collect style blocks (Excel often uses classes like .xl65)
+                const styles = Array.from(doc.querySelectorAll('style'))
+                    .map(s => s.outerHTML)
+                    .join('\n');
+
+                return `${styles}\n${table.outerHTML}`;
+            } catch (_) {
+                // Fallback: at least return the original html (caller may still render something)
+                return String(rawHtml);
+            }
         }
 
         function tsvToHtmlTable(tsv) {
@@ -23279,10 +23350,8 @@ if ($current_user_id && count($user_companies) > 0) {
       html, body { margin: 0; padding: 0; background: #fff; }
       body { font-family: Arial, sans-serif; font-size: 12px; }
       .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; }
-      table { border-collapse: collapse; width: max-content; table-layout: auto; display: inline-table; }
-      td, th { border: 1px solid #d0d7de; padding: 4px 8px; text-align: left; white-space: nowrap; }
-      * { position: static !important; top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
-          z-index: auto !important; float: none !important; transform: none !important; }
+      /* Only minimal baseline CSS; keep pasted table's own styles/alignment */
+      table { border-collapse: collapse; }
     </style>
   </head>
   <body>
