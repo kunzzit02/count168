@@ -16259,28 +16259,132 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                     } else {
-                        // 没有制表符，尝试使用 API-RETURN 格式解析每一行
+                        // 没有制表符，对每一行使用智能分割并检测公式列
                         for (let i = 0; i < lines.length; i++) {
                             const line = lines[i];
                             
-                            // 先尝试表格格式解析（单行）
+                            // 先尝试表格格式解析（单行，包含完整的表格结构）
                             let apiReturnParsed = parseApiReturnTableFormat(line);
-                            
-                            // 如果表格格式解析失败，尝试单行格式解析
-                            if (!apiReturnParsed) {
-                                apiReturnParsed = parseApiReturnFormat(line);
-                            }
                             
                             if (apiReturnParsed) {
                                 const { columns } = apiReturnParsed;
                                 dataMatrix.push(columns);
                                 maxCols = Math.max(maxCols, columns.length);
                                 hasValidRow = true;
-                            } else if (line !== '') {
-                                // 无法解析的行，作为单列数据
-                                dataMatrix.push([line]);
-                                maxCols = Math.max(maxCols, 1);
-                                hasValidRow = true;
+                            } else {
+                                // 如果表格格式解析失败，使用智能分割并检测公式列（类似单行处理）
+                                const trimmed = line.trim();
+                                if (trimmed) {
+                                    // 使用智能分割函数，保留日期格式
+                                    let columns = smartSplitPreservingDates(trimmed);
+                                    
+                                    if (columns.length > 0) {
+                                        // 处理所有列：去掉标签后的冒号
+                                        for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+                                            if (columns[colIndex] && columns[colIndex].endsWith(':') && !columns[colIndex].includes('(')) {
+                                                columns[colIndex] = columns[colIndex].slice(0, -1);
+                                            }
+                                        }
+                                        
+                                        // 检查所有列，找到包含公式的列
+                                        let hasFormula = false;
+                                        for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+                                            const cell = columns[colIndex] || '';
+                                            
+                                            // 检查是否包含公式特征：括号和运算符
+                                            const isFormula = (cell.includes('(') || cell.includes('+') || 
+                                                               cell.includes('-') || cell.includes('*') || 
+                                                               cell.includes('/')) && 
+                                                              (cell.includes('(') || cell.match(/\d/));
+                                            
+                                            if (isFormula) {
+                                                hasFormula = true;
+                                                // 解析公式列
+                                                let parsedFormula = null;
+                                                
+                                                // 如果有冒号，使用parseApiReturnFormat
+                                                if (cell.includes(':')) {
+                                                    parsedFormula = parseApiReturnFormat(cell);
+                                                } else {
+                                                    // 如果没有冒号，直接提取数字
+                                                    let numbers = [];
+                                                    // 先移除所有括号和空格
+                                                    let cleanFormula = cell.replace(/[()\s]/g, '');
+                                                    // 按运算符分割
+                                                    const parts = cleanFormula.split(/([+\-*/])/);
+                                                    
+                                                    parts.forEach(part => {
+                                                        if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
+                                                            const numMatch = part.match(/^\d+\.?\d*$/);
+                                                            if (numMatch) {
+                                                                numbers.push(numMatch[0]);
+                                                            }
+                                                        }
+                                                    });
+                                                    
+                                                    if (numbers.length > 0) {
+                                                        parsedFormula = { columns: numbers };
+                                                    }
+                                                }
+                                                
+                                                if (parsedFormula && parsedFormula.columns && parsedFormula.columns.length > 0) {
+                                                    const parsedColumns = parsedFormula.columns;
+                                                    
+                                                    // 如果有标签（第一个元素可能是标签），保留标签但去掉冒号
+                                                    let label = '';
+                                                    let numbersToInsert = [];
+                                                    
+                                                    if (parsedColumns.length > 0) {
+                                                        // 检查第一个元素是否是标签（包含非数字字符）
+                                                        const firstElement = parsedColumns[0];
+                                                        if (firstElement && !/^-?\d+\.?\d*$/.test(firstElement)) {
+                                                            // 是标签，去掉冒号
+                                                            label = firstElement.replace(':', '');
+                                                            numbersToInsert = parsedColumns.slice(1);
+                                                        } else {
+                                                            // 不是标签，都是数字
+                                                            numbersToInsert = parsedColumns;
+                                                        }
+                                                    }
+                                                    
+                                                    // 替换公式列为标签（如果有）
+                                                    if (label) {
+                                                        columns[colIndex] = label;
+                                                    } else {
+                                                        // 如果没有标签，移除公式列（后面会用数字替换）
+                                                        columns[colIndex] = '';
+                                                    }
+                                                    
+                                                    // 将解析后的数字插入到公式列之后
+                                                    if (numbersToInsert.length > 0) {
+                                                        // 如果公式列被清空，直接替换；否则插入
+                                                        if (!label) {
+                                                            columns.splice(colIndex, 1, ...numbersToInsert);
+                                                        } else {
+                                                            columns.splice(colIndex + 1, 0, ...numbersToInsert);
+                                                        }
+                                                    }
+                                                }
+                                                // 处理完一个公式列后，跳出循环（一次只处理一个公式列）
+                                                break;
+                                            }
+                                        }
+                                        
+                                        dataMatrix.push(columns);
+                                        maxCols = Math.max(maxCols, columns.length);
+                                        hasValidRow = true;
+                                    } else if (line !== '') {
+                                        // 无法解析的行，作为单列数据
+                                        dataMatrix.push([line]);
+                                        maxCols = Math.max(maxCols, 1);
+                                        hasValidRow = true;
+                                    }
+                                } else if (line !== '') {
+                                    // 空行但非空，作为单列数据
+                                    dataMatrix.push([line]);
+                                    maxCols = Math.max(maxCols, 1);
+                                    hasValidRow = true;
+                                }
                             }
                         }
                     }
