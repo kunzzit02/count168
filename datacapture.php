@@ -21833,7 +21833,6 @@ if ($current_user_id && count($user_companies) > 0) {
         function handle655PasteFromClipboard(clipboard, fallbackHTML) {
             if (currentDataCaptureType !== '655') return false;
 
-            const dataTable = document.getElementById('dataTable');
             const pasteArea655 = document.getElementById('pasteArea655');
             if (!clipboard) return false;
 
@@ -21846,25 +21845,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             };
 
-            const isLikelyTablePaste = () => {
-                const html = getClipboardData('text/html') || '';
-                if (html && html.includes('<table')) return true;
-                const text = getClipboardData('text/plain') || '';
-                // 判断是否像Excel/Sheets复制出来的TSV（至少两列 & 至少一行换行）
-                if (text && text.includes('\t') && (text.includes('\n') || text.includes('\r'))) return true;
-                return false;
-            };
-
             // 1) Prefer HTML table
             const htmlData = getClipboardData('text/html') || '';
             const htmlToUse = (htmlData && htmlData.includes('<table')) ? htmlData : (fallbackHTML || '');
             if (htmlToUse && htmlToUse.includes('<table')) {
-                // 切换到表格显示
-                if (dataTable) dataTable.style.display = 'table';
-                if (pasteArea655) {
-                    pasteArea655.style.display = 'none';
-                    pasteArea655.innerHTML = '';
-                }
                 setTimeout(() => {
                     parseAndFillHTMLTableForGeneral655(htmlToUse);
                 }, 10);
@@ -21874,12 +21858,6 @@ if ($current_user_id && count($user_companies) > 0) {
             // 2) Fallback to tab-separated plain text
             const textData = getClipboardData('text/plain') || '';
             if (textData && textData.includes('\t')) {
-                if (dataTable) dataTable.style.display = 'table';
-                if (pasteArea655) {
-                    pasteArea655.style.display = 'none';
-                    pasteArea655.innerHTML = '';
-                }
-
                 setTimeout(() => {
                     const tableBody = document.getElementById('tableBody');
                     if (tableBody && tableBody.children.length > 0) {
@@ -21899,14 +21877,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }, 10);
                 return true;
-            }
-
-            // 如果看起来是表格粘贴，但读取不到内容（某些浏览器限制），不要让默认粘贴把<table>插到页面其它位置
-            if (isLikelyTablePaste()) {
-                try {
-                    if (pasteArea655) pasteArea655.focus();
-                } catch (_) {}
-                return true; // 让调用方去 preventDefault
             }
 
             return false;
@@ -23048,7 +23018,54 @@ if ($current_user_id && count($user_companies) > 0) {
             } catch (_) {}
         }
 
-        // 全局粘贴引导（capture阶段）：655模式下把“表格粘贴”强制引导进pasteArea容器，避免贴到页面其它位置（跑到最上面）
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function sanitizePastedHTML(html) {
+            if (!html) return '';
+            return String(html)
+                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
+                .replace(/javascript:/gi, '');
+        }
+
+        function tsvToHtmlTable(tsv) {
+            const raw = String(tsv || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = raw.split('\n').filter(l => l !== '');
+            const rows = lines.map(line => line.split('\t'));
+            if (rows.length === 0) return '';
+            let html = '<table><tbody>';
+            rows.forEach(r => {
+                html += '<tr>';
+                r.forEach(c => {
+                    html += `<td>${escapeHtml(c)}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function clipboardLooksLikeTable(clipboard) {
+            try {
+                const html = (clipboard && clipboard.getData) ? (clipboard.getData('text/html') || '') : '';
+                if (html && html.includes('<table')) return true;
+            } catch (_) {}
+            try {
+                const text = (clipboard && clipboard.getData) ? (clipboard.getData('text/plain') || '') : '';
+                if (text && text.includes('\t') && (text.includes('\n') || text.includes('\r'))) return true;
+            } catch (_) {}
+            return false;
+        }
+
+        // 全局粘贴强制落入容器（capture阶段）：655模式下把“表格粘贴”拦截并插入到pasteArea容器，避免跑到页面最上面
         document.addEventListener('paste', function(e) {
             if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '655') return;
 
@@ -23059,14 +23076,41 @@ if ($current_user_id && count($user_companies) > 0) {
             // 用户在输入框/textarea里粘贴备注等，保持原行为
             if (isEditableFormField(target)) return;
 
-            // 只要655的粘贴容器存在，就把粘贴引导到容器内
-            // 确保容器可见（如果用户已经切到表格显示，也会拉回容器以便继续粘贴整表）
+            const clipboard = (e.clipboardData || window.clipboardData);
+            if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
+
+            // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
+            e.preventDefault();
+            e.stopPropagation();
+
+            // 确保容器可见并接收内容
             const dataTable = document.getElementById('dataTable');
             if (dataTable) dataTable.style.display = 'none';
             pasteArea655.style.display = 'block';
-
             placeCaretAtEnd(pasteArea655);
-            // 注意：这里不preventDefault，让浏览器把HTML table默认粘贴到pasteArea里（然后由pasteArea自身事件接管解析）
+
+            // 取出剪贴板内容并插入到容器里（显示效果在容器内）
+            let html = '';
+            try {
+                html = clipboard.getData('text/html') || '';
+            } catch (_) {}
+
+            if (html && html.includes('<table')) {
+                pasteArea655.innerHTML = sanitizePastedHTML(html);
+                // 同时填充到内部数据表（用于后续提交/处理）
+                parseAndFillHTMLTableForGeneral655(pasteArea655.innerHTML);
+                return;
+            }
+
+            let text = '';
+            try {
+                text = clipboard.getData('text/plain') || '';
+            } catch (_) {}
+            if (text && text.includes('\t')) {
+                const tableHtml = tsvToHtmlTable(text);
+                pasteArea655.innerHTML = tableHtml;
+                parseAndFillHTMLTableForGeneral655(pasteArea655.innerHTML);
+            }
         }, true);
 
         // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴
@@ -24307,6 +24351,21 @@ if ($current_user_id && count($user_companies) > 0) {
         .paste-area-655:empty:before {
             content: attr(data-placeholder);
             color: #6c757d;
+        }
+
+        /* 655粘贴容器内的table显示（像截图里的预览） */
+        .paste-area-655 table {
+            border-collapse: collapse;
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+        }
+
+        .paste-area-655 td,
+        .paste-area-655 th {
+            border: 1px solid #d0d7de;
+            padding: 4px 8px;
+            text-align: left;
+            white-space: nowrap;
         }
 
         .excel-table {
