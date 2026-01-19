@@ -23371,33 +23371,15 @@ if ($current_user_id && count($user_companies) > 0) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
-      html, body { margin: 0; padding: 0; background: #fff; height: 100%; }
-      body { font-family: Arial, sans-serif; font-size: 12px; height: 100%; }
-      /* 预览容器：像你截图的 Table Format 一样，table 小就居中，大就允许横向滚动 */
-      .viewport {
-        height: 100%;
-        width: 100%;
-        overflow: auto;
-        box-sizing: border-box;
-        padding: 12px;
-      }
-      .center {
-        min-height: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-      }
-      .center > * {
-        flex: 0 0 auto;
-      }
-      /* 最小baseline，不覆盖你复制出来的对齐/颜色等 */
+      html, body { margin: 0; padding: 0; background: #fff; }
+      body { font-family: Arial, sans-serif; font-size: 12px; }
+      .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; }
+      /* Only minimal baseline CSS; keep pasted table's own styles/alignment */
       table { border-collapse: collapse; }
     </style>
   </head>
   <body>
-    <div class="viewport">
-      <div class="center">${safeTable}</div>
-    </div>
+    <div class="wrap">${safeTable}</div>
   </body>
 </html>`;
 
@@ -24752,8 +24734,6 @@ if ($current_user_id && count($user_companies) > 0) {
             box-sizing: border-box;
             background: white;
             overflow: hidden;
-            display: flex;
-            flex-direction: column;
         }
 
         .table-preview-frame-655 {
@@ -24761,8 +24741,6 @@ if ($current_user_id && count($user_companies) > 0) {
             height: 100%;
             border: 0;
             background: white;
-            flex: 1 1 auto;
-            min-height: clamp(230px, 17.19vw, 330px);
         }
 
         .excel-table {
