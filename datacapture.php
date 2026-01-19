@@ -4440,27 +4440,49 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 655模式：保留行的样式（如背景色，如Grand Total行的黄色背景）
                     if (currentDataCaptureType === '655') {
                         // 保留行的style属性（最直接的方法）
-                        const sourceRowStyle = sourceRow.getAttribute('style');
-                        if (sourceRowStyle) {
-                            tableRow.setAttribute('style', sourceRowStyle);
-                            // 同时设置style属性，确保样式生效
-                            tableRow.style.cssText = sourceRowStyle;
+                        const sourceRowStyle = sourceRow.getAttribute('style') || '';
+                        const sourceRowBgColor = sourceRow.style.backgroundColor || '';
+                        
+                        // 构建行样式
+                        let rowStyles = [];
+                        
+                        if (sourceRowBgColor) {
+                            rowStyles.push(`background-color: ${sourceRowBgColor}`);
                         }
+                        
+                        // 如果有源样式，合并它们
+                        if (sourceRowStyle) {
+                            // 如果源样式中没有背景色，但我们已经提取了，则合并
+                            if (sourceRowBgColor && !sourceRowStyle.includes('background')) {
+                                tableRow.style.cssText = `background-color: ${sourceRowBgColor}; ${sourceRowStyle}`;
+                            } else {
+                                tableRow.style.cssText = sourceRowStyle;
+                            }
+                            tableRow.setAttribute('style', tableRow.style.cssText);
+                        } else if (sourceRowBgColor) {
+                            tableRow.style.backgroundColor = sourceRowBgColor;
+                        }
+                        
                         // 保留行的class属性（可能有样式相关的class）
                         const sourceRowClass = sourceRow.getAttribute('class');
                         if (sourceRowClass) {
                             tableRow.setAttribute('class', sourceRowClass);
                         }
+                        
                         // 尝试从源行的第一个单元格获取背景色（如果行本身没有style）
-                        if (!sourceRowStyle) {
+                        if (!sourceRowStyle && !sourceRowBgColor) {
                             const firstCell = sourceRow.querySelector('td, th');
                             if (firstCell) {
-                                const cellStyle = firstCell.getAttribute('style');
-                                if (cellStyle && cellStyle.includes('background')) {
+                                const cellBgColor = firstCell.style.backgroundColor || '';
+                                const cellStyle = firstCell.getAttribute('style') || '';
+                                
+                                if (cellBgColor) {
+                                    tableRow.style.backgroundColor = cellBgColor;
+                                } else if (cellStyle && cellStyle.includes('background')) {
                                     // 从单元格的style中提取背景色
                                     const bgMatch = cellStyle.match(/background[^;]*:[^;]*([^;]+)/i);
                                     if (bgMatch) {
-                                        tableRow.style.cssText = `background-color: ${bgMatch[1].trim()}`;
+                                        tableRow.style.backgroundColor = bgMatch[1].trim();
                                     }
                                 }
                             }
@@ -4506,41 +4528,100 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 // 655模式：需要保留所有HTML格式，包括颜色、下划线、背景等，以及表格边框
                                 if (currentDataCaptureType === '655') {
+                                    // 获取源单元格的所有样式信息
+                                    const sourceCellStyle = sourceCell.getAttribute('style') || '';
+                                    const sourceCellBgColor = sourceCell.style.backgroundColor || '';
+                                    const sourceCellColor = sourceCell.style.color || '';
+                                    const sourceCellFontWeight = sourceCell.style.fontWeight || '';
+                                    const sourceCellTextDecoration = sourceCell.style.textDecoration || '';
+                                    
                                     // 如果有HTML标签，直接使用innerHTML保持所有格式
                                     if (cleanContent.includes('<') && cleanContent.includes('>')) {
                                         // 直接使用innerHTML，保留所有格式标签（如<u>, <b>, <span>等）和样式属性
                                         targetCell.innerHTML = cleanContent;
-                                        // 同时保留单元格本身的样式属性（背景色等）
-                                        const sourceCellStyle = sourceCell.getAttribute('style');
-                                        if (sourceCellStyle) {
-                                            // 合并样式，确保边框不被覆盖
-                                            // 检查源样式是否包含border，如果不包含，添加边框
-                                            let mergedStyle = sourceCellStyle;
+                                        
+                                        // 构建完整的单元格样式，保留所有源样式
+                                        let cellStyles = [];
+                                        
+                                        // 保留背景色
+                                        if (sourceCellBgColor) {
+                                            cellStyles.push(`background-color: ${sourceCellBgColor}`);
+                                        }
+                                        
+                                        // 保留文字颜色
+                                        if (sourceCellColor) {
+                                            cellStyles.push(`color: ${sourceCellColor}`);
+                                        }
+                                        
+                                        // 保留字体粗细
+                                        if (sourceCellFontWeight) {
+                                            cellStyles.push(`font-weight: ${sourceCellFontWeight}`);
+                                        }
+                                        
+                                        // 保留文字装饰（如下划线）
+                                        if (sourceCellTextDecoration) {
+                                            cellStyles.push(`text-decoration: ${sourceCellTextDecoration}`);
+                                        }
+                                        
+                                        // 确保有边框（表格结构必需）
+                                        cellStyles.push('border: 1px solid #d0d7de');
+                                        
+                                        // 应用所有样式
+                                        if (cellStyles.length > 0) {
+                                            targetCell.style.cssText = cellStyles.join('; ') + '; ' + sourceCellStyle;
+                                        } else if (sourceCellStyle) {
+                                            // 如果源样式存在但没有提取到具体属性，直接使用源样式并添加边框
                                             if (!sourceCellStyle.includes('border')) {
-                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                                targetCell.style.cssText = `border: 1px solid #d0d7de; ${sourceCellStyle}`;
+                                            } else {
+                                                targetCell.style.cssText = sourceCellStyle;
                                             }
-                                            targetCell.setAttribute('style', mergedStyle);
                                         } else {
-                                            // 如果没有源样式，确保有边框
                                             targetCell.style.border = '1px solid #d0d7de';
                                         }
                                     } else if (cellText && cellText.trim() !== '') {
-                                        // 纯文本，但如果有样式属性，尝试保留
-                                        // 检查源单元格是否有style属性
-                                        const sourceCellStyle = sourceCell.getAttribute('style');
-                                        const sourceCellBgColor = sourceCell.style.backgroundColor;
-                                        if (sourceCellStyle) {
-                                            targetCell.innerHTML = `<span style="${sourceCellStyle}">${cellText}</span>`;
-                                            // 也保留单元格的样式，但确保边框存在
-                                            let mergedStyle = sourceCellStyle;
-                                            if (!sourceCellStyle.includes('border')) {
-                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                        // 纯文本，但需要保留所有样式属性
+                                        let cellStyles = [];
+                                        
+                                        // 保留背景色
+                                        if (sourceCellBgColor) {
+                                            cellStyles.push(`background-color: ${sourceCellBgColor}`);
+                                        }
+                                        
+                                        // 保留文字颜色
+                                        if (sourceCellColor) {
+                                            cellStyles.push(`color: ${sourceCellColor}`);
+                                        }
+                                        
+                                        // 保留字体粗细
+                                        if (sourceCellFontWeight) {
+                                            cellStyles.push(`font-weight: ${sourceCellFontWeight}`);
+                                        }
+                                        
+                                        // 保留文字装饰
+                                        if (sourceCellTextDecoration) {
+                                            cellStyles.push(`text-decoration: ${sourceCellTextDecoration}`);
+                                        }
+                                        
+                                        // 确保有边框
+                                        cellStyles.push('border: 1px solid #d0d7de');
+                                        
+                                        // 如果有样式，用span包裹文本以保留样式
+                                        if (cellStyles.length > 1) { // 大于1因为有border
+                                            const styleStr = cellStyles.filter(s => !s.includes('border')).join('; ');
+                                            if (styleStr) {
+                                                targetCell.innerHTML = `<span style="${styleStr}">${cellText}</span>`;
+                                            } else {
+                                                targetCell.textContent = cellText;
                                             }
-                                            targetCell.setAttribute('style', mergedStyle);
-                                        } else if (sourceCellBgColor) {
-                                            // 如果有背景色，应用背景色，同时保持边框
-                                            targetCell.style.backgroundColor = sourceCellBgColor;
-                                            targetCell.style.border = '1px solid #d0d7de';
+                                            targetCell.style.cssText = cellStyles.join('; ');
+                                        } else if (sourceCellStyle) {
+                                            // 使用源样式
+                                            if (!sourceCellStyle.includes('border')) {
+                                                targetCell.style.cssText = `border: 1px solid #d0d7de; ${sourceCellStyle}`;
+                                            } else {
+                                                targetCell.style.cssText = sourceCellStyle;
+                                            }
                                             targetCell.textContent = cellText;
                                         } else {
                                             // 纯文本，确保有边框
@@ -4548,15 +4629,20 @@ if ($current_user_id && count($user_companies) > 0) {
                                             targetCell.textContent = cellText;
                                         }
                                     } else {
-                                        // 空单元格也要有边框
+                                        // 空单元格也要有边框和背景色（如果有）
+                                        if (sourceCellBgColor) {
+                                            targetCell.style.backgroundColor = sourceCellBgColor;
+                                        }
                                         targetCell.style.border = '1px solid #d0d7de';
                                         targetCell.textContent = '';
                                     }
+                                    
                                     // 保留单元格的class属性（可能有样式相关的class）
                                     const sourceCellClass = sourceCell.getAttribute('class');
                                     if (sourceCellClass) {
                                         targetCell.setAttribute('class', sourceCellClass);
                                     }
+                                    
                                     // 确保单元格始终显示边框（表格网格结构）
                                     if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
                                         targetCell.style.border = '1px solid #d0d7de';
@@ -21463,12 +21549,12 @@ if ($current_user_id && count($user_companies) > 0) {
             const textInput655 = document.getElementById('textInput655');
             
             if (currentDataCaptureType === '655') {
-                // 隐藏表格，显示空白输入区域
+                // 655模式：显示表格，允许直接粘贴表格数据（类似Excel）
                 if (dataTable) {
-                    dataTable.style.display = 'none';
+                    dataTable.style.display = 'table';
                 }
                 if (textInput655) {
-                    textInput655.style.display = 'block';
+                    textInput655.style.display = 'none';
                     // 清空内容
                     textInput655.value = '';
                 }
