@@ -8110,7 +8110,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // API-RETURN 表格格式解析函数
         // 解析表格格式：29/12/2025  C2BT200  MYR  -  -  -2,953.02  0.00  -5,206.22  KING855 : (11860.00+138790.00*0.008+138790.00*0.001/0.90)*(0.225)  -  ZERO
         // 输出：['29/12/2025', 'C2BT200', 'MYR', '-', '-', '-2,953.02', '0.00', '-5,206.22', 'KING855:', '11860.00', '138790.00', '0.008', '138790.00', '0.001', '0.90', '0.225', '-', 'ZERO']
-        // 智能分割函数：保留日期格式，只拆分其他列
+        // 智能分割函数：保留日期格式和公式列，只拆分其他列
         function smartSplitPreservingDates(text) {
             if (!text || typeof text !== 'string') return [];
             
@@ -8120,14 +8120,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 return multiSpaceSplit;
             }
             
-            // 如果多个空格分割不够，使用智能单空格分割，但要合并日期部分
+            // 如果多个空格分割不够，使用智能单空格分割，但要合并日期部分和公式列
             const words = text.split(/\s+/).filter(w => w.trim() !== '');
             if (words.length < 8) {
                 return words;
             }
             
-            // 合并日期部分：检测日期模式并合并
-            // 日期模式：DD-MM-YYYY, DD/MM/YYYY, 或 DD MM YYYY (三个连续的数字，中间是-或/或空格)
+            // 合并日期部分和公式列：检测日期模式和公式模式并合并
+            // 日期模式：DD-MM-YYYY, DD/MM/YYYY, 或 DD MM YYYY
+            // 公式模式：包含冒号和括号/运算符的列（如 "ALIPAY95 : (-4934.32)" 或 "ROLLEX : 0*0.20+0-0"）
             const result = [];
             let i = 0;
             while (i < words.length) {
@@ -8153,6 +8154,40 @@ if ($current_user_id && count($user_companies) > 0) {
                         result.push(word);
                         i++;
                     }
+                } else if (word.includes(':') && (word.includes('(') || word.includes('+') || word.includes('-') || word.includes('*') || word.includes('/'))) {
+                    // 检测到公式列的开始（包含冒号和运算符）
+                    // 尝试合并后续的词，直到找到完整的公式或遇到明显的列分隔
+                    let formulaCol = word;
+                    let j = i + 1;
+                    
+                    // 检查下一个词是否应该合并到公式列中
+                    while (j < words.length) {
+                        const nextWord = words[j];
+                        
+                        // 如果下一个词包含运算符或括号，可能是公式的一部分
+                        if (nextWord.includes('(') || nextWord.includes(')') || 
+                            nextWord.includes('+') || nextWord.includes('-') || 
+                            nextWord.includes('*') || nextWord.includes('/') ||
+                            /^[-\d.]+$/.test(nextWord)) {
+                            // 可能是公式的一部分，合并
+                            formulaCol += ' ' + nextWord;
+                            j++;
+                            
+                            // 如果已经包含完整的括号对，可能是公式的结束
+                            const openParens = (formulaCol.match(/\(/g) || []).length;
+                            const closeParens = (formulaCol.match(/\)/g) || []).length;
+                            if (openParens > 0 && openParens === closeParens && !nextWord.includes('(')) {
+                                // 括号已平衡，可能是公式结束
+                                break;
+                            }
+                        } else {
+                            // 不是公式的一部分，停止合并
+                            break;
+                        }
+                    }
+                    
+                    result.push(formulaCol);
+                    i = j;
                 } else {
                     result.push(word);
                     i++;
@@ -16134,9 +16169,13 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // 4.RETURN 专用解析（使用与 API-RETURN 相同的格式处理逻辑）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '4.RETURN') {
+                console.log('4.RETURN format detected, processing paste data...');
+                console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
+                
                 // 检查是否是多行数据
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = normalizedData.split('\n').map(line => line.trim()).filter(line => line !== '');
+                console.log('4.RETURN: Number of lines:', lines.length);
                 
                 // 如果是多行数据，逐行处理
                 if (lines.length > 1) {
@@ -16259,24 +16298,29 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                     } else {
+                        console.log('4.RETURN: Processing without tab separator, using smart split...');
                         // 没有制表符，对每一行使用智能分割并检测公式列
                         for (let i = 0; i < lines.length; i++) {
                             const line = lines[i];
+                            console.log(`4.RETURN: Processing line ${i + 1}:`, line.substring(0, 100));
                             
                             // 先尝试表格格式解析（单行，包含完整的表格结构）
                             let apiReturnParsed = parseApiReturnTableFormat(line);
                             
                             if (apiReturnParsed) {
+                                console.log(`4.RETURN: Line ${i + 1} parsed by parseApiReturnTableFormat`);
                                 const { columns } = apiReturnParsed;
                                 dataMatrix.push(columns);
                                 maxCols = Math.max(maxCols, columns.length);
                                 hasValidRow = true;
                             } else {
+                                console.log(`4.RETURN: Line ${i + 1} not parsed by parseApiReturnTableFormat, trying smart split...`);
                                 // 如果表格格式解析失败，使用智能分割并检测公式列（类似单行处理）
                                 const trimmed = line.trim();
                                 if (trimmed) {
                                     // 使用智能分割函数，保留日期格式
                                     let columns = smartSplitPreservingDates(trimmed);
+                                    console.log(`4.RETURN: Line ${i + 1} smart split result:`, columns.length, 'columns');
                                     
                                     if (columns.length > 0) {
                                         // 处理所有列：去掉标签后的冒号
@@ -16298,6 +16342,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                                               (cell.includes('(') || cell.match(/\d/));
                                             
                                             if (isFormula) {
+                                                console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} contains formula:`, cell);
                                                 hasFormula = true;
                                                 // 解析公式列
                                                 let parsedFormula = null;
@@ -16449,9 +16494,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         }
                         
+                        console.log('4.RETURN: Multi-line processing completed. Success count:', successCount, 'Rows:', dataMatrix.length, 'Cols:', maxCols);
                         if (successCount > 0) {
                             showNotification(`成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)! 按 Ctrl+Z 可撤销`, 'success');
                         } else {
+                            console.log('4.RETURN: No cells were pasted from multi-line format.');
                             showNotification('No cells were pasted from 4.RETURN format.', 'danger');
                         }
                         
@@ -16459,16 +16506,19 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     }
                 } else {
+                    console.log('4.RETURN: Single-line data detected');
                     // 单行数据处理：保留所有列，只解析公式列
                     // 先尝试表格格式解析（多列数据，包含 Description 列）
                     let apiReturnParsed = parseApiReturnTableFormat(pastedData);
                     
                     if (!apiReturnParsed) {
+                        console.log('4.RETURN: parseApiReturnTableFormat failed, trying smart split...');
                         // 如果表格格式解析失败，尝试通用单行处理：使用智能分割保留日期，只解析公式列
                         const trimmed = pastedData.trim();
                         if (trimmed) {
                             // 使用智能分割函数，保留日期格式
                             const columns = smartSplitPreservingDates(trimmed);
+                            console.log('4.RETURN: Smart split result:', columns.length, 'columns');
                             
                             if (columns.length > 0) {
                                 // 处理所有列：去掉标签后的冒号
