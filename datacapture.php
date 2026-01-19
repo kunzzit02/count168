@@ -21846,6 +21846,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             };
 
+            const isLikelyTablePaste = () => {
+                const html = getClipboardData('text/html') || '';
+                if (html && html.includes('<table')) return true;
+                const text = getClipboardData('text/plain') || '';
+                // 判断是否像Excel/Sheets复制出来的TSV（至少两列 & 至少一行换行）
+                if (text && text.includes('\t') && (text.includes('\n') || text.includes('\r'))) return true;
+                return false;
+            };
+
             // 1) Prefer HTML table
             const htmlData = getClipboardData('text/html') || '';
             const htmlToUse = (htmlData && htmlData.includes('<table')) ? htmlData : (fallbackHTML || '');
@@ -21890,6 +21899,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }, 10);
                 return true;
+            }
+
+            // 如果看起来是表格粘贴，但读取不到内容（某些浏览器限制），不要让默认粘贴把<table>插到页面其它位置
+            if (isLikelyTablePaste()) {
+                try {
+                    if (pasteArea655) pasteArea655.focus();
+                } catch (_) {}
+                return true; // 让调用方去 preventDefault
             }
 
             return false;
@@ -23006,24 +23023,14 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // 全局粘贴事件处理
         document.addEventListener('paste', function(e) {
-            // 655模式：如果粘贴区域可见，优先处理粘贴区域的粘贴
+            // 655模式：当剪贴板看起来像“表格粘贴”(HTML table / TSV) 时，强制拦截，避免<table>被默认粘贴到页面其它位置（跑到上面）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
-                const pasteArea655 = document.getElementById('pasteArea655');
-                if (pasteArea655 && pasteArea655.style.display !== 'none' && pasteArea655.offsetParent !== null) {
-                    console.log('655: Global paste event - paste-area is visible, handling paste');
-                    const clipboard = (e.clipboardData || window.clipboardData);
-                    const handled = handle655PasteFromClipboard(clipboard, null);
-                    if (handled) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        return;
-                    }
-                    // 如果无法从clipboard直接读取HTML（浏览器限制），让默认粘贴发生在pasteArea里，再由其自身事件处理
-                    setTimeout(() => {
-                        try {
-                            pasteArea655.focus();
-                        } catch (_) {}
-                    }, 0);
+                const clipboard = (e.clipboardData || window.clipboardData);
+                const handled = handle655PasteFromClipboard(clipboard, null);
+                if (handled) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
                 }
             }
             
