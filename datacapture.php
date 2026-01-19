@@ -23260,6 +23260,7 @@ if ($current_user_id && count($user_companies) > 0) {
         function build655PreviewFragmentFromClipboardHtml(rawHtml) {
             if (!rawHtml) return '';
             try {
+                // Excel/Chrome 常用 StartFragment 标识真正复制范围（可能包含多个 table/frozen 区域）
                 const fragmentHtml = extractClipboardHtmlFragment(rawHtml);
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(String(rawHtml), 'text/html');
@@ -23269,56 +23270,37 @@ if ($current_user_id && count($user_companies) > 0) {
                 doc.querySelectorAll('script').forEach(n => n.remove());
                 fragDoc.querySelectorAll('script').forEach(n => n.remove());
 
-                // Remove event handlers + javascript: URLs
-                doc.querySelectorAll('*').forEach(el => {
-                    Array.from(el.attributes || []).forEach(attr => {
-                        if (/^on/i.test(attr.name)) {
-                            el.removeAttribute(attr.name);
-                        }
-                        if ((attr.name === 'href' || attr.name === 'src') && /^javascript:/i.test(attr.value || '')) {
-                            el.removeAttribute(attr.name);
-                        }
+                // Remove event handlers + javascript: URLs (keep class/style to preserve Excel formatting)
+                const stripUnsafe = (root) => {
+                    root.querySelectorAll('*').forEach(el => {
+                        Array.from(el.attributes || []).forEach(attr => {
+                            if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
+                            if ((attr.name === 'href' || attr.name === 'src') && /^javascript:/i.test(attr.value || '')) {
+                                el.removeAttribute(attr.name);
+                            }
+                        });
                     });
-                });
-                fragDoc.querySelectorAll('*').forEach(el => {
-                    Array.from(el.attributes || []).forEach(attr => {
-                        if (/^on/i.test(attr.name)) {
-                            el.removeAttribute(attr.name);
-                        }
-                        if ((attr.name === 'href' || attr.name === 'src') && /^javascript:/i.test(attr.value || '')) {
-                            el.removeAttribute(attr.name);
-                        }
-                    });
-                });
-
-                const pickLargestTable = (root) => {
-                    const tables = Array.from(root.querySelectorAll('table'));
-                    if (tables.length === 0) return null;
-                    let best = tables[0];
-                    let bestScore = -1;
-                    tables.forEach(t => {
-                        const score = t.querySelectorAll('td, th').length;
-                        if (score > bestScore) {
-                            bestScore = score;
-                            best = t;
-                        }
-                    });
-                    return best;
                 };
+                stripUnsafe(doc);
+                stripUnsafe(fragDoc);
 
-                // Prefer the largest table in document
-                // 优先用fragment里的table（更贴近用户复制的范围）
-                const table = pickLargestTable(fragDoc) || pickLargestTable(doc);
-                if (!table) return '';
-
-                // Collect style blocks (Excel often uses classes like .xl65)
+                // Collect style blocks (Excel often uses classes like .xl65 / mso-*)
                 const styles = Array.from(doc.querySelectorAll('style'))
                     .map(s => s.outerHTML)
                     .join('\n');
 
-                return `${styles}\n${table.outerHTML}`;
+                // Use fragment body (can include multiple tables/divs), fallback to full doc body
+                const fragBody = fragDoc.body ? fragDoc.body.innerHTML : '';
+                const fullBody = doc.body ? doc.body.innerHTML : '';
+                const bodyHtml = (fragBody && fragBody.trim()) ? fragBody : fullBody;
+
+                // If we still don't have any <table>, fallback to raw fragment
+                if (!bodyHtml || !/<table\b/i.test(bodyHtml)) {
+                    return styles ? `${styles}\n${fragmentHtml}` : fragmentHtml;
+                }
+
+                return `${styles}\n${bodyHtml}`;
             } catch (_) {
-                // Fallback: at least return the original html (caller may still render something)
                 return String(rawHtml);
             }
         }
@@ -23373,7 +23355,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
       body { font-family: Arial, sans-serif; font-size: 12px; }
-      .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; }
+      .wrap { padding: 10px; overflow: auto; width: 100%; height: 100%; box-sizing: border-box; }
       /* Only minimal baseline CSS; keep pasted table's own styles/alignment */
       table { border-collapse: collapse; }
     </style>
