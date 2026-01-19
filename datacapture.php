@@ -4708,13 +4708,6 @@ if ($current_user_id && count($user_companies) > 0) {
                             cellContent = sourceCell.textContent || '';
                         }
                         
-                        // 规范化Unicode减号字符（U+2212 "−"）为普通连字符（"-"），确保负数被正确识别
-                        // 同时处理可能被空格分隔的负号（如 "- 188.58" -> "-188.58"）
-                        cellContent = cellContent
-                            .replace(/\u2212/g, '-') // Unicode减号转普通连字符
-                            .replace(/\s*-\s+/g, '-') // 负号后的空格移除（如 "- 188" -> "-188"）
-                            .replace(/\s+-\s*/g, '-'); // 负号前的空格移除（如 " -188" -> "-188"）
-                        
                         // 处理第一个单元格（colspan的主单元格）
                         if (currentCol < actualCols) {
                             const targetCell = tableRow.children[currentCol + 1]; // +1 跳过行号列
@@ -4733,12 +4726,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ''); // 移除script标签
                                 
                                 // 提取纯文本内容以检查是否需要分离 DESCRIPTION-AMOUNT 格式
-                                // 规范化Unicode减号字符，确保负数被正确识别
-                                let textContent = (sourceCell.textContent || '').trim();
-                                textContent = textContent
-                                    .replace(/\u2212/g, '-') // Unicode减号转普通连字符
-                                    .replace(/\s*-\s+/g, '-') // 负号后的空格移除
-                                    .replace(/\s+-\s*/g, '-'); // 负号前的空格移除
+                                const textContent = sourceCell.textContent || '';
                                 
                                 // 检查是否是 DESCRIPTION-AMOUNT 格式（如 "Loyalty-24.79"）
                                 // 如果检测到这种格式，且下一列存在且为空，则分离
@@ -9340,12 +9328,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 如果HTML解析都失败，尝试纯文本格式（但尽量保持格式）
                 console.log('2.10 INVOICE: HTML parsing failed, trying text format...');
-                // 规范化Unicode减号字符（U+2212 "−"）为普通连字符（"-"），确保负数被正确识别
-                let normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                normalizedData = normalizedData
-                    .replace(/\u2212/g, '-') // Unicode减号转普通连字符
-                    .replace(/\s*-\s+/g, '-') // 负号后的空格移除（如 "- 188" -> "-188"）
-                    .replace(/\s+-\s*/g, '-'); // 负号前的空格移除（如 " -188" -> "-188"）
+                const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
                 
                 console.log('2.10 INVOICE: Total lines to process:', lines.length);
@@ -9876,12 +9859,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 
                                 if (cell && cell.contentEditable === 'true') {
                                     // 保持原始格式，trim去除首尾空格但保留内容
-                                    // 规范化Unicode减号字符，确保负数被正确识别
-                                    let cellValue = (cellData || '').trim();
-                                    cellValue = cellValue
-                                        .replace(/\u2212/g, '-') // Unicode减号转普通连字符
-                                        .replace(/\s*-\s+/g, '-') // 负号后的空格移除
-                                        .replace(/\s+-\s*/g, '-'); // 负号前的空格移除
+                                    const cellValue = (cellData || '').trim();
                                     currentPasteChanges.push({
                                         row: actualRowIndex,
                                         col: actualColIndex,
