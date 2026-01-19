@@ -24209,10 +24209,31 @@ if ($current_user_id && count($user_companies) > 0) {
             font-weight: bold;
             color: #24292f;
         }
-
+        
+        /* 655模式：确保粘贴的表格样式不被覆盖 */
+        .excel-table th[style] {
+            background-color: inherit !important;
+            color: inherit !important;
+        }
+        
         .excel-table td {
             background-color: white;
             color: #000000;
+        }
+        
+        /* 655模式：确保粘贴的单元格样式不被覆盖 */
+        .excel-table td[style] {
+            background-color: inherit !important;
+            color: inherit !important;
+        }
+        
+        /* 655模式：确保粘贴的行样式不被覆盖 */
+        .excel-table tr[style] {
+            background-color: inherit !important;
+        }
+        
+        .excel-table tr[style] td {
+            background-color: inherit !important;
         }
 
         .excel-table td:focus {
@@ -24242,12 +24263,28 @@ if ($current_user_id && count($user_companies) > 0) {
             color: #000000;        /* 确保文字也是黑色 */
             text-transform: uppercase;
         }
+        
+        /* 655模式：确保粘贴的单元格内容样式不被覆盖 */
+        .excel-table td[contenteditable="true"][style] {
+            color: inherit !important;
+        }
+        
+        .excel-table td[contenteditable="true"] span[style],
+        .excel-table td[contenteditable="true"] *[style] {
+            color: inherit !important;
+        }
 
         .excel-table td[contenteditable="true"]:focus {
             outline: none;
             background-color: #f8f9fa;
             color: #000000;
             caret-color: #000000;
+        }
+        
+        /* 655模式：有内联样式的单元格在focus时也保持原有样式 */
+        .excel-table td[contenteditable="true"][style]:focus {
+            background-color: inherit !important;
+            color: inherit !important;
         }
 
         .excel-table-header {
