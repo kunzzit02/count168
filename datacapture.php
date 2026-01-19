@@ -237,7 +237,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <option value="AWC">AWC</option>
                             <!-- <option value="WBET_API">WBET_API</option> -->
                             <!-- <option value="INVOICE">INVOICE</option> -->
-                            <!-- <option value="655">655</option> -->
+                            <option value="655">655</option>
                         </select>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
