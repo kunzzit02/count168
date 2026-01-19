@@ -23180,7 +23180,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 .replace(/javascript:/gi, '');
 
             const pickLargestTable = (root) => {
-                const tables = Array.from(root.querySelectorAll('table'));
+                const tables = Array.from(root.querySelectorAll('table')).filter(t => {
+                    // exclude nested tables
+                    const parentTable = t.parentElement ? t.parentElement.closest('table') : null;
+                    return !parentTable;
+                });
                 if (tables.length === 0) return null;
                 let best = tables[0];
                 let bestScore = -1;
@@ -23194,9 +23198,91 @@ if ($current_user_id && count($user_companies) > 0) {
                 return best;
             };
 
-            // 只保留“最像主表”的那一张（Excel有时会带多个table，拿错会只剩一半列）
-            const table = pickLargestTable(temp);
-            if (!table) return '';
+            const getTableRows = (table) => Array.from(table.querySelectorAll('tr'));
+            const getDirectCells = (tr) => Array.from(tr.children || []).filter(el => {
+                const tag = (el.tagName || '').toUpperCase();
+                return tag === 'TD' || tag === 'TH';
+            });
+            const cellText = (cell) => (cell && cell.textContent ? cell.textContent : '').trim();
+
+            const mergeTablesSideBySide = (leftTable, rightTable) => {
+                const leftRows = getTableRows(leftTable);
+                const rightRows = getTableRows(rightTable);
+                const rowCount = Math.max(leftRows.length, rightRows.length);
+
+                const merged = document.createElement('table');
+                const tbody = document.createElement('tbody');
+                merged.appendChild(tbody);
+
+                for (let i = 0; i < rowCount; i++) {
+                    const tr = document.createElement('tr');
+                    const lRow = leftRows[i];
+                    const rRow = rightRows[i];
+
+                    const lCells = lRow ? getDirectCells(lRow) : [];
+                    const rCells = rRow ? getDirectCells(rRow) : [];
+
+                    // Avoid duplicated row index if both sides include it
+                    let rStart = 0;
+                    if (lCells.length && rCells.length) {
+                        const lt = cellText(lCells[0]);
+                        const rt = cellText(rCells[0]);
+                        if (lt && rt && lt === rt && (/^\d+$/.test(lt) || /^total$/i.test(lt))) {
+                            rStart = 1;
+                        }
+                    }
+
+                    lCells.forEach(c => tr.appendChild(c.cloneNode(true)));
+                    rCells.slice(rStart).forEach(c => tr.appendChild(c.cloneNode(true)));
+                    tbody.appendChild(tr);
+                }
+
+                return merged;
+            };
+
+            const pickBestMergedTable = (root) => {
+                const tables = Array.from(root.querySelectorAll('table')).filter(t => {
+                    const parentTable = t.parentElement ? t.parentElement.closest('table') : null;
+                    return !parentTable;
+                });
+                if (tables.length === 0) return null;
+                if (tables.length === 1) return tables[0];
+
+                // Best single
+                const single = pickLargestTable(root);
+                const singleScore = single ? single.querySelectorAll('td, th').length : 0;
+
+                // Best pair merge (fixed-table copy often yields 2 side-by-side tables)
+                let bestPair = null;
+                let bestPairScore = -1;
+                for (let i = 0; i < tables.length; i++) {
+                    for (let j = i + 1; j < tables.length; j++) {
+                        const a = tables[i], b = tables[j];
+                        const aRows = getTableRows(a).length;
+                        const bRows = getTableRows(b).length;
+                        if (aRows < 2 || bRows < 2) continue;
+                        if (Math.abs(aRows - bRows) > 1) continue;
+                        const score = a.querySelectorAll('td, th').length + b.querySelectorAll('td, th').length;
+                        if (score > bestPairScore) {
+                            bestPairScore = score;
+                            bestPair = [a, b];
+                        }
+                    }
+                }
+
+                // Use merged if it clearly contains more cells than any single
+                if (bestPair && bestPairScore > singleScore) {
+                    // Keep document order: earlier table is the left side
+                    return mergeTablesSideBySide(bestPair[0], bestPair[1]);
+                }
+
+                return single;
+            };
+
+            // 只保留“最像主表/合并后的主表”
+            const tableOrMerged = pickBestMergedTable(temp);
+            if (!tableOrMerged) return '';
+            const table = tableOrMerged;
 
             // 清除会把table“顶到页面最上面”的定位类样式
             const stripPosStyles = (el) => {
@@ -23292,7 +23378,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
 
                 const pickLargestTable = (root) => {
-                    const tables = Array.from(root.querySelectorAll('table'));
+                    const tables = Array.from(root.querySelectorAll('table')).filter(t => {
+                        const parentTable = t.parentElement ? t.parentElement.closest('table') : null;
+                        return !parentTable;
+                    });
                     if (tables.length === 0) return null;
                     let best = tables[0];
                     let bestScore = -1;
@@ -23308,7 +23397,82 @@ if ($current_user_id && count($user_companies) > 0) {
 
                 // Prefer the largest table in document
                 // 优先用fragment里的table（更贴近用户复制的范围）
-                const table = pickLargestTable(fragDoc) || pickLargestTable(doc);
+                const getTableRows = (table) => Array.from(table.querySelectorAll('tr'));
+                const getDirectCells = (tr) => Array.from(tr.children || []).filter(el => {
+                    const tag = (el.tagName || '').toUpperCase();
+                    return tag === 'TD' || tag === 'TH';
+                });
+                const cellText = (cell) => (cell && cell.textContent ? cell.textContent : '').trim();
+
+                const mergeTablesSideBySide = (leftTable, rightTable) => {
+                    const leftRows = getTableRows(leftTable);
+                    const rightRows = getTableRows(rightTable);
+                    const rowCount = Math.max(leftRows.length, rightRows.length);
+
+                    const merged = fragDoc.createElement('table');
+                    const tbody = fragDoc.createElement('tbody');
+                    merged.appendChild(tbody);
+
+                    for (let i = 0; i < rowCount; i++) {
+                        const tr = fragDoc.createElement('tr');
+                        const lRow = leftRows[i];
+                        const rRow = rightRows[i];
+
+                        const lCells = lRow ? getDirectCells(lRow) : [];
+                        const rCells = rRow ? getDirectCells(rRow) : [];
+
+                        let rStart = 0;
+                        if (lCells.length && rCells.length) {
+                            const lt = cellText(lCells[0]);
+                            const rt = cellText(rCells[0]);
+                            if (lt && rt && lt === rt && (/^\d+$/.test(lt) || /^total$/i.test(lt))) {
+                                rStart = 1;
+                            }
+                        }
+
+                        lCells.forEach(c => tr.appendChild(c.cloneNode(true)));
+                        rCells.slice(rStart).forEach(c => tr.appendChild(c.cloneNode(true)));
+                        tbody.appendChild(tr);
+                    }
+
+                    return merged;
+                };
+
+                const pickBestMergedTable = (root) => {
+                    const tables = Array.from(root.querySelectorAll('table')).filter(t => {
+                        const parentTable = t.parentElement ? t.parentElement.closest('table') : null;
+                        return !parentTable;
+                    });
+                    if (tables.length === 0) return null;
+                    if (tables.length === 1) return tables[0];
+
+                    const single = pickLargestTable(root);
+                    const singleScore = single ? single.querySelectorAll('td, th').length : 0;
+
+                    let bestPair = null;
+                    let bestPairScore = -1;
+                    for (let i = 0; i < tables.length; i++) {
+                        for (let j = i + 1; j < tables.length; j++) {
+                            const a = tables[i], b = tables[j];
+                            const aRows = getTableRows(a).length;
+                            const bRows = getTableRows(b).length;
+                            if (aRows < 2 || bRows < 2) continue;
+                            if (Math.abs(aRows - bRows) > 1) continue;
+                            const score = a.querySelectorAll('td, th').length + b.querySelectorAll('td, th').length;
+                            if (score > bestPairScore) {
+                                bestPairScore = score;
+                                bestPair = [a, b];
+                            }
+                        }
+                    }
+
+                    if (bestPair && bestPairScore > singleScore) {
+                        return mergeTablesSideBySide(bestPair[0], bestPair[1]);
+                    }
+                    return single;
+                };
+
+                const table = pickBestMergedTable(fragDoc) || pickBestMergedTable(doc);
                 if (!table) return '';
 
                 // Collect style blocks (Excel often uses classes like .xl65)
@@ -23373,9 +23537,10 @@ if ($current_user_id && count($user_companies) > 0) {
     <style>
       html, body { margin: 0; padding: 0; background: #fff; }
       body { font-family: Arial, sans-serif; font-size: 12px; }
-      .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; }
-      /* Only minimal baseline CSS; keep pasted table's own styles/alignment */
-      table { border-collapse: collapse; }
+      .wrap { padding: 14px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; background: #f3f3f3; }
+      /* 655 preview baseline: mimic "Table Format" look */
+      table { border-collapse: collapse; margin: 0 auto; background: #fff; }
+      td, th { border: 1px solid #d0d7de; padding: 4px 10px; text-align: center; vertical-align: middle; white-space: nowrap; }
     </style>
   </head>
   <body>
