@@ -16187,11 +16187,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     let hasValidRow = false;
                     
                     if (hasTabSeparator) {
+                        console.log('4.RETURN: Processing with tab separator...');
                         // 如果包含制表符，按制表符分割，检查所有列是否包含公式
                         for (let i = 0; i < lines.length; i++) {
                             const line = lines[i];
                             if (line.includes('\t')) {
                                 const cells = line.split('\t').map(c => c.trim());
+                                console.log(`4.RETURN: Line ${i + 1} split into ${cells.length} columns`);
                                 
                                 // 处理所有列：去掉标签后的冒号（如 "abc:" -> "abc"）
                                 for (let colIndex = 0; colIndex < cells.length; colIndex++) {
@@ -16212,13 +16214,17 @@ if ($current_user_id && count($user_companies) > 0) {
                                                       (cell.includes('(') || cell.match(/\d/)); // 包含数字
                                     
                                     if (hasFormula) {
+                                        console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} contains formula:`, cell);
                                         // 解析公式列
                                         let parsedFormula = null;
                                         
                                         // 如果有冒号，使用parseApiReturnFormat
                                         if (cell.includes(':')) {
+                                            console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} has colon, calling parseApiReturnFormat...`);
                                             parsedFormula = parseApiReturnFormat(cell);
+                                            console.log(`4.RETURN: parseApiReturnFormat result:`, parsedFormula);
                                         } else {
+                                            console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} no colon, extracting numbers directly...`);
                                             // 如果没有冒号，直接提取数字
                                             // 需要正确处理减号：在公式中，减号是运算符，不是负数符号
                                             // 例如 "(22.33+55.66-42*539/563)" 中的 "-42" 应该提取为 "42"
@@ -16244,6 +16250,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         }
                                         
                                         if (parsedFormula && parsedFormula.columns && parsedFormula.columns.length > 0) {
+                                            console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} formula parsed successfully:`, parsedFormula.columns);
                                             const parsedColumns = parsedFormula.columns;
                                             
                                             // 如果有标签（第一个元素可能是标签），保留标签但去掉冒号
@@ -16257,9 +16264,11 @@ if ($current_user_id && count($user_companies) > 0) {
                                                     // 是标签，去掉冒号
                                                     label = firstElement.replace(':', '');
                                                     numbersToInsert = parsedColumns.slice(1);
+                                                    console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} has label:`, label, 'numbers:', numbersToInsert);
                                                 } else {
                                                     // 不是标签，都是数字
                                                     numbersToInsert = parsedColumns;
+                                                    console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} no label, numbers:`, numbersToInsert);
                                                 }
                                             }
                                             
@@ -16273,16 +16282,20 @@ if ($current_user_id && count($user_companies) > 0) {
                                             
                                             // 将解析后的数字插入到公式列之后
                                             if (numbersToInsert.length > 0) {
+                                                console.log(`4.RETURN: Line ${i + 1}, Inserting ${numbersToInsert.length} numbers after column ${colIndex}`);
                                                 // 如果公式列被清空，直接替换；否则插入
                                                 if (!label) {
                                                     cells.splice(colIndex, 1, ...numbersToInsert);
                                                 } else {
                                                     cells.splice(colIndex + 1, 0, ...numbersToInsert);
                                                 }
+                                                console.log(`4.RETURN: Line ${i + 1}, After insertion, cells:`, cells);
                                             }
                                             
                                             // 处理完一个公式列后，跳出循环（一次只处理一个公式列）
                                             break;
+                                        } else {
+                                            console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} formula parsing failed or returned empty`);
                                         }
                                     }
                                 }
