@@ -21514,23 +21514,24 @@ if ($current_user_id && count($user_companies) > 0) {
             // Also get plain text as fallback
             const textData = getClipboardData('text/plain') || getClipboardData('text') || getClipboardData('Text') || '';
 
-            // Show the table
+            // Keep textarea visible and blank, but ensure table exists (hidden) for data filling
             const dataTable = document.getElementById('dataTable');
             const textInput655 = document.getElementById('textInput655');
             
-            if (dataTable) {
-                dataTable.style.display = 'table';
-            }
+            // Keep textarea blank and visible
             if (textInput655) {
-                textInput655.style.display = 'none';
-                // Keep textarea blank
                 textInput655.value = '';
             }
-
-            // Ensure table is initialized
+            
+            // Ensure table is initialized (but keep it hidden in 655 mode)
             const tableBody = document.getElementById('tableBody');
             if (!tableBody || tableBody.children.length === 0) {
                 initializeTable(26, 20);
+            }
+            
+            // Make sure table stays hidden in 655 mode
+            if (dataTable && currentDataCaptureType === '655') {
+                dataTable.style.display = 'none';
             }
 
             // Get the first editable cell as start cell
@@ -21560,6 +21561,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('655: HTML table format detected in textarea paste');
                 const filled = parseAndFillHTMLTableForGeneral(htmlData, startCell);
                 if (filled) {
+                    // Ensure table stays hidden and textarea stays visible after paste
+                    if (dataTable && currentDataCaptureType === '655') {
+                        dataTable.style.display = 'none';
+                    }
+                    if (textInput655 && currentDataCaptureType === '655') {
+                        textInput655.style.display = 'block';
+                        textInput655.value = '';
+                    }
                     return; // Successfully handled
                 }
             }
@@ -21570,6 +21579,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('655: HTML data detected via detectAndParseHTML in textarea paste');
                 const filled = parseAndFillHTMLTableForGeneral(htmlDataFromDetect, startCell);
                 if (filled) {
+                    // Ensure table stays hidden and textarea stays visible after paste
+                    if (dataTable && currentDataCaptureType === '655') {
+                        dataTable.style.display = 'none';
+                    }
+                    if (textInput655 && currentDataCaptureType === '655') {
+                        textInput655.style.display = 'block';
+                        textInput655.value = '';
+                    }
                     return; // Successfully handled
                 }
             }
@@ -21659,6 +21676,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                             
                             if (successCount > 0) {
+                                // Ensure table stays hidden and textarea stays visible after paste
+                                if (dataTable && currentDataCaptureType === '655') {
+                                    dataTable.style.display = 'none';
+                                }
+                                if (textInput655 && currentDataCaptureType === '655') {
+                                    textInput655.style.display = 'block';
+                                    textInput655.value = '';
+                                }
                                 showNotification(`成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`, 'success');
                                 setTimeout(updateSubmitButtonState, 0);
                                 return;
