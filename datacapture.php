@@ -13463,6 +13463,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 3.1 WBET_API: 保持原始格式，特别是保持 Sub Total 和 Grand Total 分开成两行
                 const startCell = e.target;
                 let formatDetected = false;
+
+                // 3.1 WBET_API 快速特征检测：避免误把 INVOICE 当成 WBET_API
+                // WBET_API 典型特征：包含 SUB TOTAL / GRAND TOTAL
+                const isLikelyWBET_API = /SUB\s*TOTAL|SUBTOTAL|GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                if (!isLikelyWBET_API) {
+                    console.log('3.API: 3.1 WBET_API format check failed (no SUB/GRAND TOTAL), skipping...');
+                } else {
                 
                 // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
                 const htmlDataFromDetect = detectAndParseHTML(e);
@@ -13845,6 +13852,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!formatDetected) {
                     console.log('3.API: 3.1 WBET_API parser failed, will continue trying other formats');
                 }
+                } // end 3.1 WBET_API guard (isLikelyWBET_API)
 
                 // ===== 3.2 INVOICE 格式检测和处理 =====
                 // 3.2 INVOICE: 以下代码从 INVOICE 选项复制而来，用于在 3.API 模式下支持 INVOICE 格式的粘贴
