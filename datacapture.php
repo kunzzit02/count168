@@ -23186,7 +23186,8 @@ if ($current_user_id && count($user_companies) > 0) {
             return false;
         }
 
-        // 全局粘贴强制落入容器（capture阶段）：655模式下把“表格粘贴”拦截并插入到pasteArea容器，避免跑到页面最上面
+        // 全局粘贴强制落入容器（bubble阶段）：655模式下把“表格粘贴”拦截并插入到pasteArea容器，避免跑到页面最上面
+        // 说明：部分浏览器在capture阶段取不到clipboardData，因此这里用bubble阶段确保可读剪贴板
         document.addEventListener('paste', function(e) {
             if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '655') return;
 
@@ -23232,7 +23233,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 pasteArea655.innerHTML = tableHtml;
                 parseAndFillHTMLTableForGeneral655(pasteArea655.innerHTML);
             }
-        }, true);
+        });
 
         // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴
         document.addEventListener('paste', function(e) {
