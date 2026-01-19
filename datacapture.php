@@ -239,6 +239,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <!-- <option value="INVOICE">INVOICE</option> -->
                             <option value="655">655</option>
                         </select>
+                        <span id="mode655Debug" class="mode-655-debug" style="display:none;"></span>
                         <button type="button" class="btn btn-cancel" onclick="resetForm()">Reset</button>
                     </div>
                     <table class="excel-table" id="dataTable">
@@ -21816,6 +21817,9 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         });
 
+        // 655：版本标记（用于确认是否已加载到最新datacapture.php）
+        const MODE_655_PREVIEW_BUILD = '655-preview-build-2026-01-19-iframe-fragment-1';
+
         // 655：是否已经成功解析并填充到网格表
         let is655GridReady = false;
 
@@ -21824,8 +21828,13 @@ if ($current_user_id && count($user_companies) > 0) {
             const dataTable = document.getElementById('dataTable');
             const tablePreview655 = document.getElementById('tablePreview655');
             const pasteArea655 = document.getElementById('pasteArea655');
+            const mode655Debug = document.getElementById('mode655Debug');
             
             if (currentDataCaptureType === '655') {
+                if (mode655Debug) {
+                    mode655Debug.style.display = 'inline';
+                    mode655Debug.textContent = MODE_655_PREVIEW_BUILD;
+                }
                 // 655：未粘贴时显示粘贴区；粘贴成功后显示“预览table container”（像截图那样）
                 if (is655GridReady) {
                     if (dataTable) dataTable.style.display = 'none'; // 网格表仍填充但不展示
@@ -21846,6 +21855,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
             } else {
+                if (mode655Debug) mode655Debug.style.display = 'none';
                 // 显示表格，隐藏空白粘贴区域
                 if (dataTable) {
                     dataTable.style.display = 'table';
@@ -24660,6 +24670,13 @@ if ($current_user_id && count($user_companies) > 0) {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             max-width: 100%;
             height: clamp(230px, 17.19vw, 330px); /* ~10 rows incl. header */
+        }
+
+        .mode-655-debug {
+            font-size: 12px;
+            color: #6c757d;
+            margin-left: 10px;
+            user-select: text;
         }
         
         .text-input-655 {
