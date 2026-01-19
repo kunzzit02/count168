@@ -4480,13 +4480,22 @@ if ($current_user_id && count($user_companies) > 0) {
                                     targetHeader.textContent = cellText;
                                 }
                                 
-                                // 保留样式（包括背景色、文字颜色等所有样式）
+                                // 保留样式（包括背景色、文字颜色等所有样式）- 使用!important确保覆盖默认CSS
                                 const sourceCellStyle = sourceCell.getAttribute('style');
                                 const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
                                 
                                 if (sourceCellStyle) {
-                                    targetHeader.setAttribute('style', sourceCellStyle);
-                                    targetHeader.style.cssText = sourceCellStyle;
+                                    // 为所有样式添加!important以确保覆盖默认CSS
+                                    let enhancedStyle = sourceCellStyle
+                                        .replace(/([^;:]+):\s*([^;!]+)(;|$)/g, (match, prop, value, end) => {
+                                            // 如果已经有!important就保留，否则添加
+                                            if (value.includes('!important')) {
+                                                return match;
+                                            }
+                                            return `${prop}: ${value.trim()} !important${end || ';'}`;
+                                        });
+                                    targetHeader.setAttribute('style', enhancedStyle);
+                                    targetHeader.style.cssText = enhancedStyle;
                                 } else {
                                     // 即使没有style属性，也尝试从computed style获取样式
                                     const bgColor = sourceCellComputedStyle.backgroundColor;
@@ -4551,13 +4560,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     const tableRow = tableBody.children[rowIndex];
                     if (!tableRow) return;
                     
-                    // 保留行的样式（包括背景色等）
+                    // 保留行的样式（包括背景色等）- 使用!important确保覆盖默认CSS
                     const sourceRowStyle = sourceRow.getAttribute('style');
                     const sourceRowComputedStyle = window.getComputedStyle(sourceRow);
                     
                     if (sourceRowStyle) {
-                        tableRow.setAttribute('style', sourceRowStyle);
-                        tableRow.style.cssText = sourceRowStyle;
+                        // 为所有样式添加!important以确保覆盖默认CSS
+                        let enhancedStyle = sourceRowStyle
+                            .replace(/([^;:]+):\s*([^;!]+)(;|$)/g, (match, prop, value, end) => {
+                                // 如果已经有!important就保留，否则添加
+                                if (value.includes('!important')) {
+                                    return match;
+                                }
+                                return `${prop}: ${value.trim()} !important${end || ';'}`;
+                            });
+                        tableRow.setAttribute('style', enhancedStyle);
+                        tableRow.style.cssText = enhancedStyle;
                     } else {
                         // 即使没有style属性，也尝试从computed style获取背景色
                         const bgColor = sourceRowComputedStyle.backgroundColor;
@@ -4598,32 +4616,60 @@ if ($current_user_id && count($user_companies) > 0) {
                                     .replace(/javascript:/gi, '')
                                     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
                                 
-                                // 保留所有HTML格式
+                                // 保留所有HTML格式（包括文字颜色、下划线等）
                                 if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                    // 直接使用innerHTML保留所有HTML格式标签（如<u>, <b>, <span style="color:red">等）
                                     targetCell.innerHTML = cleanContent;
                                 } else if (cellText && cellText.trim() !== '') {
+                                    // 即使没有HTML标签，也尝试保留样式
                                     const sourceCellStyle = sourceCell.getAttribute('style');
+                                    const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
+                                    
                                     if (sourceCellStyle) {
-                                        targetCell.innerHTML = `<span style="${sourceCellStyle}">${cellText}</span>`;
+                                        // 为样式添加!important
+                                        let enhancedStyle = sourceCellStyle
+                                            .replace(/([^;:]+):\s*([^;!]+)(;|$)/g, (match, prop, value, end) => {
+                                                if (value.includes('!important')) {
+                                                    return match;
+                                                }
+                                                return `${prop}: ${value.trim()} !important${end || ';'}`;
+                                            });
+                                        targetCell.innerHTML = `<span style="${enhancedStyle}">${cellText}</span>`;
                                     } else {
-                                        targetCell.textContent = cellText;
+                                        // 尝试从computed style获取颜色
+                                        const color = sourceCellComputedStyle.color;
+                                        if (color && color !== 'rgb(0, 0, 0)') {
+                                            targetCell.innerHTML = `<span style="color: ${color} !important;">${cellText}</span>`;
+                                        } else {
+                                            targetCell.textContent = cellText;
+                                        }
                                     }
                                 } else {
                                     targetCell.textContent = '';
                                 }
                                 
-                                // 保留单元格样式（包括背景色、文字颜色等所有样式）
+                                // 保留单元格样式（包括背景色、文字颜色等所有样式）- 使用!important确保覆盖默认CSS
                                 const sourceCellStyle = sourceCell.getAttribute('style');
                                 const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
                                 
                                 if (sourceCellStyle) {
-                                    // 保留原始样式，确保边框存在
-                                    let mergedStyle = sourceCellStyle;
-                                    if (!sourceCellStyle.includes('border')) {
-                                        mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                    // 为所有样式添加!important以确保覆盖默认CSS
+                                    let enhancedStyle = sourceCellStyle
+                                        .replace(/([^;:]+):\s*([^;!]+)(;|$)/g, (match, prop, value, end) => {
+                                            // 如果已经有!important就保留，否则添加
+                                            if (value.includes('!important')) {
+                                                return match;
+                                            }
+                                            return `${prop}: ${value.trim()} !important${end || ';'}`;
+                                        });
+                                    
+                                    // 确保边框存在
+                                    if (!enhancedStyle.includes('border')) {
+                                        enhancedStyle = `border: 1px solid #d0d7de !important; ${enhancedStyle}`;
                                     }
-                                    targetCell.setAttribute('style', mergedStyle);
-                                    targetCell.style.cssText = mergedStyle;
+                                    
+                                    targetCell.setAttribute('style', enhancedStyle);
+                                    targetCell.style.cssText = enhancedStyle;
                                 } else {
                                     // 即使没有style属性，也尝试从computed style获取样式
                                     const bgColor = sourceCellComputedStyle.backgroundColor;
