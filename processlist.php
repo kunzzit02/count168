@@ -727,12 +727,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                             <img src="images/edit.svg" alt="Edit" />
                         </button>
-                        <input type="checkbox" class="row-checkbox" data-id="${process.id}" ${process.status === 'active' ? 'disabled title="Cannot delete active processes"' : 'title="Select for deletion"'} onchange="updateDeleteButton()" style="margin-left: 10px;">
+                        ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                     </div>
                 `;
                 container.appendChild(card);
             });
             renderPagination();
+            updateSelectAllProcessesVisibility();
         }
 
         function renderPagination() {
@@ -1094,6 +1095,18 @@ if ($current_user_id && count($user_companies) > 0) {
             updateDeleteButton();
         }
 
+        // 根据当前页面是否有可删除项，显示/隐藏全选框
+        function updateSelectAllProcessesVisibility() {
+            const selectAllCheckbox = document.getElementById('selectAllProcesses');
+            if (!selectAllCheckbox) return;
+            
+            const anyRowCheckbox = document.querySelectorAll('.row-checkbox').length > 0;
+            selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
+            if (!anyRowCheckbox) {
+                selectAllCheckbox.checked = false;
+            }
+        }
+
         function updateDeleteButton() {
             const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
             const deleteBtn = document.getElementById('processDeleteSelectedBtn');
@@ -1144,16 +1157,23 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (items.length > 3) {
                             const statusClass = result.newStatus === 'active' ? 'status-active' : 'status-inactive';
                             items[3].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
-                            
-                            // 更新复选框状态
-                            const checkbox = card.querySelector('.row-checkbox');
-                            if (checkbox) {
+                            // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
+                            const actionCell = items[6]; // Action 列
+                            if (actionCell) {
+                                const existingCheckbox = actionCell.querySelector('.row-checkbox');
                                 if (result.newStatus === 'active') {
-                                    checkbox.disabled = true;
-                                    checkbox.setAttribute('title', 'Cannot delete active processes');
+                                    if (existingCheckbox) existingCheckbox.remove();
                                 } else {
-                                    checkbox.disabled = false;
-                                    checkbox.setAttribute('title', 'Select for deletion');
+                                    if (!existingCheckbox) {
+                                        const checkbox = document.createElement('input');
+                                        checkbox.type = 'checkbox';
+                                        checkbox.className = 'row-checkbox';
+                                        checkbox.dataset.id = String(processId);
+                                        checkbox.title = 'Select for deletion';
+                                        checkbox.style.marginLeft = '10px';
+                                        checkbox.onchange = updateDeleteButton;
+                                        actionCell.appendChild(checkbox);
+                                    }
                                 }
                             }
                         }
@@ -1177,6 +1197,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     // 更新删除按钮状态
                     updateDeleteButton();
+                    updateSelectAllProcessesVisibility();
                     
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Process status changed to ${statusText}`, 'success');

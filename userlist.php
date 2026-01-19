@@ -1758,20 +1758,23 @@ try {
                                 <img src="images/edit.svg" alt="Edit Disabled">
                             </button>
                         <?php endif; ?>
-                        <?php if ($can_delete): ?>
-                            <input type="checkbox" class="user-checkbox" value="<?php echo $user['id']; ?>" data-is-owner-shadow="<?php echo $is_owner_shadow ? '1' : '0'; ?>" data-role="<?php echo htmlspecialchars($user_role); ?>" onchange="updateDeleteButton()">
-                        <?php else: ?>
-                            <input type="checkbox" class="user-checkbox" disabled style="opacity: 0.3; cursor: not-allowed;" title="<?php 
-                                if ($is_self) {
-                                    echo 'You cannot delete your own account';
-                                } elseif ($is_same_level) {
-                                    echo 'You cannot delete accounts with the same role level';
-                                } elseif ($is_higher_level) {
-                                    echo 'You cannot delete accounts with higher role level';
-                                } else {
-                                    echo 'No permission to delete';
-                                }
-                            ?>">
+                        <?php $is_active_status = strtolower($user['status'] ?? '') === 'active'; ?>
+                        <?php if (!$is_active_status): ?>
+                            <?php if ($can_delete): ?>
+                                <input type="checkbox" class="user-checkbox" value="<?php echo $user['id']; ?>" data-is-owner-shadow="<?php echo $is_owner_shadow ? '1' : '0'; ?>" data-role="<?php echo htmlspecialchars($user_role); ?>" onchange="updateDeleteButton()">
+                            <?php else: ?>
+                                <input type="checkbox" class="user-checkbox" disabled style="opacity: 0.3; cursor: not-allowed;" title="<?php 
+                                    if ($is_self) {
+                                        echo 'You cannot delete your own account';
+                                    } elseif ($is_same_level) {
+                                        echo 'You cannot delete accounts with the same role level';
+                                    } elseif ($is_higher_level) {
+                                        echo 'You cannot delete accounts with higher role level';
+                                    } else {
+                                        echo 'No permission to delete';
+                                    }
+                                ?>">
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -3322,6 +3325,18 @@ try {
             updateDeleteButton();
         }
 
+        // 根据当前页面是否有可删除项，显示/隐藏全选框
+        function updateSelectAllUsersVisibility() {
+            const selectAllCheckbox = document.getElementById('selectAllUsers');
+            if (!selectAllCheckbox) return;
+            
+            const anyRowCheckbox = document.querySelectorAll('.user-checkbox').length > 0;
+            selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
+            if (!anyRowCheckbox) {
+                selectAllCheckbox.checked = false;
+            }
+        }
+
         // 更新删除按钮状态
         function updateDeleteButton() {
             const selectedCheckboxes = document.querySelectorAll('.user-checkbox:checked');
@@ -3344,6 +3359,8 @@ try {
                 deleteBtn.textContent = 'Delete';
                 deleteBtn.disabled = true;
             }
+            
+            updateSelectAllUsersVisibility();
         }
 
         // 权限选择相关函数
@@ -3762,7 +3779,7 @@ try {
                     <button class="btn btn-edit edit-btn" onclick="editUser(${userData.id}, false)" aria-label="Edit">
                         <img src="images/edit.svg" alt="Edit">
                     </button>
-                    <input type="checkbox" class="user-checkbox" value="${userData.id}" data-is-owner-shadow="0" onchange="updateDeleteButton()">
+                    ${(String(userData.status || '').toLowerCase() === 'active') ? '' : `<input type="checkbox" class="user-checkbox" value="${userData.id}" data-is-owner-shadow="0" data-role="${String(userData.role || '').toLowerCase()}" onchange="updateDeleteButton()">`}
                 </div>
             `;
             
@@ -3809,6 +3826,78 @@ try {
             initializePagination();
             // 更新斑马纹类名
             updateZebraStriping();
+            syncUserDeleteCheckbox(card);
+        }
+
+        function getUserDeletePermissionFromCard(card) {
+            const targetUserId = parseInt(card.getAttribute('data-id') || '0', 10);
+            const targetRole = (card.getAttribute('data-role') || '').toLowerCase();
+            const isOwnerShadow = card.getAttribute('data-is-owner-shadow') === '1';
+            const currentLevel = roleHierarchy[currentUserRole] ?? 999;
+            const targetLevel = roleHierarchy[targetRole] ?? 999;
+            const isSelf = currentUserId && targetUserId === parseInt(currentUserId, 10);
+            const isSameLevel = currentLevel === targetLevel && !isSelf;
+            const isHigherLevel = targetLevel < currentLevel; // 数字越小，层级越高
+            const lowPrivilegeRoles = ['manager', 'supervisor', 'accountant', 'audit', 'customer service'];
+            const isLowPrivilegeUser = lowPrivilegeRoles.includes(currentUserRole);
+            const isAdminUser = targetRole === 'admin';
+            const isOwnerUser = targetRole === 'owner';
+            
+            if (isSelf) {
+                return { canDelete: false, reason: 'You cannot delete your own account' };
+            }
+            if (isOwnerShadow) {
+                if (currentUserRole === 'owner') return { canDelete: true };
+                return { canDelete: false, reason: 'No permission to delete' };
+            }
+            if (isLowPrivilegeUser && (isAdminUser || isOwnerUser)) {
+                return { canDelete: false, reason: 'No permission to delete' };
+            }
+            if (isSameLevel) {
+                return { canDelete: false, reason: 'You cannot delete accounts with the same role level' };
+            }
+            if (isHigherLevel) {
+                return { canDelete: false, reason: 'You cannot delete accounts with higher role level' };
+            }
+            return { canDelete: true };
+        }
+
+        function syncUserDeleteCheckbox(card) {
+            if (!card) return;
+            
+            const status = (card.getAttribute('data-status') || '').toLowerCase();
+            const items = card.querySelectorAll('.card-item');
+            const actionCell = items[8];
+            if (!actionCell) return;
+            
+            const existingCheckbox = actionCell.querySelector('input.user-checkbox');
+            
+            // ACTIVE：不显示 delete checkbox
+            if (status === 'active') {
+                if (existingCheckbox) existingCheckbox.remove();
+                return;
+            }
+            
+            // INACTIVE：显示 delete checkbox（根据权限决定是否 disabled）
+            if (existingCheckbox) return;
+            
+            const permission = getUserDeletePermissionFromCard(card);
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'user-checkbox';
+            checkbox.value = card.getAttribute('data-id') || '';
+            checkbox.setAttribute('data-is-owner-shadow', card.getAttribute('data-is-owner-shadow') || '0');
+            checkbox.setAttribute('data-role', (card.getAttribute('data-role') || '').toLowerCase());
+            checkbox.onchange = updateDeleteButton;
+            
+            if (!permission.canDelete) {
+                checkbox.disabled = true;
+                checkbox.style.opacity = '0.3';
+                checkbox.style.cursor = 'not-allowed';
+                if (permission.reason) checkbox.title = permission.reason;
+            }
+            
+            actionCell.appendChild(checkbox);
         }
 
         // 切换用户状态
@@ -3863,6 +3952,9 @@ try {
                             const statusClass = result.newStatus === 'active' ? 'status-active' : 'status-inactive';
                             items[5].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleUserStatus(${userId}, '${result.newStatus}', ${isOwnerShadow})" title="Click to toggle status" style="cursor: pointer;">${result.newStatus.toUpperCase()}</span>`;
                         }
+                        
+                        // 更新 delete checkbox 显示：ACTIVE 不显示，INACTIVE 才显示
+                        syncUserDeleteCheckbox(card);
                     }
                     
                     // 更新用户数据数组

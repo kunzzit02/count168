@@ -833,12 +833,13 @@ $showAll = isset($_GET['showAll']) ? true : false;
                                 <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
                         </button>
-                        <input type="checkbox" class="account-row-checkbox" data-id="${account.id}" ${account.status === 'active' ? 'disabled title="Cannot delete active accounts"' : 'title="Select for deletion"'} onchange="updateDeleteButton()" style="margin-left: 10px;">
+                        ${account.status === 'active' ? '' : `<input type="checkbox" class="account-row-checkbox" data-id="${account.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                     </div>
                 `;
                 container.appendChild(card);
             });
             renderPagination();
+            updateSelectAllAccountsVisibility();
         }
 
         function renderPagination() {
@@ -2102,16 +2103,23 @@ $showAll = isset($_GET['showAll']) ? true : false;
                             const statusClass = result.newStatus === 'active' ? 'account-status-active' : 'account-status-inactive';
                             // Status 是第 5 列（索引 5），Alert 是第 4 列（索引 4）
                             items[5].innerHTML = `<span class="account-role-badge ${statusClass} account-status-clickable" onclick="toggleAccountStatus(${accountId}, '${result.newStatus}')" title="Click to toggle status">${result.newStatus.toUpperCase()}</span>`;
-                            
-                            // 更新复选框状态
-                            const checkbox = card.querySelector('.account-row-checkbox');
-                            if (checkbox) {
+                            // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
+                            const actionCell = items[8]; // Action 列
+                            if (actionCell) {
+                                const existingCheckbox = actionCell.querySelector('.account-row-checkbox');
                                 if (result.newStatus === 'active') {
-                                    checkbox.disabled = true;
-                                    checkbox.setAttribute('title', 'Cannot delete active accounts');
+                                    if (existingCheckbox) existingCheckbox.remove();
                                 } else {
-                                    checkbox.disabled = false;
-                                    checkbox.setAttribute('title', 'Select for deletion');
+                                    if (!existingCheckbox) {
+                                        const checkbox = document.createElement('input');
+                                        checkbox.type = 'checkbox';
+                                        checkbox.className = 'account-row-checkbox';
+                                        checkbox.dataset.id = String(accountId);
+                                        checkbox.title = 'Select for deletion';
+                                        checkbox.style.marginLeft = '10px';
+                                        checkbox.onchange = updateDeleteButton;
+                                        actionCell.appendChild(checkbox);
+                                    }
                                 }
                             }
                         }
@@ -2135,6 +2143,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     
                     // 更新删除按钮状态
                     updateDeleteButton();
+                    updateSelectAllAccountsVisibility();
                     
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Account status changed to ${statusText}`, 'success');
@@ -2164,6 +2173,18 @@ $showAll = isset($_GET['showAll']) ? true : false;
             });
             
             updateDeleteButton();
+        }
+
+        // 根据当前页面是否有可删除项，显示/隐藏全选框
+        function updateSelectAllAccountsVisibility() {
+            const selectAllCheckbox = document.getElementById('selectAllAccounts');
+            if (!selectAllCheckbox) return;
+            
+            const anyRowCheckbox = document.querySelectorAll('.account-row-checkbox').length > 0;
+            selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
+            if (!anyRowCheckbox) {
+                selectAllCheckbox.checked = false;
+            }
         }
 
         // 更新删除按钮状态
