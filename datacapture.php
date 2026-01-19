@@ -253,7 +253,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         </tbody>
                     </table>
                     <!-- 655模式：预览容器（像截图里的Table Format那样显示粘贴结果） -->
-                    <div id="tablePreview655" class="table-preview-655" style="display: none;"></div>
+                    <div id="tablePreview655" class="table-preview-655" style="display: none;">
+                        <iframe id="tablePreviewFrame655" class="table-preview-frame-655" title="655 Table Preview"></iframe>
+                    </div>
                     <!-- 655模式：空白粘贴区域（支持直接粘贴整张表格HTML/样式） -->
                     <div id="pasteArea655" class="paste-area-655" style="display: none;" contenteditable="true" data-placeholder="在此直接粘贴整张表格（支持Excel/Sheets复制的表格格式）..."></div>
                 </div>
@@ -21947,8 +21949,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const sanitized = sanitizePastedHTML(html);
                     if (sanitized) {
                         // 1) 预览：显示在专用container（像截图Table Format）
-                        const preview = document.getElementById('tablePreview655');
-                        if (preview) preview.innerHTML = sanitized;
+                        render655Preview(sanitized);
 
                         // 2) 数据：同时填充到网格表（用于submit逻辑），但不展示网格表
                         const ok = parseAndFillHTMLTableForGeneral655(sanitized);
@@ -21965,8 +21966,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     e.stopPropagation();
                     const sanitized = sanitizePastedHTML(text);
                     if (sanitized) {
-                        const preview = document.getElementById('tablePreview655');
-                        if (preview) preview.innerHTML = sanitized;
+                        render655Preview(sanitized);
 
                         const ok = parseAndFillHTMLTableForGeneral655(sanitized);
                         if (ok) is655GridReady = true;
@@ -21981,8 +21981,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     e.preventDefault();
                     e.stopPropagation();
                     const tableHtml = tsvToHtmlTable(text);
-                    const preview = document.getElementById('tablePreview655');
-                    if (preview) preview.innerHTML = tableHtml;
+                    render655Preview(tableHtml);
 
                     const ok = parseAndFillHTMLTableForGeneral655(tableHtml);
                     if (ok) is655GridReady = true;
@@ -21999,8 +21998,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (pastedHTML && /<table\b/i.test(pastedHTML)) {
                             const sanitized = sanitizePastedHTML(pastedHTML);
                             if (sanitized) {
-                                const preview = document.getElementById('tablePreview655');
-                                if (preview) preview.innerHTML = sanitized;
+                                render655Preview(sanitized);
 
                                 const ok = parseAndFillHTMLTableForGeneral655(sanitized);
                                 if (ok) is655GridReady = true;
@@ -22093,6 +22091,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 tablePreview655.innerHTML = '';
                 tablePreview655.style.display = 'none';
             }
+            render655Preview('');
 
             // Reset 655 grid state (show paste area again)
             is655GridReady = false;
@@ -23266,6 +23265,44 @@ if ($current_user_id && count($user_companies) > 0) {
             return false;
         }
 
+        function render655Preview(tableHtml) {
+            const frame = document.getElementById('tablePreviewFrame655');
+            if (!frame) return;
+
+            const safeTable = tableHtml ? String(tableHtml) : '';
+            const docHtml = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      html, body { margin: 0; padding: 0; background: #fff; }
+      body { font-family: Arial, sans-serif; font-size: 12px; }
+      .wrap { padding: 10px; overflow: auto; width: 100vw; height: 100vh; box-sizing: border-box; }
+      table { border-collapse: collapse; width: max-content; table-layout: auto; display: inline-table; }
+      td, th { border: 1px solid #d0d7de; padding: 4px 8px; text-align: left; white-space: nowrap; }
+      * { position: static !important; top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+          z-index: auto !important; float: none !important; transform: none !important; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">${safeTable}</div>
+  </body>
+</html>`;
+
+            // Prefer srcdoc (works in modern browsers)
+            try {
+                frame.srcdoc = docHtml;
+            } catch (_) {
+                try {
+                    const doc = frame.contentDocument || frame.contentWindow.document;
+                    doc.open();
+                    doc.write(docHtml);
+                    doc.close();
+                } catch (_) {}
+            }
+        }
+
         // 全局粘贴强制落入容器（bubble阶段）：655模式下把“表格粘贴”拦截并插入到pasteArea容器，避免跑到页面最上面
         // 说明：部分浏览器在capture阶段取不到clipboardData，因此这里用bubble阶段确保可读剪贴板
         document.addEventListener('paste', function(e) {
@@ -23298,9 +23335,13 @@ if ($current_user_id && count($user_companies) > 0) {
             } catch (_) {}
 
             if (html && /<table\b/i.test(html)) {
-                pasteArea655.innerHTML = sanitizePastedHTML(html);
+                const sanitized = sanitizePastedHTML(html);
+                if (!sanitized) return;
+                render655Preview(sanitized);
                 // 同时填充到内部数据表（用于后续提交/处理）
-                parseAndFillHTMLTableForGeneral655(pasteArea655.innerHTML);
+                parseAndFillHTMLTableForGeneral655(sanitized);
+                is655GridReady = true;
+                toggleTableDisplayFor655();
                 return;
             }
 
@@ -23310,8 +23351,10 @@ if ($current_user_id && count($user_companies) > 0) {
             } catch (_) {}
             if (text && text.includes('\t')) {
                 const tableHtml = tsvToHtmlTable(text);
-                pasteArea655.innerHTML = tableHtml;
-                parseAndFillHTMLTableForGeneral655(pasteArea655.innerHTML);
+                render655Preview(tableHtml);
+                parseAndFillHTMLTableForGeneral655(tableHtml);
+                is655GridReady = true;
+                toggleTableDisplayFor655();
             }
         });
 
@@ -24593,39 +24636,16 @@ if ($current_user_id && count($user_companies) > 0) {
             width: 100%;
             height: 100%;
             min-height: clamp(230px, 17.19vw, 330px);
-            padding: 10px;
             box-sizing: border-box;
-            overflow: auto;
             background: white;
+            overflow: hidden;
         }
 
-        .table-preview-655 table {
-            border-collapse: collapse;
-            font-size: 12px;
-            font-family: Arial, sans-serif;
-            table-layout: auto !important;
-            width: auto !important;
-            display: inline-table; /* 让table按内容宽度，不拉满容器 */
-        }
-
-        .table-preview-655 td,
-        .table-preview-655 th {
-            border: 1px solid #d0d7de;
-            padding: 4px 8px;
-            text-align: left;
-            white-space: nowrap;
-        }
-
-        /* 655预览兜底：禁止fixed/absolute跑位 */
-        .table-preview-655 * {
-            position: static !important;
-            top: auto !important;
-            left: auto !important;
-            right: auto !important;
-            bottom: auto !important;
-            z-index: auto !important;
-            float: none !important;
-            transform: none !important;
+        .table-preview-frame-655 {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            background: white;
         }
 
         .excel-table {
