@@ -21919,10 +21919,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     return;
                 }
 
-                // 始终拦截默认粘贴，避免Excel HTML自带的position/fixed把内容“顶到页面最上面”
-                e.preventDefault();
-                e.stopPropagation();
-
                 const clipboard = (e.clipboardData || window.clipboardData);
                 let html = '';
                 let text = '';
@@ -21931,6 +21927,8 @@ if ($current_user_id && count($user_companies) > 0) {
 
                 // 1) HTML table（Excel/Sheets常给<TABLE>大写，所以用正则不区分大小写）
                 if (html && /<table\b/i.test(html)) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     const sanitized = sanitizePastedHTML(html);
                     if (sanitized) {
                         area.innerHTML = sanitized; // 让用户看到预览（在容器内）
@@ -21941,6 +21939,8 @@ if ($current_user_id && count($user_companies) > 0) {
 
                 // 2) plain text 里也可能包含HTML table
                 if (text && /<table\b/i.test(text)) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     const sanitized = sanitizePastedHTML(text);
                     if (sanitized) {
                         area.innerHTML = sanitized;
@@ -21951,14 +21951,30 @@ if ($current_user_id && count($user_companies) > 0) {
 
                 // 3) TSV（制表符分隔）
                 if (text && text.includes('\t')) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     const tableHtml = tsvToHtmlTable(text);
                     area.innerHTML = tableHtml;
                     parseAndFillHTMLTableForGeneral655(tableHtml);
                     return;
                 }
 
-                // 4) 纯文本就放在容器里（仍然不会跑到页面上方）
-                area.textContent = text || '';
+                // 4) 读不到HTML/TSV时：让浏览器先默认粘贴进容器（很多情况下会自动生成<table>）
+                // 然后我们再从DOM里抓出<table>并清洗成表格显示/填表，避免变成一行一行的纯文字
+                setTimeout(() => {
+                    try {
+                        const pastedHTML = area.innerHTML || '';
+                        if (pastedHTML && /<table\b/i.test(pastedHTML)) {
+                            const sanitized = sanitizePastedHTML(pastedHTML);
+                            if (sanitized) {
+                                area.innerHTML = sanitized;
+                                parseAndFillHTMLTableForGeneral655(sanitized);
+                                return;
+                            }
+                        }
+                        // 没有table就保留默认粘贴结果（可能就是纯文本）
+                    } catch (_) {}
+                }, 0);
             });
         }
 
