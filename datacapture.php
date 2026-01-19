@@ -4392,37 +4392,46 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             };
             
-            // 优先尝试获取HTML格式的数据
+            // 优先尝试获取HTML格式的数据（Excel通常包含这个）
             let htmlData = getClipboardData('text/html');
+            let textData = getClipboardData('text/plain');
             let isTableData = false;
             
-            console.log('HTML data length:', htmlData ? htmlData.length : 0);
+            console.log('655 mode: HTML data length:', htmlData ? htmlData.length : 0);
+            console.log('655 mode: Text data length:', textData ? textData.length : 0);
             
-            if (htmlData && htmlData.includes('<table')) {
-                console.log('655 mode: HTML table detected');
+            // 检查HTML格式中是否包含表格（Excel复制的数据通常包含完整的HTML表格结构）
+            if (htmlData && (htmlData.includes('<table') || htmlData.includes('<TABLE') || htmlData.toLowerCase().includes('<table'))) {
+                console.log('655 mode: HTML table detected in HTML format');
+                console.log('655 mode: HTML preview:', htmlData.substring(0, 500));
                 isTableData = true;
-            } else {
-                // 如果HTML格式不存在，尝试从text/plain中检测
-                const textData = getClipboardData('text/plain');
-                console.log('Text data length:', textData ? textData.length : 0);
+                // 直接使用HTML数据，保留所有格式（包括样式、颜色等）
+            } else if (textData && (textData.includes('<table') || textData.includes('<TABLE') || textData.toLowerCase().includes('<table'))) {
+                // 检查纯文本中是否包含HTML表格标签
+                console.log('655 mode: HTML table detected in plain text');
+                htmlData = textData;
+                isTableData = true;
+            } else if (textData) {
+                // 检查是否是制表符分隔的表格数据（Excel格式）
+                const lines = textData.split(/\r?\n/).filter(line => line.trim() !== '');
+                const hasMultipleRows = lines.length > 1;
+                const hasTabSeparator = textData.includes('\t');
                 
-                if (textData && textData.includes('<table')) {
-                    console.log('655 mode: HTML table in plain text detected');
-                    htmlData = textData;
+                // 如果有多行且包含制表符，或者有多行且每行有多个空格分隔的值，认为是表格
+                if (hasMultipleRows && (hasTabSeparator || lines.some(line => line.trim().split(/\s{2,}/).length > 1))) {
+                    console.log('655 mode: Tab-separated or multi-column table data detected');
                     isTableData = true;
+                    // 将制表符分隔的数据转换为HTML表格
+                    htmlData = convertTabSeparatedToHTML(textData);
                 } else {
-                    // 检查是否是制表符分隔的表格数据（Excel格式）
-                    if (textData && textData.includes('\t') && textData.split('\n').length > 1) {
-                        console.log('655 mode: Tab-separated table data detected');
-                        isTableData = true;
-                        // 将制表符分隔的数据转换为HTML表格
-                        htmlData = convertTabSeparatedToHTML(textData);
-                    } else {
-                        // 不是表格格式，允许默认粘贴行为
-                        console.log('655 mode: Not table data, allowing default paste');
-                        return;
-                    }
+                    // 不是表格格式，允许默认粘贴行为
+                    console.log('655 mode: Not table data, allowing default paste');
+                    return;
                 }
+            } else {
+                // 没有任何数据，允许默认粘贴行为
+                console.log('655 mode: No clipboard data, allowing default paste');
+                return;
             }
             
             // 检测到表格数据，阻止默认粘贴行为并处理
@@ -4452,18 +4461,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     const firstCell = tableBody.querySelector('td[contenteditable="true"]');
                     if (firstCell) {
                         console.log('655 mode: Pasting to table');
+                        console.log('655 mode: HTML data to paste:', htmlData.substring(0, 1000));
                         // 使用parseAndFillHTMLTableForGeneral处理粘贴
                         const success = parseAndFillHTMLTableForGeneral(htmlData, firstCell, true);
                         if (success) {
                             console.log('655 mode: Paste successful');
                             // 清空textarea
                             textInput655.value = '';
+                            showNotification('表格数据已成功粘贴！', 'success');
                         } else {
                             console.error('655 mode: Paste failed, restoring textarea');
+                            console.error('655 mode: HTML data that failed:', htmlData);
                             // 如果解析失败，恢复textarea显示
                             dataTable.style.display = 'none';
                             textInput655.style.display = 'block';
-                            showNotification('粘贴失败，请重试', 'danger');
+                            showNotification('粘贴失败：无法解析表格数据，请检查数据格式', 'danger');
                         }
                     } else {
                         console.error('655 mode: No editable cell found');
@@ -4480,13 +4492,22 @@ if ($current_user_id && count($user_companies) > 0) {
             const lines = textData.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim() !== '');
             if (lines.length === 0) return '';
             
-            let html = '<table>';
+            // 计算最大列数，确保所有行都有相同的列数
+            let maxCols = 0;
             lines.forEach(line => {
+                const cells = line.split('\t');
+                maxCols = Math.max(maxCols, cells.length);
+            });
+            
+            let html = '<table>';
+            lines.forEach((line, rowIndex) => {
                 html += '<tr>';
                 const cells = line.split('\t');
-                cells.forEach(cell => {
-                    html += `<td>${cell}</td>`;
-                });
+                // 确保所有行都有相同的列数
+                for (let i = 0; i < maxCols; i++) {
+                    const cellValue = cells[i] || '';
+                    html += `<td>${cellValue}</td>`;
+                }
                 html += '</tr>';
             });
             html += '</table>';
@@ -4501,11 +4522,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 const table = tempDiv.querySelector('table');
                 if (!table) {
+                    console.error('655 mode: No table element found in HTML string');
+                    console.error('655 mode: HTML string preview:', htmlString.substring(0, 500));
                     return false;
                 }
                 
                 const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
                 console.log(modeName + ': Parsing HTML table and preserving Excel format...');
+                console.log(modeName + ': Found table with', table.querySelectorAll('tr').length, 'rows');
                 
                 // 获取所有行（包括表头）
                 const allRows = table.querySelectorAll('tr');
