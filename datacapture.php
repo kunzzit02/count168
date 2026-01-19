@@ -4412,20 +4412,32 @@ if ($current_user_id && count($user_companies) > 0) {
                 htmlData = textData;
                 isTableData = true;
             } else if (textData) {
-                // 检查是否是制表符分隔的表格数据（Excel格式）
+                // 检查是否是表格数据（Excel格式或其他格式）
                 const lines = textData.split(/\r?\n/).filter(line => line.trim() !== '');
                 const hasMultipleRows = lines.length > 1;
                 const hasTabSeparator = textData.includes('\t');
                 
-                // 如果有多行且包含制表符，或者有多行且每行有多个空格分隔的值，认为是表格
-                if (hasMultipleRows && (hasTabSeparator || lines.some(line => line.trim().split(/\s{2,}/).length > 1))) {
-                    console.log('655 mode: Tab-separated or multi-column table data detected');
+                // 在655模式下，只要有多行数据，就认为是表格数据（即使没有制表符）
+                // 这样可以处理用户从表格复制但只复制了单列数据的情况
+                if (hasMultipleRows) {
+                    console.log('655 mode: Multi-line data detected, treating as table');
                     isTableData = true;
-                    // 将制表符分隔的数据转换为HTML表格
+                    // 将数据转换为HTML表格
+                    // 如果有制表符，按制表符分隔；否则每行作为一列
+                    if (hasTabSeparator) {
+                        htmlData = convertTabSeparatedToHTML(textData);
+                    } else {
+                        // 纯文本多行，转换为单列表格
+                        htmlData = convertTextLinesToHTML(textData);
+                    }
+                } else if (hasTabSeparator) {
+                    // 单行但包含制表符，也认为是表格
+                    console.log('655 mode: Tab-separated data detected');
+                    isTableData = true;
                     htmlData = convertTabSeparatedToHTML(textData);
                 } else {
-                    // 不是表格格式，允许默认粘贴行为
-                    console.log('655 mode: Not table data, allowing default paste');
+                    // 单行纯文本，允许默认粘贴行为
+                    console.log('655 mode: Single line text, allowing default paste');
                     return;
                 }
             } else {
@@ -4508,6 +4520,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     const cellValue = cells[i] || '';
                     html += `<td>${cellValue}</td>`;
                 }
+                html += '</tr>';
+            });
+            html += '</table>';
+            return html;
+        }
+        
+        // 将纯文本多行数据转换为HTML表格（每行作为一行，单列）
+        function convertTextLinesToHTML(textData) {
+            const lines = textData.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim() !== '');
+            if (lines.length === 0) return '';
+            
+            let html = '<table>';
+            lines.forEach(line => {
+                html += '<tr>';
+                html += `<td>${line}</td>`;
                 html += '</tr>';
             });
             html += '</table>';
