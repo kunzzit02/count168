@@ -1398,7 +1398,7 @@ if (isset($_GET['logout'])) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
-            return `${month}/${day}/${year}`;
+            return `${day}/${month}/${year}`;
         }
 
         // 格式化日期为 YYYY-MM-DD
@@ -2030,9 +2030,9 @@ if (isset($_GET['logout'])) {
         function formatDateForDisplay(dateString) {
             const date = new Date(dateString);
             const year = date.getFullYear();
-            const month = date.getMonth() + 1;
-            const day = date.getDate();
-            return `${month}/${day}/${year}`;
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${day}/${month}/${year}`;
         }
 
         function updateChart(data) {
