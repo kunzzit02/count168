@@ -8902,6 +8902,87 @@ if ($current_user_id && count($user_companies) > 0) {
                 };
             }
             
+            // 情况3：列式格式（每个条目占据一列，单元格内包含多行数据）
+            // 格式特征：
+            // - 每行以数字开头（如 14, 15, 16），后跟游戏平台标识（CQ:, CY:, DG: 等）
+            // - 包含货币信息（MYR, SGD 等）
+            // - 数据按行排列，但需要按列组织（每列一个条目）
+            // - 每个条目可能有多行，新条目以数字+游戏平台标识开始
+            // 检测模式：数字开头 + 游戏平台标识（CQ:, CY:, DG: 等，不区分大小写）
+            const isColumnFormat = lines.length > 0 && 
+                                   lines.some(line => {
+                                       const trimmed = line.trim();
+                                       // 检测：数字开头 + 游戏平台标识（CQ:, CY:, DG: 等，不区分大小写）
+                                       // 模式1: "14 CQ:CQ9 - KAYA86MYR" 或 "14 Cq:Cq9 - KAYA86MYR"
+                                       // 模式2: "17 CY:AWC RCB988" 或 "17 Cy:Awc Rcb988"
+                                       // 模式3: "18 DG:DREAM GAMING" 或 "18 Dg:Dream Gaming"
+                                       return /^\d+\s+[A-Za-z]{1,3}:[A-Za-z]/i.test(trimmed) || 
+                                              /^\d+\s+[A-Za-z]{2,}\s+[A-Za-z]/i.test(trimmed);
+                                   });
+            
+            if (isColumnFormat) {
+                console.log('Detected VPOWER column format (each entry in a column with multi-line cells)');
+                
+                // 检测条目分隔：每行以数字开头，后跟游戏平台标识
+                const entries = [];
+                let currentEntry = [];
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    
+                    // 检查是否是新的条目开始（以数字开头，后跟游戏平台标识，不区分大小写）
+                    // 模式1: "14 CQ:CQ9 - KAYA86MYR" 或 "14 Cq:Cq9 - KAYA86MYR"
+                    // 模式2: "17 CY:AWC RCB988 - ALLBET950GM" 或 "17 Cy:Awc Rcb988 - Allbet95ogm"
+                    // 模式3: "18 DG:DREAM GAMING - I70M" 或 "18 Dg:Dream Gaming - I70M"
+                    const isNewEntry = /^\d+\s+[A-Za-z]{1,3}:[A-Za-z]/i.test(line) || 
+                                      /^\d+\s+[A-Za-z]{2,}\s+[A-Za-z]/i.test(line);
+                    
+                    if (isNewEntry && currentEntry.length > 0) {
+                        // 保存前一个条目
+                        entries.push([...currentEntry]);
+                        currentEntry = [];
+                    }
+                    
+                    // 添加到当前条目
+                    currentEntry.push(line);
+                }
+                
+                // 保存最后一个条目
+                if (currentEntry.length > 0) {
+                    entries.push(currentEntry);
+                }
+                
+                if (entries.length === 0) {
+                    return null;
+                }
+                
+                console.log('VPOWER column format - found', entries.length, 'entries');
+                console.log('VPOWER column format - first entry:', entries[0]);
+                
+                // 将每个条目转换为一个单元格（多行数据用换行符连接）
+                // 数据矩阵：1行 x N列（每列一个条目）
+                const dataMatrix = [];
+                const row = [];
+                
+                entries.forEach((entry, idx) => {
+                    // 将条目的所有行用换行符连接
+                    const cellContent = entry.join('\n');
+                    row.push(cellContent);
+                    console.log(`VPOWER column format - entry ${idx + 1}:`, entry.length, 'lines');
+                });
+                
+                dataMatrix.push(row);
+                
+                console.log('VPOWER column format - dataMatrix:', dataMatrix.length, 'rows x', row.length, 'cols');
+                
+                return {
+                    dataMatrix: dataMatrix,
+                    maxRows: 1,
+                    maxCols: row.length
+                };
+            }
+            
             return null;
         }
 
@@ -14959,6 +15040,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     const currentPasteChanges = [];
                     let successCount = 0;
                     
+                    // 检测是否是列式格式（1行 x N列）
+                    const isColumnFormat = maxRows === 1 && maxCols > 1;
+                    
                     dataMatrix.forEach((rowData, rowIndex) => {
                         const actualRowIndex = startRow + rowIndex;
                         const tableRow = tableBody.children[actualRowIndex];
@@ -14978,11 +15062,25 @@ if ($current_user_id && count($user_companies) > 0) {
                                     newValue: trimmedData
                                 });
                                 
-                                // User Name 转为大写，profit 保持原样
-                                if (colIndex === 0) {
-                                    cell.textContent = trimmedData.toUpperCase();
+                                // 对于列式格式，使用 innerHTML 来保留换行符，并设置样式允许多行显示
+                                if (isColumnFormat && trimmedData.includes('\n')) {
+                                    // 设置样式允许多行显示
+                                    cell.style.whiteSpace = 'pre-wrap';
+                                    cell.style.wordBreak = 'break-word';
+                                    // 使用 innerHTML 来保留换行符（转义 HTML 特殊字符）
+                                    const escapedData = trimmedData
+                                        .replace(/&/g, '&amp;')
+                                        .replace(/</g, '&lt;')
+                                        .replace(/>/g, '&gt;')
+                                        .replace(/\n/g, '<br>');
+                                    cell.innerHTML = escapedData;
                                 } else {
-                                    cell.textContent = trimmedData;
+                                    // 普通格式：User Name 转为大写，profit 保持原样
+                                    if (colIndex === 0) {
+                                        cell.textContent = trimmedData.toUpperCase();
+                                    } else {
+                                        cell.textContent = trimmedData;
+                                    }
                                 }
                                 
                                 if (trimmedData) {
