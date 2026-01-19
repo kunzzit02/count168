@@ -4724,57 +4724,104 @@ if ($current_user_id && count($user_companies) > 0) {
                                     if (cleanContent.includes('<') && cleanContent.includes('>')) {
                                         // 直接使用innerHTML，保留所有格式标签（如<u>, <b>, <span>等）和样式属性
                                         targetCell.innerHTML = cleanContent;
-                                        // 同时保留单元格本身的样式属性（背景色等）
+                                        // 同时保留单元格本身的样式属性（背景色等），但保持表格边框
                                         const sourceCellStyle = sourceCell.getAttribute('style');
                                         if (sourceCellStyle) {
-                                            // 合并样式，确保边框不被覆盖
-                                            // 检查源样式是否包含border，如果不包含，添加边框
-                                            let mergedStyle = sourceCellStyle;
-                                            if (!sourceCellStyle.includes('border')) {
-                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
-                                            }
-                                            targetCell.setAttribute('style', mergedStyle);
-                                        } else {
-                                            // 如果没有源样式，确保有边框
-                                            targetCell.style.border = '1px solid #d0d7de';
+                                            // 解析源样式，保留背景色、颜色等，但移除边框相关样式（使用表格默认边框）
+                                            const styleObj = {};
+                                            sourceCellStyle.split(';').forEach(decl => {
+                                                const [prop, value] = decl.split(':').map(s => s.trim());
+                                                if (prop && value && 
+                                                    prop !== 'border' && 
+                                                    prop !== 'border-color' && 
+                                                    prop !== 'border-style' && 
+                                                    prop !== 'border-width' &&
+                                                    prop !== 'border-top' &&
+                                                    prop !== 'border-right' &&
+                                                    prop !== 'border-bottom' &&
+                                                    prop !== 'border-left') {
+                                                    styleObj[prop] = value;
+                                                }
+                                            });
+                                            
+                                            // 应用保留的样式到单元格
+                                            Object.keys(styleObj).forEach(prop => {
+                                                targetCell.style.setProperty(prop, styleObj[prop]);
+                                            });
                                         }
                                     } else if (cellText && cellText.trim() !== '') {
                                         // 纯文本，但如果有样式属性，尝试保留
-                                        // 检查源单元格是否有style属性
                                         const sourceCellStyle = sourceCell.getAttribute('style');
                                         const sourceCellBgColor = sourceCell.style.backgroundColor;
+                                        const sourceCellColor = sourceCell.style.color;
+                                        
                                         if (sourceCellStyle) {
-                                            targetCell.innerHTML = `<span style="${sourceCellStyle}">${cellText}</span>`;
-                                            // 也保留单元格的样式，但确保边框存在
-                                            let mergedStyle = sourceCellStyle;
-                                            if (!sourceCellStyle.includes('border')) {
-                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sourceCellStyle}`;
+                                            // 解析样式，保留颜色和背景色到span，其他样式到单元格
+                                            const cellStyleObj = {};
+                                            const spanStyleObj = {};
+                                            
+                                            sourceCellStyle.split(';').forEach(decl => {
+                                                const [prop, value] = decl.split(':').map(s => s.trim());
+                                                if (prop && value) {
+                                                    if (prop === 'background-color' || prop === 'color' || prop === 'background') {
+                                                        spanStyleObj[prop] = value;
+                                                    } else if (prop !== 'border' && 
+                                                               prop !== 'border-color' && 
+                                                               prop !== 'border-style' && 
+                                                               prop !== 'border-width' &&
+                                                               prop !== 'border-top' &&
+                                                               prop !== 'border-right' &&
+                                                               prop !== 'border-bottom' &&
+                                                               prop !== 'border-left') {
+                                                        cellStyleObj[prop] = value;
+                                                    }
+                                                }
+                                            });
+                                            
+                                            // 如果有颜色或背景色，用span包裹
+                                            if (Object.keys(spanStyleObj).length > 0) {
+                                                const spanStyle = Object.keys(spanStyleObj).map(prop => `${prop}: ${spanStyleObj[prop]}`).join('; ');
+                                                targetCell.innerHTML = `<span style="${spanStyle}">${cellText}</span>`;
+                                            } else {
+                                                targetCell.textContent = cellText;
                                             }
-                                            targetCell.setAttribute('style', mergedStyle);
-                                        } else if (sourceCellBgColor) {
-                                            // 如果有背景色，应用背景色，同时保持边框
-                                            targetCell.style.backgroundColor = sourceCellBgColor;
-                                            targetCell.style.border = '1px solid #d0d7de';
-                                            targetCell.textContent = cellText;
+                                            
+                                            // 应用其他样式到单元格
+                                            Object.keys(cellStyleObj).forEach(prop => {
+                                                targetCell.style.setProperty(prop, cellStyleObj[prop]);
+                                            });
+                                        } else if (sourceCellBgColor || sourceCellColor) {
+                                            // 如果有背景色或颜色，用span包裹
+                                            let spanStyle = '';
+                                            if (sourceCellBgColor) spanStyle += `background-color: ${sourceCellBgColor}; `;
+                                            if (sourceCellColor) spanStyle += `color: ${sourceCellColor}; `;
+                                            if (spanStyle) {
+                                                targetCell.innerHTML = `<span style="${spanStyle.trim()}">${cellText}</span>`;
+                                            } else {
+                                                targetCell.textContent = cellText;
+                                            }
                                         } else {
-                                            // 纯文本，确保有边框
-                                            targetCell.style.border = '1px solid #d0d7de';
+                                            // 纯文本，使用默认表格样式
                                             targetCell.textContent = cellText;
                                         }
                                     } else {
-                                        // 空单元格也要有边框
-                                        targetCell.style.border = '1px solid #d0d7de';
+                                        // 空单元格，使用默认表格样式
                                         targetCell.textContent = '';
                                     }
+                                    
                                     // 保留单元格的class属性（可能有样式相关的class）
                                     const sourceCellClass = sourceCell.getAttribute('class');
                                     if (sourceCellClass) {
                                         targetCell.setAttribute('class', sourceCellClass);
                                     }
-                                    // 确保单元格始终显示边框（表格网格结构）
-                                    if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
-                                        targetCell.style.border = '1px solid #d0d7de';
-                                    }
+                                    
+                                    // 确保单元格使用表格的CSS类样式
+                                    // 边框由.excel-table td的CSS规则控制，不要用内联样式覆盖
+                                    // 移除可能覆盖表格边框的内联样式
+                                    targetCell.style.removeProperty('border');
+                                    targetCell.style.removeProperty('border-color');
+                                    targetCell.style.removeProperty('border-style');
+                                    targetCell.style.removeProperty('border-width');
                                 } else {
                                     // 1.GENERAL模式：保持原有逻辑
                                     if (cleanContent.includes('<') && cleanContent.includes('>')) {
