@@ -13453,7 +13453,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             // ===== 2.SPECIAL 处理结束 =====
             
-            // ===== 3.API 专用解析：自动检测并应用 WBET_API 格式 =====
+            // ===== 3.API 专用解析：自动检测并应用 WBET_API / INVOICE 格式 =====
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '3.API') {
                 console.log('3.API mode detected, attempting to parse...');
                 console.log('3.API: Pasted data length:', pastedData.length);
@@ -13845,6 +13845,552 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!formatDetected) {
                     console.log('3.API: 3.1 WBET_API parser failed, will continue trying other formats');
                 }
+
+                // ===== 3.2 INVOICE 格式检测和处理 =====
+                // 3.2 INVOICE: 以下代码从 INVOICE 选项复制而来，用于在 3.API 模式下支持 INVOICE 格式的粘贴
+                // 目标：完全保持PDF原始格式，粘贴后数据保持行格式
+                if (!formatDetected) {
+                    console.log('3.API: Trying 3.2 INVOICE format...');
+
+                    // 优先尝试获取HTML格式的数据（PDF粘贴可能包含HTML格式）
+                    let invoiceHtmlData = null;
+                    try {
+                        invoiceHtmlData = e.clipboardData.getData('text/html');
+                        if (invoiceHtmlData && invoiceHtmlData.includes('<table')) {
+                            console.log('3.API: 3.2 INVOICE HTML table format detected');
+                            const filled = parseAndFillHTMLTableForInvoice(invoiceHtmlData, startCell);
+                            if (filled) {
+                                formatDetected = true;
+                                showNotification('3.API: 检测到INVOICE格式 (3.2)!', 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return; // 成功处理，直接返回
+                            }
+                        }
+                    } catch (err) {
+                        console.log('3.API: 3.2 INVOICE Could not get HTML data from clipboard:', err);
+                    }
+
+                    // 如果HTML解析失败，尝试使用detectAndParseHTML
+                    if (!formatDetected) {
+                        const invoiceHtmlDataFromDetect = detectAndParseHTML(e);
+                        if (invoiceHtmlDataFromDetect) {
+                            console.log('3.API: 3.2 INVOICE HTML data detected via detectAndParseHTML');
+                            const filled = parseAndFillHTMLTableForInvoice(invoiceHtmlDataFromDetect, startCell);
+                            if (filled) {
+                                formatDetected = true;
+                                showNotification('3.API: 检测到INVOICE格式 (3.2)!', 'success');
+                                setTimeout(updateSubmitButtonState, 0);
+                                return; // 成功处理，直接返回
+                            }
+                        }
+                    }
+
+                    // 如果HTML解析都失败，尝试纯文本格式（但尽量保持格式）
+                    if (!formatDetected) {
+                        console.log('3.API: 3.2 INVOICE HTML parsing failed, trying text format...');
+                        const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                        const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
+
+                        console.log('3.API: 3.2 INVOICE Total lines to process:', lines.length);
+                        console.log('3.API: 3.2 INVOICE First few lines:', lines.slice(0, 5));
+
+                        if (lines.length > 0) {
+                            const dataMatrix = [];
+                            let maxCols = 0;
+
+                            // 智能解析：优先使用制表符，如果没有则使用多个空格或单个空格
+                            lines.forEach((line, lineIndex) => {
+                                if (line.trim() === '') return;
+
+                                let cells = [];
+
+                                // 方法1: 如果有制表符，使用制表符分割
+                                if (line.includes('\t')) {
+                                    cells = line.split('\t').map(cell => cell.trim());
+                                    console.log(`3.API: 3.2 INVOICE Line ${lineIndex + 1} split by tab: ${cells.length} columns`);
+
+                                    // 后处理：检查并分离 "数字-数字" 格式的单元格
+                                    const processedCells = [];
+                                    for (const cell of cells) {
+                                        if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(cell)) {
+                                            // 找到连字符的位置（跳过开头的负号）
+                                            let dashIndex = -1;
+                                            if (cell.startsWith('-')) {
+                                                dashIndex = cell.indexOf('-', 1);
+                                            } else {
+                                                dashIndex = cell.indexOf('-', 0);
+                                            }
+
+                                            if (dashIndex > 0 && dashIndex < cell.length - 1) {
+                                                const firstNum = cell.substring(0, dashIndex).trim();
+                                                let secondNum = cell.substring(dashIndex + 1).trim();
+
+                                                // 在PDF数据中，连字符通常表示第二个数字是负数
+                                                if (!secondNum.startsWith('-') && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                    secondNum = '-' + secondNum;
+                                                }
+
+                                                const numPattern = /^-?[\d,]+\.?\d*$/;
+                                                const numPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+
+                                                const firstIsValid = numPattern.test(firstNum) || numPatternWithDecimal.test(firstNum);
+                                                let secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
+
+                                                // 如果第二个数字无效，但看起来像数字（只是缺少负号），接受为正数
+                                                if (!secondIsValid && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                    secondIsValid = true;
+                                                }
+
+                                                if (firstIsValid && secondIsValid) {
+                                                    processedCells.push(firstNum);
+                                                    processedCells.push(secondNum);
+                                                    console.log(`3.API: 3.2 INVOICE Tab/MultiSpace - Separated "${cell}" into "${firstNum}" and "${secondNum}"`);
+                                                    continue;
+                                                }
+                                            }
+                                        }
+                                        processedCells.push(cell);
+                                    }
+                                    cells = processedCells;
+                                } else {
+                                    // 方法2: 尝试使用多个空格（2个或更多）作为分隔符
+                                    const multiSpaceSplit = line.split(/\s{2,}/);
+                                    if (multiSpaceSplit.length > 3) {
+                                        // 如果多个空格分割得到多个列，使用这个
+                                        cells = multiSpaceSplit.map(cell => cell.trim());
+                                        console.log(`3.API: 3.2 INVOICE Line ${lineIndex + 1} split by multiple spaces: ${cells.length} columns`);
+
+                                        // 后处理：检查并分离 "数字-数字" 格式的单元格
+                                        const processedCells = [];
+                                        for (const cell of cells) {
+                                            if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(cell)) {
+                                                // 找到连字符的位置（跳过开头的负号）
+                                                let dashIndex = -1;
+                                                if (cell.startsWith('-')) {
+                                                    dashIndex = cell.indexOf('-', 1);
+                                                } else {
+                                                    dashIndex = cell.indexOf('-', 0);
+                                                }
+
+                                                if (dashIndex > 0 && dashIndex < cell.length - 1) {
+                                                    const firstNum = cell.substring(0, dashIndex).trim();
+                                                    let secondNum = cell.substring(dashIndex + 1).trim();
+
+                                                    // 在PDF数据中，连字符通常表示第二个数字是负数
+                                                    if (!secondNum.startsWith('-') && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                        secondNum = '-' + secondNum;
+                                                    }
+
+                                                    const numPattern = /^-?[\d,]+\.?\d*$/;
+                                                    const numPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+
+                                                    const firstIsValid = numPattern.test(firstNum) || numPatternWithDecimal.test(firstNum);
+                                                    let secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
+
+                                                    // 如果第二个数字无效，但看起来像数字（只是缺少负号），接受为正数
+                                                    if (!secondIsValid && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                        secondIsValid = true;
+                                                    }
+
+                                                    if (firstIsValid && secondIsValid) {
+                                                        processedCells.push(firstNum);
+                                                        processedCells.push(secondNum);
+                                                        console.log(`3.API: 3.2 INVOICE MultiSpace - Separated "${cell}" into "${firstNum}" and "${secondNum}"`);
+                                                        continue;
+                                                    }
+                                                }
+                                            }
+                                            processedCells.push(cell);
+                                        }
+                                        cells = processedCells;
+                                    } else {
+                                        // 方法3: 使用单个空格分割，智能识别列（复制 INVOICE 原逻辑）
+                                        const trimmedLine = line.trim();
+                                        const parts = trimmedLine.split(/\s+/);
+                                        cells = [];
+
+                                        let i = 0;
+                                        while (i < parts.length) {
+                                            const part = parts[i];
+
+                                            // 如果是行号（纯数字，且是第一个）
+                                            if (cells.length === 0 && /^\d+$/.test(part)) {
+                                                cells.push(part);
+                                                i++;
+                                            }
+                                            // 如果是品牌名称（包含冒号，可能跨多个词直到遇到类型代码）
+                                            else if (part.includes(':') || (i > 0 && parts[i - 1] && parts[i - 1].includes(':'))) {
+                                                let brand = part;
+                                                i++;
+                                                // 继续收集品牌名称，直到遇到类型代码（2-3个大写字母，如PT）或数字
+                                                while (i < parts.length) {
+                                                    const nextPart = parts[i];
+                                                    if (/^[A-Z]{2,3}$/.test(nextPart) || /^\d+\.?\d*$/.test(nextPart)) {
+                                                        break;
+                                                    }
+                                                    brand += ' ' + nextPart;
+                                                    i++;
+                                                }
+                                                cells.push(brand);
+                                            }
+                                            // 如果是类型代码（2-3个大写字母）
+                                            else if (/^[A-Z]{2,3}$/.test(part)) {
+                                                cells.push(part);
+                                                i++;
+                                            }
+                                            // 如果是 "数字-数字" 格式
+                                            else if (/[\d,]+\.?\d*-.*[\d,]+\.?\d*/.test(part)) {
+                                                let dashIndex = -1;
+                                                if (part.startsWith('-')) {
+                                                    dashIndex = part.indexOf('-', 1);
+                                                } else {
+                                                    dashIndex = part.indexOf('-', 0);
+                                                }
+
+                                                if (dashIndex > 0 && dashIndex < part.length - 1) {
+                                                    const firstNum = part.substring(0, dashIndex).trim();
+                                                    let secondNum = part.substring(dashIndex + 1).trim();
+
+                                                    if (!secondNum.startsWith('-') && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                        secondNum = '-' + secondNum;
+                                                    }
+
+                                                    const numPattern = /^-?[\d,]+\.?\d*$/;
+                                                    const numPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+                                                    const firstIsValid = numPattern.test(firstNum) || numPatternWithDecimal.test(firstNum);
+                                                    let secondIsValid = numPattern.test(secondNum) || numPatternWithDecimal.test(secondNum);
+                                                    if (!secondIsValid && /^[\d,]+\.?\d*$/.test(secondNum)) {
+                                                        secondIsValid = true;
+                                                    }
+
+                                                    if (firstIsValid && secondIsValid) {
+                                                        cells.push(firstNum);
+                                                        cells.push(secondNum);
+                                                        console.log(`3.API: 3.2 INVOICE Separated "${part}" into "${firstNum}" and "${secondNum}"`);
+                                                        i++;
+                                                    } else {
+                                                        cells.push(part);
+                                                        i++;
+                                                    }
+                                                } else {
+                                                    cells.push(part);
+                                                    i++;
+                                                }
+                                            }
+                                            // 如果是数字（百分比或金额）
+                                            else if (/^-?\d+\.?\d*$/.test(part) || /^-?[\d,]+\.?\d*$/.test(part)) {
+                                                cells.push(part);
+                                                i++;
+                                            }
+                                            // 如果是货币代码（括号内的）
+                                            else if (/^\([A-Z]{3}\)$/.test(part)) {
+                                                cells.push(part);
+                                                i++;
+                                            }
+                                            // DESCRIPTION-AMOUNT 格式（如 "Loyalty-24.79"）
+                                            else if (/^[A-Za-z]+-[0-9.,-]+$/i.test(part)) {
+                                                const match = part.match(/^([A-Za-z]+)(-[0-9.,-]+)$/i);
+                                                if (match) {
+                                                    cells.push(match[1]);
+                                                    cells.push(match[2]);
+                                                    i++;
+                                                } else {
+                                                    cells.push(part);
+                                                    i++;
+                                                }
+                                            }
+                                            // 其他情况
+                                            else {
+                                                cells.push(part);
+                                                i++;
+                                            }
+                                        }
+
+                                        console.log(`3.API: 3.2 INVOICE Line ${lineIndex + 1} split by smart parsing: ${cells.length} columns`, cells);
+                                    }
+                                }
+
+                                // 清理空单元格
+                                cells = cells.filter(cell => {
+                                    const trimmed = (cell || '').trim();
+                                    return trimmed !== '' && trimmed !== '-';
+                                });
+
+                                if (cells.length > 0) {
+                                    dataMatrix.push(cells);
+                                    maxCols = Math.max(maxCols, cells.length);
+                                }
+                            });
+
+                            console.log(`3.API: 3.2 INVOICE Parsed ${dataMatrix.length} rows with max ${maxCols} columns`);
+
+                            // 合并PDF上下排版：货币+数字/数字+数字
+                            const mergedDataMatrix = [];
+                            let i = 0;
+                            while (i < dataMatrix.length) {
+                                const currentRow = [...dataMatrix[i]];
+                                const nextRow = i + 1 < dataMatrix.length ? dataMatrix[i + 1] : null;
+
+                                const trimmedCurrent = currentRow.map(c => (c || '').trim()).filter(c => c !== '');
+                                const lastCell = trimmedCurrent.length > 0 ? trimmedCurrent[trimmedCurrent.length - 1] : '';
+                                const isCurrencyCode = /^\([A-Z]{3}\)$/.test(lastCell);
+                                const isLastCellNumber = /^-?[\d,]+\.?\d*$/.test(lastCell) || /^-?[\d,]+\.\d+$/.test(lastCell);
+
+                                let isNextRowNumber = false;
+                                let nextRowNumber = null;
+                                let nextRowNumbers = null;
+                                if (nextRow) {
+                                    const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
+                                    if (trimmedNext.length > 0) {
+                                        const firstNextCell = trimmedNext[0];
+                                        const numberPattern = /^-?[\d,]+\.?\d*$/;
+                                        const numberPatternWithDecimal = /^-?[\d,]+\.\d+$/;
+                                        if (trimmedNext.length >= 2) {
+                                            const secondNextCell = trimmedNext[1];
+                                            if ((numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) &&
+                                                (numberPattern.test(secondNextCell) || numberPatternWithDecimal.test(secondNextCell))) {
+                                                isNextRowNumber = true;
+                                                nextRowNumbers = [firstNextCell, secondNextCell];
+                                                nextRowNumber = firstNextCell;
+                                            } else if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
+                                                isNextRowNumber = true;
+                                                nextRowNumber = firstNextCell;
+                                            }
+                                        } else {
+                                            const numberDashNumberPattern = /^(-?[\d,]+\.?\d*)-(-?[\d,]+\.?\d*)$/;
+                                            const match = firstNextCell.match(numberDashNumberPattern);
+                                            if (match) {
+                                                isNextRowNumber = true;
+                                                nextRowNumbers = [match[1], match[2]];
+                                                nextRowNumber = match[1];
+                                            } else if (numberPattern.test(firstNextCell) || numberPatternWithDecimal.test(firstNextCell)) {
+                                                isNextRowNumber = true;
+                                                nextRowNumber = firstNextCell;
+                                            } else {
+                                                if (/[\d,]+/.test(firstNextCell) && trimmedNext.length === 1) {
+                                                    isNextRowNumber = true;
+                                                    nextRowNumber = firstNextCell;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (i < 20) {
+                                    console.log(`3.API: 3.2 INVOICE Row ${i + 1} - lastCell: "${lastCell}", isCurrency: ${isCurrencyCode}, isNumber: ${isLastCellNumber}`);
+                                    if (nextRow) {
+                                        const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
+                                        console.log(`3.API: 3.2 INVOICE Row ${i + 2} - firstCell: "${trimmedNext[0] || ''}", isNumber: ${isNextRowNumber}, cols: ${trimmedNext.length}`);
+                                    }
+                                }
+
+                                // 情况1: 货币代码 + 数字
+                                if (isCurrencyCode && isNextRowNumber) {
+                                    let currencyColIndex = -1;
+                                    for (let j = currentRow.length - 1; j >= 0; j--) {
+                                        if ((currentRow[j] || '').trim() === lastCell) {
+                                            currencyColIndex = j;
+                                            break;
+                                        }
+                                    }
+
+                                    if (currencyColIndex >= 0) {
+                                        if (nextRowNumbers && nextRowNumbers.length === 2) {
+                                            while (currentRow.length <= currencyColIndex + 2) {
+                                                currentRow.push('');
+                                            }
+                                            currentRow[currencyColIndex + 1] = nextRowNumbers[0];
+                                            currentRow[currencyColIndex + 2] = nextRowNumbers[1];
+                                            console.log(`3.API: 3.2 INVOICE Merged currency+numbers at row ${i + 1}: "${lastCell}" + "${nextRowNumbers[0]}" + "${nextRowNumbers[1]}"`);
+                                        } else {
+                                            while (currentRow.length <= currencyColIndex + 1) {
+                                                currentRow.push('');
+                                            }
+                                            currentRow[currencyColIndex + 1] = nextRowNumber;
+                                            console.log(`3.API: 3.2 INVOICE Merged currency+number at row ${i + 1}: "${lastCell}" + "${nextRowNumber}"`);
+                                        }
+                                        i += 2;
+                                        mergedDataMatrix.push(currentRow);
+                                        continue;
+                                    }
+                                }
+
+                                // 情况2: 当前行包含货币代码（不一定在最后）
+                                if (nextRow && isNextRowNumber) {
+                                    const trimmedNext = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
+                                    if (trimmedNext.length === 1) {
+                                        let currencyColIndex = -1;
+                                        for (let j = currentRow.length - 1; j >= 0; j--) {
+                                            const cellValue = (currentRow[j] || '').trim();
+                                            if (/^\([A-Z]{3}\)$/.test(cellValue)) {
+                                                currencyColIndex = j;
+                                                break;
+                                            }
+                                        }
+
+                                        if (currencyColIndex >= 0) {
+                                            if (nextRowNumbers && nextRowNumbers.length === 2) {
+                                                while (currentRow.length <= currencyColIndex + 2) {
+                                                    currentRow.push('');
+                                                }
+                                                currentRow[currencyColIndex + 1] = nextRowNumbers[0];
+                                                currentRow[currencyColIndex + 2] = nextRowNumbers[1];
+                                                console.log(`3.API: 3.2 INVOICE Merged currency+numbers at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${nextRowNumbers[0]}" + "${nextRowNumbers[1]}"`);
+                                            } else {
+                                                while (currentRow.length <= currencyColIndex + 1) {
+                                                    currentRow.push('');
+                                                }
+                                                currentRow[currencyColIndex + 1] = nextRowNumber;
+                                                console.log(`3.API: 3.2 INVOICE Merged currency+number at row ${i + 1} (found currency at col ${currencyColIndex}): "${currentRow[currencyColIndex]}" + "${nextRowNumber}"`);
+                                            }
+                                            i += 2;
+                                            mergedDataMatrix.push(currentRow);
+                                            continue;
+                                        }
+
+                                        if (trimmedCurrent.length > 0) {
+                                            let lastColIndex = -1;
+                                            for (let j = currentRow.length - 1; j >= 0; j--) {
+                                                const cellValue = (currentRow[j] || '').trim();
+                                                if (cellValue !== '') {
+                                                    lastColIndex = j;
+                                                    break;
+                                                }
+                                            }
+
+                                            if (lastColIndex >= 0) {
+                                                if (nextRowNumbers && nextRowNumbers.length === 2) {
+                                                    while (currentRow.length <= lastColIndex + 2) {
+                                                        currentRow.push('');
+                                                    }
+                                                    currentRow[lastColIndex + 1] = nextRowNumbers[0];
+                                                    currentRow[lastColIndex + 2] = nextRowNumbers[1];
+                                                    console.log(`3.API: 3.2 INVOICE Merged row ${i + 1} + ${i + 2} (last cell at col ${lastColIndex}): "${currentRow[lastColIndex]}" + "${nextRowNumbers[0]}" + "${nextRowNumbers[1]}"`);
+                                                } else {
+                                                    while (currentRow.length <= lastColIndex + 1) {
+                                                        currentRow.push('');
+                                                    }
+                                                    currentRow[lastColIndex + 1] = nextRowNumber;
+                                                    console.log(`3.API: 3.2 INVOICE Merged row ${i + 1} + ${i + 2} (last cell at col ${lastColIndex}): "${currentRow[lastColIndex]}" + "${nextRowNumber}"`);
+                                                }
+                                                i += 2;
+                                                mergedDataMatrix.push(currentRow);
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // 情况3: 数字 + 数字
+                                if (isLastCellNumber && isNextRowNumber) {
+                                    const nextRowTrimmed = nextRow.map(c => (c || '').trim()).filter(c => c !== '');
+                                    const shouldMerge = nextRowTrimmed.length <= 2;
+                                    if (shouldMerge) {
+                                        let numberColIndex = -1;
+                                        for (let j = currentRow.length - 1; j >= 0; j--) {
+                                            if ((currentRow[j] || '').trim() === lastCell) {
+                                                numberColIndex = j;
+                                                break;
+                                            }
+                                        }
+                                        if (numberColIndex >= 0) {
+                                            while (currentRow.length <= numberColIndex + 1) {
+                                                currentRow.push('');
+                                            }
+                                            currentRow[numberColIndex + 1] = nextRowNumber;
+                                            console.log(`3.API: 3.2 INVOICE Merged number+number at row ${i + 1}: "${lastCell}" + "${nextRowNumber}"`);
+                                            i += 2;
+                                            mergedDataMatrix.push(currentRow);
+                                            continue;
+                                        }
+                                    }
+                                }
+
+                                mergedDataMatrix.push(currentRow);
+                                i++;
+                            }
+
+                            dataMatrix.length = 0;
+                            dataMatrix.push(...mergedDataMatrix);
+                            maxCols = 0;
+                            dataMatrix.forEach(row => {
+                                maxCols = Math.max(maxCols, row.length);
+                            });
+
+                            console.log(`3.API: 3.2 INVOICE After merging currency+number, ${dataMatrix.length} rows with max ${maxCols} columns`);
+
+                            dataMatrix.forEach(row => {
+                                while (row.length < maxCols) {
+                                    row.push('');
+                                }
+                            });
+
+                            // 填充到表格，保持原始格式（与 INVOICE 选项一致：从用户点击的列开始）
+                            if (dataMatrix.length > 0 && maxCols > 0) {
+                                const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                                const startCol = parseInt(startCell.dataset.col);
+
+                                const currentRows = document.querySelectorAll('#tableBody tr').length;
+                                const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                                const requiredRows = startRow + dataMatrix.length;
+                                const requiredCols = startCol + maxCols;
+
+                                if (requiredRows > currentRows || requiredCols > currentCols) {
+                                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                                    const targetCols = Math.max(currentCols, requiredCols);
+                                    initializeTable(targetRows, targetCols);
+                                }
+
+                                const tableBody = document.getElementById('tableBody');
+                                const currentPasteChanges = [];
+                                let successCount = 0;
+
+                                dataMatrix.forEach((rowData, rowIndex) => {
+                                    const actualRowIndex = startRow + rowIndex;
+                                    const tableRow = tableBody.children[actualRowIndex];
+                                    if (!tableRow) return;
+
+                                    rowData.forEach((cellData, colIndex) => {
+                                        const actualColIndex = startCol + colIndex;
+                                        const cell = tableRow.children[actualColIndex + 1];
+
+                                        if (cell && cell.contentEditable === 'true') {
+                                            const cellValue = (cellData || '').trim();
+                                            currentPasteChanges.push({
+                                                row: actualRowIndex,
+                                                col: actualColIndex,
+                                                oldValue: cell.textContent,
+                                                newValue: cellValue
+                                            });
+
+                                            cell.textContent = cellValue;
+                                            if (cellValue) {
+                                                successCount++;
+                                            }
+                                        }
+                                    });
+                                });
+
+                                if (currentPasteChanges.length > 0) {
+                                    pasteHistory.push(currentPasteChanges);
+                                    if (pasteHistory.length > maxHistorySize) {
+                                        pasteHistory.shift();
+                                    }
+                                }
+
+                                if (successCount > 0) {
+                                    formatDetected = true;
+                                    showNotification(`3.API: 检测到INVOICE格式 (3.2)，成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持PDF原始格式!`, 'success');
+                                    setTimeout(updateSubmitButtonState, 0);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
+                    console.log('3.API: 3.2 INVOICE All parsing methods failed, will continue trying other formats');
+                }
+                // 3.2 INVOICE 代码结束
             }
             // ===== 3.API 处理结束 =====
             
