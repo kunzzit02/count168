@@ -254,6 +254,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     </table>
                     <!-- 655模式：预览容器（像截图里的Table Format那样显示粘贴结果） -->
                     <div id="tablePreview655" class="table-preview-655" style="display: none;">
+                        <div class="table-preview-655-header">Table Format</div>
                         <iframe id="tablePreviewFrame655" class="table-preview-frame-655" title="655 Table Preview"></iframe>
                     </div>
                     <!-- 655模式：空白粘贴区域（支持直接粘贴整张表格HTML/样式） -->
@@ -21826,25 +21827,12 @@ if ($current_user_id && count($user_companies) > 0) {
             const pasteArea655 = document.getElementById('pasteArea655');
             
             if (currentDataCaptureType === '655') {
-                // 655：未粘贴时显示粘贴区；粘贴成功后显示“预览table container”（像截图那样）
-                if (is655GridReady) {
-                    if (dataTable) dataTable.style.display = 'none'; // 网格表仍填充但不展示
-                    if (pasteArea655) pasteArea655.style.display = 'none';
-                    if (tablePreview655) tablePreview655.style.display = 'block';
-                } else {
-                    if (dataTable) dataTable.style.display = 'none';
-                    if (pasteArea655) {
-                        pasteArea655.style.display = 'block';
-                        pasteArea655.innerHTML = '';
-                        setTimeout(() => {
-                            pasteArea655.focus();
-                        }, 100);
-                    }
-                    if (tablePreview655) {
-                        tablePreview655.style.display = 'none';
-                        tablePreview655.innerHTML = '';
-                    }
-                }
+                // 655：切换到“全新 container”（Table Format iframe）。隐藏网格表与旧粘贴区。
+                if (dataTable) dataTable.style.display = 'none';
+                if (pasteArea655) pasteArea655.style.display = 'none';
+                if (tablePreview655) tablePreview655.style.display = 'flex';
+                init655TableFormatFrame();
+                focus655TableFormatFrame();
             } else {
                 // 显示表格，隐藏空白粘贴区域
                 if (dataTable) {
@@ -22091,7 +22079,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             const tablePreview655 = document.getElementById('tablePreview655');
             if (tablePreview655) {
-                tablePreview655.innerHTML = '';
+                // 保留iframe结构，只清空内容
                 tablePreview655.style.display = 'none';
             }
             render655Preview('');
@@ -23379,7 +23367,7 @@ if ($current_user_id && count($user_companies) > 0) {
     </style>
   </head>
   <body>
-    <div class="wrap">${safeTable}</div>
+    <div id="content655" class="wrap" contenteditable="true"></div>
   </body>
 </html>`;
 
@@ -23394,6 +23382,132 @@ if ($current_user_id && count($user_companies) > 0) {
                     doc.close();
                 } catch (_) {}
             }
+
+            // After load, insert the HTML into editable content
+            const applyContent = () => {
+                try {
+                    const doc = frame.contentDocument || frame.contentWindow.document;
+                    const content = doc.getElementById('content655');
+                    if (content) {
+                        content.innerHTML = safeTable;
+                    }
+                } catch (_) {}
+            };
+            setTimeout(applyContent, 50);
+        }
+
+        function init655TableFormatFrame() {
+            const frame = document.getElementById('tablePreviewFrame655');
+            if (!frame) return;
+
+            // Initialize only once per page life (or when srcdoc is empty)
+            try {
+                const doc = frame.contentDocument || frame.contentWindow.document;
+                const hasContent = doc && doc.getElementById && doc.getElementById('content655');
+                if (hasContent) return;
+            } catch (_) {}
+
+            render655Preview(''); // creates editable iframe skeleton
+
+            // Attach paste handler inside iframe after it loads
+            const attach = () => {
+                try {
+                    const doc = frame.contentDocument || frame.contentWindow.document;
+                    const content = doc.getElementById('content655');
+                    if (!content) return;
+
+                    // prevent duplicate listeners
+                    if (content.dataset && content.dataset.pasteBound === '1') return;
+                    if (content.dataset) content.dataset.pasteBound = '1';
+
+                    content.addEventListener('paste', (e) => {
+                        if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '655') return;
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const clipboard = e.clipboardData || window.clipboardData;
+                        let html = '';
+                        let text = '';
+                        try { html = clipboard && clipboard.getData ? (clipboard.getData('text/html') || '') : ''; } catch (_) {}
+                        try { text = clipboard && clipboard.getData ? (clipboard.getData('text/plain') || '') : ''; } catch (_) {}
+
+                        handle655TableFormatPaste(html, text);
+                    });
+                } catch (_) {}
+            };
+
+            frame.addEventListener('load', attach, { once: true });
+            setTimeout(attach, 120);
+        }
+
+        function focus655TableFormatFrame() {
+            const frame = document.getElementById('tablePreviewFrame655');
+            if (!frame) return;
+            setTimeout(() => {
+                try {
+                    frame.focus();
+                    const doc = frame.contentDocument || frame.contentWindow.document;
+                    const content = doc.getElementById('content655');
+                    if (content) content.focus();
+                } catch (_) {}
+            }, 120);
+        }
+
+        function set655FrameContentFromPreviewFragment(previewFragment) {
+            const frame = document.getElementById('tablePreviewFrame655');
+            if (!frame) return;
+            try {
+                const doc = frame.contentDocument || frame.contentWindow.document;
+                const content = doc.getElementById('content655');
+                if (!content) return;
+
+                // Extract styles + pick largest table from fragment
+                const wrapper = doc.createElement('div');
+                wrapper.innerHTML = String(previewFragment || '');
+
+                const styles = Array.from(wrapper.querySelectorAll('style')).map(s => s.outerHTML).join('\n');
+                wrapper.querySelectorAll('style').forEach(s => s.remove());
+
+                const tables = Array.from(wrapper.querySelectorAll('table'));
+                let tableHtml = wrapper.innerHTML;
+                if (tables.length > 0) {
+                    let best = tables[0];
+                    let bestScore = -1;
+                    tables.forEach(t => {
+                        const score = t.querySelectorAll('td, th').length;
+                        if (score > bestScore) {
+                            bestScore = score;
+                            best = t;
+                        }
+                    });
+                    tableHtml = best.outerHTML;
+                }
+
+                content.innerHTML = `${styles}\n${tableHtml}`;
+            } catch (_) {}
+        }
+
+        function handle655TableFormatPaste(html, text) {
+            // Preview: preserve Excel styles/classes as much as possible
+            const rawHtml = (html && /<table\b/i.test(html)) ? html : ((text && /<table\b/i.test(text)) ? text : '');
+            if (rawHtml) {
+                const previewFragment = build655PreviewFragmentFromClipboardHtml(rawHtml);
+                const gridHtml = sanitizePastedHTML(rawHtml);
+                set655FrameContentFromPreviewFragment(previewFragment || rawHtml);
+                if (gridHtml) {
+                    parseAndFillHTMLTableForGeneral655(gridHtml);
+                    is655GridReady = true;
+                }
+                return;
+            }
+
+            // TSV fallback
+            if (text && text.includes('\t')) {
+                const tableHtml = tsvToHtmlTable(text);
+                set655FrameContentFromPreviewFragment(tableHtml);
+                parseAndFillHTMLTableForGeneral655(tableHtml);
+                is655GridReady = true;
+            }
         }
 
         // 全局粘贴强制落入容器（bubble阶段）：655模式下把“表格粘贴”拦截并插入到pasteArea容器，避免跑到页面最上面
@@ -23402,10 +23516,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '655') return;
 
             const pasteArea655 = document.getElementById('pasteArea655');
-            if (!pasteArea655) return;
-
+            // 655现在使用Table Format iframe容器；如果用户没点到iframe里也能直接Ctrl+V
             const target = e.target;
-            // 用户在输入框/textarea里粘贴备注等，保持原行为
             if (isEditableFormField(target)) return;
 
             const clipboard = (e.clipboardData || window.clipboardData);
@@ -23415,13 +23527,11 @@ if ($current_user_id && count($user_companies) > 0) {
             e.preventDefault();
             e.stopPropagation();
 
-            // 确保容器可见并接收内容
-            const dataTable = document.getElementById('dataTable');
-            if (dataTable) dataTable.style.display = 'none';
-            pasteArea655.style.display = 'block';
-            placeCaretAtEnd(pasteArea655);
+            // 确保655新容器可见并接收内容
+            init655TableFormatFrame();
+            focus655TableFormatFrame();
 
-            // 取出剪贴板内容并插入到容器里（显示效果在容器内）
+            // 取出剪贴板内容并写入655 Table Format iframe（最大程度还原复制table）
             let html = '';
             try {
                 html = clipboard.getData('text/html') || '';
@@ -23432,7 +23542,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const sanitized = sanitizePastedHTML(html);
                 if (!previewFragment && !sanitized) return;
                 // 预览优先用“还原片段”（保留<style>/class），否则退回清洗后的table
-                render655Preview(previewFragment || sanitized);
+                set655FrameContentFromPreviewFragment(previewFragment || html);
                 // 同时填充到内部数据表（用于后续提交/处理）
                 parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
                 is655GridReady = true;
@@ -23446,7 +23556,7 @@ if ($current_user_id && count($user_companies) > 0) {
             } catch (_) {}
             if (text && text.includes('\t')) {
                 const tableHtml = tsvToHtmlTable(text);
-                render655Preview(tableHtml);
+                set655FrameContentFromPreviewFragment(tableHtml);
                 parseAndFillHTMLTableForGeneral655(tableHtml);
                 is655GridReady = true;
                 toggleTableDisplayFor655();
@@ -24734,11 +24844,26 @@ if ($current_user_id && count($user_companies) > 0) {
             box-sizing: border-box;
             background: white;
             overflow: hidden;
+            border: 1px solid #bdbdbd;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .table-preview-655-header {
+            flex: 0 0 auto;
+            height: 28px;
+            line-height: 28px;
+            padding: 0 10px;
+            font-size: 12px;
+            color: #000;
+            background: #e6e6e6;
+            border-bottom: 1px solid #bdbdbd;
+            user-select: none;
         }
 
         .table-preview-frame-655 {
             width: 100%;
-            height: 100%;
+            flex: 1 1 auto;
             border: 0;
             background: white;
         }
