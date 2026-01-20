@@ -17325,6 +17325,49 @@ if ($current_user_id && count($user_companies) > 0) {
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '4.RETURN') {
                 console.log('4.RETURN format detected, processing paste data...');
                 console.log('Pasted data sample (first 500 chars):', pastedData.substring(0, 500));
+
+                // 4.RETURN 专用：提取公式中的 token
+                // 例如：681.19000000*.11*[1]*1.00000000  ->  ["681.19000000","11","1","1.00000000"]
+                function extractReturnTokens(cell) {
+                    if (!cell) return [];
+                    // 移除括号与空白；把 [1] 这种方括号数字展开为 1
+                    let clean = String(cell).replace(/[()\s]/g, '').replace(/\[([^\]]+)\]/g, '$1');
+                    // 按运算符分割，但保留运算符
+                    const parts = clean.split(/([+\-*/])/);
+                    const tokens = [];
+
+                    const toPercentIfDecimal = (raw) => {
+                        const s = String(raw).trim();
+                        // 只处理 .xx / 0.xx 这种（典型是 RETURN 里的费率），转换成百分数整数：0.11 -> 11
+                        if (/^(?:0)?\.\d+$/.test(s)) {
+                            const n = Number(s);
+                            if (Number.isFinite(n)) {
+                                const pct = n * 100;
+                                // 避免 11.0000000002 这类浮点误差
+                                const rounded = Math.round(pct * 1000000) / 1000000;
+                                // 去掉无意义的 .0
+                                return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+                            }
+                        }
+                        return s;
+                    };
+
+                    parts.forEach((part) => {
+                        if (!part || part === '+' || part === '-' || part === '*' || part === '/') return;
+                        const raw = String(part).trim().replace(/,/g, '');
+                        if (!raw) return;
+
+                        // 支持 .11 这种小数（RETURN 需要显示 11）
+                        const normalized = toPercentIfDecimal(raw);
+
+                        // 只收集数字 token（允许负号、整数、小数）
+                        if (/^-?\d+(?:\.\d+)?$/.test(normalized)) {
+                            // 去掉负号：在公式里减号通常是运算符，不代表负数 token
+                            tokens.push(normalized.replace(/^-/, ''));
+                        }
+                    });
+                    return tokens;
+                }
                 
                 // 检查是否是多行数据
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -17387,28 +17430,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                             console.log(`4.RETURN: parseApiReturnFormat result:`, parsedFormula);
                                         } else {
                                             console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} no colon, extracting numbers directly...`);
-                                            // 如果没有冒号，直接提取数字
-                                            // 需要正确处理减号：在公式中，减号是运算符，不是负数符号
-                                            // 例如 "(22.33+55.66-42*539/563)" 中的 "-42" 应该提取为 "42"
-                                            let numbers = [];
-                                            // 先移除所有括号和空格
-                                            let cleanFormula = cell.replace(/[()\s]/g, '');
-                                            // 按运算符分割，但保留运算符
-                                            const parts = cleanFormula.split(/([+\-*/])/);
-                                            
-                                            parts.forEach(part => {
-                                                if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
-                                                    // 这是一个数字（可能是小数）
-                                                    const numMatch = part.match(/^\d+\.?\d*$/);
-                                                    if (numMatch) {
-                                                        numbers.push(numMatch[0]);
-                                                    }
-                                                }
-                                            });
-                                            
-                                            if (numbers.length > 0) {
-                                                parsedFormula = { columns: numbers };
-                                            }
+                                            // 如果没有冒号，直接提取数字（支持 .11 / [1] 等 RETURN 特殊写法）
+                                            const numbers = extractReturnTokens(cell);
+                                            if (numbers.length > 0) parsedFormula = { columns: numbers };
                                         }
                                         
                                         if (parsedFormula && parsedFormula.columns && parsedFormula.columns.length > 0) {
@@ -17724,22 +17748,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                     
                                     if (isFormula) {
                                         hasFormula = true;
-                                        // 解析公式列
-                                        let numbers = [];
-                                        // 先移除所有括号和空格
-                                        let cleanFormula = cell.replace(/[()\s]/g, '');
-                                        // 按运算符分割
-                                        const parts = cleanFormula.split(/([+\-*/])/);
-                                        
-                                        parts.forEach(part => {
-                                            if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
-                                                const numMatch = part.match(/^\d+\.?\d*$/);
-                                                if (numMatch) {
-                                                    numbers.push(numMatch[0]);
-                                                }
-                                            }
-                                        });
-                                        
+                                        // 解析公式列（支持 .11 / [1] 等 RETURN 特殊写法）
+                                        const numbers = extractReturnTokens(cell);
                                         if (numbers.length > 0) {
                                             // 用数字替换公式列
                                             columns.splice(colIndex, 1, ...numbers);
