@@ -6009,6 +6009,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 console.log('2.11 WBET_API: Parsing HTML table and filling directly (preserving Sub Total and Grand Total as separate rows)...');
+                // 仅用于 WBET_API：严格数值判断（允许 Turnover/Valid Turnover 出现相同数字，如 71.00 / 71.00）
+                const isStrictNumberToken = (v) => {
+                    if (v === null || v === undefined) return false;
+                    const s = String(v).trim();
+                    if (!s) return false;
+                    // 允许：-123, 1,234.56, 123.4, 0, -0.25（不允许夹杂字母）
+                    return /^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(s);
+                };
                 
                 let dataMatrix = [];
                 
@@ -6183,17 +6191,28 @@ if ($current_user_id && count($user_companies) > 0) {
                                         // 检查是否与 processedRow 的最后一个值重复（避免连续重复）
                                         const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
                                         if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
-                                            // 如果与最后一个值相同，跳过（避免重复）
-                                            console.log(`2.11 WBET_API: HTML - Skipping duplicate value "${cellValue}" (same as last value)`);
-                                            continue;
+                                            // ⚠️ WBET_API 总计行允许相邻重复数值（例如 Turnover 与 Valid Turnover 都是 71.00）
+                                            const isTotalRow = (isSubTotal || isGrandTotal);
+                                            const lastStr = lastProcessedValue.toString().trim();
+                                            const canKeepDuplicateNumber = isTotalRow && isStrictNumberToken(lastStr) && isStrictNumberToken(cellValue);
+                                            if (!canKeepDuplicateNumber) {
+                                                console.log(`2.11 WBET_API: HTML - Skipping duplicate value "${cellValue}" (same as last value)`);
+                                                continue;
+                                            }
                                         }
                                         
                                         // 检查是否与 processedRow 的倒数第二个值也相同（避免 A-B-B 模式变成 A-B-B-B）
                                         if (processedRow.length >= 2) {
                                             const secondLastValue = processedRow[processedRow.length - 2];
                                             if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
-                                                console.log(`2.11 WBET_API: HTML - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
-                                                continue;
+                                                const isTotalRow = (isSubTotal || isGrandTotal);
+                                                const secondLastStr = secondLastValue.toString().trim();
+                                                const canKeepDuplicateNumber = isTotalRow && isStrictNumberToken(secondLastStr) && isStrictNumberToken(cellValue);
+                                                // 同上：总计行允许数值重复
+                                                if (!canKeepDuplicateNumber) {
+                                                    console.log(`2.11 WBET_API: HTML - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
+                                                    continue;
+                                                }
                                             }
                                         }
                                         
@@ -6299,11 +6318,15 @@ if ($current_user_id && count($user_companies) > 0) {
                                 lastValue = null; // 重置，因为标签不是数据
                             } else if (cellValue) {
                                 // 检查是否与上一个值重复
-                                if (lastValue === null || lastValue.toString().trim() !== cellValue) {
+                                // ⚠️ WBET_API 总计行允许相邻重复数值（例如 Turnover/Valid Turnover 同为 71.00）
+                                const lastStr = lastValue === null ? '' : lastValue.toString().trim();
+                                const isTotalRow = (isSubTotal || isGrandTotal);
+                                const canKeepDuplicateNumber = isTotalRow && isStrictNumberToken(lastStr) && isStrictNumberToken(cellValue);
+                                if (lastValue === null || lastStr !== cellValue || canKeepDuplicateNumber) {
                                     deduplicatedRow.push(cell);
                                     lastValue = cell;
                                 } else {
-                                            console.log(`2.11 WBET_API: HTML - Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
+                                    console.log(`2.11 WBET_API: HTML - Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
                                 }
                             } else {
                                 // 空值也添加（保持列对齐）
@@ -13899,6 +13922,14 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 第二步：处理数据 - 移除行号、合并 Sub Total 和 Grand Total 的数据
                         const processedMatrix = [];
                         const rowsToSkip = new Set();
+                        // 仅用于 WBET_API：严格数值判断（允许 Turnover/Valid Turnover 出现相同数字，如 71.00 / 71.00）
+                        const isStrictNumberToken = (v) => {
+                            if (v === null || v === undefined) return false;
+                            const s = String(v).trim();
+                            if (!s) return false;
+                            // 允许：-123, 1,234.56, 123.4, 0, -0.25（不允许夹杂字母）
+                            return /^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(s);
+                        };
                         
                         rawDataMatrix.forEach((row, rowIndex) => {
                             if (rowsToSkip.has(rowIndex)) {
@@ -13998,17 +14029,29 @@ if ($current_user_id && count($user_companies) > 0) {
                                             // 检查是否与 processedRow 的最后一个值重复（避免连续重复）
                                             const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
                                             if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
-                                                // 如果与最后一个值相同，跳过（避免重复）
-                                                console.log(`3.API: 3.1 WBET_API Text - Skipping duplicate value "${cellValue}" (same as last value)`);
-                                                continue;
+                                                // ⚠️ WBET_API 总计行允许相邻重复数值（例如 Turnover 与 Valid Turnover 都是 71.00）
+                                                // 否则会导致少一列（你反馈的 SUB TOTAL / GRAND TOTAL 少一个 71.00）
+                                                const isTotalRow = (isSubTotal || isGrandTotal);
+                                                const lastStr = lastProcessedValue.toString().trim();
+                                                const canKeepDuplicateNumber = isTotalRow && isStrictNumberToken(lastStr) && isStrictNumberToken(cellValue);
+                                                if (!canKeepDuplicateNumber) {
+                                                    console.log(`3.API: 3.1 WBET_API Text - Skipping duplicate value "${cellValue}" (same as last value)`);
+                                                    continue;
+                                                }
                                             }
                                             
                                             // 检查是否与 processedRow 的倒数第二个值也相同（避免 A-B-B 模式变成 A-B-B-B）
                                             if (processedRow.length >= 2) {
                                                 const secondLastValue = processedRow[processedRow.length - 2];
                                                 if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
-                                                    console.log(`3.API: 3.1 WBET_API Text - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
-                                                    continue;
+                                                    // 同上：WBET_API 总计行允许数值重复
+                                                    const isTotalRow = (isSubTotal || isGrandTotal);
+                                                    const secondLastStr = secondLastValue.toString().trim();
+                                                    const canKeepDuplicateNumber = isTotalRow && isStrictNumberToken(secondLastStr) && isStrictNumberToken(cellValue);
+                                                    if (!canKeepDuplicateNumber) {
+                                                        console.log(`3.API: 3.1 WBET_API Text - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
+                                                        continue;
+                                                    }
                                                 }
                                             }
                                             
@@ -14113,7 +14156,11 @@ if ($current_user_id && count($user_companies) > 0) {
                                         lastValue = null; // 重置，因为标签不是数据
                                     } else if (cellValue) {
                                         // 检查是否与上一个值重复
-                                        if (lastValue === null || lastValue.toString().trim() !== cellValue) {
+                                        // ⚠️ WBET_API 总计行允许相邻重复数值（例如 Turnover/Valid Turnover 同为 71.00）
+                                        const lastStr = lastValue === null ? '' : lastValue.toString().trim();
+                                        const isTotalRow = (isSubTotal || isGrandTotal);
+                                        const canKeepDuplicateNumber = isTotalRow && isStrictNumberToken(lastStr) && isStrictNumberToken(cellValue);
+                                        if (lastValue === null || lastStr !== cellValue || canKeepDuplicateNumber) {
                                             deduplicatedRow.push(cell);
                                             lastValue = cell;
                                         } else {
@@ -15225,6 +15272,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 第二步：处理数据 - 移除行号、合并 Sub Total 和 Grand Total 的数据
                     const processedMatrix = [];
                     const rowsToSkip = new Set();
+                    // 仅用于 WBET_API：严格数值判断（允许 Turnover/Valid Turnover 出现相同数字，如 71.00 / 71.00）
+                    const isStrictNumberToken = (v) => {
+                        if (v === null || v === undefined) return false;
+                        const s = String(v).trim();
+                        if (!s) return false;
+                        // 允许：-123, 1,234.56, 123.4, 0, -0.25（不允许夹杂字母）
+                        return /^-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?$/.test(s);
+                    };
                     
                     rawDataMatrix.forEach((row, rowIndex) => {
                         if (rowsToSkip.has(rowIndex)) {
@@ -15324,17 +15379,27 @@ if ($current_user_id && count($user_companies) > 0) {
                                         // 检查是否与 processedRow 的最后一个值重复（避免连续重复）
                                         const lastProcessedValue = processedRow.length > 0 ? processedRow[processedRow.length - 1] : null;
                                         if (lastProcessedValue && lastProcessedValue.toString().trim() === cellValue) {
-                                            // 如果与最后一个值相同，跳过（避免重复）
-                                            console.log(`2.11 WBET_API: Text - Skipping duplicate value "${cellValue}" (same as last value)`);
-                                            continue;
+                                            // ⚠️ WBET_API 总计行允许相邻重复数值（例如 Turnover 与 Valid Turnover 都是 71.00）
+                                            const isTotalRow = (isSubTotal || isGrandTotal);
+                                            const lastStr = lastProcessedValue.toString().trim();
+                                            const canKeepDuplicateNumber = isTotalRow && isStrictNumberToken(lastStr) && isStrictNumberToken(cellValue);
+                                            if (!canKeepDuplicateNumber) {
+                                                console.log(`2.11 WBET_API: Text - Skipping duplicate value "${cellValue}" (same as last value)`);
+                                                continue;
+                                            }
                                         }
                                         
                                         // 检查是否与 processedRow 的倒数第二个值也相同（避免 A-B-B 模式变成 A-B-B-B）
                                         if (processedRow.length >= 2) {
                                             const secondLastValue = processedRow[processedRow.length - 2];
                                             if (secondLastValue && secondLastValue.toString().trim() === cellValue) {
-                                                console.log(`2.11 WBET_API: Text - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
-                                                continue;
+                                                const isTotalRow = (isSubTotal || isGrandTotal);
+                                                const secondLastStr = secondLastValue.toString().trim();
+                                                const canKeepDuplicateNumber = isTotalRow && isStrictNumberToken(secondLastStr) && isStrictNumberToken(cellValue);
+                                                if (!canKeepDuplicateNumber) {
+                                                    console.log(`2.11 WBET_API: Text - Skipping duplicate value "${cellValue}" (same as second last value, pattern detected)`);
+                                                    continue;
+                                                }
                                             }
                                         }
                                         
@@ -15437,14 +15502,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                     cellText.includes('GRAND TOTAL') || cellText.includes('GRANDTOTAL'))) {
                                     deduplicatedRow.push(cell);
                                     lastValue = null; // 重置，因为标签不是数据
-                                } else if (cellValue) {
-                                    // 检查是否与上一个值重复
-                                    if (lastValue === null || lastValue.toString().trim() !== cellValue) {
-                                        deduplicatedRow.push(cell);
-                                        lastValue = cell;
-                                    } else {
-                                        console.log(`2.11 WBET_API: Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
-                                    }
+                            } else if (cellValue) {
+                                // 检查是否与上一个值重复
+                                // ⚠️ WBET_API 总计行允许相邻重复数值（例如 Turnover/Valid Turnover 同为 71.00）
+                                const lastStr = lastValue === null ? '' : lastValue.toString().trim();
+                                const isTotalRow = (isSubTotal || isGrandTotal);
+                                const canKeepDuplicateNumber = isTotalRow && isStrictNumberToken(lastStr) && isStrictNumberToken(cellValue);
+                                if (lastValue === null || lastStr !== cellValue || canKeepDuplicateNumber) {
+                                    deduplicatedRow.push(cell);
+                                    lastValue = cell;
+                                } else {
+                                    console.log(`2.11 WBET_API: Removing duplicate value "${cellValue}" at row ${rowIdx}, column ${cellIdx}`);
+                                }
                                 } else {
                                     // 空值也添加（保持列对齐）
                                     deduplicatedRow.push(cell);
