@@ -17338,14 +17338,15 @@ if ($current_user_id && count($user_companies) > 0) {
 
                     const toPercentIfDecimal = (raw) => {
                         const s = String(raw).trim();
-                        // 只处理 .xx / 0.xx 这种（典型是 RETURN 里的费率），转换成百分数整数：0.11 -> 11
-                        if (/^(?:0)?\.\d+$/.test(s)) {
-                            const n = Number(s);
+                        // 只处理“无前导0的小数”例如 .11（用户期望显示 11）
+                        // ⚠️ 不要把 0.06 转成 6（你反馈的 bug），因此 0.xx 保持原样
+                        const unsigned = s.replace(/^[+-]/, '');
+                        if (/^\.\d+$/.test(unsigned)) {
+                            const n = Number(unsigned);
                             if (Number.isFinite(n)) {
                                 const pct = n * 100;
                                 // 避免 11.0000000002 这类浮点误差
                                 const rounded = Math.round(pct * 1000000) / 1000000;
-                                // 去掉无意义的 .0
                                 return Number.isInteger(rounded) ? String(rounded) : String(rounded);
                             }
                         }
@@ -17367,6 +17368,25 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     return tokens;
+                }
+
+                // 4.RETURN 专用：判断某个单元格是否像“公式列”
+                // 目的：
+                // - 避免把 Content（含字母、括号、-、数字）误判为公式，导致真正 Formula 列不被拆分
+                // - 只对纯数字/运算符组成的表达式进行拆分
+                function isReturnFormulaCell(raw) {
+                    if (raw === null || raw === undefined) return false;
+                    const s = String(raw).trim();
+                    if (!s) return false;
+                    // 内容列/备注列通常含字母，直接排除
+                    if (/[A-Za-z]/.test(s)) return false;
+                    // 纯数字（包括 0.06、-104.14）不是公式
+                    const numericOnly = s.replace(/,/g, '');
+                    if (/^-?\d+(?:\.\d+)?$/.test(numericOnly)) return false;
+                    // 必须同时包含数字与至少一个运算符/括号/方括号
+                    if (!/\d/.test(s)) return false;
+                    if (!/[+\-*/()[\]]/.test(s)) return false;
+                    return true;
                 }
                 
                 // 检查是否是多行数据
@@ -17411,12 +17431,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                         continue; // 跳过日期列
                                     }
                                     
-                                    // 检查是否包含公式特征：括号和运算符（不一定需要冒号）
-                                    // 公式应该包含括号或运算符，并且不是简单的数字或日期
-                                    const hasFormula = (cell.includes('(') || cell.includes('+') || 
-                                                       cell.includes('*') || cell.includes('/') ||
-                                                       (cell.includes('-') && !/^-?\d+\.?\d*$/.test(cell))) && 
-                                                      (cell.includes('(') || cell.match(/\d/)); // 包含数字
+                                    // 检查是否是“公式列”
+                                    // ⚠️ 以前这里的判断会把 Content 误判为公式，导致真正 Formula 列没被拆分
+                                    const hasFormula = isReturnFormulaCell(cell);
                                     
                                     if (hasFormula) {
                                         console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} contains formula:`, cell);
@@ -17543,10 +17560,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                             
                                             // 检查是否包含公式特征：括号和运算符
                                             // 公式应该包含括号或运算符，并且不是简单的数字或日期
-                                            const isFormula = (cell.includes('(') || cell.includes('+') || 
-                                                               cell.includes('*') || cell.includes('/') ||
-                                                               (cell.includes('-') && !/^-?\d+\.?\d*$/.test(cell))) && 
-                                                              (cell.includes('(') || cell.match(/\d/));
+                                            const isFormula = isReturnFormulaCell(cell);
                                             
                                             if (isFormula) {
                                                 console.log(`4.RETURN: Line ${i + 1}, Column ${colIndex} contains formula:`, cell);
@@ -17558,22 +17572,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                                 if (cell.includes(':')) {
                                                     parsedFormula = parseApiReturnFormat(cell);
                                                 } else {
-                                                    // 如果没有冒号，直接提取数字
-                                                    let numbers = [];
-                                                    // 先移除所有括号和空格
-                                                    let cleanFormula = cell.replace(/[()\s]/g, '');
-                                                    // 按运算符分割
-                                                    const parts = cleanFormula.split(/([+\-*/])/);
-                                                    
-                                                    parts.forEach(part => {
-                                                        if (part && part !== '+' && part !== '-' && part !== '*' && part !== '/') {
-                                                            const numMatch = part.match(/^\d+\.?\d*$/);
-                                                            if (numMatch) {
-                                                                numbers.push(numMatch[0]);
-                                                            }
-                                                        }
-                                                    });
-                                                    
+                                                    // 如果没有冒号，直接提取数字（支持 .11 / [1] 等 RETURN 特殊写法）
+                                                    const numbers = extractReturnTokens(cell);
                                                     if (numbers.length > 0) {
                                                         parsedFormula = { columns: numbers };
                                                     }
@@ -17741,10 +17741,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const cell = columns[colIndex] || '';
                                     
                                     // 检查是否包含公式特征：括号和运算符
-                                    const isFormula = (cell.includes('(') || cell.includes('+') || 
-                                                       cell.includes('-') || cell.includes('*') || 
-                                                       cell.includes('/')) && 
-                                                      (cell.includes('(') || cell.match(/\d/));
+                                    const isFormula = isReturnFormulaCell(cell);
                                     
                                     if (isFormula) {
                                         hasFormula = true;
