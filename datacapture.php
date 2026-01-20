@@ -11019,7 +11019,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         const v = (line || '').trim();
                         // 允许：CKZxx 或以 C8 结尾的 Player（例如 225C8 / 22LGC8 / KLGC8），可能数字开头
                         const isCkz = /^CKZ\d{1,6}$/i.test(v) || /^CKZ[A-Z0-9]{1,7}$/i.test(v);
-                        const isPlayer = /^[A-Z0-9]{2,20}$/i.test(v) && /C8$/i.test(v);
+                        // 允许 C8 后面带后缀（例如：M9KLGCC8A），避免无法对齐导致“右移”
+                        const isPlayer = /^[A-Z0-9]{2,20}$/i.test(v) && /C8[A-Z0-9]{0,2}$/i.test(v);
                         return (isCkz || isPlayer) &&
                                !v.includes(' ') &&
                                !v.includes(',') &&
@@ -11082,7 +11083,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
 
                             // 寻找 Player 起点：...C8 且下一个是 Name，再下一个是 User Type
-                            const isPlayer = (v) => /C8$/i.test(v) && !/\s/.test(v);
+                            // 允许 C8 后面带后缀（例如：...C8A），避免树状表复制时行对齐失败
+                            const isPlayer = (v) => /C8[A-Z0-9]{0,2}$/i.test(v) && !/\s/.test(v);
                             const isUserType = (v) => /^(AGENT|MEMBER)$/i.test(v);
 
                             let startIdx = 0;
@@ -11409,7 +11411,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                                           !trimmedLine.includes(',') &&
                                                           !trimmedLine.includes('.') &&
                                                           !trimmedLine.includes('-') &&
-                                                          /C8$/i.test(trimmedLine);
+                                                          /C8[A-Z0-9]{0,2}$/i.test(trimmedLine);
                                 const isIdentifier = isCkzIdentifier || isPlayerIdentifier;
                                 
                                 if (isIdentifier) {
@@ -11467,7 +11469,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                                            !firstCell.includes(',') &&
                                                            !firstCell.includes('.') &&
                                                            !firstCell.includes('-') &&
-                                                           /C8$/i.test(firstCell));
+                                                           /C8[A-Z0-9]{0,2}$/i.test(firstCell));
                                 const isLastRowTotal = isTotalRow || (!isIdentifierFormat && firstCell !== '');
                                 
                                 // 如果最后一行是总计行，确保前3列为空
@@ -13334,7 +13336,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             return null;
                         }
 
-                        const isPlayer = (v) => /C8$/i.test(v) && !/\s/.test(v);
+                        // 允许 C8 后面带后缀（例如：...C8A），避免无法对齐导致“右移”
+                        const isPlayer = (v) => /C8[A-Z0-9]{0,2}$/i.test(v) && !/\s/.test(v);
                         const isUserType = (v) => /^(AGENT|MEMBER)$/i.test(v);
 
                         let startIdx = 0;
@@ -13654,7 +13657,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                                       !trimmedLine.includes(',') &&
                                                       !trimmedLine.includes('.') &&
                                                       !trimmedLine.includes('-') &&
-                                                      /C8$/i.test(trimmedLine);
+                                                      /C8[A-Z0-9]{0,2}$/i.test(trimmedLine);
                             const isIdentifier = isCkzIdentifier || isPlayerIdentifier;
                             
                             if (isIdentifier) {
@@ -13712,7 +13715,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                                        !firstCell.includes(',') &&
                                                        !firstCell.includes('.') &&
                                                        !firstCell.includes('-') &&
-                                                       /C8$/i.test(firstCell));
+                                                       /C8[A-Z0-9]{0,2}$/i.test(firstCell));
                             const isLastRowTotal = isTotalRow || (!isIdentifierFormat && firstCell !== '');
                             
                             // 如果最后一行是总计行，确保前3列为空
@@ -17780,7 +17783,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
 
                     // 寻找 Player 起点：...C8 且下一个是 Name，再下一个是 User Type
-                    const isPlayer = (v) => /C8$/i.test(v) && !/\s/.test(v);
+                    // 允许 C8 后面带后缀（例如：...C8A），避免无法对齐导致“右移”
+                    const isPlayer = (v) => /C8[A-Z0-9]{0,2}$/i.test(v) && !/\s/.test(v);
                     const isUserType = (v) => /^(AGENT|MEMBER)$/i.test(v);
 
                     let startIdx = 0;
@@ -18099,12 +18103,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     // - CKZxx (历史C8PLAY格式)
                     // - 或者以 C8 结尾的 Player（例如 225C8, 22LGC8, KLGC8），可能以数字开头
                     const isCkzIdentifier = /^CKZ\d{1,6}$/i.test(trimmedLine);
-                    const isPlayerIdentifier = /^[A-Z0-9]{2,20}$/i.test(trimmedLine) &&
+                                const isPlayerIdentifier = /^[A-Z0-9]{2,20}$/i.test(trimmedLine) &&
                                               !trimmedLine.includes(' ') &&
                                               !trimmedLine.includes(',') &&
                                               !trimmedLine.includes('.') &&
                                               !trimmedLine.includes('-') &&
-                                              /C8$/i.test(trimmedLine);
+                                                          /C8[A-Z0-9]{0,2}$/i.test(trimmedLine);
                     const isIdentifier = isCkzIdentifier || isPlayerIdentifier;
                     
                     if (isIdentifier) {
@@ -18156,13 +18160,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 1. 如果 isTotalRow 标记为 true，说明是总计行
                     // 2. 或者如果第一列不是标识符格式（不是以大写字母开头的短标识符）
                     const firstCell = currentRow[0] || '';
-                    const isIdentifierFormat = (/^CKZ\d{1,6}$/i.test(firstCell)) ||
+                                const isIdentifierFormat = (/^CKZ\d{1,6}$/i.test(firstCell)) ||
                                               (/^[A-Z0-9]{2,20}$/i.test(firstCell) &&
                                                !firstCell.includes(' ') &&
                                                !firstCell.includes(',') &&
                                                !firstCell.includes('.') &&
                                                !firstCell.includes('-') &&
-                                               /C8$/i.test(firstCell));
+                                                           /C8[A-Z0-9]{0,2}$/i.test(firstCell));
                     const isLastRowTotal = isTotalRow || (!isIdentifierFormat && firstCell !== '');
                     
                     // 如果最后一行是总计行，确保前3列为空
