@@ -11032,9 +11032,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
                     
-                    // 检测CKZ开头的标识符（C8PLAY特有的标识符模式）
+                    // 检测 CKZ 开头的标识符（C8PLAY 特有）
+                    // ⚠️ 以前这里用过 /^[A-Z]{2,5}\d{1,5}$/ 会把 GT45/GT451 这类 ALIPAY 标识符误判为 C8PLAY
+                    // 因此这里收紧：只认 CKZ 系列；其它 C8PLAY 情况交给 hasStandaloneIdentifier（...C8 / ...C8A 等）判断
                     const hasCKZIdentifier = linesForCheck.some(line => {
-                        return /^CKZ[A-Z0-9]{1,7}$/.test(line) || /^[A-Z]{2,5}\d{1,5}$/.test(line);
+                        return /^CKZ[A-Z0-9]{1,7}$/i.test(line);
                     });
                     
                     // 检测独立的标识符行（不包含空格、逗号、点号等）
@@ -11070,7 +11072,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     const isLikelyAWC = (hasAWCUserID && hasAWCPlatform) || (hasAWCUserID && hasAWCTypeIdentifier) || hasAWCSubTotal;
                     
                     // 如果符合 C8PLAY 特征，且不是 AWC 格式，进行解析
-                    const isC8PLAYFormat = !isLikelyAWC && (hasCKZIdentifier || (hasStandaloneIdentifier && hasAgentKeyword));
+                    // 收紧规则：仅在确实出现 CKZ 或 ...C8（含后缀）标识符时才命中，避免抢走 ALIPAY 等格式
+                    const isC8PLAYFormat = !isLikelyAWC && (hasCKZIdentifier || hasStandaloneIdentifier);
                     
                     if (isC8PLAYFormat) {
                         console.log('2.SPECIAL: Trying 2.4 C8PLAY format...');
