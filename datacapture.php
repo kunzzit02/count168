@@ -5871,47 +5871,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     const finalMatrix = [...processedMatrix];
                 
                 // 最终去重：去除所有行中的连续重复值
-                // 注意：WBET_API 的 Sub Total / Grand Total 常见 Turnover 与 Valid Turnover 相同（如 71.00 / 71.00），
-                // 如果盲目去重会导致少一列。这里在去重后做一次“补回 Valid Turnover”的修复（仅 WBET_API）。
-                function _parseLooseNumber(v) {
-                    if (v == null) return null;
-                    const s = String(v).trim();
-                    if (!s) return null;
-                    const cleaned = s.replace(/,/g, '');
-                    // 允许 -71, 71.00, 0.5
-                    if (!/^-?\d+(?:\.\d+)?$/.test(cleaned)) return null;
-                    const n = Number(cleaned);
-                    return Number.isFinite(n) ? n : null;
-                }
-
-                function _maybeRestoreWbetApiTotalsValidTurnover(row) {
-                    if (!Array.isArray(row) || row.length < 4) return row;
-                    const label = (row[0] || '').toString().trim().toUpperCase();
-                    const isTotalRow = label.includes('SUB TOTAL') || label.includes('SUBTOTAL') || label.includes('GRAND TOTAL') || label.includes('GRANDTOTAL');
-                    if (!isTotalRow) return row;
-
-                    // 期望至少：LABEL + BetCount + Turnover + ValidTurnover + W/L
-                    if (row.length >= 5) return row;
-
-                    const betCount = _parseLooseNumber(row[1]);
-                    const turnover = _parseLooseNumber(row[2]);
-                    const wl = _parseLooseNumber(row[3]);
-
-                    // 常见情况：LABEL | 3 | 71.00 | -71.00  （Valid Turnover 被去重吃掉了）
-                    // 满足 turnover 与 wl 绝对值相等且符号相反时，推断缺失的 Valid Turnover = turnover
-                    if (betCount !== null && turnover !== null && wl !== null) {
-                        const sameMagnitude = Math.abs(Math.abs(wl) - Math.abs(turnover)) < 0.0001;
-                        const oppositeSign = turnover !== 0 && (wl / turnover) < 0;
-                        if (sameMagnitude && oppositeSign) {
-                            const fixed = [...row];
-                            fixed.splice(3, 0, row[2]); // 在 W/L 前插入 Valid Turnover
-                            return fixed;
-                        }
-                    }
-
-                    return row;
-                }
-
                 const deduplicatedMatrix = finalMatrix.map((row, rowIdx) => {
                     const rowText = row.join(' ').toUpperCase();
                     const isSubTotal = rowText.includes('SUB TOTAL') || rowText.includes('SUBTOTAL');
@@ -5946,7 +5905,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         });
                         
                         console.log(`WBET: HTML - Row ${rowIdx} (${isSubTotal ? 'SUB TOTAL' : 'GRAND TOTAL'}): ${row.length} -> ${deduplicatedRow.length} cells after deduplication`);
-                        return _maybeRestoreWbetApiTotalsValidTurnover(deduplicatedRow);
+                        return deduplicatedRow;
                     }
                     
                     // 普通数据行保持不变
