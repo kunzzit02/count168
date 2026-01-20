@@ -17330,43 +17330,71 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 例如：681.19000000*.11*[1]*1.00000000  ->  ["681.19000000","11","1","1.00000000"]
                 function extractReturnTokens(cell) {
                     if (!cell) return [];
-                    // 移除括号与空白；把 [1] 这种方括号数字展开为 1
-                    let clean = String(cell).replace(/[()\s]/g, '').replace(/\[([^\]]+)\]/g, '$1');
-                    // 按运算符分割，但保留运算符
-                    const parts = clean.split(/([+\-*/])/);
-                    const tokens = [];
+                    // 保留括号用于判断“(-9)”这种负数；去空白/千分位逗号；把 [1] 这种方括号数字展开为 1
+                    const s = String(cell)
+                        .replace(/\s+/g, '')
+                        .replace(/,/g, '')
+                        .replace(/\[([^\]]+)\]/g, '$1');
 
-                    const toPercentIfDecimal = (raw) => {
-                        const s = String(raw).trim();
+                    const tokens = [];
+                    const isDigit = (c) => c >= '0' && c <= '9';
+                    const isOp = (c) => c === '+' || c === '-' || c === '*' || c === '/';
+
+                    const normalizeDotDecimalToPercent = (numStr) => {
                         // 只处理“无前导0的小数”例如 .11（用户期望显示 11）
-                        // ⚠️ 不要把 0.06 转成 6（你反馈的 bug），因此 0.xx 保持原样
-                        const unsigned = s.replace(/^[+-]/, '');
-                        if (/^\.\d+$/.test(unsigned)) {
-                            const n = Number(unsigned);
+                        // ⚠️ 不要把 0.06 转成 6，因此 0.xx 保持原样
+                        if (numStr.startsWith('.')) {
+                            const n = Number('0' + numStr);
                             if (Number.isFinite(n)) {
                                 const pct = n * 100;
-                                // 避免 11.0000000002 这类浮点误差
-                                const rounded = Math.round(pct * 1000000) / 1000000;
+                                const rounded = Math.round(pct * 1000000) / 1000000; // 防浮点误差
                                 return Number.isInteger(rounded) ? String(rounded) : String(rounded);
                             }
                         }
-                        return s;
+                        return numStr;
                     };
 
-                    parts.forEach((part) => {
-                        if (!part || part === '+' || part === '-' || part === '*' || part === '/') return;
-                        const raw = String(part).trim().replace(/,/g, '');
-                        if (!raw) return;
+                    // 扫描提取数字 token，并只在“一元负号”时保留负号：
+                    // - (-9) / +9 / *-9 / /-9 / (-0.06) 视为负数
+                    // - 133.7-10 这里的 - 是减法运算符，不把 10 变成 -10
+                    let i = 0;
+                    while (i < s.length) {
+                        let sign = '';
 
-                        // 支持 .11 这种小数（RETURN 需要显示 11）
-                        const normalized = toPercentIfDecimal(raw);
-
-                        // 只收集数字 token（允许负号、整数、小数）
-                        if (/^-?\d+(?:\.\d+)?$/.test(normalized)) {
-                            // 去掉负号：在公式里减号通常是运算符，不代表负数 token
-                            tokens.push(normalized.replace(/^-/, ''));
+                        // 识别一元符号 +/-
+                        if ((s[i] === '+' || s[i] === '-') && (i + 1 < s.length) && (isDigit(s[i + 1]) || s[i + 1] === '.')) {
+                            const prev = i === 0 ? '' : s[i - 1];
+                            const isUnary = (i === 0) || prev === '(' || prev === '[' || isOp(prev);
+                            if (isUnary) {
+                                sign = s[i];
+                                i++;
+                            }
                         }
-                    });
+
+                        // 识别数字（支持 .11 / 1.23 / 123）
+                        if (i < s.length && (isDigit(s[i]) || s[i] === '.')) {
+                            const start = i;
+                            // 整数部分
+                            if (isDigit(s[i])) {
+                                while (i < s.length && isDigit(s[i])) i++;
+                            }
+                            // 小数部分
+                            if (i < s.length && s[i] === '.') {
+                                i++;
+                                while (i < s.length && isDigit(s[i])) i++;
+                            }
+
+                            let numStr = s.slice(start, i);
+                            if (numStr) {
+                                numStr = normalizeDotDecimalToPercent(numStr);
+                                tokens.push((sign === '-' ? '-' : '') + numStr);
+                            }
+                            continue;
+                        }
+
+                        i++;
+                    }
+
                     return tokens;
                 }
 
