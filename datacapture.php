@@ -12714,12 +12714,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 特征4: 可能包含行号（纯数字的第一列）
                     const normalizedDataForCheck = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                     const linesForCheck = normalizedDataForCheck.split('\n').map(line => line.trim()).filter(line => line !== '');
+
+                    // 尽量早拿到 HTML（有些浏览器/来源 text/plain 里不包含 SUB TOTAL/GRAND TOTAL，但 text/html 里有）
+                    const htmlDataFromDetect = detectAndParseHTML(e);
+                    let htmlDataDirect = '';
+                    try {
+                        htmlDataDirect = (e.clipboardData && e.clipboardData.getData) ? (e.clipboardData.getData('text/html') || '') : '';
+                    } catch (_) {
+                        htmlDataDirect = '';
+                    }
+                    const htmlForCheck = (htmlDataFromDetect || htmlDataDirect || '');
+
+                    // 检测 SUB TOTAL 或 SUBTOTAL（同时检查 text/plain 与 text/html）
+                    const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData) || /SUB\s*TOTAL|SUBTOTAL/i.test(htmlForCheck);
                     
-                    // 检测 SUB TOTAL 或 SUBTOTAL
-                    const hasSubTotal = /SUB\s*TOTAL|SUBTOTAL/i.test(pastedData);
-                    
-                    // 检测 GRAND TOTAL 或 GRANDTOTAL
-                    const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData);
+                    // 检测 GRAND TOTAL 或 GRANDTOTAL（同时检查 text/plain 与 text/html）
+                    const hasGrandTotal = /GRAND\s*TOTAL|GRANDTOTAL/i.test(pastedData) || /GRAND\s*TOTAL|GRANDTOTAL/i.test(htmlForCheck);
                     
                     // 检测数据行标识（2-3个大写字母，如 OB, OC, OD, RS）
                     // 支持两种情况：
@@ -12741,7 +12751,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     });
                     
                     // 如果符合 WBET 特征，进行解析
-                    const isWBETFormat = (hasSubTotal || hasGrandTotal) && hasDataRowIdentifier;
+                    // 只要出现 SUB TOTAL / GRAND TOTAL 就视为 WBET（避免因数据行标识不一致而无法触发）
+                    const isWBETFormat = (hasSubTotal || hasGrandTotal);
                     
                     if (isWBETFormat) {
                         console.log('2.SPECIAL: Trying 2.9 WBET format...');
@@ -12750,8 +12761,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('2.SPECIAL: WBET Pasted data raw (first 500 chars):', pastedData.substring(0, 500));
                     
                     // 优先使用 HTML 表格解析（从网页复制的内容通常是 HTML 格式）
-                    const htmlDataFromDetect = detectAndParseHTML(e);
-                    
                     if (htmlDataFromDetect) {
                         console.log('2.SPECIAL: WBET HTML data detected via detectAndParseHTML');
                         const filled = parseAndFillHTMLTableForWBET(htmlDataFromDetect, startCell);
