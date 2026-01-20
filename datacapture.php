@@ -12766,8 +12766,14 @@ if ($current_user_id && count($user_companies) > 0) {
                         return false;
                     });
                     
-                    // 如果符合 WBET 特征，进行解析
-                    const isWBETFormat = (hasSubTotal || hasGrandTotal) && hasDataRowIdentifier;
+                    // 避免把 WBET_API 误当成 WBET：
+                    // WBET_API 常见表头/字段：Username / Bet Count / Valid Turnover / W/L
+                    // 只把“SUB/GRAND TOTAL”当作触发条件会误吃 WBET_API，因此这里显式排除 WBET_API
+                    const isLikelyWBETApi = /\bUSERNAME\b|\bBET\s*COUNT\b|\bVALID\s*TURNOVER\b|\bW\/L\b/i.test(pastedData);
+
+                    // 2.SPECIAL 里要支持 WBET 粘贴：只要出现 SUB/GRAND TOTAL 且不是 WBET_API，就尝试用 WBET 解析器
+                    // （解析器会返回 true/false，失败会继续尝试其它格式）
+                    const isWBETFormat = (hasSubTotal || hasGrandTotal) && !isLikelyWBETApi;
                     
                     if (isWBETFormat) {
                         console.log('2.SPECIAL: Trying 2.9 WBET format...');
