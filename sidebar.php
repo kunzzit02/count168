@@ -121,17 +121,16 @@ if ($companyId) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器：居中单个内层块，避免头像偏左 */
+    /* 用户信息容器：占满 header 宽度后，再居中内层块（父级 align-items:center 会收缩子项，必须 stretch） */
     .user-info-container {
         display: flex;
         align-items: center;
         justify-content: center;
+        align-self: stretch;
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(10px, 1vw, 20px);
         margin: 0 auto clamp(2px, 0.31vw, 6px) auto;
         min-height: 50px;
-        contain: layout style;
-        will-change: auto;
         overflow: visible;
         position: relative;
         z-index: 9999;
