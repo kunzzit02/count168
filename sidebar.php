@@ -381,7 +381,7 @@ if ($companyId) {
         justify-content: center;
         align-items: flex-start;
         gap: 2px;
-        margin-left: 0px;
+        margin-left: 10px;
         min-width: clamp(60px, 5vw, 100px);
         flex: 0 1 auto;
         text-align: center;
