@@ -121,12 +121,12 @@ if ($companyId) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器（包裹头像和用户信息）- 整体居中，名字变长时向左右扩展并保持居中 */
+    /* 用户信息容器：头像和名字贴着，名字长时向左右扩展，整体居中 */
     .user-info-container {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: clamp(6px, 0.63vw, 12px);
+        gap: 0;
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
@@ -140,7 +140,7 @@ if ($companyId) {
         z-index: 9999;
     }
 
-    /* 登录后头像和下拉菜单样式 */
+    /* 登录后头像和下拉菜单样式（紧贴头像，无间隙） */
     .user-avatar-dropdown {
         position: relative;
         display: flex;
@@ -149,17 +149,14 @@ if ($companyId) {
         gap: 0;
         cursor: pointer;
         padding: clamp(2px, 0.4vw, 8px);
-        padding-left: 0px;
+        padding-left: 0;
         border-radius: 25px;
-        /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
         transition: background-color 0.3s ease;
-        text-align: center;
+        text-align: left;
         color: white;
         flex: 0 1 auto;
-        /* 名字很长时可收缩换行，不溢出侧边栏 */
         min-width: 0;
         contain: layout style;
-        /* 确保不会被头像选择菜单覆盖，但也不覆盖菜单 */
         z-index: 1;
     }
 
@@ -186,13 +183,13 @@ if ($companyId) {
     .avatar-selector-container {
         position: relative;
         display: flex;
-        flex-direction: column;     
+        flex-direction: column;
         align-items: center;
         margin-left: 0;
         flex-shrink: 0;
         width: fit-content;
-        /* 优化渲染性能，防止页面切换时的布局重排 */
-        min-width: clamp(40px, 3.65vw, 70px);
+        /* 与头像同宽，确保头像和名字贴着无间隙 */
+        min-width: clamp(30px, 2.6vw, 50px);
         /* 移除 paint 限制，允许头像选择菜单超出容器边界显示 */
         contain: layout style;
         /* 确保头像选择菜单不被裁剪 */
@@ -376,20 +373,20 @@ if ($companyId) {
         background: rgba(102, 126, 234, 0.5);
     }
 
+    /* 名字和职位容器：内部靠左对齐，名字变长时向左右扩展 */
     .user-info {
         display: flex;
         flex-direction: column;
         justify-content: center;
-        align-items: center;
+        align-items: flex-start;
         gap: 2px;
-        margin-left: 0px;
+        margin-left: 0;
         min-width: clamp(60px, 5vw, 100px);
         flex: 0 0 auto;
-        /* 名字变长时向左右扩展，整体保持居中 */
         max-width: 100%;
         overflow-wrap: break-word;
         word-break: break-word;
-        text-align: center;
+        text-align: left;
     }
 
     .user-name {
@@ -398,16 +395,15 @@ if ($companyId) {
         font-weight: 600;
         color: white;
         line-height: 1.2;
-        text-align: center;
+        text-align: left;
     }
 
-    
     .user-role {
         font-size: clamp(9px, 0.57vw, 11px);
         font-weight: 500;
         color: rgba(255, 255, 255, 0.8);
         line-height: 1.2;
-        text-align: center;
+        text-align: left;
     }
 
     /* 左边的选项bar */
