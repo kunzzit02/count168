@@ -121,16 +121,17 @@ if ($companyId) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器：强制占满父级宽度，然后居中内层块 */
+    /* 用户信息容器：居中单个内层块，避免头像偏左 */
     .user-info-container {
         display: flex;
         align-items: center;
         justify-content: center;
         width: 100%;
-        align-self: stretch;
         padding: clamp(4px, 0.52vw, 10px) clamp(10px, 1vw, 20px);
         margin: 0 auto clamp(2px, 0.31vw, 6px) auto;
         min-height: 50px;
+        contain: layout style;
+        will-change: auto;
         overflow: visible;
         position: relative;
         z-index: 9999;
@@ -842,7 +843,6 @@ if ($companyId) {
         gap: clamp(4px, 0.625vw, 12px);
         margin-bottom: clamp(4px, 0.52vw, 10px);
         width: 100%;
-        align-self: stretch;
     }
 
     .header-logo {
