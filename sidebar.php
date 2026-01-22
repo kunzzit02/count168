@@ -128,6 +128,8 @@ if ($companyId) {
         justify-content: center;
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
+        margin-right: clamp(-40px, -2.1vw, -20px);
+
         margin-bottom: clamp(2px, 0.31vw, 6px);
         min-height: 50px;
         contain: layout style;
