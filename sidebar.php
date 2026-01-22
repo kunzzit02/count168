@@ -128,9 +128,10 @@ if ($companyId) {
         justify-content: center;
         gap: clamp(8px, 0.83vw, 16px);
         width: 100%;
-        padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
+        padding: clamp(4px, 0.52vw, 10px) 0;
         margin: 0 auto clamp(2px, 0.31vw, 6px) auto;
         min-height: 50px;
+        max-width: 100%;
         contain: layout style;
         will-change: auto;
         /* 确保头像选择菜单不被裁剪 */
@@ -138,6 +139,8 @@ if ($companyId) {
         /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
+        /* 确保内容真正居中 */
+        box-sizing: border-box;
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -149,6 +152,7 @@ if ($companyId) {
         gap: 0;
         cursor: pointer;
         padding: clamp(2px, 0.4vw, 8px);
+        margin: 0;
         border-radius: 25px;
         transition: background-color 0.3s ease;
         text-align: left;
@@ -185,10 +189,12 @@ if ($companyId) {
         flex-direction: column;
         align-items: center;
         margin: 0;
+        padding: 0;
         flex-shrink: 0;
         width: fit-content;
-        /* 头像容器宽度 */
+        /* 头像容器宽度，与头像尺寸一致 */
         min-width: clamp(30px, 2.6vw, 50px);
+        max-width: clamp(30px, 2.6vw, 50px);
         /* 移除 paint 限制，允许头像选择菜单超出容器边界显示 */
         contain: layout style;
         /* 确保头像选择菜单不被裁剪 */
@@ -471,7 +477,7 @@ if ($companyId) {
         border-bottom: 0px solid rgba(255, 255, 255, 0.1);
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
         justify-content: center;
         /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
