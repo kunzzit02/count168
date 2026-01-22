@@ -121,11 +121,12 @@ if ($companyId) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器（包裹头像和用户信息） */
+    /* 用户信息容器（包裹头像和用户信息）- 整体居中，名字变长时向左右扩展并保持居中 */
     .user-info-container {
         display: flex;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: center;
+        gap: clamp(6px, 0.63vw, 12px);
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
@@ -152,10 +153,10 @@ if ($companyId) {
         border-radius: 25px;
         /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
         transition: background-color 0.3s ease;
-        text-align: left;
+        text-align: center;
         color: white;
-        flex-shrink: 0;
-        /* 优化渲染性能 */
+        flex: 0 1 auto;
+        /* 名字很长时可收缩换行，不溢出侧边栏 */
         min-width: 0;
         contain: layout style;
         /* 确保不会被头像选择菜单覆盖，但也不覆盖菜单 */
@@ -379,11 +380,16 @@ if ($companyId) {
         display: flex;
         flex-direction: column;
         justify-content: center;
-        align-items: flex-start;
+        align-items: center;
         gap: 2px;
         margin-left: 0px;
         min-width: clamp(60px, 5vw, 100px);
-        flex: 1;
+        flex: 0 0 auto;
+        /* 名字变长时向左右扩展，整体保持居中 */
+        max-width: 100%;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        text-align: center;
     }
 
     .user-name {
@@ -392,6 +398,7 @@ if ($companyId) {
         font-weight: 600;
         color: white;
         line-height: 1.2;
+        text-align: center;
     }
 
     
@@ -400,6 +407,7 @@ if ($companyId) {
         font-weight: 500;
         color: rgba(255, 255, 255, 0.8);
         line-height: 1.2;
+        text-align: center;
     }
 
     /* 左边的选项bar */
