@@ -121,15 +121,15 @@ if ($companyId) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器：头像和名字贴着，名字长时向左右扩展，整体居中 */
+    /* 用户信息容器：头像和名字有适当间距，名字长时向左右扩展，整体居中 */
     .user-info-container {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0;
+        gap: clamp(8px, 0.83vw, 16px);
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
-        margin-bottom: clamp(2px, 0.31vw, 6px);
+        margin: 0 auto clamp(2px, 0.31vw, 6px) auto;
         min-height: 50px;
         contain: layout style;
         will-change: auto;
@@ -140,7 +140,7 @@ if ($companyId) {
         z-index: 9999;
     }
 
-    /* 登录后头像和下拉菜单样式（紧贴头像，无间隙） */
+    /* 登录后头像和下拉菜单样式 */
     .user-avatar-dropdown {
         position: relative;
         display: flex;
@@ -149,7 +149,6 @@ if ($companyId) {
         gap: 0;
         cursor: pointer;
         padding: clamp(2px, 0.4vw, 8px);
-        padding-left: 0;
         border-radius: 25px;
         transition: background-color 0.3s ease;
         text-align: left;
@@ -185,10 +184,10 @@ if ($companyId) {
         display: flex;
         flex-direction: column;
         align-items: center;
-        margin-left: 0;
+        margin: 0;
         flex-shrink: 0;
         width: fit-content;
-        /* 与头像同宽，确保头像和名字贴着无间隙 */
+        /* 头像容器宽度 */
         min-width: clamp(30px, 2.6vw, 50px);
         /* 移除 paint 限制，允许头像选择菜单超出容器边界显示 */
         contain: layout style;
