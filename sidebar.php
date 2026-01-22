@@ -121,25 +121,22 @@ if ($companyId) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器：头像和名字有适当间距，名字长时向左右扩展，整体居中 */
+    /* 用户信息容器：头像和名字有适当间距，名字长时向左右扩展，整体在 header 内居中 */
     .user-info-container {
         display: flex;
         align-items: center;
         justify-content: center;
         gap: clamp(8px, 0.83vw, 16px);
-        width: 100%;
+        width: fit-content;
+        max-width: 100%;
         padding: clamp(4px, 0.52vw, 10px) 0;
         margin: 0 auto clamp(2px, 0.31vw, 6px) auto;
         min-height: 50px;
-        max-width: 100%;
         contain: layout style;
         will-change: auto;
-        /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
-        /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
-        /* 确保内容真正居中 */
         box-sizing: border-box;
     }
 
@@ -477,7 +474,7 @@ if ($companyId) {
         border-bottom: 0px solid rgba(255, 255, 255, 0.1);
         display: flex;
         flex-direction: column;
-        align-items: stretch;
+        align-items: center;
         justify-content: center;
         /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
