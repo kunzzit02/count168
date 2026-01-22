@@ -121,12 +121,12 @@ if ($companyId) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器（包裹头像和用户信息）- 头像与名字贴着，整体居中，名字变长时向左右扩展 */
+    /* 用户信息容器（包裹头像和用户信息）- 整体居中，名字变长时向左右扩展并保持居中 */
     .user-info-container {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 0;
+        gap: clamp(6px, 0.63vw, 12px);
         width: 100%;
         padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
         margin-bottom: clamp(2px, 0.31vw, 6px);
@@ -148,7 +148,8 @@ if ($companyId) {
         flex-direction: row;
         gap: 0;
         cursor: pointer;
-        padding: clamp(2px, 0.4vw, 8px) clamp(2px, 0.4vw, 8px) clamp(2px, 0.4vw, 8px) 0;
+        padding: clamp(2px, 0.4vw, 8px);
+        padding-left: 0px;
         border-radius: 25px;
         /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
         transition: background-color 0.3s ease;
@@ -190,8 +191,8 @@ if ($companyId) {
         margin-left: 0;
         flex-shrink: 0;
         width: fit-content;
-        /* 与头像同宽，和名字贴着，无多余空隙 */
-        min-width: clamp(30px, 2.6vw, 50px);
+        /* 优化渲染性能，防止页面切换时的布局重排 */
+        min-width: clamp(40px, 3.65vw, 70px);
         /* 移除 paint 限制，允许头像选择菜单超出容器边界显示 */
         contain: layout style;
         /* 确保头像选择菜单不被裁剪 */
