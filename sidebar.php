@@ -121,31 +121,22 @@ if ($companyId) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器：居中单个内层块，避免头像偏左 */
+    /* 用户信息容器（包裹头像和用户信息） */
     .user-info-container {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         width: 100%;
-        padding: clamp(4px, 0.52vw, 10px) clamp(10px, 1vw, 20px);
-        margin: 0 auto clamp(2px, 0.31vw, 6px) auto;
+        padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
+        margin-bottom: clamp(2px, 0.31vw, 6px);
         min-height: 50px;
         contain: layout style;
         will-change: auto;
+        /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
+        /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
-        box-sizing: border-box;
-    }
-
-    /* 内层：头像+名字作为一个整体，居中后被父级居中 */
-    .user-info-inner {
-        display: flex;
-        align-items: center;
-        gap: clamp(8px, 0.83vw, 16px);
-        flex: 0 0 auto;
-        max-width: 100%;
-        box-sizing: border-box;
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -157,13 +148,17 @@ if ($companyId) {
         gap: 0;
         cursor: pointer;
         padding: clamp(2px, 0.4vw, 8px);
+        padding-left: 0px;
         border-radius: 25px;
+        /* 只对背景色应用过渡，避免布局属性变化导致的闪烁 */
         transition: background-color 0.3s ease;
         text-align: left;
         color: white;
-        flex: 0 1 auto;
+        flex-shrink: 0;
+        /* 优化渲染性能 */
         min-width: 0;
         contain: layout style;
+        /* 确保不会被头像选择菜单覆盖，但也不覆盖菜单 */
         z-index: 1;
     }
 
@@ -190,13 +185,13 @@ if ($companyId) {
     .avatar-selector-container {
         position: relative;
         display: flex;
-        flex-direction: column;
+        flex-direction: column;     
         align-items: center;
-        margin: 0;
+        margin-left: 0;
         flex-shrink: 0;
         width: fit-content;
-        /* 头像容器宽度 */
-        min-width: clamp(30px, 2.6vw, 50px);
+        /* 优化渲染性能，防止页面切换时的布局重排 */
+        min-width: clamp(40px, 3.65vw, 70px);
         /* 移除 paint 限制，允许头像选择菜单超出容器边界显示 */
         contain: layout style;
         /* 确保头像选择菜单不被裁剪 */
@@ -380,20 +375,15 @@ if ($companyId) {
         background: rgba(102, 126, 234, 0.5);
     }
 
-    /* 名字和职位容器：内部靠左对齐，名字变长时向左右扩展 */
     .user-info {
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: flex-start;
         gap: 2px;
-        margin-left: 0;
+        margin-left: 0px;
         min-width: clamp(60px, 5vw, 100px);
-        flex: 0 0 auto;
-        max-width: 100%;
-        overflow-wrap: break-word;
-        word-break: break-word;
-        text-align: left;
+        flex: 1;
     }
 
     .user-name {
@@ -402,15 +392,14 @@ if ($companyId) {
         font-weight: 600;
         color: white;
         line-height: 1.2;
-        text-align: left;
     }
 
+    
     .user-role {
         font-size: clamp(9px, 0.57vw, 11px);
         font-weight: 500;
         color: rgba(255, 255, 255, 0.8);
         line-height: 1.2;
-        text-align: left;
     }
 
     /* 左边的选项bar */
@@ -475,14 +464,14 @@ if ($companyId) {
     }
 
     .informationmenu-header {
-        padding: clamp(6px, 0.73vw, 14px) clamp(10px, 1vw, 20px) clamp(6px, 0.52vw, 10px);
+        padding: clamp(6px, 0.73vw, 14px) 10px clamp(6px, 0.52vw, 10px);
         border-bottom: 0px solid rgba(255, 255, 255, 0.1);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
-        box-sizing: border-box;
     }
 
     .informationmenu-logo {
@@ -1252,9 +1241,8 @@ if ($companyId) {
             </div>
         </div>
 
-        <!-- 用户信息容器：内层整体居中，头像+名字作为一个块 -->
+        <!-- 用户信息容器（头像和用户信息左右排版） -->
         <div class="user-info-container">
-            <div class="user-info-inner">
             <!-- 添加头像选择器（改为使用 PNG 照片） -->
             <div class="avatar-selector-container">
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
@@ -1372,7 +1360,6 @@ if ($companyId) {
                     <div class="user-name"><?php echo htmlspecialchars($name); ?></div>
                     <div class="user-role"><?php echo ucfirst($role); ?></div>
                 </div>
-            </div>
             </div>
         </div>
         <!-- 语言切换按钮 -->
