@@ -110,46 +110,6 @@ try {
     // 转换日期格式 (dd/mm/yyyy 转为 yyyy-mm-dd)
     $transaction_date_db = date('Y-m-d', strtotime(str_replace('/', '-', $transaction_date)));
     
-    // 检查 CONTRA 交易的日期权限限制
-    // Manager 以下的角色（包括 admin）只能 Contra 当天的账目，昨天的账目需要 Manager 以上的职位批准
-    if ($transaction_type === 'CONTRA') {
-        // 定义角色层级（数字越小，层级越高）
-        $role_hierarchy = [
-            'owner' => 0,
-            'admin' => 1,
-            'manager' => 2,
-            'supervisor' => 3,
-            'accountant' => 4,
-            'audit' => 5,
-            'customer service' => 6
-        ];
-        
-        $user_role_lower = strtolower($userRole);
-        $user_level = $role_hierarchy[$user_role_lower] ?? 999;
-        
-        // Manager 以下的角色（level > 2，即 supervisor, accountant, audit, customer service）
-        // 以及 admin（根据用户要求，admin 也被视为 Manager 以下的角色，level = 1）
-        // 限制条件：admin（level = 1）或 Manager 以下的角色（level > 2）
-        $is_restricted_role = ($user_level === 1) || ($user_level > 2); // admin 或 Manager 以下的角色
-        
-        if ($is_restricted_role) {
-            // 获取今天的日期
-            $today = date('Y-m-d');
-            // 获取昨天的日期
-            $yesterday = date('Y-m-d', strtotime('-1 day'));
-            
-            // 检查交易日期
-            if ($transaction_date_db < $yesterday) {
-                // 超过昨天的账目，Manager 以下角色不能操作
-                throw new Exception('Manager 以下的职位只能 Contra 当天的账目。此交易日期为 ' . $transaction_date . '，需要 Manager 以上的职位批准');
-            } elseif ($transaction_date_db === $yesterday) {
-                // 昨天的账目，需要 Manager 以上批准
-                throw new Exception('昨天的账目需要 Manager 以上的职位批准。当前角色：' . ucfirst($user_role_lower));
-            }
-            // 如果是今天的账目，允许继续
-        }
-    }
-    
     // 验证 From Account（PAYMENT/RECEIVE/CONTRA/CLAIM 需要，RATE 有特殊处理）
     if (in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'])) {
         if (!$from_account_id || $from_account_id <= 0) {
