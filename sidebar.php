@@ -186,7 +186,7 @@ if ($companyId) {
         position: relative;
         display: flex;
         flex-direction: column;     
-        align-items: flex-end;
+        align-items: center;
         margin-left: 0;
         flex-shrink: 0;
         width: fit-content;
@@ -379,9 +379,9 @@ if ($companyId) {
         display: flex;
         flex-direction: column;
         justify-content: center;
-        align-items: flex-start;
+        align-items: center;
         gap: 2px;
-        margin-left: 20px;
+        margin-left: 0px;
         min-width: clamp(60px, 5vw, 100px);
         flex: 0 1 auto;
         text-align: center;
