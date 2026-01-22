@@ -128,8 +128,8 @@ if ($companyId) {
         justify-content: center;
         gap: clamp(8px, 0.83vw, 16px);
         width: 100%;
-        padding: clamp(4px, 0.52vw, 10px) 0;
-        margin: 0;
+        padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
+        margin: 0 auto clamp(2px, 0.31vw, 6px) auto;
         min-height: 50px;
         contain: layout style;
         will-change: auto;
@@ -138,15 +138,6 @@ if ($companyId) {
         /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
-        box-sizing: border-box;
-    }
-    
-    /* 头像和名字组合的内层容器，确保完美居中 */
-    .user-info-container::before,
-    .user-info-container::after {
-        content: '';
-        flex: 1 1 0;
-        min-width: 0;
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -162,7 +153,7 @@ if ($companyId) {
         transition: background-color 0.3s ease;
         text-align: left;
         color: white;
-        flex: 0 0 auto;
+        flex: 0 1 auto;
         min-width: 0;
         contain: layout style;
         z-index: 1;
@@ -194,7 +185,7 @@ if ($companyId) {
         flex-direction: column;
         align-items: center;
         margin: 0;
-        flex: 0 0 auto;
+        flex-shrink: 0;
         width: fit-content;
         /* 头像容器宽度 */
         min-width: clamp(30px, 2.6vw, 50px);
