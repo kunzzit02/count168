@@ -121,23 +121,31 @@ if ($companyId) {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     }
 
-    /* 用户信息容器：头像和名字有适当间距，名字长时向左右扩展，整体居中 */
+    /* 用户信息容器：居中单个内层块，避免头像偏左 */
     .user-info-container {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: clamp(8px, 0.83vw, 16px);
         width: 100%;
-        padding: clamp(4px, 0.52vw, 10px) clamp(8px, 0.83vw, 16px);
+        padding: clamp(4px, 0.52vw, 10px) clamp(10px, 1vw, 20px);
         margin: 0 auto clamp(2px, 0.31vw, 6px) auto;
         min-height: 50px;
         contain: layout style;
         will-change: auto;
-        /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
-        /* 创建新的堆叠上下文，确保头像选择菜单能够显示在其他元素之上 */
         position: relative;
         z-index: 9999;
+        box-sizing: border-box;
+    }
+
+    /* 内层：头像+名字作为一个整体，居中后被父级居中 */
+    .user-info-inner {
+        display: flex;
+        align-items: center;
+        gap: clamp(8px, 0.83vw, 16px);
+        flex: 0 0 auto;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
     /* 登录后头像和下拉菜单样式 */
@@ -467,14 +475,14 @@ if ($companyId) {
     }
 
     .informationmenu-header {
-        padding: clamp(6px, 0.73vw, 14px) 10px clamp(6px, 0.52vw, 10px);
+        padding: clamp(6px, 0.73vw, 14px) clamp(10px, 1vw, 20px) clamp(6px, 0.52vw, 10px);
         border-bottom: 0px solid rgba(255, 255, 255, 0.1);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        /* 确保头像选择菜单不被裁剪 */
         overflow: visible;
+        box-sizing: border-box;
     }
 
     .informationmenu-logo {
@@ -1244,8 +1252,9 @@ if ($companyId) {
             </div>
         </div>
 
-        <!-- 用户信息容器（头像和用户信息左右排版） -->
+        <!-- 用户信息容器：内层整体居中，头像+名字作为一个块 -->
         <div class="user-info-container">
+            <div class="user-info-inner">
             <!-- 添加头像选择器（改为使用 PNG 照片） -->
             <div class="avatar-selector-container">
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
@@ -1363,6 +1372,7 @@ if ($companyId) {
                     <div class="user-name"><?php echo htmlspecialchars($name); ?></div>
                     <div class="user-role"><?php echo ucfirst($role); ?></div>
                 </div>
+            </div>
             </div>
         </div>
         <!-- 语言切换按钮 -->
