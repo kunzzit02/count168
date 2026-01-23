@@ -76,8 +76,27 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         min-width: 0;
         flex-wrap: wrap;
     }
+
+    /* 在右侧 Add Form 的 Type 行里放置信箱按钮 */
+    .transaction-type-inline {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        min-width: 0;
+    }
+    .transaction-type-inline > select {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
     .contra-inbox-wrap {
         position: relative;
+    }
+    .contra-inbox-wrap.in-add-form .contra-inbox-popover {
+        left: auto;
+        right: 0;
+        width: min(760px, calc(100vw - 60px));
     }
     .contra-inbox-badge {
         display: inline-flex;
@@ -461,43 +480,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         <div class="transaction-header-bar">
             <div class="transaction-header-left">
                 <h1 class="transaction-title">Transaction List</h1>
-                <?php if ($canApproveContra): ?>
-                <div class="contra-inbox-wrap" id="contraInboxWrap">
-                    <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
-                        <svg class="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
-                        </svg>
-                        Contra Inbox
-                        <span class="contra-inbox-badge" id="contraInboxCount">0</span>
-                    </button>
-                    <div class="contra-inbox-popover" id="contraInboxPopover">
-                        <div class="contra-inbox-popover-header">
-                            <div class="contra-inbox-popover-title">
-                                Contra Inbox
-                                <span class="contra-inbox-badge" id="contraInboxCount2">0</span>
-                            </div>
-                            <button type="button" class="contra-inbox-btn" id="contraInboxRefreshBtn">Refresh</button>
-                        </div>
-                        <div class="contra-inbox-popover-body">
-                            <table class="contra-inbox-table">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>From</th>
-                                        <th>To</th>
-                                        <th>Currency</th>
-                                        <th>Amount</th>
-                                        <th>Submitted By</th>
-                                        <th>Description</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="contraInboxTbody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <?php endif; ?>
             </div>
         </div>
 
@@ -565,13 +547,53 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             <div class="transaction-add-section">
                 <div class="transaction-form-group">
                     <label class="transaction-label">Type</label>
-                    <select id="transaction_type" class="transaction-select">
-                        <option value="CONTRA" selected>CONTRA</option>
-                        <option value="PAYMENT">PAYMENT</option>
-                        <option value="RECEIVE">RECEIVE</option>
-                        <option value="CLAIM">CLAIM</option>
-                        <option value="RATE">RATE</option>
-                    </select>
+                    <div class="transaction-type-inline">
+                        <select id="transaction_type" class="transaction-select">
+                            <option value="CONTRA" selected>CONTRA</option>
+                            <option value="PAYMENT">PAYMENT</option>
+                            <option value="RECEIVE">RECEIVE</option>
+                            <option value="CLAIM">CLAIM</option>
+                            <option value="RATE">RATE</option>
+                        </select>
+
+                        <?php if ($canApproveContra): ?>
+                        <div class="contra-inbox-wrap in-add-form" id="contraInboxWrap">
+                            <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
+                                <svg class="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+                                </svg>
+                                Contra Inbox
+                                <span class="contra-inbox-badge" id="contraInboxCount">0</span>
+                            </button>
+                            <div class="contra-inbox-popover" id="contraInboxPopover">
+                                <div class="contra-inbox-popover-header">
+                                    <div class="contra-inbox-popover-title">
+                                        Contra Inbox
+                                        <span class="contra-inbox-badge" id="contraInboxCount2">0</span>
+                                    </div>
+                                    <button type="button" class="contra-inbox-btn" id="contraInboxRefreshBtn">Refresh</button>
+                                </div>
+                                <div class="contra-inbox-popover-body">
+                                    <table class="contra-inbox-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>From</th>
+                                                <th>To</th>
+                                                <th>Currency</th>
+                                                <th>Amount</th>
+                                                <th>Submitted By</th>
+                                                <th>Description</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="contraInboxTbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 
                 <div id="standard-transaction-fields">
