@@ -66,13 +66,15 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     .transaction-header-bar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         gap: 12px;
     }
-    .transaction-header-right {
+    .transaction-header-left {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
+        min-width: 0;
+        flex-wrap: wrap;
     }
     .contra-inbox-wrap {
         position: relative;
@@ -122,7 +124,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     }
     .contra-inbox-popover {
         position: absolute;
-        right: 0;
+        left: 0;
         top: calc(100% + 8px);
         width: min(860px, calc(100vw - 60px));
         max-height: 420px;
@@ -457,8 +459,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     
     <div class="transaction-container">
         <div class="transaction-header-bar">
-            <h1 class="transaction-title">Transaction List</h1>
-            <div class="transaction-header-right">
+            <div class="transaction-header-left">
+                <h1 class="transaction-title">Transaction List</h1>
                 <?php if ($canApproveContra): ?>
                 <div class="contra-inbox-wrap" id="contraInboxWrap">
                     <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
