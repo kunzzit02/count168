@@ -3205,16 +3205,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                             console.log('🔄 开始刷新数据...');
                             searchTransactions();
                             
-                            // 提示用户如果提交的日期不在搜索范围内
-                            const submittedDateObj = new Date(submittedDate.split('/').reverse().join('-'));
-                            const fromDateObj = new Date(dateFrom.split('/').reverse().join('-'));
-                            const toDateObj = new Date(dateTo.split('/').reverse().join('-'));
-                            
-                            if (submittedDateObj < fromDateObj || submittedDateObj > toDateObj) {
-                                setTimeout(() => {
-                                    showNotification(`Note: Submitted transaction date ${submittedDate} is not within current search range ${dateFrom} - ${dateTo}, please adjust search date range to view`, 'info');
-                                }, 1500);
-                            }
+                            // 已移除：提交日期不在当前搜索范围的提示通知
                         }, 1000);
                     } else {
                         console.log('⚠️ 没有日期范围，跳过自动刷新');
