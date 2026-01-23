@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 $viewerRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
 // 所有角色都可以看到 description 列
 $useDescriptionColumn = true;
+$canApproveContra = in_array($viewerRole, ['manager', 'owner'], true);
 
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;
@@ -59,6 +60,88 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     }
     body.transaction-page .expiration-countdown-text {
         font-weight: 500;
+    }
+
+    /* ==================== Contra Approval Inbox ==================== */
+    .contra-inbox-panel {
+        margin: 12px 0 0 0;
+        padding: 10px 12px;
+        border: 1px solid #d0d7de;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+    }
+    .contra-inbox-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+    .contra-inbox-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 800;
+        color: #0f172a;
+    }
+    .contra-inbox-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 24px;
+        height: 20px;
+        padding: 0 8px;
+        border-radius: 999px;
+        background: #ef4444;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 800;
+    }
+    .contra-inbox-actions {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .contra-inbox-btn {
+        padding: 6px 10px;
+        border: 1px solid #d0d7de;
+        border-radius: 10px;
+        background: #f8fafc;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        color: #111827;
+        transition: all 0.15s ease;
+    }
+    .contra-inbox-btn:hover {
+        background: #eef2ff;
+        border-color: #a5b4fc;
+    }
+    .contra-inbox-body {
+        margin-top: 10px;
+        display: none;
+    }
+    .contra-inbox-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .contra-inbox-table th,
+    .contra-inbox-table td {
+        padding: 6px 8px;
+        border-top: 1px solid #e5e7eb;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: left;
+        vertical-align: top;
+    }
+    .contra-inbox-approve {
+        background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+        border-color: transparent;
+        color: #fff;
+    }
+    .contra-inbox-approve:hover {
+        filter: brightness(1.03);
+        border-color: transparent;
     }
     /* 表格自然展开，页面整体滚动 */
     .transaction-table-wrapper { 
@@ -344,6 +427,39 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         
         <!-- Separator line -->
         <div class="transaction-separator-line"></div>
+
+        <?php if ($canApproveContra): ?>
+        <!-- Contra Approval Inbox (Manager+) -->
+        <div class="contra-inbox-panel" id="contraInboxPanel" style="display:none;">
+            <div class="contra-inbox-header">
+                <div class="contra-inbox-title">
+                    Contra Inbox
+                    <span class="contra-inbox-badge" id="contraInboxCount">0</span>
+                </div>
+                <div class="contra-inbox-actions">
+                    <button type="button" class="contra-inbox-btn" id="contraInboxToggleBtn">Show</button>
+                    <button type="button" class="contra-inbox-btn" id="contraInboxRefreshBtn">Refresh</button>
+                </div>
+            </div>
+            <div class="contra-inbox-body" id="contraInboxBody">
+                <table class="contra-inbox-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Currency</th>
+                            <th>Amount</th>
+                            <th>Submitted By</th>
+                            <th>Description</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="contraInboxTbody"></tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
         
         <div class="transaction-main-content">
             <!-- Left Search Form -->
@@ -721,6 +837,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         let lastSearchData = null; // 存储最后一次搜索结果
         // 从 PHP session 中获取 company_id（用于跨页面同步）
         let currentCompanyId = <?php echo json_encode($session_company_id); ?>;
+        const viewerRole = <?php echo json_encode($viewerRole); ?>;
+        const canApproveContra = <?php echo $canApproveContra ? 'true' : 'false'; ?>;
         let selectedCurrencies = []; // 当前选中的 currency 数组（可多选）
         let showAllCurrencies = false; // 是否显示所有 currency
         let ownerCompanies = []; // owner 拥有的 company 列表
@@ -764,6 +882,123 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             }
             const str = String(value).trim();
             return str ? str.toUpperCase() : '-';
+        }
+
+        // ==================== Contra Inbox（Manager+） ====================
+        function setContraInboxVisible(visible) {
+            const panel = document.getElementById('contraInboxPanel');
+            if (!panel) return;
+            panel.style.display = visible ? 'block' : 'none';
+        }
+
+        function toggleContraInboxBody(forceOpen = null) {
+            const body = document.getElementById('contraInboxBody');
+            const btn = document.getElementById('contraInboxToggleBtn');
+            if (!body || !btn) return;
+            const isOpen = body.style.display !== 'none';
+            const next = forceOpen === null ? !isOpen : !!forceOpen;
+            body.style.display = next ? 'block' : 'none';
+            btn.textContent = next ? 'Hide' : 'Show';
+        }
+
+        function renderContraInbox(items) {
+            const tbody = document.getElementById('contraInboxTbody');
+            const countEl = document.getElementById('contraInboxCount');
+            if (!tbody || !countEl) return;
+
+            const count = Array.isArray(items) ? items.length : 0;
+            countEl.textContent = String(count);
+
+            if (count === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="padding:10px 8px; color:#6b7280;">No pending contra.</td></tr>';
+                setContraInboxVisible(false);
+                return;
+            }
+
+            setContraInboxVisible(true);
+            tbody.innerHTML = items.map(row => {
+                const safeDesc = (row.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return `
+                    <tr>
+                        <td>${row.transaction_date || '-'}</td>
+                        <td>${(row.from_account_code || '-')}${row.from_account_name ? ' - ' + row.from_account_name : ''}</td>
+                        <td>${(row.to_account_code || '-')}${row.to_account_name ? ' - ' + row.to_account_name : ''}</td>
+                        <td>${(row.currency || '-')}</td>
+                        <td>${formatNumber(row.amount || 0)}</td>
+                        <td>${row.submitted_by || '-'}</td>
+                        <td>${safeDesc || '-'}</td>
+                        <td>
+                            <button type="button" class="contra-inbox-btn contra-inbox-approve" onclick="approveContra(${row.id})">Approve</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function buildContraInboxUrl() {
+            let url = 'transaction_contra_inbox_api.php';
+            if (currentCompanyId) {
+                url += `?company_id=${currentCompanyId}`;
+            }
+            return url;
+        }
+
+        function loadContraInbox() {
+            if (!canApproveContra) return Promise.resolve();
+
+            const refreshBtn = document.getElementById('contraInboxRefreshBtn');
+            if (refreshBtn) refreshBtn.disabled = true;
+
+            return fetch(buildContraInboxUrl(), { method: 'GET', cache: 'no-cache' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.success) {
+                        renderContraInbox(data.data || []);
+                        // 如果有待审批，默认展开一次，避免 manager 看不到
+                        if ((data.data || []).length > 0) {
+                            toggleContraInboxBody(true);
+                        }
+                    } else {
+                        renderContraInbox([]);
+                    }
+                })
+                .catch(err => {
+                    console.error('❌ Contra inbox load failed:', err);
+                    // 不弹出 error，避免干扰主流程
+                })
+                .finally(() => {
+                    if (refreshBtn) refreshBtn.disabled = false;
+                });
+        }
+
+        function approveContra(transactionId) {
+            if (!canApproveContra) return;
+            const id = parseInt(transactionId, 10);
+            if (!id) return;
+
+            const form = new FormData();
+            form.append('transaction_id', String(id));
+            if (currentCompanyId) {
+                form.append('company_id', String(currentCompanyId));
+            }
+
+            fetch('transaction_contra_approve_api.php', {
+                method: 'POST',
+                body: form
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data && data.success) {
+                    showNotification('Approved', 'success');
+                    // 刷新 inbox + 刷新表格（未批准的 contra 之前被排除，批准后要立即生效）
+                    return Promise.all([loadContraInbox(), searchTransactions()]);
+                }
+                showNotification((data && (data.error || data.message)) || 'Approve failed', 'error');
+            })
+            .catch(err => {
+                console.error('❌ Approve contra failed:', err);
+                showNotification('Approve failed: ' + err.message, 'error');
+            });
         }
         
         // ==================== 获取 Role 对应的 CSS Class ====================
@@ -975,15 +1210,23 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                             // 不显示错误提示，因为用户可能还没有选择
                             return;
                         }
+                        loadContraInbox();
                         searchTransactions();
                     }, 500);
                 } else {
+                    loadContraInbox();
                     searchTransactions();
                 }
             }).catch(error => {
                 console.error('❌ 初始数据加载失败:', error);
                 showNotification('Failed to load initial data', 'error');
             });
+
+            // Contra Inbox 按钮绑定
+            const inboxToggle = document.getElementById('contraInboxToggleBtn');
+            if (inboxToggle) inboxToggle.addEventListener('click', () => toggleContraInboxBody());
+            const inboxRefresh = document.getElementById('contraInboxRefreshBtn');
+            if (inboxRefresh) inboxRefresh.addEventListener('click', () => loadContraInbox());
         });
         
         // ==================== 加载分类列表 ====================
@@ -1430,6 +1673,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 const dateFrom = document.getElementById('date_from').value;
                 const dateTo = document.getElementById('date_to').value;
                 if (dateFrom && dateTo) {
+                    loadContraInbox();
                     searchTransactions();
                 }
             });
@@ -2857,6 +3101,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 if (data.success) {
                     console.log('✅ 提交成功:', data.data);
                     showNotification(data.message, 'success');
+                    // 如果是待审批的 CONTRA，或当前用户是 Manager+，刷新信箱
+                    loadContraInbox();
                     
                     // 清空表单
                     document.getElementById('action_amount').value = '';

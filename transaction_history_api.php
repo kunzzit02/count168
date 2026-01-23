@@ -13,6 +13,27 @@ header('Content-Type: application/json');
 require_once 'config.php';
 
 /**
+ * Contra 审批：过滤/标记未批准的 CONTRA（向后兼容：若无字段则不过滤）
+ */
+function historyHasContraApprovalColumns(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has !== null) return $has;
+    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'approval_status'");
+    $has = $stmt->rowCount() > 0;
+    return $has;
+}
+
+function historyContraApprovedWhere(PDO $pdo, string $alias = 't'): string
+{
+    if (!historyHasContraApprovalColumns($pdo)) {
+        return '';
+    }
+    $a = $alias !== '' ? $alias . '.' : '';
+    return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
+}
+
+/**
  * 将 entry_type 映射为友好的 Product 显示名称
  */
 function mapEntryTypeToProduct($entryType) {
@@ -249,6 +270,7 @@ try {
     // 检查 transactions 表是否有 currency_id 字段
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
     $has_currency_id = $stmt->rowCount() > 0;
+    $has_approval_status = historyHasContraApprovalColumns($pdo);
     
     $sql = "SELECT 
                 t.id,
@@ -271,6 +293,9 @@ try {
     // 如果表有 currency_id 字段，也查询它
     if ($has_currency_id) {
         $sql .= ", t.currency_id, c.code as transaction_currency_code";
+    }
+    if ($has_approval_status) {
+        $sql .= ", t.approval_status";
     }
     
     $sql .= " FROM transactions t
@@ -456,6 +481,7 @@ try {
         $is_to_account = ($t['account_id'] == $account_id);
         $win_loss = 0;
         $cr_dr = 0;
+        $approvalStatus = $has_approval_status ? ($t['approval_status'] ?? null) : null;
         
         // 根据交易类型计算 Win/Loss 和 Cr/Dr
         // Win/Loss 只包含 Data Capture，WIN/LOSE 交易移到 Cr/Dr
@@ -506,12 +532,17 @@ try {
                 break;
                 
             case 'CONTRA':
-                if ($is_to_account) {
-                    // 作为接收方，Cr/Dr 增加
-                    $cr_dr = $t['amount'];
+                // 未批准的 CONTRA：显示在历史里，但不影响余额
+                if ($approvalStatus && strtoupper((string)$approvalStatus) === 'PENDING') {
+                    $cr_dr = 0;
                 } else {
-                    // 作为发送方，Cr/Dr 减少
-                    $cr_dr = -$t['amount'];
+                    if ($is_to_account) {
+                        // 作为接收方，Cr/Dr 增加
+                        $cr_dr = $t['amount'];
+                    } else {
+                        // 作为发送方，Cr/Dr 减少
+                        $cr_dr = -$t['amount'];
+                    }
                 }
                 break;
                 
@@ -545,6 +576,11 @@ try {
                     // 如果是 To Account，保持原样
                 }
             }
+        }
+
+        // 追加审批标记（只对未批准 CONTRA）
+        if ($t['transaction_type'] === 'CONTRA' && $approvalStatus && strtoupper((string)$approvalStatus) === 'PENDING') {
+            $description = '[PENDING APPROVAL] ' . $description;
         }
         
         $transactionTimestamp = strtotime($t['transaction_date'] . ' ' . ($t['created_at'] ?? '00:00:00'));
@@ -801,7 +837,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
               AND account_id = ?
               AND transaction_date < ?
               AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
-              AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)";
+              AND (transaction_type != 'RATE' OR from_account_id IS NOT NULL)"
+              . historyContraApprovedWhere($pdo, '');
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
@@ -819,7 +856,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
             WHERE company_id = ?
               AND from_account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
+              . historyContraApprovedWhere($pdo, '');
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
@@ -873,7 +911,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
                   AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
-                  AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)";
+                  AND (t.transaction_type != 'RATE' OR t.from_account_id IS NOT NULL)"
+                  . historyContraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
@@ -898,7 +937,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                       WHERE dcd.company_id = ?
                         AND dcd.account_id = t.account_id
                         AND dcd.currency_id = ?
-                  )";
+                  )"
+                  . historyContraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);
@@ -919,7 +959,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.from_account_id = ?
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
+                  . historyContraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
@@ -941,7 +982,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                       WHERE dcd.company_id = ?
                         AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
                         AND dcd.currency_id = ?
-                  )";
+                  )"
+                  . historyContraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $company_id, $currency_id]);

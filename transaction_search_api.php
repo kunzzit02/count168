@@ -15,6 +15,30 @@ require_once 'config.php';
 require_once 'permissions.php';
 
 /**
+ * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
+ */
+function hasContraApprovalColumns(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has !== null) {
+        return $has;
+    }
+    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'approval_status'");
+    $has = $stmt->rowCount() > 0;
+    return $has;
+}
+
+function contraApprovedWhere(PDO $pdo, string $alias = 't'): string
+{
+    if (!hasContraApprovalColumns($pdo)) {
+        return '';
+    }
+    $a = $alias !== '' ? $alias . '.' : '';
+    // 只对 CONTRA 生效：PENDING 的 CONTRA 不计入 BF / CrDr / Balance
+    return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
+}
+
+/**
  * 将 currency 加入列表（根据 currency_id 去重）
  */
 function addAccountCurrencyCombo(array &$list, array &$seenIds, $currencyId, $currencyCode): void
@@ -692,7 +716,7 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
                   OR
                   -- 对于其他类型，from_account_id 可以为 NULL（WIN/LOSE）或不为 NULL
                   (transaction_type != 'RATE')
-              )";
+              )" . contraApprovedWhere($pdo, '');
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
@@ -710,7 +734,8 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
             WHERE company_id = ?
               AND from_account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
+              . contraApprovedWhere($pdo, '');
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $account_id, $date_from]);
@@ -769,7 +794,7 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to) {
                   OR
                   -- 对于其他类型，from_account_id 可以为 NULL（WIN/LOSE）或不为 NULL
                   (transaction_type != 'RATE')
-              )";
+              )" . contraApprovedWhere($pdo, '');
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$account_id, $date_from, $date_to]);
@@ -786,7 +811,8 @@ function calculateCrDr($pdo, $account_id, $date_from, $date_to) {
             FROM transactions
             WHERE from_account_id = ?
               AND transaction_date BETWEEN ? AND ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
+              . contraApprovedWhere($pdo, '');
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$account_id, $date_from, $date_to]);
@@ -880,7 +906,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                             AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
                             AND dc.currency_id = ?
                       ))
-                  )";
+                  )"
+                  . contraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $currency_id, $company_id, $company_id, $currency_id]);
@@ -906,7 +933,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         AND dc.company_id = ?
                         AND dcd.account_id = t.account_id
                         AND dc.currency_id = ?
-                  )";
+                  )"
+                  . contraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
@@ -926,7 +954,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.from_account_id = ?
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')";
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM')"
+                  . contraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
@@ -950,7 +979,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                         AND dc.company_id = ?
                         AND dcd.account_id = t.from_account_id
                         AND dc.currency_id = ?
-                  )";
+                  )"
+                  . contraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $company_id, $company_id, $currency_id]);
@@ -1047,6 +1077,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
               AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE')
               AND t.currency_id = :currency_id
               AND (t.account_id = :acc_id OR t.from_account_id = :acc_id)
+              " . (hasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
         ";
 
         $stmt = $pdo->prepare($sql);
@@ -1085,7 +1116,8 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                         AND dc.company_id = ?
                         AND dcd.account_id = t.account_id
                         AND dc.currency_id = ?
-                  )";
+                  )"
+                  . contraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $company_id, $company_id, $currency_id]);
@@ -1114,7 +1146,8 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                         AND dc.company_id = ?
                         AND dcd.account_id = t.from_account_id
                         AND dc.currency_id = ?
-                  )";
+                  )"
+                  . contraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $company_id, $company_id, $currency_id]);

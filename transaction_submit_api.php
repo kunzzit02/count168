@@ -16,6 +16,53 @@ session_start();
 header('Content-Type: application/json');
 require_once 'config.php';
 
+/**
+ * 角色与权限工具
+ * 说明：这里的 role 指 user 表中的 role（admin/manager/supervisor/.../owner）
+ */
+function isManagerOrAboveRole(string $role): bool
+{
+    $role = strtolower(trim($role));
+    // manager 以上：manager / owner
+    // 备注：按需求，admin 视为 manager 以下（需要审批）
+    return in_array($role, ['manager', 'owner'], true);
+}
+
+/**
+ * 是否需要 Contra 审批：
+ * - 仅对 CONTRA 生效
+ * - manager 以下：只要是“今天之前”的交易日期，就需要审批
+ */
+function requiresContraApproval(string $role, string $transactionDateDb): bool
+{
+    if (isManagerOrAboveRole($role)) {
+        return false;
+    }
+    $today = date('Y-m-d');
+    return $transactionDateDb < $today;
+}
+
+function tableHasColumn(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+    $stmt->execute([$column]);
+    return $stmt->rowCount() > 0;
+}
+
+/**
+ * 插入 transactions（根据现有表结构自动带上可用字段）
+ * @return int 新增的 transaction id
+ */
+function insertTransactionRow(PDO $pdo, array $data): int
+{
+    $columns = array_keys($data);
+    $placeholders = implode(',', array_fill(0, count($columns), '?'));
+    $sql = "INSERT INTO transactions (`" . implode('`,`', $columns) . "`) VALUES ($placeholders)";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_values($data));
+    return (int)$pdo->lastInsertId();
+}
+
 try {
     // 检查用户登录
     if (!isset($_SESSION['user_id'])) {
@@ -110,6 +157,27 @@ try {
     // 转换日期格式 (dd/mm/yyyy 转为 yyyy-mm-dd)
     $transaction_date_db = date('Y-m-d', strtotime(str_replace('/', '-', $transaction_date)));
     
+    // 检查 transactions 表字段（向后兼容）
+    $has_currency_id = tableHasColumn($pdo, 'transactions', 'currency_id');
+    $has_approval_status = tableHasColumn($pdo, 'transactions', 'approval_status');
+
+    // Contra 审批规则
+    $approval_status = 'APPROVED';
+    $approved_by = $created_by_user;
+    $approved_by_owner = $created_by_owner;
+    $approved_at = date('Y-m-d H:i:s');
+    $is_contra_pending = false;
+
+    if ($transaction_type === 'CONTRA' && $has_approval_status) {
+        if (requiresContraApproval($userRole, $transaction_date_db)) {
+            $approval_status = 'PENDING';
+            $approved_by = null;
+            $approved_by_owner = null;
+            $approved_at = null;
+            $is_contra_pending = true;
+        }
+    }
+
     // 验证 From Account（PAYMENT/RECEIVE/CONTRA/CLAIM 需要，RATE 有特殊处理）
     if (in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'])) {
         if (!$from_account_id || $from_account_id <= 0) {
@@ -194,10 +262,6 @@ try {
     $pdo->beginTransaction();
     
     try {
-        // 检查 transactions 表是否有 currency_id 字段
-        $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-        $has_currency_id = $stmt->rowCount() > 0;
-        
         // 处理 RATE 类型
         if ($is_rate) {
             // 获取 RATE 相关参数
@@ -315,66 +379,37 @@ try {
             }
             
             $rate_group_id = 'RATE_' . time() . '_' . mt_rand(1000, 9999);
-            
+
+            // RATE 主记录（默认视为已批准）
+            $rateHeader = [
+                'company_id' => $company_id,
+                'transaction_type' => 'RATE',
+                'account_id' => $rate_to_account_id,
+                'from_account_id' => $rate_from_account_id,
+                'amount' => $rate_from_amount,
+                'transaction_date' => $transaction_date_db,
+                'description' => $rate_from_description,
+                'sms' => $sms,
+                'created_by' => $created_by_user,
+                'created_by_owner' => $created_by_owner,
+            ];
             if ($has_currency_id) {
-                $sql = "INSERT INTO transactions (
-                            company_id,
-                            transaction_type,
-                            account_id,
-                            from_account_id,
-                            amount,
-                            transaction_date,
-                            description,
-                            sms,
-                            currency_id,
-                            created_by,
-                            created_by_owner
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            } else {
-                $sql = "INSERT INTO transactions (
-                            company_id,
-                            transaction_type,
-                            account_id,
-                            from_account_id,
-                            amount,
-                            transaction_date,
-                            description,
-                            sms,
-                            created_by,
-                            created_by_owner
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $rateHeader['currency_id'] = $rate_from_currency_id;
             }
-            
-            $stmt = $pdo->prepare($sql);
-            if ($has_currency_id) {
-                $stmt->execute([
-                    $company_id,
-                    'RATE',
-                    $rate_to_account_id,
-                    $rate_from_account_id,
-                    $rate_from_amount,
-                    $transaction_date_db,
-                    $rate_from_description,
-                    $sms,
-                    $rate_from_currency_id,
-                    $created_by_user,
-                    $created_by_owner
-                ]);
-            } else {
-                $stmt->execute([
-                    $company_id,
-                    'RATE',
-                    $rate_to_account_id,
-                    $rate_from_account_id,
-                    $rate_from_amount,
-                    $transaction_date_db,
-                    $rate_from_description,
-                    $sms,
-                    $created_by_user,
-                    $created_by_owner
-                ]);
+            if ($has_approval_status) {
+                $rateHeader['approval_status'] = 'APPROVED';
+                if (tableHasColumn($pdo, 'transactions', 'approved_by')) {
+                    $rateHeader['approved_by'] = $created_by_user;
+                }
+                if (tableHasColumn($pdo, 'transactions', 'approved_by_owner')) {
+                    $rateHeader['approved_by_owner'] = $created_by_owner;
+                }
+                if (tableHasColumn($pdo, 'transactions', 'approved_at')) {
+                    $rateHeader['approved_at'] = date('Y-m-d H:i:s');
+                }
             }
-            $main_transaction_id = $pdo->lastInsertId();
+
+            $main_transaction_id = insertTransactionRow($pdo, $rateHeader);
             $transaction_ids[] = $main_transaction_id;
             
             $rate_transfer_currency = $rate_transfer_to_currency ?: $rate_to_currency;
@@ -499,36 +534,34 @@ try {
                     throw new Exception('Rate Transfer To Account 不存在或不属于当前公司');
                 }
                 
-                $stmt = $pdo->prepare($sql);
+                $rateTransfer = [
+                    'company_id' => $company_id,
+                    'transaction_type' => 'RATE',
+                    'account_id' => $rate_transfer_to_account_id,
+                    'from_account_id' => $rate_transfer_from_account_id,
+                    'amount' => $rate_transfer_to_amount,
+                    'transaction_date' => $transaction_date_db,
+                    'description' => $rate_transfer_from_description,
+                    'sms' => $sms,
+                    'created_by' => $created_by_user,
+                    'created_by_owner' => $created_by_owner,
+                ];
                 if ($has_currency_id) {
-                    $stmt->execute([
-                        $company_id,
-                        'RATE',
-                        $rate_transfer_to_account_id,
-                        $rate_transfer_from_account_id,
-                        $rate_transfer_to_amount,
-                        $transaction_date_db,
-                        $rate_transfer_from_description,
-                        $sms,
-                        $rate_transfer_currency_id,
-                        $created_by_user,
-                        $created_by_owner
-                    ]);
-                } else {
-                    $stmt->execute([
-                        $company_id,
-                        'RATE',
-                        $rate_transfer_to_account_id,
-                        $rate_transfer_from_account_id,
-                        $rate_transfer_to_amount,
-                        $transaction_date_db,
-                        $rate_transfer_from_description,
-                        $sms,
-                        $created_by_user,
-                        $created_by_owner
-                    ]);
+                    $rateTransfer['currency_id'] = $rate_transfer_currency_id;
                 }
-                $transfer_transaction_id = $pdo->lastInsertId();
+                if ($has_approval_status) {
+                    $rateTransfer['approval_status'] = 'APPROVED';
+                    if (tableHasColumn($pdo, 'transactions', 'approved_by')) {
+                        $rateTransfer['approved_by'] = $created_by_user;
+                    }
+                    if (tableHasColumn($pdo, 'transactions', 'approved_by_owner')) {
+                        $rateTransfer['approved_by_owner'] = $created_by_owner;
+                    }
+                    if (tableHasColumn($pdo, 'transactions', 'approved_at')) {
+                        $rateTransfer['approved_at'] = date('Y-m-d H:i:s');
+                    }
+                }
+                $transfer_transaction_id = insertTransactionRow($pdo, $rateTransfer);
                 $transaction_ids[] = $transfer_transaction_id;
                 
                 $details_stmt->execute([
@@ -558,36 +591,34 @@ try {
                         throw new Exception('Rate Middleman Account 不存在或不属于当前公司');
                     }
                     
-                    $stmt = $pdo->prepare($sql);
+                    $rateMiddle = [
+                        'company_id' => $company_id,
+                        'transaction_type' => 'RATE',
+                        'account_id' => $rate_middleman_account_id,
+                        'from_account_id' => null,
+                        'amount' => $rate_middleman_amount,
+                        'transaction_date' => $transaction_date_db,
+                        'description' => $rate_middleman_description,
+                        'sms' => $sms,
+                        'created_by' => $created_by_user,
+                        'created_by_owner' => $created_by_owner,
+                    ];
                     if ($has_currency_id) {
-                        $stmt->execute([
-                            $company_id,
-                            'RATE',
-                            $rate_middleman_account_id,
-                            null,
-                            $rate_middleman_amount,
-                            $transaction_date_db,
-                            $rate_middleman_description,
-                            $sms,
-                            $rate_middleman_currency_id,
-                            $created_by_user,
-                            $created_by_owner
-                        ]);
-                    } else {
-                        $stmt->execute([
-                            $company_id,
-                            'RATE',
-                            $rate_middleman_account_id,
-                            null,
-                            $rate_middleman_amount,
-                            $transaction_date_db,
-                            $rate_middleman_description,
-                            $sms,
-                            $created_by_user,
-                            $created_by_owner
-                        ]);
+                        $rateMiddle['currency_id'] = $rate_middleman_currency_id;
                     }
-                    $middleman_transaction_id = $pdo->lastInsertId();
+                    if ($has_approval_status) {
+                        $rateMiddle['approval_status'] = 'APPROVED';
+                        if (tableHasColumn($pdo, 'transactions', 'approved_by')) {
+                            $rateMiddle['approved_by'] = $created_by_user;
+                        }
+                        if (tableHasColumn($pdo, 'transactions', 'approved_by_owner')) {
+                            $rateMiddle['approved_by_owner'] = $created_by_owner;
+                        }
+                        if (tableHasColumn($pdo, 'transactions', 'approved_at')) {
+                            $rateMiddle['approved_at'] = date('Y-m-d H:i:s');
+                        }
+                    }
+                    $middleman_transaction_id = insertTransactionRow($pdo, $rateMiddle);
                     $transaction_ids[] = $middleman_transaction_id;
                     
                     $details_stmt->execute([
@@ -599,36 +630,34 @@ try {
                     
                     $middleman_deduction = $rate_transfer_from_amount - $rate_transfer_to_amount;
                     if (abs($middleman_deduction) > 0.01) {
-                        $stmt = $pdo->prepare($sql);
+                        $rateDeduct = [
+                            'company_id' => $company_id,
+                            'transaction_type' => 'RATE',
+                            'account_id' => $rate_transfer_from_account_id,
+                            'from_account_id' => $rate_transfer_from_account_id,
+                            'amount' => $middleman_deduction,
+                            'transaction_date' => $transaction_date_db,
+                            'description' => $rate_middleman_description,
+                            'sms' => $sms,
+                            'created_by' => $created_by_user,
+                            'created_by_owner' => $created_by_owner,
+                        ];
                         if ($has_currency_id) {
-                            $stmt->execute([
-                                $company_id,
-                                'RATE',
-                                $rate_transfer_from_account_id,
-                                $rate_transfer_from_account_id,
-                                $middleman_deduction,
-                                $transaction_date_db,
-                                $rate_middleman_description,
-                                $sms,
-                                $rate_transfer_currency_id,
-                                $created_by_user,
-                                $created_by_owner
-                            ]);
-                        } else {
-                            $stmt->execute([
-                                $company_id,
-                                'RATE',
-                                $rate_transfer_from_account_id,
-                                $rate_transfer_from_account_id,
-                                $middleman_deduction,
-                                $transaction_date_db,
-                                $rate_middleman_description,
-                                $sms,
-                                $created_by_user,
-                                $created_by_owner
-                            ]);
+                            $rateDeduct['currency_id'] = $rate_transfer_currency_id;
                         }
-                        $middleman_deduction_transaction_id = $pdo->lastInsertId();
+                        if ($has_approval_status) {
+                            $rateDeduct['approval_status'] = 'APPROVED';
+                            if (tableHasColumn($pdo, 'transactions', 'approved_by')) {
+                                $rateDeduct['approved_by'] = $created_by_user;
+                            }
+                            if (tableHasColumn($pdo, 'transactions', 'approved_by_owner')) {
+                                $rateDeduct['approved_by_owner'] = $created_by_owner;
+                            }
+                            if (tableHasColumn($pdo, 'transactions', 'approved_at')) {
+                                $rateDeduct['approved_at'] = date('Y-m-d H:i:s');
+                            }
+                        }
+                        $middleman_deduction_transaction_id = insertTransactionRow($pdo, $rateDeduct);
                         $transaction_ids[] = $middleman_deduction_transaction_id;
                         
                         $details_stmt->execute([
@@ -742,68 +771,36 @@ try {
             // 确保金额是正数（对于所有交易类型）
             $amount = abs($amount);
             
-            // 插入交易记录（只创建一条记录，余额计算逻辑会自动处理 From Account 和 To Account）
+            // 插入交易记录（只创建一条记录；余额计算逻辑会自动处理 From Account 和 To Account）
+            $txnRow = [
+                'company_id' => $company_id,
+                'transaction_type' => $transaction_type,
+                'account_id' => $account_id,
+                'from_account_id' => $from_account_id,
+                'amount' => $amount,
+                'transaction_date' => $transaction_date_db,
+                'description' => $description,
+                'sms' => $sms,
+                'created_by' => $created_by_user,
+                'created_by_owner' => $created_by_owner,
+            ];
             if ($has_currency_id) {
-                // 如果表有 currency_id 字段，使用它
-                $sql = "INSERT INTO transactions (
-                            company_id,
-                            transaction_type,
-                            account_id,
-                            from_account_id,
-                            amount,
-                            transaction_date,
-                            description,
-                            sms,
-                            currency_id,
-                            created_by,
-                            created_by_owner
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute([
-                    $company_id,
-                    $transaction_type,
-                    $account_id,
-                    $from_account_id,
-                    $amount,
-                    $transaction_date_db,
-                    $description,
-                    $sms,
-                    $currency_id,
-                    $created_by_user,
-                    $created_by_owner
-                ]);
-            } else {
-                // 如果表没有 currency_id 字段，使用旧的方式
-                $sql = "INSERT INTO transactions (
-                            company_id,
-                            transaction_type,
-                            account_id,
-                            from_account_id,
-                            amount,
-                            transaction_date,
-                            description,
-                            sms,
-                            created_by,
-                            created_by_owner
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                
-                $stmt = $pdo->prepare($sql);
-                $stmt->execute([
-                    $company_id,
-                    $transaction_type,
-                    $account_id,
-                    $from_account_id,
-                    $amount,
-                    $transaction_date_db,
-                    $description,
-                    $sms,
-                    $created_by_user,
-                    $created_by_owner
-                ]);
+                $txnRow['currency_id'] = $currency_id;
             }
-            
-            $transaction_id = $pdo->lastInsertId();
+            if ($has_approval_status) {
+                $txnRow['approval_status'] = $approval_status;
+                if (tableHasColumn($pdo, 'transactions', 'approved_by')) {
+                    $txnRow['approved_by'] = $approved_by;
+                }
+                if (tableHasColumn($pdo, 'transactions', 'approved_by_owner')) {
+                    $txnRow['approved_by_owner'] = $approved_by_owner;
+                }
+                if (tableHasColumn($pdo, 'transactions', 'approved_at')) {
+                    $txnRow['approved_at'] = $approved_at;
+                }
+            }
+
+            $transaction_id = insertTransactionRow($pdo, $txnRow);
         
         // 提交事务
         $pdo->commit();
@@ -811,14 +808,17 @@ try {
         // 返回成功响应
         echo json_encode([
             'success' => true,
-            'message' => '交易提交成功',
+            'message' => $is_contra_pending
+                ? 'CONTRA 已提交，等待 Manager 以上批准后才会生效'
+                : '交易提交成功',
             'data' => [
                 'transaction_id' => $transaction_id,
                 'transaction_type' => $transaction_type,
                 'to_account' => $to_account['account_id'] . ' - ' . $to_account['name'],
                 'from_account' => $from_account ? $from_account['account_id'] . ' - ' . $from_account['name'] : null,
                 'amount' => number_format($amount, 2),
-                'transaction_date' => $transaction_date
+                'transaction_date' => $transaction_date,
+                'approval_status' => $has_approval_status ? $approval_status : null
             ]
         ]);
         }

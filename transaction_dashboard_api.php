@@ -9,6 +9,27 @@ header('Content-Type: application/json');
 require_once 'config.php';
 require_once 'permissions.php';
 
+/**
+ * Contra 审批：过滤未批准的 CONTRA（向后兼容：若无字段则不过滤）
+ */
+function dashboardHasContraApprovalColumns(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has !== null) return $has;
+    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'approval_status'");
+    $has = $stmt->rowCount() > 0;
+    return $has;
+}
+
+function dashboardContraApprovedWhere(PDO $pdo, string $alias = 't'): string
+{
+    if (!dashboardHasContraApprovalColumns($pdo)) {
+        return '';
+    }
+    $a = $alias !== '' ? $alias . '.' : '';
+    return " AND ({$a}transaction_type <> 'CONTRA' OR {$a}approval_status = 'APPROVED')";
+}
+
 // 引入 transaction_search_api.php 中的函数（通过定义函数的方式）
 // 注意：这些函数已经在 transaction_search_api.php 中定义，但为了独立使用，我们需要重新定义
 
@@ -242,6 +263,7 @@ try {
                           AND t.currency_id = ?
                           AND t.transaction_date BETWEEN ? AND ?
                           AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                          " . (dashboardHasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
                         GROUP BY DATE(t.transaction_date)
                         ORDER BY DATE(t.transaction_date)
                     ");
@@ -271,6 +293,7 @@ try {
                           AND t.currency_id = ?
                           AND t.transaction_date BETWEEN ? AND ?
                           AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
+                          " . (dashboardHasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "") . "
                         GROUP BY DATE(t.transaction_date)
                         ORDER BY DATE(t.transaction_date)
                     ");
@@ -360,7 +383,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND account_id = ?
                   AND currency_id = ?
                   AND transaction_date < ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')";
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')"
+                  . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
@@ -378,7 +402,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND from_account_id = ?
                   AND currency_id = ?
                   AND transaction_date < ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
+                  . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from]);
@@ -435,7 +460,8 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                   AND account_id = ?
                   AND currency_id = ?
                   AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')";
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')"
+                  . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from, $date_to]);
@@ -453,7 +479,8 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                   AND from_account_id = ?
                   AND currency_id = ?
                   AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')";
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
+                  . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $currency_id, $date_from, $date_to]);
