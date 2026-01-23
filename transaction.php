@@ -63,15 +63,20 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     }
 
     /* ==================== Contra Approval Inbox ==================== */
-    .contra-inbox-panel {
-        margin: 12px 0 0 0;
-        padding: 10px 12px;
-        border: 1px solid #d0d7de;
-        border-radius: 12px;
-        background: #fff;
-        box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+    .transaction-header-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
     }
-    .contra-inbox-header { display: flex; align-items: center; gap: 10px; }
+    .transaction-header-right {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .contra-inbox-wrap {
+        position: relative;
+    }
     .contra-inbox-badge {
         display: inline-flex;
         align-items: center;
@@ -110,9 +115,44 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         font-weight: 800;
         color: #0f172a;
     }
-    .contra-inbox-body {
-        margin-top: 10px;
+    .contra-inbox-icon {
+        width: 16px;
+        height: 16px;
+        display: inline-block;
+    }
+    .contra-inbox-popover {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 8px);
+        width: min(860px, calc(100vw - 60px));
+        max-height: 420px;
+        overflow: hidden;
+        border: 1px solid #d0d7de;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(16, 24, 40, 0.18);
+        z-index: 1200;
         display: none;
+    }
+    .contra-inbox-popover-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #f8fafc;
+    }
+    .contra-inbox-popover-title {
+        font-weight: 900;
+        color: #0f172a;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .contra-inbox-popover-body {
+        max-height: 360px;
+        overflow: auto;
     }
     .contra-inbox-table {
         width: 100%;
@@ -416,39 +456,51 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     </div>
     
     <div class="transaction-container">
-        <h1 class="transaction-title">Transaction List</h1>
-        
-        <!-- Separator line -->
-        <div class="transaction-separator-line"></div>
-
-        <?php if ($canApproveContra): ?>
-        <!-- Contra Approval Inbox (Manager+) -->
-        <div class="contra-inbox-panel" id="contraInboxPanel">
-            <div class="contra-inbox-header">
-                <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
-                    Contra Inbox
-                    <span class="contra-inbox-badge" id="contraInboxCount">0</span>
-                </button>
-            </div>
-            <div class="contra-inbox-body" id="contraInboxBody">
-                <table class="contra-inbox-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>From</th>
-                            <th>To</th>
-                            <th>Currency</th>
-                            <th>Amount</th>
-                            <th>Submitted By</th>
-                            <th>Description</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="contraInboxTbody"></tbody>
-                </table>
+        <div class="transaction-header-bar">
+            <h1 class="transaction-title">Transaction List</h1>
+            <div class="transaction-header-right">
+                <?php if ($canApproveContra): ?>
+                <div class="contra-inbox-wrap" id="contraInboxWrap">
+                    <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
+                        <svg class="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+                        </svg>
+                        Contra Inbox
+                        <span class="contra-inbox-badge" id="contraInboxCount">0</span>
+                    </button>
+                    <div class="contra-inbox-popover" id="contraInboxPopover">
+                        <div class="contra-inbox-popover-header">
+                            <div class="contra-inbox-popover-title">
+                                Contra Inbox
+                                <span class="contra-inbox-badge" id="contraInboxCount2">0</span>
+                            </div>
+                            <button type="button" class="contra-inbox-btn" id="contraInboxRefreshBtn">Refresh</button>
+                        </div>
+                        <div class="contra-inbox-popover-body">
+                            <table class="contra-inbox-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>From</th>
+                                        <th>To</th>
+                                        <th>Currency</th>
+                                        <th>Amount</th>
+                                        <th>Submitted By</th>
+                                        <th>Description</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="contraInboxTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
-        <?php endif; ?>
+
+        <!-- Separator line -->
+        <div class="transaction-separator-line"></div>
         
         <div class="transaction-main-content">
             <!-- Left Search Form -->
@@ -874,36 +926,35 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         }
 
         // ==================== Contra Inbox（Manager+） ====================
-        function setContraInboxVisible(visible) {
-            // 保持向后兼容：现在默认一直显示（仅 Manager+/Admin/Owner 会渲染）
-            const panel = document.getElementById('contraInboxPanel');
-            if (!panel) return;
-            panel.style.display = visible ? 'block' : 'block';
+        function isContraInboxOpen() {
+            const pop = document.getElementById('contraInboxPopover');
+            return !!pop && pop.style.display !== 'none';
         }
-
-        function toggleContraInboxBody(forceOpen = null) {
-            const body = document.getElementById('contraInboxBody');
-            if (!body) return;
-            const isOpen = body.style.display !== 'none';
-            const next = forceOpen === null ? !isOpen : !!forceOpen;
-            body.style.display = next ? 'block' : 'none';
+        function openContraInbox() {
+            const pop = document.getElementById('contraInboxPopover');
+            if (!pop) return;
+            pop.style.display = 'block';
+        }
+        function closeContraInbox() {
+            const pop = document.getElementById('contraInboxPopover');
+            if (!pop) return;
+            pop.style.display = 'none';
         }
 
         function renderContraInbox(items) {
             const tbody = document.getElementById('contraInboxTbody');
             const countEl = document.getElementById('contraInboxCount');
+            const countEl2 = document.getElementById('contraInboxCount2');
             if (!tbody || !countEl) return;
 
             const count = Array.isArray(items) ? items.length : 0;
             countEl.textContent = String(count);
+            if (countEl2) countEl2.textContent = String(count);
 
             if (count === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="padding:10px 8px; color:#6b7280;">No pending contra.</td></tr>';
-                setContraInboxVisible(true);
                 return;
             }
-
-            setContraInboxVisible(true);
             tbody.innerHTML = items.map(row => {
                 const safeDesc = (row.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return `
@@ -1205,14 +1256,34 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             const inboxBtn = document.getElementById('contraInboxBtn');
             if (inboxBtn) {
                 inboxBtn.addEventListener('click', () => {
-                    const body = document.getElementById('contraInboxBody');
-                    const willOpen = body ? (body.style.display === 'none') : true;
-                    toggleContraInboxBody();
+                    const willOpen = !isContraInboxOpen();
                     if (willOpen) {
+                        openContraInbox();
                         loadContraInbox();
+                    } else {
+                        closeContraInbox();
                     }
                 });
             }
+
+            const inboxRefresh = document.getElementById('contraInboxRefreshBtn');
+            if (inboxRefresh) {
+                inboxRefresh.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    loadContraInbox();
+                });
+            }
+
+            // 点击外部关闭 Popover
+            document.addEventListener('click', (e) => {
+                if (!canApproveContra) return;
+                const wrap = document.getElementById('contraInboxWrap');
+                if (!wrap) return;
+                if (!wrap.contains(e.target)) {
+                    closeContraInbox();
+                }
+            });
         });
         
         // ==================== 加载分类列表 ====================
