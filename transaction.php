@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 $viewerRole = isset($_SESSION['role']) ? strtolower($_SESSION['role']) : '';
 // 所有角色都可以看到 description 列
 $useDescriptionColumn = true;
-$canApproveContra = in_array($viewerRole, ['manager', 'owner'], true);
+$canApproveContra = in_array($viewerRole, ['manager', 'admin', 'owner'], true);
 
 // 获取 session 中的 company_id（用于跨页面同步）
 $session_company_id = $_SESSION['company_id'] ?? null;

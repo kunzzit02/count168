@@ -10,8 +10,7 @@ require_once 'config.php';
 function isManagerOrAboveRole(string $role): bool
 {
     $role = strtolower(trim($role));
-    // 备注：按需求，admin 视为 manager 以下（不显示信箱/不可批准）
-    return in_array($role, ['manager', 'owner'], true);
+    return in_array($role, ['manager', 'admin', 'owner'], true);
 }
 
 function tableHasColumn(PDO $pdo, string $table, string $column): bool

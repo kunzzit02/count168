@@ -23,9 +23,8 @@ require_once 'config.php';
 function isManagerOrAboveRole(string $role): bool
 {
     $role = strtolower(trim($role));
-    // manager 以上：manager / owner
-    // 备注：按需求，admin 视为 manager 以下（需要审批）
-    return in_array($role, ['manager', 'owner'], true);
+    // manager 以上：manager / admin / owner
+    return in_array($role, ['manager', 'admin', 'owner'], true);
 }
 
 /**
