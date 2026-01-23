@@ -19,10 +19,6 @@ $user_id = $_SESSION['user_id'];
 $login_id = $_SESSION['login_id'] ?? '';
 $name = $_SESSION['name'] ?? '';
 $role = $_SESSION['role'] ?? '';
-$currentPage = basename($_SERVER['PHP_SELF'] ?? '');
-$roleLowerForContra = strtolower((string)$role);
-$canApproveContraSidebar = !$isMember && in_array($roleLowerForContra, ['admin', 'manager', 'owner'], true);
-$isTransactionPage = ($currentPage === 'transaction.php');
 
 require_once 'config.php';
 $permissions = [];
@@ -123,44 +119,6 @@ if ($companyId) {
     .informationmenu,
     .informationmenu * {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
-
-    /* Contra Inbox badge button (Transaction page only) */
-    .contra-inbox-sidebar-btn {
-        margin-left: auto;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        color: #fff;
-        font-weight: 800;
-        font-size: 12px;
-        cursor: pointer;
-    }
-    .contra-inbox-sidebar-btn:hover {
-        background: rgba(255, 255, 255, 0.18);
-    }
-    .contra-inbox-sidebar-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 22px;
-        height: 18px;
-        padding: 0 7px;
-        border-radius: 999px;
-        background: #ef4444;
-        color: #fff;
-        font-size: 12px;
-        font-weight: 900;
-        line-height: 1;
-    }
-    .contra-inbox-sidebar-icon {
-        width: 14px;
-        height: 14px;
-        display: inline-block;
     }
 
     /* 用户信息容器（包裹头像和用户信息）- 整体水平居中，名字长时向左右对称扩展 */
@@ -1558,19 +1516,6 @@ if ($companyId) {
                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
                     </svg>
                     Transaction Payment
-                    <?php if ($isTransactionPage && $canApproveContraSidebar): ?>
-                        <button type="button"
-                                id="contraInboxBtn"
-                                class="contra-inbox-sidebar-btn"
-                                onclick="event.stopPropagation(); return false;"
-                                title="Contra Inbox">
-                            <svg class="contra-inbox-sidebar-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
-                            </svg>
-                            Inbox
-                            <span class="contra-inbox-sidebar-badge" id="contraInboxCount">0</span>
-                        </button>
-                    <?php endif; ?>
                 </div>
             </div>
             <?php endif; ?>

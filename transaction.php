@@ -62,7 +62,23 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         font-weight: 500;
     }
 
-    /* ==================== Contra Approval Inbox (Popover) ==================== */
+    /* ==================== Contra Approval Inbox ==================== */
+    .transaction-header-bar {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 12px;
+    }
+    .transaction-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        flex-wrap: wrap;
+    }
+    .contra-inbox-wrap {
+        position: relative;
+    }
     .contra-inbox-badge {
         display: inline-flex;
         align-items: center;
@@ -91,10 +107,25 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         background: #eef2ff;
         border-color: #a5b4fc;
     }
+    .contra-inbox-btn.contra-inbox-main {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: #ffffff;
+        font-weight: 800;
+        color: #0f172a;
+    }
+    .contra-inbox-icon {
+        width: 16px;
+        height: 16px;
+        display: inline-block;
+    }
     .contra-inbox-popover {
-        position: fixed;
+        position: absolute;
         left: 0;
-        top: 0;
+        top: calc(100% + 8px);
         width: min(860px, calc(100vw - 60px));
         max-height: 420px;
         overflow: hidden;
@@ -427,40 +458,51 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     </div>
     
     <div class="transaction-container">
-        <h1 class="transaction-title">Transaction List</h1>
+        <div class="transaction-header-bar">
+            <div class="transaction-header-left">
+                <h1 class="transaction-title">Transaction List</h1>
+                <?php if ($canApproveContra): ?>
+                <div class="contra-inbox-wrap" id="contraInboxWrap">
+                    <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
+                        <svg class="contra-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+                        </svg>
+                        Contra Inbox
+                        <span class="contra-inbox-badge" id="contraInboxCount">0</span>
+                    </button>
+                    <div class="contra-inbox-popover" id="contraInboxPopover">
+                        <div class="contra-inbox-popover-header">
+                            <div class="contra-inbox-popover-title">
+                                Contra Inbox
+                                <span class="contra-inbox-badge" id="contraInboxCount2">0</span>
+                            </div>
+                            <button type="button" class="contra-inbox-btn" id="contraInboxRefreshBtn">Refresh</button>
+                        </div>
+                        <div class="contra-inbox-popover-body">
+                            <table class="contra-inbox-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>From</th>
+                                        <th>To</th>
+                                        <th>Currency</th>
+                                        <th>Amount</th>
+                                        <th>Submitted By</th>
+                                        <th>Description</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="contraInboxTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
 
         <!-- Separator line -->
         <div class="transaction-separator-line"></div>
-
-        <?php if ($canApproveContra): ?>
-        <!-- Contra Inbox Popover (trigger button is in sidebar) -->
-        <div class="contra-inbox-popover" id="contraInboxPopover">
-            <div class="contra-inbox-popover-header">
-                <div class="contra-inbox-popover-title">
-                    Contra Inbox
-                    <span class="contra-inbox-badge" id="contraInboxCount2">0</span>
-                </div>
-                <button type="button" class="contra-inbox-btn" id="contraInboxRefreshBtn">Refresh</button>
-            </div>
-            <div class="contra-inbox-popover-body">
-                <table class="contra-inbox-table">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>From</th>
-                            <th>To</th>
-                            <th>Currency</th>
-                            <th>Amount</th>
-                            <th>Submitted By</th>
-                            <th>Description</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="contraInboxTbody"></tbody>
-                </table>
-            </div>
-        </div>
-        <?php endif; ?>
         
         <div class="transaction-main-content">
             <!-- Left Search Form -->
@@ -890,43 +932,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             const pop = document.getElementById('contraInboxPopover');
             return !!pop && pop.style.display !== 'none';
         }
-        function positionContraInboxPopover() {
-            const btn = document.getElementById('contraInboxBtn');
-            const pop = document.getElementById('contraInboxPopover');
-            if (!btn || !pop) return;
-
-            const rect = btn.getBoundingClientRect();
-            const padding = 8;
-            const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
-            const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
-
-            // 先临时显示以获取尺寸
-            const prevDisplay = pop.style.display;
-            pop.style.display = 'block';
-            const popRect = pop.getBoundingClientRect();
-            const popW = popRect.width || 520;
-            const popH = popRect.height || 320;
-            pop.style.display = prevDisplay || 'none';
-
-            let left = rect.left;
-            let top = rect.bottom + 8;
-
-            // 右侧溢出则向左挪
-            if (left + popW + padding > viewportW) {
-                left = Math.max(padding, viewportW - popW - padding);
-            }
-            // 底部溢出则向上弹（放到按钮上方）
-            if (top + popH + padding > viewportH) {
-                top = Math.max(padding, rect.top - popH - 8);
-            }
-
-            pop.style.left = `${Math.round(left)}px`;
-            pop.style.top = `${Math.round(top)}px`;
-        }
         function openContraInbox() {
             const pop = document.getElementById('contraInboxPopover');
             if (!pop) return;
-            positionContraInboxPopover();
             pop.style.display = 'block';
         }
         function closeContraInbox() {
@@ -1272,17 +1280,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             // 点击外部关闭 Popover
             document.addEventListener('click', (e) => {
                 if (!canApproveContra) return;
-                const btn = document.getElementById('contraInboxBtn');
-                const pop = document.getElementById('contraInboxPopover');
-                if (!btn || !pop) return;
-                if (!btn.contains(e.target) && !pop.contains(e.target)) {
+                const wrap = document.getElementById('contraInboxWrap');
+                if (!wrap) return;
+                if (!wrap.contains(e.target)) {
                     closeContraInbox();
                 }
-            });
-
-            // 窗口变化时重算位置（保持不跑版）
-            window.addEventListener('resize', () => {
-                if (isContraInboxOpen()) positionContraInboxPopover();
             });
         });
         
