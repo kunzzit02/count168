@@ -66,10 +66,10 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     .transaction-header-bar {
         display: flex;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: space-between;
         gap: 12px;
     }
-    .transaction-header-left {
+    .transaction-header-right {
         display: flex;
         align-items: center;
         gap: 10px;
@@ -457,8 +457,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     
     <div class="transaction-container">
         <div class="transaction-header-bar">
-            <div class="transaction-header-left">
-                <h1 class="transaction-title" style="margin: 0;">Transaction List</h1>
+            <h1 class="transaction-title">Transaction List</h1>
+            <div class="transaction-header-right">
                 <?php if ($canApproveContra): ?>
                 <div class="contra-inbox-wrap" id="contraInboxWrap">
                     <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
