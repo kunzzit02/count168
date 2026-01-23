@@ -3162,7 +3162,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     // Manager 以下提交“非当天”的 CONTRA：需要等待批准（后端会返回 approval_status = PENDING）
                     const approvalStatus = data?.data?.approval_status ? String(data.data.approval_status).toUpperCase() : '';
                     if (approvalStatus === 'PENDING') {
-                        showNotification('已提交：需要等待 Manager 以上批准后才会生效', 'info');
+                        showNotification('Submitted. Waiting for Manager+ approval to take effect.', 'info');
                     } else {
                         showNotification(data.message, 'success');
                     }
