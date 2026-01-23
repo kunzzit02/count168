@@ -71,19 +71,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         background: #fff;
         box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
     }
-    .contra-inbox-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-    }
-    .contra-inbox-title {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 800;
-        color: #0f172a;
-    }
+    .contra-inbox-header { display: flex; align-items: center; gap: 10px; }
     .contra-inbox-badge {
         display: inline-flex;
         align-items: center;
@@ -96,11 +84,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         color: #fff;
         font-size: 12px;
         font-weight: 800;
-    }
-    .contra-inbox-actions {
-        display: inline-flex;
-        gap: 8px;
-        align-items: center;
     }
     .contra-inbox-btn {
         padding: 6px 10px;
@@ -116,6 +99,16 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     .contra-inbox-btn:hover {
         background: #eef2ff;
         border-color: #a5b4fc;
+    }
+    .contra-inbox-btn.contra-inbox-main {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: #ffffff;
+        font-weight: 800;
+        color: #0f172a;
     }
     .contra-inbox-body {
         margin-top: 10px;
@@ -432,14 +425,10 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         <!-- Contra Approval Inbox (Manager+) -->
         <div class="contra-inbox-panel" id="contraInboxPanel">
             <div class="contra-inbox-header">
-                <div class="contra-inbox-title">
+                <button type="button" class="contra-inbox-btn contra-inbox-main" id="contraInboxBtn">
                     Contra Inbox
                     <span class="contra-inbox-badge" id="contraInboxCount">0</span>
-                </div>
-                <div class="contra-inbox-actions">
-                    <button type="button" class="contra-inbox-btn" id="contraInboxToggleBtn">Show</button>
-                    <button type="button" class="contra-inbox-btn" id="contraInboxRefreshBtn">Refresh</button>
-                </div>
+                </button>
             </div>
             <div class="contra-inbox-body" id="contraInboxBody">
                 <table class="contra-inbox-table">
@@ -894,12 +883,10 @@ $session_company_id = $_SESSION['company_id'] ?? null;
 
         function toggleContraInboxBody(forceOpen = null) {
             const body = document.getElementById('contraInboxBody');
-            const btn = document.getElementById('contraInboxToggleBtn');
-            if (!body || !btn) return;
+            if (!body) return;
             const isOpen = body.style.display !== 'none';
             const next = forceOpen === null ? !isOpen : !!forceOpen;
             body.style.display = next ? 'block' : 'none';
-            btn.textContent = next ? 'Hide' : 'Show';
         }
 
         function renderContraInbox(items) {
@@ -947,16 +934,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         function loadContraInbox() {
             if (!canApproveContra) return Promise.resolve();
 
-            const refreshBtn = document.getElementById('contraInboxRefreshBtn');
-            if (refreshBtn) refreshBtn.disabled = true;
-
             return fetch(buildContraInboxUrl(), { method: 'GET', cache: 'no-cache' })
                 .then(r => r.json())
                 .then(data => {
                     if (data && data.success) {
                         renderContraInbox(data.data || []);
-                        // 如果有待审批，默认展开一次；没有则保持收起
-                        if ((data.data || []).length > 0) toggleContraInboxBody(true);
                     } else {
                         renderContraInbox([]);
                     }
@@ -965,9 +947,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     console.error('❌ Contra inbox load failed:', err);
                     // 不弹出 error，避免干扰主流程
                 })
-                .finally(() => {
-                    if (refreshBtn) refreshBtn.disabled = false;
-                });
+                .finally(() => {});
         }
 
         function approveContra(transactionId) {
@@ -1221,11 +1201,18 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 showNotification('Failed to load initial data', 'error');
             });
 
-            // Contra Inbox 按钮绑定
-            const inboxToggle = document.getElementById('contraInboxToggleBtn');
-            if (inboxToggle) inboxToggle.addEventListener('click', () => toggleContraInboxBody());
-            const inboxRefresh = document.getElementById('contraInboxRefreshBtn');
-            if (inboxRefresh) inboxRefresh.addEventListener('click', () => loadContraInbox());
+            // Contra Inbox：一个按钮，点击才展开整行（展开时自动刷新）
+            const inboxBtn = document.getElementById('contraInboxBtn');
+            if (inboxBtn) {
+                inboxBtn.addEventListener('click', () => {
+                    const body = document.getElementById('contraInboxBody');
+                    const willOpen = body ? (body.style.display === 'none') : true;
+                    toggleContraInboxBody();
+                    if (willOpen) {
+                        loadContraInbox();
+                    }
+                });
+            }
         });
         
         // ==================== 加载分类列表 ====================
