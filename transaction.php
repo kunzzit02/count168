@@ -430,7 +430,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
 
         <?php if ($canApproveContra): ?>
         <!-- Contra Approval Inbox (Manager+) -->
-        <div class="contra-inbox-panel" id="contraInboxPanel" style="display:none;">
+        <div class="contra-inbox-panel" id="contraInboxPanel">
             <div class="contra-inbox-header">
                 <div class="contra-inbox-title">
                     Contra Inbox
@@ -886,9 +886,10 @@ $session_company_id = $_SESSION['company_id'] ?? null;
 
         // ==================== Contra Inbox（Manager+） ====================
         function setContraInboxVisible(visible) {
+            // 保持向后兼容：现在默认一直显示（仅 Manager+/Admin/Owner 会渲染）
             const panel = document.getElementById('contraInboxPanel');
             if (!panel) return;
-            panel.style.display = visible ? 'block' : 'none';
+            panel.style.display = visible ? 'block' : 'block';
         }
 
         function toggleContraInboxBody(forceOpen = null) {
@@ -911,7 +912,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
 
             if (count === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="padding:10px 8px; color:#6b7280;">No pending contra.</td></tr>';
-                setContraInboxVisible(false);
+                setContraInboxVisible(true);
                 return;
             }
 
@@ -954,10 +955,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 .then(data => {
                     if (data && data.success) {
                         renderContraInbox(data.data || []);
-                        // 如果有待审批，默认展开一次，避免 manager 看不到
-                        if ((data.data || []).length > 0) {
-                            toggleContraInboxBody(true);
-                        }
+                        // 如果有待审批，默认展开一次；没有则保持收起
+                        if ((data.data || []).length > 0) toggleContraInboxBody(true);
                     } else {
                         renderContraInbox([]);
                     }
