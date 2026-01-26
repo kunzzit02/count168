@@ -196,7 +196,7 @@ if ($current_user_id && count($user_companies) > 0) {
 <body class="process-page">
     <div class="container">
         <div class="content">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
                 <h1 class="page-title" style="margin: 0;">Process List</h1>
                 <!-- Permission Filter -->
                 <div id="process-list-permission-filter" class="process-company-filter" style="display: none;">
