@@ -1190,6 +1190,46 @@ try {
         </div>
     </div>
 
+    <!-- Company Expiration Date Setting Modal -->
+    <div id="companyExpDateModal" class="modal" style="z-index: 10003;">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close" onclick="closeCompanyExpDateModal()">&times;</span>
+            <h2>Set Expiration Date</h2>
+            <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
+                <div class="form-group">
+                    <label id="expDateCompanyName" style="font-weight: bold; font-size: clamp(12px, 1.04vw, 16px); color: #1e293b; margin-bottom: 15px;">Company: </label>
+                </div>
+                <div class="form-group">
+                    <label for="expDateStartDate">Start Date</label>
+                    <input type="date" id="expDateStartDate" class="form-group input" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
+                    <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;" id="expDateStartDateHelp">Select the start date for calculating expiration date</small>
+                </div>
+                <div class="form-group">
+                    <label for="expDatePeriod">Period</label>
+                    <select id="expDatePeriod" class="form-group input" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
+                        <option value="">Select Period</option>
+                        <option value="7days">7 Days</option>
+                        <option value="1month">1 Month</option>
+                        <option value="3months">3 Months</option>
+                        <option value="6months">6 Months</option>
+                        <option value="1year">1 Year</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Expiration Date</label>
+                    <div style="padding: clamp(8px, 0.73vw, 14px); background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(11px, 0.94vw, 18px); font-weight: 600; color: #1e293b; text-align: center;" id="expDateDisplay">
+                        Not set
+                    </div>
+                </div>
+                <div class="form-actions" style="margin-top: 20px;">
+                    <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
+                    <button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()" style="background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%); color: white; margin-right: 8px;">Reset</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeCompanyExpDateModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Domain Modal -->
     <div id="domainModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
@@ -1669,6 +1709,169 @@ try {
             }
         }
         
+        // 当前正在编辑的公司ID（用于弹窗）
+        let currentEditingCompanyId = null;
+        
+        // 打开到期日期设置弹窗
+        function openCompanyExpDateModal(companyId) {
+            const company = tempCompanies.find(c => c.company_id === companyId);
+            if (!company) return;
+            
+            currentEditingCompanyId = companyId;
+            
+            // 设置公司名称
+            document.getElementById('expDateCompanyName').textContent = `Company: ${company.company_id}`;
+            
+            // 设置开始日期
+            const startDate = company.startDate || new Date().toISOString().split('T')[0];
+            document.getElementById('expDateStartDate').value = startDate;
+            
+            // 设置是否禁用开始日期（续上时间时禁用）
+            const startDateInput = document.getElementById('expDateStartDate');
+            if (company.isExtending) {
+                startDateInput.disabled = true;
+                document.getElementById('expDateStartDateHelp').textContent = 'Cannot modify start date when extending time';
+                document.getElementById('expDateStartDateHelp').style.color = '#ef4444';
+            } else {
+                startDateInput.disabled = false;
+                document.getElementById('expDateStartDateHelp').textContent = 'Select the start date for calculating expiration date';
+                document.getElementById('expDateStartDateHelp').style.color = '#64748b';
+            }
+            
+            // 设置Period选择
+            const selectedPeriod = company.selectedPeriod || '';
+            document.getElementById('expDatePeriod').value = selectedPeriod;
+            
+            // 如果已经有到期日期，直接显示；否则根据选择的period计算
+            const displayElement = document.getElementById('expDateDisplay');
+            if (company.expiration_date) {
+                displayElement.textContent = formatDate(company.expiration_date);
+                displayElement.style.color = '#1e293b';
+            } else {
+                // 更新到期日期显示（根据选择的period计算）
+                updateExpDateDisplay();
+            }
+            
+            // 添加事件监听器
+            document.getElementById('expDateStartDate').onchange = function() {
+                if (!company.isExtending) {
+                    updateExpDateDisplay();
+                }
+            };
+            document.getElementById('expDatePeriod').onchange = function() {
+                updateExpDateDisplay();
+            };
+            
+            // 显示弹窗
+            document.getElementById('companyExpDateModal').style.display = 'block';
+        }
+        
+        // 关闭到期日期设置弹窗
+        function closeCompanyExpDateModal() {
+            document.getElementById('companyExpDateModal').style.display = 'none';
+            currentEditingCompanyId = null;
+        }
+        
+        // 更新到期日期显示（在弹窗中）
+        function updateExpDateDisplay() {
+            if (!currentEditingCompanyId) return;
+            
+            const company = tempCompanies.find(c => c.company_id === currentEditingCompanyId);
+            if (!company) return;
+            
+            const startDate = document.getElementById('expDateStartDate').value;
+            const period = document.getElementById('expDatePeriod').value;
+            
+            let expDate = null;
+            if (period) {
+                if (company.isExtending) {
+                    // 续上时间：从原始到期日期开始计算
+                    const originalDate = company.originalExpirationDate || null;
+                    expDate = calculateExpirationDate(period, originalDate);
+                } else {
+                    // 新添加或重置：使用选择的开始日期
+                    const baseDate = startDate || new Date().toISOString().split('T')[0];
+                    expDate = calculateExpirationDate(period, baseDate);
+                }
+            }
+            
+            const displayElement = document.getElementById('expDateDisplay');
+            if (expDate) {
+                displayElement.textContent = formatDate(expDate);
+                displayElement.style.color = '#1e293b';
+            } else {
+                displayElement.textContent = 'Not set';
+                displayElement.style.color = '#94a3b8';
+            }
+        }
+        
+        // 保存到期日期设置
+        function saveCompanyExpDate() {
+            if (!currentEditingCompanyId) return;
+            
+            const company = tempCompanies.find(c => c.company_id === currentEditingCompanyId);
+            if (!company) return;
+            
+            const startDate = document.getElementById('expDateStartDate').value;
+            const period = document.getElementById('expDatePeriod').value;
+            
+            if (!period) {
+                showAlert('Please select a period', 'danger');
+                return;
+            }
+            
+            // 更新公司数据
+            if (!company.isExtending) {
+                // 新添加或重置：可以修改开始日期
+                company.startDate = startDate || new Date().toISOString().split('T')[0];
+            }
+            
+            // 计算到期日期
+            let expDate;
+            if (company.isExtending) {
+                // 续上时间：从原始到期日期开始计算
+                const originalDate = company.originalExpirationDate || null;
+                expDate = calculateExpirationDate(period, originalDate);
+            } else {
+                // 新添加或重置：使用选择的开始日期
+                const baseDate = company.startDate || new Date().toISOString().split('T')[0];
+                expDate = calculateExpirationDate(period, baseDate);
+            }
+            
+            company.expiration_date = expDate;
+            company.selectedPeriod = period;
+            
+            // 更新显示
+            updateCompanyDisplay();
+            closeCompanyExpDateModal();
+            showAlert('Expiration date updated successfully!');
+        }
+        
+        // 在弹窗中重置到期日期
+        function resetCompanyExpDateInModal() {
+            if (!currentEditingCompanyId) return;
+            
+            const company = tempCompanies.find(c => c.company_id === currentEditingCompanyId);
+            if (!company) return;
+            
+            // 重置为今天
+            const today = new Date().toISOString().split('T')[0];
+            company.startDate = today;
+            company.isExtending = false;
+            company.originalExpirationDate = null;
+            company.selectedPeriod = null;
+            company.expiration_date = null;
+            
+            // 更新弹窗中的显示
+            document.getElementById('expDateStartDate').value = today;
+            document.getElementById('expDateStartDate').disabled = false;
+            document.getElementById('expDateStartDateHelp').textContent = 'Select the start date for calculating expiration date';
+            document.getElementById('expDateStartDateHelp').style.color = '#64748b';
+            document.getElementById('expDatePeriod').value = '';
+            document.getElementById('expDateDisplay').textContent = 'Not set';
+            document.getElementById('expDateDisplay').style.color = '#94a3b8';
+        }
+        
         // 根据到期日期判断对应的期限选项
         function getPeriodFromDate(expirationDate) {
             if (!expirationDate) return '1month';
@@ -1718,30 +1921,14 @@ try {
                     const isC168 = company.company_id.toUpperCase() === 'C168';
                     const removeButton = isC168 ? '' : `<button type="button" class="company-remove-btn" onclick="removeCompanyFromList('${company.company_id}')">Remove</button>`;
                     
-                    // C168不显示到期日期选择器和日期显示
+                    // C168不显示到期日期设置按钮
                     let expirationControls = '';
                     if (!isC168) {
-                        // 如果有记录的selectedPeriod，显示它；否则显示占位符选项
-                        const selectedPeriod = company.selectedPeriod || '';
-                        const startDate = company.startDate || '';
-                        const isDisabled = company.isExtending; // 续上时间时禁用日历
+                        // 显示到期日期和设置按钮
+                        const expDateText = company.expiration_date ? formatDate(company.expiration_date) : 'Not set';
                         expirationControls = `
-                            <input type="date" 
-                                   class="company-start-date-input" 
-                                   value="${startDate}" 
-                                   ${isDisabled ? 'disabled' : ''}
-                                   onchange="updateCompanyStartDate('${company.company_id}', this.value)"
-                                   title="${isDisabled ? 'Cannot modify start date when extending time' : 'Select start date'}">
-                            <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
-                                <option value="" ${selectedPeriod === '' ? 'selected' : ''}>Period</option>
-                                <option value="7days" ${selectedPeriod === '7days' ? 'selected' : ''}>7 Days</option>
-                                <option value="1month" ${selectedPeriod === '1month' ? 'selected' : ''}>1 Month</option>
-                                <option value="3months" ${selectedPeriod === '3months' ? 'selected' : ''}>3 Months</option>
-                                <option value="6months" ${selectedPeriod === '6months' ? 'selected' : ''}>6 Months</option>
-                                <option value="1year" ${selectedPeriod === '1year' ? 'selected' : ''}>1 Year</option>
-                            </select>
-                            <span class="exp-date-display">${formatDate(company.expiration_date)}</span>
-                            <button type="button" class="company-reset-btn" onclick="resetCompanyExpiration('${company.company_id}')" title="Reset expiration date to today">Reset</button>
+                            <span class="exp-date-display" style="margin-right: 8px;">${expDateText}</span>
+                            <button type="button" class="company-reset-btn" onclick="openCompanyExpDateModal('${company.company_id}')" title="Set expiration date" style="background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);">Set</button>
                         `;
                     }
                     
@@ -2380,6 +2567,11 @@ try {
             const companyExpModal = document.getElementById('companyExpirationModal');
             if (event.target === companyExpModal) {
                 closeCompanyExpirationModal();
+            }
+            
+            const companyExpDateModal = document.getElementById('companyExpDateModal');
+            if (event.target === companyExpDateModal) {
+                closeCompanyExpDateModal();
             }
         }
 
