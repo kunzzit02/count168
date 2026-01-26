@@ -21941,9 +21941,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 editableCells.forEach(cell => {
                     // Clear all inline styles (background color, color, etc.)
                     // But preserve the cell's basic structure and contentEditable
+                    // Remove both style attribute and cssText to ensure all styles are cleared (including !important)
                     if (cell.hasAttribute('style')) {
                         cell.removeAttribute('style');
                     }
+                    cell.style.cssText = '';
                     // Only remove classes that might interfere with highlighting
                     // Keep essential classes if any (but 655 mode shouldn't add classes)
                     // Remove any non-essential classes while preserving cell functionality
@@ -22322,9 +22324,25 @@ if ($current_user_id && count($user_companies) > 0) {
                     cell.textContent = '';
                     cell.innerHTML = '';
                     // Clear all inline styles (background color, color, etc.)
+                    // Remove both style attribute and cssText to ensure all styles are cleared
                     cell.removeAttribute('style');
-                    // Remove any classes that might affect styling
-                    cell.className = '';
+                    cell.style.cssText = '';
+                    // Remove selection-related classes but preserve cell structure
+                    cell.classList.remove('selected', 'multi-selected');
+                    // Ensure contentEditable is still true (should be, but double-check)
+                    if (cell.getAttribute('contenteditable') !== 'true') {
+                        cell.setAttribute('contenteditable', 'true');
+                    }
+                    // Ensure dataset.col is preserved (should be, but double-check)
+                    // dataset.col is stored as data-col attribute, which should persist
+                    // If dataset.col is missing, try to restore it from the cell's position
+                    if (!cell.dataset.col && cell.parentElement) {
+                        const row = cell.parentElement;
+                        const colIndex = Array.from(row.children).indexOf(cell) - 1; // -1 for row header
+                        if (colIndex >= 0) {
+                            cell.dataset.col = colIndex;
+                        }
+                    }
                 });
             }
             
