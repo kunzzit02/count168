@@ -668,6 +668,89 @@ try {
             }
             break;
             
+        case 'get_company_permissions':
+            // Get permissions for a specific company
+            $company_id = $data['company_id'] ?? '';
+            
+            if (empty($company_id)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid company ID']);
+                exit;
+            }
+            
+            try {
+                // 通过 company_id (字符串) 查找公司
+                $stmt = $pdo->prepare("SELECT permissions FROM company WHERE company_id = ?");
+                $stmt->execute([strtoupper($company_id)]);
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($result && $result['permissions']) {
+                    $permissions = json_decode($result['permissions'], true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($permissions)) {
+                        echo json_encode([
+                            'success' => true,
+                            'permissions' => $permissions
+                        ]);
+                    } else {
+                        // 默认返回全部权限
+                        echo json_encode([
+                            'success' => true,
+                            'permissions' => ['Gambling', 'Bank', 'Loan', 'Rate', 'Money']
+                        ]);
+                    }
+                } else {
+                    // 如果没有设置，返回全部权限
+                    echo json_encode([
+                        'success' => true,
+                        'permissions' => ['Gambling', 'Bank', 'Loan', 'Rate', 'Money']
+                    ]);
+                }
+            } catch (Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Error: ' . $e->getMessage()
+                ]);
+            }
+            break;
+            
+        case 'update_company_permissions':
+            // Update permissions for a specific company
+            $company_id = $data['company_id'] ?? '';
+            $permissions = $data['permissions'] ?? [];
+            
+            if (empty($company_id)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid company ID']);
+                exit;
+            }
+            
+            if (!is_array($permissions)) {
+                echo json_encode(['success' => false, 'message' => 'Invalid permissions format']);
+                exit;
+            }
+            
+            try {
+                // 验证权限值
+                $valid_permissions = ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                $filtered_permissions = array_intersect($permissions, $valid_permissions);
+                
+                // 转换为 JSON
+                $permissions_json = json_encode(array_values($filtered_permissions));
+                
+                // 更新数据库
+                $stmt = $pdo->prepare("UPDATE company SET permissions = ? WHERE company_id = ?");
+                $stmt->execute([$permissions_json, strtoupper($company_id)]);
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Permissions updated successfully'
+                ]);
+            } catch (Exception $e) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Error: ' . $e->getMessage()
+                ]);
+            }
+            break;
+            
         default:
             echo json_encode(['success' => false, 'message' => 'Invalid action']);
             break;

@@ -136,6 +136,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             </div>
                         </div>
                         <?php endif; ?>
+                        
+                        <!-- Permission Filter -->
+                        <div id="data-capture-permission-filter" class="data-capture-company-filter" style="display: none; margin-bottom: 20px;">
+                            <span class="data-capture-company-label">Filter:</span>
+                            <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
+                                <!-- Permission buttons will be loaded dynamically -->
+                            </div>
+                        </div>
                         <form id="dataCaptureForm" class="process-form" method="POST">
                             <div class="form-group">
                                 <label for="capture_date">Date</label>
@@ -24223,6 +24231,8 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', async function() {
+            // 加载权限按钮
+            await loadPermissionButtons();
             // Mark page as ready after a brief delay to ensure CSS is loaded
             setTimeout(() => {
                 document.body.classList.add('page-ready');
@@ -24326,6 +24336,83 @@ if ($current_user_id && count($user_companies) > 0) {
         });
         
         // 切换 data capture 的 company
+        // 当前选择的权限
+        let selectedPermission = null;
+        
+        // 加载权限按钮
+        async function loadPermissionButtons() {
+            const currentCompanyId = <?php echo json_encode($company_id); ?>;
+            const currentCompanyCode = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+            
+            if (!currentCompanyCode) {
+                document.getElementById('data-capture-permission-filter').style.display = 'none';
+                return;
+            }
+            
+            try {
+                const response = await fetch('domainapi.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'get_company_permissions',
+                        company_id: currentCompanyCode
+                    })
+                });
+                
+                const result = await response.json();
+                const permissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                
+                const permissionContainer = document.getElementById('data-capture-permission-buttons');
+                permissionContainer.innerHTML = '';
+                
+                if (permissions.length > 0) {
+                    document.getElementById('data-capture-permission-filter').style.display = 'flex';
+                    
+                    permissions.forEach(permission => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'data-capture-company-btn';
+                        btn.textContent = permission;
+                        btn.dataset.permission = permission;
+                        btn.onclick = () => switchPermission(permission);
+                        permissionContainer.appendChild(btn);
+                    });
+                    
+                    // 默认选择第一个权限
+                    if (permissions.length > 0 && !selectedPermission) {
+                        switchPermission(permissions[0]);
+                    }
+                } else {
+                    document.getElementById('data-capture-permission-filter').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error loading permissions:', error);
+                document.getElementById('data-capture-permission-filter').style.display = 'none';
+            }
+        }
+        
+        // 切换权限
+        function switchPermission(permission) {
+            selectedPermission = permission;
+            
+            // 更新按钮状态
+            const buttons = document.querySelectorAll('#data-capture-permission-buttons .data-capture-company-btn');
+            buttons.forEach(btn => {
+                if (btn.dataset.permission === permission) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // 重新加载数据（如果需要）
+            if (typeof loadProcessesByDate === 'function') {
+                loadProcessesByDate();
+            }
+        }
+        
         async function switchDataCaptureCompany(companyId) {
             // 先更新 session
             try {

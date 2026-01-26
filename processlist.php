@@ -237,6 +237,14 @@ if ($current_user_id && count($user_companies) > 0) {
                     </div>
                 </div>
                 <?php endif; ?>
+                
+                <!-- Permission Filter -->
+                <div id="process-list-permission-filter" class="process-company-filter" style="display: none; margin-top: 10px;">
+                    <span class="process-company-label">Filter:</span>
+                    <div id="process-list-permission-buttons" class="process-company-buttons">
+                        <!-- Permission buttons will be loaded dynamically -->
+                    </div>
+                </div>
             </div>
             
             <!-- Table Header -->
@@ -621,6 +629,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
                 if (currentCompanyId) {
                     url.searchParams.set('company_id', currentCompanyId);
+                }
+                
+                // 添加权限过滤
+                if (selectedPermission) {
+                    url.searchParams.set('permission', selectedPermission);
                 }
                 
                 if (searchTerm.trim()) {
@@ -2424,7 +2437,9 @@ if ($current_user_id && count($user_companies) > 0) {
             
             console.log('DOM loaded, calling fetchProcesses...');
             try {
-            fetchProcesses();
+                loadPermissionButtons().then(() => {
+                    fetchProcesses();
+                });
             } catch (error) {
                 console.error('Error in fetchProcesses:', error);
                 showError('Error loading data: ' + error.message);
@@ -2432,6 +2447,82 @@ if ($current_user_id && count($user_companies) > 0) {
         });
         
         // 切换 process list 的 company
+        // 当前选择的权限
+        let selectedPermission = null;
+        
+        // 加载权限按钮
+        async function loadPermissionButtons() {
+            const currentCompanyId = <?php echo json_encode($company_id); ?>;
+            const currentCompanyCode = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+            
+            if (!currentCompanyCode) {
+                document.getElementById('process-list-permission-filter').style.display = 'none';
+                return;
+            }
+            
+            try {
+                const response = await fetch('domainapi.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'get_company_permissions',
+                        company_id: currentCompanyCode
+                    })
+                });
+                
+                const result = await response.json();
+                const permissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                
+                const permissionContainer = document.getElementById('process-list-permission-buttons');
+                permissionContainer.innerHTML = '';
+                
+                if (permissions.length > 0) {
+                    document.getElementById('process-list-permission-filter').style.display = 'flex';
+                    
+                    permissions.forEach(permission => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'process-company-btn';
+                        btn.textContent = permission;
+                        btn.dataset.permission = permission;
+                        btn.onclick = () => switchPermission(permission);
+                        permissionContainer.appendChild(btn);
+                    });
+                    
+                    // 默认选择第一个权限
+                    if (permissions.length > 0 && !selectedPermission) {
+                        switchPermission(permissions[0]);
+                    }
+                } else {
+                    document.getElementById('process-list-permission-filter').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error loading permissions:', error);
+                document.getElementById('process-list-permission-filter').style.display = 'none';
+            }
+        }
+        
+        // 切换权限
+        function switchPermission(permission) {
+            selectedPermission = permission;
+            
+            // 更新按钮状态
+            const buttons = document.querySelectorAll('#process-list-permission-buttons .process-company-btn');
+            buttons.forEach(btn => {
+                if (btn.dataset.permission === permission) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // 重新加载数据
+            currentPage = 1;
+            fetchProcesses();
+        }
+        
         async function switchProcessListCompany(companyId) {
             // 先更新 session
             try {

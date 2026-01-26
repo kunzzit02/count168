@@ -661,6 +661,38 @@ try {
             background: #4f46e5;
         }
         
+        /* Permission checkbox styles */
+        #permissionLabelGambling:hover,
+        #permissionLabelBank:hover,
+        #permissionLabelLoan:hover,
+        #permissionLabelRate:hover,
+        #permissionLabelMoney:hover {
+            background: #f3f4f6;
+            border-color: #6366f1;
+        }
+        
+        #permissionGambling:checked ~ span,
+        #permissionBank:checked ~ span,
+        #permissionLoan:checked ~ span,
+        #permissionRate:checked ~ span,
+        #permissionMoney:checked ~ span {
+            font-weight: 600;
+            color: #6366f1;
+        }
+        
+        #permissionGambling:checked,
+        #permissionBank:checked,
+        #permissionLoan:checked,
+        #permissionRate:checked,
+        #permissionMoney:checked {
+            accent-color: #6366f1;
+        }
+        
+        label[for^="permission"]:has(input:checked) {
+            background: #eef2ff !important;
+            border-color: #6366f1 !important;
+        }
+        
         /* Company badge in table */
         .companies-column {
             position: relative;
@@ -1221,6 +1253,32 @@ try {
                         Not set
                     </div>
                 </div>
+                <div class="form-group">
+                    <label>Permissions (for Process List & Data Capture)</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelGambling">
+                            <input type="checkbox" value="Gambling" id="permissionGambling" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Gambling</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelBank">
+                            <input type="checkbox" value="Bank" id="permissionBank" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Bank</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelLoan">
+                            <input type="checkbox" value="Loan" id="permissionLoan" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Loan</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelRate">
+                            <input type="checkbox" value="Rate" id="permissionRate" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Rate</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelMoney">
+                            <input type="checkbox" value="Money" id="permissionMoney" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Money</span>
+                        </label>
+                    </div>
+                    <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 8px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
+                </div>
                 <div class="form-actions" style="margin-top: 20px;">
                     <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
                     <button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()" style="background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%); color: white; margin-right: 8px;">Reset</button>
@@ -1752,6 +1810,9 @@ try {
                 updateExpDateDisplay();
             }
             
+            // 加载权限设置
+            loadCompanyPermissions(company.company_id);
+            
             // 添加事件监听器
             document.getElementById('expDateStartDate').onchange = function() {
                 if (!company.isExtending) {
@@ -1805,6 +1866,58 @@ try {
             }
         }
         
+        // 加载公司权限设置
+        function loadCompanyPermissions(companyId) {
+            // 从数据库获取公司权限
+            fetch('domainapi.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'get_company_permissions',
+                    company_id: companyId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.permissions) {
+                    // 设置复选框状态
+                    const permissions = data.permissions;
+                    document.getElementById('permissionGambling').checked = permissions.includes('Gambling');
+                    document.getElementById('permissionBank').checked = permissions.includes('Bank');
+                    document.getElementById('permissionLoan').checked = permissions.includes('Loan');
+                    document.getElementById('permissionRate').checked = permissions.includes('Rate');
+                    document.getElementById('permissionMoney').checked = permissions.includes('Money');
+                    updatePermissionDisplay();
+                } else {
+                    // 如果没有权限设置，默认全选
+                    document.getElementById('permissionGambling').checked = true;
+                    document.getElementById('permissionBank').checked = true;
+                    document.getElementById('permissionLoan').checked = true;
+                    document.getElementById('permissionRate').checked = true;
+                    document.getElementById('permissionMoney').checked = true;
+                    updatePermissionDisplay();
+                }
+            })
+            .catch(error => {
+                console.error('Error loading permissions:', error);
+                // 默认全选
+                document.getElementById('permissionGambling').checked = true;
+                document.getElementById('permissionBank').checked = true;
+                document.getElementById('permissionLoan').checked = true;
+                document.getElementById('permissionRate').checked = true;
+                document.getElementById('permissionMoney').checked = true;
+                updatePermissionDisplay();
+            });
+        }
+        
+        // 更新权限显示
+        function updatePermissionDisplay() {
+            // 这个函数可以用于更新权限相关的UI显示
+            // 目前主要用于触发样式更新
+        }
+        
         // 保存到期日期设置
         function saveCompanyExpDate() {
             if (!currentEditingCompanyId) return;
@@ -1841,10 +1954,40 @@ try {
             company.expiration_date = expDate;
             company.selectedPeriod = period;
             
+            // 获取选中的权限
+            const permissions = [];
+            if (document.getElementById('permissionGambling').checked) permissions.push('Gambling');
+            if (document.getElementById('permissionBank').checked) permissions.push('Bank');
+            if (document.getElementById('permissionLoan').checked) permissions.push('Loan');
+            if (document.getElementById('permissionRate').checked) permissions.push('Rate');
+            if (document.getElementById('permissionMoney').checked) permissions.push('Money');
+            
+            // 保存权限到数据库
+            fetch('domainapi.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'update_company_permissions',
+                    company_id: company.company_id,
+                    permissions: permissions
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    console.error('Error saving permissions:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error saving permissions:', error);
+            });
+            
             // 更新显示
             updateCompanyDisplay();
             closeCompanyExpDateModal();
-            showAlert('Expiration date updated successfully!');
+            showAlert('Expiration date and permissions updated successfully!');
         }
         
         // 在弹窗中重置到期日期
@@ -1870,6 +2013,14 @@ try {
             document.getElementById('expDatePeriod').value = '';
             document.getElementById('expDateDisplay').textContent = 'Not set';
             document.getElementById('expDateDisplay').style.color = '#94a3b8';
+            
+            // 重置权限为全选
+            document.getElementById('permissionGambling').checked = true;
+            document.getElementById('permissionBank').checked = true;
+            document.getElementById('permissionLoan').checked = true;
+            document.getElementById('permissionRate').checked = true;
+            document.getElementById('permissionMoney').checked = true;
+            updatePermissionDisplay();
         }
         
         // 根据到期日期判断对应的期限选项
