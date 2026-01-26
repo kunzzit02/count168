@@ -178,6 +178,16 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         filter: brightness(1.03);
         border-color: transparent;
     }
+    .contra-inbox-reject {
+        background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
+        border-color: transparent;
+        color: #fff;
+        margin-left: 6px;
+    }
+    .contra-inbox-reject:hover {
+        filter: brightness(1.03);
+        border-color: transparent;
+    }
     /* 表格自然展开，页面整体滚动 */
     .transaction-table-wrapper { 
         position: relative !important; 
@@ -970,6 +980,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         <td>${safeDesc || '-'}</td>
                         <td>
                             <button type="button" class="contra-inbox-btn contra-inbox-approve" onclick="approveContra(${row.id})">Approve</button>
+                            <button type="button" class="contra-inbox-btn contra-inbox-reject" onclick="rejectContra(${row.id})">Reject</button>
                         </td>
                     </tr>
                 `;
@@ -1030,6 +1041,40 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             .catch(err => {
                 console.error('❌ Approve contra failed:', err);
                 showNotification('Approve failed: ' + err.message, 'error');
+            });
+        }
+
+        function rejectContra(transactionId) {
+            if (!canApproveContra) return;
+            const id = parseInt(transactionId, 10);
+            if (!id) return;
+
+            if (!confirm('确定要拒绝这条 Contra 交易吗？拒绝后数据将被永久删除。')) {
+                return;
+            }
+
+            const form = new FormData();
+            form.append('transaction_id', String(id));
+            if (currentCompanyId) {
+                form.append('company_id', String(currentCompanyId));
+            }
+
+            fetch('transaction_contra_reject_api.php', {
+                method: 'POST',
+                body: form
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data && data.success) {
+                    showNotification('Rejected', 'success');
+                    // 刷新 inbox（拒绝后数据已删除，不需要刷新表格）
+                    return loadContraInbox();
+                }
+                showNotification((data && (data.error || data.message)) || 'Reject failed', 'error');
+            })
+            .catch(err => {
+                console.error('❌ Reject contra failed:', err);
+                showNotification('Reject failed: ' + err.message, 'error');
             });
         }
         
