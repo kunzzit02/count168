@@ -116,7 +116,7 @@ if ($current_user_id && count($user_companies) > 0) {
             <h1 style="margin: 0;">Data Capture</h1>
             <!-- Permission Filter -->
             <div id="data-capture-permission-filter" class="data-capture-company-filter data-capture-permission-filter-header" style="display: none;">
-                <span class="data-capture-company-label">Filter:</span>
+                <span class="data-capture-company-label">Category:</span>
                 <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
                     <!-- Permission buttons will be loaded dynamically -->
                 </div>

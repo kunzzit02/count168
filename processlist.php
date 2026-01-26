@@ -200,7 +200,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <h1 class="page-title" style="margin: 0;">Process List</h1>
                 <!-- Permission Filter -->
                 <div id="process-list-permission-filter" class="process-company-filter process-permission-filter-header" style="display: none;">
-                    <span class="process-company-label">Filter:</span>
+                    <span class="process-company-label">Category:</span>
                     <div id="process-list-permission-buttons" class="process-company-buttons">
                         <!-- Permission buttons will be loaded dynamically -->
                     </div>
