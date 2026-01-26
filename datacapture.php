@@ -21942,11 +21942,44 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 655：未粘贴时显示粘贴区；粘贴成功后显示“预览table container”（像截图那样）
                 if (is655GridReady) {
                     console.log('655: Showing preview, hiding paste area and data table');
-                    if (dataTable) dataTable.style.display = 'none'; // 网格表仍填充但不展示
-                    if (pasteArea655) pasteArea655.style.display = 'none';
+                    if (dataTable) {
+                        dataTable.style.display = 'none'; // 网格表仍填充但不展示
+                        console.log('655: dataTable hidden');
+                    }
+                    if (pasteArea655) {
+                        pasteArea655.style.display = 'none';
+                        console.log('655: pasteArea655 hidden');
+                    }
                     if (tablePreview655) {
+                        // 确保预览容器可见并正确显示
                         tablePreview655.style.display = 'block';
-                        console.log('655: Preview container displayed');
+                        tablePreview655.style.visibility = 'visible';
+                        tablePreview655.style.opacity = '1';
+                        
+                        // 确保预览容器有明确的高度
+                        const container = tablePreview655.closest('.excel-table-container');
+                        if (container) {
+                            // 确保父容器可见
+                            container.style.display = 'block';
+                            container.style.visibility = 'visible';
+                            console.log('655: Parent container displayed, height:', window.getComputedStyle(container).height);
+                        }
+                        
+                        // 检查 iframe
+                        const frame = document.getElementById('tablePreviewFrame655');
+                        if (frame) {
+                            console.log('655: Frame found, display:', window.getComputedStyle(frame).display);
+                            console.log('655: Frame width:', window.getComputedStyle(frame).width);
+                            console.log('655: Frame height:', window.getComputedStyle(frame).height);
+                        }
+                        
+                        console.log('655: Preview container displayed, computed style:', {
+                            display: window.getComputedStyle(tablePreview655).display,
+                            visibility: window.getComputedStyle(tablePreview655).visibility,
+                            opacity: window.getComputedStyle(tablePreview655).opacity,
+                            width: window.getComputedStyle(tablePreview655).width,
+                            height: window.getComputedStyle(tablePreview655).height
+                        });
                     }
                 } else {
                     // 检查是否有保存的预览数据，如果有则恢复显示
@@ -23666,13 +23699,19 @@ if ($current_user_id && count($user_companies) > 0) {
 
         function render655Preview(tableHtml) {
             const frame = document.getElementById('tablePreviewFrame655');
-            if (!frame) return;
+            if (!frame) {
+                console.error('655: tablePreviewFrame655 not found');
+                return;
+            }
 
             const safeTable = tableHtml ? String(tableHtml) : '';
+            console.log('655: render655Preview called, tableHtml length:', safeTable.length);
+            
             // Cache preview HTML for restore/back flow
             try {
                 localStorage.setItem('captured655PreviewHtml', safeTable);
             } catch (_) {}
+            
             const docHtml = `<!doctype html>
 <html>
   <head>
@@ -23691,16 +23730,32 @@ if ($current_user_id && count($user_companies) > 0) {
   </body>
 </html>`;
 
+            // 确保预览容器可见
+            const previewContainer = document.getElementById('tablePreview655');
+            if (previewContainer) {
+                previewContainer.style.display = 'block';
+                console.log('655: Preview container set to block in render655Preview');
+            }
+
             // Prefer srcdoc (works in modern browsers)
             try {
                 frame.srcdoc = docHtml;
-            } catch (_) {
+                console.log('655: Frame srcdoc set successfully');
+                // 等待 iframe 加载完成
+                frame.onload = function() {
+                    console.log('655: Frame loaded successfully');
+                };
+            } catch (e) {
+                console.error('655: Error setting srcdoc:', e);
                 try {
                     const doc = frame.contentDocument || frame.contentWindow.document;
                     doc.open();
                     doc.write(docHtml);
                     doc.close();
-                } catch (_) {}
+                    console.log('655: Frame content written via contentDocument');
+                } catch (e2) {
+                    console.error('655: Error writing to contentDocument:', e2);
+                }
             }
         }
 
@@ -25108,6 +25163,8 @@ if ($current_user_id && count($user_companies) > 0) {
             box-sizing: border-box;
             background: white;
             overflow: hidden;
+            position: relative;
+            z-index: 1;
         }
 
         .table-preview-frame-655 {
