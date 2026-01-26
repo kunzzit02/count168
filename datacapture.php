@@ -4728,7 +4728,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
-        // 1.GENERAL 和 655 专用解析：完全保持Excel原始格式，不做任何转换
+        // 1.GENERAL：纯文本无格式；655：保持Excel原始格式（样式、颜色等）
         function parseAndFillHTMLTableForGeneral(htmlString, startCell) {
             try {
                 const tempDiv = document.createElement('div');
@@ -4740,7 +4740,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
-                console.log(modeName + ': Parsing HTML table and preserving Excel format...');
+                console.log(modeName + (currentDataCaptureType === '655' ? ': Parsing HTML table and preserving Excel format...' : ': Parsing HTML table, plain text only (no format)...'));
                 
                 // 获取所有行（包括表头）
                 const allRows = table.querySelectorAll('tr');
@@ -4921,12 +4921,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                         targetCell.style.border = '1px solid #d0d7de';
                                     }
                                 } else {
-                                    // 1.GENERAL模式：保持原有逻辑
-                                    if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                        targetCell.innerHTML = cleanContent;
-                                    } else {
-                                        targetCell.textContent = cellContent;
-                                    }
+                                    // 1.GENERAL模式：完全无格式，仅纯文本
+                                    targetCell.textContent = (sourceCell.textContent || sourceCell.innerText || '');
                                 }
                                 
                                 currentPasteChanges.push({
@@ -4974,7 +4970,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (successCount > 0) {
                     const modeName = (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') ? '655' : '1.GENERAL';
-                    showNotification(`成功粘贴 ${successCount} 个单元格 (${allRows.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`, 'success');
+                    const msg = (currentDataCaptureType === '655')
+                        ? `成功粘贴 ${successCount} 个单元格 (${allRows.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`
+                        : `成功粘贴 ${successCount} 个单元格 (${allRows.length} 行 x ${maxCols} 列)，已粘贴为纯文本（无格式）!`;
+                    showNotification(msg, 'success');
                     setTimeout(updateSubmitButtonState, 0);
                     return true;
                 } else {
@@ -9670,16 +9669,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 getClipboardData('Text') ||
                 '';
             
-            // 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换
+            // 1.GENERAL 专用解析：完全无格式，仅纯文本（不保留任何HTML/样式）
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.GENERAL') {
-                console.log('1.GENERAL mode detected, preserving Excel format...');
+                console.log('1.GENERAL mode detected, plain text only (no format)...');
                 
-                // 优先尝试获取HTML格式的数据（Excel粘贴通常包含HTML格式）
+                // 优先尝试获取HTML格式的数据（仅用于解析表格结构，填充时仍为纯文本）
                 let htmlData = null;
                 try {
                     htmlData = e.clipboardData.getData('text/html');
                     if (htmlData && htmlData.includes('<table')) {
-                        console.log('1.GENERAL: HTML table format detected');
+                        console.log('1.GENERAL: HTML table format detected, filling as plain text');
                         const startCell = e.target;
                         const filled = parseAndFillHTMLTableForGeneral(htmlData, startCell);
                         if (filled) {
@@ -9690,10 +9689,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('1.GENERAL: Could not get HTML data from clipboard:', err);
                 }
                 
-                // 如果HTML解析失败，尝试使用detectAndParseHTML
+                // 如果HTML解析失败，尝试使用detectAndParseHTML（填充仍为纯文本）
                 const htmlDataFromDetect = detectAndParseHTML(e);
                 if (htmlDataFromDetect) {
-                    console.log('1.GENERAL: HTML data detected via detectAndParseHTML');
+                    console.log('1.GENERAL: HTML data detected via detectAndParseHTML, filling as plain text');
                     const startCell = e.target;
                     const filled = parseAndFillHTMLTableForGeneral(htmlDataFromDetect, startCell);
                     if (filled) {
@@ -9701,8 +9700,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }
                 
-                // 如果HTML解析都失败，尝试纯文本格式（但尽量保持格式）
-                console.log('1.GENERAL: HTML parsing failed, trying text format...');
+                // 如果HTML解析都失败，尝试纯文本格式（制表符分隔，无格式）
+                console.log('1.GENERAL: HTML parsing failed, trying text format (plain text only)...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
                 
@@ -9773,7 +9772,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                             newValue: cellValue
                                         });
                                         
-                                        // 1.GENERAL 和 655 模式：直接使用原始值，不做任何转换（像Excel一样）
+                                        // 1.GENERAL 模式：纯文本无格式
                                         cell.textContent = cellValue;
                                         
                                         if (cellValue) {
@@ -9791,7 +9790,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                             
                             if (successCount > 0) {
-                                showNotification(`成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已保持Excel原始格式!`, 'success');
+                                showNotification(`成功粘贴 ${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)，已粘贴为纯文本（无格式）!`, 'success');
                                 setTimeout(updateSubmitButtonState, 0);
                                 return;
                             }
