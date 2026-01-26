@@ -21930,6 +21930,58 @@ if ($current_user_id && count($user_companies) > 0) {
         // 655：是否已经成功解析并填充到网格表
         let is655GridReady = false;
 
+        // Clear 655 mode styles from table cells
+        function clear655Styles() {
+            console.log('655: Clearing styles from table cells');
+            
+            // Clear table body cells
+            const tableBody = document.getElementById('tableBody');
+            if (tableBody) {
+                const editableCells = tableBody.querySelectorAll('td[contenteditable="true"]');
+                editableCells.forEach(cell => {
+                    // Clear all inline styles (background color, color, etc.)
+                    // But preserve the cell's basic structure and contentEditable
+                    if (cell.hasAttribute('style')) {
+                        cell.removeAttribute('style');
+                    }
+                    // Only remove classes that might interfere with highlighting
+                    // Keep essential classes if any (but 655 mode shouldn't add classes)
+                    // Remove any non-essential classes while preserving cell functionality
+                    const essentialClasses = ['selected', 'multi-selected']; // Preserve selection classes
+                    const currentClasses = Array.from(cell.classList);
+                    currentClasses.forEach(cls => {
+                        if (!essentialClasses.includes(cls)) {
+                            cell.classList.remove(cls);
+                        }
+                    });
+                });
+            }
+            
+            // Clear table header cells
+            const tableHeader = document.getElementById('tableHeader');
+            if (tableHeader) {
+                const headerCells = tableHeader.querySelectorAll('th');
+                headerCells.forEach(cell => {
+                    // Skip the first cell (row number header)
+                    if (cell === headerCells[0]) return;
+                    // Clear all inline styles
+                    if (cell.hasAttribute('style')) {
+                        cell.removeAttribute('style');
+                    }
+                    // Remove any classes that might affect styling
+                    const essentialClasses = ['column-selected', 'column-active', 'row-selected', 'row-active'];
+                    const currentClasses = Array.from(cell.classList);
+                    currentClasses.forEach(cls => {
+                        if (!essentialClasses.includes(cls)) {
+                            cell.classList.remove(cls);
+                        }
+                    });
+                });
+            }
+            
+            console.log('655: Styles cleared');
+        }
+
         // Toggle table display for 655 mode
         function toggleTableDisplayFor655() {
             const dataTable = document.getElementById('dataTable');
@@ -22244,14 +22296,40 @@ if ($current_user_id && count($user_companies) > 0) {
             // Clear process-related data
             clearProcessData();
             
-            // Clear all table data
+            // Clear all table data (including styles and HTML)
             const tableBody = document.getElementById('tableBody');
             if (tableBody) {
                 const editableCells = tableBody.querySelectorAll('td[contenteditable="true"]');
                 editableCells.forEach(cell => {
+                    // Clear content
                     cell.textContent = '';
+                    cell.innerHTML = '';
+                    // Clear all inline styles (background color, color, etc.)
+                    cell.removeAttribute('style');
+                    // Remove any classes that might affect styling
+                    cell.className = '';
                 });
             }
+            
+            // Clear table header as well (in case 655 mode filled header)
+            const tableHeader = document.getElementById('tableHeader');
+            if (tableHeader) {
+                const headerCells = tableHeader.querySelectorAll('th');
+                headerCells.forEach(cell => {
+                    // Skip the first cell (row number header)
+                    if (cell === headerCells[0]) return;
+                    // Clear content
+                    cell.textContent = '';
+                    cell.innerHTML = '';
+                    // Clear all inline styles
+                    cell.removeAttribute('style');
+                    // Remove any classes
+                    cell.className = '';
+                });
+            }
+            
+            // Also clear 655 styles explicitly
+            clear655Styles();
             
             // Clear 655 paste area if exists
             const pasteArea655 = document.getElementById('pasteArea655');
@@ -24128,6 +24206,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     } else {
                         // 切换到其他模式时，重置 655 的状态
                         is655GridReady = false;
+                        
+                        // 如果从655切换到其他模式，清除655模式留下的样式
+                        if (previousType === '655') {
+                            clear655Styles();
+                        }
                     }
                     
                     // 切换表格和输入区域的显示
