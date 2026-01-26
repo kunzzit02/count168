@@ -24022,73 +24022,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     const previousType = currentDataCaptureType;
                     currentDataCaptureType = typeSelect.value || 'GENERAL';
 
-                    // 切到655时：检查是否有已保存的数据，如果有则恢复显示
+                    // 切到655时默认显示粘贴区（让用户重新粘贴）；其它模式不受影响
                     if (currentDataCaptureType === '655') {
-                        // 检查是否有已保存的预览数据
-                        let previewHtml = '';
-                        try {
-                            previewHtml = localStorage.getItem('captured655PreviewHtml') || '';
-                        } catch (_) {}
-                        
-                        // 如果没有预览数据，检查网格表中是否有数据
-                        if (!previewHtml) {
-                            try {
-                                const tableBody = document.getElementById('tableBody');
-                                if (tableBody) {
-                                    const rows = tableBody.querySelectorAll('tr');
-                                    let hasData = false;
-                                    for (let row of rows) {
-                                        const cells = row.querySelectorAll('td[contenteditable="true"]');
-                                        for (let cell of cells) {
-                                            if (cell.textContent && cell.textContent.trim()) {
-                                                hasData = true;
-                                                break;
-                                            }
-                                        }
-                                        if (hasData) break;
-                                    }
-                                    
-                                    // 如果网格表中有数据，从网格表构建预览HTML
-                                    if (hasData) {
-                                        let html = '<table border="1" cellspacing="0" cellpadding="2"><tbody>';
-                                        rows.forEach(row => {
-                                            const cells = row.querySelectorAll('td[contenteditable="true"]');
-                                            if (cells.length > 0) {
-                                                // 检查这一行是否有数据
-                                                let rowHasData = false;
-                                                for (let cell of cells) {
-                                                    if (cell.textContent && cell.textContent.trim()) {
-                                                        rowHasData = true;
-                                                        break;
-                                                    }
-                                                }
-                                                
-                                                // 只包含有数据的行
-                                                if (rowHasData) {
-                                                    html += '<tr>';
-                                                    cells.forEach(cell => {
-                                                        const v = cell.textContent || '';
-                                                        html += `<td>${escapeHtml(v)}</td>`;
-                                                    });
-                                                    html += '</tr>';
-                                                }
-                                            }
-                                        });
-                                        html += '</tbody></table>';
-                                        previewHtml = html;
-                                    }
-                                }
-                            } catch (_) {}
-                        }
-                        
-                        if (previewHtml) {
-                            // 有数据：恢复显示
-                            render655Preview(previewHtml);
-                            is655GridReady = true;
-                        } else {
-                            // 无数据：显示粘贴区
-                            is655GridReady = false;
-                        }
+                        is655GridReady = false;
                     }
                     
                     // 切换表格和输入区域的显示
