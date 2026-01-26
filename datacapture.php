@@ -21939,8 +21939,20 @@ if ($current_user_id && count($user_companies) > 0) {
             console.log('655: toggleTableDisplayFor655 called, is655GridReady:', is655GridReady, 'currentDataCaptureType:', currentDataCaptureType);
             
             if (currentDataCaptureType === '655') {
+                // 首先检查是否有保存的预览数据（即使 is655GridReady 为 false，也可能有数据）
+                let previewHtml = '';
+                try {
+                    previewHtml = localStorage.getItem('captured655PreviewHtml') || '';
+                } catch (_) {}
+                
+                // 如果有预览数据（无论是 is655GridReady 为 true 还是 localStorage 中有数据），都显示预览
+                if (previewHtml && !is655GridReady) {
+                    render655Preview(previewHtml);
+                    is655GridReady = true;
+                }
                 // 655：未粘贴时显示粘贴区；粘贴成功后显示“预览table container”（像截图那样）
-                if (is655GridReady) {
+                // 如果有预览数据（无论是 is655GridReady 为 true 还是 localStorage 中有数据），都显示预览
+                if (is655GridReady || previewHtml) {
                     console.log('655: Showing preview, hiding paste area and data table');
                     if (dataTable) {
                         dataTable.style.display = 'none'; // 网格表仍填充但不展示
@@ -21982,33 +21994,18 @@ if ($current_user_id && count($user_companies) > 0) {
                         });
                     }
                 } else {
-                    // 检查是否有保存的预览数据，如果有则恢复显示
-                    let previewHtml = '';
-                    try {
-                        previewHtml = localStorage.getItem('captured655PreviewHtml') || '';
-                    } catch (_) {}
-                    
-                    if (previewHtml) {
-                        // 如果有保存的预览数据，恢复显示
-                        render655Preview(previewHtml);
-                        is655GridReady = true;
-                        if (dataTable) dataTable.style.display = 'none';
-                        if (pasteArea655) pasteArea655.style.display = 'none';
-                        if (tablePreview655) tablePreview655.style.display = 'block';
-                    } else {
-                        // 如果没有保存的数据，显示粘贴区
-                        if (dataTable) dataTable.style.display = 'none';
-                        if (pasteArea655) {
-                            pasteArea655.style.display = 'block';
-                            pasteArea655.innerHTML = '';
-                            setTimeout(() => {
-                                pasteArea655.focus();
-                            }, 100);
-                        }
-                        if (tablePreview655) {
-                            tablePreview655.style.display = 'none';
-                            tablePreview655.innerHTML = '';
-                        }
+                    // 如果没有保存的数据，显示粘贴区
+                    if (dataTable) dataTable.style.display = 'none';
+                    if (pasteArea655) {
+                        pasteArea655.style.display = 'block';
+                        pasteArea655.innerHTML = '';
+                        setTimeout(() => {
+                            pasteArea655.focus();
+                        }, 100);
+                    }
+                    if (tablePreview655) {
+                        tablePreview655.style.display = 'none';
+                        tablePreview655.innerHTML = '';
                     }
                 }
             } else {
@@ -22125,10 +22122,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         is655GridReady = true;
                         console.log('655: Preview rendered, is655GridReady set to true');
                         area.innerHTML = '';
-                        // 确保预览立即显示
-                        setTimeout(() => {
-                            toggleTableDisplayFor655();
-                        }, 0);
+                        // 确保预览立即显示 - 直接调用，不使用setTimeout
+                        toggleTableDisplayFor655();
                         return;
                     }
                 }
@@ -22148,10 +22143,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         is655GridReady = true;
                         console.log('655: Preview rendered, is655GridReady set to true');
                         area.innerHTML = '';
-                        // 确保预览立即显示
-                        setTimeout(() => {
-                            toggleTableDisplayFor655();
-                        }, 0);
+                        // 确保预览立即显示 - 直接调用，不使用setTimeout
+                        toggleTableDisplayFor655();
                         return;
                     }
                 }
@@ -22169,10 +22162,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     is655GridReady = true;
                     console.log('655: Preview rendered from TSV, is655GridReady set to true');
                     area.innerHTML = '';
-                    // 确保预览立即显示
-                    setTimeout(() => {
-                        toggleTableDisplayFor655();
-                    }, 0);
+                    // 确保预览立即显示 - 直接调用，不使用setTimeout
+                    toggleTableDisplayFor655();
                     return;
                 }
 
@@ -24136,8 +24127,15 @@ if ($current_user_id && count($user_companies) > 0) {
                             is655GridReady = true;
                         } else {
                             // 如果没有保存的数据，显示粘贴区
-                            is655GridReady = false;
+                            // 但是不要重置 is655GridReady，因为用户可能刚刚粘贴了数据
+                            // 如果 is655GridReady 已经是 true（刚刚粘贴），保持它
+                            if (!is655GridReady) {
+                                is655GridReady = false;
+                            }
                         }
+                    } else {
+                        // 切换到其他模式时，重置 655 的状态
+                        is655GridReady = false;
                     }
                     
                     // 切换表格和输入区域的显示
