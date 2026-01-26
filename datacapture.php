@@ -24382,8 +24382,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         permissionContainer.appendChild(btn);
                     });
                     
-                    // 默认选择第一个权限
-                    if (permissions.length > 0 && !selectedPermission) {
+                    // 尝试从 localStorage 恢复之前选择的权限
+                    const savedPermission = localStorage.getItem(`selectedPermission_${currentCompanyCode}`);
+                    if (savedPermission && permissions.includes(savedPermission)) {
+                        switchPermission(savedPermission);
+                    } else if (permissions.length > 0 && !selectedPermission) {
+                        // 如果没有保存的权限，默认选择第一个
                         switchPermission(permissions[0]);
                     }
                 } else {
@@ -24398,6 +24402,12 @@ if ($current_user_id && count($user_companies) > 0) {
         // 切换权限
         function switchPermission(permission) {
             selectedPermission = permission;
+            
+            // 保存到 localStorage
+            const currentCompanyCode = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+            if (currentCompanyCode) {
+                localStorage.setItem(`selectedPermission_${currentCompanyCode}`, permission);
+            }
             
             // 更新按钮状态
             const buttons = document.querySelectorAll('#data-capture-permission-buttons .data-capture-company-btn');
