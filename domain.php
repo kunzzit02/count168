@@ -1953,31 +1953,37 @@ try {
             const startDate = document.getElementById('expDateStartDate').value;
             const period = document.getElementById('expDatePeriod').value;
             
-            if (!period) {
-                showAlert('Please select a period', 'danger');
-                return;
-            }
-            
-            // 更新公司数据
-            if (!company.isExtending) {
-                // 新添加或重置：可以修改开始日期
-                company.startDate = startDate || new Date().toISOString().split('T')[0];
-            }
-            
-            // 计算到期日期
-            let expDate;
-            if (company.isExtending) {
-                // 续上时间：从原始到期日期开始计算
-                const originalDate = company.originalExpirationDate || null;
-                expDate = calculateExpirationDate(period, originalDate);
+            // 如果选择了 period，则计算到期日期；否则保持原有或清空
+            if (period) {
+                // 更新公司数据
+                if (!company.isExtending) {
+                    // 新添加或重置：可以修改开始日期
+                    company.startDate = startDate || new Date().toISOString().split('T')[0];
+                }
+                
+                // 计算到期日期
+                let expDate;
+                if (company.isExtending) {
+                    // 续上时间：从原始到期日期开始计算
+                    const originalDate = company.originalExpirationDate || null;
+                    expDate = calculateExpirationDate(period, originalDate);
+                } else {
+                    // 新添加或重置：使用选择的开始日期
+                    const baseDate = company.startDate || new Date().toISOString().split('T')[0];
+                    expDate = calculateExpirationDate(period, baseDate);
+                }
+                
+                company.expiration_date = expDate;
+                company.selectedPeriod = period;
             } else {
-                // 新添加或重置：使用选择的开始日期
-                const baseDate = company.startDate || new Date().toISOString().split('T')[0];
-                expDate = calculateExpirationDate(period, baseDate);
+                // 如果没有选择 period，清空到期日期相关设置
+                company.expiration_date = null;
+                company.selectedPeriod = null;
+                // 如果不是续上时间，可以更新开始日期
+                if (!company.isExtending && startDate) {
+                    company.startDate = startDate;
+                }
             }
-            
-            company.expiration_date = expDate;
-            company.selectedPeriod = period;
             
             // 获取选中的权限
             const permissions = [];
