@@ -21953,45 +21953,21 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 655：未粘贴时显示粘贴区；粘贴成功后显示“预览table container”（像截图那样）
                 // 如果有预览数据（无论是 is655GridReady 为 true 还是 localStorage 中有数据），都显示预览
                 if (is655GridReady || previewHtml) {
-                    console.log('655: Showing preview, hiding paste area and data table');
+                    console.log('655: Showing Excel table, hiding paste area and iframe preview');
+                    // 显示Excel表格（像其他选项一样）
                     if (dataTable) {
-                        dataTable.style.display = 'none'; // 网格表仍填充但不展示
-                        console.log('655: dataTable hidden');
+                        dataTable.style.display = 'table';
+                        console.log('655: dataTable displayed');
                     }
+                    // 隐藏粘贴区
                     if (pasteArea655) {
                         pasteArea655.style.display = 'none';
                         console.log('655: pasteArea655 hidden');
                     }
+                    // 隐藏iframe预览
                     if (tablePreview655) {
-                        // 确保预览容器可见并正确显示
-                        tablePreview655.style.display = 'block';
-                        tablePreview655.style.visibility = 'visible';
-                        tablePreview655.style.opacity = '1';
-                        
-                        // 确保预览容器有明确的高度
-                        const container = tablePreview655.closest('.excel-table-container');
-                        if (container) {
-                            // 确保父容器可见
-                            container.style.display = 'block';
-                            container.style.visibility = 'visible';
-                            console.log('655: Parent container displayed, height:', window.getComputedStyle(container).height);
-                        }
-                        
-                        // 检查 iframe
-                        const frame = document.getElementById('tablePreviewFrame655');
-                        if (frame) {
-                            console.log('655: Frame found, display:', window.getComputedStyle(frame).display);
-                            console.log('655: Frame width:', window.getComputedStyle(frame).width);
-                            console.log('655: Frame height:', window.getComputedStyle(frame).height);
-                        }
-                        
-                        console.log('655: Preview container displayed, computed style:', {
-                            display: window.getComputedStyle(tablePreview655).display,
-                            visibility: window.getComputedStyle(tablePreview655).visibility,
-                            opacity: window.getComputedStyle(tablePreview655).opacity,
-                            width: window.getComputedStyle(tablePreview655).width,
-                            height: window.getComputedStyle(tablePreview655).height
-                        });
+                        tablePreview655.style.display = 'none';
+                        console.log('655: tablePreview655 hidden');
                     }
                 } else {
                     // 如果没有保存的数据，显示粘贴区
@@ -22116,14 +22092,18 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('655: Rendering preview from HTML table');
                         render655Preview(previewFragment);
 
-                        // 2) 数据：同时填充到网格表（用于submit逻辑），但不展示网格表
-                        parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
-                        // 只要预览渲染成功，就显示预览，不依赖于数据填充的返回值
-                        is655GridReady = true;
-                        console.log('655: Preview rendered, is655GridReady set to true');
-                        area.innerHTML = '';
-                        // 确保预览立即显示 - 直接调用，不使用setTimeout
-                        toggleTableDisplayFor655();
+                        // 2) 数据：填充到Excel表格（像其他选项一样）
+                        const filled = parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
+                        // 只有当数据成功填充时，才设置is655GridReady
+                        if (filled) {
+                            is655GridReady = true;
+                            console.log('655: Data filled to Excel table, is655GridReady set to true');
+                            area.innerHTML = '';
+                            // 确保Excel表格立即显示 - 直接调用，不使用setTimeout
+                            toggleTableDisplayFor655();
+                        } else {
+                            console.error('655: Failed to fill data to Excel table');
+                        }
                         return;
                     }
                 }
@@ -22138,13 +22118,17 @@ if ($current_user_id && count($user_companies) > 0) {
                         console.log('655: Rendering preview from plain text HTML table');
                         render655Preview(previewFragment);
 
-                        parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
-                        // 只要预览渲染成功，就显示预览，不依赖于数据填充的返回值
-                        is655GridReady = true;
-                        console.log('655: Preview rendered, is655GridReady set to true');
-                        area.innerHTML = '';
-                        // 确保预览立即显示 - 直接调用，不使用setTimeout
-                        toggleTableDisplayFor655();
+                        const filled = parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
+                        // 只有当数据成功填充时，才设置is655GridReady
+                        if (filled) {
+                            is655GridReady = true;
+                            console.log('655: Data filled to Excel table, is655GridReady set to true');
+                            area.innerHTML = '';
+                            // 确保Excel表格立即显示 - 直接调用，不使用setTimeout
+                            toggleTableDisplayFor655();
+                        } else {
+                            console.error('655: Failed to fill data to Excel table');
+                        }
                         return;
                     }
                 }
@@ -22157,13 +22141,17 @@ if ($current_user_id && count($user_companies) > 0) {
                     console.log('655: Rendering preview from TSV');
                     render655Preview(tableHtml);
 
-                    parseAndFillHTMLTableForGeneral655(tableHtml);
-                    // 只要预览渲染成功，就显示预览，不依赖于数据填充的返回值
-                    is655GridReady = true;
-                    console.log('655: Preview rendered from TSV, is655GridReady set to true');
-                    area.innerHTML = '';
-                    // 确保预览立即显示 - 直接调用，不使用setTimeout
-                    toggleTableDisplayFor655();
+                    const filled = parseAndFillHTMLTableForGeneral655(tableHtml);
+                    // 只有当数据成功填充时，才设置is655GridReady
+                    if (filled) {
+                        is655GridReady = true;
+                        console.log('655: Data filled to Excel table from TSV, is655GridReady set to true');
+                        area.innerHTML = '';
+                        // 确保Excel表格立即显示 - 直接调用，不使用setTimeout
+                        toggleTableDisplayFor655();
+                    } else {
+                        console.error('655: Failed to fill data to Excel table from TSV');
+                    }
                     return;
                 }
 
@@ -23787,10 +23775,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!previewFragment && !sanitized) return;
                 // 预览优先用“还原片段”（保留<style>/class），否则退回清洗后的table
                 render655Preview(previewFragment || sanitized);
-                // 同时填充到内部数据表（用于后续提交/处理）
-                parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
-                is655GridReady = true;
-                toggleTableDisplayFor655();
+                // 同时填充到Excel表格（像其他选项一样）
+                const filled = parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
+                if (filled) {
+                    is655GridReady = true;
+                    toggleTableDisplayFor655();
+                }
                 return;
             }
 
@@ -23801,9 +23791,11 @@ if ($current_user_id && count($user_companies) > 0) {
             if (text && text.includes('\t')) {
                 const tableHtml = tsvToHtmlTable(text);
                 render655Preview(tableHtml);
-                parseAndFillHTMLTableForGeneral655(tableHtml);
-                is655GridReady = true;
-                toggleTableDisplayFor655();
+                const filled = parseAndFillHTMLTableForGeneral655(tableHtml);
+                if (filled) {
+                    is655GridReady = true;
+                    toggleTableDisplayFor655();
+                }
             }
         });
 
