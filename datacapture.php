@@ -22125,10 +22125,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         is655GridReady = true;
                         console.log('655: Preview rendered, is655GridReady set to true');
                         area.innerHTML = '';
-                        // 确保预览立即显示
+                        // 确保预览立即显示，使用稍长的延迟确保 render655Preview 完成
                         setTimeout(() => {
                             toggleTableDisplayFor655();
-                        }, 0);
+                        }, 10);
                         return;
                     }
                 }
@@ -22148,10 +22148,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         is655GridReady = true;
                         console.log('655: Preview rendered, is655GridReady set to true');
                         area.innerHTML = '';
-                        // 确保预览立即显示
+                        // 确保预览立即显示，使用稍长的延迟确保 render655Preview 完成
                         setTimeout(() => {
                             toggleTableDisplayFor655();
-                        }, 0);
+                        }, 10);
                         return;
                     }
                 }
@@ -22169,10 +22169,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     is655GridReady = true;
                     console.log('655: Preview rendered from TSV, is655GridReady set to true');
                     area.innerHTML = '';
-                    // 确保预览立即显示
+                    // 确保预览立即显示，使用稍长的延迟确保 render655Preview 完成
                     setTimeout(() => {
                         toggleTableDisplayFor655();
-                    }, 0);
+                    }, 10);
                     return;
                 }
 
@@ -22193,10 +22193,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                 is655GridReady = true;
                                 console.log('655: Preview rendered (setTimeout), is655GridReady set to true');
                                 area.innerHTML = '';
-                                // 确保预览立即显示
+                                // 确保预览立即显示，使用稍长的延迟确保 render655Preview 完成
                                 setTimeout(() => {
                                     toggleTableDisplayFor655();
-                                }, 0);
+                                }, 10);
                                 return;
                             }
                         }
@@ -23730,11 +23730,24 @@ if ($current_user_id && count($user_companies) > 0) {
   </body>
 </html>`;
 
-            // 确保预览容器可见
+            // 确保预览容器可见（在设置内容之前就显示）
             const previewContainer = document.getElementById('tablePreview655');
+            const dataTable = document.getElementById('dataTable');
+            const pasteArea655 = document.getElementById('pasteArea655');
+            
             if (previewContainer) {
                 previewContainer.style.display = 'block';
+                previewContainer.style.visibility = 'visible';
+                previewContainer.style.opacity = '1';
                 console.log('655: Preview container set to block in render655Preview');
+            }
+            
+            // 确保隐藏其他元素
+            if (dataTable) {
+                dataTable.style.display = 'none';
+            }
+            if (pasteArea655) {
+                pasteArea655.style.display = 'none';
             }
 
             // Prefer srcdoc (works in modern browsers)
@@ -23744,6 +23757,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 等待 iframe 加载完成
                 frame.onload = function() {
                     console.log('655: Frame loaded successfully');
+                    // 确保预览容器在iframe加载后仍然可见
+                    if (previewContainer) {
+                        previewContainer.style.display = 'block';
+                        previewContainer.style.visibility = 'visible';
+                        previewContainer.style.opacity = '1';
+                    }
                 };
             } catch (e) {
                 console.error('655: Error setting srcdoc:', e);
@@ -23753,6 +23772,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     doc.write(docHtml);
                     doc.close();
                     console.log('655: Frame content written via contentDocument');
+                    // 确保预览容器在内容写入后仍然可见
+                    if (previewContainer) {
+                        previewContainer.style.display = 'block';
+                        previewContainer.style.visibility = 'visible';
+                        previewContainer.style.opacity = '1';
+                    }
                 } catch (e2) {
                     console.error('655: Error writing to contentDocument:', e2);
                 }
@@ -24134,14 +24159,19 @@ if ($current_user_id && count($user_companies) > 0) {
                             // 如果有保存的预览数据，恢复显示
                             render655Preview(previewHtml);
                             is655GridReady = true;
+                            // 使用 setTimeout 确保 render655Preview 完成后再切换显示
+                            setTimeout(() => {
+                                toggleTableDisplayFor655();
+                            }, 10);
                         } else {
                             // 如果没有保存的数据，显示粘贴区
                             is655GridReady = false;
+                            toggleTableDisplayFor655();
                         }
+                    } else {
+                        // 切换表格和输入区域的显示
+                        toggleTableDisplayFor655();
                     }
-                    
-                    // 切换表格和输入区域的显示
-                    toggleTableDisplayFor655();
                     
                     // 切换类型时，重新刷新 Submit 按钮的可用状态
                     updateSubmitButtonState();
