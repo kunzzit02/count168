@@ -1226,7 +1226,7 @@ try {
     <div id="companyExpDateModal" class="modal" style="z-index: 10003;">
         <div class="modal-content" style="max-width: 500px;">
             <span class="close" onclick="closeCompanyExpDateModal()">&times;</span>
-            <h2>Set Expiration Date</h2>
+            <h2>Company Settings</h2>
             <div class="modal-body" style="display: block; padding: clamp(10px, 1.04vw, 20px) clamp(20px, 1.67vw, 32px);">
                 <div class="form-group">
                     <label id="expDateCompanyName" style="font-weight: bold; font-size: clamp(12px, 1.04vw, 16px); color: #1e293b; margin-bottom: 15px;">Company: </label>
@@ -1255,26 +1255,26 @@ try {
                 </div>
                 <div class="form-group">
                     <label>Permissions (for Process List & Data Capture)</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelGambling">
-                            <input type="checkbox" value="Gambling" id="permissionGambling" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Gambling</span>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelGambling">
+                            <input type="checkbox" value="Gambling" id="permissionGambling" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Gambling</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelBank">
-                            <input type="checkbox" value="Bank" id="permissionBank" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Bank</span>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelBank">
+                            <input type="checkbox" value="Bank" id="permissionBank" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Bank</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelLoan">
-                            <input type="checkbox" value="Loan" id="permissionLoan" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Loan</span>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelLoan">
+                            <input type="checkbox" value="Loan" id="permissionLoan" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Loan</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelRate">
-                            <input type="checkbox" value="Rate" id="permissionRate" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Rate</span>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelRate">
+                            <input type="checkbox" value="Rate" id="permissionRate" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Rate</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: white; transition: all 0.2s;" id="permissionLabelMoney">
-                            <input type="checkbox" value="Money" id="permissionMoney" style="margin-right: 6px; cursor: pointer;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(9px, 0.73vw, 14px);">Money</span>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelMoney">
+                            <input type="checkbox" value="Money" id="permissionMoney" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Money</span>
                         </label>
                     </div>
                     <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 8px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
