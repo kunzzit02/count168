@@ -21943,17 +21943,33 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (pasteArea655) pasteArea655.style.display = 'none';
                     if (tablePreview655) tablePreview655.style.display = 'block';
                 } else {
-                    if (dataTable) dataTable.style.display = 'none';
-                    if (pasteArea655) {
-                        pasteArea655.style.display = 'block';
-                        pasteArea655.innerHTML = '';
-                        setTimeout(() => {
-                            pasteArea655.focus();
-                        }, 100);
-                    }
-                    if (tablePreview655) {
-                        tablePreview655.style.display = 'none';
-                        tablePreview655.innerHTML = '';
+                    // 检查是否有保存的预览数据，如果有则恢复显示
+                    let previewHtml = '';
+                    try {
+                        previewHtml = localStorage.getItem('captured655PreviewHtml') || '';
+                    } catch (_) {}
+                    
+                    if (previewHtml) {
+                        // 如果有保存的预览数据，恢复显示
+                        render655Preview(previewHtml);
+                        is655GridReady = true;
+                        if (dataTable) dataTable.style.display = 'none';
+                        if (pasteArea655) pasteArea655.style.display = 'none';
+                        if (tablePreview655) tablePreview655.style.display = 'block';
+                    } else {
+                        // 如果没有保存的数据，显示粘贴区
+                        if (dataTable) dataTable.style.display = 'none';
+                        if (pasteArea655) {
+                            pasteArea655.style.display = 'block';
+                            pasteArea655.innerHTML = '';
+                            setTimeout(() => {
+                                pasteArea655.focus();
+                            }, 100);
+                        }
+                        if (tablePreview655) {
+                            tablePreview655.style.display = 'none';
+                            tablePreview655.innerHTML = '';
+                        }
                     }
                 }
             } else {
@@ -24022,9 +24038,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     const previousType = currentDataCaptureType;
                     currentDataCaptureType = typeSelect.value || 'GENERAL';
 
-                    // 切到655时默认显示粘贴区（让用户重新粘贴）；其它模式不受影响
+                    // 切到655时：检查是否有保存的预览数据，如果有则恢复显示
                     if (currentDataCaptureType === '655') {
-                        is655GridReady = false;
+                        let previewHtml = '';
+                        try {
+                            previewHtml = localStorage.getItem('captured655PreviewHtml') || '';
+                        } catch (_) {}
+                        
+                        if (previewHtml) {
+                            // 如果有保存的预览数据，恢复显示
+                            render655Preview(previewHtml);
+                            is655GridReady = true;
+                        } else {
+                            // 如果没有保存的数据，显示粘贴区
+                            is655GridReady = false;
+                        }
                     }
                     
                     // 切换表格和输入区域的显示
