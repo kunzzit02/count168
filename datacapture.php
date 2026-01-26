@@ -115,7 +115,7 @@ if ($current_user_id && count($user_companies) > 0) {
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
             <h1 style="margin: 0;">Data Capture</h1>
             <!-- Permission Filter -->
-            <div id="data-capture-permission-filter" class="data-capture-company-filter" style="display: none;">
+            <div id="data-capture-permission-filter" class="data-capture-company-filter data-capture-permission-filter-header" style="display: none;">
                 <span class="data-capture-company-label">Filter:</span>
                 <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
                     <!-- Permission buttons will be loaded dynamically -->
@@ -25697,6 +25697,11 @@ if ($current_user_id && count($user_companies) > 0) {
             align-items: center;
             gap: clamp(8px, 0.83vw, 16px);
             flex-wrap: wrap;
+        }
+        
+        /* Filter container in header row (no padding) - same as processlist */
+        .data-capture-permission-filter-header {
+            padding: 0 !important;
         }
         
         .data-capture-company-label {

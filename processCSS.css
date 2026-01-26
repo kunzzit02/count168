@@ -103,6 +103,15 @@ body.process-page {
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
+}
+
+/* Filter container in header row (no padding) - same as datacapture */
+.process-page .process-permission-filter-header {
+    padding: 0 !important;
+}
+
+/* Filter container in action buttons area (with padding) */
+.process-page .action-buttons-container .process-company-filter {
     padding: 0 20px 10px 20px;
 }
 
