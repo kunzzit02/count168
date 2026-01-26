@@ -23852,9 +23852,21 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function render655Preview(tableHtml) {
+            // Check if we're still in 655 mode and iframe exists
+            if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '655') {
+                // Not in 655 mode, don't render preview
+                return;
+            }
+            
             const frame = document.getElementById('tablePreviewFrame655');
             if (!frame) {
                 console.error('655: tablePreviewFrame655 not found');
+                return;
+            }
+            
+            // Double-check frame is still in the DOM
+            if (!frame.parentElement || !document.body.contains(frame)) {
+                console.error('655: tablePreviewFrame655 is not in the DOM');
                 return;
             }
 
@@ -23893,6 +23905,12 @@ if ($current_user_id && count($user_companies) > 0) {
 
             // Prefer srcdoc (works in modern browsers)
             try {
+                // Double-check frame still exists before setting srcdoc
+                if (!frame || !frame.parentElement || !document.body.contains(frame)) {
+                    console.error('655: Frame no longer exists, cannot set srcdoc');
+                    return;
+                }
+                
                 frame.srcdoc = docHtml;
                 console.log('655: Frame srcdoc set successfully');
                 // 等待 iframe 加载完成
@@ -23901,8 +23919,18 @@ if ($current_user_id && count($user_companies) > 0) {
                 };
             } catch (e) {
                 console.error('655: Error setting srcdoc:', e);
+                // Double-check frame still exists before trying contentDocument
+                if (!frame || !frame.parentElement || !document.body.contains(frame)) {
+                    console.error('655: Frame no longer exists, cannot write to contentDocument');
+                    return;
+                }
+                
                 try {
                     const doc = frame.contentDocument || frame.contentWindow.document;
+                    if (!doc) {
+                        console.error('655: Cannot access frame contentDocument');
+                        return;
+                    }
                     doc.open();
                     doc.write(docHtml);
                     doc.close();
