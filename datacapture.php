@@ -22323,8 +22323,23 @@ if ($current_user_id && count($user_companies) > 0) {
                     cell.innerHTML = '';
                     // Clear all inline styles (background color, color, etc.)
                     cell.removeAttribute('style');
-                    // Remove any classes that might affect styling
+                    // Remove any classes that might affect styling (but preserve essential attributes)
                     cell.className = '';
+                    
+                    // Ensure essential attributes are preserved for click highlighting to work
+                    // contentEditable should already be set, but ensure it's still there
+                    if (!cell.hasAttribute('contenteditable')) {
+                        cell.setAttribute('contenteditable', 'true');
+                    }
+                    // Ensure dataset.col is preserved (needed for highlightHeadersForCell)
+                    // It should already be set, but if it's missing, try to restore it from the column index
+                    if (!cell.dataset.col && cell.parentElement) {
+                        const row = cell.parentElement;
+                        const cellIndex = Array.from(row.children).indexOf(cell);
+                        if (cellIndex > 0) { // Skip row header (index 0)
+                            cell.dataset.col = (cellIndex - 1).toString();
+                        }
+                    }
                 });
             }
             
@@ -22408,6 +22423,29 @@ if ($current_user_id && count($user_companies) > 0) {
             
             // Clear all selections
             clearAllSelections();
+            
+            // Ensure all cells are in a clean state and can receive click events
+            // This is important after 655 mode which may have modified cell structure
+            const tableBody = document.getElementById('tableBody');
+            if (tableBody) {
+                const editableCells = tableBody.querySelectorAll('td[contenteditable="true"]');
+                editableCells.forEach(cell => {
+                    // Ensure cell is not in a selected state
+                    cell.classList.remove('selected');
+                    cell.classList.remove('multi-selected');
+                    
+                    // Ensure cell can receive focus and click events
+                    // Remove any attributes that might interfere with interaction
+                    if (cell.hasAttribute('tabindex') && cell.getAttribute('tabindex') === '-1') {
+                        cell.removeAttribute('tabindex');
+                    }
+                    
+                    // Ensure contentEditable is set correctly
+                    if (cell.getAttribute('contenteditable') !== 'true') {
+                        cell.setAttribute('contenteditable', 'true');
+                    }
+                });
+            }
             
             // Update submit button state after reset
             updateSubmitButtonState();
