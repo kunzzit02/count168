@@ -615,6 +615,52 @@ try {
             max-width: 100px;
         }
         
+        .company-start-date-input {
+            padding: clamp(0px, 0.36vw, 6px) clamp(4px, 0.52vw, 10px) !important;
+            border: 1px solid #d1d5db;
+            border-radius: 3px;
+            font-size: clamp(8px, 0.73vw, 14px) !important;
+            background: white;
+            color: #334155;
+            width: auto;
+            min-width: 90px;
+            max-width: 120px;
+            height: 0px;
+            min-height: clamp(18px, 1.56vw, 30px) !important;
+            flex-shrink: 1;
+            box-sizing: border-box;
+        }
+        
+        .company-start-date-input:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+        }
+        
+        .company-start-date-input:disabled {
+            background: #f3f4f6;
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .company-reset-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px clamp(6px, 0.52vw, 10px);
+            cursor: pointer;
+            font-size: clamp(7px, 0.52vw, 10px);
+            transition: background 0.2s;
+            height: clamp(16px, 1.15vw, 22px);
+            flex-shrink: 0;
+            margin-left: clamp(4px, 0.42vw, 8px);
+        }
+        
+        .company-reset-btn:hover {
+            background: #4f46e5;
+        }
+        
         /* Company badge in table */
         .companies-column {
             position: relative;
@@ -1510,6 +1556,9 @@ try {
             tempCompanies.forEach(company => {
                 company.selectedPeriod = null;
                 company.originalExpirationDate = company.expiration_date || null; // 保存原始到期日期
+                // 初始化开始日期：如果已有到期日期，说明是续上时间，不能修改开始日期；否则可以修改
+                company.startDate = company.expiration_date ? null : new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
+                company.isExtending = company.expiration_date ? true : false; // 标记是否为续上时间
             });
             updateCompanyDisplay();
             document.getElementById('companyModal').style.display = 'block';
@@ -1538,11 +1587,14 @@ try {
             
             // 添加新公司，C168不需要设置到期日期
             const isC168 = companyId === 'C168';
-            const newExpirationDate = isC168 ? null : calculateExpirationDate('1month');
+            const today = new Date().toISOString().split('T')[0]; // 今天的日期 YYYY-MM-DD
+            const newExpirationDate = isC168 ? null : calculateExpirationDate('1month', today);
             tempCompanies.push({
                 company_id: companyId,
                 expiration_date: newExpirationDate,
-                originalExpirationDate: newExpirationDate // 新添加的公司，原始到期日期就是第一次设置的日期
+                originalExpirationDate: newExpirationDate, // 新添加的公司，原始到期日期就是第一次设置的日期
+                startDate: today, // 新添加的公司，开始日期为今天
+                isExtending: false // 新添加，不是续上时间
             });
             updateCompanyDisplay();
             input.value = '';
@@ -1568,12 +1620,51 @@ try {
             }
             const company = tempCompanies.find(c => c.company_id === companyId);
             if (company) {
-                // 从原始到期日期开始计算，而不是从当前已修改的到期日期计算
-                // 这样无论用户如何来回选择period，都只会从原始日期开始累加
-                const startDate = company.originalExpirationDate || null;
+                let startDate;
+                if (company.isExtending) {
+                    // 续上时间：从原始到期日期开始计算
+                    startDate = company.originalExpirationDate || null;
+                } else {
+                    // 新添加或重置：使用用户选择的开始日期，如果没有则使用今天
+                    startDate = company.startDate || new Date().toISOString().split('T')[0];
+                }
                 company.expiration_date = calculateExpirationDate(period, startDate);
                 // 记录用户选择的period，这样下拉框会显示选中的选项
                 company.selectedPeriod = period;
+                updateCompanyDisplay();
+            }
+        }
+        
+        // 更新开始日期
+        function updateCompanyStartDate(companyId, startDate) {
+            const company = tempCompanies.find(c => c.company_id === companyId);
+            if (company && !company.isExtending) {
+                // 只有在新添加或重置时才能修改开始日期
+                company.startDate = startDate;
+                // 如果已经选择了period，重新计算到期日期
+                if (company.selectedPeriod) {
+                    company.expiration_date = calculateExpirationDate(company.selectedPeriod, startDate);
+                }
+                updateCompanyDisplay();
+            }
+        }
+        
+        // 重置到期日期
+        function resetCompanyExpiration(companyId) {
+            const company = tempCompanies.find(c => c.company_id === companyId);
+            if (company) {
+                // 重置为今天
+                const today = new Date().toISOString().split('T')[0];
+                company.startDate = today;
+                company.isExtending = false; // 重置后可以修改开始日期
+                company.originalExpirationDate = null; // 清除原始到期日期
+                // 如果之前选择了period，保持选择并重新计算到期日期
+                if (company.selectedPeriod) {
+                    company.expiration_date = calculateExpirationDate(company.selectedPeriod, today);
+                } else {
+                    // 如果没有选择period，清除到期日期
+                    company.expiration_date = null;
+                }
                 updateCompanyDisplay();
             }
         }
@@ -1632,7 +1723,15 @@ try {
                     if (!isC168) {
                         // 如果有记录的selectedPeriod，显示它；否则显示占位符选项
                         const selectedPeriod = company.selectedPeriod || '';
+                        const startDate = company.startDate || '';
+                        const isDisabled = company.isExtending; // 续上时间时禁用日历
                         expirationControls = `
+                            <input type="date" 
+                                   class="company-start-date-input" 
+                                   value="${startDate}" 
+                                   ${isDisabled ? 'disabled' : ''}
+                                   onchange="updateCompanyStartDate('${company.company_id}', this.value)"
+                                   title="${isDisabled ? 'Cannot modify start date when extending time' : 'Select start date'}">
                             <select class="company-exp-select" onchange="updateCompanyExpiration('${company.company_id}', this.value)">
                                 <option value="" ${selectedPeriod === '' ? 'selected' : ''}>Period</option>
                                 <option value="7days" ${selectedPeriod === '7days' ? 'selected' : ''}>7 Days</option>
@@ -1642,6 +1741,7 @@ try {
                                 <option value="1year" ${selectedPeriod === '1year' ? 'selected' : ''}>1 Year</option>
                             </select>
                             <span class="exp-date-display">${formatDate(company.expiration_date)}</span>
+                            <button type="button" class="company-reset-btn" onclick="resetCompanyExpiration('${company.company_id}')" title="Reset expiration date to today">Reset</button>
                         `;
                     }
                     
