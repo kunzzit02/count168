@@ -121,27 +121,29 @@ if ($current_user_id && count($user_companies) > 0) {
                 <!-- Left Column - Data Capture Form -->
                 <div class="form-column">
                     <div class="form-container">
-                        <?php if (count($user_companies) > 1): ?>
-                        <div id="data-capture-company-filter" class="data-capture-company-filter" style="display: flex; margin-bottom: 20px;">
-                            <span class="data-capture-company-label">Company:</span>
-                            <div id="data-capture-company-buttons" class="data-capture-company-buttons">
-                                <?php foreach($user_companies as $comp): ?>
-                                    <button type="button" 
-                                            class="data-capture-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
-                                            data-company-id="<?php echo $comp['id']; ?>"
-                                            onclick="switchDataCaptureCompany(<?php echo $comp['id']; ?>)">
-                                        <?php echo htmlspecialchars($comp['company_id']); ?>
-                                    </button>
-                                <?php endforeach; ?>
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+                            <?php if (count($user_companies) > 1): ?>
+                            <div id="data-capture-company-filter" class="data-capture-company-filter" style="display: flex;">
+                                <span class="data-capture-company-label">Company:</span>
+                                <div id="data-capture-company-buttons" class="data-capture-company-buttons">
+                                    <?php foreach($user_companies as $comp): ?>
+                                        <button type="button" 
+                                                class="data-capture-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
+                                                data-company-id="<?php echo $comp['id']; ?>"
+                                                onclick="switchDataCaptureCompany(<?php echo $comp['id']; ?>)">
+                                            <?php echo htmlspecialchars($comp['company_id']); ?>
+                                        </button>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <!-- Permission Filter -->
-                        <div id="data-capture-permission-filter" class="data-capture-company-filter" style="display: none; margin-bottom: 20px;">
-                            <span class="data-capture-company-label">Filter:</span>
-                            <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
-                                <!-- Permission buttons will be loaded dynamically -->
+                            <?php endif; ?>
+                            
+                            <!-- Permission Filter -->
+                            <div id="data-capture-permission-filter" class="data-capture-company-filter" style="display: none;">
+                                <span class="data-capture-company-label">Filter:</span>
+                                <div id="data-capture-permission-buttons" class="data-capture-company-buttons">
+                                    <!-- Permission buttons will be loaded dynamically -->
+                                </div>
                             </div>
                         </div>
                         <form id="dataCaptureForm" class="process-form" method="POST">
