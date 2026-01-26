@@ -196,7 +196,16 @@ if ($current_user_id && count($user_companies) > 0) {
 <body class="process-page">
     <div class="container">
         <div class="content">
-            <h1 class="page-title">Process List</h1>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                <h1 class="page-title" style="margin: 0;">Process List</h1>
+                <!-- Permission Filter -->
+                <div id="process-list-permission-filter" class="process-company-filter" style="display: none;">
+                    <span class="process-company-label">Filter:</span>
+                    <div id="process-list-permission-buttons" class="process-company-buttons">
+                        <!-- Permission buttons will be loaded dynamically -->
+                    </div>
+                </div>
+            </div>
 
             <div class="separator-line"></div>
             
@@ -222,31 +231,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive processes can be deleted" disabled>Delete</button>
                 </div>
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                    <?php if (count($user_companies) > 1): ?>
-                    <div id="process-list-company-filter" class="process-company-filter" style="display: flex;">
-                        <span class="process-company-label">Company:</span>
-                        <div id="process-list-company-buttons" class="process-company-buttons">
-                            <?php foreach($user_companies as $comp): ?>
-                                <button type="button" 
-                                        class="process-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
-                                        data-company-id="<?php echo $comp['id']; ?>"
-                                        onclick="switchProcessListCompany(<?php echo $comp['id']; ?>)">
-                                    <?php echo htmlspecialchars($comp['company_id']); ?>
-                                </button>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-                    
-                    <!-- Permission Filter -->
-                    <div id="process-list-permission-filter" class="process-company-filter" style="display: none;">
-                        <span class="process-company-label">Filter:</span>
-                        <div id="process-list-permission-buttons" class="process-company-buttons">
-                            <!-- Permission buttons will be loaded dynamically -->
-                        </div>
+                <?php if (count($user_companies) > 1): ?>
+                <div id="process-list-company-filter" class="process-company-filter" style="display: flex; margin-top: 10px;">
+                    <span class="process-company-label">Company:</span>
+                    <div id="process-list-company-buttons" class="process-company-buttons">
+                        <?php foreach($user_companies as $comp): ?>
+                            <button type="button" 
+                                    class="process-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
+                                    data-company-id="<?php echo $comp['id']; ?>"
+                                    onclick="switchProcessListCompany(<?php echo $comp['id']; ?>)">
+                                <?php echo htmlspecialchars($comp['company_id']); ?>
+                            </button>
+                        <?php endforeach; ?>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
             
             <!-- Table Header -->
