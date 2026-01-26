@@ -9669,39 +9669,40 @@ if ($current_user_id && count($user_companies) > 0) {
                 getClipboardData('Text') ||
                 '';
             
-            // 1.GENERAL 专用解析：完全无格式，仅纯文本（不保留任何HTML/样式）
-            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.GENERAL') {
-                console.log('1.GENERAL mode detected, plain text only (no format)...');
+            // 1.GENERAL / 655 专用解析：1.GENERAL 纯文本无格式；655 保持 Excel 格式。均在格子内粘贴。
+            if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === '1.GENERAL' || currentDataCaptureType === '655')) {
+                const modeName = currentDataCaptureType === '655' ? '655' : '1.GENERAL';
+                console.log(modeName + ' mode detected, ' + (currentDataCaptureType === '655' ? 'preserving Excel format...' : 'plain text only (no format)...'));
                 
-                // 优先尝试获取HTML格式的数据（仅用于解析表格结构，填充时仍为纯文本）
+                // 优先尝试获取 HTML（1.GENERAL 仅解析结构、填充纯文本；655 保留格式）
                 let htmlData = null;
                 try {
                     htmlData = e.clipboardData.getData('text/html');
                     if (htmlData && htmlData.includes('<table')) {
-                        console.log('1.GENERAL: HTML table format detected, filling as plain text');
-                        const startCell = e.target;
+                        console.log(modeName + ': HTML table format detected');
+                        const startCell = cell;
                         const filled = parseAndFillHTMLTableForGeneral(htmlData, startCell);
                         if (filled) {
                             return; // 成功处理，直接返回
                         }
                     }
                 } catch (err) {
-                    console.log('1.GENERAL: Could not get HTML data from clipboard:', err);
+                    console.log(modeName + ': Could not get HTML data from clipboard:', err);
                 }
                 
-                // 如果HTML解析失败，尝试使用detectAndParseHTML（填充仍为纯文本）
+                // 如果 HTML 解析失败，尝试 detectAndParseHTML
                 const htmlDataFromDetect = detectAndParseHTML(e);
                 if (htmlDataFromDetect) {
-                    console.log('1.GENERAL: HTML data detected via detectAndParseHTML, filling as plain text');
-                    const startCell = e.target;
+                    console.log(modeName + ': HTML data detected via detectAndParseHTML');
+                    const startCell = cell;
                     const filled = parseAndFillHTMLTableForGeneral(htmlDataFromDetect, startCell);
                     if (filled) {
                         return; // 成功处理，直接返回
                     }
                 }
                 
-                // 如果HTML解析都失败，尝试纯文本格式（制表符分隔，无格式）
-                console.log('1.GENERAL: HTML parsing failed, trying text format (plain text only)...');
+                // HTML 解析均失败时，尝试纯文本（制表符分隔）
+                console.log(modeName + ': HTML parsing failed, trying text format...');
                 const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
                 
@@ -9734,7 +9735,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         // 填充到表格，保持原始格式
                         if (dataMatrix.length > 0 && maxCols > 0) {
-                            const startCell = e.target;
+                            const startCell = cell;
                             const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                             const startCol = parseInt(startCell.dataset.col);
                             
@@ -9799,7 +9800,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 如果所有解析都失败，继续使用默认处理逻辑
-                console.log('1.GENERAL: All parsing methods failed, continuing with default logic');
+                console.log((currentDataCaptureType === '655' ? '655' : '1.GENERAL') + ': All parsing methods failed, continuing with default logic');
             }
             
             // ===== 2.10 INVOICE 专用解析：完全保持PDF原始格式，粘贴后数据保持行格式 =====
@@ -21929,43 +21930,21 @@ if ($current_user_id && count($user_companies) > 0) {
         // 655：是否已经成功解析并填充到网格表
         let is655GridReady = false;
 
-        // Toggle table display for 655 mode
+        // Toggle table display for 655 mode（655 与其他选项一致：始终显示 Excel 网格）
         function toggleTableDisplayFor655() {
             const dataTable = document.getElementById('dataTable');
             const tablePreview655 = document.getElementById('tablePreview655');
             const pasteArea655 = document.getElementById('pasteArea655');
             
-            if (currentDataCaptureType === '655') {
-                // 655：未粘贴时显示粘贴区；粘贴成功后显示“预览table container”（像截图那样）
-                if (is655GridReady) {
-                    if (dataTable) dataTable.style.display = 'none'; // 网格表仍填充但不展示
-                    if (pasteArea655) pasteArea655.style.display = 'none';
-                    if (tablePreview655) tablePreview655.style.display = 'block';
-                } else {
-                    if (dataTable) dataTable.style.display = 'none';
-                    if (pasteArea655) {
-                        pasteArea655.style.display = 'block';
-                        pasteArea655.innerHTML = '';
-                        setTimeout(() => {
-                            pasteArea655.focus();
-                        }, 100);
-                    }
-                    if (tablePreview655) {
-                        tablePreview655.style.display = 'none';
-                        tablePreview655.innerHTML = '';
-                    }
-                }
-            } else {
-                // 显示表格，隐藏空白粘贴区域
-                if (dataTable) {
-                    dataTable.style.display = 'table';
-                }
-                if (pasteArea655) {
-                    pasteArea655.style.display = 'none';
-                }
-                if (tablePreview655) {
-                    tablePreview655.style.display = 'none';
-                }
+            // 655 与其它模式相同：始终显示 Data Capture Table（Excel 格子），隐藏粘贴区/预览
+            if (dataTable) {
+                dataTable.style.display = 'table';
+            }
+            if (pasteArea655) {
+                pasteArea655.style.display = 'none';
+            }
+            if (tablePreview655) {
+                tablePreview655.style.display = 'none';
             }
         }
         
@@ -23657,62 +23636,8 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        // 全局粘贴强制落入容器（bubble阶段）：655模式下把“表格粘贴”拦截并插入到pasteArea容器，避免跑到页面最上面
-        // 说明：部分浏览器在capture阶段取不到clipboardData，因此这里用bubble阶段确保可读剪贴板
-        document.addEventListener('paste', function(e) {
-            if (typeof currentDataCaptureType === 'undefined' || currentDataCaptureType !== '655') return;
-
-            const pasteArea655 = document.getElementById('pasteArea655');
-            if (!pasteArea655) return;
-
-            const target = e.target;
-            // 用户在输入框/textarea里粘贴备注等，保持原行为
-            if (isEditableFormField(target)) return;
-
-            const clipboard = (e.clipboardData || window.clipboardData);
-            if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
-
-            // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
-            e.preventDefault();
-            e.stopPropagation();
-
-            // 确保容器可见并接收内容
-            const dataTable = document.getElementById('dataTable');
-            if (dataTable) dataTable.style.display = 'none';
-            pasteArea655.style.display = 'block';
-            placeCaretAtEnd(pasteArea655);
-
-            // 取出剪贴板内容并插入到容器里（显示效果在容器内）
-            let html = '';
-            try {
-                html = clipboard.getData('text/html') || '';
-            } catch (_) {}
-
-            if (html && /<table\b/i.test(html)) {
-                const previewFragment = build655PreviewFragmentFromClipboardHtml(html);
-                const sanitized = sanitizePastedHTML(html);
-                if (!previewFragment && !sanitized) return;
-                // 预览优先用“还原片段”（保留<style>/class），否则退回清洗后的table
-                render655Preview(previewFragment || sanitized);
-                // 同时填充到内部数据表（用于后续提交/处理）
-                parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
-                is655GridReady = true;
-                toggleTableDisplayFor655();
-                return;
-            }
-
-            let text = '';
-            try {
-                text = clipboard.getData('text/plain') || '';
-            } catch (_) {}
-            if (text && text.includes('\t')) {
-                const tableHtml = tsvToHtmlTable(text);
-                render655Preview(tableHtml);
-                parseAndFillHTMLTableForGeneral655(tableHtml);
-                is655GridReady = true;
-                toggleTableDisplayFor655();
-            }
-        });
+        // 655 已改为与其它模式一致：始终显示 Excel 网格，粘贴在格子内由 handleCellPaste 处理。
+        // 此处不再拦截 655 的表格粘贴，避免覆盖格子内粘贴逻辑。
 
         // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴
         document.addEventListener('paste', function(e) {
@@ -24021,7 +23946,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const previousType = currentDataCaptureType;
                     currentDataCaptureType = typeSelect.value || 'GENERAL';
 
-                    // 切到655时默认显示粘贴区（让用户重新粘贴）；其它模式不受影响
+                    // 切到655时重置状态（655 与其它模式一致，始终显示 Excel 网格）
                     if (currentDataCaptureType === '655') {
                         is655GridReady = false;
                     }
