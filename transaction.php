@@ -185,7 +185,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         margin-left: 6px;
     }
     .contra-inbox-reject:hover {
-        filter: brightness(1.03);
+        background: linear-gradient(180deg, #dc2626 0%, #b91c1c 100%);
         border-color: transparent;
     }
     /* 表格自然展开，页面整体滚动 */
