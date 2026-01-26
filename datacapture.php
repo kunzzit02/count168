@@ -21957,26 +21957,43 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
             }
             
-            // Clear table header cells
+            // Clear table header cells (but preserve column numbers)
             const tableHeader = document.getElementById('tableHeader');
             if (tableHeader) {
-                const headerCells = tableHeader.querySelectorAll('th');
-                headerCells.forEach(cell => {
-                    // Skip the first cell (row number header)
-                    if (cell === headerCells[0]) return;
-                    // Clear all inline styles
-                    if (cell.hasAttribute('style')) {
-                        cell.removeAttribute('style');
-                    }
-                    // Remove any classes that might affect styling
-                    const essentialClasses = ['column-selected', 'column-active', 'row-selected', 'row-active'];
-                    const currentClasses = Array.from(cell.classList);
-                    currentClasses.forEach(cls => {
-                        if (!essentialClasses.includes(cls)) {
-                            cell.classList.remove(cls);
+                const headerRow = tableHeader.querySelector('tr');
+                if (headerRow) {
+                    const headerCells = headerRow.querySelectorAll('th');
+                    headerCells.forEach((cell, index) => {
+                        // Skip the first cell (row number header)
+                        if (index === 0) return;
+                        
+                        // Clear all inline styles
+                        if (cell.hasAttribute('style')) {
+                            cell.removeAttribute('style');
+                        }
+                        // Remove any classes that might affect styling
+                        const essentialClasses = ['column-selected', 'column-active', 'row-selected', 'row-active'];
+                        const currentClasses = Array.from(cell.classList);
+                        currentClasses.forEach(cls => {
+                            if (!essentialClasses.includes(cls)) {
+                                cell.classList.remove(cls);
+                            }
+                        });
+                        
+                        // Preserve column number (1, 2, 3, ...) if it was cleared
+                        // Check if cell content is not a number, restore it
+                        const currentText = cell.textContent.trim();
+                        const expectedNumber = index; // 1, 2, 3, ...
+                        if (currentText !== expectedNumber.toString() && currentText !== '') {
+                            // If content was modified by 655 mode, we'll let resetForm handle restoration
+                            // Here we just preserve what's there if it's already a number
+                        } else if (currentText === '') {
+                            // If content was cleared, restore column number
+                            cell.textContent = expectedNumber;
+                            cell.innerHTML = expectedNumber.toString();
                         }
                     });
-                });
+                }
             }
             
             console.log('655: Styles cleared');
@@ -22311,21 +22328,63 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
             }
             
-            // Clear table header as well (in case 655 mode filled header)
+            // Clear table header styles but preserve column numbers (1, 2, 3, ...)
             const tableHeader = document.getElementById('tableHeader');
             if (tableHeader) {
-                const headerCells = tableHeader.querySelectorAll('th');
-                headerCells.forEach(cell => {
-                    // Skip the first cell (row number header)
-                    if (cell === headerCells[0]) return;
-                    // Clear content
-                    cell.textContent = '';
-                    cell.innerHTML = '';
-                    // Clear all inline styles
-                    cell.removeAttribute('style');
-                    // Remove any classes
-                    cell.className = '';
-                });
+                const headerRow = tableHeader.querySelector('tr');
+                if (headerRow) {
+                    const headerCells = headerRow.querySelectorAll('th');
+                    const currentCols = headerCells.length - 1; // Exclude first empty header
+                    
+                    headerCells.forEach((cell, index) => {
+                        // Skip the first cell (row number header)
+                        if (index === 0) return;
+                        
+                        // Clear all inline styles (background color, color, etc.)
+                        cell.removeAttribute('style');
+                        // Remove any classes that might affect styling (but preserve essential ones)
+                        const essentialClasses = ['column-selected', 'column-active'];
+                        const currentClasses = Array.from(cell.classList);
+                        currentClasses.forEach(cls => {
+                            if (!essentialClasses.includes(cls)) {
+                                cell.classList.remove(cls);
+                            }
+                        });
+                        
+                        // Restore column number (1, 2, 3, ...) - this is the default header content
+                        // index is 0-based, so column number is index (since index 0 is the empty header)
+                        const columnNumber = index; // 1, 2, 3, ...
+                        cell.textContent = columnNumber;
+                        cell.innerHTML = columnNumber.toString();
+                    });
+                    
+                    // If header was completely cleared (no columns), reinitialize with default columns
+                    if (currentCols === 0) {
+                        // Reinitialize table header with default 20 columns
+                        const defaultCols = 20;
+                        headerRow.innerHTML = '<th></th>'; // Keep first empty header
+                        for (let j = 0; j < defaultCols; j++) {
+                            const header = document.createElement('th');
+                            header.textContent = j + 1; // 1, 2, 3, ...
+                            // Reattach event listeners
+                            header.addEventListener('mousedown', (e) => {
+                                if (e.button === 0) {
+                                    handleColumnHeaderClick(e, -1);
+                                }
+                            });
+                            header.addEventListener('contextmenu', (e) => {
+                                showColumnContextMenu(e, -1);
+                            });
+                            header.addEventListener('mouseover', (e) => {
+                                if (!e.ctrlKey && !e.metaKey) {
+                                    handleColumnHeaderMouseOver(e, -1);
+                                }
+                            });
+                            header.style.cursor = 'pointer';
+                            headerRow.appendChild(header);
+                        }
+                    }
+                }
             }
             
             // Also clear 655 styles explicitly
