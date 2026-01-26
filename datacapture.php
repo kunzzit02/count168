@@ -21936,12 +21936,18 @@ if ($current_user_id && count($user_companies) > 0) {
             const tablePreview655 = document.getElementById('tablePreview655');
             const pasteArea655 = document.getElementById('pasteArea655');
             
+            console.log('655: toggleTableDisplayFor655 called, is655GridReady:', is655GridReady, 'currentDataCaptureType:', currentDataCaptureType);
+            
             if (currentDataCaptureType === '655') {
                 // 655：未粘贴时显示粘贴区；粘贴成功后显示“预览table container”（像截图那样）
                 if (is655GridReady) {
+                    console.log('655: Showing preview, hiding paste area and data table');
                     if (dataTable) dataTable.style.display = 'none'; // 网格表仍填充但不展示
                     if (pasteArea655) pasteArea655.style.display = 'none';
-                    if (tablePreview655) tablePreview655.style.display = 'block';
+                    if (tablePreview655) {
+                        tablePreview655.style.display = 'block';
+                        console.log('655: Preview container displayed');
+                    }
                 } else {
                     // 检查是否有保存的预览数据，如果有则恢复显示
                     let previewHtml = '';
@@ -22077,13 +22083,19 @@ if ($current_user_id && count($user_companies) > 0) {
                     const sanitized = sanitizePastedHTML(html);
                     if (previewFragment) {
                         // 1) 预览：尽量还原Excel原始样式（保留<style>与class）
+                        console.log('655: Rendering preview from HTML table');
                         render655Preview(previewFragment);
 
                         // 2) 数据：同时填充到网格表（用于submit逻辑），但不展示网格表
-                        const ok = parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
-                        if (ok) is655GridReady = true;
+                        parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
+                        // 只要预览渲染成功，就显示预览，不依赖于数据填充的返回值
+                        is655GridReady = true;
+                        console.log('655: Preview rendered, is655GridReady set to true');
                         area.innerHTML = '';
-                        toggleTableDisplayFor655();
+                        // 确保预览立即显示
+                        setTimeout(() => {
+                            toggleTableDisplayFor655();
+                        }, 0);
                         return;
                     }
                 }
@@ -22095,12 +22107,18 @@ if ($current_user_id && count($user_companies) > 0) {
                     const previewFragment = build655PreviewFragmentFromClipboardHtml(text);
                     const sanitized = sanitizePastedHTML(text);
                     if (previewFragment) {
+                        console.log('655: Rendering preview from plain text HTML table');
                         render655Preview(previewFragment);
 
-                        const ok = parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
-                        if (ok) is655GridReady = true;
+                        parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
+                        // 只要预览渲染成功，就显示预览，不依赖于数据填充的返回值
+                        is655GridReady = true;
+                        console.log('655: Preview rendered, is655GridReady set to true');
                         area.innerHTML = '';
-                        toggleTableDisplayFor655();
+                        // 确保预览立即显示
+                        setTimeout(() => {
+                            toggleTableDisplayFor655();
+                        }, 0);
                         return;
                     }
                 }
@@ -22110,12 +22128,18 @@ if ($current_user_id && count($user_companies) > 0) {
                     e.preventDefault();
                     e.stopPropagation();
                     const tableHtml = tsvToHtmlTable(text);
+                    console.log('655: Rendering preview from TSV');
                     render655Preview(tableHtml);
 
-                    const ok = parseAndFillHTMLTableForGeneral655(tableHtml);
-                    if (ok) is655GridReady = true;
+                    parseAndFillHTMLTableForGeneral655(tableHtml);
+                    // 只要预览渲染成功，就显示预览，不依赖于数据填充的返回值
+                    is655GridReady = true;
+                    console.log('655: Preview rendered from TSV, is655GridReady set to true');
                     area.innerHTML = '';
-                    toggleTableDisplayFor655();
+                    // 确保预览立即显示
+                    setTimeout(() => {
+                        toggleTableDisplayFor655();
+                    }, 0);
                     return;
                 }
 
@@ -22128,12 +22152,18 @@ if ($current_user_id && count($user_companies) > 0) {
                             const previewFragment = build655PreviewFragmentFromClipboardHtml(pastedHTML);
                             const sanitized = sanitizePastedHTML(pastedHTML);
                             if (previewFragment) {
+                                console.log('655: Rendering preview from pasted HTML (setTimeout)');
                                 render655Preview(previewFragment);
 
-                                const ok = parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
-                                if (ok) is655GridReady = true;
+                                parseAndFillHTMLTableForGeneral655(sanitized || previewFragment);
+                                // 只要预览渲染成功，就显示预览，不依赖于数据填充的返回值
+                                is655GridReady = true;
+                                console.log('655: Preview rendered (setTimeout), is655GridReady set to true');
                                 area.innerHTML = '';
-                                toggleTableDisplayFor655();
+                                // 确保预览立即显示
+                                setTimeout(() => {
+                                    toggleTableDisplayFor655();
+                                }, 0);
                                 return;
                             }
                         }
