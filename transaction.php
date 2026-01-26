@@ -175,7 +175,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         color: #fff;
     }
     .contra-inbox-approve:hover {
-        filter: brightness(1.03);
+        background: linear-gradient(180deg, #16a34a 0%, #15803d 100%);
         border-color: transparent;
     }
     .contra-inbox-reject {
