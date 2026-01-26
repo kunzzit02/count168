@@ -662,6 +662,31 @@ try {
         }
         
         /* Permission checkbox styles */
+        .permission-checkbox {
+            width: 12px !important;
+            height: 12px !important;
+            cursor: pointer;
+            margin: 0 !important;
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            -webkit-appearance: checkbox;
+            -moz-appearance: checkbox;
+            appearance: checkbox;
+        }
+        
+        .permission-checkbox:focus {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
+        .permission-checkbox:focus-visible {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
         #permissionLabelGambling:hover,
         #permissionLabelBank:hover,
         #permissionLabelLoan:hover,
@@ -1255,26 +1280,26 @@ try {
                 </div>
                 <div class="form-group">
                     <label>Permissions (for Process List & Data Capture)</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;">
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelGambling">
-                            <input type="checkbox" value="Gambling" id="permissionGambling" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Gambling</span>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelGambling">
+                            <input type="checkbox" value="Gambling" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Gambling</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelBank">
-                            <input type="checkbox" value="Bank" id="permissionBank" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Bank</span>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelBank">
+                            <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Bank</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelLoan">
-                            <input type="checkbox" value="Loan" id="permissionLoan" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Loan</span>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelLoan">
+                            <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Loan</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelRate">
-                            <input type="checkbox" value="Rate" id="permissionRate" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Rate</span>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelRate">
+                            <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Rate</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 4px; background: white; transition: all 0.2s;" id="permissionLabelMoney">
-                            <input type="checkbox" value="Money" id="permissionMoney" style="margin-right: 4px; cursor: pointer; width: 14px; height: 14px;" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(8px, 0.63vw, 12px);">Money</span>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelMoney">
+                            <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Money</span>
                         </label>
                     </div>
                     <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 8px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
