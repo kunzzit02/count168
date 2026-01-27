@@ -431,7 +431,7 @@ if ($current_user_id && count($user_companies) > 0) {
             </div>
             <div class="modal-body">
                 <!-- Gambling Category Form (default) -->
-                <form id="addProcessForm" class="process-form add-grid gambling-form">
+                <form id="addProcessForm" class="process-form add-grid">
                     <!-- Left column -->
                     <div class="add-col">
                         <div class="form-row">
@@ -552,7 +552,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 </form>
                 
                 <!-- Bank Category Form -->
-                <form id="addBankProcessForm" class="process-form add-grid bank-form" style="display: none;">
+                <form id="addBankProcessForm" class="process-form add-grid" style="display: none;">
                     <!-- Left column -->
                     <div class="add-col">
                         <!-- Bank Information Section -->
@@ -1079,15 +1079,19 @@ if ($current_user_id && count($user_companies) > 0) {
             const bankForm = document.getElementById('addBankProcessForm');
             
             if (selectedPermission === 'Bank') {
-                // 显示 Bank 表单
-                if (gamblingForm) gamblingForm.style.display = 'none';
+                // 显示 Bank 表单，隐藏 Gambling 表单
+                if (gamblingForm) {
+                    gamblingForm.style.display = 'none';
+                }
                 if (bankForm) {
                     bankForm.style.display = 'block';
                     loadBankAddProcessData();
                 }
             } else {
-                // 显示 Gambling 表单
-                if (bankForm) bankForm.style.display = 'none';
+                // 显示 Gambling 表单，隐藏 Bank 表单
+                if (bankForm) {
+                    bankForm.style.display = 'none';
+                }
                 if (gamblingForm) {
                     gamblingForm.style.display = 'block';
                     loadAddProcessData();
@@ -1137,27 +1141,42 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
-            // 重置 Bank 表单
-            const bankForm = document.getElementById('addBankProcessForm');
-            if (bankForm) {
-                bankForm.reset();
-                // 重置 account 选择框
-                const supplierButton = document.getElementById('bank_supplier');
-                const customerButton = document.getElementById('bank_customer');
-                if (supplierButton) {
-                    supplierButton.textContent = supplierButton.getAttribute('data-placeholder') || 'Select Account';
-                    supplierButton.removeAttribute('data-value');
+                // 重置 Bank 表单
+                const bankForm = document.getElementById('addBankProcessForm');
+                if (bankForm) {
+                    bankForm.reset();
+                    // 重置 account 选择框
+                    const supplierButton = document.getElementById('bank_supplier');
+                    const supplierDropdown = document.getElementById('bank_supplier_dropdown');
+                    const customerButton = document.getElementById('bank_customer');
+                    const customerDropdown = document.getElementById('bank_customer_dropdown');
+                    
+                    if (supplierButton) {
+                        supplierButton.textContent = supplierButton.getAttribute('data-placeholder') || 'Select Account';
+                        supplierButton.removeAttribute('data-value');
+                        supplierButton.classList.remove('open');
+                    }
+                    if (supplierDropdown) {
+                        supplierDropdown.style.display = 'none';
+                        supplierDropdown.classList.remove('show');
+                    }
+                    
+                    if (customerButton) {
+                        customerButton.textContent = customerButton.getAttribute('data-placeholder') || 'Select Account';
+                        customerButton.removeAttribute('data-value');
+                        customerButton.classList.remove('open');
+                    }
+                    if (customerDropdown) {
+                        customerDropdown.style.display = 'none';
+                        customerDropdown.classList.remove('show');
+                    }
+                    
+                    // 重置 Profit
+                    const profitInput = document.getElementById('bank_profit');
+                    if (profitInput) {
+                        profitInput.value = '';
+                    }
                 }
-                if (customerButton) {
-                    customerButton.textContent = customerButton.getAttribute('data-placeholder') || 'Select Account';
-                    customerButton.removeAttribute('data-value');
-                }
-                // 重置 Profit
-                const profitInput = document.getElementById('bank_profit');
-                if (profitInput) {
-                    profitInput.value = '';
-                }
-            }
             const selectedProcessesList = document.getElementById('selected_processes_list');
             if (selectedProcessesList) {
                 selectedProcessesList.innerHTML = '';
@@ -2033,10 +2052,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 function toggleDropdown() {
                     isOpen = !isOpen;
-                    dropdown.style.display = isOpen ? 'block' : 'none';
                     if (isOpen) {
+                        dropdown.style.display = 'block';
+                        dropdown.classList.add('show');
+                        button.classList.add('open');
                         searchInput.focus();
                         updateOptions('');
+                    } else {
+                        dropdown.style.display = 'none';
+                        dropdown.classList.remove('show');
+                        button.classList.remove('open');
                     }
                 }
                 
@@ -2094,6 +2119,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         selectOption(option);
                     }
                 });
+                
+                // 确保下拉列表默认隐藏
+                dropdown.style.display = 'none';
+                dropdown.classList.remove('show');
+                button.classList.remove('open');
                 
                 document.addEventListener('click', function(e) {
                     if (!button.contains(e.target) && !dropdown.contains(e.target)) {
