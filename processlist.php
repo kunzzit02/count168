@@ -193,37 +193,60 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         /* Bank Modal Styles - Separate from Gambling modal */
         .bank-modal .bank-modal-content {
-            max-width: 1000px;
+            max-width: 1100px;
             width: 90%;
         }
         
         .bank-form {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            grid-template-rows: auto auto;
+            gap: 25px;
             align-items: start;
         }
         
-        .bank-form-left {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
+        /* Part 1: Bank Information (Top-Left) */
+        .bank-part-1 {
+            grid-column: 1;
+            grid-row: 1;
         }
         
-        .bank-form-right {
+        /* Part 2: Detail (Bottom-Left) */
+        .bank-part-2 {
+            grid-column: 1;
+            grid-row: 2;
+        }
+        
+        /* Part 3: Day start and Profit Sharing (Right) */
+        .bank-part-3 {
+            grid-column: 2;
+            grid-row: 1 / 3; /* Span both rows */
             display: flex;
             flex-direction: column;
-            gap: 25px;
+            justify-content: flex-start;
+        }
+        
+        .bank-part {
+            display: flex;
+            flex-direction: column;
         }
         
         .bank-section {
             display: flex;
             flex-direction: column;
             gap: 15px;
+            width: 100%;
         }
         
-        .bank-section:first-child {
-            margin-top: 0;
+        /* Ensure parts have proper spacing */
+        .bank-part-1,
+        .bank-part-2 {
+            min-height: fit-content;
+        }
+        
+        .bank-part-3 {
+            border-left: 2px solid #e0e0e0;
+            padding-left: 25px;
         }
         
         .bank-section-title {
@@ -845,9 +868,8 @@ if ($current_user_id && count($user_companies) > 0) {
             </div>
             <div class="modal-body">
                 <form id="addBankProcessForm" class="process-form bank-form">
-                    <!-- Left Column -->
-                    <div class="bank-form-left">
-                        <!-- Bank Information Section -->
+                    <!-- Part 1: Bank Information (Top-Left) -->
+                    <div class="bank-part bank-part-1">
                         <div class="bank-section">
                             <h3 class="bank-section-title">Bank Information <span class="bank-chinese">资者</span></h3>
                             
@@ -888,8 +910,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Detail Section - Part 1 -->
+                    </div>
+                    
+                    <!-- Part 2: Detail (Bottom-Left) -->
+                    <div class="bank-part bank-part-2">
                         <div class="bank-section">
                             <h3 class="bank-section-title">Detail</h3>
                             
@@ -942,14 +966,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <input type="number" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Column -->
-                    <div class="bank-form-right">
-                        <!-- Detail Section - Part 2 -->
-                        <div class="bank-section">
-                            <h3 class="bank-section-title" style="visibility: hidden;">Detail</h3>
                             
                             <div class="form-row bank-row-three-cols">
                                 <div class="form-group">
@@ -966,8 +982,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Day start and Profit Sharing -->
+                    </div>
+                    
+                    <!-- Part 3: Day start and Profit Sharing (Right) -->
+                    <div class="bank-part bank-part-3">
                         <div class="bank-section">
                             <div class="form-row">
                                 <div class="form-group">
