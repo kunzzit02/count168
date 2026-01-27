@@ -1614,9 +1614,26 @@ if ($current_user_id && count($user_companies) > 0) {
                         const items = card.querySelectorAll('.card-item');
                         if (items.length > 3) {
                             const statusClass = result.newStatus === 'active' ? 'status-active' : 'status-inactive';
-                            items[3].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                            
+                            // 根据类别确定 Status 列和 Action 列的索引
+                            let statusIndex, actionIndex, checkboxClass;
+                            if (selectedPermission === 'Bank') {
+                                statusIndex = 10; // Bank 表格的 Statue 列是第11列（索引10）
+                                actionIndex = 12; // Bank 表格的 Action 列是第13列（索引12）
+                                checkboxClass = 'bank-checkbox';
+                            } else {
+                                statusIndex = 3; // Gambling 表格的 Status 列是第4列（索引3）
+                                actionIndex = 6; // Gambling 表格的 Action 列是第7列（索引6）
+                                checkboxClass = '';
+                            }
+                            
+                            // 更新状态 badge
+                            if (items[statusIndex]) {
+                                items[statusIndex].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                            }
+                            
                             // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
-                            const actionCell = items[6]; // Action 列
+                            const actionCell = items[actionIndex];
                             if (actionCell) {
                                 const existingCheckbox = actionCell.querySelector('.row-checkbox');
                                 if (result.newStatus === 'active') {
@@ -1625,12 +1642,21 @@ if ($current_user_id && count($user_companies) > 0) {
                                     if (!existingCheckbox) {
                                         const checkbox = document.createElement('input');
                                         checkbox.type = 'checkbox';
-                                        checkbox.className = 'row-checkbox';
+                                        checkbox.className = 'row-checkbox' + (checkboxClass ? ' ' + checkboxClass : '');
                                         checkbox.dataset.id = String(processId);
                                         checkbox.title = 'Select for deletion';
                                         checkbox.style.marginLeft = '10px';
                                         checkbox.onchange = updateDeleteButton;
-                                        actionCell.appendChild(checkbox);
+                                        
+                                        // 找到编辑按钮，在它后面添加复选框
+                                        const editBtn = actionCell.querySelector('.edit-btn');
+                                        if (editBtn && editBtn.nextSibling) {
+                                            actionCell.insertBefore(checkbox, editBtn.nextSibling);
+                                        } else if (editBtn) {
+                                            actionCell.appendChild(checkbox);
+                                        } else {
+                                            actionCell.appendChild(checkbox);
+                                        }
                                     }
                                 }
                             }
