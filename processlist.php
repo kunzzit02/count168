@@ -191,6 +191,263 @@ if ($current_user_id && count($user_companies) > 0) {
         .description-delete-btn:hover {
             color: #900;
         }
+        /* Bank Modal Styles - Separate from Gambling modal */
+        .bank-modal .bank-modal-content {
+            max-width: 900px;
+            width: 90%;
+        }
+        
+        .bank-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .bank-form-left {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .bank-form-right {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .bank-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .bank-section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #002C49;
+            margin-bottom: 10px;
+        }
+        
+        .bank-chinese {
+            font-size: 12px;
+            color: #666;
+            font-weight: normal;
+        }
+        
+        .bank-row-two-cols {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .bank-row-three-cols {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .select-with-add {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+        
+        .select-with-add .bank-select {
+            flex: 1;
+        }
+        
+        .bank-add-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+        
+        .bank-add-btn:hover {
+            background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+            transform: scale(1.05);
+        }
+        
+        .bank-input,
+        .bank-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .bank-input:focus,
+        .bank-select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+        
+        .account-select-with-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+        
+        .account-select-with-buttons .custom-select-wrapper {
+            flex: 1;
+        }
+        
+        .account-add-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+        
+        .account-add-btn:hover {
+            background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+            transform: scale(1.05);
+        }
+        
+        .custom-select-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        
+        .custom-select-button {
+            width: 100%;
+            padding: 8px 30px 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            text-align: left;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            position: relative;
+        }
+        
+        .custom-select-button::after {
+            content: '▼';
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 10px;
+            color: #666;
+            pointer-events: none;
+        }
+        
+        .custom-select-button.open::after {
+            content: '▲';
+        }
+        
+        .custom-select-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 1000;
+            display: none;
+            max-height: 300px;
+            overflow: hidden;
+            margin-top: 2px;
+        }
+        
+        .custom-select-dropdown.show {
+            display: block;
+        }
+        
+        .custom-select-search {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 1;
+        }
+        
+        .custom-select-search input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .custom-select-options {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        
+        .custom-select-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        
+        .custom-select-option:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .custom-select-option.selected {
+            background-color: #e3f2fd;
+            font-weight: bold;
+        }
+        
+        .custom-select-option:last-child {
+            border-bottom: none;
+        }
+        
+        .custom-select-no-results {
+            padding: 12px;
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+        }
+        
+        .profit-sharing-with-add {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+        
+        .profit-sharing-with-add .bank-input {
+            flex: 1;
+        }
+        
+        .bank-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
     </style>
 </head>
 <body class="process-page">
@@ -547,6 +804,162 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="form-actions add-actions">
                         <button type="submit" class="btn btn-save">Add Process</button>
                         <button type="button" class="btn btn-cancel" onclick="closeAddModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Process Popup Modal for Bank Category -->
+    <div id="addBankModal" class="modal bank-modal" style="display: none;">
+        <div class="modal-content bank-modal-content">
+            <div class="modal-header">
+                <h2>Add Process</h2>
+                <span class="close" onclick="closeAddBankModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addBankProcessForm" class="process-form bank-form">
+                    <!-- Left Column: Bank Information and Detail -->
+                    <div class="bank-form-left">
+                        <!-- Bank Information Section -->
+                        <div class="bank-section">
+                            <h3 class="bank-section-title">Bank Information <span class="bank-chinese">资者</span></h3>
+                            
+                            <div class="form-row bank-row-two-cols">
+                                <div class="form-group">
+                                    <label for="bank_country">国家</label>
+                                    <div class="select-with-add">
+                                        <select id="bank_country" name="country" class="bank-select">
+                                            <option value="">Select Country</option>
+                                        </select>
+                                        <button type="button" class="bank-add-btn" onclick="showAddCountryModal()" title="Add New Country">+</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bank_bank">Bank</label>
+                                    <div class="select-with-add">
+                                        <select id="bank_bank" name="bank" class="bank-select">
+                                            <option value="">Select Bank</option>
+                                        </select>
+                                        <button type="button" class="bank-add-btn" onclick="showAddBankModal()" title="Add New Bank">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row bank-row-two-cols">
+                                <div class="form-group">
+                                    <label for="bank_type">Type</label>
+                                    <select id="bank_type" name="type" class="bank-select">
+                                        <option value="">Select Type</option>
+                                        <option value="Saving">Saving</option>
+                                        <option value="Enterprise">Enterprise</option>
+                                        <option value="Large Enterprise">Large Enterprise</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bank_name">Name</label>
+                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Detail Section -->
+                        <div class="bank-section">
+                            <h3 class="bank-section-title">Detail</h3>
+                            
+                            <div class="form-row bank-row-two-cols">
+                                <div class="form-group">
+                                    <label for="bank_card_merchant">卡商</label>
+                                    <div class="account-select-with-buttons">
+                                        <div class="custom-select-wrapper">
+                                            <button type="button" class="custom-select-button" id="bank_card_merchant" data-placeholder="Select Account" name="card_merchant">Select Account</button>
+                                            <div class="custom-select-dropdown" id="bank_card_merchant_dropdown">
+                                                <div class="custom-select-search">
+                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                </div>
+                                                <div class="custom-select-options"></div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="account-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bank_customer">顾客</label>
+                                    <div class="account-select-with-buttons">
+                                        <div class="custom-select-wrapper">
+                                            <button type="button" class="custom-select-button" id="bank_customer" data-placeholder="Select Account" name="customer">Select Account</button>
+                                            <div class="custom-select-dropdown" id="bank_customer_dropdown">
+                                                <div class="custom-select-search">
+                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                </div>
+                                                <div class="custom-select-options"></div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="account-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row bank-row-two-cols">
+                                <div class="form-group">
+                                    <label for="bank_contract">合约</label>
+                                    <select id="bank_contract" name="contract" class="bank-select">
+                                        <option value="">Select Contract</option>
+                                        <option value="1">一个月</option>
+                                        <option value="2">2个月</option>
+                                        <option value="3">3个月</option>
+                                        <option value="6">6个月</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bank_insurance">保</label>
+                                    <input type="number" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row bank-row-three-cols">
+                                <div class="form-group">
+                                    <label for="bank_cost">买价</label>
+                                    <input type="number" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="bank_price">出价</label>
+                                    <input type="number" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="bank_profit">Profit</label>
+                                    <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Day start and Profit Sharing -->
+                    <div class="bank-form-right">
+                        <div class="bank-section">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="bank_day_start">Day start</label>
+                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="bank_profit_sharing">Profit Sharing</label>
+                                    <div class="profit-sharing-with-add">
+                                        <input type="text" id="bank_profit_sharing" name="profit_sharing" placeholder="Enter Profit Sharing" class="bank-input">
+                                        <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions: span full width -->
+                    <div class="form-actions bank-actions">
+                        <button type="submit" class="btn btn-save">Add Process</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeAddBankModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -930,8 +1343,35 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // 其他必要的函数
         function addProcess() {
-            loadAddProcessData();
-            document.getElementById('addModal').style.display = 'block';
+            if (selectedPermission === 'Bank') {
+                loadAddBankProcessData().then(() => {
+                    document.getElementById('addBankModal').style.display = 'block';
+                });
+            } else {
+                loadAddProcessData();
+                document.getElementById('addModal').style.display = 'block';
+            }
+        }
+        
+        function closeAddBankModal() {
+            document.getElementById('addBankModal').style.display = 'none';
+            document.getElementById('addBankProcessForm').reset();
+            // 重置 Profit 计算
+            const profitInput = document.getElementById('bank_profit');
+            if (profitInput) {
+                profitInput.value = '';
+            }
+            // 重置 account 选择器
+            const cardMerchantButton = document.getElementById('bank_card_merchant');
+            const customerButton = document.getElementById('bank_customer');
+            if (cardMerchantButton) {
+                cardMerchantButton.textContent = 'Select Account';
+                cardMerchantButton.removeAttribute('data-value');
+            }
+            if (customerButton) {
+                customerButton.textContent = 'Select Account';
+                customerButton.removeAttribute('data-value');
+            }
         }
 
         function closeAddModal() {
@@ -2182,6 +2622,59 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
+        // 处理 Bank Add Process 表单提交
+        const addBankProcessForm = document.getElementById('addBankProcessForm');
+        if (addBankProcessForm) {
+            addBankProcessForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                // 验证必填字段
+                const country = document.getElementById('bank_country').value;
+                const bank = document.getElementById('bank_bank').value;
+                const type = document.getElementById('bank_type').value;
+                const name = document.getElementById('bank_name').value;
+                
+                if (!country || !bank || !type || !name) {
+                    showNotification('Please fill in all required fields (Country, Bank, Type, Name)', 'danger');
+                    return;
+                }
+                
+                const formData = new FormData(this);
+                formData.append('permission', 'Bank');
+                
+                // 添加 account 选择的值
+                const cardMerchantButton = document.getElementById('bank_card_merchant');
+                const customerButton = document.getElementById('bank_customer');
+                if (cardMerchantButton && cardMerchantButton.getAttribute('data-value')) {
+                    formData.append('card_merchant_id', cardMerchantButton.getAttribute('data-value'));
+                }
+                if (customerButton && customerButton.getAttribute('data-value')) {
+                    formData.append('customer_id', customerButton.getAttribute('data-value'));
+                }
+                
+                try {
+                    const response = await fetch(buildApiUrl('addprocessapi.php'), {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showNotification('Bank process added successfully!', 'success');
+                        closeAddBankModal();
+                        fetchProcesses();
+                    } else {
+                        let errorMessage = result.error || 'Unknown error occurred';
+                        showNotification(errorMessage, 'danger');
+                    }
+                } catch (error) {
+                    console.error('Error adding bank process:', error);
+                    showNotification('Failed to add bank process', 'danger');
+                }
+            });
+        }
+
         // 处理编辑表单提交
         const editProcessForm = document.getElementById('editProcessForm');
         if (editProcessForm) {
@@ -2281,6 +2774,156 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // 页面加载完成后执行
+        // Profit calculation flag to prevent duplicate listeners
+        let bankProfitCalculatorsInitialized = false;
+        
+        // Load Bank Add Process Data
+        async function loadAddBankProcessData() {
+            try {
+                // 加载 account 数据用于卡商和顾客选择
+                await loadBankAccounts();
+                
+                // 初始化 account 选择器
+                initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
+                initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
+                
+                // 设置 Profit 自动计算（只初始化一次）
+                if (!bankProfitCalculatorsInitialized) {
+                    const costInput = document.getElementById('bank_cost');
+                    const priceInput = document.getElementById('bank_price');
+                    const profitInput = document.getElementById('bank_profit');
+                    
+                    if (costInput && priceInput && profitInput) {
+                        function calculateProfit() {
+                            const cost = parseFloat(costInput.value) || 0;
+                            const price = parseFloat(priceInput.value) || 0;
+                            const profit = price - cost;
+                            profitInput.value = profit.toFixed(2);
+                        }
+                        
+                        costInput.addEventListener('input', calculateProfit);
+                        priceInput.addEventListener('input', calculateProfit);
+                        bankProfitCalculatorsInitialized = true;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading bank process data:', error);
+            }
+        }
+        
+        // Load accounts for Bank form
+        async function loadBankAccounts() {
+            try {
+                const currentCompanyId = <?php echo json_encode($company_id); ?>;
+                const url = buildApiUrl('accountlistapi.php');
+                if (currentCompanyId) {
+                    url.searchParams.set('company_id', currentCompanyId);
+                }
+                
+                const response = await fetch(url);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    window.bankAccounts = result.data;
+                }
+            } catch (error) {
+                console.error('Error loading accounts:', error);
+            }
+        }
+        
+        // Initialize Bank Account Select
+        function initBankAccountSelect(buttonId, dropdownId) {
+            const accountButton = document.getElementById(buttonId);
+            const accountDropdown = document.getElementById(dropdownId);
+            const searchInput = accountDropdown?.querySelector('.custom-select-search input');
+            const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
+            
+            if (!accountButton || !accountDropdown || !searchInput || !optionsContainer) return;
+            
+            let isOpen = false;
+            
+            // Load accounts into dropdown
+            function loadAccounts(filterText = '') {
+                optionsContainer.innerHTML = '';
+                const filterLower = filterText.toLowerCase().trim();
+                const accounts = window.bankAccounts || [];
+                
+                const filteredAccounts = accounts.filter(account => {
+                    const accountId = (account.account_id || '').toLowerCase();
+                    const name = (account.name || '').toLowerCase();
+                    return !filterLower || accountId.includes(filterLower) || name.includes(filterLower);
+                });
+                
+                if (filteredAccounts.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.className = 'custom-select-no-results';
+                    noResults.textContent = 'No accounts found';
+                    optionsContainer.appendChild(noResults);
+                } else {
+                    filteredAccounts.forEach(account => {
+                        const option = document.createElement('div');
+                        option.className = 'custom-select-option';
+                        option.setAttribute('data-value', account.id);
+                        option.textContent = account.account_id || account.name || '';
+                        option.addEventListener('click', () => {
+                            accountButton.textContent = account.account_id || account.name || '';
+                            accountButton.setAttribute('data-value', account.id);
+                            accountDropdown.style.display = 'none';
+                            isOpen = false;
+                        });
+                        optionsContainer.appendChild(option);
+                    });
+                }
+            }
+            
+            // Initial load
+            loadAccounts();
+            
+            // Search input handler
+            searchInput.addEventListener('input', (e) => {
+                loadAccounts(e.target.value);
+            });
+            
+            // Toggle dropdown
+            accountButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isOpen) {
+                    accountDropdown.style.display = 'none';
+                    isOpen = false;
+                } else {
+                    accountDropdown.style.display = 'block';
+                    isOpen = true;
+                    loadAccounts();
+                    searchInput.focus();
+                }
+            });
+            
+            // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (!accountButton.contains(e.target) && !accountDropdown.contains(e.target)) {
+                    accountDropdown.style.display = 'none';
+                    isOpen = false;
+                }
+            });
+        }
+        
+        // Placeholder functions for add modals
+        function showAddCountryModal() {
+            alert('Add Country functionality to be implemented');
+        }
+        
+        function showAddBankModal() {
+            alert('Add Bank functionality to be implemented');
+        }
+        
+        function showAddAccountModal() {
+            alert('Add Account functionality to be implemented');
+        }
+        
+        function showAddProfitSharingModal() {
+            alert('Add Profit Sharing functionality to be implemented');
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             // 统一管理需要大写的输入框
             const uppercaseInputs = [
