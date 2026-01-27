@@ -431,7 +431,7 @@ if ($current_user_id && count($user_companies) > 0) {
             </div>
             <div class="modal-body">
                 <!-- Gambling Add Process Form -->
-                <form id="addProcessForm" class="process-form add-grid gambling-add-form">
+                <form id="addProcessForm" class="process-form add-grid gambling-add-form" style="display: block;">
                     <!-- Left column -->
                     <div class="add-col">
                         <div class="form-row">
