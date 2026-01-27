@@ -880,13 +880,22 @@ if ($current_user_id && count($user_companies) > 0) {
             container.innerHTML = '';
 
             if (processes.length === 0) {
-                container.innerHTML = `
-                    <div class="process-card">
-                        <div class="card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">
-                            No process data found
-                        </div>
+                const emptyCard = document.createElement('div');
+                emptyCard.className = 'process-card';
+                // 根据类别设置正确的列数
+                if (selectedPermission === 'Bank') {
+                    emptyCard.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr 0.4fr 0.5fr 0.3fr';
+                } else {
+                    emptyCard.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr';
+                }
+                emptyCard.innerHTML = `
+                    <div class="card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">
+                        No process data found
                     </div>
                 `;
+                container.appendChild(emptyCard);
+                renderPagination();
+                updateSelectAllProcessesVisibility();
                 return;
             }
 
