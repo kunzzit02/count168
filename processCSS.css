@@ -816,47 +816,22 @@ body.process-page {
     padding: 1.25rem 1.5rem 1.25rem 1.5rem !important;
 }
 
-/* Gambling form specific styles - keep original size and format */
-.process-page #addModal .gambling-add-form.add-grid {
+.process-page #addModal .process-form.add-grid {
     grid-template-columns: 1fr 1fr !important;
 }
 
-.process-page #addModal .gambling-add-form.add-grid .add-col {
+.process-page #addModal .process-form.add-grid .add-col {
     padding: 0.75rem 0.9rem !important;
 }
 
-.process-page #addModal .gambling-add-form .form-group label {
+.process-page #addModal .process-form .form-group label {
     font-weight: 700 !important;
     font-size: 0.875rem !important;
 }
 
-.process-page #addModal .gambling-add-form .form-row {
+.process-page #addModal .process-form .form-row {
     gap: 0.75rem !important;
     margin-bottom: 0.25rem !important;
-}
-
-/* Bank form specific styles - separate from Gambling */
-.process-page #addModal .bank-add-form.add-grid {
-    grid-template-columns: 1fr 1fr !important;
-}
-
-.process-page #addModal .bank-add-form.add-grid .add-col {
-    padding: 0.75rem 0.9rem !important;
-}
-
-.process-page #addModal .bank-add-form .form-group label {
-    font-weight: 700 !important;
-    font-size: 0.875rem !important;
-}
-
-.process-page #addModal .bank-add-form .form-row {
-    gap: 0.75rem !important;
-    margin-bottom: 0.25rem !important;
-}
-
-/* Remove generic styles that might affect both forms - use specific selectors instead */
-.process-page #addModal .process-form.add-grid:not(.gambling-add-form):not(.bank-add-form) {
-    grid-template-columns: 1fr 1fr !important;
 }
 
 /* Day Use: one single row filled */
