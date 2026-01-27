@@ -227,6 +227,10 @@ if ($current_user_id && count($user_companies) > 0) {
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAll ? 'checked' : ''; ?>>
                             <label for="showAll">Show All</label>
                         </div>
+                        <div class="checkbox-section" id="waitingCheckboxSection" style="display: none;">
+                            <input type="checkbox" id="waiting" name="waiting">
+                            <label for="waiting">Waiting</label>
+                        </div>
                     </div>
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive processes can be deleted" disabled>Delete</button>
                 </div>
@@ -249,15 +253,32 @@ if ($current_user_id && count($user_companies) > 0) {
             </div>
             
             <!-- Table Header -->
-            <div class="table-header">
-                <div class="header-item">No</div>
-                <div class="header-item">Process ID</div>
-                <div class="header-item">Description</div>
-                <div class="header-item">Status</div>
-                <div class="header-item">Currency</div>
-                <div class="header-item">Day Use</div>
-                <div class="header-item">Action
+            <div class="table-header" id="tableHeader">
+                <!-- Gambling table headers (default) -->
+                <div class="header-item gambling-header">No</div>
+                <div class="header-item gambling-header">Process ID</div>
+                <div class="header-item gambling-header">Description</div>
+                <div class="header-item gambling-header">Status</div>
+                <div class="header-item gambling-header">Currency</div>
+                <div class="header-item gambling-header">Day Use</div>
+                <div class="header-item gambling-header">Action
                     <input type="checkbox" id="selectAllProcesses" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllProcesses()">
+                </div>
+                <!-- Bank table headers (hidden by default) -->
+                <div class="header-item bank-header" style="display: none;">No</div>
+                <div class="header-item bank-header" style="display: none;">Supplier</div>
+                <div class="header-item bank-header" style="display: none;">Country</div>
+                <div class="header-item bank-header" style="display: none;">Bank</div>
+                <div class="header-item bank-header" style="display: none;">Types</div>
+                <div class="header-item bank-header" style="display: none;">Card Lower</div>
+                <div class="header-item bank-header" style="display: none;">Contract</div>
+                <div class="header-item bank-header" style="display: none;">Insurance</div>
+                <div class="header-item bank-header" style="display: none;">Customer</div>
+                <div class="header-item bank-header" style="display: none;">Cost/Price/Profit</div>
+                <div class="header-item bank-header" style="display: none;">Statue</div>
+                <div class="header-item bank-header" style="display: none;">Date</div>
+                <div class="header-item bank-header" style="display: none;">Action
+                    <input type="checkbox" id="selectAllBankProcesses" title="Select all" style="margin-left: 10px; cursor: pointer; display: none;" onchange="toggleSelectAllBankProcesses()">
                 </div>
             </div>
             
@@ -605,6 +626,7 @@ if ($current_user_id && count($user_companies) > 0) {
         let processes = [];
         let showInactive = <?php echo isset($_GET['showInactive']) ? 'true' : 'false'; ?>;
         let showAll = <?php echo isset($_GET['showAll']) ? 'true' : 'false'; ?>;
+        let waiting = false;
         let currentPage = 1;
         const pageSize = 20;
 
@@ -646,6 +668,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (showAll) {
                     url.searchParams.set('showAll', '1');
                 }
+                if (waiting) {
+                    url.searchParams.set('waiting', '1');
+                }
                 
                 console.log('fetchProcesses ->', url.toString());
                 const response = await fetch(url);
@@ -659,18 +684,30 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 if (result.success) {
                     processes = result.data;
-                    // Alphabetical order by process_name then description
-                    processes.sort((a, b) => {
-                        const aKey = String(a.process_name || '').toLowerCase();
-                        const bKey = String(b.process_name || '').toLowerCase();
-                        if (aKey < bKey) return -1;
-                        if (aKey > bKey) return 1;
-                        const aDesc = String(a.description || a.description_name || '').toLowerCase();
-                        const bDesc = String(b.description || b.description_name || '').toLowerCase();
-                        if (aDesc < bDesc) return -1;
-                        if (aDesc > bDesc) return 1;
-                        return 0;
-                    });
+                    // 根据类别进行不同的排序
+                    if (selectedPermission === 'Bank') {
+                        // Bank 类别的排序逻辑（可以根据需要调整）
+                        processes.sort((a, b) => {
+                            const aKey = String(a.supplier || '').toLowerCase();
+                            const bKey = String(b.supplier || '').toLowerCase();
+                            if (aKey < bKey) return -1;
+                            if (aKey > bKey) return 1;
+                            return 0;
+                        });
+                    } else {
+                        // Gambling 类别的排序逻辑（原有逻辑）
+                        processes.sort((a, b) => {
+                            const aKey = String(a.process_name || '').toLowerCase();
+                            const bKey = String(b.process_name || '').toLowerCase();
+                            if (aKey < bKey) return -1;
+                            if (aKey > bKey) return 1;
+                            const aDesc = String(a.description || a.description_name || '').toLowerCase();
+                            const bDesc = String(b.description || b.description_name || '').toLowerCase();
+                            if (aDesc < bDesc) return -1;
+                            if (aDesc > bDesc) return 1;
+                            return 0;
+                        });
+                    }
                     const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
                     if (currentPage > totalPages) currentPage = totalPages;
                     renderTable();
@@ -719,33 +756,76 @@ if ($current_user_id && count($user_companies) > 0) {
                 pageItems = processes.slice(startIndex, endIndex);
             }
 
-            pageItems.forEach((process, idx) => {
-                const card = document.createElement('div');
-                card.className = 'process-card';
-                card.setAttribute('data-id', process.id);
-                
-                const statusClass = process.status === 'active' ? 'status-active' : 'status-inactive';
-                
-                card.innerHTML = `
-                    <div class="card-item">${startIndex + idx + 1}</div>
-                    <div class="card-item">${escapeHtml((process.process_name || '').toUpperCase())}</div>
-                    <div class="card-item">${escapeHtml((process.description || '').toUpperCase())}</div>
-                    <div class="card-item">
-                        <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
-                            ${escapeHtml((process.status || '').toUpperCase())}
-                        </span>
-                    </div>
-                    <div class="card-item">${escapeHtml(process.currency || '')}</div>
-                    <div class="card-item">${escapeHtml(process.day_use || process.day_name || '')}</div>
-                    <div class="card-item">
-                        <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
-                            <img src="images/edit.svg" alt="Edit" />
-                        </button>
-                        ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
-                    </div>
-                `;
-                container.appendChild(card);
-            });
+            // 根据类别渲染不同的表格
+            if (selectedPermission === 'Bank') {
+                // Bank 类别的表格
+                pageItems.forEach((process, idx) => {
+                    const card = document.createElement('div');
+                    card.className = 'process-card';
+                    card.setAttribute('data-id', process.id);
+                    // 设置 Bank 表格的列数（13列）
+                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr 0.4fr 0.5fr 0.3fr';
+                    
+                    const statusClass = process.status === 'active' ? 'status-active' : 'status-inactive';
+                    
+                    card.innerHTML = `
+                        <div class="card-item">${startIndex + idx + 1}</div>
+                        <div class="card-item">${escapeHtml(process.supplier || '')}</div>
+                        <div class="card-item">${escapeHtml(process.country || '')}</div>
+                        <div class="card-item">${escapeHtml(process.bank || '')}</div>
+                        <div class="card-item">${escapeHtml(process.types || '')}</div>
+                        <div class="card-item">${escapeHtml(process.card_lower || '')}</div>
+                        <div class="card-item">${escapeHtml(process.contract || '')}</div>
+                        <div class="card-item">${escapeHtml(process.insurance || '')}</div>
+                        <div class="card-item">${escapeHtml(process.customer || '')}</div>
+                        <div class="card-item">${escapeHtml(process.cost_price_profit || '')}</div>
+                        <div class="card-item">
+                            <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
+                                ${escapeHtml((process.statue || process.status || '').toUpperCase())}
+                            </span>
+                        </div>
+                        <div class="card-item">${escapeHtml(process.date || '')}</div>
+                        <div class="card-item">
+                            <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
+                                <img src="images/edit.svg" alt="Edit" />
+                            </button>
+                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } else {
+                // Gambling 类别的表格（原有逻辑）
+                pageItems.forEach((process, idx) => {
+                    const card = document.createElement('div');
+                    card.className = 'process-card';
+                    card.setAttribute('data-id', process.id);
+                    // 恢复 Gambling 表格的列数（7列）
+                    card.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr';
+                    
+                    const statusClass = process.status === 'active' ? 'status-active' : 'status-inactive';
+                    
+                    card.innerHTML = `
+                        <div class="card-item">${startIndex + idx + 1}</div>
+                        <div class="card-item">${escapeHtml((process.process_name || '').toUpperCase())}</div>
+                        <div class="card-item">${escapeHtml((process.description || '').toUpperCase())}</div>
+                        <div class="card-item">
+                            <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
+                                ${escapeHtml((process.status || '').toUpperCase())}
+                            </span>
+                        </div>
+                        <div class="card-item">${escapeHtml(process.currency || '')}</div>
+                        <div class="card-item">${escapeHtml(process.day_use || process.day_name || '')}</div>
+                        <div class="card-item">
+                            <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
+                                <img src="images/edit.svg" alt="Edit" />
+                            </button>
+                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
             renderPagination();
             updateSelectAllProcessesVisibility();
         }
@@ -1091,6 +1171,23 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // 全选/取消全选所有流程
+        function toggleSelectAllBankProcesses() {
+            const selectAllCheckbox = document.getElementById('selectAllBankProcesses');
+            if (!selectAllCheckbox) {
+                console.error('selectAllBankProcesses checkbox not found');
+                return;
+            }
+            
+            const allCheckboxes = Array.from(document.querySelectorAll('.bank-checkbox')).filter(cb => !cb.disabled);
+            console.log('Found bank checkboxes:', allCheckboxes.length, 'Select all checked:', selectAllCheckbox.checked);
+            
+            allCheckboxes.forEach(checkbox => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+            
+            updateDeleteButton();
+        }
+        
         function toggleSelectAllProcesses() {
             const selectAllCheckbox = document.getElementById('selectAllProcesses');
             if (!selectAllCheckbox) {
@@ -1098,8 +1195,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 return;
             }
             
-            // 选择所有 checkbox，然后过滤掉 disabled 的
-            const allCheckboxes = Array.from(document.querySelectorAll('.row-checkbox')).filter(cb => !cb.disabled);
+            // 根据类别选择不同的复选框
+            let allCheckboxes;
+            if (selectedPermission === 'Bank') {
+                allCheckboxes = Array.from(document.querySelectorAll('.bank-checkbox')).filter(cb => !cb.disabled);
+            } else {
+                allCheckboxes = Array.from(document.querySelectorAll('.row-checkbox:not(.bank-checkbox)')).filter(cb => !cb.disabled);
+            }
+            
             console.log('Found checkboxes:', allCheckboxes.length, 'Select all checked:', selectAllCheckbox.checked);
             
             allCheckboxes.forEach(checkbox => {
@@ -1111,22 +1214,44 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // 根据当前页面是否有可删除项，显示/隐藏全选框
         function updateSelectAllProcessesVisibility() {
-            const selectAllCheckbox = document.getElementById('selectAllProcesses');
-            if (!selectAllCheckbox) return;
-            
-            const anyRowCheckbox = document.querySelectorAll('.row-checkbox').length > 0;
-            selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
-            if (!anyRowCheckbox) {
-                selectAllCheckbox.checked = false;
+            if (selectedPermission === 'Bank') {
+                const selectAllBankCheckbox = document.getElementById('selectAllBankProcesses');
+                if (!selectAllBankCheckbox) return;
+                
+                const anyBankCheckbox = document.querySelectorAll('.bank-checkbox').length > 0;
+                selectAllBankCheckbox.style.display = anyBankCheckbox ? 'inline-block' : 'none';
+                if (!anyBankCheckbox) {
+                    selectAllBankCheckbox.checked = false;
+                }
+            } else {
+                const selectAllCheckbox = document.getElementById('selectAllProcesses');
+                if (!selectAllCheckbox) return;
+                
+                const anyRowCheckbox = document.querySelectorAll('.row-checkbox:not(.bank-checkbox)').length > 0;
+                selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
+                if (!anyRowCheckbox) {
+                    selectAllCheckbox.checked = false;
+                }
             }
         }
 
         function updateDeleteButton() {
-            const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked');
+            // 根据类别选择不同的复选框
+            let selectedCheckboxes;
+            let allCheckboxes;
+            let selectAllCheckbox;
+            
+            if (selectedPermission === 'Bank') {
+                selectedCheckboxes = document.querySelectorAll('.bank-checkbox:checked');
+                allCheckboxes = Array.from(document.querySelectorAll('.bank-checkbox')).filter(cb => !cb.disabled);
+                selectAllCheckbox = document.getElementById('selectAllBankProcesses');
+            } else {
+                selectedCheckboxes = document.querySelectorAll('.row-checkbox:not(.bank-checkbox):checked');
+                allCheckboxes = Array.from(document.querySelectorAll('.row-checkbox:not(.bank-checkbox)')).filter(cb => !cb.disabled);
+                selectAllCheckbox = document.getElementById('selectAllProcesses');
+            }
+            
             const deleteBtn = document.getElementById('processDeleteSelectedBtn');
-            const selectAllCheckbox = document.getElementById('selectAllProcesses');
-            // 选择所有 checkbox，然后过滤掉 disabled 的
-            const allCheckboxes = Array.from(document.querySelectorAll('.row-checkbox')).filter(cb => !cb.disabled);
             
             // 更新全选 checkbox 状态
             if (selectAllCheckbox && allCheckboxes.length > 0) {
@@ -1969,6 +2094,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 fetchProcesses();
             });
         }
+        
+        // Real-time filter when Waiting checkbox changes (only for Bank category)
+        const waitingCheckbox = document.getElementById('waiting');
+        if (waitingCheckbox) {
+            waitingCheckbox.addEventListener('change', function() {
+                waiting = this.checked;
+                currentPage = 1;
+                fetchProcesses();
+            });
+        }
 
         // 处理添加表单提交
         const addProcessForm = document.getElementById('addProcessForm');
@@ -2528,6 +2663,53 @@ if ($current_user_id && count($user_companies) > 0) {
                     btn.classList.remove('active');
                 }
             });
+            
+            // 根据类别显示/隐藏 waiting 复选框和更新表格头部
+            const waitingSection = document.getElementById('waitingCheckboxSection');
+            const gamblingHeaders = document.querySelectorAll('.gambling-header');
+            const bankHeaders = document.querySelectorAll('.bank-header');
+            const selectAllGambling = document.getElementById('selectAllProcesses');
+            const selectAllBank = document.getElementById('selectAllBankProcesses');
+            const tableHeader = document.getElementById('tableHeader');
+            const processCards = document.querySelectorAll('.process-card');
+            
+            if (permission === 'Bank') {
+                // 显示 waiting 复选框
+                if (waitingSection) {
+                    waitingSection.style.display = 'flex';
+                }
+                // 显示 Bank 表格头部，隐藏 Gambling 表格头部
+                gamblingHeaders.forEach(header => header.style.display = 'none');
+                bankHeaders.forEach(header => header.style.display = 'flex');
+                if (selectAllGambling) selectAllGambling.style.display = 'none';
+                if (selectAllBank) selectAllBank.style.display = 'inline-block';
+                
+                // 设置 Bank 表格的列数（13列）
+                if (tableHeader) {
+                    tableHeader.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr 0.4fr 0.5fr 0.3fr';
+                }
+                processCards.forEach(card => {
+                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr 0.4fr 0.5fr 0.3fr';
+                });
+            } else {
+                // 隐藏 waiting 复选框
+                if (waitingSection) {
+                    waitingSection.style.display = 'none';
+                }
+                // 显示 Gambling 表格头部，隐藏 Bank 表格头部
+                gamblingHeaders.forEach(header => header.style.display = 'flex');
+                bankHeaders.forEach(header => header.style.display = 'none');
+                if (selectAllGambling) selectAllGambling.style.display = 'inline-block';
+                if (selectAllBank) selectAllBank.style.display = 'none';
+                
+                // 恢复 Gambling 表格的列数（7列）
+                if (tableHeader) {
+                    tableHeader.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1fr 0.3fr';
+                }
+                processCards.forEach(card => {
+                    card.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr';
+                });
+            }
             
             // 重新加载数据
             currentPage = 1;
