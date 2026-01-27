@@ -1154,6 +1154,24 @@ body.process-page {
     background: #218838;
 }
 
+.process-page .form-section {
+    margin-bottom: 20px;
+}
+
+.process-page .form-section h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.process-page .input-with-icon select {
+    flex: 1;
+    padding-right: 2.5rem;
+}
+
 .process-page .field-help {
     display: block;
     font-size: 0.75rem;
