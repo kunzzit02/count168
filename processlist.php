@@ -227,6 +227,10 @@ if ($current_user_id && count($user_companies) > 0) {
                             <input type="checkbox" id="showAll" name="showAll" <?php echo $showAll ? 'checked' : ''; ?>>
                             <label for="showAll">Show All</label>
                         </div>
+                        <div class="checkbox-section" id="waitingCheckboxSection" style="display: none;">
+                            <input type="checkbox" id="waiting" name="waiting">
+                            <label for="waiting">Waiting</label>
+                        </div>
                     </div>
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive processes can be deleted" disabled>Delete</button>
                 </div>
@@ -2503,9 +2507,31 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else {
                     document.getElementById('process-list-permission-filter').style.display = 'none';
                 }
+                
+                // 确保 waiting 复选框的显示状态正确
+                toggleWaitingCheckbox();
             } catch (error) {
                 console.error('Error loading permissions:', error);
                 document.getElementById('process-list-permission-filter').style.display = 'none';
+                // 即使出错也要确保 waiting 复选框隐藏
+                toggleWaitingCheckbox();
+            }
+        }
+        
+        // 控制 waiting 复选框的显示/隐藏
+        function toggleWaitingCheckbox() {
+            const waitingSection = document.getElementById('waitingCheckboxSection');
+            if (waitingSection) {
+                if (selectedPermission === 'Bank') {
+                    waitingSection.style.display = 'block';
+                } else {
+                    waitingSection.style.display = 'none';
+                    // 当隐藏时，取消选中状态
+                    const waitingCheckbox = document.getElementById('waiting');
+                    if (waitingCheckbox) {
+                        waitingCheckbox.checked = false;
+                    }
+                }
             }
         }
         
@@ -2528,6 +2554,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     btn.classList.remove('active');
                 }
             });
+            
+            // 控制 waiting 复选框的显示/隐藏
+            toggleWaitingCheckbox();
             
             // 重新加载数据
             currentPage = 1;
