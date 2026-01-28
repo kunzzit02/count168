@@ -228,21 +228,17 @@ if ($current_user_id && count($user_companies) > 0) {
                         <select id="dataCaptureTypeSelector" class="data-capture-type-selector">
                             <option value="1.GENERAL">1.GENERAL</option>
                             <option value="655">2.655</option>
-                            <!-- <option value="2.SPECIAL">2.SPECIAL</option>
-                            <option value="3.API">3.API</option> -->
+                            <!-- <option value="3.API">3.API</option> -->
                             <option value="4.RETURN">3.RETURN</option>
                             <!-- <option value="GENERAL">GENERAL</option> -->
-                            <!-- <option value="CITIBET">CITIBET</option> -->
                             <!-- <option value="CITIBET_MAJOR">CITIBET</option> -->
                             <!-- <option value="VPOWER">VPOWER</option> -->
-                            <!-- <option value="AGENT_LINK">PS3838</option> -->
-                            <!-- <option value="API_RETURN">API-RETURN</option>
-                            <option value="WBET">WBET</option>
-                            <option value="ALIPAY">ALIPAY</option>
-                            <option value="PEGASUS">PEGASUS</option>
-                            <option value="C8PLAY">C8PLAY</option>
-                            <option value="MAXBET">MAXBET</option> -->
-                            <!-- <option value="AWC">AWC</option> -->
+                            <!-- <option value="API_RETURN">API-RETURN</option> -->
+                            <!-- <option value="WBET">WBET</option> -->
+                            <!-- <option value="ALIPAY">ALIPAY</option> -->
+                            <!-- <option value="PEGASUS">PEGASUS</option> -->
+                            <!-- <option value="C8PLAY">C8PLAY</option> -->
+                            <!-- <option value="MAXBET">MAXBET</option> -->
                             <!-- <option value="WBET_API">WBET_API</option> -->
                             <!-- <option value="INVOICE">INVOICE</option> -->
                         </select>
@@ -4387,6 +4383,11 @@ if ($current_user_id && count($user_companies) > 0) {
         // 655模式专用解析：支持识别表头行并填充到tableHeader，完整保留表格结构和样式
         function parseAndFillHTMLTableForGeneral655(htmlString) {
             try {
+                // 在解析前先检查原始HTML是否包含<br>标签
+                // Check if original HTML contains <br> tags before parsing
+                const hasBrInOriginal = /<br\s+[^>]*>/i.test(htmlString) || /<br\s*\/?>/i.test(htmlString);
+                console.log(`655: Parsing HTML table with header support... hasBrInOriginal=${hasBrInOriginal}`);
+                
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = htmlString;
                 
@@ -4394,8 +4395,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!table) {
                     return false;
                 }
-                
-                console.log('655: Parsing HTML table with header support...');
                 
                 // 获取所有行（包括表头）
                 const allRows = table.querySelectorAll('tr');
@@ -4441,7 +4440,44 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 const currentRows = tableBody.children.length;
                 const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                const requiredRows = dataRows.length;
+                
+                // 655模式：预先检测需要拆分的行，计算实际需要的行数
+                // 655 mode: Pre-detect rows that need splitting, calculate actual required rows
+                let actualRequiredRows = dataRows.length;
+                dataRows.forEach((sourceRow) => {
+                    const sourceCells = sourceRow.querySelectorAll('td, th');
+                    let needsSplit = false;
+                    sourceCells.forEach((sourceCell) => {
+                        let cellHtml = sourceCell.innerHTML || '';
+                        let cellText = (sourceCell.textContent || sourceCell.innerText || '').trim();
+                        let hasBrTag = /<br\s*\/?>/i.test(cellHtml);
+                        let hasNewline = cellText.includes('\n') || cellText.includes('\r\n') || cellText.includes('\r');
+                        if (hasBrTag || hasNewline) {
+                            let lines = [];
+                            if (hasBrTag) {
+                                let htmlWithMarker = cellHtml.replace(/<br\s*\/?>/gi, '|||SPLIT_MARKER|||');
+                                let tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = htmlWithMarker;
+                                let textWithMarker = tempDiv.textContent || tempDiv.innerText || '';
+                                lines = textWithMarker.split('|||SPLIT_MARKER|||').map(e => {
+                                    let cleanDiv = document.createElement('div');
+                                    cleanDiv.innerHTML = e;
+                                    return (cleanDiv.textContent || cleanDiv.innerText || '').trim();
+                                }).filter(e => e !== '');
+                            } else if (hasNewline) {
+                                lines = cellText.split(/\r?\n|\r/).map(e => e.trim()).filter(e => e !== '');
+                            }
+                            if (lines.length >= 2) {
+                                needsSplit = true;
+                            }
+                        }
+                    });
+                    if (needsSplit) {
+                        actualRequiredRows++; // 需要拆分的行会占用两行
+                    }
+                });
+                
+                const requiredRows = actualRequiredRows;
                 const requiredCols = Math.max(maxCols, currentCols);
                 
                 if (requiredRows > currentRows || requiredCols > currentCols) {
@@ -4562,16 +4598,347 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 处理数据行：填充到tableBody
-                dataRows.forEach((sourceRow, rowIndex) => {
-                    const tableRow = tableBody.children[rowIndex];
-                    if (!tableRow) return;
+                // 使用实际行索引（考虑拆分后的行）
+                // Use actual row index (considering split rows)
+                let actualRowIndex = 0;
+                console.log(`655: Starting to process ${dataRows.length} data rows`);
+                dataRows.forEach((sourceRow, sourceRowIndex) => {
+                    let tableRow = tableBody.children[actualRowIndex];
+                    if (!tableRow) {
+                        console.warn(`655: tableRow not found at actualRowIndex ${actualRowIndex}`);
+                        return;
+                    }
+                    
+                    console.log(`655: Processing source row ${sourceRowIndex}, actual row ${actualRowIndex}`);
                     
                     // 保留行的样式（包括背景色等）
                     const sourceRowStyle = sourceRow.getAttribute('style');
                     const sourceRowComputedStyle = window.getComputedStyle(sourceRow);
                     
+                    const sourceCells = sourceRow.querySelectorAll('td, th');
+                    console.log(`655: Source row ${sourceRowIndex} has ${sourceCells.length} cells`);
+                    
+                    // 655模式：检测任何单元格中有上下两个数据的情况
+                    // 支持：1)<br>标签 2)换行符 3)无br时文本连在一起（如 "Sub TotalGrand Total"、"191191"）
+                    // 655 mode: Detect any cell with top and bottom data (br, newline, or concatenated text)
+                    let hasVerticalSplit = false;
+                    let cellsWithSplit = [];
+                    
+                    // 先检查整个行的HTML，看是否有<br>标签
+                    // First check the entire row HTML to see if there are <br> tags
+                    let rowHtml = sourceRow.innerHTML || '';
+                    let rowHasBr = /<br\s+[^>]*>/i.test(rowHtml) || /<br\s*\/?>/i.test(rowHtml);
+                    console.log(`655: Row ${sourceRowIndex}: rowHasBr=${rowHasBr}, checking individual cells...`);
+                    
+                    sourceCells.forEach((sourceCell, cellIndex) => {
+                        let cellHtml = sourceCell.innerHTML || '';
+                        let cellText = (sourceCell.textContent || sourceCell.innerText || '').trim();
+                        
+                        // 更严格的<br>检测：检查各种可能的<br>写法（包括带属性的）
+                        // More strict <br> detection: check various <br> formats (including with attributes)
+                        let hasBrTag = /<br\s*\/?>/i.test(cellHtml) || 
+                                       /<br\s+[^>]*>/i.test(cellHtml) ||
+                                       /<br\s+style[^>]*>/i.test(cellHtml);
+                        
+                        let hasNewline = cellText.includes('\n') || cellText.includes('\r\n') || cellText.includes('\r');
+                        
+                        // 调试日志：显示前几个单元格的检测结果
+                        if (cellIndex < 5) {
+                            console.log(`655: Row ${sourceRowIndex}, Cell ${cellIndex}: hasBrTag=${hasBrTag}, hasNewline=${hasNewline}, htmlLength=${cellHtml.length}, text="${cellText.substring(0, 60)}"`);
+                        }
+                        
+                        let lines = [];
+                        
+                        if (hasBrTag) {
+                            // 使用<br>标签拆分（优先处理）
+                            // 将各种<br>标签（包括带属性的）替换为特殊标记，然后拆分
+                            // Replace various <br> tags (including with attributes) with special marker, then split
+                            let htmlWithMarker = cellHtml.replace(/<br\s+[^>]*>/gi, '|||SPLIT_MARKER|||')
+                                                          .replace(/<br\s*\/?>/gi, '|||SPLIT_MARKER|||');
+                            let tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = htmlWithMarker;
+                            let textWithMarker = tempDiv.textContent || tempDiv.innerText || '';
+                            lines = textWithMarker.split('|||SPLIT_MARKER|||').map(e => {
+                                let cleanDiv = document.createElement('div');
+                                cleanDiv.innerHTML = e;
+                                return (cleanDiv.textContent || cleanDiv.innerText || '').trim();
+                            }).filter(e => e !== '');
+                            
+                            if (cellIndex < 5 || lines.length >= 2) {
+                                console.log(`655: Row ${sourceRowIndex}, Cell ${cellIndex}: Split by <br> tag, found ${lines.length} lines:`, lines);
+                            }
+                        } else if (hasNewline) {
+                            lines = cellText.split(/\r?\n|\r/).map(e => e.trim()).filter(e => e !== '');
+                            if (cellIndex < 5) {
+                                console.log(`655: Row ${sourceRowIndex}, Cell ${cellIndex}: Split by newline, found ${lines.length} lines:`, lines);
+                            }
+                        } else {
+                            // 无<br>无换行：按文本内容推断是否"两段连在一起"（如 Sub TotalGrand Total、191191）
+                            // Sub Total + Grand Total 连在一起：在 "Grand Total" 前拆分
+                            let upper = cellText;
+                            let lower = '';
+                            const grandIdx = cellText.search(/\bGrand\s*Total\b/i);
+                            if (grandIdx > 0) {
+                                upper = cellText.substring(0, grandIdx).trim();
+                                lower = cellText.substring(grandIdx).trim();
+                                if (upper !== '' && lower !== '') {
+                                    lines = [upper, lower];
+                                }
+                            }
+                            // 若未拆出两段，再尝试：完全重复的两段（如 191191）
+                            if (lines.length < 2 && cellText.length >= 2) {
+                                const half = Math.floor(cellText.length / 2);
+                                const first = cellText.substring(0, half).trim();
+                                const second = cellText.substring(half).trim();
+                                if (first !== '' && second !== '' && first === second) {
+                                    lines = [first, second];
+                                }
+                            }
+                        }
+                        
+                        if (lines.length >= 2) {
+                            hasVerticalSplit = true;
+                            cellsWithSplit.push({
+                                index: cellIndex,
+                                cell: sourceCell,
+                                topData: lines[0],
+                                bottomData: lines[1],
+                                allLines: lines
+                            });
+                            if (cellIndex < 5) {
+                                console.log(`655: Row ${sourceRowIndex}, Cell ${cellIndex}: Added to cellsWithSplit - top="${lines[0]}", bottom="${lines[1]}"`);
+                            }
+                        }
+                    });
+                    
+                    // 若本行已因 Sub Total/Grand Total 或重复段被标记为需拆分，对尚未拆分的单元格按“长度一半”拆（如 53,627.0053,627.00）
+                    if (hasVerticalSplit && cellsWithSplit.length > 0) {
+                        sourceCells.forEach((sourceCell, cellIndex) => {
+                            if (cellsWithSplit.some(s => s.index === cellIndex)) return;
+                            let cellText = (sourceCell.textContent || sourceCell.innerText || '').trim();
+                            if (cellText.length < 4) return;
+                            const half = Math.floor(cellText.length / 2);
+                            const first = cellText.substring(0, half).trim();
+                            const second = cellText.substring(half).trim();
+                            if (first !== '' && second !== '') {
+                                cellsWithSplit.push({
+                                    index: cellIndex,
+                                    cell: sourceCell,
+                                    topData: first,
+                                    bottomData: second,
+                                    allLines: [first, second]
+                                });
+                            }
+                        });
+                    }
+                    
+                    console.log(`655: Row ${sourceRowIndex}: Final check - hasVerticalSplit=${hasVerticalSplit}, cellsWithSplit.length=${cellsWithSplit.length}`);
+                    
+                    // 如果检测到任何单元格有上下两个数据，进行拆分处理
+                    // If any cell with top and bottom data detected, perform split processing
+                    if (hasVerticalSplit && cellsWithSplit.length > 0) {
+                        console.log(`655: ✓ Detected ${cellsWithSplit.length} cell(s) with vertically stacked data in source row ${sourceRowIndex} (actual row ${actualRowIndex}), splitting into two rows`);
+                        console.log(`655: cellsWithSplit details:`, cellsWithSplit.map(s => ({index: s.index, top: s.topData, bottom: s.bottomData})));
+                        
+                        // 确保有足够的行（需要两行：第一行和第二行）
+                        // Ensure enough rows (need two rows: first row and second row)
+                        let nextRowIndex = actualRowIndex + 1;
+                        if (nextRowIndex >= tableBody.children.length) {
+                            const currentRowsCount = tableBody.children.length;
+                            console.log(`655: Expanding table from ${currentRowsCount} rows to ${nextRowIndex + 1} rows`);
+                            initializeTable(Math.max(currentRowsCount, nextRowIndex + 1), actualCols);
+                            // 重新获取tableBody和tableRow
+                            const updatedTableBody = document.getElementById('tableBody');
+                            if (!updatedTableBody) {
+                                console.error('655: Failed to get updated tableBody after expansion');
+                                return;
+                            }
+                            tableBody = updatedTableBody;
+                            tableRow = tableBody.children[actualRowIndex];
+                            if (!tableRow) {
+                                console.error(`655: Failed to get tableRow at index ${actualRowIndex} after expansion`);
+                                return;
+                            }
+                            // 重新获取actualCols（可能已改变）
+                            actualCols = document.querySelectorAll('#tableHeader th').length - 1;
+                        }
+                        
+                        const nextTableRow = tableBody.children[nextRowIndex];
+                        if (!nextTableRow) {
+                            console.error(`655: Failed to get nextTableRow at index ${nextRowIndex}`);
+                            return;
+                        }
+                        
+                        // 655模式：数据行不保留背景色，只保留其他样式（如有）
+                        if (sourceRowStyle) {
+                            const sanitizedRowStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceRowStyle));
+                            if (sanitizedRowStyle) {
+                                tableRow.setAttribute('style', sanitizedRowStyle);
+                                tableRow.style.cssText = sanitizedRowStyle;
+                                nextTableRow.setAttribute('style', sanitizedRowStyle);
+                                nextTableRow.style.cssText = sanitizedRowStyle;
+                            }
+                        }
+                        // 不再从 computed 复制行背景色
+                        
+                        // 处理每个单元格，拆分上下数据
+                        // Process each cell, split top and bottom data
+                        let currentCol = 0;
+                        sourceCells.forEach((sourceCell, cellIndex) => {
+                            const colspan = parseInt(sourceCell.getAttribute('colspan') || '1', 10);
+                            
+                            // 检测单元格中的上下数据
+                            // Detect top and bottom data in cell
+                            let topData = '';
+                            let bottomData = '';
+                            
+                            // 查找这个单元格是否在cellsWithSplit中
+                            // Find if this cell is in cellsWithSplit
+                            const splitInfo = cellsWithSplit.find(s => s.index === cellIndex);
+                            
+                            if (splitInfo) {
+                                // 这个单元格有上下两个数据，使用已提取的数据
+                                // This cell has top and bottom data, use extracted data
+                                topData = splitInfo.topData;
+                                bottomData = splitInfo.bottomData;
+                            } else {
+                                // 这个单元格没有上下拆分，需要提取纯文本（不包含HTML标签）
+                                // This cell has no vertical split, extract plain text (without HTML tags)
+                                let cellHtml = sourceCell.innerHTML || '';
+                                let tempDiv = document.createElement('div');
+                                tempDiv.innerHTML = cellHtml;
+                                let plainText = (tempDiv.textContent || tempDiv.innerText || '').trim();
+                                // 上下数据相同（复制到两行）
+                                // Top and bottom data are the same (copy to both rows)
+                                topData = plainText;
+                                bottomData = plainText;
+                            }
+                            
+                            // 获取源单元格样式（用于保留颜色）
+                            // Get source cell styles (to preserve colors)
+                            const sourceCellStyle = sourceCell.getAttribute('style');
+                            const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
+                            
+                            // 填充第一行（当前行）- 使用上面的数据
+                            // Fill first row (current row) - use top data
+                            if (currentCol < actualCols) {
+                                const targetCell = tableRow.children[currentCol + 1];
+                                if (targetCell && targetCell.contentEditable === 'true') {
+                                    const oldValue = targetCell.textContent || targetCell.innerHTML || '';
+                                    targetCell.textContent = topData;
+                                    
+                                    // 655模式：数据格不保留背景色，只保留边框及其他样式
+                                    if (sourceCellStyle) {
+                                        const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                        let mergedStyle = sanitizedCellStyle && !sanitizedCellStyle.includes('border') ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}` : (sanitizedCellStyle || 'border: 1px solid #d0d7de !important;');
+                                        targetCell.setAttribute('style', mergedStyle);
+                                        targetCell.style.cssText = mergedStyle;
+                                    } else if (sourceCellComputedStyle) {
+                                        const color = sourceCellComputedStyle.color;
+                                        const fontWeight = sourceCellComputedStyle.fontWeight;
+                                        const textAlign = sourceCellComputedStyle.textAlign;
+                                        let styleString = 'border: 1px solid #d0d7de !important;';
+                                        if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
+                                        if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
+                                        if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                        targetCell.setAttribute('style', styleString);
+                                        targetCell.style.cssText = styleString;
+                                    } else {
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                        targetCell.style.padding = '4px 8px';
+                                    }
+                                    if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                    }
+                                    currentPasteChanges.push({
+                                        row: actualRowIndex,
+                                        col: currentCol,
+                                        oldValue: oldValue,
+                                        newValue: topData
+                                    });
+                                    
+                                    if (topData && topData.trim() !== '') {
+                                        successCount++;
+                                    }
+                                }
+                            }
+                            
+                            // 填充第二行（下一行）- 使用下面的数据
+                            // Fill second row (next row) - use bottom data
+                            if (currentCol < actualCols) {
+                                const targetCell = nextTableRow.children[currentCol + 1];
+                                if (targetCell && targetCell.contentEditable === 'true') {
+                                    const oldValue = targetCell.textContent || targetCell.innerHTML || '';
+                                    targetCell.textContent = bottomData;
+                                    
+                                    // 655模式：数据格不保留背景色
+                                    if (sourceCellStyle) {
+                                        const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                        let mergedStyle = sanitizedCellStyle && !sanitizedCellStyle.includes('border') ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}` : (sanitizedCellStyle || 'border: 1px solid #d0d7de !important;');
+                                        targetCell.setAttribute('style', mergedStyle);
+                                        targetCell.style.cssText = mergedStyle;
+                                    } else if (sourceCellComputedStyle) {
+                                        const color = sourceCellComputedStyle.color;
+                                        const fontWeight = sourceCellComputedStyle.fontWeight;
+                                        const textAlign = sourceCellComputedStyle.textAlign;
+                                        let styleString = 'border: 1px solid #d0d7de !important;';
+                                        if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
+                                        if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
+                                        if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                        targetCell.setAttribute('style', styleString);
+                                        targetCell.style.cssText = styleString;
+                                    } else {
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                        targetCell.style.padding = '4px 8px';
+                                    }
+                                    if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                    }
+                                    currentPasteChanges.push({
+                                        row: nextRowIndex,
+                                        col: currentCol,
+                                        oldValue: oldValue,
+                                        newValue: bottomData
+                                    });
+                                    
+                                    if (bottomData && bottomData.trim() !== '') {
+                                        successCount++;
+                                    }
+                                }
+                            }
+                            
+                            // 处理colspan的后续列
+                            // Process colspan subsequent columns
+                            for (let i = 1; i < colspan; i++) {
+                                currentCol++;
+                                if (currentCol < actualCols) {
+                                    // 第一行
+                                    const targetCell1 = tableRow.children[currentCol + 1];
+                                    if (targetCell1 && targetCell1.contentEditable === 'true') {
+                                        targetCell1.textContent = '';
+                                    }
+                                    // 第二行
+                                    const targetCell2 = nextTableRow.children[currentCol + 1];
+                                    if (targetCell2 && targetCell2.contentEditable === 'true') {
+                                        targetCell2.textContent = '';
+                                    }
+                                }
+                            }
+                            
+                            currentCol++;
+                        });
+                        
+                        // 跳过后续的正常处理，因为已经特殊处理了
+                        // Skip subsequent normal processing, as already specially processed
+                        // 更新实际行索引：因为这一行被拆分为两行，所以下一行的索引要+2
+                        // Update actual row index: since this row is split into two rows, next row index should be +2
+                        actualRowIndex += 2;
+                        return;
+                    }
+                    
+                    // 655模式：数据行不保留背景色
                     if (sourceRowStyle) {
-                        const sanitizedRowStyle = sanitizeCopiedStyleString(sourceRowStyle);
+                        const sanitizedRowStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceRowStyle));
                         if (sanitizedRowStyle) {
                             tableRow.setAttribute('style', sanitizedRowStyle);
                             tableRow.style.cssText = sanitizedRowStyle;
@@ -4579,18 +4946,9 @@ if ($current_user_id && count($user_companies) > 0) {
                             tableRow.removeAttribute('style');
                             tableRow.style.cssText = '';
                         }
-                    } else {
-                        // 即使没有style属性，也尝试从computed style获取背景色
-                        const bgColor = sourceRowComputedStyle.backgroundColor;
-                        if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
-                            tableRow.setAttribute('style', `background-color: ${bgColor} !important;`);
-                            tableRow.style.cssText = `background-color: ${bgColor} !important;`;
-                        }
                     }
+                    // 不再从 computed 复制行背景色
                     
-                    // 655：不要复制class，避免外部CSS影响布局
-                    
-                    const sourceCells = sourceRow.querySelectorAll('td, th');
                     let currentCol = 0;
                     
                     sourceCells.forEach(sourceCell => {
@@ -4623,8 +4981,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                 } else if (cellText && cellText.trim() !== '') {
                                     const sourceCellStyle = sourceCell.getAttribute('style');
                                     if (sourceCellStyle) {
-                                        const sanitizedSpanStyle = sanitizeCopiedStyleString(sourceCellStyle);
-                                        targetCell.innerHTML = `<span style="${sanitizedSpanStyle}">${cellText}</span>`;
+                                        const sanitizedSpanStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                        if (sanitizedSpanStyle) {
+                                            targetCell.innerHTML = `<span style="${sanitizedSpanStyle}">${cellText}</span>`;
+                                        } else {
+                                            targetCell.textContent = cellText;
+                                        }
                                     } else {
                                         targetCell.textContent = cellText;
                                     }
@@ -4632,54 +4994,30 @@ if ($current_user_id && count($user_companies) > 0) {
                                     targetCell.textContent = '';
                                 }
                                 
-                                // 保留单元格样式（包括背景色、文字颜色等所有样式）
+                                // 655模式：数据格不保留背景色，只保留边框及文字颜色等
                                 const sourceCellStyle = sourceCell.getAttribute('style');
                                 const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
-                                
                                 if (sourceCellStyle) {
-                                    // 保留原始样式，确保边框存在
-                                    const sanitizedCellStyle = sanitizeCopiedStyleString(sourceCellStyle);
-                                    let mergedStyle = sanitizedCellStyle;
-                                    if (sanitizedCellStyle && !sanitizedCellStyle.includes('border')) {
-                                        mergedStyle = `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}`;
-                                    } else if (!sanitizedCellStyle) {
-                                        mergedStyle = 'border: 1px solid #d0d7de !important;';
-                                    }
+                                    const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                    let mergedStyle = sanitizedCellStyle && !sanitizedCellStyle.includes('border') ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}` : (sanitizedCellStyle || 'border: 1px solid #d0d7de !important;');
                                     targetCell.setAttribute('style', mergedStyle);
                                     targetCell.style.cssText = mergedStyle;
                                 } else {
-                                    // 即使没有style属性，也尝试从computed style获取样式
-                                    const bgColor = sourceCellComputedStyle.backgroundColor;
                                     const color = sourceCellComputedStyle.color;
                                     const fontWeight = sourceCellComputedStyle.fontWeight;
                                     const textAlign = sourceCellComputedStyle.textAlign;
-                                    
                                     let styleString = 'border: 1px solid #d0d7de !important;';
-                                    if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
-                                        styleString += ` background-color: ${bgColor} !important;`;
-                                    }
-                                    if (color && color !== 'rgb(0, 0, 0)') {
-                                        styleString += ` color: ${color} !important;`;
-                                    }
-                                    if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') {
-                                        styleString += ` font-weight: ${fontWeight} !important;`;
-                                    }
-                                    if (textAlign && textAlign !== 'left') {
-                                        styleString += ` text-align: ${textAlign} !important;`;
-                                    }
+                                    if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
+                                    if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
+                                    if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
                                     targetCell.setAttribute('style', styleString);
                                     targetCell.style.cssText = styleString;
                                 }
-                                
-                                // 655：不要复制class，避免外部CSS影响布局
-                                
-                                // 确保边框存在
                                 if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
                                     targetCell.style.border = '1px solid #d0d7de';
                                 }
-                                
                                 currentPasteChanges.push({
-                                    row: rowIndex,
+                                    row: actualRowIndex,
                                     col: currentCol,
                                     oldValue: oldValue,
                                     newValue: targetCell.textContent || targetCell.innerHTML
@@ -4700,7 +5038,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                                     targetCell.textContent = '';
                                     currentPasteChanges.push({
-                                        row: rowIndex,
+                                        row: actualRowIndex,
                                         col: currentCol,
                                         oldValue: oldValue,
                                         newValue: ''
@@ -4711,6 +5049,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         
                         currentCol++;
                     });
+                    
+                    // 更新实际行索引：正常处理的行只占用一行
+                    // Update actual row index: normally processed row only occupies one row
+                    actualRowIndex++;
                 });
                 
                 // 将本次粘贴操作添加到历史记录
@@ -4799,36 +5141,20 @@ if ($current_user_id && count($user_companies) > 0) {
                     const tableRow = tableBody.children[actualRowIndex];
                     if (!tableRow) return;
                     
-                    // 655模式：保留行的样式（如背景色，如Grand Total行的黄色背景）
+                    // 655模式：数据行不保留背景色（粘贴后格子不要有任何颜色）
                     if (currentDataCaptureType === '655') {
-                        // 保留行的style属性（最直接的方法）
                         const sourceRowStyle = sourceRow.getAttribute('style');
                         if (sourceRowStyle) {
-                            const sanitizedRowStyle = sanitizeCopiedStyleString(sourceRowStyle);
+                            const sanitizedRowStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceRowStyle));
                             if (sanitizedRowStyle) {
                                 tableRow.setAttribute('style', sanitizedRowStyle);
-                                // 同时设置style属性，确保样式生效
                                 tableRow.style.cssText = sanitizedRowStyle;
                             } else {
                                 tableRow.removeAttribute('style');
                                 tableRow.style.cssText = '';
                             }
                         }
-                        // 655：不要复制行class，避免外部CSS（如fixedDataTable...）影响布局
-                        // 尝试从源行的第一个单元格获取背景色（如果行本身没有style）
-                        if (!sourceRowStyle) {
-                            const firstCell = sourceRow.querySelector('td, th');
-                            if (firstCell) {
-                                const cellStyle = firstCell.getAttribute('style');
-                                if (cellStyle && cellStyle.includes('background')) {
-                                    // 从单元格的style中提取背景色
-                                    const bgMatch = cellStyle.match(/background[^;]*:[^;]*([^;]+)/i);
-                                    if (bgMatch) {
-                                        tableRow.style.cssText = `background-color: ${bgMatch[1].trim()}`;
-                                    }
-                                }
-                            }
-                        }
+                        // 不再从行或第一个单元格复制背景色
                     }
                     
                     const sourceCells = sourceRow.querySelectorAll('td, th');
@@ -4868,62 +5194,38 @@ if ($current_user_id && count($user_companies) > 0) {
                                     .replace(/javascript:/gi, '') // 移除javascript:协议
                                     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, ''); // 移除事件处理器
                                 
-                                // 655模式：需要保留所有HTML格式，包括颜色、下划线、背景等，以及表格边框
+                                // 655模式：保留HTML格式但不保留背景色（粘贴后数据格不要有任何颜色）
                                 if (currentDataCaptureType === '655') {
-                                    // 如果有HTML标签，直接使用innerHTML保持所有格式
                                     if (cleanContent.includes('<') && cleanContent.includes('>')) {
-                                        // 直接使用innerHTML，保留所有格式标签（如<u>, <b>, <span>等）和样式属性
                                         targetCell.innerHTML = sanitize655HtmlFragment(cleanContent);
-                                        // 同时保留单元格本身的样式属性（背景色等）
                                         const sourceCellStyle = sourceCell.getAttribute('style');
                                         if (sourceCellStyle) {
-                                            // 合并样式，确保边框不被覆盖
-                                            // 检查源样式是否包含border，如果不包含，添加边框
-                                            const sanitizedCellStyle = sanitizeCopiedStyleString(sourceCellStyle);
-                                            let mergedStyle = sanitizedCellStyle;
-                                            if (sanitizedCellStyle && !sanitizedCellStyle.includes('border')) {
-                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}`;
-                                            } else if (!sanitizedCellStyle) {
-                                                mergedStyle = 'border: 1px solid #d0d7de !important;';
-                                            }
+                                            const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                            let mergedStyle = sanitizedCellStyle && !sanitizedCellStyle.includes('border') ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}` : (sanitizedCellStyle || 'border: 1px solid #d0d7de !important;');
                                             targetCell.setAttribute('style', mergedStyle);
                                         } else {
-                                            // 如果没有源样式，确保有边框
                                             targetCell.style.border = '1px solid #d0d7de';
                                         }
                                     } else if (cellText && cellText.trim() !== '') {
-                                        // 纯文本，但如果有样式属性，尝试保留
-                                        // 检查源单元格是否有style属性
                                         const sourceCellStyle = sourceCell.getAttribute('style');
-                                        const sourceCellBgColor = sourceCell.style.backgroundColor;
                                         if (sourceCellStyle) {
-                                            const sanitizedSpanStyle = sanitizeCopiedStyleString(sourceCellStyle);
-                                            targetCell.innerHTML = `<span style="${sanitizedSpanStyle}">${cellText}</span>`;
-                                            // 也保留单元格的样式，但确保边框存在
-                                            let mergedStyle = sanitizedSpanStyle;
-                                            if (sanitizedSpanStyle && !sanitizedSpanStyle.includes('border')) {
-                                                mergedStyle = `border: 1px solid #d0d7de !important; ${sanitizedSpanStyle}`;
-                                            } else if (!sanitizedSpanStyle) {
-                                                mergedStyle = 'border: 1px solid #d0d7de !important;';
+                                            const sanitizedSpanStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                            if (sanitizedSpanStyle) {
+                                                targetCell.innerHTML = `<span style="${sanitizedSpanStyle}">${cellText}</span>`;
+                                                const mergedStyle = `border: 1px solid #d0d7de !important; ${sanitizedSpanStyle}`;
+                                                targetCell.setAttribute('style', mergedStyle);
+                                            } else {
+                                                targetCell.style.border = '1px solid #d0d7de';
+                                                targetCell.textContent = cellText;
                                             }
-                                            targetCell.setAttribute('style', mergedStyle);
-                                        } else if (sourceCellBgColor) {
-                                            // 如果有背景色，应用背景色，同时保持边框
-                                            targetCell.style.backgroundColor = sourceCellBgColor;
-                                            targetCell.style.border = '1px solid #d0d7de';
-                                            targetCell.textContent = cellText;
                                         } else {
-                                            // 纯文本，确保有边框
                                             targetCell.style.border = '1px solid #d0d7de';
                                             targetCell.textContent = cellText;
                                         }
                                     } else {
-                                        // 空单元格也要有边框
                                         targetCell.style.border = '1px solid #d0d7de';
                                         targetCell.textContent = '';
                                     }
-                                    // 655：不要复制单元格class，避免外部CSS影响布局
-                                    // 确保单元格始终显示边框（表格网格结构）
                                     if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
                                         targetCell.style.border = '1px solid #d0d7de';
                                     }
@@ -22409,6 +22711,14 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             render655Preview('');
 
+            // IMPORTANT: For 655 mode, clear localStorage preview HTML to ensure reset shows paste area (original 655 style)
+            // 重要：对于 655 模式，清除 localStorage 中的预览 HTML，确保 Reset 后显示粘贴区（原始 655 样式）
+            if (currentDataCaptureType === '655') {
+                try {
+                    localStorage.removeItem('captured655PreviewHtml');
+                } catch (_) {}
+            }
+
             // Reset 655 grid state (show paste area again)
             is655GridReady = false;
             toggleTableDisplayFor655();
@@ -23463,6 +23773,15 @@ if ($current_user_id && count($user_companies) > 0) {
             return parts.length ? (parts.join('; ') + ';') : '';
         }
 
+        /** 655模式：从样式字符串中移除背景相关属性，使粘贴后数据格无背景色 */
+        function stripBackgroundFromStyle(styleString) {
+            if (!styleString || !String(styleString).trim()) return '';
+            return String(styleString)
+                .replace(/\s*background-color\s*:[^;]*;?/gi, '')
+                .replace(/\s*background\s*:[^;]*;?/gi, '')
+                .trim().replace(/;\s*$/, '');
+        }
+
         // 655：清洗HTML片段，移除class/id，并过滤style里的布局属性（保留颜色/下划线/背景等）
         function sanitize655HtmlFragment(html) {
             if (!html) return '';
@@ -23992,41 +24311,29 @@ if ($current_user_id && count($user_companies) > 0) {
                         typeSelect.value = savedType;
                         currentDataCaptureType = savedType;
 
-                        // 655：恢复时重建预览，避免回到空白粘贴区/空白预览
+                        // 655：恢复时暂时不设置 is655GridReady，等恢复表格数据后再统一设置
+                        // 这样可以避免状态不一致的问题
+                        // 655: Temporarily don't set is655GridReady, wait until table data is restored to set it uniformly
+                        // This avoids state inconsistency issues
                         if (currentDataCaptureType === '655') {
+                            // Check if there's preview HTML in localStorage
                             let previewHtml = '';
                             try {
                                 previewHtml = localStorage.getItem('captured655PreviewHtml') || '';
                             } catch (_) {}
-
-                            // Fallback: build a simple HTML table from captured grid data
-                            if (!previewHtml) {
-                                try {
-                                    if (tableData && Array.isArray(tableData.rows) && tableData.rows.length > 0) {
-                                        let html = '<table border="1" cellspacing="0" cellpadding="2"><tbody>';
-                                        tableData.rows.forEach(rowData => {
-                                            html += '<tr>';
-                                            (rowData || []).forEach(cell => {
-                                                const v = cell && typeof cell.value !== 'undefined' ? cell.value : '';
-                                                html += `<td>${escapeHtml(v)}</td>`;
-                                            });
-                                            html += '</tr>';
-                                        });
-                                        html += '</tbody></table>';
-                                        previewHtml = html;
-                                    }
-                                } catch (_) {}
-                            }
-
+                            
+                            // If preview HTML exists, render it but don't set is655GridReady yet
+                            // Wait until table data is restored to set is655GridReady based on actual data
                             if (previewHtml) {
                                 render655Preview(previewHtml);
-                                is655GridReady = true;
-                            } else {
-                                is655GridReady = false;
                             }
+                            
+                            // Don't set is655GridReady here - wait until table data is restored
+                            // This ensures consistency between is655GridReady and actual table data
                         }
 
-                        toggleTableDisplayFor655();
+                        // Don't call toggleTableDisplayFor655() here - wait until table data is restored
+                        // This ensures the correct display state based on actual restored data
                         updateSubmitButtonState();
                     } else {
                         console.warn('Saved data capture type not found in selector options:', savedType);
@@ -24204,11 +24511,67 @@ if ($current_user_id && count($user_companies) > 0) {
                             }
                         });
                         
+                        // IMPORTANT: For 655 mode, if table data was restored, ensure is655GridReady is set to true
+                        // This ensures that 655 mode displays the table (not the paste area) after restoring
+                        // 重要：对于 655 模式，如果表格数据已恢复，确保 is655GridReady 设置为 true
+                        // 这确保 655 模式在恢复后显示表格（而不是粘贴区）
+                        if (currentDataCaptureType === '655') {
+                            // Check if there's actual data in the table (not just empty cells)
+                            let hasData = false;
+                            tableData.rows.forEach(rowData => {
+                                if (hasData) return;
+                                rowData.forEach(cellData => {
+                                    if (cellData.type === 'data' && cellData.value && cellData.value.trim() !== '') {
+                                        hasData = true;
+                                    }
+                                });
+                            });
+                            
+                            if (hasData) {
+                                is655GridReady = true;
+                                // IMPORTANT: Always build and save preview HTML from restored table data
+                                // This ensures toggleTableDisplayFor655() can correctly detect and display the table
+                                // 重要：始终从恢复的表格数据构建并保存预览 HTML
+                                // 这确保 toggleTableDisplayFor655() 能正确检测并显示表格
+                                try {
+                                    let html = '<table border="1" cellspacing="0" cellpadding="2"><tbody>';
+                                    tableData.rows.forEach(rowData => {
+                                        html += '<tr>';
+                                        rowData.forEach(cell => {
+                                            const v = cell && typeof cell.value !== 'undefined' ? cell.value : '';
+                                            html += `<td>${escapeHtml(v)}</td>`;
+                                        });
+                                        html += '</tr>';
+                                    });
+                                    html += '</tbody></table>';
+                                    localStorage.setItem('captured655PreviewHtml', html);
+                                    render655Preview(html);
+                                } catch (_) {}
+                            } else {
+                                // No data, reset to original 655 style (paste area)
+                                is655GridReady = false;
+                                try {
+                                    localStorage.removeItem('captured655PreviewHtml');
+                                } catch (_) {}
+                            }
+                        }
+                        
                         // 恢复后应用格式修复（确保 MY EARNINGS 和 TOTAL 行格式正确）
                         setTimeout(() => {
                             fixCitibetAmountColumns();
                         }, 200);
                     }
+                }
+                
+                // IMPORTANT: For 655 mode, ensure display is correct after restoring table data
+                // This must be called after table data is restored and is655GridReady is set
+                // 重要：对于 655 模式，确保在恢复表格数据后显示正确
+                // 必须在恢复表格数据并设置 is655GridReady 后调用
+                if (currentDataCaptureType === '655') {
+                    // Use setTimeout to ensure table is fully populated before toggling display
+                    setTimeout(() => {
+                        toggleTableDisplayFor655();
+                    }, 100);
                 }
                 
                 // Update submit button state

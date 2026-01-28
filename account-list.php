@@ -796,12 +796,9 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 const alertText = hasPaymentAlert ? 'ON' : 'OFF';
                 
                 // 根据role决定account_id的显示格式
-                const accountRole = (account.role || '').toLowerCase();
-                const shouldShowName = ['upline', 'agent', 'member', 'company'].includes(accountRole);
+                // 移除括号中的名字，只显示 account_id
                 const accountIdText = escapeHtml((account.account_id || '').toUpperCase());
-                const accountIdDisplay = shouldShowName && account.name
-                    ? `${accountIdText} (${escapeHtml((account.name || '').toUpperCase())})`
-                    : accountIdText;
+                const accountIdDisplay = accountIdText;
                 
                 card.innerHTML = `
                     <div class="account-card-item">${startIndex + idx + 1}</div>
@@ -1858,12 +1855,9 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     }
 
                     // 根据role决定account_id的显示格式
-                    const accountRole = (account.role || '').toLowerCase();
-                    const shouldShowName = ['upline', 'agent', 'member', 'company'].includes(accountRole);
+                    // 移除括号中的名字，只显示 account_id
                     const accountIdText = String(account.account_id || '').toUpperCase();
-                    const accountIdDisplay = shouldShowName && account.name
-                        ? `${accountIdText} (${String(account.name || '').toUpperCase()})`
-                        : accountIdText;
+                    const accountIdDisplay = accountIdText;
                     // 根据当前选择的连接类型判断是否应该勾选
                     // 如果账户有连接，检查连接类型是否匹配当前选择的类型
                     const accountLinkType = window.linkTypesMap && window.linkTypesMap[account.id] ? window.linkTypesMap[account.id] : null;

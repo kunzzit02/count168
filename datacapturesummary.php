@@ -54,6 +54,7 @@ $company_id = $_SESSION['company_id'] ?? null;
                 <label for="rateInput" class="batch-label">Rate</label>
                 <input type="text" id="rateInput" class="batch-input" placeholder="e.g. *3 or /3" />
                 <button class="btn-update-all" id="rateSelectAllBtn" onclick="toggleAllRate(this)">Select All</button>
+                <button class="btn-update-all" id="topSubmitBtn" onclick="submitRateValues()">Submit</button>
             </div>
             <div style="flex: 1;"></div>
             <button class="summary-btn summary-btn-delete" id="summaryDeleteSelectedBtn" onclick="deleteSelectedRows()" title="Delete selected rows" disabled>Delete</button>
@@ -768,10 +769,101 @@ function getCurrentProcessId() {
             originalTableBody.innerHTML = '';
             
             // Get data from column A (index 1, since index 0 is row header)
+            // IMPORTANT: For 655 mode, handle D row (index 3) with multiple account entries
+            // Split multiple account entries in the same cell into separate rows
+            // 重要：对于 655 模式，处理 D 行（索引 3）有多个帐目的情况
+            // 将同一单元格中的多个帐目拆分为多行
             const columnAData = [];
-            tableData.rows.forEach(rowData => {
+            const rowIndexMap = []; // Map to track original row index for each entry
+            tableData.rows.forEach((rowData, rowIndex) => {
                 if (rowData.length > 1 && rowData[1].type === 'data') {
-                    columnAData.push(rowData[1].value);
+                    const cellValue = rowData[1].value || '';
+                    
+                    // Check if this is D row (index 3) in 655 mode with multiple account entries
+                    // 检查这是否是 655 模式下的 D 行（索引 3）且有多个帐目
+                    if (rowIndex === 3 && cellValue.trim() !== '') {
+                        // Try to detect multiple account entries
+                        // Common patterns: "SUB TOTAL\nGRAND TOTAL", "SUB TOTAL GRAND TOTAL", etc.
+                        // 尝试检测多个帐目
+                        // 常见模式："SUB TOTAL\nGRAND TOTAL", "SUB TOTAL GRAND TOTAL" 等
+                        const trimmedValue = cellValue.trim();
+                        
+                        // Check for newline-separated entries
+                        // 检查换行符分隔的条目
+                        if (trimmedValue.includes('\n')) {
+                            const entries = trimmedValue.split('\n').map(e => e.trim()).filter(e => e !== '');
+                            if (entries.length > 1) {
+                                // Multiple entries found, add each as separate row
+                                // 找到多个条目，将每个添加为单独的行
+                                entries.forEach(entry => {
+                                    if (entry && entry.trim() !== '') {
+                                        columnAData.push(entry);
+                                        rowIndexMap.push(rowIndex); // Track original row index
+                                    }
+                                });
+                                return; // Skip the default push below
+                            }
+                        }
+                        
+                        // Check for common patterns like "SUB TOTAL" and "GRAND TOTAL" in the same cell
+                        // 检查同一单元格中的常见模式，如 "SUB TOTAL" 和 "GRAND TOTAL"
+                        const upperValue = trimmedValue.toUpperCase();
+                        if (upperValue.includes('SUB TOTAL') && upperValue.includes('GRAND TOTAL')) {
+                            // Try to split by common separators or patterns
+                            // 尝试按常见分隔符或模式拆分
+                            let entries = [];
+                            
+                            // Try splitting by multiple spaces or tabs
+                            // 尝试按多个空格或制表符拆分
+                            const spaceSplit = trimmedValue.split(/\s{2,}|\t+/).map(e => e.trim()).filter(e => e !== '');
+                            if (spaceSplit.length > 1) {
+                                entries = spaceSplit;
+                            } else {
+                                // Try to extract "SUB TOTAL" and "GRAND TOTAL" separately
+                                // 尝试分别提取 "SUB TOTAL" 和 "GRAND TOTAL"
+                                const subTotalMatch = trimmedValue.match(/SUB\s*TOTAL/i);
+                                const grandTotalMatch = trimmedValue.match(/GRAND\s*TOTAL/i);
+                                
+                                if (subTotalMatch && grandTotalMatch) {
+                                    // Extract text before and after each match
+                                    // 提取每个匹配前后的文本
+                                    const subTotalIndex = subTotalMatch.index;
+                                    const grandTotalIndex = grandTotalMatch.index;
+                                    
+                                    if (subTotalIndex < grandTotalIndex) {
+                                        // SUB TOTAL comes first
+                                        // SUB TOTAL 在前面
+                                        const subTotalText = trimmedValue.substring(0, grandTotalIndex).trim();
+                                        const grandTotalText = trimmedValue.substring(grandTotalIndex).trim();
+                                        entries = [subTotalText, grandTotalText];
+                                    } else {
+                                        // GRAND TOTAL comes first
+                                        // GRAND TOTAL 在前面
+                                        const grandTotalText = trimmedValue.substring(0, subTotalIndex).trim();
+                                        const subTotalText = trimmedValue.substring(subTotalIndex).trim();
+                                        entries = [grandTotalText, subTotalText];
+                                    }
+                                }
+                            }
+                            
+                            if (entries.length > 1) {
+                                // Multiple entries found, add each as separate row
+                                // 找到多个条目，将每个添加为单独的行
+                                entries.forEach(entry => {
+                                    if (entry && entry.trim() !== '') {
+                                        columnAData.push(entry);
+                                        rowIndexMap.push(rowIndex); // Track original row index
+                                    }
+                                });
+                                return; // Skip the default push below
+                            }
+                        }
+                    }
+                    
+                    // Default: add single value
+                    // 默认：添加单个值
+                    columnAData.push(cellValue);
+                    rowIndexMap.push(rowIndex); // Track original row index
                 }
             });
             
@@ -784,8 +876,13 @@ function getCurrentProcessId() {
                     const row = document.createElement('tr');
                     
                     // Set data-row-index to match Data Capture Table row position
+                    // For D row (index 3) with multiple entries, all split rows should use row index 3
                     // This ensures Summary Table order matches Data Capture Table order
-                    row.setAttribute('data-row-index', String(index));
+                    // 设置 data-row-index 以匹配 Data Capture Table 行位置
+                    // 对于 D 行（索引 3）有多个条目的情况，所有拆分的行都应使用行索引 3
+                    // 这确保 Summary Table 顺序与 Data Capture Table 顺序匹配
+                    const originalRowIndex = rowIndexMap[index] !== undefined ? rowIndexMap[index] : index;
+                    row.setAttribute('data-row-index', String(originalRowIndex));
                     row.setAttribute('data-product-type', 'main');
                     
                     // Id Product column (merged main and sub)
@@ -1048,10 +1145,32 @@ function getCurrentProcessId() {
                         const isSubtractionOperator = match.startsWith('-') && !isNegativeNumber;
                         if (isSubtractionOperator) {
                             // Keep the subtraction operator but update the number after it
-                            replacement = replacement.replace(/^-/, '');
-                            console.log(`Replacing subtraction operand ${match} with -${replacement} at position ${offset}`);
-                            return '-' + replacement;
+                            // 如果替换后的值是负数，需要用括号包裹
+                            const replacementValue = parseFloat(replacement);
+                            if (!isNaN(replacementValue) && replacementValue < 0) {
+                                console.log(`Replacing subtraction operand ${match} with -(${replacement}) at position ${offset} (negative value needs parentheses)`);
+                                return `-(${replacement})`;
+                            } else {
+                                replacement = replacement.replace(/^-/, '');
+                                console.log(`Replacing subtraction operand ${match} with -${replacement} at position ${offset}`);
+                                return '-' + replacement;
+                            }
                         }
+                        
+                        // 如果替换后的值是负数，需要用括号包裹
+                        const replacementValue = parseFloat(replacement);
+                        if (!isNaN(replacementValue) && replacementValue < 0) {
+                            // 检查前一个字符，确定是否需要括号
+                            const charBefore = offset > 0 ? string[offset - 1] : '';
+                            const needsParentheses = offset === 0 || /[+\-*/\(\s]/.test(charBefore);
+                            
+                            if (needsParentheses) {
+                                // 保留负号，然后用括号包裹：-264.34 -> (-264.34)
+                                console.log(`Replacing ${match} with (${replacement}) at position ${offset} (negative value needs parentheses)`);
+                                return `(${replacement})`;
+                            }
+                        }
+                        
                         console.log(`Replacing ${match} with ${replacement} at position ${offset} (was negative: ${isNegativeNumber})`);
                         return replacement;
                     } else {
@@ -1937,6 +2056,16 @@ function getCurrentProcessId() {
                 const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
                 
                 if (rateCheckbox && rateCheckbox.checked) {
+                    // Update Rate Value cell with rateInput value
+                    const rateValueCell = cells[7];
+                    if (rateValueCell) {
+                        if (rateInput.value.trim() !== '') {
+                            rateValueCell.textContent = rateInput.value.trim();
+                        } else {
+                            rateValueCell.textContent = '';
+                        }
+                    }
+                    
                     // Recalculate processed amount for this row
                     const sourcePercentCell = cells[5];
                     const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
@@ -1956,6 +2085,81 @@ function getCurrentProcessId() {
             });
             
             updateProcessedAmountTotal();
+        }
+        
+        // Submit Rate Values: Update Rate Value for all rows with checked Rate checkbox
+        function submitRateValues() {
+            const rateInput = document.getElementById('rateInput');
+            if (!rateInput) {
+                showNotification('Error', 'Rate input field not found', 'error');
+                return;
+            }
+            
+            const rateValue = rateInput.value.trim();
+            if (!rateValue) {
+                showNotification('Info', 'Please enter a Rate value', 'info');
+                return;
+            }
+            
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if (!summaryTableBody) {
+                showNotification('Error', 'Summary table not found', 'error');
+                return;
+            }
+            
+            const rows = summaryTableBody.querySelectorAll('tr');
+            let updatedCount = 0;
+            
+            rows.forEach(row => {
+                const processValue = getProcessValueFromRow(row);
+                if (!processValue) return;
+                
+                const cells = row.querySelectorAll('td');
+                const rateCheckbox = cells[6] ? cells[6].querySelector('.rate-checkbox') : null;
+                
+                if (rateCheckbox && rateCheckbox.checked) {
+                    // Update Rate Value cell with rateInput value
+                    const rateValueCell = cells[7];
+                    if (rateValueCell) {
+                        rateValueCell.textContent = rateValue;
+                    }
+                    
+                    // Recalculate processed amount for this row
+                    const sourcePercentCell = cells[5];
+                    const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
+                    const inputMethod = row.getAttribute('data-input-method') || '';
+                    const enableInputMethod = inputMethod ? true : false;
+                    const formulaCell = cells[4];
+                    const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                    const baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                    
+                    // Store base processed amount
+                    if (baseProcessedAmount && !isNaN(baseProcessedAmount)) {
+                        row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
+                    }
+                    
+                    const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
+                    
+                    if (cells[8]) {
+                        const val = Number(finalAmount);
+                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
+                    }
+                    
+                    // IMPORTANT: Uncheck the Rate checkbox after submitting, but keep Rate Value
+                    rateCheckbox.checked = false;
+                    
+                    updatedCount++;
+                }
+            });
+            
+            updateProcessedAmountTotal();
+            
+            if (updatedCount > 0) {
+                showNotification('Success', `Rate Value updated for ${updatedCount} row(s)`, 'success');
+            } else {
+                showNotification('Info', 'No rows with Rate checkbox checked', 'info');
+            }
         }
         
         // Add event listener for rateInput changes
@@ -4295,8 +4499,21 @@ function getCurrentProcessId() {
                 // 使用 parseReferenceFormula 来处理列引用
                 const parsedFormula = parseReferenceFormula(displayFormula);
                 
+                // 格式化负数：将负数用括号包裹（例如：-1416.03 -> (-1416.03)）
+                let finalDisplayFormula = parsedFormula || displayFormula;
+                if (finalDisplayFormula && finalDisplayFormula.trim() !== '') {
+                    // 匹配负数（包括整数和小数）
+                    // 匹配模式：在运算符、括号、空格或字符串开头之后，负号后跟数字
+                    // 例如：5861.14--1416.03 中的 -1416.03 会被匹配
+                    finalDisplayFormula = finalDisplayFormula.replace(/(^|[+\-*/\(\s])(-(\d+\.?\d*))/g, function(match, prefix, negativeNumber, numberPart) {
+                        // negativeNumber 是完整的负数（如 -1416.03）
+                        // 保留负号，然后用括号包裹：-1416.03 -> (-1416.03)
+                        return prefix + '(' + negativeNumber + ')';
+                    });
+                }
+                
                 // 更新显示框
-                formulaDisplayInput.value = parsedFormula || displayFormula;
+                formulaDisplayInput.value = finalDisplayFormula;
             } catch (error) {
                 console.error('Error updating formula display:', error);
                 formulaDisplayInput.value = '';
@@ -7443,9 +7660,23 @@ function getCurrentProcessId() {
                     const columnValue = getCellValueByIdProductAndColumn(bracketMatch.idProduct, dataColumnIndex, null);
                     
                     if (columnValue !== null) {
+                        // 如果值是负数，需要用括号包裹
+                        let replacementValue = columnValue;
+                        const numericValue = parseFloat(columnValue);
+                        if (!isNaN(numericValue) && numericValue < 0) {
+                            // 检查前一个字符，确定是否需要括号
+                            const charBefore = bracketMatch.index > 0 ? parsedFormula[bracketMatch.index - 1] : '';
+                            const needsParentheses = bracketMatch.index === 0 || /[+\-*/\(\s]/.test(charBefore);
+                            
+                            if (needsParentheses) {
+                                // 保留负号，然后用括号包裹：-264.34 -> (-264.34)
+                                replacementValue = `(${columnValue})`;
+                            }
+                        }
+                        
                         parsedFormula = parsedFormula.substring(0, bracketMatch.index) + 
-                                      columnValue + 
-                                      parsedFormula.substring(bracketMatch.index + bracketMatch.fullMatch.length);
+                                       replacementValue + 
+                                       parsedFormula.substring(bracketMatch.index + bracketMatch.fullMatch.length);
                     } else {
                         console.warn(`Cell value not found for [${bracketMatch.idProduct},${bracketMatch.displayColumnIndex}]`);
                         parsedFormula = parsedFormula.substring(0, bracketMatch.index) + 
@@ -7530,8 +7761,20 @@ function getCurrentProcessId() {
                             
                             if (columnValue !== null) {
                                 // Replace $数字 with actual value
+                                // IMPORTANT: If value is negative, wrap it in parentheses to avoid syntax errors like -5861.14--1416.03
+                                // 重要：如果值是负数，用括号包裹，避免出现 -5861.14--1416.03 这样的语法错误
+                                let replacementValue = String(columnValue);
+                                const numericValue = parseFloat(columnValue);
+                                if (!isNaN(numericValue) && numericValue < 0) {
+                                    // Check if the character before $数字 is an operator or at the start
+                                    const charBefore = dollarMatch.index > 0 ? parsedFormula[dollarMatch.index - 1] : '';
+                                    const needsParentheses = dollarMatch.index === 0 || /[+\-*/\(\s]/.test(charBefore);
+                                    if (needsParentheses) {
+                                        replacementValue = `(${columnValue})`;
+                                    }
+                                }
                                 parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                               columnValue + 
+                                               replacementValue + 
                                                parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
                             } else {
                                 // If value not found, replace with 0
@@ -7553,8 +7796,20 @@ function getCurrentProcessId() {
                                 
                                 if (columnValue !== null) {
                                     // Replace $数字 with actual value
+                                    // IMPORTANT: If value is negative, wrap it in parentheses to avoid syntax errors like -5861.14--1416.03
+                                    // 重要：如果值是负数，用括号包裹，避免出现 -5861.14--1416.03 这样的语法错误
+                                    let replacementValue = String(columnValue);
+                                    const numericValue = parseFloat(columnValue);
+                                    if (!isNaN(numericValue) && numericValue < 0) {
+                                        // Check if the character before $数字 is an operator or at the start
+                                        const charBefore = dollarMatch.index > 0 ? parsedFormula[dollarMatch.index - 1] : '';
+                                        const needsParentheses = dollarMatch.index === 0 || /[+\-*/\(\s]/.test(charBefore);
+                                        if (needsParentheses) {
+                                            replacementValue = `(${columnValue})`;
+                                        }
+                                    }
                                     parsedFormula = parsedFormula.substring(0, dollarMatch.index) + 
-                                                   columnValue + 
+                                                   replacementValue + 
                                                    parsedFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
                                 } else {
                                     // If value not found, replace with 0
@@ -7603,8 +7858,22 @@ function getCurrentProcessId() {
                     
                     if (cellValue !== null) {
                         // Replace the cell reference with the actual value
+                        // 如果值是负数，需要用括号包裹
+                        let replacementValue = cellValue;
+                        const numericValue = parseFloat(cellValue);
+                        if (!isNaN(numericValue) && numericValue < 0) {
+                            // 检查前一个字符，确定是否需要括号
+                            const charBefore = ref.index > 0 ? parsedFormula[ref.index - 1] : '';
+                            const needsParentheses = ref.index === 0 || /[+\-*/\(\s]/.test(charBefore);
+                            
+                            if (needsParentheses) {
+                                // 保留负号，然后用括号包裹：-264.34 -> (-264.34)
+                                replacementValue = `(${cellValue})`;
+                            }
+                        }
+                        
                         parsedFormula = parsedFormula.substring(0, ref.index) + 
-                                       cellValue + 
+                                       replacementValue + 
                                        parsedFormula.substring(ref.index + ref.fullMatch.length);
                     } else {
                         // If value not found, replace with 0
@@ -7636,7 +7905,22 @@ function getCurrentProcessId() {
                     
                     if (columnValue !== null) {
                         // Replace the reference with the actual value
-                        parsedFormula = parsedFormula.replace(fullMatch, columnValue);
+                        // 如果值是负数，需要用括号包裹
+                        let replacementValue = columnValue;
+                        const numericValue = parseFloat(columnValue);
+                        if (!isNaN(numericValue) && numericValue < 0) {
+                            // 检查前一个字符，确定是否需要括号
+                            const matchIndex = parsedFormula.indexOf(fullMatch);
+                            const charBefore = matchIndex > 0 ? parsedFormula[matchIndex - 1] : '';
+                            const needsParentheses = matchIndex === 0 || /[+\-*/\(\s]/.test(charBefore);
+                            
+                            if (needsParentheses) {
+                                // 保留负号，然后用括号包裹：-264.34 -> (-264.34)
+                                replacementValue = `(${columnValue})`;
+                            }
+                        }
+                        
+                        parsedFormula = parsedFormula.replace(fullMatch, replacementValue);
                     } else {
                         // If value not found, keep the reference or replace with 0
                         console.warn(`Column value not found for [${idProduct} : ${displayColumnIndex}] (dataColumnIndex: ${dataColumnIndex})`);
@@ -7658,17 +7942,51 @@ function getCurrentProcessId() {
                     return 0;
                 }
                 
+                // IMPORTANT: For pure numeric expressions (e.g., (-5861.14)-(-1416.03)),
+                // check if they contain any reference formats ($, [, ]) before calling parseReferenceFormula
+                // This avoids potential issues with parseReferenceFormula when processing pure numeric expressions
+                // 重要：对于纯数字表达式（如 (-5861.14)-(-1416.03)），在调用 parseReferenceFormula 之前
+                // 先检查是否包含任何引用格式（$、[、]），这样可以避免 parseReferenceFormula 处理纯数字表达式时可能出现的问题
+                const trimmedFormula = formula.trim();
+                const hasReferences = trimmedFormula.includes('$') || 
+                                     trimmedFormula.includes('[') || 
+                                     trimmedFormula.includes(']');
+                
+                if (!hasReferences) {
+                    // Pure numeric expression, evaluate directly without parseReferenceFormula
+                    // 纯数字表达式，直接计算，跳过 parseReferenceFormula
+                    const sanitized = removeThousandsSeparators(trimmedFormula.replace(/\s+/g, ''));
+                    if (/^[0-9+\-*/().]+$/.test(sanitized)) {
+                        const result = evaluateExpression(sanitized);
+                        console.log('Formula expression evaluated (pure numeric, direct):', formula, '->', sanitized, '=', result);
+                        return result;
+                    }
+                }
+                
                 // First, parse reference format if present (e.g., [iphsp3 : 4] -> 17)
                 const parsedFormula = parseReferenceFormula(formula);
                 
                 // Remove spaces and evaluate
+                // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234)-(-2234)),
+                // ensure proper evaluation by directly using evaluateExpression
+                // This ensures real-time calculation works correctly
                 const sanitized = removeThousandsSeparators(parsedFormula.trim().replace(/\s+/g, ''));
+                
+                // Check if the formula contains only numbers, operators, and parentheses (no references)
+                // If so, evaluate directly without additional parsing
+                if (/^[0-9+\-*/().]+$/.test(sanitized)) {
+                    const result = evaluateExpression(sanitized);
+                    console.log('Formula expression evaluated (direct):', formula, '->', sanitized, '=', result);
+                    return result;
+                }
+                
+                // For formulas with references, use evaluateExpression after parsing
                 const result = evaluateExpression(sanitized);
                 
                 console.log('Formula expression evaluated:', formula, '->', parsedFormula, '=', result);
                 return result;
             } catch (error) {
-                console.error('Error evaluating formula expression:', error);
+                console.error('Error evaluating formula expression:', error, 'formula:', formula);
                 return 0;
             }
         }
@@ -7893,13 +8211,13 @@ function getCurrentProcessId() {
                 
                 // If source percent is disabled, return parsed formula as-is
                 if (!enableSourcePercent) {
-                    return parsedFormula.trim();
+                    return formatNegativeNumbersInFormula(parsedFormula.trim());
                 }
                 
                 // If enableSourcePercent is true but sourcePercentValue is empty, treat as 0
                 if (!sourcePercentValue || sourcePercentValue.trim() === '') {
                     const trimmedFormula = parsedFormula.trim();
-                    return `${trimmedFormula}*(0)`;
+                    return formatNegativeNumbersInFormula(`${trimmedFormula}*(0)`);
                 }
                 
                 // 保持公式本体不动，只在结尾统一乘上 Source Percent 展示
@@ -7921,13 +8239,13 @@ function getCurrentProcessId() {
                 if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
                     // Source is 1, return formula without multiplying
                     console.log('Formula display created from expression (source is 1, no multiplication):', trimmedFormula);
-                    return trimmedFormula;
+                    return formatNegativeNumbersInFormula(trimmedFormula);
                 } else {
                     // Source is not 1, add source percent to display
                     const percentDisplay = createSourcePercentDisplay(sourcePercentValue);
                     const formulaDisplay = `${formulaPart}*${percentDisplay}`;
                     console.log('Formula display created from expression:', formulaDisplay);
-                    return formulaDisplay;
+                    return formatNegativeNumbersInFormula(formulaDisplay);
                 }
             } catch (error) {
                 console.error('Error creating formula display from expression:', error);
@@ -7989,14 +8307,16 @@ function getCurrentProcessId() {
                     return result;
                 }
                 
-                // If enableSourcePercent is true but sourcePercentValue is empty, treat as 0
+                // If enableSourcePercent is true but sourcePercentValue is empty, treat as 1 (100%)
+                // IMPORTANT: Empty sourcePercentValue should be treated as 1 (100%), not 0, to avoid incorrect 0 results
                 if (!sourcePercentValue || sourcePercentValue.trim() === '') {
-                    let result = formulaResult * 0; // 0% means result is 0
+                    // Treat empty source percent as 1 (100%), so result = formulaResult * 1 = formulaResult
+                    let result = formulaResult;
                     // Apply input method transformation if enabled
                     if (enableInputMethod && inputMethod) {
                         result = applyInputMethodTransformation(result, inputMethod);
                     }
-                    console.log('Formula result calculated from expression (source percent is 0):', result);
+                    console.log('Formula result calculated from expression (source percent is empty, treated as 1):', result);
                     return result;
                 }
                 
@@ -8484,12 +8804,22 @@ function getCurrentProcessId() {
                     
                     // Skip if this is a subtraction operator (not a negative number)
                     // 但仍然需要更新其后数字，只是保留减号
+                    // 如果替换后的值是负数，需要用括号包裹
                     if (match.startsWith('-') && !isNegativeNumber) {
                         if (numberIndex < numbers.length) {
                             let replacement = numbers[numberIndex++];
-                            replacement = replacement.replace(/^-/, '');
-                            console.log(`Replacing subtraction operand ${match} with -${replacement} at position ${offset}`);
-                            return '-' + replacement;
+                            const replacementValue = parseFloat(replacement);
+                            // 如果替换后的值是负数，需要用括号包裹
+                            if (!isNaN(replacementValue) && replacementValue < 0) {
+                                // 保留负号，然后用括号包裹：-264.34 -> (-264.34)
+                                // 注意：在减法操作符后，负数应该显示为 -(-264.34)
+                                console.log(`Replacing subtraction operand ${match} with -(${replacement}) at position ${offset} (negative value needs parentheses)`);
+                                return `-(${replacement})`;
+                            } else {
+                                replacement = replacement.replace(/^-/, '');
+                                console.log(`Replacing subtraction operand ${match} with -${replacement} at position ${offset}`);
+                                return '-' + replacement;
+                            }
                         }
                         return match; // No replacement available
                     }
@@ -8499,6 +8829,21 @@ function getCurrentProcessId() {
                         let replacement = numbers[numberIndex++];
                         // Use replacement directly from newSourceData, which already has the correct sign
                         // This preserves negative numbers correctly when loading from database
+                        
+                        // 如果替换后的值是负数，需要用括号包裹
+                        const replacementValue = parseFloat(replacement);
+                        if (!isNaN(replacementValue) && replacementValue < 0) {
+                            // 检查前一个字符，确定是否需要括号
+                            const charBefore = offset > 0 ? string[offset - 1] : '';
+                            const needsParentheses = offset === 0 || /[+\-*/\(\s]/.test(charBefore);
+                            
+                            if (needsParentheses) {
+                                // 保留负号，然后用括号包裹：-264.34 -> (-264.34)
+                                console.log(`Replacing ${match} with (${replacement}) at position ${offset} (negative value needs parentheses)`);
+                                return `(${replacement})`;
+                            }
+                        }
+                        
                         console.log(`Replacing ${match} with ${replacement} at position ${offset} (was negative: ${isNegativeNumber})`);
                         return replacement;
                     } else {
@@ -8611,7 +8956,8 @@ function getCurrentProcessId() {
                 
                 console.log('Final result:', result);
                 
-                return result;
+                // Format negative numbers in the final result
+                return formatNegativeNumbersInFormula(result);
             } catch (error) {
                 console.error('Error preserving formula structure:', error);
                 // Fallback to creating new formula display
@@ -8659,7 +9005,7 @@ function getCurrentProcessId() {
                 // If source percent is empty or not provided, just return the source data
                 if (!sourcePercentValue || sourcePercentValue.toString().trim() === '') {
                     console.log('Formula display created (no source %):', trimmedSourceData);
-                    return trimmedSourceData;
+                    return formatNegativeNumbersInFormula(trimmedSourceData);
                 }
                 
                 // 若百分比是表达式（如 "0.85/2"），保留表达式，并把首个数字除以100：0.85/2 -> (0.0085/2)
@@ -8681,7 +9027,7 @@ function getCurrentProcessId() {
                 if (Math.abs(decimalValue - 1) < 0.0001) { // Use small epsilon for floating point comparison
                     // Source is 1 (100%), return formula without multiplying
                     console.log('Formula display created (source is 1, no multiplication):', trimmedSourceData);
-                    return trimmedSourceData;
+                    return formatNegativeNumbersInFormula(trimmedSourceData);
                 }
                 
                 // Source is not 1, add source percent to display
@@ -8702,7 +9048,7 @@ function getCurrentProcessId() {
                 const formulaDisplay = `${trimmedSourceData}*${percentDisplay}`;
                 
                 console.log('Formula display created:', formulaDisplay);
-                return formulaDisplay;
+                return formatNegativeNumbersInFormula(formulaDisplay);
                 
             } catch (error) {
                 console.error('Error creating formula display:', error);
@@ -8718,7 +9064,10 @@ function getCurrentProcessId() {
                 }
                 
                 // Parse and calculate the source data expression
-                const sanitizedSourceData = removeThousandsSeparators(sourceData);
+                // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234.56)-(-2234.78)),
+                // ensure proper evaluation by removing spaces and using evaluateExpression directly
+                // This ensures real-time calculation works correctly
+                const sanitizedSourceData = removeThousandsSeparators(sourceData.trim().replace(/\s+/g, ''));
                 let sourceResult = evaluateExpression(sanitizedSourceData);
                 
                 // If source percent is empty or not provided, just return the source result
@@ -8828,6 +9177,36 @@ function getCurrentProcessId() {
             return fixed.replace(/\.?0+$/, '');
         }
 
+        // Format negative numbers in formula by wrapping them with parentheses
+        // Example: -84.56 -> (-84.56), 2873.76+-84.56 -> 2873.76+(-84.56)
+        function formatNegativeNumbersInFormula(formula) {
+            if (!formula || typeof formula !== 'string') {
+                return formula;
+            }
+            
+            // Match negative numbers (including integers and decimals)
+            // Pattern: negative sign followed by digits (with optional decimal point)
+            // Match at start of string, after operators, parentheses, or spaces
+            // Skip if already wrapped in parentheses (e.g., (-84.56) should not be double-wrapped)
+            // Example matches: -84.56, --84.56 (subtracting negative), +-84.56
+            // Example skips: (-84.56) (already wrapped)
+            return formula.replace(/(^|[+\-*/\(\s])(-(\d+\.?\d*))/g, function(match, prefix, negativeNumber, numberPart, offset, string) {
+                // Check if this negative number is already wrapped in parentheses
+                // If prefix is '(', check if there's a closing ')' immediately after the number
+                if (prefix === '(') {
+                    const afterMatch = string.substring(offset + match.length);
+                    if (afterMatch.startsWith(')')) {
+                        // Already wrapped, return as-is
+                        return match;
+                    }
+                }
+                
+                // negativeNumber is the complete negative number (e.g., -84.56)
+                // Wrap it with parentheses: -84.56 -> (-84.56)
+                return prefix + '(' + negativeNumber + ')';
+            });
+        }
+
         function evaluateExpression(expression) {
             try {
                 if (!expression || typeof expression !== 'string') {
@@ -8841,26 +9220,31 @@ function getCurrentProcessId() {
                 
                 // Validate that the expression doesn't contain invalid characters
                 // Allow: numbers, operators (+-*/), parentheses, decimal points, spaces
+                // IMPORTANT: This regex allows negative numbers in parentheses like (-1234.56)-(-2234.78)
                 if (!/^[0-9+\-*/().\s]+$/.test(jsExpression)) {
                     console.error('Expression contains invalid characters:', jsExpression);
                     return 0;
                 }
                 
                 // Remove spaces for cleaner evaluation
+                // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234.56)-(-2234.78)),
+                // removing spaces ensures proper evaluation
                 jsExpression = jsExpression.replace(/\s+/g, '');
                 
                 console.log('Evaluating expression:', jsExpression);
                 
                 // Use Function constructor for safe evaluation
+                // IMPORTANT: This handles expressions with negative numbers in parentheses correctly
+                // Example: (-1234.56)-(-2234.78) will be evaluated as -1234.56 - (-2234.78) = 1000.22
                 const result = new Function('return ' + jsExpression)();
                 const parsedResult = parseFloat(result);
                 
                 if (isNaN(parsedResult) || !Number.isFinite(parsedResult)) {
-                    console.error('Invalid result from expression:', result);
+                    console.error('Invalid result from expression:', result, 'Original expression:', expression);
                     return 0;
                 }
                 
-                console.log('Expression result:', parsedResult);
+                console.log('Expression result:', parsedResult, 'from expression:', jsExpression);
                 return parsedResult;
                 
             } catch (error) {
@@ -10023,7 +10407,11 @@ function getCurrentProcessId() {
             if (!isDisplayReference && formulaDisplay && formulaDisplay.trim() !== '' && formulaDisplay !== 'Formula') {
                 try {
                     console.log('Calculating processed amount from formulaDisplay:', formulaDisplay);
-                    const formulaResult = evaluateFormulaExpression(formulaDisplay);
+                    // IMPORTANT: For formulas with negative numbers in parentheses (e.g., (-1234)-(-2234)),
+                    // ensure the formula is properly evaluated by removing spaces and using evaluateExpression directly
+                    // This ensures real-time calculation works correctly for formulas with two negative numbers
+                    const sanitizedFormula = removeThousandsSeparators(formulaDisplay.trim().replace(/\s+/g, ''));
+                    const formulaResult = evaluateExpression(sanitizedFormula);
                     
                     // Apply input method transformation if enabled
                     if (enableInputMethod && inputMethod) {
@@ -10035,8 +10423,18 @@ function getCurrentProcessId() {
                     console.log('Final processed amount from formulaDisplay:', processedAmount);
                 } catch (error) {
                     console.error('Error calculating from formulaDisplay:', error, 'formulaDisplay:', formulaDisplay);
-                    // Fallback to calculateFormulaResultFromExpression if formulaDisplay evaluation fails
-                    processedAmount = calculateFormulaResultFromExpression(resolvedSourceExpression, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
+                    // Fallback: try evaluateFormulaExpression first, then calculateFormulaResultFromExpression
+                    try {
+                        const formulaResult = evaluateFormulaExpression(formulaDisplay);
+                        if (enableInputMethod && inputMethod) {
+                            processedAmount = applyInputMethodTransformation(formulaResult, inputMethod);
+                        } else {
+                            processedAmount = formulaResult;
+                        }
+                    } catch (e) {
+                        // Final fallback to calculateFormulaResultFromExpression
+                        processedAmount = calculateFormulaResultFromExpression(resolvedSourceExpression, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
+                    }
                 }
             } else {
                 // 显示为引用格式时，改用数字表达式计算
@@ -10142,7 +10540,7 @@ function getCurrentProcessId() {
             // Update Formula column (now index 4)
             if (cells[4]) {
                 // Get the formula to display - prioritize data.formula, then data.formulaOperators
-                let formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                let formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatNegativeNumbersInFormula(data.formula) : '';
                 
                 // If formula is empty, try to get from formulaOperators
                 if (!formulaText || formulaText.trim() === '') {
@@ -10404,13 +10802,29 @@ function getCurrentProcessId() {
                     rateInput.value = data.rate;
                 }
                 
+                // If checkbox is checked, display rateInput value in Rate Value cell
+                if (rateCheckbox.checked && rateValueCell && !hasRateValueInput) {
+                    const currentRateInput = document.getElementById('rateInput');
+                    if (currentRateInput && currentRateInput.value.trim() !== '') {
+                        rateValueCell.textContent = currentRateInput.value.trim();
+                    }
+                }
+                
                 // Add event listener to recalculate when checkbox state changes
                 rateCheckbox.addEventListener('change', function() {
                     const cells = row.querySelectorAll('td');
                     const rateValueCell = cells[7];
                     
-                    // When checkbox is checked, clear Rate Value cell
+                    // When checkbox is checked, display rateInput value in Rate Value cell
                     if (this.checked && rateValueCell) {
+                        const rateInput = document.getElementById('rateInput');
+                        if (rateInput && rateInput.value.trim() !== '') {
+                            rateValueCell.textContent = rateInput.value.trim();
+                        } else {
+                            rateValueCell.textContent = '';
+                        }
+                    } else if (!this.checked && rateValueCell) {
+                        // When checkbox is unchecked, clear Rate Value cell
                         rateValueCell.textContent = '';
                     }
                     
@@ -11018,7 +11432,18 @@ function getCurrentProcessId() {
                                 
                                 if (columnValue !== null) {
                                     // Replace $数字 with actual value (ensure it's a string)
-                                    const valueStr = String(columnValue);
+                                    // IMPORTANT: If value is negative, wrap it in parentheses to avoid syntax errors like -5861.14--1416.03
+                                    // 重要：如果值是负数，用括号包裹，避免出现 -5861.14--1416.03 这样的语法错误
+                                    let valueStr = String(columnValue);
+                                    const numericValue = parseFloat(columnValue);
+                                    if (!isNaN(numericValue) && numericValue < 0) {
+                                        // Check if the character before $数字 is an operator or at the start
+                                        const charBefore = dollarMatch.index > 0 ? displayFormula[dollarMatch.index - 1] : '';
+                                        const needsParentheses = dollarMatch.index === 0 || /[+\-*/\(\s]/.test(charBefore);
+                                        if (needsParentheses) {
+                                            valueStr = `(${columnValue})`;
+                                        }
+                                    }
                                     displayFormula = displayFormula.substring(0, dollarMatch.index) + 
                                                    valueStr + 
                                                    displayFormula.substring(dollarMatch.index + dollarMatch.fullMatch.length);
@@ -12094,7 +12519,7 @@ function getCurrentProcessId() {
             // Formula column (index 4)
             if (cells[4]) {
                 // If formula is empty, don't display "Formula" text, just leave it empty
-                const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                const formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatNegativeNumbersInFormula(data.formula) : '';
                 // Get input method from row or data for tooltip
                 const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
                 const inputMethodTooltip = inputMethod || '';
@@ -12148,10 +12573,36 @@ function getCurrentProcessId() {
                     rateInput.value = data.rate;
                 }
                 
+                // If checkbox is checked, display rateInput value in Rate Value cell
+                const rateValueCell = cells[7];
+                if (rateCheckbox.checked && rateValueCell) {
+                    const hasRateValueInput = rateValueCell && rateValueCell.textContent && rateValueCell.textContent.trim() !== '';
+                    if (!hasRateValueInput) {
+                        const currentRateInput = document.getElementById('rateInput');
+                        if (currentRateInput && currentRateInput.value.trim() !== '') {
+                            rateValueCell.textContent = currentRateInput.value.trim();
+                        }
+                    }
+                }
+                
                 // Add event listener to recalculate when checkbox state changes
                 rateCheckbox.addEventListener('change', function() {
                     // Recalculate processed amount when rate checkbox is toggled
                     const cells = row.querySelectorAll('td');
+                    const rateValueCell = cells[7];
+                    
+                    // When checkbox is checked, display rateInput value in Rate Value cell
+                    if (this.checked && rateValueCell) {
+                        const rateInput = document.getElementById('rateInput');
+                        if (rateInput && rateInput.value.trim() !== '') {
+                            rateValueCell.textContent = rateInput.value.trim();
+                        } else {
+                            rateValueCell.textContent = '';
+                        }
+                    } else if (!this.checked && rateValueCell) {
+                        // When checkbox is unchecked, clear Rate Value cell
+                        rateValueCell.textContent = '';
+                    }
                     
                     // Get the base processed amount from row attribute (stored when row was updated)
                     let baseProcessedAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0');
@@ -12516,7 +12967,7 @@ function getCurrentProcessId() {
                             if (enableSourcePercent && sourcePercentText) {
                                 formulaText = createFormulaDisplayFromExpression(parsedExpression, sourcePercentText, true);
                             } else {
-                                formulaText = parsedExpression;
+                                formulaText = formatNegativeNumbersInFormula(parsedExpression);
                             }
                             console.log('updateSummaryTableRow: Rebuilt formula from sourceColumns:', sourceColumnsValue, '->', formulaText);
                         }
@@ -12525,7 +12976,7 @@ function getCurrentProcessId() {
                     // Fallback: Get the formula to display - prioritize data.formula, then data.formulaOperators
                     // IMPORTANT: If sourceColumns was explicitly set to empty (data.sourceColumns === ''), don't use fallback
                     if (!formulaText && (data.sourceColumns === undefined || data.sourceColumns === null)) {
-                        formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? data.formula : '';
+                        formulaText = (data.formula && data.formula.trim() !== '' && data.formula !== 'Formula') ? formatNegativeNumbersInFormula(data.formula) : '';
                     }
                     
                     const inputMethod = row.getAttribute('data-input-method') || data.inputMethod || '';
@@ -14294,6 +14745,28 @@ function reorderSummaryRowsByRowIndex() {
             return;
         }
 
+        // Build Data Capture Table order mapping: id_product -> array of positions (in case same id_product appears multiple times)
+        const capturedTableBody = document.getElementById('capturedTableBody');
+        const dataCaptureTableOrder = []; // Array of {idProduct, position} to preserve exact order
+        const idProductPositions = new Map(); // id_product -> array of positions
+        
+        if (capturedTableBody) {
+            const capturedRows = Array.from(capturedTableBody.querySelectorAll('tr'));
+            capturedRows.forEach((capturedRow, capturedIndex) => {
+                const capturedIdProductCell = capturedRow.querySelector('td[data-column-index="1"]') || capturedRow.querySelector('td[data-col-index="1"]') || capturedRow.querySelectorAll('td')[1];
+                if (capturedIdProductCell) {
+                    const capturedIdProduct = normalizeIdProductText(capturedIdProductCell.textContent.trim());
+                    if (capturedIdProduct) {
+                        dataCaptureTableOrder.push({ idProduct: capturedIdProduct, position: capturedIndex });
+                        if (!idProductPositions.has(capturedIdProduct)) {
+                            idProductPositions.set(capturedIdProduct, []);
+                        }
+                        idProductPositions.get(capturedIdProduct).push(capturedIndex);
+                    }
+                }
+            });
+        }
+
         // Collect all rows with their metadata
         const rowData = rows.map((row, originalIndex) => {
             const idProductCell = row.querySelector('td:first-child');
@@ -14334,6 +14807,15 @@ function reorderSummaryRowsByRowIndex() {
             const subOrderAttr = row.getAttribute('data-sub-order');
             const subOrder = (subOrderAttr && subOrderAttr !== '' && !Number.isNaN(Number(subOrderAttr))) ? Number(subOrderAttr) : null;
 
+            // Find the position of this id_product in Data Capture Table order
+            let dataCapturePosition = 999999; // Default to end if not found
+            if (normalizedMain && dataCaptureTableOrder.length > 0) {
+                const index = dataCaptureTableOrder.findIndex(item => item.idProduct === normalizedMain);
+                if (index !== -1) {
+                    dataCapturePosition = index;
+                }
+            }
+
             return {
                 row,
                 rowIndex,
@@ -14343,7 +14825,8 @@ function reorderSummaryRowsByRowIndex() {
                 productType,
                 accountId,
                 creationOrder,
-                subOrder
+                subOrder,
+                dataCapturePosition
             };
         });
 
@@ -14351,37 +14834,24 @@ function reorderSummaryRowsByRowIndex() {
         const withIndex = rowData.filter(r => r.rowIndex !== null);
         const withoutIndex = rowData.filter(r => r.rowIndex === null);
 
-        // IMPORTANT: Sort rows directly by row_index, NOT by id_product groups
-        // This preserves the exact order from Data Capture Table, even if same id_product appears multiple times
+        // IMPORTANT: Sort rows to ensure all SUB id_Product rows follow their corresponding MAIN rows
+        // 重要：排序确保所有 SUB 的 id_Product 行都紧跟在对应的 MAIN 行后面
         withIndex.sort((a, b) => {
-            // Primary sort: by row_index (Data Capture Table order)
-            if (a.rowIndex !== b.rowIndex) {
-                return a.rowIndex - b.rowIndex;
+            // Primary sort: by normalizedMain (id_product) to group same id_product together
+            // 首先按 normalizedMain（id_product）分组，确保同一个 id_product 的所有行在一起
+            if (a.normalizedMain !== b.normalizedMain) {
+                // Different id_product: sort by Data Capture Table position
+                // 不同的 id_product：按 Data Capture Table 位置排序
+                return a.dataCapturePosition - b.dataCapturePosition;
             }
             
-            // If same row_index, handle main vs sub rows
+            // Same id_product: ensure main rows come before sub rows
+            // 同一个 id_product：确保 main 行在 sub 行前面
             const aIsSub = a.productType === 'sub';
             const bIsSub = b.productType === 'sub';
             
-            // If both are sub rows, sort by sub_order first, then by creation order
-            if (aIsSub && bIsSub) {
-                // First sort by sub_order (position relative to parent main row)
-                if (a.subOrder !== null && b.subOrder !== null) {
-                    if (a.subOrder !== b.subOrder) {
-                        return a.subOrder - b.subOrder;
-                    }
-                } else if (a.subOrder !== null) {
-                    // a has sub_order, b doesn't - a comes first
-                    return -1;
-                } else if (b.subOrder !== null) {
-                    // b has sub_order, a doesn't - b comes first
-                    return 1;
-                }
-                // If both have no sub_order or same sub_order, sort by creation order
-                return a.creationOrder - b.creationOrder;
-            }
-            
-            // If one is main and one is sub, main comes first (main rows should appear before their sub rows)
+            // If one is main and one is sub, main comes first
+            // 如果一个是 main，一个是 sub，main 排在前面
             if (!aIsSub && bIsSub) {
                 // a is main, b is sub - a comes first
                 return -1;
@@ -14391,7 +14861,35 @@ function reorderSummaryRowsByRowIndex() {
                 return 1;
             }
             
-            // Both are main rows with same row_index, sort by creation order
+            // Both are main rows: sort by row_index, then by creation order
+            // 都是 main 行：按 row_index 排序，然后按 creation order
+            if (!aIsSub && !bIsSub) {
+                if (a.rowIndex !== b.rowIndex) {
+                    return a.rowIndex - b.rowIndex;
+                }
+                return a.creationOrder - b.creationOrder;
+            }
+            
+            // Both are sub rows: sort by row_index first, then by sub_order, then by creation order
+            // 都是 sub 行：先按 row_index 排序，然后按 sub_order，最后按 creation order
+            if (a.rowIndex !== b.rowIndex) {
+                return a.rowIndex - b.rowIndex;
+            }
+            
+            // Same row_index for sub rows: sort by sub_order first
+            if (a.subOrder !== null && b.subOrder !== null) {
+                if (a.subOrder !== b.subOrder) {
+                    return a.subOrder - b.subOrder;
+                }
+            } else if (a.subOrder !== null) {
+                // a has sub_order, b doesn't - a comes first
+                return -1;
+            } else if (b.subOrder !== null) {
+                // b has sub_order, a doesn't - b comes first
+                return 1;
+            }
+            
+            // If both have no sub_order or same sub_order, sort by creation order
             return a.creationOrder - b.creationOrder;
         });
 
@@ -14408,7 +14906,7 @@ function reorderSummaryRowsByRowIndex() {
         // Re-append rows in new order
         orderedRows.forEach(row => summaryTableBody.appendChild(row));
         
-        console.log('Reordered rows by row_index (Data Capture Table order). Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
+        console.log('Reordered rows by Data Capture Table order. Total rows:', orderedRows.length, 'with index:', withIndex.length, 'without index:', withoutIndex.length);
     } catch (e) {
         console.warn('Failed to reorder summary rows by row_index', e);
     }
