@@ -101,6 +101,18 @@ try {
     
     $account_display = $account['account_id'];
     
+    // 获取当前 template 的 process_id，用于同步
+    $getProcessStmt = $pdo->prepare("
+        SELECT process_id, id_product, product_type, formula_variant, 
+               source_percent, enable_source_percent, enable_input_method,
+               currency_id, currency_display
+        FROM data_capture_templates 
+        WHERE id = ?
+    ");
+    $getProcessStmt->execute([$template_id]);
+    $templateInfo = $getProcessStmt->fetch(PDO::FETCH_ASSOC);
+    $sourceProcessId = $templateInfo ? (int)$templateInfo['process_id'] : null;
+    
     // 开始事务
     $pdo->beginTransaction();
     
@@ -128,6 +140,74 @@ try {
             ':description' => $description,
             ':id' => $template_id
         ]);
+        
+        // 如果当前 Process 是源 Process，同步 Formula 到所有关联的 Multi-use Processes
+        if ($sourceProcessId) {
+            // 查找所有 sync_source_process_id 指向当前源 Process 的 Processes
+            $findSyncedStmt = $pdo->prepare("
+                SELECT id, process_id 
+                FROM process 
+                WHERE sync_source_process_id = ? AND company_id = ?
+            ");
+            $findSyncedStmt->execute([$sourceProcessId, $company_id]);
+            $syncedProcesses = $findSyncedStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (!empty($syncedProcesses)) {
+                // 为每个关联的 Process 同步 Formula
+                foreach ($syncedProcesses as $syncedProcess) {
+                    $targetProcessId = $syncedProcess['id'];
+                    
+                    // 查找目标 Process 中对应的 template
+                    $findTargetTemplateStmt = $pdo->prepare("
+                        SELECT id FROM data_capture_templates 
+                        WHERE process_id = ? 
+                          AND company_id = ?
+                          AND id_product = ?
+                          AND account_id = ?
+                          AND product_type = ?
+                          AND formula_variant = ?
+                        LIMIT 1
+                    ");
+                    $findTargetTemplateStmt->execute([
+                        $targetProcessId,
+                        $company_id,
+                        $templateInfo['id_product'],
+                        $account_id,
+                        $templateInfo['product_type'],
+                        $templateInfo['formula_variant']
+                    ]);
+                    $targetTemplate = $findTargetTemplateStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($targetTemplate) {
+                        // 更新目标 template
+                        $syncUpdateStmt = $pdo->prepare("
+                            UPDATE data_capture_templates SET
+                                account_id = ?,
+                                account_display = ?,
+                                source_columns = ?,
+                                columns_display = ?,
+                                input_method = ?,
+                                formula_display = ?,
+                                formula_operators = ?,
+                                description = ?,
+                                updated_at = NOW()
+                            WHERE id = ?
+                        ");
+                        $syncUpdateStmt->execute([
+                            $account_id,
+                            $account_display,
+                            $source_columns,
+                            $source_display,
+                            $input_method ?: null,
+                            $formula,
+                            $formula,
+                            $description,
+                            $targetTemplate['id']
+                        ]);
+                    }
+                }
+            }
+        }
         
         $pdo->commit();
         

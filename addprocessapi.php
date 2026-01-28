@@ -465,7 +465,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $copyFromProcessDbId = null;
         if (!empty($copyFromProcessId)) {
             try {
-                // 先根据 process.process_id（字符串）找到对应的 process.id（整数），用于后续复制
+                // 先根据 process.process_id（字符串）找到对应的 process.id（整数），用于后续复制和同步关联
                 $stmt = $pdo->prepare("SELECT id FROM process WHERE process_id = ? AND company_id = ? LIMIT 1");
                 $stmt->execute([$copyFromProcessId, $companyId]);
                 $copyFromProcessDbId = $stmt->fetchColumn();
@@ -564,10 +564,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     
                     // 插入process，包含company_id与创建者主体
+                    // 如果是 Multi-use Process 且提供了 copy_from，设置 sync_source_process_id
+                    $syncSourceProcessId = null;
+                    if (!empty($copyFromProcessDbId) && !empty($_POST['selected_processes'])) {
+                        // 这是 Multi-use Process，需要设置同步源
+                        $syncSourceProcessId = $copyFromProcessDbId;
+                    }
+                    
                     $stmt = $pdo->prepare("INSERT INTO process (
                         process_id, description_id, currency_id, remove_word, 
-                        replace_word_from, replace_word_to, remark, created_by, created_by_type, created_by_owner_id, dts_created, company_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                        replace_word_from, replace_word_to, remark, created_by, created_by_type, created_by_owner_id, dts_created, company_id, sync_source_process_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     
                     $stmt->execute([
                         $processId,
@@ -581,7 +588,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $createdByType,
                         $createdByOwnerId,
                         date('Y-m-d H:i:s'),
-                        $companyId
+                        $companyId,
+                        $syncSourceProcessId
                     ]);
                     
                     $newProcessId = $pdo->lastInsertId();

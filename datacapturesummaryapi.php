@@ -215,6 +215,105 @@ function computeTemplateKey(array $row): string {
 
 ensureTemplateSchema($pdo);
 
+/**
+ * 同步 Formula 到所有关联的 Multi-use Processes
+ * 当源 Process 的 Formula 更新时，自动同步到所有 sync_source_process_id 指向该源 Process 的 Processes
+ */
+function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $templateData, int $companyId) {
+    try {
+        // 查找所有 sync_source_process_id 指向当前源 Process 的 Processes
+        $stmt = $pdo->prepare("
+            SELECT id, process_id 
+            FROM process 
+            WHERE sync_source_process_id = ? AND company_id = ?
+        ");
+        $stmt->execute([$sourceProcessId, $companyId]);
+        $syncedProcesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (empty($syncedProcesses)) {
+            return; // 没有需要同步的 Processes
+        }
+        
+        error_log("Syncing formula to " . count($syncedProcesses) . " multi-use processes for source process ID: $sourceProcessId");
+        
+        // 为每个关联的 Process 同步 Formula
+        foreach ($syncedProcesses as $syncedProcess) {
+            $targetProcessId = $syncedProcess['id'];
+            $targetProcessCode = $syncedProcess['process_id'];
+            
+            try {
+                // 查找目标 Process 中对应的 template（基于相同的 id_product, account_id, product_type, formula_variant）
+                $findTemplateStmt = $pdo->prepare("
+                    SELECT id FROM data_capture_templates 
+                    WHERE process_id = ? 
+                      AND company_id = ?
+                      AND id_product = ?
+                      AND account_id = ?
+                      AND product_type = ?
+                      AND formula_variant = ?
+                    LIMIT 1
+                ");
+                $findTemplateStmt->execute([
+                    $targetProcessId,
+                    $companyId,
+                    $templateData['id_product'],
+                    $templateData['account_id'],
+                    $templateData['product_type'],
+                    $templateData['formula_variant']
+                ]);
+                $targetTemplate = $findTemplateStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($targetTemplate) {
+                    // 更新已存在的 template
+                    $updateStmt = $pdo->prepare("
+                        UPDATE data_capture_templates SET
+                            source_columns = ?,
+                            formula_operators = ?,
+                            source_percent = ?,
+                            enable_source_percent = ?,
+                            input_method = ?,
+                            enable_input_method = ?,
+                            columns_display = ?,
+                            formula_display = ?,
+                            description = ?,
+                            account_display = ?,
+                            currency_id = ?,
+                            currency_display = ?,
+                            updated_at = NOW()
+                        WHERE id = ?
+                    ");
+                    $updateStmt->execute([
+                        $templateData['source_columns'],
+                        $templateData['formula_operators'],
+                        $templateData['source_percent'],
+                        $templateData['enable_source_percent'],
+                        $templateData['input_method'],
+                        $templateData['enable_input_method'],
+                        $templateData['columns_display'],
+                        $templateData['formula_display'],
+                        $templateData['description'],
+                        $templateData['account_display'],
+                        $templateData['currency_id'],
+                        $templateData['currency_display'],
+                        $targetTemplate['id']
+                    ]);
+                    error_log("Updated template ID {$targetTemplate['id']} for process $targetProcessCode (ID: $targetProcessId)");
+                } else {
+                    // 如果目标 Process 中没有对应的 template，创建新的（可选，根据需求决定）
+                    // 这里暂时不创建，因为可能目标 Process 还没有对应的 template
+                    error_log("Template not found for process $targetProcessCode (ID: $targetProcessId), skipping sync");
+                }
+            } catch (Exception $e) {
+                error_log("Error syncing formula to process $targetProcessCode (ID: $targetProcessId): " . $e->getMessage());
+                // 继续同步其他 Processes，不中断
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Error in syncFormulaToMultiUseProcesses: " . $e->getMessage());
+        // 不抛出异常，避免影响主流程
+    }
+}
+
 function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     // Ensure required keys exist
     if (empty($row['id_product']) || empty($row['account_id'])) {
@@ -585,6 +684,30 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
             ':sub_order' => isset($row['sub_order']) && $row['sub_order'] !== null && $row['sub_order'] !== '' ? (float)$row['sub_order'] : null,
             ':formula_variant' => $formulaVariant,
         ]);
+        
+        // 如果当前 Process 是源 Process，同步 Formula 到所有关联的 Multi-use Processes
+        if ($hasProcessId && $processId) {
+            $syncTemplateData = [
+                'id_product' => $row['id_product'],
+                'account_id' => $row['account_id'],
+                'product_type' => $productType,
+                'formula_variant' => $formulaVariant,
+                'source_columns' => $row['source_columns'] ?? '',
+                'formula_operators' => $row['formula_operators'] ?? '',
+                'source_percent' => isset($row['source_percent']) && $row['source_percent'] !== '' ? (string)$row['source_percent'] : '1',
+                'enable_source_percent' => (isset($row['source_percent']) && $row['source_percent'] !== '' && $row['source_percent'] !== '0') ? 1 : 0,
+                'input_method' => $row['input_method'] ?? null,
+                'enable_input_method' => isset($row['enable_input_method']) ? (int)$row['enable_input_method'] : 0,
+                'columns_display' => $row['columns_display'] ?? null,
+                'formula_display' => $row['formula_display'] ?? null,
+                'description' => $row['description'] ?? null,
+                'account_display' => $row['account_display'] ?? null,
+                'currency_id' => $row['currency_id'] ?? null,
+                'currency_display' => $row['currency_display'] ?? null,
+            ];
+            syncFormulaToMultiUseProcesses($pdo, $processId, $syncTemplateData, $companyId);
+        }
+        
         return [
             'template_key' => $templateKey,
             'template_id' => $existingId,
@@ -706,6 +829,30 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     ]);
     
     $templateId = $pdo->lastInsertId();
+    
+    // 如果当前 Process 是源 Process，同步 Formula 到所有关联的 Multi-use Processes
+    if ($hasProcessId && $processId) {
+        $syncTemplateData = [
+            'id_product' => $row['id_product'],
+            'account_id' => $row['account_id'],
+            'product_type' => $productType,
+            'formula_variant' => $formulaVariant,
+            'source_columns' => $row['source_columns'] ?? '',
+            'formula_operators' => $row['formula_operators'] ?? '',
+            'source_percent' => isset($row['source_percent']) && $row['source_percent'] !== '' ? (string)$row['source_percent'] : '1',
+            'enable_source_percent' => isset($row['enable_source_percent']) ? (int)$row['enable_source_percent'] : 1,
+            'input_method' => $row['input_method'] ?? null,
+            'enable_input_method' => isset($row['enable_input_method']) ? (int)$row['enable_input_method'] : 0,
+            'columns_display' => $row['columns_display'] ?? null,
+            'formula_display' => $row['formula_display'] ?? null,
+            'description' => $row['description'] ?? null,
+            'account_display' => $row['account_display'] ?? null,
+            'currency_id' => $row['currency_id'] ?? null,
+            'currency_display' => $row['currency_display'] ?? null,
+        ];
+        syncFormulaToMultiUseProcesses($pdo, $processId, $syncTemplateData, $companyId);
+    }
+    
     return [
         'template_key' => $templateKey,
         'template_id' => $templateId,
