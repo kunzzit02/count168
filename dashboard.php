@@ -887,7 +887,7 @@ if (isset($_GET['logout'])) {
     <?php include 'sidebar.php'; ?>
     
     <div class="dashboard-container">
-        <h1 class="dashboard-title">Transaction Dashboard</h1>
+        <h1 class="dashboard-title">Transaction Dashboar</h1>
         
         <div id="app" class="dashboard-content">
             <!-- Date Controls -->
