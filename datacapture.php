@@ -16453,10 +16453,19 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             // Citibet 专用解析（先于通用 Payment 逻辑）
-            // 下拉选 CITIBET 时 value 为 CITIBET_MAJOR，优先按格式粘贴（不依赖 MG 等关键词），仅排除 Minor、Downline Payment
+            // 完整 PayReport（含 Upline Payment + Downline Payment）时优先用结构化解析；否则用按格式粘贴
             let citibetParsed = null;
             if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
-                citibetParsed = parseCitibetFormatBasedPaste(pastedData) || parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                const lowerAll = (pastedData || '').toLowerCase();
+                const hasUplineAndDownline = lowerAll.includes('upline payment') && lowerAll.includes('downline payment');
+                if (hasUplineAndDownline) {
+                    // 从网页复制的完整报表：用结构化解析，得到 OVERALL / My Earnings / MG·PL 等整理好的几行
+                    citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+                }
+                if (!citibetParsed) {
+                    // 非完整报表（如从 Excel 或只有 Overall 开始）：按格式粘贴，仅排除 Minor、Downline Payment
+                    citibetParsed = parseCitibetFormatBasedPaste(pastedData);
+                }
             } else {
                 citibetParsed = parseCitibetPaymentReport(pastedData);
             }
