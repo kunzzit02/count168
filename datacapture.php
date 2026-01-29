@@ -7759,34 +7759,61 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     }
 
-                    const parent = cells[1] || '';
-                    const type = (cells[2] || '').toLowerCase();
-                    if (type === 'minor') return;
-                    const numbers = cells.slice(3);
-                    const row = [parent, parent, cells[2] || '', ...numbers.slice(0, 8)];
+                    // Minor 整行不要：第二列或第三列为 Minor 即跳过
+                    const col1 = (cells[1] || '').toLowerCase();
+                    const col2 = (cells[2] || '').toLowerCase();
+                    if (col1 === 'minor' || col2 === 'minor') return;
+
+                    // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...)
+                    let parent = '';
+                    let type = '';
+                    let numbers = [];
+                    const looksLikeNumber = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
+                    if ((col1 === 'major') && cells.length >= 3 && looksLikeNumber(cells[2])) {
+                        parent = cells[0] || '';
+                        type = cells[1] || '';
+                        numbers = cells.slice(2);
+                    } else if ((col2 === 'major') && cells.length >= 4 && looksLikeNumber(cells[3])) {
+                        parent = cells[1] || '';
+                        type = cells[2] || '';
+                        numbers = cells.slice(3);
+                    } else {
+                        parent = cells[1] || '';
+                        type = cells[2] || '';
+                        numbers = cells.slice(3);
+                    }
+                    if (!parent && !type) return;
+                    const row = [parent, parent, type, ...numbers.slice(0, 8)];
                     pushRow(row);
                     return;
                 }
 
                 if (section === 'downline') {
                     if (cells[0] === 'No.' && lower.includes('username')) return;
+                    // Minor 整行不要：第二列为 Minor 即跳过
+                    if ((cells[1] || '').toLowerCase() === 'minor') return;
+
                     // 表头行 "1\tMG\tm99m06"：只记 username，下一行再输出 [username, code, Major, Bet, ...]
                     if (cells.length >= 3 && /^\d+$/.test(cells[0]) && /^(mg|pl)$/i.test((cells[1] || '').trim())) {
                         lastDownlineUsername = (cells[2] || '').trim();
                         return;
                     }
-                    // 数据行 "M06-KZ\tMajor\t45\t..."：与上一行 username 合并为 [username, code, Major, Bet, ...]；Minor 行不贴
-                    if (lastDownlineUsername && cells.length >= 3 && /^(major|minor)$/i.test((cells[1] || '').trim())) {
-                        if ((cells[1] || '').toLowerCase() === 'minor') {
-                            lastDownlineUsername = '';
-                            return;
-                        }
+                    // 数据行 "M06-KZ\tMajor\t45\t..."：与上一行 username 合并为 [username, code, Major, Bet, ...]；Minor 已在上方跳过
+                    if (lastDownlineUsername && cells.length >= 3 && /^major$/i.test((cells[1] || '').trim())) {
                         const row = [lastDownlineUsername, cells[0] || '', cells[1] || '', ...cells.slice(2).slice(0, 8)];
                         pushRow(row);
                         lastDownlineUsername = '';
                         return;
                     }
                     lastDownlineUsername = '';
+
+                    // 无 "No. MG" 的数据行（如 HSE iphsp3）：(Username, Type, Bet...) -> [Username, Username, Type, Bet...]
+                    const looksLikeNumber = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
+                    if (cells.length >= 3 && (cells[1] || '').toLowerCase() === 'major' && looksLikeNumber(cells[2])) {
+                        const row = [cells[0] || '', cells[0] || '', cells[1] || '', ...cells.slice(2).slice(0, 8)];
+                        pushRow(row);
+                        return;
+                    }
 
                     let idx = 0;
                     if (/^\d+$/.test(cells[0])) idx = 1;
@@ -7802,7 +7829,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         type = cells[idx + 3] || '';
                         dataStart = idx + 4;
                     }
-                    // Downline 中 Minor 行一律不贴（第二列为 Minor 即整行跳过），避免列错位
                     if ((cells[idx + 1] || '').toLowerCase() === 'minor' || (type || '').toLowerCase() === 'minor') return;
 
                     const numbers = cells.slice(dataStart);
