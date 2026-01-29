@@ -780,7 +780,7 @@ $today = date('d/m/Y');
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
         .member-currency-section {
-            display: none;
+            display: flex;
             flex-direction: column;
             gap: 16px;
             margin: 20px 0 25px 0;
@@ -955,9 +955,9 @@ $today = date('d/m/Y');
                 <div class="transaction-form-group">
                     <label class="transaction-label">Capture Date</label>
                     <div class="transaction-date-inputs">
-                        <input type="text" id="date_from" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
+                        <input type="text" id="date_from" class="transaction-input transaction-date-input" value="<?php echo htmlspecialchars($today); ?>" placeholder="dd/mm/yyyy" data-default="<?php echo htmlspecialchars($today); ?>" readonly>
                         <span>to</span>
-                        <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
+                        <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo htmlspecialchars($today); ?>" placeholder="dd/mm/yyyy" data-default="<?php echo htmlspecialchars($today); ?>" readonly>
                     </div>
                 </div>
                 <?php if (!empty($memberCompanies)): ?>
@@ -1170,9 +1170,9 @@ $today = date('d/m/Y');
         </div>
 
         <div class="member-currency-section" id="member_currency_tables_section">
-            <div id="member_empty_state" class="member-empty-state" style="display: none;">
+            <div id="member_empty_state" class="member-empty-state">
                 <p class="member-empty-state-title">暂无数据</p>
-                <p class="member-empty-state-desc" id="member_empty_state_message"></p>
+                <p class="member-empty-state-desc" id="member_empty_state_message">请选择日期范围以查看盈亏数据。若已关联公司仍无数据，请尝试其他日期或联系管理员。</p>
             </div>
             <div id="member_currency_tables" class="member-currency-tables"></div>
         </div>
@@ -1195,11 +1195,16 @@ $today = date('d/m/Y');
         let memberIsAllSelected = true;
 
         document.addEventListener('DOMContentLoaded', () => {
-            initDatePickers();
-            setupFormListeners();
-            setupCompanyButtons();
-            setupAccountButtons();
-            performMemberSearch();
+            try {
+                initDatePickers();
+                setupFormListeners();
+                setupCompanyButtons();
+                setupAccountButtons();
+                performMemberSearch();
+            } catch (err) {
+                console.error('Member page init error:', err);
+                showMemberEmptyState('页面加载异常，请刷新重试。若问题持续，请联系管理员。');
+            }
         });
 
         function performMemberSearch() {
@@ -1213,8 +1218,13 @@ $today = date('d/m/Y');
         }
 
         function initDatePickers() {
+            var dateFrom = document.getElementById('date_from');
+            var dateTo = document.getElementById('date_to');
+            if (!dateFrom || !dateTo) return;
+            if (!dateFrom.value && dateFrom.dataset.default) dateFrom.value = dateFrom.dataset.default;
+            if (!dateTo.value && dateTo.dataset.default) dateTo.value = dateTo.dataset.default;
             if (typeof flatpickr === 'undefined') {
-                console.error('Flatpickr not loaded');
+                console.warn('Flatpickr not loaded - date inputs will work as text');
                 return;
             }
             flatpickr('#date_from', {
@@ -1382,11 +1392,14 @@ $today = date('d/m/Y');
 
         function fetchMemberSummary() {
             return new Promise((resolve, reject) => {
-                const dateFrom = document.getElementById('date_from').value;
-                const dateTo = document.getElementById('date_to').value;
+                const dateFromEl = document.getElementById('date_from');
+                const dateToEl = document.getElementById('date_to');
+                const dateFrom = dateFromEl ? dateFromEl.value : '';
+                const dateTo = dateToEl ? dateToEl.value : '';
                 const filterWrapper = document.getElementById('member_currency_filter');
 
                 if (!dateFrom || !dateTo) {
+                    showMemberEmptyState('请选择日期范围以查看盈亏数据。');
                     showNotification('Please select date range', 'error');
                     if (filterWrapper) filterWrapper.style.display = 'none';
                     return reject(new Error('Missing date'));
@@ -1557,10 +1570,13 @@ $today = date('d/m/Y');
         }
 
         function fetchMemberHistory(forcedFilter) {
-            const dateFrom = document.getElementById('date_from').value;
-            const dateTo = document.getElementById('date_to').value;
+            const dateFromEl = document.getElementById('date_from');
+            const dateToEl = document.getElementById('date_to');
+            const dateFrom = dateFromEl ? dateFromEl.value : '';
+            const dateTo = dateToEl ? dateToEl.value : '';
 
             if (!dateFrom || !dateTo) {
+                showMemberEmptyState('请选择日期范围以查看盈亏数据。');
                 showNotification('Please select date range', 'error');
                 return;
             }
