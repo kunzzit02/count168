@@ -2066,14 +2066,15 @@ function getCurrentProcessId() {
                         }
                     }
                     
-                    // Recalculate processed amount for this row
+                    // Recalculate processed amount for this row (use same logic as table: Source in decimal, 1=100%)
                     const sourcePercentCell = cells[5];
                     const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
                     const inputMethod = row.getAttribute('data-input-method') || '';
                     const enableInputMethod = inputMethod ? true : false;
                     const formulaCell = cells[4];
                     const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
-                    const baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                    const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
+                    const baseProcessedAmount = calculateFormulaResultFromExpression(formulaText, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
                     const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
                     
                     if (cells[8]) {
@@ -2124,14 +2125,15 @@ function getCurrentProcessId() {
                         rateValueCell.textContent = rateValue;
                     }
                     
-                    // Recalculate processed amount for this row
+                    // Recalculate processed amount for this row (use same logic as table: Source in decimal, 1=100%)
                     const sourcePercentCell = cells[5];
                     const sourcePercentText = sourcePercentCell ? sourcePercentCell.textContent.trim() : '';
                     const inputMethod = row.getAttribute('data-input-method') || '';
                     const enableInputMethod = inputMethod ? true : false;
                     const formulaCell = cells[4];
                     const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
-                    const baseProcessedAmount = calculateFormulaResult(formulaText, sourcePercentText, inputMethod, enableInputMethod);
+                    const enableSourcePercent = sourcePercentText && sourcePercentText.trim() !== '';
+                    const baseProcessedAmount = calculateFormulaResultFromExpression(formulaText, sourcePercentText, inputMethod, enableInputMethod, enableSourcePercent);
                     
                     // Store base processed amount
                     if (baseProcessedAmount && !isNaN(baseProcessedAmount)) {
