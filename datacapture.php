@@ -19344,16 +19344,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     const startCell = e.target;
                     const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
                     const startCol = parseInt(startCell.dataset.col);
-                    const currentRows = document.querySelectorAll('#tableBody tr').length;
-                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const tableBody = document.getElementById('tableBody');
+                    if (!tableBody) return;
+                    let currentRows = tableBody.children.length;
+                    let currentCols = document.querySelectorAll('#tableHeader th').length - 1;
                     const requiredRows = startRow + maxRows;
                     const requiredCols = startCol + maxCols;
-                    if (requiredRows > currentRows || requiredCols > currentCols) {
-                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                        const targetCols = Math.max(currentCols, requiredCols);
-                        initializeTable(targetRows, targetCols);
+                    // 只通过 addNewRow/addNewColumn 扩展，绝不调用 initializeTable，避免清空整表
+                    while (currentRows < requiredRows && currentRows < 702) {
+                        if (addNewRow() === null) break;
+                        currentRows = tableBody.children.length;
                     }
-                    const tableBody = document.getElementById('tableBody');
+                    while (currentCols < requiredCols) {
+                        if (addNewColumn() === null) break;
+                        currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    }
                     const currentPasteChanges = [];
                     let successCount = 0;
                     dataMatrix.forEach((rowData, rowIndex) => {
@@ -22996,6 +23001,10 @@ if ($current_user_id && count($user_companies) > 0) {
             // WBET 和 WBET_API 格式：保持原始格式，不执行任何转换（特别是保持 Sub Total 和 Grand Total 分开成两行）
             if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'WBET' || currentDataCaptureType === 'WBET_API')) {
                 console.log(`${currentDataCaptureType} format detected: Skipping format conversion to preserve Sub Total and Grand Total as separate rows`);
+                return;
+            }
+            // CITIBET_MAJOR：粘贴已按格式解析并写入，不再做格式转换，避免误动单元格
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR') {
                 return;
             }
             
