@@ -7792,6 +7792,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (cells[0] === 'No.' && lower.includes('username')) return;
                     // Minor 整行不要：第二列为 Minor 即跳过
                     if ((cells[1] || '').toLowerCase() === 'minor') return;
+                    // 无 "Minor" 标签的 Minor 行（复制时 Lvl/Username/Type 为空）：首列为数字、第二列像金额、整行无 Major -> 跳过
+                    const looksLikeNumber = (s) => /^[\d,.]+$/.test((s || '').trim());
+                    const looksLikeAmount = (s) => /^[$]?[\d,.()\-]+$/.test((s || '').trim());
+                    const hasMajor = cells.some(c => (c || '').toLowerCase() === 'major');
+                    if (!hasMajor && cells.length >= 2 && looksLikeNumber(cells[0]) && looksLikeAmount(cells[1])) return;
 
                     // 表头行 "1\tMG\tm99m06"：只记 username，下一行再输出 [username, code, Major, Bet, ...]
                     if (cells.length >= 3 && /^\d+$/.test(cells[0]) && /^(mg|pl)$/i.test((cells[1] || '').trim())) {
@@ -7808,8 +7813,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     lastDownlineUsername = '';
 
                     // 无 "No. MG" 的数据行（如 HSE iphsp3）：(Username, Type, Bet...) -> [Username, Username, Type, Bet...]
-                    const looksLikeNumber = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
-                    if (cells.length >= 3 && (cells[1] || '').toLowerCase() === 'major' && looksLikeNumber(cells[2])) {
+                    const looksLikeBetOrAmount = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
+                    if (cells.length >= 3 && (cells[1] || '').toLowerCase() === 'major' && looksLikeBetOrAmount(cells[2])) {
                         const row = [cells[0] || '', cells[0] || '', cells[1] || '', ...cells.slice(2).slice(0, 8)];
                         pushRow(row);
                         return;
