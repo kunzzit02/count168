@@ -16453,22 +16453,10 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             // Citibet 专用解析（先于通用 Payment 逻辑）
-            // 剪贴板含 "upline payment" 且 "downline payment" 时：用结构化解析（得到整齐 6 行/第四张图效果）；
-            // 不含 "upline payment" 时（如从第一张图只复制 Overall 起）：用格式粘贴，避免数据贴不进去。
+            // 下拉选 CITIBET 时 value 为 CITIBET_MAJOR，优先按格式粘贴（不依赖 MG 等关键词），仅排除 Minor、Downline Payment
             let citibetParsed = null;
             if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
-                const lowerAll = (pastedData || '').toLowerCase();
-                const hasUpline = lowerAll.includes('upline payment');
-                const hasDownline = lowerAll.includes('downline payment');
-                if (hasUpline && hasDownline) {
-                    citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
-                }
-                if (!citibetParsed) {
-                    citibetParsed = parseCitibetFormatBasedPaste(pastedData);
-                }
-                if (!citibetParsed) {
-                    citibetParsed = parseCitibetPaymentReport(pastedData);
-                }
+                citibetParsed = parseCitibetFormatBasedPaste(pastedData) || parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
             } else {
                 citibetParsed = parseCitibetPaymentReport(pastedData);
             }
