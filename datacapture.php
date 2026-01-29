@@ -16526,8 +16526,7 @@ if ($current_user_id && count($user_companies) > 0) {
             // 优先用结构化解析（得到第二张图那样的 OVERALL / Upline Major / My Earnings / 多行 Downline Major）；都不行再按格式粘贴
             let citibetParsed = null;
             if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
-                // 优先用 parseCitibetPaymentReport 保留所有 Downline 用户（含 AG gaosheng 等）；Major 只输出 6 行会丢数据
-                citibetParsed = parseCitibetPaymentReport(pastedData) || parseCitibetMajorPaymentReport(pastedData) || parseCitibetFormatBasedPaste(pastedData);
+                citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData) || parseCitibetFormatBasedPaste(pastedData);
             } else {
                 citibetParsed = parseCitibetPaymentReport(pastedData);
             }
