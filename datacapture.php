@@ -7803,14 +7803,23 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (!hasMajor && cells.length >= 2 && looksLikeNumber(cells[0]) && looksLikeAmount(cells[1])) return;
                     if (!hasMajor && cells.length >= 3 && looksLikeAmount(cells[0]) && looksLikeNumber(cells[1]) && looksLikeAmount(cells[2])) return;
 
-                    // 表头行 "1\tMG\tm99m06"：只记 username，下一行再输出 [username, code, Major, Bet, ...]
-                    if (cells.length >= 3 && /^\d+$/.test(cells[0]) && /^(mg|pl)$/i.test((cells[1] || '').trim())) {
+                    // 表头行 "1\tMG\tm99m06" 或 "1\tAG\tgaosheng"：No. + Lvl(MG/PL/AG/…) + Username，记 username 下一行再输出
+                    if (cells.length >= 3 && /^\d+$/.test(cells[0]) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim())) {
                         lastDownlineUsername = (cells[2] || '').trim();
                         return;
                     }
-                    // 数据行 "M06-KZ\tMajor\t45\t..."：与上一行 username 合并为 [username, code, Major, Bet, ...]；Minor 已在上方跳过
+                    // 数据行 "M06-KZ\tMajor\t45\t..."：与上一行 username 合并为 [username, code, Major, Bet, ...]
                     if (lastDownlineUsername && cells.length >= 3 && /^major$/i.test((cells[1] || '').trim())) {
                         const row = [lastDownlineUsername, cells[0] || '', cells[1] || '', ...cells.slice(2).slice(0, 8)];
+                        pushRow(row);
+                        lastDownlineUsername = '';
+                        return;
+                    }
+                    // 数据行 "gaosheng\tgaosheng\tMajor\t9344\t..."（两列 username）：与上一行 username 合并
+                    if (lastDownlineUsername && cells.length >= 4 && /^major$/i.test((cells[2] || '').trim()) &&
+                        ((cells[0] || '').trim() === lastDownlineUsername || (cells[1] || '').trim() === lastDownlineUsername)) {
+                        const code = (cells[0] || '').trim() === lastDownlineUsername ? (cells[1] || '') : (cells[0] || '');
+                        const row = [lastDownlineUsername, code, 'Major', ...cells.slice(3).slice(0, 8)];
                         pushRow(row);
                         lastDownlineUsername = '';
                         return;
