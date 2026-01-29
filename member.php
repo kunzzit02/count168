@@ -785,6 +785,25 @@ $today = date('d/m/Y');
             gap: 16px;
             margin: 20px 0 25px 0;
         }
+        .member-empty-state {
+            background: #fff;
+            border-radius: 12px;
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: 0 2px 12px rgba(0, 44, 73, 0.08);
+        }
+        .member-empty-state-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #002C49;
+            margin: 0 0 8px 0;
+        }
+        .member-empty-state-desc {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0;
+            line-height: 1.5;
+        }
         .member-currency-tables {
             display: flex;
             flex-direction: column;
@@ -1151,6 +1170,10 @@ $today = date('d/m/Y');
         </div>
 
         <div class="member-currency-section" id="member_currency_tables_section">
+            <div id="member_empty_state" class="member-empty-state" style="display: none;">
+                <p class="member-empty-state-title">暂无数据</p>
+                <p class="member-empty-state-desc" id="member_empty_state_message"></p>
+            </div>
             <div id="member_currency_tables" class="member-currency-tables"></div>
         </div>
 
@@ -1370,6 +1393,7 @@ $today = date('d/m/Y');
                 }
 
                 if (!memberConfig.companyId || memberConfig.companyId <= 0) {
+                    showMemberEmptyState('您尚未关联任何公司，无法查看盈亏数据。请联系管理员添加公司权限。');
                     showNotification('Please select a company', 'error');
                     if (filterWrapper) filterWrapper.style.display = 'none';
                     return reject(new Error('Missing company'));
@@ -1542,6 +1566,7 @@ $today = date('d/m/Y');
             }
 
             if (!memberConfig.companyId || memberConfig.companyId <= 0) {
+                showMemberEmptyState('您尚未关联任何公司，无法查看盈亏数据。请联系管理员添加公司权限。');
                 showNotification('Please select a company', 'error');
                 return;
             }
@@ -1625,6 +1650,22 @@ $today = date('d/m/Y');
             return toUpperDisplay(row.sms || '-');
         }
 
+        function showMemberEmptyState(message) {
+            const section = document.getElementById('member_currency_tables_section');
+            const emptyState = document.getElementById('member_empty_state');
+            const messageEl = document.getElementById('member_empty_state_message');
+            const tables = document.getElementById('member_currency_tables');
+            if (section) section.style.display = 'flex';
+            if (emptyState) emptyState.style.display = 'block';
+            if (messageEl) messageEl.textContent = message || '暂无数据。请选择日期范围并确保已关联公司。';
+            if (tables) tables.innerHTML = '';
+        }
+
+        function hideMemberEmptyState() {
+            const emptyState = document.getElementById('member_empty_state');
+            if (emptyState) emptyState.style.display = 'none';
+        }
+
         function renderCurrencyTables(groupedMap, orderedKeys) {
             const section = document.getElementById('member_currency_tables_section');
             const container = document.getElementById('member_currency_tables');
@@ -1634,10 +1675,12 @@ $today = date('d/m/Y');
 
             container.innerHTML = '';
             if (!orderedKeys || !orderedKeys.length) {
-                section.style.display = 'none';
+                section.style.display = 'flex';
+                showMemberEmptyState('该日期范围内暂无交易记录。请尝试其他日期或联系管理员。');
                 return;
             }
 
+            hideMemberEmptyState();
             section.style.display = 'flex';
             orderedKeys.forEach(currencyKey => {
                 const rows = groupedMap[currencyKey] || [];
