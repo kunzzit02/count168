@@ -7662,13 +7662,16 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // 针对 Citibet 的 Upline/Downline 报表：直接生成 11 列矩阵
         // 通用版本（用于普通 CITIBET），尽量完整还原原始结构
+        // 放宽：无 "Upline Payment"/"Downline Payment" 标题时，用 Overall + My Earnings + No./1 MG 等推断段落
         function parseCitibetPaymentReport(pastedData) {
             if (!pastedData || typeof pastedData !== 'string') return null;
 
             const lowerAll = pastedData.toLowerCase();
-            if (!lowerAll.includes('upline payment') || !lowerAll.includes('downline payment')) {
-                return null;
-            }
+            const hasOverall = lowerAll.includes('overall');
+            const hasMyEarnings = lowerAll.includes('my earnings');
+            const hasUplineHeader = lowerAll.includes('upline payment');
+            const hasDownlineHeader = lowerAll.includes('downline payment');
+            if (!hasOverall || !hasMyEarnings) return null;
 
             console.log('Using Citibet payment parser');
 
@@ -7686,7 +7689,9 @@ if ($current_user_id && count($user_companies) > 0) {
 
             const rows = [];
             const colCount = 12;
-            let section = '';
+            let section = hasUplineHeader ? '' : 'upline';
+            let afterMyEarnings = false;
+            let lastDownlineUsername = '';
 
             const pushRow = (arr) => {
                 const row = [...arr];
@@ -7705,12 +7710,17 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 if (lower.includes('downline payment')) {
                     section = 'downline';
+                    afterMyEarnings = true;
                     return;
+                }
+                if (!hasDownlineHeader && afterMyEarnings && (/^no\.\t/i.test(line) || /^\d+\t(mg|pl)\t/i.test(line))) {
+                    section = 'downline';
                 }
                 if (lower.includes('username') && lower.includes('type')) return;
 
                 // My Earnings 行（金额固定放在第 11 列）
                 if (lower.includes('my earnings')) {
+                    afterMyEarnings = true;
                     const tokens = splitLine(line);
                     if (tokens.length >= 2) {
                         const label = tokens.slice(0, -1).join(' ').toUpperCase();
@@ -7750,14 +7760,34 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
 
                     const parent = cells[1] || '';
-                    const type = cells[2] || '';
+                    const type = (cells[2] || '').toLowerCase();
+                    if (type === 'minor') return;
                     const numbers = cells.slice(3);
-                    const row = [parent, parent, type, ...numbers.slice(0, 8)];
+                    const row = [parent, parent, cells[2] || '', ...numbers.slice(0, 8)];
                     pushRow(row);
                     return;
                 }
 
                 if (section === 'downline') {
+                    if (cells[0] === 'No.' && lower.includes('username')) return;
+                    // 表头行 "1\tMG\tm99m06"：只记 username，下一行再输出 [username, code, Major, Bet, ...]
+                    if (cells.length >= 3 && /^\d+$/.test(cells[0]) && /^(mg|pl)$/i.test((cells[1] || '').trim())) {
+                        lastDownlineUsername = (cells[2] || '').trim();
+                        return;
+                    }
+                    // 数据行 "M06-KZ\tMajor\t45\t..."：与上一行 username 合并为 [username, code, Major, Bet, ...]；Minor 行不贴
+                    if (lastDownlineUsername && cells.length >= 3 && /^(major|minor)$/i.test((cells[1] || '').trim())) {
+                        if ((cells[1] || '').toLowerCase() === 'minor') {
+                            lastDownlineUsername = '';
+                            return;
+                        }
+                        const row = [lastDownlineUsername, cells[0] || '', cells[1] || '', ...cells.slice(2).slice(0, 8)];
+                        pushRow(row);
+                        lastDownlineUsername = '';
+                        return;
+                    }
+                    lastDownlineUsername = '';
+
                     let idx = 0;
                     if (/^\d+$/.test(cells[0])) idx = 1;
 
@@ -7766,7 +7796,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     let type = cells[idx + 2] || '';
                     let dataStart = idx + 3;
 
-                    const typeLower = type.toLowerCase();
+                    const typeLower = (type || '').toLowerCase();
                     if (typeLower !== 'major' && typeLower !== 'minor' && cells.length > idx + 3) {
                         child = cells[idx + 2] || '';
                         type = cells[idx + 3] || '';
@@ -16453,19 +16483,10 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             // Citibet 专用解析（先于通用 Payment 逻辑）
-            // 完整 PayReport（含 Upline Payment + Downline Payment）时优先用结构化解析；否则用按格式粘贴
+            // 优先用结构化解析（得到第二张图那样的 OVERALL / Upline Major / My Earnings / 多行 Downline Major）；都不行再按格式粘贴
             let citibetParsed = null;
             if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
-                const lowerAll = (pastedData || '').toLowerCase();
-                const hasUplineAndDownline = lowerAll.includes('upline payment') && lowerAll.includes('downline payment');
-                if (hasUplineAndDownline) {
-                    // 从网页复制的完整报表：用结构化解析，得到 OVERALL / My Earnings / MG·PL 等整理好的几行
-                    citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
-                }
-                if (!citibetParsed) {
-                    // 非完整报表（如从 Excel 或只有 Overall 开始）：按格式粘贴，仅排除 Minor、Downline Payment
-                    citibetParsed = parseCitibetFormatBasedPaste(pastedData);
-                }
+                citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData) || parseCitibetFormatBasedPaste(pastedData);
             } else {
                 citibetParsed = parseCitibetPaymentReport(pastedData);
             }
