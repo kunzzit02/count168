@@ -7802,6 +7802,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         type = cells[idx + 3] || '';
                         dataStart = idx + 4;
                     }
+                    // Downline 中 Minor 行一律不贴（第二列为 Minor 即整行跳过），避免列错位
+                    if ((cells[idx + 1] || '').toLowerCase() === 'minor' || (type || '').toLowerCase() === 'minor') return;
 
                     const numbers = cells.slice(dataStart);
                     const row = [parent, child, type, ...numbers.slice(0, 8)];
