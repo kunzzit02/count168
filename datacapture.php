@@ -7790,13 +7790,18 @@ if ($current_user_id && count($user_companies) > 0) {
 
                 if (section === 'downline') {
                     if (cells[0] === 'No.' && lower.includes('username')) return;
-                    // Minor 整行不要：第二列为 Minor 即跳过
+                    // Minor 整行不要：任一处为 Minor 且整行无 Major -> 跳过
+                    const hasMinor = cells.some(c => (c || '').toLowerCase() === 'minor');
+                    const hasMajor = cells.some(c => (c || '').toLowerCase() === 'major');
+                    if (hasMinor && !hasMajor) return;
+                    // 第二列为 Minor 也跳过（兼容列顺序）
                     if ((cells[1] || '').toLowerCase() === 'minor') return;
-                    // 无 "Minor" 标签的 Minor 行（复制时 Lvl/Username/Type 为空）：首列为数字、第二列像金额、整行无 Major -> 跳过
+                    if ((cells[0] || '').toLowerCase() === 'minor') return;
+                    // 无 "Minor" 标签的 Minor 行（纯数字/金额）：整行无 Major 且前两列像数字/金额 -> 跳过
                     const looksLikeNumber = (s) => /^[\d,.]+$/.test((s || '').trim());
                     const looksLikeAmount = (s) => /^[$]?[\d,.()\-]+$/.test((s || '').trim());
-                    const hasMajor = cells.some(c => (c || '').toLowerCase() === 'major');
                     if (!hasMajor && cells.length >= 2 && looksLikeNumber(cells[0]) && looksLikeAmount(cells[1])) return;
+                    if (!hasMajor && cells.length >= 3 && looksLikeAmount(cells[0]) && looksLikeNumber(cells[1]) && looksLikeAmount(cells[2])) return;
 
                     // 表头行 "1\tMG\tm99m06"：只记 username，下一行再输出 [username, code, Major, Bet, ...]
                     if (cells.length >= 3 && /^\d+$/.test(cells[0]) && /^(mg|pl)$/i.test((cells[1] || '').trim())) {
@@ -7838,6 +7843,8 @@ if ($current_user_id && count($user_companies) > 0) {
 
                     const numbers = cells.slice(dataStart);
                     const row = [parent, child, type, ...numbers.slice(0, 8)];
+                    // 第三列应为 MAJOR；若为数字则视为 Minor 行（错位数据）不贴
+                    if ((row[2] || '').toLowerCase() !== 'major' && looksLikeNumber((row[2] || '').toString())) return;
                     pushRow(row);
                 }
             });
