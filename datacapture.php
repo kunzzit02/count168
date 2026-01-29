@@ -7617,6 +7617,49 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
+        // CITIBET 格式粘贴：按制表符/换行结构填充表格，不依赖关键词（如 MG）。
+        // 仅排除：含 "Minor" 的行、以及 "Downline Payment" 标题行（及 Downline 表头行）。
+        // 效果：复制第一张图的数据粘贴后，能像第三张图→第四张图那样按格式填满。
+        function parseCitibetFormatBasedPaste(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const rawLines = norm.split('\n');
+            const rows = [];
+            let maxCols = 11;
+
+            for (let i = 0; i < rawLines.length; i++) {
+                const line = rawLines[i].trim();
+                if (line === '') continue;
+
+                const cells = line.split('\t').map(c => (c || '').trim());
+                const lowerLine = line.toLowerCase();
+
+                // 排除：Downline Payment 标题行
+                if (lowerLine === 'downline payment' || lowerLine.startsWith('downline payment\t')) continue;
+                // 排除：Downline 表头行（No.	Lvl	Username	Type	...）
+                if (cells[0] === 'No.' && (lowerLine.includes('lvl') || lowerLine.includes('username') || lowerLine.includes('type'))) continue;
+                // 排除：任一单元格为 Minor 的行
+                if (cells.some(c => (c || '').toLowerCase() === 'minor')) continue;
+
+                rows.push(cells);
+                if (cells.length > maxCols) maxCols = cells.length;
+            }
+
+            if (rows.length === 0) return null;
+            const padded = rows.map(row => {
+                const r = [...row];
+                while (r.length < maxCols) r.push('');
+                return r;
+            });
+
+            console.log('Using CITIBET format-based paste:', padded.length, 'rows x', maxCols, 'cols');
+            return {
+                dataMatrix: padded,
+                maxRows: padded.length,
+                maxCols: maxCols
+            };
+        }
+
         // 针对 Citibet 的 Upline/Downline 报表：直接生成 11 列矩阵
         // 通用版本（用于普通 CITIBET），尽量完整还原原始结构
         function parseCitibetPaymentReport(pastedData) {
@@ -16410,10 +16453,10 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             
             // Citibet 专用解析（先于通用 Payment 逻辑）
+            // 下拉选 CITIBET 时 value 为 CITIBET_MAJOR，优先按格式粘贴（不依赖 MG 等关键词），仅排除 Minor、Downline Payment
             let citibetParsed = null;
-            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR') {
-                // CITIBET MAJOR 使用更严格的专用解析器，只保留红框中的关键几行
-                citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
+            if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
+                citibetParsed = parseCitibetFormatBasedPaste(pastedData) || parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData);
             } else {
                 citibetParsed = parseCitibetPaymentReport(pastedData);
             }
