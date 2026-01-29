@@ -7955,6 +7955,129 @@ if ($current_user_id && count($user_companies) > 0) {
         // 输入形如 riding formula.txt 的内容（见用户提供示例），
         // 输出 dataMatrix，每一行都是：
         //   1: Parent Username
+        // CITIBET 专用：按格式解析（不依赖 MG/HSE 等关键字），处理合并单元格，跳过 Minor 与 Downline 段落
+        // 粘贴格式：Overall\t... | Lvl\tUserPart1 + 下一行 UserPart2\tMajor\t... | Minor 行跳过 | My Earnings | Downline 段只取 Total
+        function parseCitibetFormatPaymentReport(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const rawLines = norm.split('\n').map(l => l.trim()).filter(l => l !== '');
+            if (rawLines.length === 0) return null;
+            const lowerAll = rawLines.map(l => l.toLowerCase());
+            if (!lowerAll.some(l => l.startsWith('overall'))) return null;
+
+            const matrix = [];
+            const COLS = 11;
+            const pad = (arr) => { const r = [...arr]; while (r.length < COLS) r.push(''); return r.slice(0, COLS); };
+
+            let i = 0;
+            // 1) Overall 行
+            const overallIdx = lowerAll.findIndex(l => l.startsWith('overall'));
+            if (overallIdx >= 0) {
+                const t = rawLines[overallIdx].split('\t').map(s => s.trim());
+                const overallRow = new Array(COLS).fill('');
+                overallRow[0] = 'OVERALL';
+                for (let k = 1; k < Math.min(t.length, COLS); k++) overallRow[k] = t[k] || '';
+                matrix.push(pad(overallRow));
+                i = overallIdx + 1;
+            }
+
+            // 2) Upline 数据行（到 My Earnings / Downline Payment 为止），只保留 Major，合并 Lvl+Username 两行
+            while (i < rawLines.length) {
+                const line = rawLines[i];
+                const lower = line.toLowerCase();
+                if (lower.includes('my earnings') || lower.startsWith('downline payment')) break;
+
+                const tokens = line.split('\t').map(s => s.trim());
+                const first = (tokens[0] || '').toUpperCase();
+                const second = (tokens[1] || '').toUpperCase();
+                const third = (tokens[2] || '').toUpperCase();
+
+                if (first === 'MINOR' && tokens.length >= 2) {
+                    i++;
+                    continue;
+                }
+                if (tokens.length === 2 && i + 1 < rawLines.length) {
+                    const nextTokens = rawLines[i + 1].split('\t').map(s => s.trim());
+                    const nextSecond = (nextTokens[1] || '').toUpperCase();
+                    if (nextSecond === 'MAJOR' || nextSecond === 'MINOR') {
+                        const lvl = tokens[0] || '';
+                        const userPart1 = tokens[1] || '';
+                        const userPart2 = nextTokens[0] || '';
+                        const type = nextSecond;
+                        if (type === 'MINOR') { i += 2; continue; }
+                        const row = [lvl, (userPart1 + ' ' + userPart2).trim(), type];
+                        for (let k = 2; k < nextTokens.length; k++) row.push(nextTokens[k] || '');
+                        matrix.push(pad(row));
+                        i += 2;
+                        continue;
+                    }
+                }
+                if (second === 'MAJOR') {
+                    matrix.push(pad(tokens));
+                    i++;
+                    continue;
+                }
+                if (third === 'MAJOR') {
+                    matrix.push(pad(tokens));
+                    i++;
+                    continue;
+                }
+                if (second === 'MINOR' || third === 'MINOR') {
+                    i++;
+                    continue;
+                }
+                i++;
+            }
+
+            // 3) My Earnings 行
+            const myIdx = lowerAll.findIndex(l => l.includes('my earnings'));
+            if (myIdx >= 0) {
+                const line = rawLines[myIdx];
+                const tokens = line.split('\t').map(s => s.trim());
+                const label = tokens.slice(0, -1).join(' ').trim() || tokens[0] || '';
+                let amount = (tokens[tokens.length - 1] || '').trim();
+                if (!amount && /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(line)) {
+                    const m = line.match(/([\(]?[-]?\$?[\d,]+\.?\d*[\)]?)\s*$/);
+                    if (m) amount = m[1];
+                }
+                const myRow = new Array(COLS).fill('');
+                myRow[0] = label.toUpperCase();
+                myRow[10] = amount;
+                matrix.push(pad(myRow));
+            }
+
+            // 4) Downline 段：只取 Total 行，其余全部跳过
+            const downIdx = lowerAll.findIndex(l => l.startsWith('downline payment'));
+            if (downIdx >= 0) {
+                for (let j = downIdx + 1; j < rawLines.length; j++) {
+                    const line = rawLines[j];
+                    const lower = line.toLowerCase();
+                    const tokens = line.split('\t').map(s => s.trim());
+                    if (lower.includes('total') && (lower.includes('ringgit') || lower.includes('rm') || lower.includes('malaysia') || tokens.some(t => /[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(t || '')))) {
+                        let label = '';
+                        let amount = '';
+                        for (let k = 0; k < tokens.length; k++) {
+                            const t = (tokens[k] || '').trim();
+                            if (/[\(]?[-]?\$?[\d,]+\.?\d*[\)]?/.test(t)) amount = t;
+                            else if (t.toLowerCase().includes('total') || t.toLowerCase().includes('ringgit') || t.toLowerCase().includes('rm')) label = (label ? label + ' ' : '') + t;
+                        }
+                        if (!label && tokens[0]) label = tokens[0];
+                        if (label || amount) {
+                            const totalRow = new Array(COLS).fill('');
+                            totalRow[0] = label.toUpperCase();
+                            totalRow[10] = amount;
+                            matrix.push(pad(totalRow));
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (matrix.length === 0) return null;
+            const maxCols = Math.max(...matrix.map(r => r.length));
+            return { dataMatrix: matrix, maxRows: matrix.length, maxCols };
+        }
+
         //   2: Child Username / Code
         //   3: Type (MAJOR)
         //   4~: Bet, Bet Tax, Eat, Eat Tax, Tax, Profit/Loss, Total Tax, Total Profit/Loss
@@ -19212,6 +19335,54 @@ if ($current_user_id && count($user_companies) > 0) {
             console.log('=== PASTE DEBUG START ===');
             console.log('Pasted data length:', pastedData.length);
             console.log('Pasted data raw (first 500 chars):', JSON.stringify(pastedData.substring(0, 500)));
+
+            // CITIBET 专用：按格式解析（不依赖 MG/HSE），处理合并单元格，跳过 Minor 与 Downline 段落
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === 'CITIBET_MAJOR') {
+                const citibetParsed = parseCitibetFormatPaymentReport(pastedData);
+                if (citibetParsed) {
+                    const { dataMatrix, maxRows, maxCols } = citibetParsed;
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col);
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredRows = startRow + maxRows;
+                    const requiredCols = startCol + maxCols;
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
+                    }
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    dataMatrix.forEach((rowData, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
+                        rowData.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1];
+                            if (cell && cell.contentEditable === 'true') {
+                                currentPasteChanges.push({ row: actualRowIndex, col: actualColIndex, oldValue: cell.textContent, newValue: cellData });
+                                const finalValue = (cellData || '').toUpperCase();
+                                cell.textContent = finalValue;
+                                successCount++;
+                            }
+                        });
+                    });
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) pasteHistory.shift();
+                    }
+                    if (successCount > 0) {
+                        showNotification(`CITIBET 格式已粘贴 ${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)`, 'success');
+                        setTimeout(() => { convertTableFormatOnSubmit(); fixCitibetAmountColumns && fixCitibetAmountColumns(); }, 100);
+                    }
+                    setTimeout(updateSubmitButtonState, 0);
+                    return;
+                }
+            }
 
             // 新增：先尝试Excel格式解析（MY EARNINGS金额在列10的格式）
             const excelFormatParsed = parseExcelFormatPaymentReport(pastedData);
