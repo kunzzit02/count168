@@ -8005,11 +8005,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         const userPart2 = nextTokens[0] || '';
                         const type = nextSecond;
                         if (type === 'MINOR') { i += 2; continue; }
-                        // 合并单元格时两行可能都是同一用户名（如 iphsp3 / iphsp3），只保留一个
-                        const username = (userPart1.toLowerCase() === userPart2.toLowerCase())
-                            ? userPart1
-                            : (userPart1 + ' ' + userPart2).trim();
-                        const row = [lvl, username, type];
+                        const row = [lvl, (userPart1 + ' ' + userPart2).trim(), type];
                         for (let k = 2; k < nextTokens.length; k++) row.push(nextTokens[k] || '');
                         matrix.push(pad(row));
                         i += 2;
