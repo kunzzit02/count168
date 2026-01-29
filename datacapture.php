@@ -10735,6 +10735,70 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.log('2.10 INVOICE: All parsing methods failed, continuing with default logic');
             }
             
+            // ===== CITIBET / CITIBET_MAJOR：按格式粘贴（Tab+换行填格），不按关键字（如 MG）解析 =====
+            if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
+                console.log('CITIBET format-only paste: preserving tab/newline structure (no keyword parsing)');
+                const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                const lines = normalizedData.split('\n');
+                const dataMatrix = [];
+                let maxCols = 0;
+                lines.forEach(line => {
+                    const cells = line.includes('\t') ? line.split('\t') : [line];
+                    const row = cells.map(c => (c !== undefined && c !== null ? c : ''));
+                    dataMatrix.push(row);
+                    maxCols = Math.max(maxCols, row.length);
+                });
+                dataMatrix.forEach(row => {
+                    while (row.length < maxCols) row.push('');
+                });
+                if (dataMatrix.length > 0 && maxCols > 0) {
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col) || 0;
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredRows = startRow + dataMatrix.length;
+                    const requiredCols = startCol + maxCols;
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
+                    }
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+                    dataMatrix.forEach((rowData, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
+                        rowData.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1];
+                            if (cell && cell.contentEditable === 'true') {
+                                const cellValue = cellData || '';
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: cellValue
+                                });
+                                cell.textContent = cellValue;
+                                if (cellValue) successCount++;
+                            }
+                        });
+                    });
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) pasteHistory.shift();
+                    }
+                    if (successCount > 0) {
+                        showNotification(`CITIBET 按格式粘贴：${successCount} 个单元格 (${dataMatrix.length} 行 x ${maxCols} 列)`, 'success');
+                        setTimeout(updateSubmitButtonState, 0);
+                        return;
+                    }
+                }
+            }
+            
             // ===== 2.SPECIAL 专用解析：自动检测并应用6种格式（CITIBET, VPOWER, PS3838, WBET, ALIPAY, PEGASUS） =====
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '2.SPECIAL') {
                 console.log('2.SPECIAL mode detected, attempting to auto-detect format...');
