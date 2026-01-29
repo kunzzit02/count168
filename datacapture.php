@@ -7951,6 +7951,47 @@ if ($current_user_id && count($user_companies) > 0) {
             };
         }
 
+        // CITIBET 专用：按「格式」粘贴（列位置一一对应），不按关键字（如 MG）识别。
+        // 仅过滤：Downline Payment 标题行、No./Lvl/Username 表头行、Type=Minor 的行。
+        function parseCitibetFormatBased(pastedData) {
+            if (!pastedData || typeof pastedData !== 'string') return null;
+            const norm = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const rawLines = norm.split('\n');
+            const lines = rawLines.map(l => l.trim()).filter(l => l !== '');
+            const lowerAll = lines.map(l => l.toLowerCase());
+            const hasOverall = lowerAll.some(l => l.startsWith('overall'));
+            const hasDownline = lowerAll.some(l => l.startsWith('downline payment'));
+            if (!hasOverall || !hasDownline) return null;
+
+            const matrix = [];
+            const targetCols = 20; // 与 Data Capture 表列数一致
+            const headerPattern = /^(no\.\t|lvl\t|username\t|type\t|bet\t)/i;
+
+            rawLines.forEach(raw => {
+                const line = raw.trim();
+                if (line === '') return;
+                const lower = line.toLowerCase();
+                if (lower === 'downline payment') return;
+                if (headerPattern.test(line)) return;
+                const cells = line.split('\t').map(c => (c || '').trim());
+                const first = (cells[0] || '').toLowerCase();
+                const third = (cells[2] || '').toLowerCase();
+                if (first === 'minor' || third === 'minor') return;
+                while (cells.length < targetCols) cells.push('');
+                const row = cells.slice(0, targetCols);
+                if (row.some(v => (v || '').toString().trim() !== '')) {
+                    matrix.push(row);
+                }
+            });
+
+            if (matrix.length === 0) return null;
+            const maxCols = Math.max(targetCols, ...matrix.map(r => r.length));
+            matrix.forEach(row => {
+                while (row.length < maxCols) row.push('');
+            });
+            return { dataMatrix: matrix, maxRows: matrix.length, maxCols };
+        }
+
         // 针对完整 Payment Report（包含 Overall + My Earnings + Downline Payment）的解析器
         // 输入形如 riding formula.txt 的内容（见用户提供示例），
         // 输出 dataMatrix，每一行都是：
@@ -19212,6 +19253,67 @@ if ($current_user_id && count($user_companies) > 0) {
             console.log('=== PASTE DEBUG START ===');
             console.log('Pasted data length:', pastedData.length);
             console.log('Pasted data raw (first 500 chars):', JSON.stringify(pastedData.substring(0, 500)));
+
+            // CITIBET：按格式粘贴（列位置一一对应），仅过滤 Minor / Downline Payment 标题等
+            if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET' || currentDataCaptureType === 'CITIBET_MAJOR')) {
+                const citibetFormatParsed = parseCitibetFormatBased(pastedData);
+                if (citibetFormatParsed) {
+                    const { dataMatrix, maxRows, maxCols } = citibetFormatParsed;
+                    const startCell = e.target;
+                    const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
+                    const startCol = parseInt(startCell.dataset.col);
+
+                    const currentRows = document.querySelectorAll('#tableBody tr').length;
+                    const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
+                    const requiredRows = startRow + maxRows;
+                    const requiredCols = startCol + maxCols;
+
+                    if (requiredRows > currentRows || requiredCols > currentCols) {
+                        const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                        const targetCols = Math.max(currentCols, requiredCols);
+                        initializeTable(targetRows, targetCols);
+                    }
+
+                    const tableBody = document.getElementById('tableBody');
+                    const currentPasteChanges = [];
+                    let successCount = 0;
+
+                    dataMatrix.forEach((rowData, rowIndex) => {
+                        const actualRowIndex = startRow + rowIndex;
+                        const tableRow = tableBody.children[actualRowIndex];
+                        if (!tableRow) return;
+                        rowData.forEach((cellData, colIndex) => {
+                            const actualColIndex = startCol + colIndex;
+                            const cell = tableRow.children[actualColIndex + 1];
+                            if (cell && cell.contentEditable === 'true') {
+                                currentPasteChanges.push({
+                                    row: actualRowIndex,
+                                    col: actualColIndex,
+                                    oldValue: cell.textContent,
+                                    newValue: cellData
+                                });
+                                const finalValue = (cellData || '').toUpperCase();
+                                cell.textContent = finalValue;
+                                successCount++;
+                            }
+                        });
+                    });
+
+                    if (currentPasteChanges.length > 0) {
+                        pasteHistory.push(currentPasteChanges);
+                        if (pasteHistory.length > maxHistorySize) pasteHistory.shift();
+                    }
+                    if (successCount > 0) {
+                        showNotification(`CITIBET 格式粘贴成功：${successCount} 个单元格 (${maxRows} 行 x ${maxCols} 列)`, 'success');
+                        setTimeout(updateSubmitButtonState, 0);
+                        setTimeout(() => {
+                            convertTableFormatOnSubmit();
+                            fixCitibetAmountColumns();
+                        }, 100);
+                    }
+                    return;
+                }
+            }
 
             // 新增：先尝试Excel格式解析（MY EARNINGS金额在列10的格式）
             const excelFormatParsed = parseExcelFormatPaymentReport(pastedData);
