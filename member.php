@@ -780,29 +780,10 @@ $today = date('d/m/Y');
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
         .member-currency-section {
-            display: flex;
+            display: none;
             flex-direction: column;
             gap: 16px;
             margin: 20px 0 25px 0;
-        }
-        .member-empty-state {
-            background: #fff;
-            border-radius: 12px;
-            padding: 32px 24px;
-            text-align: center;
-            box-shadow: 0 2px 12px rgba(0, 44, 73, 0.08);
-        }
-        .member-empty-state-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #002C49;
-            margin: 0 0 8px 0;
-        }
-        .member-empty-state-desc {
-            font-size: 14px;
-            color: #64748b;
-            margin: 0;
-            line-height: 1.5;
         }
         .member-currency-tables {
             display: flex;
@@ -955,9 +936,9 @@ $today = date('d/m/Y');
                 <div class="transaction-form-group">
                     <label class="transaction-label">Capture Date</label>
                     <div class="transaction-date-inputs">
-                        <input type="text" id="date_from" class="transaction-input transaction-date-input" value="<?php echo htmlspecialchars($today); ?>" placeholder="dd/mm/yyyy" data-default="<?php echo htmlspecialchars($today); ?>" readonly>
+                        <input type="text" id="date_from" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
                         <span>to</span>
-                        <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo htmlspecialchars($today); ?>" placeholder="dd/mm/yyyy" data-default="<?php echo htmlspecialchars($today); ?>" readonly>
+                        <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
                     </div>
                 </div>
                 <?php if (!empty($memberCompanies)): ?>
@@ -1170,10 +1151,6 @@ $today = date('d/m/Y');
         </div>
 
         <div class="member-currency-section" id="member_currency_tables_section">
-            <div id="member_empty_state" class="member-empty-state">
-                <p class="member-empty-state-title">暂无数据</p>
-                <p class="member-empty-state-desc" id="member_empty_state_message">请选择日期范围以查看盈亏数据。若已关联公司仍无数据，请尝试其他日期或联系管理员。</p>
-            </div>
             <div id="member_currency_tables" class="member-currency-tables"></div>
         </div>
 
@@ -1195,16 +1172,11 @@ $today = date('d/m/Y');
         let memberIsAllSelected = true;
 
         document.addEventListener('DOMContentLoaded', () => {
-            try {
-                initDatePickers();
-                setupFormListeners();
-                setupCompanyButtons();
-                setupAccountButtons();
-                performMemberSearch();
-            } catch (err) {
-                console.error('Member page init error:', err);
-                showMemberEmptyState('页面加载异常，请刷新重试。若问题持续，请联系管理员。');
-            }
+            initDatePickers();
+            setupFormListeners();
+            setupCompanyButtons();
+            setupAccountButtons();
+            performMemberSearch();
         });
 
         function performMemberSearch() {
@@ -1218,13 +1190,8 @@ $today = date('d/m/Y');
         }
 
         function initDatePickers() {
-            var dateFrom = document.getElementById('date_from');
-            var dateTo = document.getElementById('date_to');
-            if (!dateFrom || !dateTo) return;
-            if (!dateFrom.value && dateFrom.dataset.default) dateFrom.value = dateFrom.dataset.default;
-            if (!dateTo.value && dateTo.dataset.default) dateTo.value = dateTo.dataset.default;
             if (typeof flatpickr === 'undefined') {
-                console.warn('Flatpickr not loaded - date inputs will work as text');
+                console.error('Flatpickr not loaded');
                 return;
             }
             flatpickr('#date_from', {
@@ -1392,21 +1359,17 @@ $today = date('d/m/Y');
 
         function fetchMemberSummary() {
             return new Promise((resolve, reject) => {
-                const dateFromEl = document.getElementById('date_from');
-                const dateToEl = document.getElementById('date_to');
-                const dateFrom = dateFromEl ? dateFromEl.value : '';
-                const dateTo = dateToEl ? dateToEl.value : '';
+                const dateFrom = document.getElementById('date_from').value;
+                const dateTo = document.getElementById('date_to').value;
                 const filterWrapper = document.getElementById('member_currency_filter');
 
                 if (!dateFrom || !dateTo) {
-                    showMemberEmptyState('请选择日期范围以查看盈亏数据。');
                     showNotification('Please select date range', 'error');
                     if (filterWrapper) filterWrapper.style.display = 'none';
                     return reject(new Error('Missing date'));
                 }
 
                 if (!memberConfig.companyId || memberConfig.companyId <= 0) {
-                    showMemberEmptyState('您尚未关联任何公司，无法查看盈亏数据。请联系管理员添加公司权限。');
                     showNotification('Please select a company', 'error');
                     if (filterWrapper) filterWrapper.style.display = 'none';
                     return reject(new Error('Missing company'));
@@ -1570,19 +1533,15 @@ $today = date('d/m/Y');
         }
 
         function fetchMemberHistory(forcedFilter) {
-            const dateFromEl = document.getElementById('date_from');
-            const dateToEl = document.getElementById('date_to');
-            const dateFrom = dateFromEl ? dateFromEl.value : '';
-            const dateTo = dateToEl ? dateToEl.value : '';
+            const dateFrom = document.getElementById('date_from').value;
+            const dateTo = document.getElementById('date_to').value;
 
             if (!dateFrom || !dateTo) {
-                showMemberEmptyState('请选择日期范围以查看盈亏数据。');
                 showNotification('Please select date range', 'error');
                 return;
             }
 
             if (!memberConfig.companyId || memberConfig.companyId <= 0) {
-                showMemberEmptyState('您尚未关联任何公司，无法查看盈亏数据。请联系管理员添加公司权限。');
                 showNotification('Please select a company', 'error');
                 return;
             }
@@ -1666,22 +1625,6 @@ $today = date('d/m/Y');
             return toUpperDisplay(row.sms || '-');
         }
 
-        function showMemberEmptyState(message) {
-            const section = document.getElementById('member_currency_tables_section');
-            const emptyState = document.getElementById('member_empty_state');
-            const messageEl = document.getElementById('member_empty_state_message');
-            const tables = document.getElementById('member_currency_tables');
-            if (section) section.style.display = 'flex';
-            if (emptyState) emptyState.style.display = 'block';
-            if (messageEl) messageEl.textContent = message || '暂无数据。请选择日期范围并确保已关联公司。';
-            if (tables) tables.innerHTML = '';
-        }
-
-        function hideMemberEmptyState() {
-            const emptyState = document.getElementById('member_empty_state');
-            if (emptyState) emptyState.style.display = 'none';
-        }
-
         function renderCurrencyTables(groupedMap, orderedKeys) {
             const section = document.getElementById('member_currency_tables_section');
             const container = document.getElementById('member_currency_tables');
@@ -1691,12 +1634,10 @@ $today = date('d/m/Y');
 
             container.innerHTML = '';
             if (!orderedKeys || !orderedKeys.length) {
-                section.style.display = 'flex';
-                showMemberEmptyState('该日期范围内暂无交易记录。请尝试其他日期或联系管理员。');
+                section.style.display = 'none';
                 return;
             }
 
-            hideMemberEmptyState();
             section.style.display = 'flex';
             orderedKeys.forEach(currencyKey => {
                 const rows = groupedMap[currencyKey] || [];
