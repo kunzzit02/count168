@@ -231,7 +231,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <!-- <option value="3.API">3.API</option> -->
                             <option value="4.RETURN">3.RETURN</option>
                             <!-- <option value="GENERAL">GENERAL</option> -->
-                            <!-- <option value="CITIBET_MAJOR">CITIBET</option> -->
+                            <option value="CITIBET_MAJOR">CITIBET</option>
                             <!-- <option value="VPOWER">VPOWER</option> -->
                             <!-- <option value="API_RETURN">API-RETURN</option> -->
                             <!-- <option value="WBET">WBET</option> -->
