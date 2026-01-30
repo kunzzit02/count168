@@ -1897,20 +1897,18 @@ if ($companyId) {
         const currentFlag = document.getElementById('current-flag');
         const currentLang = document.getElementById('current-lang');
         
-        // 更新按钮显示
+        // 更新按钮显示（元素可能不存在，如 member 页精简版 sidebar）
         if (lang === 'en') {
-            currentFlag.src = 'images/uk.png';
-            currentFlag.alt = 'English';
-            currentLang.textContent = 'English';
+            if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
+            if (currentLang) currentLang.textContent = 'English';
         } else if (lang === 'zh') {
-            currentFlag.src = 'images/china.png';
-            currentFlag.alt = '中文';
-            currentLang.textContent = '中文';
+            if (currentFlag) { currentFlag.src = 'images/china.png'; currentFlag.alt = '中文'; }
+            if (currentLang) currentLang.textContent = '中文';
         }
         
         // 关闭下拉菜单
-        dropdown.classList.remove('show');
-        button.classList.remove('active');
+        if (dropdown) dropdown.classList.remove('show');
+        if (button) button.classList.remove('active');
         
         // 保存语言选择到localStorage
         localStorage.setItem('selectedLanguage', lang);
@@ -1938,18 +1936,16 @@ if ($companyId) {
             currentLang = 'zh';
         }
         
-        // 更新按钮显示为当前语言
+        // 更新按钮显示为当前语言（元素可能不存在，如 member 页精简版 sidebar）
         const currentFlag = document.getElementById('current-flag');
         const currentLangText = document.getElementById('current-lang');
         
         if (currentLang === 'zh') {
-            currentFlag.src = 'images/china.png';
-            currentFlag.alt = '中文';
-            currentLangText.textContent = '中文';
+            if (currentFlag) { currentFlag.src = 'images/china.png'; currentFlag.alt = '中文'; }
+            if (currentLangText) currentLangText.textContent = '中文';
         } else {
-            currentFlag.src = 'images/uk.png';
-            currentFlag.alt = 'English';
-            currentLangText.textContent = 'English';
+            if (currentFlag) { currentFlag.src = 'images/uk.png'; currentFlag.alt = 'English'; }
+            if (currentLangText) currentLangText.textContent = 'English';
         }
         
         // 保存当前语言到localStorage
