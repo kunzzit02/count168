@@ -202,6 +202,20 @@ $today = date('d/m/Y');
             gap: 24px;
             margin-bottom: 15px;
         }
+        /* Member Win/Loss 页面：确保主内容与搜索区始终可见 */
+        .member-winloss-page .transaction-container {
+            display: block;
+            visibility: visible;
+        }
+        .member-winloss-page .transaction-main-content {
+            display: flex;
+            visibility: visible;
+        }
+        .member-winloss-page .transaction-search-section {
+            display: block;
+            min-height: 140px;
+            visibility: visible;
+        }
 
         .transaction-page .transaction-search-section,
         .transaction-page .transaction-add-section {
@@ -780,7 +794,7 @@ $today = date('d/m/Y');
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
         .member-currency-section {
-            display: none;
+            display: flex;
             flex-direction: column;
             gap: 16px;
             margin: 20px 0 25px 0;
@@ -902,6 +916,16 @@ $today = date('d/m/Y');
             text-align: right;
         }
 
+        .member-winloss-table .transaction-history-col-account {
+            width: 15%;
+            min-width: 100px;
+            text-align: left;
+        }
+        .member-winloss-table .transaction-history-col-bf {
+            width: 12%;
+            min-width: 100px;
+            text-align: right;
+        }
         .member-winloss-table .transaction-history-col-winloss,
         .member-winloss-table .transaction-history-col-crdr,
         .member-winloss-table .transaction-history-col-balance {
@@ -1155,7 +1179,9 @@ $today = date('d/m/Y');
         </div>
 
         <div class="member-currency-section" id="member_currency_tables_section">
-            <div id="member_currency_tables" class="member-currency-tables"></div>
+            <div id="member_currency_tables" class="member-currency-tables">
+                <div class="member-winloss-empty-msg" style="padding:24px;text-align:center;color:#666;">Loading...</div>
+            </div>
         </div>
 
         <div id="notificationContainer" class="transaction-notification-container"></div>
