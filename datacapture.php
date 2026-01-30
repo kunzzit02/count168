@@ -7763,12 +7763,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     const col1 = (cells[1] || '').toLowerCase();
                     const col2 = (cells[2] || '').toLowerCase();
                     if (col1 === 'minor' || col2 === 'minor') return;
-                    // 无 "Minor" 标签的 Minor 行（Upline 里 Overall 与 Major 之间的纯数字/金额行）：整行无 Major 即跳过
-                    const hasMajorUpline = cells.some(c => (c || '').toLowerCase() === 'major');
-                    const looksLikeNumberUpline = (s) => /^[\d,.]+$/.test((s || '').trim());
-                    const looksLikeAmountUpline = (s) => /^[$]?[\d,.()\-]+$/.test((s || '').trim());
-                    if (!hasMajorUpline && cells.length >= 2 && looksLikeNumberUpline(cells[0]) && looksLikeAmountUpline(cells[1])) return;
-                    if (!hasMajorUpline && cells.length >= 3 && looksLikeAmountUpline(cells[0]) && looksLikeNumberUpline(cells[1]) && looksLikeAmountUpline(cells[2])) return;
 
                     // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...)
                     let parent = '';
@@ -7976,28 +7970,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     parentUser = mgHeaderTokens[1] || '';
                 }
 
-                // Upline MG 明细行：取 MG 标题行之后的第一条 Major 行（跳过 Minor 及无标签的纯数字行）
+                // Upline MG 明细行在 MG 标题行之后
                 let uplineMgDataIdx = mgHeaderIdx + 1;
                 while (uplineMgDataIdx < nonEmpty.length && nonEmpty[uplineMgDataIdx] === '') uplineMgDataIdx++;
-                const looksLikeNum = (s) => /^[\d,.]+$/.test((s || '').trim());
-                const looksLikeAmt = (s) => /^[$]?[\d,.()\-]+$/.test((s || '').trim());
-                while (uplineMgDataIdx < nonEmpty.length) {
-                    const uplineCandidates = splitLine(nonEmpty[uplineMgDataIdx]);
-                    const secondOrThird = (uplineCandidates[1] || '').toUpperCase();
-                    const thirdOrFourth = (uplineCandidates[2] || '').toUpperCase();
-                    if (secondOrThird === 'MINOR' || thirdOrFourth === 'MINOR') {
-                        uplineMgDataIdx++;
-                        continue;
-                    }
-                    if (uplineCandidates.length >= 2 && looksLikeNum(uplineCandidates[0]) && looksLikeAmt(uplineCandidates[1])) {
-                        uplineMgDataIdx++;
-                        continue;
-                    }
-                    break;
-                }
                 if (uplineMgDataIdx < nonEmpty.length) {
                     const uplineMgTokens = splitLine(nonEmpty[uplineMgDataIdx]); // m06-KZ Major 740 $14.80 518 $13.47 $28.27 ($957.31) $28.27 ($957.31)
-                    if (uplineMgTokens.length >= 8 && ((uplineMgTokens[1] || '').toUpperCase() === 'MAJOR' || (uplineMgTokens[2] || '').toUpperCase() === 'MAJOR')) {
+                    if (uplineMgTokens.length >= 8) {
                         row2[0] = (parentUser || '').toUpperCase(); // Username m99m06
                         row2[1] = uplineMgTokens[0] || '';          // Code m06-KZ
                         row2[2] = (uplineMgTokens[1] || '').toUpperCase(); // MG
@@ -8190,22 +8168,22 @@ if ($current_user_id && count($user_companies) > 0) {
                         break;
                     }
                     
-                    // 检查是否是 IPHSP3 IPHSP3 MAJOR/MINOR 格式（Upline Payment 部分）；只保留 MAJOR 行，不加入 MINOR
+                    // 检查是否是 IPHSP3 IPHSP3 MAJOR/MINOR 格式（Upline Payment 部分的 IPHSP3）
                     if (tokens.length >= 3) {
                         const second = (tokens[1] || '').toUpperCase();
                         const third = (tokens[2] || '').toUpperCase();
+                        // 如果第一列和第二列相同，且第三列是 MAJOR 或 MINOR，这是 Upline Payment 部分的 IPHSP3 数据
                         if (first === second && (third === 'MAJOR' || third === 'MINOR')) {
-                            if (third === 'MAJOR') {
-                                const row = [];
-                                for (let k = 0; k < Math.min(11, tokens.length); k++) {
-                                    row.push(tokens[k] || '');
-                                }
-                                while (row.length < 11) row.push('');
-                                if (row.some(v => (v || '').toString().trim() !== '')) {
-                                    matrix.push(row);
-                                }
+                            // 直接添加这一行
+                            const row = [];
+                            for (let k = 0; k < Math.min(11, tokens.length); k++) {
+                                row.push(tokens[k] || '');
                             }
-                            // 检查后面是否还有相同用户名的 MAJOR 行（跳过 MINOR）
+                            while (row.length < 11) row.push('');
+                            if (row.some(v => (v || '').toString().trim() !== '')) {
+                                matrix.push(row);
+                            }
+                            // 检查后面是否还有相同用户名的 MINOR/MAJOR 行
                             let j = i + 1;
                             while (j < rawLines.length) {
                                 const nextLine = rawLines[j].trim();
@@ -8219,21 +8197,21 @@ if ($current_user_id && count($user_companies) > 0) {
                                     continue;
                                 }
                                 const nextFirst = (nextTokens[0] || '').toUpperCase();
+                                // 如果遇到 My Earnings 或 Downline Payment，停止处理
                                 if (nextFirst.includes('MY EARNINGS') || nextFirst.includes('DOWNLINE PAYMENT')) {
                                     break;
                                 }
                                 const nextSecond = (nextTokens[1] || '').toUpperCase();
                                 const nextThird = (nextTokens[2] || '').toUpperCase();
+                                // 如果是相同用户名且是 MAJOR 或 MINOR 行，也处理
                                 if (nextFirst === first && nextSecond === second && (nextThird === 'MAJOR' || nextThird === 'MINOR')) {
-                                    if (nextThird === 'MAJOR') {
-                                        const nextRow = [];
-                                        for (let k = 0; k < Math.min(11, nextTokens.length); k++) {
-                                            nextRow.push(nextTokens[k] || '');
-                                        }
-                                        while (nextRow.length < 11) nextRow.push('');
-                                        if (nextRow.some(v => (v || '').toString().trim() !== '')) {
-                                            matrix.push(nextRow);
-                                        }
+                                    const nextRow = [];
+                                    for (let k = 0; k < Math.min(11, nextTokens.length); k++) {
+                                        nextRow.push(nextTokens[k] || '');
+                                    }
+                                    while (nextRow.length < 11) nextRow.push('');
+                                    if (nextRow.some(v => (v || '').toString().trim() !== '')) {
+                                        matrix.push(nextRow);
                                     }
                                     j++;
                                 } else {
@@ -8359,13 +8337,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else {
                     return; // 不是MAJOR或MINOR行
                 }
-                // 用户要求不要 Minor 数据，只保留 MAJOR 行
-                if (type !== 'MAJOR') return;
-
+                
                 const row = [];
                 row.push(parentUser);        // 父帐号
                 row.push(tokens[0] || '');   // 子帐号 / 代码
-                row.push(type);              // 类型（MAJOR）
+                row.push(type);              // 类型（MAJOR 或 MINOR）
                 for (let i = dataStartIndex; i < tokens.length; i++) {
                     row.push(tokens[i] || '');
                 }
@@ -8428,22 +8404,22 @@ if ($current_user_id && count($user_companies) > 0) {
                         continue;
                     }
                     
-                    // 检查是否是简化格式的第一行（IPHSP3 | IPHSP3 | MAJOR）；只保留 MAJOR 行
+                    // 检查是否是简化格式的第一行（IPHSP3 | IPHSP3 | MAJOR）
                     if (tokens.length >= 3) {
                         const second = (tokens[1] || '').toUpperCase();
                         const third = (tokens[2] || '').toUpperCase();
+                        // 如果第一列和第二列相同，且第三列是 MAJOR 或 MINOR，这是 owner 总览行
                         if (first === second && (third === 'MAJOR' || third === 'MINOR')) {
-                            if (third === 'MAJOR') {
-                                const row = [];
-                                for (let k = 0; k < Math.min(11, tokens.length); k++) {
-                                    row.push(tokens[k] || '');
-                                }
-                                while (row.length < 11) row.push('');
-                                if (row.some(v => (v || '').toString().trim() !== '')) {
-                                    matrix.push(row);
-                                }
+                            // 直接添加这一行
+                            const row = [];
+                            for (let k = 0; k < Math.min(11, tokens.length); k++) {
+                                row.push(tokens[k] || '');
                             }
-                            // 检查后面是否还有相同用户名的 MAJOR 行（跳过 MINOR）
+                            while (row.length < 11) row.push('');
+                            if (row.some(v => (v || '').toString().trim() !== '')) {
+                                matrix.push(row);
+                            }
+                            // 检查后面是否还有相同用户名的 MINOR/MAJOR 行
                             let j = i + 1;
                             while (j < rawLines.length) {
                                 const nextLine = rawLines[j].trim();
@@ -8457,21 +8433,21 @@ if ($current_user_id && count($user_companies) > 0) {
                                     continue;
                                 }
                                 const nextFirst = (nextTokens[0] || '').toUpperCase();
+                                // 如果遇到 My Earnings 或 Downline Payment，停止处理
                                 if (nextFirst.includes('MY EARNINGS') || nextFirst.includes('DOWNLINE PAYMENT')) {
                                     break;
                                 }
                                 const nextSecond = (nextTokens[1] || '').toUpperCase();
                                 const nextThird = (nextTokens[2] || '').toUpperCase();
+                                // 如果是相同用户名且是 MAJOR 或 MINOR 行，也处理
                                 if (nextFirst === first && nextSecond === second && (nextThird === 'MAJOR' || nextThird === 'MINOR')) {
-                                    if (nextThird === 'MAJOR') {
-                                        const nextRow = [];
-                                        for (let k = 0; k < Math.min(11, nextTokens.length); k++) {
-                                            nextRow.push(nextTokens[k] || '');
-                                        }
-                                        while (nextRow.length < 11) nextRow.push('');
-                                        if (nextRow.some(v => (v || '').toString().trim() !== '')) {
-                                            matrix.push(nextRow);
-                                        }
+                                    const nextRow = [];
+                                    for (let k = 0; k < Math.min(11, nextTokens.length); k++) {
+                                        nextRow.push(nextTokens[k] || '');
+                                    }
+                                    while (nextRow.length < 11) nextRow.push('');
+                                    if (nextRow.some(v => (v || '').toString().trim() !== '')) {
+                                        matrix.push(nextRow);
                                     }
                                     j++;
                                 } else {
