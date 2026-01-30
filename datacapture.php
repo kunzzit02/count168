@@ -7916,21 +7916,20 @@ if ($current_user_id && count($user_companies) > 0) {
 
             const rows = [];
 
-            // Row1: OVERALL 行
+            // Row1: OVERALL 行 — Total Tax / Total Profit/Loss 放在第 9、10 列（蓝色格子 A8、A9）
             const row1 = makeRow();
             row1[0] = 'OVERALL';
-            // 目标结构：Overall | | | | 740 | $5.18 | 518 | $13.47 |  |  | $18.65 | -$947.69
+            // 目标结构：Overall | | | | 740 | $5.18 | 518 | $13.47 | $18.65 | -$947.69 | | （蓝色格子为第8、9列）
             const oNums = overallTokens.slice(1); // [740, 5.18, 518, 13.47, 18.65, -947.69]
             row1[4] = oNums[0] || ''; // Bet
             row1[5] = oNums[1] || ''; // Bet Tax
             row1[6] = oNums[2] || ''; // Eat
             row1[7] = oNums[3] || ''; // Eat Tax
-            // Tax & Profit/Loss 空
-            row1[8]  = '';            // Tax (empty)
-            row1[9]  = '';            // Profit/Loss (empty)
-            // Total Tax & Total Profit/Loss
-            row1[10] = oNums[4] || ''; // Total Tax
-            row1[11] = oNums[5] || ''; // Total Profit/Loss
+            // Total Tax & Total Profit/Loss 放在第 9、10 列（对应下方蓝色格子 A8、A9）
+            row1[8]  = oNums[4] || '';  // Total Tax
+            row1[9]  = oNums[5] || '';  // Total Profit/Loss
+            row1[10] = '';              // 空
+            row1[11] = '';              // 空
             rows.push(row1);
 
             // 找 My Earnings 行
