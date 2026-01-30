@@ -465,14 +465,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // 注意：data_capture_templates.process_id 可能是 VARCHAR（存储 process.process_id 字符串）或 INT（存储 process.id 整数）
         $sourceTemplates = [];
         $copyFromProcessDbId = null;
-        if (!empty($copyFromProcessId)) {
+        if (!empty($copyFromProcessId) || (is_numeric($copyFromProcessId) && (int)$copyFromProcessId > 0)) {
             try {
-                // 先根据 process.process_id（字符串）找到对应的 process.id（整数），用于后续复制和同步关联
-                $stmt = $pdo->prepare("SELECT id FROM process WHERE process_id = ? AND company_id = ? LIMIT 1");
-                $stmt->execute([$copyFromProcessId, $companyId]);
-                $copyFromProcessDbId = $stmt->fetchColumn();
-                
-                error_log("Copy from: process_id='$copyFromProcessId', found process.id=$copyFromProcessDbId, company_id=$companyId");
+                $copyFromProcessId = is_string($copyFromProcessId) ? trim($copyFromProcessId) : $copyFromProcessId;
+                // 前端 Copy From 下拉传的是 p.id（API 里 existingProcesses 的 process_id 实为 p.id），若为数字则按 process.id 查
+                if (is_numeric($copyFromProcessId) && (int)$copyFromProcessId > 0) {
+                    $stmt = $pdo->prepare("SELECT id FROM process WHERE id = ? AND company_id = ? LIMIT 1");
+                    $stmt->execute([(int)$copyFromProcessId, $companyId]);
+                    $val = $stmt->fetchColumn();
+                    $copyFromProcessDbId = ($val !== false && $val !== null) ? (int)$val : null;
+                    error_log("Copy from: id=" . (int)$copyFromProcessId . ", found process.id=" . ($copyFromProcessDbId ?? 'null') . ", company_id=$companyId");
+                }
+                if ($copyFromProcessDbId === null) {
+                    $stmt = $pdo->prepare("SELECT id FROM process WHERE process_id = ? AND company_id = ? LIMIT 1");
+                    $stmt->execute([$copyFromProcessId, $companyId]);
+                    $copyFromProcessDbId = $stmt->fetchColumn();
+                    $copyFromProcessDbId = $copyFromProcessDbId !== false ? (int)$copyFromProcessDbId : null;
+                    error_log("Copy from: process_id='$copyFromProcessId', found process.id=" . ($copyFromProcessDbId ?? 'null') . ", company_id=$companyId");
+                }
                 
                 // 如果没有找到 process，检查是否存在该 process_id 但 company_id 不同（用于调试）
                 if (!$copyFromProcessDbId) {
@@ -486,43 +496,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 
-                // 首先尝试使用 process.process_id（字符串）查询 templates（因为表中可能存储的是字符串）
-                $stmt = $pdo->prepare("
-                    SELECT * FROM data_capture_templates 
-                    WHERE process_id = ? AND company_id = ?
-                ");
-                $stmt->execute([$copyFromProcessId, $companyId]);
-                $sourceTemplates = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                error_log("Query: SELECT * FROM data_capture_templates WHERE process_id='$copyFromProcessId' AND company_id=$companyId");
-                error_log("Found " . count($sourceTemplates) . " source templates using process.process_id='$copyFromProcessId'");
-                
-                // 如果没有找到，检查是否存在该 process_id 的其他 company_id 的数据（用于调试）
-                if (empty($sourceTemplates)) {
-                    $debugStmt = $pdo->prepare("
-                        SELECT company_id, COUNT(*) as cnt 
-                        FROM data_capture_templates 
-                        WHERE process_id = ? 
-                        GROUP BY company_id
-                    ");
-                    $debugStmt->execute([$copyFromProcessId]);
-                    $debugResults = $debugStmt->fetchAll(PDO::FETCH_ASSOC);
-                    if (!empty($debugResults)) {
-                        error_log("Debug: Found templates with process_id='$copyFromProcessId' in other companies: " . json_encode($debugResults));
-                    } else {
-                        error_log("Debug: No templates found with process_id='$copyFromProcessId' in any company");
-                    }
-                }
-                
-                // 如果没有找到，且 process.id 存在，尝试使用 process.id（整数）查询（如果表已经迁移到 INT 类型）
-                if (empty($sourceTemplates) && $copyFromProcessDbId) {
-                    error_log("No templates found with process.process_id, trying with process.id integer...");
-                    $stmt = $pdo->prepare("
-                        SELECT * FROM data_capture_templates 
-                        WHERE process_id = ? AND company_id = ?
-                    ");
+                // 有 process.id 时优先用整数查 templates（data_capture_templates.process_id 多为 INT）
+                if ($copyFromProcessDbId) {
+                    $stmt = $pdo->prepare("SELECT * FROM data_capture_templates WHERE process_id = ? AND company_id = ?");
                     $stmt->execute([$copyFromProcessDbId, $companyId]);
                     $sourceTemplates = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     error_log("Found " . count($sourceTemplates) . " source templates using process.id=$copyFromProcessDbId");
+                }
+                if (empty($sourceTemplates)) {
+                    $stmt = $pdo->prepare("SELECT * FROM data_capture_templates WHERE process_id = ? AND company_id = ?");
+                    $stmt->execute([$copyFromProcessId, $companyId]);
+                    $sourceTemplates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    error_log("Found " . count($sourceTemplates) . " source templates using process_id string='$copyFromProcessId'");
                 }
                 
                 if (empty($sourceTemplates)) {
