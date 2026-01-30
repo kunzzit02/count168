@@ -7776,12 +7776,17 @@ if ($current_user_id && count($user_companies) > 0) {
                     const looksLikeAmountUpline = (s) => /^[$]?[\d,.()\-]+$/.test((s || '').trim());
                     if (cells.length >= 3 && looksLikeNumberUpline(cells[0]) && looksLikeNumberUpline(cells[1]) && looksLikeAmountUpline(cells[2])) return;
 
-                    // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...) 或 (Lvl, Code, Type, Bet...) 仅复制到 Code
+                    // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...)；Username 可能多词（如 raymond 或 ray mond），先找 Major/Minor 列再取完整
                     let parent = '';
                     let type = '';
                     let numbers = [];
                     const looksLikeNumber = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
-                    if ((col1 === 'major') && cells.length >= 3 && looksLikeNumber(cells[2])) {
+                    const typeColUpline = cells.findIndex((c, i) => i >= 1 && ((c || '').toLowerCase() === 'major' || (c || '').toLowerCase() === 'minor'));
+                    if (typeColUpline >= 1 && typeColUpline < cells.length - 1 && looksLikeNumber(cells[typeColUpline + 1])) {
+                        parent = cells.slice(1, typeColUpline).join(' ').trim();
+                        type = cells[typeColUpline] || '';
+                        numbers = cells.slice(typeColUpline + 1);
+                    } else if ((col1 === 'major') && cells.length >= 3 && looksLikeNumber(cells[2])) {
                         parent = cells[0] || '';
                         type = cells[1] || '';
                         numbers = cells.slice(2);
@@ -7840,6 +7845,16 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     }
 
+                    // No.  Lvl  Username(可能多词，如 raymond 或 ray mond)：先找 Major/Minor 列，再取中间完整 Username，避免只显示 ray
+                    const typeColDownline = cells.findIndex((c, i) => i >= 2 && ((c || '').toLowerCase() === 'major' || (c || '').toLowerCase() === 'minor'));
+                    if (cells.length >= 4 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && typeColDownline >= 2 && typeColDownline < cells.length - 1 && looksLikeBetOrAmountDownline(cells[typeColDownline + 1])) {
+                        const parent = cells.slice(2, typeColDownline).join(' ').trim();
+                        const typeVal = (cells[typeColDownline] || '').trim();
+                        const row = [deriveManagerIdFromCode(parent), parent, typeVal, ...cells.slice(typeColDownline + 1).slice(0, 8)];
+                        pushRow(row);
+                        return;
+                    }
+
                     // 表头行 "1\tMG\tm99m06" 或 "1\tAG\tgaosheng"：No. + Lvl(MG/PL/AG/…) + Username，记 username 下一行再输出
                     if (cells.length >= 3 && /^\d+$/.test(cells[0]) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim())) {
                         lastDownlineUsername = (cells[2] || '').trim();
@@ -7875,17 +7890,26 @@ if ($current_user_id && count($user_companies) > 0) {
                     let idx = 0;
                     if (/^\d+$/.test(cells[0])) idx = 1;
 
-                    let parent = cells[idx + 1] || '';
-                    let child = parent;
-                    let type = cells[idx + 2] || '';
+                    // 先找 Major/Minor 列，Username 为 Lvl 与 Type 之间的全部 token，保证完整显示（如 raymond 不被拆成 ray）
+                    const typeColGen = cells.findIndex((c, i) => i >= idx + 1 && ((c || '').toLowerCase() === 'major' || (c || '').toLowerCase() === 'minor'));
+                    let parent = '';
+                    let type = '';
                     let dataStart = idx + 3;
-
-                    const typeLower = (type || '').toLowerCase();
-                    if (typeLower !== 'major' && typeLower !== 'minor' && cells.length > idx + 3) {
-                        child = cells[idx + 2] || '';
-                        type = cells[idx + 3] || '';
-                        dataStart = idx + 4;
+                    if (typeColGen >= idx + 1 && typeColGen < cells.length) {
+                        parent = cells.slice(idx + 1, typeColGen).join(' ').trim();
+                        type = cells[typeColGen] || '';
+                        dataStart = typeColGen + 1;
+                    } else {
+                        parent = cells[idx + 1] || '';
+                        type = cells[idx + 2] || '';
+                        const typeLower = (type || '').toLowerCase();
+                        if (typeLower !== 'major' && typeLower !== 'minor' && cells.length > idx + 3) {
+                            type = cells[idx + 3] || '';
+                            dataStart = idx + 4;
+                        }
                     }
+                    let child = parent;
+
                     if ((cells[idx + 1] || '').toLowerCase() === 'minor' || (type || '').toLowerCase() === 'minor') return;
 
                     const numbers = cells.slice(dataStart);
