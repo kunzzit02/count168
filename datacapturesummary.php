@@ -12531,7 +12531,9 @@ function getCurrentProcessId() {
                 return;
             }
 
-            let idProductText = data.idProduct;
+            // Strip any existing description in parentheses from idProduct to avoid duplicate "Q (AAA) (AAA)" when re-editing without refresh
+            const bareIdProduct = (data.idProduct || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
+            let idProductText = bareIdProduct;
             if (data.description && data.description.trim() !== '') {
                 idProductText += ` (${data.description})`;
             }
@@ -12892,7 +12894,9 @@ function getCurrentProcessId() {
                 
                 if (cells[0]) { // Id Product (merged)
                     const productValues = getProductValuesFromCell(cells[0]);
-                    let idProductText = data.idProduct;
+                    // Strip any existing description in parentheses from idProduct to avoid duplicate "Q (AAA) (AAA)" when re-editing without refresh
+                    const bareIdProduct = (data.idProduct || '').replace(/\s*\([^)]+\)\s*$/, '').trim();
+                    let idProductText = bareIdProduct;
                     if (data.description && data.description.trim() !== '') {
                         idProductText += ` (${data.description})`;
                     }
