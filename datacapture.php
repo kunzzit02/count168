@@ -7686,6 +7686,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (byDoubleSpace.length > 1) return byDoubleSpace;
                 return line.split(/\s+/).map(c => (c || '').trim()).filter(c => c !== '');
             };
+            // 从代码（如 m35-A-L）推导经理 ID（m99m35），用于 Upline/Downline 仅复制到代码时保留 m99m35
+            const deriveManagerIdFromCode = (s) => {
+                const t = (s || '').trim();
+                if (!t || !/^m\d+-/i.test(t) || /^m99/i.test(t)) return t;
+                const m = t.match(/^m(\d+)/i);
+                return m ? ('m99' + 'm' + m[1]) : t;
+            };
 
             const rows = [];
             const colCount = 12;
@@ -7764,7 +7771,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const col2 = (cells[2] || '').toLowerCase();
                     if (col1 === 'minor' || col2 === 'minor') return;
 
-                    // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...)
+                    // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...) 或 (Lvl, Code, Type, Bet...) 仅复制到 Code
                     let parent = '';
                     let type = '';
                     let numbers = [];
@@ -7777,13 +7784,19 @@ if ($current_user_id && count($user_companies) > 0) {
                         parent = cells[1] || '';
                         type = cells[2] || '';
                         numbers = cells.slice(3);
+                    } else if (cells.length >= 4 && (cells[3] || '').toLowerCase() === 'major' && looksLikeNumber(cells[4])) {
+                        // (Lvl, ID, Code, Major, Bet...) 如 MG  m99m35  m35-A-L  Major  163  ...
+                        parent = cells[1] || '';
+                        type = cells[3] || '';
+                        numbers = cells.slice(4);
                     } else {
                         parent = cells[1] || '';
                         type = cells[2] || '';
                         numbers = cells.slice(3);
                     }
                     if (!parent && !type) return;
-                    const row = [parent, parent, type, ...numbers.slice(0, 8)];
+                    const displayParent = deriveManagerIdFromCode(parent);
+                    const row = [displayParent, parent, type, ...numbers.slice(0, 8)];
                     pushRow(row);
                     return;
                 }
@@ -7842,10 +7855,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     lastDownlineUsername = '';
 
-                    // 无 "No. MG" 的数据行（如 HSE iphsp3）：(Username, Type, Bet...) -> [Username, Username, Type, Bet...]
+                    // 无 "No. MG" 的数据行（如 MG m35-A-L Major 0 ...）：(Lvl/User, Type, Bet...) -> [User, User, Type, Bet...]，代码型用 deriveManagerIdFromCode
                     const looksLikeBetOrAmount = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
                     if (cells.length >= 3 && (cells[1] || '').toLowerCase() === 'major' && looksLikeBetOrAmount(cells[2])) {
-                        const row = [cells[0] || '', cells[0] || '', cells[1] || '', ...cells.slice(2).slice(0, 8)];
+                        const p0 = cells[0] || '';
+                        const row = [deriveManagerIdFromCode(p0), p0, cells[1] || '', ...cells.slice(2).slice(0, 8)];
                         pushRow(row);
                         return;
                     }
@@ -7867,7 +7881,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if ((cells[idx + 1] || '').toLowerCase() === 'minor' || (type || '').toLowerCase() === 'minor') return;
 
                     const numbers = cells.slice(dataStart);
-                    const row = [parent, child, type, ...numbers.slice(0, 8)];
+                    const row = [deriveManagerIdFromCode(parent), child, type, ...numbers.slice(0, 8)];
                     // 第三列应为 MAJOR；若为数字则视为 Minor 行（错位数据）不贴
                     if ((row[2] || '').toLowerCase() !== 'major' && looksLikeNumber((row[2] || '').toString())) return;
                     pushRow(row);
