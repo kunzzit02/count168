@@ -703,7 +703,7 @@ $today = date('d/m/Y');
         }
 
         .transaction-page .transaction-table tbody .transaction-table-row.transaction-alert-row td {
-            background-color: #dc2626 !par
+            background-color: #dc2626 !important;
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -963,7 +963,11 @@ $today = date('d/m/Y');
                     </div>
                 </div>
                 <?php else: ?>
-                <!-- Debug info: If company list is empty, display debug info -->
+                <!-- 无公司时仍显示「选择公司」行，并提示联系管理员 -->
+                <div class="member-company-filter" id="member_company_filter">
+                    <span class="transaction-company-label">Company:</span>
+                    <span class="member-no-company-msg" style="color:#b91c1c;font-size:clamp(10px,0.73vw,14px);">No company assigned. Please contact administrator.</span>
+                </div>
                 <?php if (isset($debugInfo) && !empty($debugInfo)): ?>
                 <div class="member-alert member-alert-error" style="display: block; margin-top: 12px;">
                     <strong>Debug Info:</strong> No associated companies found.
@@ -1366,13 +1370,11 @@ $today = date('d/m/Y');
 
                 if (!dateFrom || !dateTo) {
                     showNotification('Please select date range', 'error');
-                    if (filterWrapper) filterWrapper.style.display = 'none';
                     return reject(new Error('Missing date'));
                 }
 
                 if (!memberConfig.companyId || memberConfig.companyId <= 0) {
                     showNotification('Please select a company', 'error');
-                    if (filterWrapper) filterWrapper.style.display = 'none';
                     return reject(new Error('Missing company'));
                 }
 
@@ -1419,7 +1421,6 @@ $today = date('d/m/Y');
                         memberCurrencySortOrder.clear();
                         const buttons = document.getElementById('member_currency_buttons');
                         if (buttons) buttons.innerHTML = '';
-                        if (filterWrapper) filterWrapper.style.display = 'none';
                         renderMemberWinLossSummary();
                         showNotification(err.message || 'Failed to load currency data', 'error');
                         reject(err);
