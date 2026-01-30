@@ -412,14 +412,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $copyFromProcessId = $_POST['copy_from'] ?? ''; // 获取 copy_from 的 process_id（字符串）
         error_log("Received POST copy_from: " . ($copyFromProcessId ?: 'empty') . ", all POST keys: " . implode(', ', array_keys($_POST)));
         
-        // 处理选中的process IDs
+        // 处理选中的process IDs（兼容：前端可能传 JSON 字符串 或 表单 checkbox 的 selected_processes[] 数组）
         if (!empty($_POST['selected_processes'])) {
-            $selectedProcesses = json_decode($_POST['selected_processes'], true);
-            if (is_array($selectedProcesses)) {
-                $processIds = $selectedProcesses;
+            $raw = $_POST['selected_processes'];
+            $selectedProcesses = is_array($raw) ? $raw : json_decode($raw, true);
+            if (is_array($selectedProcesses) && !empty($selectedProcesses)) {
+                $processIds = array_values($selectedProcesses);
             }
-        } elseif (!empty($_POST['process_id'])) {
-            $processIds = [$_POST['process_id']];
+        }
+        if (empty($processIds) && !empty($_POST['process_id'])) {
+            $processIds = [trim($_POST['process_id'])];
         }
         
         // 处理选中的描述
@@ -564,11 +566,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     
                     // 插入process，包含company_id与创建者主体
-                    // 如果是 Multi-use Process 且提供了 copy_from，设置 sync_source_process_id
+                    // 只要提供了 copy_from 且找到源 process.id，就设置 sync_source_process_id（便于后续 Formula 同步）
                     $syncSourceProcessId = null;
-                    if (!empty($copyFromProcessDbId) && !empty($_POST['selected_processes'])) {
-                        // 这是 Multi-use Process，需要设置同步源
-                        $syncSourceProcessId = $copyFromProcessDbId;
+                    if (!empty($copyFromProcessDbId)) {
+                        $syncSourceProcessId = (int) $copyFromProcessDbId;
                     }
                     
                     $stmt = $pdo->prepare("INSERT INTO process (
