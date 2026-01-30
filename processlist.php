@@ -2606,6 +2606,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 const formData = new FormData(this);
                 
+                // 显式带上 Copy From（保证同步源会写入 sync_source_process_id）
+                const copyFromSelect = document.getElementById('add_copy_from');
+                if (copyFromSelect && copyFromSelect.value && copyFromSelect.value.trim() !== '') {
+                    formData.set('copy_from', copyFromSelect.value.trim());
+                }
+                
                 // 添加选中的 descriptions
                 formData.append('selected_descriptions', JSON.stringify(window.selectedDescriptions));
                 
@@ -2633,11 +2639,16 @@ if ($current_user_id && count($user_companies) > 0) {
                         let message = result.message || 'Process added successfully!';
                         // 如果有 copy_from 相关的调试信息，添加到消息中
                         if (result.copy_from_used !== undefined) {
-                            console.log('Copy from used:', result.copy_from_used);
+                            console.log('Copy from used:', result.copy_from_used, 'Sync source set:', result.sync_source_set);
                             console.log('Source templates found:', result.source_templates_found);
                             console.log('Templates copied:', result.copied_templates_count);
                             if (result.copy_from_used && result.source_templates_found === 0) {
                                 message += ' (No templates found to copy)';
+                            }
+                            if (result.copy_from_used && result.sync_source_set) {
+                                message += ' [Sync enabled: changes will sync to these processes]';
+                            } else if (result.copy_from_used && !result.sync_source_set) {
+                                message += ' (Sync not set: source process not found for this company)';
                             }
                         }
                         showNotification(message, 'success');

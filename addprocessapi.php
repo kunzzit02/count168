@@ -697,6 +697,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'created_processes' => $createdProcesses,
                 'copied_templates_count' => $copiedTemplatesCount,
                 'copy_from_used' => !empty($copyFromProcessId),
+                'sync_source_set' => !empty($copyFromProcessDbId),
                 'source_templates_found' => count($sourceTemplates),
                 'errors' => $errors
             ]);
