@@ -7820,6 +7820,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     const looksLikeAmount = (s) => /^[$]?[\d,.()\-]+$/.test((s || '').trim());
                     if (!hasMajor && cells.length >= 2 && looksLikeNumber(cells[0]) && looksLikeAmount(cells[1])) return;
                     if (!hasMajor && cells.length >= 3 && looksLikeAmount(cells[0]) && looksLikeNumber(cells[1]) && looksLikeAmount(cells[2])) return;
+                    // Downline minor 数据：前两列为数字、第三列为金额（非 MAJOR），整行跳过
+                    const looksLikeBetOrAmountForMinor = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
+                    if (cells.length >= 3 && looksLikeBetOrAmountForMinor(cells[0]) && looksLikeBetOrAmountForMinor(cells[1]) && looksLikeAmount(cells[2]) && (cells[2] || '').toLowerCase() !== 'major') return;
 
                     // 同一行同时含 No. + Lvl + 用户名 + Major + 数据（如 "1  AG  gaosheng  gaosheng  Major  9344  ..."）：直接输出该行，避免 gaosheng 等下线数据丢失
                     const looksLikeBetOrAmountDownline = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
