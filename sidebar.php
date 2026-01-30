@@ -68,14 +68,14 @@ if ($companyId) {
         $stmt->execute([$companyId]);
         $company_expiration_date = $stmt->fetchColumn();
         
-        // 在 PHP 端计算倒计时
+        // 在 PHP 端计算倒计时（使用 $now 避免覆盖包含页的 $today，如 member.php 的日期显示）
         if ($company_expiration_date) {
-            $today = new DateTime();
-            $today->setTime(0, 0, 0);
+            $now = new DateTime();
+            $now->setTime(0, 0, 0);
             $expiration = new DateTime($company_expiration_date);
             $expiration->setTime(0, 0, 0);
             
-            $diff = $today->diff($expiration);
+            $diff = $now->diff($expiration);
             $diffDays = (int)$diff->format('%r%a'); // 带符号的天数差
             
             if ($diffDays < 0) {
