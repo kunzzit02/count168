@@ -16553,70 +16553,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             }
             
-            // CITIBET / CITIBET_MAJOR：仅按格式粘贴，不识别字（保留 m99m35 等所有单元格原样）
-            if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
-                const normalizedData = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                const lines = normalizedData.split('\n').filter(line => line.trim() !== '');
-                const hasTabSeparator = lines.some(line => line.includes('\t'));
-                if (lines.length > 0 && hasTabSeparator) {
-                    const dataMatrix = [];
-                    let maxCols = 0;
-                    lines.forEach(line => {
-                        if (line.includes('\t')) {
-                            const cells = line.split('\t');
-                            dataMatrix.push(cells);
-                            maxCols = Math.max(maxCols, cells.length);
-                        } else if (line !== '') {
-                            dataMatrix.push([line]);
-                            maxCols = Math.max(maxCols, 1);
-                        }
-                    });
-                    dataMatrix.forEach(row => { while (row.length < maxCols) row.push(''); });
-                    if (dataMatrix.length > 0 && maxCols > 0) {
-                        const startCell = e.target;
-                        const startRow = Array.from(startCell.parentNode.parentNode.children).indexOf(startCell.parentNode);
-                        const startCol = parseInt(startCell.dataset.col);
-                        const currentRows = document.querySelectorAll('#tableBody tr').length;
-                        const currentCols = document.querySelectorAll('#tableHeader th').length - 1;
-                        const requiredRows = startRow + dataMatrix.length;
-                        const requiredCols = startCol + maxCols;
-                        if (requiredRows > currentRows || requiredCols > currentCols) {
-                            const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                            const targetCols = Math.max(currentCols, requiredCols);
-                            initializeTable(targetRows, targetCols);
-                        }
-                        const tableBody = document.getElementById('tableBody');
-                        const currentPasteChanges = [];
-                        let successCount = 0;
-                        dataMatrix.forEach((rowData, rowIndex) => {
-                            const actualRowIndex = startRow + rowIndex;
-                            const tableRow = tableBody.children[actualRowIndex];
-                            if (!tableRow) return;
-                            rowData.forEach((cellData, colIndex) => {
-                                const actualColIndex = startCol + colIndex;
-                                const cell = tableRow.children[actualColIndex + 1];
-                                if (cell && cell.contentEditable === 'true') {
-                                    const cellValue = cellData || '';
-                                    currentPasteChanges.push({ row: actualRowIndex, col: actualColIndex, oldValue: cell.textContent, newValue: cellValue });
-                                    cell.textContent = cellValue;
-                                    successCount++;
-                                }
-                            });
-                        });
-                        if (currentPasteChanges.length > 0) {
-                            pasteHistory.push(currentPasteChanges);
-                            if (pasteHistory.length > maxHistorySize) pasteHistory.shift();
-                        }
-                        if (successCount > 0) {
-                            showNotification(`已按格式粘贴 ${successCount} 个单元格（${dataMatrix.length} 行 x ${maxCols} 列），未做语义解析。`, 'success');
-                            setTimeout(updateSubmitButtonState, 0);
-                            return;
-                        }
-                    }
-                }
-            }
-
-            // Citibet 专用解析（仅当非 CITIBET 或格式粘贴未命中时使用）
+            // Citibet 专用解析（先于通用 Payment 逻辑）
+            // 优先用结构化解析（得到第二张图那样的 OVERALL / Upline Major / My Earnings / 多行 Downline Major）；都不行再按格式粘贴
             let citibetParsed = null;
             if (typeof currentDataCaptureType !== 'undefined' && (currentDataCaptureType === 'CITIBET_MAJOR' || currentDataCaptureType === 'CITIBET')) {
                 citibetParsed = parseCitibetMajorPaymentReport(pastedData) || parseCitibetPaymentReport(pastedData) || parseCitibetFormatBasedPaste(pastedData);
