@@ -780,10 +780,11 @@ $today = date('d/m/Y');
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
         .member-currency-section {
-            display: none;
+            display: flex;
             flex-direction: column;
             gap: 16px;
             margin: 20px 0 25px 0;
+            min-height: 180px;
         }
         .member-currency-tables {
             display: flex;
@@ -1563,11 +1564,26 @@ $today = date('d/m/Y');
             }
             if (!orderedKeys.length) {
                 section.style.display = 'flex';
-                container.innerHTML = '<div class="member-winloss-empty-msg" style="padding:24px;text-align:center;color:#666;">No data for the selected date range. Please check company and date.</div>';
+                section.style.minHeight = '120px';
+                var emptyTable = '<div class="member-currency-table-wrapper">' +
+                    '<h3 class="member-currency-table-title">Win/Loss Report</h3>' +
+                    '<table class="transaction-table member-winloss-table">' +
+                    '<thead><tr class="transaction-table-header">' +
+                    '<th class="transaction-history-col-account">Account</th>' +
+                    '<th class="transaction-history-col-bf">B/F</th>' +
+                    '<th class="transaction-history-col-winloss">Win/Loss</th>' +
+                    '<th class="transaction-history-col-crdr">Cr/Dr</th>' +
+                    '<th class="transaction-history-col-balance">Balance</th>' +
+                    '</tr></thead>' +
+                    '<tbody><tr><td colspan="5" class="member-winloss-empty-msg" style="padding:24px;text-align:center;color:#666;">No data for the selected date range. Please check company and date.</td></tr></tbody>' +
+                    '<tfoot><tr class="transaction-table-row transaction-summary-total"><td class="transaction-summary-total-label">Total</td><td>-</td><td>-</td><td>-</td><td>-</td></tr></tfoot>' +
+                    '</table></div>';
+                container.innerHTML = emptyTable;
                 return;
             }
 
             section.style.display = 'flex';
+            section.style.minHeight = '';
             orderedKeys.forEach(currencyKey => {
                 const rows = grouped[currencyKey] || [];
                 const wrapper = document.createElement('div');
