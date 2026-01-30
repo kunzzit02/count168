@@ -242,8 +242,11 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
             $targetProcessCode = $syncedProcess['process_id'];
             
             try {
-                // 查找目标 Process 中对应的 template（基于相同的 id_product, account_id, product_type, formula_variant）
-                $findTemplateStmt = $pdo->prepare("
+                // 查找目标 Process 中对应的 template（基于 id_product, account_id, product_type, formula_variant；sub 行另加 sub_order）
+                $productType = $templateData['product_type'] ?? 'main';
+                $subOrder = isset($templateData['sub_order']) && $templateData['sub_order'] !== null && $templateData['sub_order'] !== '' ? (float)$templateData['sub_order'] : null;
+                $hasSubOrder = $productType === 'sub' && $subOrder !== null;
+                $sql = "
                     SELECT id FROM data_capture_templates 
                     WHERE process_id = ? 
                       AND company_id = ?
@@ -251,16 +254,22 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
                       AND account_id = ?
                       AND product_type = ?
                       AND formula_variant = ?
+                " . ($hasSubOrder ? " AND (COALESCE(sub_order, 0) = COALESCE(?, 0))" : "") . "
                     LIMIT 1
-                ");
-                $findTemplateStmt->execute([
+                ";
+                $findTemplateStmt = $pdo->prepare($sql);
+                $params = [
                     $targetProcessId,
                     $companyId,
                     $templateData['id_product'],
                     $templateData['account_id'],
-                    $templateData['product_type'],
+                    $productType,
                     $templateData['formula_variant']
-                ]);
+                ];
+                if ($hasSubOrder) {
+                    $params[] = $subOrder;
+                }
+                $findTemplateStmt->execute($params);
                 $targetTemplate = $findTemplateStmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($targetTemplate) {
@@ -1157,6 +1166,32 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $templateKey = is_array($templateResult) ? $templateResult['template_key'] : $templateResult;
         $templateId = is_array($templateResult) ? $templateResult['template_id'] : null;
         $formulaVariant = is_array($templateResult) ? $templateResult['formula_variant'] : null;
+        
+        // 显式同步到所有 Multi-Process（Copy From 源账号修改 Formula 后，同步到 sync_source_process_id 指向该源的流程）
+        $processIdForSync = isset($templatePayload['process_id']) && $templatePayload['process_id'] > 0 ? (int)$templatePayload['process_id'] : null;
+        $formulaVariantForSync = $formulaVariant !== null ? $formulaVariant : (isset($templatePayload['formula_variant']) && $templatePayload['formula_variant'] !== '' ? (int)$templatePayload['formula_variant'] : null);
+        if ($processIdForSync && $templateResult !== null && $formulaVariantForSync !== null) {
+            $syncTemplateData = [
+                'id_product' => $templatePayload['id_product'],
+                'account_id' => $templatePayload['account_id'],
+                'product_type' => $templatePayload['product_type'] ?? 'main',
+                'formula_variant' => $formulaVariantForSync,
+                'source_columns' => $templatePayload['source_columns'] ?? '',
+                'formula_operators' => $templatePayload['formula_operators'] ?? '',
+                'source_percent' => isset($templatePayload['source_percent']) && $templatePayload['source_percent'] !== '' ? (string)$templatePayload['source_percent'] : '1',
+                'enable_source_percent' => (isset($templatePayload['source_percent']) && $templatePayload['source_percent'] !== '' && $templatePayload['source_percent'] !== '0') ? 1 : 0,
+                'input_method' => $templatePayload['input_method'] ?? null,
+                'enable_input_method' => isset($templatePayload['enable_input_method']) ? (int)$templatePayload['enable_input_method'] : 0,
+                'columns_display' => $templatePayload['columns_display'] ?? null,
+                'formula_display' => $templatePayload['formula_display'] ?? null,
+                'description' => $templatePayload['description'] ?? null,
+                'account_display' => $templatePayload['account_display'] ?? null,
+                'currency_id' => $templatePayload['currency_id'] ?? null,
+                'currency_display' => $templatePayload['currency_display'] ?? null,
+                'sub_order' => isset($templatePayload['sub_order']) && $templatePayload['sub_order'] !== null && $templatePayload['sub_order'] !== '' ? (float)$templatePayload['sub_order'] : null,
+            ];
+            syncFormulaToMultiUseProcesses($pdo, $processIdForSync, $syncTemplateData, $company_id);
+        }
         
         echo json_encode([
             'success' => true,
