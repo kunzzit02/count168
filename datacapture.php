@@ -24476,7 +24476,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (hasOption) {
                         typeSelect.value = savedType;
                         currentDataCaptureType = savedType;
-
+                        const container = document.querySelector('.excel-table-container');
+                        if (container) {
+                            if (currentDataCaptureType === 'CITIBET_MAJOR') container.classList.add('citibet-mode');
+                            else container.classList.remove('citibet-mode');
+                        }
                         // 655：恢复时暂时不设置 is655GridReady，等恢复表格数据后再统一设置
                         // 这样可以避免状态不一致的问题
                         // 655: Temporarily don't set is655GridReady, wait until table data is restored to set it uniformly
@@ -24768,9 +24772,14 @@ if ($current_user_id && count($user_companies) > 0) {
 
             // 初始化 Data Capture Type 选择器
             const typeSelect = document.getElementById('dataCaptureTypeSelector');
+            const excelTableContainer = document.querySelector('.excel-table-container');
             if (typeSelect) {
                 currentDataCaptureType = typeSelect.value || 'GENERAL';
-                
+                // CITIBET 模式：为表格容器添加 class，用于完整显示数据（避免字母被裁剪）
+                if (excelTableContainer) {
+                    if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
+                    else excelTableContainer.classList.remove('citibet-mode');
+                }
                 // 初始化显示状态
                 toggleTableDisplayFor655();
                 
@@ -24780,7 +24789,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 typeSelect.addEventListener('change', () => {
                     const previousType = currentDataCaptureType;
                     currentDataCaptureType = typeSelect.value || 'GENERAL';
-
+                    // CITIBET 模式：为表格容器添加/移除 class，用于完整显示数据（避免字母被裁剪）
+                    if (excelTableContainer) {
+                        if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
+                        else excelTableContainer.classList.remove('citibet-mode');
+                    }
                     // 切到655时：检查是否有保存的预览数据，如果有则恢复显示
                     if (currentDataCaptureType === '655') {
                         let previewHtml = '';
@@ -26029,6 +26042,16 @@ if ($current_user_id && count($user_companies) > 0) {
         .excel-table td[contenteditable="true"][style]:focus {
             background-color: inherit !important;
             color: inherit !important;
+        }
+
+        /* CITIBET 模式：避免数据显示不完整、字母被裁剪，允许换行并完整显示 */
+        .excel-table-container.citibet-mode .excel-table th,
+        .excel-table-container.citibet-mode .excel-table td {
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            overflow: visible;
+            min-width: clamp(44px, 4.5vw, 80px);
         }
 
         .excel-table-header {
