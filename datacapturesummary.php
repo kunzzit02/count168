@@ -498,12 +498,40 @@ function getCurrentProcessId() {
 
         // Go back to datacapture page, preserving localStorage data
         function goBackToDataCapture() {
-            // Keep localStorage data intact so datacapture.php can restore it
+            localStorage.removeItem('summaryRateSnapshot');
             window.location.href = 'datacapture.php?restore=1';
         }
 
-        // Refresh page function
+        // Refresh page function: save rate snapshot so rate data persists after reload
         function refreshPage() {
+            const rateInput = document.getElementById('rateInput');
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if (rateInput && summaryTableBody) {
+                const rows = summaryTableBody.querySelectorAll('tr');
+                const rowSnapshots = [];
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    const rateValueCell = cells[7];
+                    const processedAmountCell = cells[8];
+                    const rateValue = rateValueCell ? rateValueCell.textContent.trim() : '';
+                    const processedAmountText = processedAmountCell ? processedAmountCell.textContent.trim() : '';
+                    const processedAmountColor = processedAmountCell ? (processedAmountCell.style.color || '') : '';
+                    rowSnapshots.push({
+                        rateValue: rateValue,
+                        processedAmountText: processedAmountText,
+                        processedAmountColor: processedAmountColor
+                    });
+                });
+                const snapshot = {
+                    rateInputValue: rateInput.value ? rateInput.value.trim() : '',
+                    rows: rowSnapshots
+                };
+                try {
+                    localStorage.setItem('summaryRateSnapshot', JSON.stringify(snapshot));
+                } catch (e) {
+                    console.warn('Could not save rate snapshot', e);
+                }
+            }
             window.location.reload();
         }
 
@@ -565,6 +593,8 @@ function getCurrentProcessId() {
                     
                     // Display process information
                     displayProcessInfo(parsedProcessData);
+                    // Restore rate data if we just refreshed (btn-refresh)
+                    applyRateSnapshotIfExists();
                     } catch (renderError) {
                         console.error('Error rendering table:', renderError);
                         // Show empty state if rendering fails
@@ -579,6 +609,51 @@ function getCurrentProcessId() {
                 console.error('Error loading captured table data:', error);
                 hideLoadingState();
                 showEmptyState();
+            }
+        }
+        
+        // Restore rate data from snapshot (only set by btn-refresh before reload)
+        function applyRateSnapshotIfExists() {
+            try {
+                const raw = localStorage.getItem('summaryRateSnapshot');
+                if (!raw) return;
+                const snapshot = JSON.parse(raw);
+                const rateInput = document.getElementById('rateInput');
+                const summaryTableBody = document.getElementById('summaryTableBody');
+                if (!rateInput || !summaryTableBody || !snapshot.rows || !Array.isArray(snapshot.rows)) {
+                    localStorage.removeItem('summaryRateSnapshot');
+                    return;
+                }
+                if (snapshot.rateInputValue !== undefined && snapshot.rateInputValue !== null) {
+                    rateInput.value = snapshot.rateInputValue;
+                }
+                const rows = summaryTableBody.querySelectorAll('tr');
+                const rowSnapshots = snapshot.rows;
+                rows.forEach((row, index) => {
+                    if (index >= rowSnapshots.length) return;
+                    const cells = row.querySelectorAll('td');
+                    const rateValueCell = cells[7];
+                    const processedAmountCell = cells[8];
+                    const s = rowSnapshots[index];
+                    if (rateValueCell && s.rateValue !== undefined) {
+                        rateValueCell.textContent = s.rateValue;
+                    }
+                    if (processedAmountCell) {
+                        if (s.processedAmountText !== undefined) {
+                            processedAmountCell.textContent = s.processedAmountText;
+                        }
+                        if (s.processedAmountColor !== undefined && s.processedAmountColor) {
+                            processedAmountCell.style.color = s.processedAmountColor;
+                        }
+                    }
+                });
+                if (typeof updateProcessedAmountTotal === 'function') {
+                    updateProcessedAmountTotal();
+                }
+                localStorage.removeItem('summaryRateSnapshot');
+            } catch (e) {
+                console.warn('Could not apply rate snapshot', e);
+                localStorage.removeItem('summaryRateSnapshot');
             }
         }
         
@@ -16675,7 +16750,7 @@ function formatPercentValue(value) {
                 console.log('Submission already in progress, ignoring duplicate request');
                 return;
             }
-            
+            localStorage.removeItem('summaryRateSnapshot');
             console.log('Submit summary data');
             
             // Disable submit button and set submitting flag
