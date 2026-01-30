@@ -465,23 +465,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // 注意：data_capture_templates.process_id 可能是 VARCHAR（存储 process.process_id 字符串）或 INT（存储 process.id 整数）
         $sourceTemplates = [];
         $copyFromProcessDbId = null;
-        if (!empty($copyFromProcessId) || (is_numeric($copyFromProcessId) && (int)$copyFromProcessId > 0)) {
+        if (!empty($copyFromProcessId) || (is_string($copyFromProcessId) && trim($copyFromProcessId) !== '') || (is_numeric($copyFromProcessId) && (int)$copyFromProcessId > 0)) {
             try {
                 $copyFromProcessId = is_string($copyFromProcessId) ? trim($copyFromProcessId) : $copyFromProcessId;
-                // 前端 Copy From 下拉传的是 p.id（API 里 existingProcesses 的 process_id 实为 p.id），若为数字则按 process.id 查
-                if (is_numeric($copyFromProcessId) && (int)$copyFromProcessId > 0) {
+                // 先按 process_id（字符串）查，避免 process_id 本身为数字串（如 '0123'）时被误当成 id 查成 id=123
+                $stmt = $pdo->prepare("SELECT id FROM process WHERE process_id = ? AND company_id = ? LIMIT 1");
+                $stmt->execute([$copyFromProcessId, $companyId]);
+                $val = $stmt->fetchColumn();
+                $copyFromProcessDbId = ($val !== false && $val !== null) ? (int)$val : null;
+                if ($copyFromProcessDbId !== null) {
+                    error_log("Copy from: process_id='$copyFromProcessId', found process.id=$copyFromProcessDbId, company_id=$companyId");
+                }
+                // 未按 process_id 找到且值为数字时，再按 process.id 查（前端下拉传的是 p.id）
+                if ($copyFromProcessDbId === null && is_numeric($copyFromProcessId) && (int)$copyFromProcessId > 0) {
                     $stmt = $pdo->prepare("SELECT id FROM process WHERE id = ? AND company_id = ? LIMIT 1");
                     $stmt->execute([(int)$copyFromProcessId, $companyId]);
                     $val = $stmt->fetchColumn();
                     $copyFromProcessDbId = ($val !== false && $val !== null) ? (int)$val : null;
                     error_log("Copy from: id=" . (int)$copyFromProcessId . ", found process.id=" . ($copyFromProcessDbId ?? 'null') . ", company_id=$companyId");
-                }
-                if ($copyFromProcessDbId === null) {
-                    $stmt = $pdo->prepare("SELECT id FROM process WHERE process_id = ? AND company_id = ? LIMIT 1");
-                    $stmt->execute([$copyFromProcessId, $companyId]);
-                    $copyFromProcessDbId = $stmt->fetchColumn();
-                    $copyFromProcessDbId = $copyFromProcessDbId !== false ? (int)$copyFromProcessDbId : null;
-                    error_log("Copy from: process_id='$copyFromProcessId', found process.id=" . ($copyFromProcessDbId ?? 'null') . ", company_id=$companyId");
                 }
                 
                 // 如果没有找到 process，检查是否存在该 process_id 但 company_id 不同（用于调试）
