@@ -7803,6 +7803,22 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (!hasMajor && cells.length >= 2 && looksLikeNumber(cells[0]) && looksLikeAmount(cells[1])) return;
                     if (!hasMajor && cells.length >= 3 && looksLikeAmount(cells[0]) && looksLikeNumber(cells[1]) && looksLikeAmount(cells[2])) return;
 
+                    // 同一行同时含 No. + Lvl + 用户名 + Major + 数据（如 "1  AG  gaosheng  gaosheng  Major  9344  ..."）：直接输出该行，避免 gaosheng 等下线数据丢失
+                    const looksLikeBetOrAmountDownline = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
+                    if (cells.length >= 6 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && /^major$/i.test((cells[4] || '').trim()) && looksLikeBetOrAmountDownline(cells[5])) {
+                        const parent = (cells[2] || '').trim();
+                        const child = (cells[3] || '').trim() || parent;
+                        const row = [parent, child, 'Major', ...cells.slice(5).slice(0, 8)];
+                        pushRow(row);
+                        return;
+                    }
+                    if (cells.length >= 5 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && /^major$/i.test((cells[3] || '').trim()) && looksLikeBetOrAmountDownline(cells[4])) {
+                        const parent = (cells[2] || '').trim();
+                        const row = [parent, parent, 'Major', ...cells.slice(4).slice(0, 8)];
+                        pushRow(row);
+                        return;
+                    }
+
                     // 表头行 "1\tMG\tm99m06" 或 "1\tAG\tgaosheng"：No. + Lvl(MG/PL/AG/…) + Username，记 username 下一行再输出
                     if (cells.length >= 3 && /^\d+$/.test(cells[0]) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim())) {
                         lastDownlineUsername = (cells[2] || '').trim();
@@ -7992,6 +8008,12 @@ if ($current_user_id && count($user_companies) > 0) {
             // 2) Downline MG / PL 两行
             const downlineStart = nonEmpty.findIndex(l => /^downline payment/i.test(l));
             if (downlineStart === -1) return null;
+
+            // 若 Downline 段内有多个下线块（如 MG 块 + AG 块），交给 parseCitibetPaymentReport 处理以保留所有下线（如 gaosheng）
+            const downlineSection = nonEmpty.slice(downlineStart + 1);
+            const blockHeaderRe = /^(\d+\s+)?(mg|pl|ag)\s+/i;
+            const downlineBlockCount = downlineSection.filter(l => blockHeaderRe.test((l || '').trim())).length;
+            if (downlineBlockCount >= 2) return null;
 
             // MG 区块
             const mgIdx2 = nonEmpty.findIndex((l, idx) => idx > downlineStart && /^mg\b/i.test(l));
