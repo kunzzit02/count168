@@ -7849,8 +7849,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     const typeColDownline = cells.findIndex((c, i) => i >= 2 && ((c || '').toLowerCase() === 'major' || (c || '').toLowerCase() === 'minor'));
                     if (cells.length >= 4 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && typeColDownline >= 2 && typeColDownline < cells.length - 1 && looksLikeBetOrAmountDownline(cells[typeColDownline + 1])) {
                         const parent = typeColDownline === 2 ? '' : cells.slice(2, typeColDownline).join(' ').trim();
+                        const rowSecond = typeColDownline === 2 ? (cells[1] || '').trim() : parent;
                         const typeVal = (cells[typeColDownline] || '').trim();
-                        const row = [deriveManagerIdFromCode(parent), parent, typeVal, ...cells.slice(typeColDownline + 1).slice(0, 8)];
+                        const row = [deriveManagerIdFromCode(parent), rowSecond, typeVal, ...cells.slice(typeColDownline + 1).slice(0, 8)];
                         pushRow(row);
                         return;
                     }
@@ -7898,7 +7899,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     let dataStart = idx + 3;
                     if (typeColGen >= idx + 1 && typeColGen < cells.length) {
                         parent = typeColGen === idx + 1 ? '' : cells.slice(idx + 1, typeColGen).join(' ').trim();
-                        child = parent;
+                        child = typeColGen === idx + 1 ? (cells[idx] || '') : parent;
                         type = cells[typeColGen] || '';
                         dataStart = typeColGen + 1;
                     } else {
