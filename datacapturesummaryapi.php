@@ -273,7 +273,7 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
                 $targetTemplate = $findTemplateStmt->fetch(PDO::FETCH_ASSOC);
                 
                 if ($targetTemplate) {
-                    // 更新已存在的 template
+                    // 更新已存在的 template（Source、Rate、Formula 等全部覆盖）
                     $updateStmt = $pdo->prepare("
                         UPDATE data_capture_templates SET
                             source_columns = ?,
@@ -282,12 +282,15 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
                             enable_source_percent = ?,
                             input_method = ?,
                             enable_input_method = ?,
+                            batch_selection = COALESCE(?, batch_selection),
                             columns_display = ?,
                             formula_display = ?,
                             description = ?,
                             account_display = ?,
                             currency_id = ?,
                             currency_display = ?,
+                            last_source_value = COALESCE(?, last_source_value),
+                            last_processed_amount = COALESCE(?, last_processed_amount),
                             updated_at = NOW()
                         WHERE id = ?
                     ");
@@ -298,19 +301,63 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
                         $templateData['enable_source_percent'],
                         $templateData['input_method'],
                         $templateData['enable_input_method'],
+                        isset($templateData['batch_selection']) ? (int)$templateData['batch_selection'] : null,
                         $templateData['columns_display'],
                         $templateData['formula_display'],
                         $templateData['description'],
                         $templateData['account_display'],
                         $templateData['currency_id'],
                         $templateData['currency_display'],
+                        isset($templateData['last_source_value']) ? $templateData['last_source_value'] : null,
+                        isset($templateData['last_processed_amount']) ? $templateData['last_processed_amount'] : null,
                         $targetTemplate['id']
                     ]);
                     error_log("Updated template ID {$targetTemplate['id']} for process $targetProcessCode (ID: $targetProcessId)");
                 } else {
-                    // 如果目标 Process 中没有对应的 template，创建新的（可选，根据需求决定）
-                    // 这里暂时不创建，因为可能目标 Process 还没有对应的 template
-                    error_log("Template not found for process $targetProcessCode (ID: $targetProcessId), skipping sync");
+                    // 新增同步：目标无该 Id_Product 行则插入对应 template
+                    $insStmt = $pdo->prepare("
+                        INSERT INTO data_capture_templates (
+                            company_id, process_id, id_product, product_type, parent_id_product,
+                            template_key, description, account_id, account_display,
+                            currency_id, currency_display, source_columns, formula_operators,
+                            source_percent, enable_source_percent, input_method, enable_input_method,
+                            batch_selection, columns_display, formula_display,
+                            last_source_value, last_processed_amount, row_index, sub_order, formula_variant, data_capture_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $templateKey = isset($templateData['template_key']) && $templateData['template_key'] !== '' ? $templateData['template_key'] : null;
+                    if ($templateKey === null && !empty($templateData['id_product'])) {
+                        $templateKey = $templateData['id_product'] . '_' . ($templateData['account_id'] ?? '') . '_' . ($templateData['formula_variant'] ?? 0);
+                    }
+                    $insStmt->execute([
+                        $companyId,
+                        $targetProcessId,
+                        $templateData['id_product'],
+                        $productType,
+                        isset($templateData['parent_id_product']) ? $templateData['parent_id_product'] : null,
+                        $templateKey,
+                        isset($templateData['description']) ? $templateData['description'] : null,
+                        $templateData['account_id'],
+                        isset($templateData['account_display']) ? $templateData['account_display'] : null,
+                        isset($templateData['currency_id']) ? $templateData['currency_id'] : null,
+                        isset($templateData['currency_display']) ? $templateData['currency_display'] : null,
+                        $templateData['source_columns'],
+                        $templateData['formula_operators'],
+                        isset($templateData['source_percent']) ? $templateData['source_percent'] : '1',
+                        isset($templateData['enable_source_percent']) ? (int)$templateData['enable_source_percent'] : 1,
+                        isset($templateData['input_method']) ? $templateData['input_method'] : null,
+                        isset($templateData['enable_input_method']) ? (int)$templateData['enable_input_method'] : 0,
+                        isset($templateData['batch_selection']) ? (int)$templateData['batch_selection'] : 0,
+                        isset($templateData['columns_display']) ? $templateData['columns_display'] : null,
+                        isset($templateData['formula_display']) ? $templateData['formula_display'] : null,
+                        isset($templateData['last_source_value']) ? $templateData['last_source_value'] : null,
+                        isset($templateData['last_processed_amount']) ? $templateData['last_processed_amount'] : 0,
+                        isset($templateData['row_index']) ? (int)$templateData['row_index'] : null,
+                        $subOrder,
+                        $templateData['formula_variant'],
+                        isset($templateData['data_capture_id']) ? (int)$templateData['data_capture_id'] : null
+                    ]);
+                    error_log("Inserted new template for process $targetProcessCode (ID: $targetProcessId) - id_product={$templateData['id_product']}");
                 }
             } catch (Exception $e) {
                 error_log("Error syncing formula to process $targetProcessCode (ID: $targetProcessId): " . $e->getMessage());
@@ -320,6 +367,45 @@ function syncFormulaToMultiUseProcesses(PDO $pdo, int $sourceProcessId, array $t
     } catch (Exception $e) {
         error_log("Error in syncFormulaToMultiUseProcesses: " . $e->getMessage());
         // 不抛出异常，避免影响主流程
+    }
+}
+
+/**
+ * A_ID 删除某行时，同步删除所有 sync_source_process_id = A_ID 的 process 中对应行（按 id_product/account_id/product_type/formula_variant/sub_order 匹配）
+ */
+function syncDeleteTemplateToMultiUseProcesses(PDO $pdo, int $sourceProcessId, string $idProduct, $accountId, string $productType, $formulaVariant, $subOrder, int $companyId) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT id, process_id FROM process 
+            WHERE sync_source_process_id = ? AND company_id = ?
+        ");
+        $stmt->execute([$sourceProcessId, $companyId]);
+        $syncedProcesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($syncedProcesses)) {
+            return;
+        }
+        $hasSubOrder = $productType === 'sub' && $subOrder !== null && $subOrder !== '';
+        $sql = "
+            DELETE FROM data_capture_templates 
+            WHERE process_id = ? AND company_id = ?
+              AND id_product = ? AND account_id = ?
+              AND product_type = ? AND formula_variant = ?
+        " . ($hasSubOrder ? " AND (COALESCE(sub_order, 0) = COALESCE(?, 0))" : "");
+        $delStmt = $pdo->prepare($sql);
+        foreach ($syncedProcesses as $synced) {
+            $targetProcessId = $synced['id'];
+            $params = [$targetProcessId, $companyId, $idProduct, $accountId, $productType, $formulaVariant];
+            if ($hasSubOrder) {
+                $params[] = $subOrder;
+            }
+            $delStmt->execute($params);
+            $n = $delStmt->rowCount();
+            if ($n > 0) {
+                error_log("Sync delete: removed template for process {$synced['process_id']} (ID: $targetProcessId)");
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Error in syncDeleteTemplateToMultiUseProcesses: " . $e->getMessage());
     }
 }
 
@@ -1217,6 +1303,13 @@ if ($action === 'save_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 'currency_id' => $templatePayload['currency_id'] ?? null,
                 'currency_display' => $templatePayload['currency_display'] ?? null,
                 'sub_order' => isset($templatePayload['sub_order']) && $templatePayload['sub_order'] !== null && $templatePayload['sub_order'] !== '' ? (float)$templatePayload['sub_order'] : null,
+                'template_key' => $templatePayload['template_key'] ?? null,
+                'parent_id_product' => $templatePayload['parent_id_product'] ?? null,
+                'batch_selection' => isset($templatePayload['batch_selection']) ? (int)$templatePayload['batch_selection'] : 0,
+                'last_source_value' => $templatePayload['last_source_value'] ?? null,
+                'last_processed_amount' => isset($templatePayload['last_processed_amount']) ? $templatePayload['last_processed_amount'] : 0,
+                'row_index' => isset($templatePayload['row_index']) ? (int)$templatePayload['row_index'] : null,
+                'data_capture_id' => isset($templatePayload['data_capture_id']) ? (int)$templatePayload['data_capture_id'] : null,
             ];
             syncFormulaToMultiUseProcesses($pdo, $processIdForSync, $syncTemplateData, $company_id);
         }
@@ -1256,16 +1349,24 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $productType = $data['product_type'];
         $templateKey = $data['template_key'];
         $templateId = isset($data['template_id']) && !empty($data['template_id']) ? (int)$data['template_id'] : null;
-        $formulaVariant = isset($data['formula_variant']) && !empty($data['formula_variant']) ? (int)$data['formula_variant'] : null;
+        $formulaVariant = isset($data['formula_variant']) && $data['formula_variant'] !== null && $data['formula_variant'] !== '' ? (int)$data['formula_variant'] : null;
+        $sourceProcessId = isset($data['process_id']) && is_numeric($data['process_id']) ? (int)$data['process_id'] : null;
         
-        // 优先使用 template_id 进行精确删除（最准确）
-        // 如果没有 template_id，则使用 template_key + formula_variant（次准确）
-        // 最后回退到只使用 template_key（向后兼容）
-        // 使用全局的 $company_id（已经过验证）
         $companyId = $company_id;
         
+        // 删除前先取出行数据，用于同步删除 B_ID/C_ID 的对应行
+        $rowForSync = null;
         if ($templateId) {
-            // 使用 template_id 精确删除
+            $sel = $pdo->prepare("SELECT id_product, account_id, product_type, formula_variant, sub_order, process_id FROM data_capture_templates WHERE id = ? AND company_id = ? LIMIT 1");
+            $sel->execute([$templateId, $companyId]);
+            $rowForSync = $sel->fetch(PDO::FETCH_ASSOC);
+        } elseif ($sourceProcessId && $templateKey && $formulaVariant !== null) {
+            $sel = $pdo->prepare("SELECT id_product, account_id, product_type, formula_variant, sub_order, process_id FROM data_capture_templates WHERE company_id = ? AND process_id = ? AND template_key = ? AND product_type = ? AND formula_variant = ? LIMIT 1");
+            $sel->execute([$companyId, $sourceProcessId, $templateKey, $productType, $formulaVariant]);
+            $rowForSync = $sel->fetch(PDO::FETCH_ASSOC);
+        }
+        
+        if ($templateId) {
             $sql = "
                 DELETE FROM data_capture_templates 
                 WHERE company_id = :company_id
@@ -1276,8 +1377,7 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':company_id' => $companyId,
                 ':template_id' => $templateId
             ];
-        } else if ($formulaVariant) {
-            // 使用 template_key + formula_variant 删除（更精确）
+        } else if ($formulaVariant !== null) {
             $sql = "
                 DELETE FROM data_capture_templates 
                 WHERE company_id = :company_id
@@ -1292,25 +1392,48 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':template_key' => $templateKey,
                 ':formula_variant' => $formulaVariant
             ];
+            if ($sourceProcessId) {
+                $sql .= " AND process_id = :process_id";
+                $params[':process_id'] = $sourceProcessId;
+            }
+            $stmt = $pdo->prepare($sql);
         } else {
-            // 回退到只使用 template_key（向后兼容，但可能删除多个相同 template_key 的记录）
             $sql = "
                 DELETE FROM data_capture_templates 
                 WHERE company_id = :company_id
                   AND product_type = :product_type 
                   AND template_key = :template_key
             ";
-            $stmt = $pdo->prepare($sql);
             $params = [
                 ':company_id' => $companyId,
                 ':product_type' => $productType,
                 ':template_key' => $templateKey
             ];
+            if ($sourceProcessId) {
+                $sql .= " AND process_id = :process_id";
+                $params[':process_id'] = $sourceProcessId;
+            }
+            $stmt = $pdo->prepare($sql);
         }
         
         $stmt->execute($params);
         
         $deletedCount = $stmt->rowCount();
+        
+        // 删除同步：A_ID 删除后，同步删除所有 sync_source_process_id = A_ID 的 process 中对应行
+        if ($deletedCount > 0 && $sourceProcessId && $rowForSync) {
+            $subOrder = isset($rowForSync['sub_order']) && $rowForSync['sub_order'] !== null && $rowForSync['sub_order'] !== '' ? (float)$rowForSync['sub_order'] : null;
+            syncDeleteTemplateToMultiUseProcesses(
+                $pdo,
+                $sourceProcessId,
+                $rowForSync['id_product'],
+                $rowForSync['account_id'],
+                $rowForSync['product_type'],
+                (int)$rowForSync['formula_variant'],
+                $subOrder,
+                $companyId
+            );
+        }
         
         if ($deletedCount > 0) {
             if ($templateId) {
