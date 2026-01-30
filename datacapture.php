@@ -7783,7 +7783,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const looksLikeNumber = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
                     const typeColUpline = cells.findIndex((c, i) => i >= 1 && ((c || '').toLowerCase() === 'major' || (c || '').toLowerCase() === 'minor'));
                     if (typeColUpline >= 1 && typeColUpline < cells.length - 1 && looksLikeNumber(cells[typeColUpline + 1])) {
-                        parent = cells.slice(1, typeColUpline).join(' ').trim();
+                        parent = typeColUpline === 1 ? (cells[0] || '') : cells.slice(1, typeColUpline).join(' ').trim();
                         type = cells[typeColUpline] || '';
                         numbers = cells.slice(typeColUpline + 1);
                     } else if ((col1 === 'major') && cells.length >= 3 && looksLikeNumber(cells[2])) {
@@ -7848,7 +7848,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     // No.  Lvl  Username(可能多词，如 raymond 或 ray mond)：先找 Major/Minor 列，再取中间完整 Username，避免只显示 ray
                     const typeColDownline = cells.findIndex((c, i) => i >= 2 && ((c || '').toLowerCase() === 'major' || (c || '').toLowerCase() === 'minor'));
                     if (cells.length >= 4 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && typeColDownline >= 2 && typeColDownline < cells.length - 1 && looksLikeBetOrAmountDownline(cells[typeColDownline + 1])) {
-                        const parent = cells.slice(2, typeColDownline).join(' ').trim();
+                        const parent = typeColDownline === 2 ? (cells[1] || '').trim() : cells.slice(2, typeColDownline).join(' ').trim();
                         const typeVal = (cells[typeColDownline] || '').trim();
                         const row = [deriveManagerIdFromCode(parent), parent, typeVal, ...cells.slice(typeColDownline + 1).slice(0, 8)];
                         pushRow(row);
@@ -7894,21 +7894,24 @@ if ($current_user_id && count($user_companies) > 0) {
                     const typeColGen = cells.findIndex((c, i) => i >= idx + 1 && ((c || '').toLowerCase() === 'major' || (c || '').toLowerCase() === 'minor'));
                     let parent = '';
                     let type = '';
+                    let child;
                     let dataStart = idx + 3;
                     if (typeColGen >= idx + 1 && typeColGen < cells.length) {
-                        parent = cells.slice(idx + 1, typeColGen).join(' ').trim();
+                        parent = typeColGen === idx + 1 ? (cells[idx] || '') : cells.slice(idx + 1, typeColGen).join(' ').trim();
+                        child = parent;
                         type = cells[typeColGen] || '';
                         dataStart = typeColGen + 1;
                     } else {
                         parent = cells[idx + 1] || '';
+                        child = parent;
                         type = cells[idx + 2] || '';
                         const typeLower = (type || '').toLowerCase();
                         if (typeLower !== 'major' && typeLower !== 'minor' && cells.length > idx + 3) {
+                            child = cells[idx + 2] || '';
                             type = cells[idx + 3] || '';
                             dataStart = idx + 4;
                         }
                     }
-                    let child = parent;
 
                     if ((cells[idx + 1] || '').toLowerCase() === 'minor' || (type || '').toLowerCase() === 'minor') return;
 
