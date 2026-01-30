@@ -7771,6 +7771,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     const col2 = (cells[2] || '').toLowerCase();
                     if (col1 === 'minor' || col2 === 'minor') return;
 
+                    // Upline minor 数据：前两列为数字、第三列为金额（非 MAJOR），整行跳过不清除进表
+                    const looksLikeNumberUpline = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
+                    const looksLikeAmountUpline = (s) => /^[$]?[\d,.()\-]+$/.test((s || '').trim());
+                    if (cells.length >= 3 && looksLikeNumberUpline(cells[0]) && looksLikeNumberUpline(cells[1]) && looksLikeAmountUpline(cells[2])) return;
+
                     // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...) 或 (Lvl, Code, Type, Bet...) 仅复制到 Code
                     let parent = '';
                     let type = '';
