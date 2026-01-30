@@ -13330,14 +13330,44 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     });
                     
                     // Apply each main template to its corresponding row based on account_id and row_index
-                    // Use originalIdProduct (full value) instead of normalizedIdProduct
+                    // Use mainTemplate.id_product so we find the correct row when multiple mains (e.g. "ABC (AAA)", "ABC (TTT)")
+                    let anySubsApplied = false;
                     sortedTemplates.forEach(mainTemplate => {
-                        const mainRow = applyMainTemplateToRow(originalIdProduct, mainTemplate);
-                        // Apply sub templates to each main row
+                        const mainIdProduct = mainTemplate.id_product || originalIdProduct;
+                        const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate);
+                        // Apply subs whose parent matches this main row. Exact match (after stripping leading "N " from DB) or when only one main, allow normalized match.
                         if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                            applySubTemplatesToSummaryRow(originalIdProduct, mainRow, template.subs);
+                            const mainTrimmed = (mainIdProduct || '').trim();
+                            const mainNorm = normalizeIdProductText(mainTrimmed);
+                            const onlyOneMain = sortedTemplates.length === 1;
+                            const subsForThisMain = template.subs.filter(sub => {
+                                const subParentRaw = (sub.parent_id_product || '').trim();
+                                const subParentNorm = subParentRaw.replace(/^\d+\s+/, '').trim(); // strip leading "1 " from DB
+                                const subParentBare = normalizeIdProductText(subParentNorm);
+                                const exactMatch = (subParentRaw === mainTrimmed) || (subParentNorm === mainTrimmed);
+                                const normalizedMatch = onlyOneMain && mainNorm && subParentBare === mainNorm;
+                                return exactMatch || normalizedMatch;
+                            });
+                            if (subsForThisMain.length > 0) {
+                                applySubTemplatesToSummaryRow(mainIdProduct, mainRow, subsForThisMain);
+                                anySubsApplied = true;
+                            }
                         }
                     });
+                    // Fallback: when we have subs but none were applied (e.g. 2 main templates but only 1 physical row, so second main had no row), apply subs to the first row for this id_product
+                    if (!anySubsApplied && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
+                        const firstRow = findSummaryRowByIdProduct(originalIdProduct);
+                        if (firstRow && normalizeIdProductText(originalIdProduct || '') === normalizedIdProduct) {
+                            const mainNorm = normalizedIdProduct;
+                            const subsToApply = template.subs.filter(sub => {
+                                const subParentNorm = (sub.parent_id_product || '').trim().replace(/^\d+\s+/, '').trim();
+                                return mainNorm && normalizeIdProductText(subParentNorm) === mainNorm;
+                            });
+                            if (subsToApply.length > 0) {
+                                applySubTemplatesToSummaryRow(originalIdProduct, firstRow, subsToApply);
+                            }
+                        }
+                    }
                 } else {
                     // Fallback to original behavior for backward compatibility
                     // Use originalIdProduct (full value) instead of normalizedIdProduct
