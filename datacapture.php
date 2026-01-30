@@ -7686,13 +7686,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (byDoubleSpace.length > 1) return byDoubleSpace;
                 return line.split(/\s+/).map(c => (c || '').trim()).filter(c => c !== '');
             };
-            // 从代码（如 m35-A-L）推导经理 ID（m99m35），用于 Upline/Downline 仅复制到代码时保留 m99m35
-            const deriveManagerIdFromCode = (s) => {
-                const t = (s || '').trim();
-                if (!t || !/^m\d+-/i.test(t) || /^m99/i.test(t)) return t;
-                const m = t.match(/^m(\d+)/i);
-                return m ? ('m99' + 'm' + m[1]) : t;
-            };
 
             const rows = [];
             const colCount = 12;
@@ -7771,7 +7764,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const col2 = (cells[2] || '').toLowerCase();
                     if (col1 === 'minor' || col2 === 'minor') return;
 
-                    // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...) 或 (Lvl, Code, Type, Bet...) 仅复制到 Code
+                    // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...)
                     let parent = '';
                     let type = '';
                     let numbers = [];
@@ -7784,19 +7777,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         parent = cells[1] || '';
                         type = cells[2] || '';
                         numbers = cells.slice(3);
-                    } else if (cells.length >= 4 && (cells[3] || '').toLowerCase() === 'major' && looksLikeNumber(cells[4])) {
-                        // (Lvl, ID, Code, Major, Bet...) 如 MG  m99m35  m35-A-L  Major  163  ...
-                        parent = cells[1] || '';
-                        type = cells[3] || '';
-                        numbers = cells.slice(4);
                     } else {
                         parent = cells[1] || '';
                         type = cells[2] || '';
                         numbers = cells.slice(3);
                     }
                     if (!parent && !type) return;
-                    const displayParent = deriveManagerIdFromCode(parent);
-                    const row = [displayParent, parent, type, ...numbers.slice(0, 8)];
+                    const row = [parent, parent, type, ...numbers.slice(0, 8)];
                     pushRow(row);
                     return;
                 }
@@ -7815,22 +7802,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     const looksLikeAmount = (s) => /^[$]?[\d,.()\-]+$/.test((s || '').trim());
                     if (!hasMajor && cells.length >= 2 && looksLikeNumber(cells[0]) && looksLikeAmount(cells[1])) return;
                     if (!hasMajor && cells.length >= 3 && looksLikeAmount(cells[0]) && looksLikeNumber(cells[1]) && looksLikeAmount(cells[2])) return;
-
-                    // 同一行同时含 No. + Lvl + 用户名 + Major + 数据（如 "1  AG  gaosheng  gaosheng  Major  9344  ..."）：直接输出该行，避免 gaosheng 等下线数据丢失
-                    const looksLikeBetOrAmountDownline = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
-                    if (cells.length >= 6 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && /^major$/i.test((cells[4] || '').trim()) && looksLikeBetOrAmountDownline(cells[5])) {
-                        const parent = (cells[2] || '').trim();
-                        const child = (cells[3] || '').trim() || parent;
-                        const row = [parent, child, 'Major', ...cells.slice(5).slice(0, 8)];
-                        pushRow(row);
-                        return;
-                    }
-                    if (cells.length >= 5 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && /^major$/i.test((cells[3] || '').trim()) && looksLikeBetOrAmountDownline(cells[4])) {
-                        const parent = (cells[2] || '').trim();
-                        const row = [parent, parent, 'Major', ...cells.slice(4).slice(0, 8)];
-                        pushRow(row);
-                        return;
-                    }
 
                     // 表头行 "1\tMG\tm99m06" 或 "1\tAG\tgaosheng"：No. + Lvl(MG/PL/AG/…) + Username，记 username 下一行再输出
                     if (cells.length >= 3 && /^\d+$/.test(cells[0]) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim())) {
@@ -7855,11 +7826,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     lastDownlineUsername = '';
 
-                    // 无 "No. MG" 的数据行（如 MG m35-A-L Major 0 ...）：(Lvl/User, Type, Bet...) -> [User, User, Type, Bet...]，代码型用 deriveManagerIdFromCode
+                    // 无 "No. MG" 的数据行（如 HSE iphsp3）：(Username, Type, Bet...) -> [Username, Username, Type, Bet...]
                     const looksLikeBetOrAmount = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
                     if (cells.length >= 3 && (cells[1] || '').toLowerCase() === 'major' && looksLikeBetOrAmount(cells[2])) {
-                        const p0 = cells[0] || '';
-                        const row = [deriveManagerIdFromCode(p0), p0, cells[1] || '', ...cells.slice(2).slice(0, 8)];
+                        const row = [cells[0] || '', cells[0] || '', cells[1] || '', ...cells.slice(2).slice(0, 8)];
                         pushRow(row);
                         return;
                     }
@@ -7881,7 +7851,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if ((cells[idx + 1] || '').toLowerCase() === 'minor' || (type || '').toLowerCase() === 'minor') return;
 
                     const numbers = cells.slice(dataStart);
-                    const row = [deriveManagerIdFromCode(parent), child, type, ...numbers.slice(0, 8)];
+                    const row = [parent, child, type, ...numbers.slice(0, 8)];
                     // 第三列应为 MAJOR；若为数字则视为 Minor 行（错位数据）不贴
                     if ((row[2] || '').toLowerCase() !== 'major' && looksLikeNumber((row[2] || '').toString())) return;
                     pushRow(row);
@@ -7946,20 +7916,21 @@ if ($current_user_id && count($user_companies) > 0) {
 
             const rows = [];
 
-            // Row1: OVERALL 行 — Total Tax / Total Profit/Loss 放在第 9、10 列（蓝色格子 A8、A9）
+            // Row1: OVERALL 行
             const row1 = makeRow();
             row1[0] = 'OVERALL';
-            // 目标结构：Overall | | | | 740 | $5.18 | 518 | $13.47 | $18.65 | -$947.69 | | （蓝色格子为第8、9列）
+            // 目标结构：Overall | | | | 740 | $5.18 | 518 | $13.47 |  |  | $18.65 | -$947.69
             const oNums = overallTokens.slice(1); // [740, 5.18, 518, 13.47, 18.65, -947.69]
             row1[4] = oNums[0] || ''; // Bet
             row1[5] = oNums[1] || ''; // Bet Tax
             row1[6] = oNums[2] || ''; // Eat
             row1[7] = oNums[3] || ''; // Eat Tax
-            // Total Tax & Total Profit/Loss 放在第 9、10 列（对应下方蓝色格子 A8、A9）
-            row1[8]  = oNums[4] || '';  // Total Tax
-            row1[9]  = oNums[5] || '';  // Total Profit/Loss
-            row1[10] = '';              // 空
-            row1[11] = '';              // 空
+            // Tax & Profit/Loss 空
+            row1[8]  = '';            // Tax (empty)
+            row1[9]  = '';            // Profit/Loss (empty)
+            // Total Tax & Total Profit/Loss
+            row1[10] = oNums[4] || ''; // Total Tax
+            row1[11] = oNums[5] || ''; // Total Profit/Loss
             rows.push(row1);
 
             // 找 My Earnings 行
@@ -8021,12 +7992,6 @@ if ($current_user_id && count($user_companies) > 0) {
             // 2) Downline MG / PL 两行
             const downlineStart = nonEmpty.findIndex(l => /^downline payment/i.test(l));
             if (downlineStart === -1) return null;
-
-            // 若 Downline 段内有多个下线块（如 MG + MA/AG/PL 等），交给 parseCitibetPaymentReport 处理以保留所有下线（如 raymond ray）
-            const downlineSection = nonEmpty.slice(downlineStart + 1);
-            const blockHeaderRe = /^(\d+\s+)?(mg|pl|ag|ma)\s+/i;
-            const downlineBlockCount = downlineSection.filter(l => blockHeaderRe.test((l || '').trim())).length;
-            if (downlineBlockCount >= 2) return null;
 
             // MG 区块
             const mgIdx2 = nonEmpty.findIndex((l, idx) => idx > downlineStart && /^mg\b/i.test(l));
