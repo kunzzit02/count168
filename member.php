@@ -667,14 +667,9 @@ $today = date('d/m/Y');
         }
 
         .transaction-page .transaction-table tbody .transaction-table-row.transaction-alert-row td {
-            background-color: #dc2626 !par
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #eef2ff;
-            color: #3730a3;
+            background-color: #dc2626 !important;
+            color: #fff;
             padding: 6px 14px;
-            border-radius: 999px;
             font-weight: 700;
             font-size: clamp(10px, 0.73vw, 14px);
         }
@@ -694,7 +689,7 @@ $today = date('d/m/Y');
             gap: 12px;
         }
         .member-currency-filter {
-            display: none;
+            display: flex;
             align-items: center;
             gap: clamp(8px, 0.83vw, 16px);
             flex-wrap: wrap;
@@ -744,10 +739,11 @@ $today = date('d/m/Y');
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
         .member-currency-section {
-            display: none;
+            display: flex;
             flex-direction: column;
             gap: 16px;
             margin: 20px 0 25px 0;
+            min-height: 180px;
         }
         .member-currency-tables {
             display: flex;
@@ -958,7 +954,7 @@ $today = date('d/m/Y');
         </div>
 
         <div class="member-currency-section" id="member_currency_tables_section">
-            <div id="member_currency_tables" class="member-currency-tables"></div>
+            <div id="member_currency_tables" class="member-currency-tables">Loading...</div>
         </div>
 
         <div id="notificationContainer" class="transaction-notification-container"></div>
@@ -980,7 +976,8 @@ $today = date('d/m/Y');
             initDatePickers();
             setupFormListeners();
             setupCompanyButtons();
-            performMemberSearch();
+            // 延迟执行首次搜索，确保 flatpickr 已初始化日期值
+            setTimeout(performMemberSearch, 150);
         });
 
         function performMemberSearch() {
@@ -1174,7 +1171,7 @@ $today = date('d/m/Y');
                         memberCurrencySortOrder.clear();
                         const buttons = document.getElementById('member_currency_buttons');
                         if (buttons) buttons.innerHTML = '';
-                        if (filterWrapper) filterWrapper.style.display = 'none';
+                        setMemberTablesPlaceholder(err.message || 'Failed to load currency data.');
                         showNotification(err.message || 'Failed to load currency data', 'error');
                         reject(err);
                     });
@@ -1227,6 +1224,19 @@ $today = date('d/m/Y');
             });
         }
 
+        function setMemberTablesPlaceholder(text) {
+            const section = document.getElementById('member_currency_tables_section');
+            const container = document.getElementById('member_currency_tables');
+            if (!section || !container) return;
+            section.style.display = 'flex';
+            container.innerHTML = '';
+            const p = document.createElement('p');
+            p.className = 'member-currency-empty';
+            p.style.margin = '0';
+            p.textContent = text || 'No data.';
+            container.appendChild(p);
+        }
+
         function renderCurrencyFilters() {
             const filterWrapper = document.getElementById('member_currency_filter');
             const buttonsContainer = document.getElementById('member_currency_buttons');
@@ -1237,11 +1247,8 @@ $today = date('d/m/Y');
             buttonsContainer.innerHTML = '';
             const currencies = getAvailableCurrencies();
             if (currencies.length === 0) {
-                filterWrapper.style.display = 'none';
                 return;
             }
-
-            filterWrapper.style.display = 'flex';
             const shouldShowAll = currencies.length > 1;
             if (shouldShowAll) {
                 buttonsContainer.appendChild(createCurrencyButton('ALL', 'All', true));
@@ -1386,7 +1393,12 @@ $today = date('d/m/Y');
 
             container.innerHTML = '';
             if (!orderedKeys || !orderedKeys.length) {
-                section.style.display = 'none';
+                section.style.display = 'flex';
+                const p = document.createElement('p');
+                p.className = 'member-currency-empty';
+                p.style.margin = '0';
+                p.textContent = 'No data in the selected date range.';
+                container.appendChild(p);
                 return;
             }
 
