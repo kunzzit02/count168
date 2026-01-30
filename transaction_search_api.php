@@ -252,7 +252,7 @@ if (!empty($target_account_ids)) {
         exit;
     }
     
-    // 获取所有 account + currency 组合（从 data_captures 表获取，基于 process 的 currency）
+    // 获取所有 account + currency 组合（从 Data Capture Summary Edit Formula 的 currency 即 data_capture_details.currency_id 获取，不读取 Data Capture 的 currency）
     $account_currency_combos = [];
     
     // 如果指定了 currency 筛选，先获取 currency_id 列表
@@ -283,19 +283,19 @@ if (!empty($target_account_ids)) {
         $account_currencies = [];
         $account_currency_ids = [];
         
-        // 从 data_captures 表获取该 account 的所有 currency（使用 process 的 currency_id，即 data_captures.currency_id）
-        // 这样可以确保 currency 分类是跟着 process 的，而不是跟着 account 的
+        // 从 Data Capture Summary Edit Formula 获取该 account 的所有 currency（使用 data_capture_details.currency_id，即 Edit Formula 的 Currency）
         try {
             $dc_currency_stmt = $pdo->prepare("
-                SELECT DISTINCT dc.currency_id, UPPER(c.code) AS currency_code
+                SELECT DISTINCT dcd.currency_id, UPPER(c.code) AS currency_code
                 FROM data_capture_details dcd
                 INNER JOIN data_captures dc ON dcd.capture_id = dc.id
-                INNER JOIN currency c ON dc.currency_id = c.id
+                INNER JOIN currency c ON dcd.currency_id = c.id
                 WHERE CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                  AND dcd.currency_id IS NOT NULL
                   AND dc.capture_date <= ?
                   AND dc.company_id = ?
                   AND c.company_id = ?
-                ORDER BY dc.currency_id ASC
+                ORDER BY dcd.currency_id ASC
             ");
             $dc_currency_stmt->execute([$account_id, $date_to_db, $company_id, $company_id]);
             $dc_rows = $dc_currency_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -447,8 +447,7 @@ if (!empty($target_account_ids)) {
         // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
         $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
         
-        // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 data_captures 的 currency 过滤)
-        // 注意：使用 data_captures.currency_id（process 的 currency）来检查，而不是 account 的 currency
+        // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
         $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
@@ -460,9 +459,7 @@ if (!empty($target_account_ids)) {
                 continue;
             }
             // 检查是否有 Win/Loss 数据（在日期范围内有 data_capture 记录）
-            // 注意：账户筛选阶段已经限制了在日期范围内有 data_capture 记录的账户，
-            // 但这里需要检查该 currency 是否有 data_capture 记录（使用 process 的 currency）
-            // account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
+            // 使用 Data Capture Summary Edit Formula 的 currency（dcd.currency_id），不读取 Data Capture 的 currency
             $stmt = $pdo->prepare("
                 SELECT COUNT(*) 
                 FROM data_capture_details dcd
@@ -470,7 +467,7 @@ if (!empty($target_account_ids)) {
                 WHERE dcd.company_id = ?
                   AND dc.company_id = ?
                   AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-                  AND dc.currency_id = ?
+                  AND dcd.currency_id = ?
                   AND dc.capture_date BETWEEN ? AND ?
             ");
             $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from_db, $date_to_db]);
@@ -860,16 +857,14 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     }
     
     // 1. 计算起始日期之前所有 data_capture 的 processed_amount（按 currency 过滤）
-    // 注意：使用 data_captures.currency_id（process 的 currency）而不是 data_capture_details.currency_id
-    // 这样 processed_amount 会根据 process 的 currency 来分类，而不是 account 的 currency
-    // account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较，兼容 account_id 是 varchar 或 int 的情况
+    // 使用 Data Capture Summary Edit Formula 的 currency（dcd.currency_id），不读取 Data Capture 的 currency
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dc.currency_id = ?
+              AND dcd.currency_id = ?
               AND dc.capture_date < ?";
     
     $stmt = $pdo->prepare($sql);
@@ -896,7 +891,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                       -- 对于有 currency_id 的交易类型，直接匹配 currency_id
                       (t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE') AND t.currency_id = ?)
                       OR
-                      -- 对于 WIN/LOSE 类型但 currency_id 为 NULL，检查该账户是否有该货币的 data_capture 记录（使用 process 的 currency）
+                      -- 对于 WIN/LOSE 类型但 currency_id 为 NULL，检查该账户是否有该货币的 data_capture 记录（使用 Edit Formula 的 currency）
                       (t.transaction_type IN ('WIN', 'LOSE') AND t.currency_id IS NULL AND EXISTS (
                           SELECT 1
                           FROM data_capture_details dcd
@@ -904,7 +899,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                           WHERE dcd.company_id = ?
                             AND dc.company_id = ?
                             AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
-                            AND dc.currency_id = ?
+                            AND dcd.currency_id = ?
                       ))
                   )"
                   . contraApprovedWhere($pdo, 't');
@@ -932,7 +927,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                       WHERE dcd.company_id = ?
                         AND dc.company_id = ?
                         AND dcd.account_id = t.account_id
-                        AND dc.currency_id = ?
+                        AND dcd.currency_id = ?
                   )"
                   . contraApprovedWhere($pdo, 't');
         
@@ -978,7 +973,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                       WHERE dcd.company_id = ?
                         AND dc.company_id = ?
                         AND dcd.account_id = t.from_account_id
-                        AND dc.currency_id = ?
+                        AND dcd.currency_id = ?
                   )"
                   . contraApprovedWhere($pdo, 't');
         
@@ -1013,17 +1008,14 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $win_loss = 0;
     
     // 只计算日期范围内的 Data Capture（按 currency 过滤）
-    // WIN/LOSE/RATE 交易已移到 Cr/Dr 中计算
-    // 注意：使用 data_captures.currency_id（process 的 currency）而不是 data_capture_details.currency_id
-    // 这样 processed_amount 会根据 process 的 currency 来分类，而不是 account 的 currency
-    // account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较，兼容 account_id 是 varchar 或 int 的情况
+    // 使用 Data Capture Summary Edit Formula 的 currency（dcd.currency_id），不读取 Data Capture 的 currency
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dc.currency_id = ?
+              AND dcd.currency_id = ?
               AND dc.capture_date BETWEEN ? AND ?";
     
     $stmt = $pdo->prepare($sql);
@@ -1115,7 +1107,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                       WHERE dcd.company_id = ?
                         AND dc.company_id = ?
                         AND dcd.account_id = t.account_id
-                        AND dc.currency_id = ?
+                        AND dcd.currency_id = ?
                   )"
                   . contraApprovedWhere($pdo, 't');
         
@@ -1145,7 +1137,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                       WHERE dcd.company_id = ?
                         AND dc.company_id = ?
                         AND dcd.account_id = t.from_account_id
-                        AND dc.currency_id = ?
+                        AND dcd.currency_id = ?
                   )"
                   . contraApprovedWhere($pdo, 't');
         
