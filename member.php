@@ -1176,7 +1176,8 @@ $today = date('d/m/Y');
             setupFormListeners();
             setupCompanyButtons();
             setupAccountButtons();
-            performMemberSearch();
+            // 延迟执行，确保日期选择器已写入 input 值
+            setTimeout(() => performMemberSearch(), 150);
         });
 
         function performMemberSearch() {
@@ -1560,7 +1561,8 @@ $today = date('d/m/Y');
                 });
             }
             if (!orderedKeys.length) {
-                section.style.display = 'none';
+                section.style.display = 'flex';
+                container.innerHTML = '<div class="member-winloss-empty-msg" style="padding:24px;text-align:center;color:#666;">No data for the selected date range. Please check company and date.</div>';
                 return;
             }
 
