@@ -550,7 +550,7 @@ function getCurrentProcessId() {
                 const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
                 if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
                     const finalAmount = applyRateToProcessedAmount(row, baseAmount);
-                    processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(Number(finalAmount)) : finalAmount;
+                    processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(Number(finalAmount)) : Number(finalAmount)) : finalAmount;
                     processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
                 }
             });
@@ -2150,7 +2150,7 @@ function getCurrentProcessId() {
                     
                     if (cells[8]) {
                         const val = Number(finalAmount);
-                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                         cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                     }
                 }
@@ -2215,7 +2215,7 @@ function getCurrentProcessId() {
                     
                     if (cells[8]) {
                         const val = Number(finalAmount);
-                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                         cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                     }
                     
@@ -7068,9 +7068,9 @@ function getCurrentProcessId() {
             } else {
                 // 不再根据公式中是否包含 *0.1 之类来决定是否应用 Source Percent，
                 // 一律走统一的计算函数，由 enableSourcePercent 和 sourcePercentValue 控制是否乘以百分比
-                // This returns raw value without rounding - will be saved to database as-is
-                // 返回原始值（不四舍五入）- 将原样保存到数据库
-                processedAmount = calculateFormulaResultFromExpression(formulaValue, sourcePercentValue, inputMethodValue, enableValue, sourcePercentEnableValue);
+                // 计算原始值后按「第三位小数≥5则进位」舍入再保存，与页面显示一致
+                const rawAmount = calculateFormulaResultFromExpression(formulaValue, sourcePercentValue, inputMethodValue, enableValue, sourcePercentEnableValue);
+                processedAmount = typeof roundProcessedAmountTo2Decimals === 'function' ? roundProcessedAmountTo2Decimals(rawAmount) : rawAmount;
                 console.log('saveFormula - Calculated processedAmount:', {
                     formulaValue: formulaValue,
                     sourcePercentValue: sourcePercentValue,
@@ -7418,7 +7418,7 @@ function getCurrentProcessId() {
             window.isEditMode = false;
             
             const actionText = wasEditMode ? 'updated' : 'saved';
-            showNotification('Success', `Formula ${actionText} successfully! Processed Amount: ${processedAmount}`, 'success');
+            showNotification('Success', `Formula ${actionText} successfully! Processed Amount: ${typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(processedAmount) : processedAmount}`, 'success');
         }
 
         // Calculate processed amount based on source columns and formula
@@ -9210,6 +9210,15 @@ function getCurrentProcessId() {
             }
         }
 
+        // Processed Amount 专用：.xxx 第三位小数≥5 则进位（round half up），避免浮点误差导致 36.785 显示为 36.78
+        function roundProcessedAmountTo2Decimals(value) {
+            const num = Number(value);
+            if (!Number.isFinite(num)) return 0;
+            const sign = num >= 0 ? 1 : -1;
+            const absNum = Math.abs(num);
+            return sign * (Math.floor(absNum * 100 + 0.5 + 1e-10) / 100);
+        }
+
         // Evaluate mathematical expression safely
         function formatNumberWithThousands(value) {
             const num = Number(value);
@@ -9978,7 +9987,7 @@ function getCurrentProcessId() {
                         const finalAmount = applyRateToProcessedAmount(row, baseAmount);
                         if (cells[8]) {
                             const val = Number(finalAmount);
-                            cells[8].textContent = formatNumberWithThousands(val);
+                            cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                             cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                             updateProcessedAmountTotal();
                         }
@@ -10185,7 +10194,7 @@ function getCurrentProcessId() {
                     row.setAttribute('data-base-processed-amount', val.toString());
                     // Apply rate multiplication if checkbox is checked or Rate Value has value
                     const finalAmount = applyRateToProcessedAmount(row, val);
-                    cells[8].textContent = formatNumberWithThousands(finalAmount);
+                    cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalAmount));
                     cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
                 }
             }
@@ -10548,7 +10557,7 @@ function getCurrentProcessId() {
                 // Apply rate multiplication if checkbox is checked or Rate Value has value
                 processedAmount = applyRateToProcessedAmount(row, processedAmount);
                 const val = Number(processedAmount);
-                cells[8].textContent = formatNumberWithThousands(val);
+                cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                 cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
             }
             
@@ -10922,7 +10931,7 @@ function getCurrentProcessId() {
                     const finalAmount = applyRateToProcessedAmount(row, baseAmount);
                     if (cells[8]) {
                         const val = Number(finalAmount);
-                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                         cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                         updateProcessedAmountTotal();
                     }
@@ -10956,7 +10965,7 @@ function getCurrentProcessId() {
                 // Note: checkbox and Rate Value input must be appended to DOM before applyRateToProcessedAmount can find them
                 const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
                 const val = Number(finalAmount);
-                cells[8].textContent = formatNumberWithThousands(val);
+                cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                 cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                 // cells[8].style.backgroundColor = '#e8f5e8'; // Removed
             }
@@ -11568,7 +11577,7 @@ function getCurrentProcessId() {
                         const baseProcessedAmount = processedAmount;
                         row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
                         const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-                        cells[8].textContent = formatNumberWithThousands(finalAmount);
+                        cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalAmount));
                         cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
                     }
                     
@@ -11956,7 +11965,7 @@ function getCurrentProcessId() {
                             const baseProcessedAmount = processedAmount;
                             row.setAttribute('data-base-processed-amount', baseProcessedAmount.toString());
                             const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
-                            cells[8].textContent = formatNumberWithThousands(finalAmount);
+                            cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(finalAmount));
                             cells[8].style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
                         }
                         
@@ -12101,7 +12110,7 @@ function getCurrentProcessId() {
                     row.setAttribute('data-base-processed-amount', val.toString());
                     // Apply rate multiplication if checkbox is checked or Rate Value has value
                     val = applyRateToProcessedAmount(row, val);
-                    cells[8].textContent = formatNumberWithThousands(val);
+                    cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                     cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                     // cells[8].style.backgroundColor = '#e8f5e8'; // Removed
                 }
@@ -12700,7 +12709,7 @@ function getCurrentProcessId() {
                     const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
                     if (cells[8]) {
                         const val = Number(finalAmount);
-                        cells[8].textContent = formatNumberWithThousands(val);
+                        cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                         cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                         updateProcessedAmountTotal();
                     }
@@ -12716,7 +12725,7 @@ function getCurrentProcessId() {
                 row.setAttribute('data-base-processed-amount', val.toString());
                 // Apply rate multiplication if checkbox is checked or Rate Value has value
                 val = applyRateToProcessedAmount(row, val);
-                cells[8].textContent = formatNumberWithThousands(val);
+                cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                 cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
             }
 
@@ -13620,7 +13629,7 @@ function applyTemplateToSummaryRow(idProduct, template) {
                 const processedCell = targetRow.querySelector('td:nth-child(8)');
                 if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
                     const val = Number(mainTemplate.last_processed_amount);
-                    processedCell.textContent = formatNumberWithThousands(val);
+                    processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                     processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                 }
                 // 更新存储的原始值，保持后续计算一致
@@ -14361,7 +14370,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                 const processedCell = targetRow.querySelector('td:nth-child(8)');
                 if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
                     const val = Number(mainTemplate.last_processed_amount);
-                    processedCell.textContent = formatNumberWithThousands(val);
+                    processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                     processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                 }
                 targetRow.setAttribute('data-formula-display', savedFormulaDisplay);
@@ -16193,7 +16202,7 @@ function formatPercentValue(value) {
                         let val = Number(processedAmount);
                         // Apply rate multiplication if checkbox is checked
                         val = applyRateToProcessedAmount(row, val);
-                        processedAmountCell.textContent = formatNumberWithThousands(val);
+                        processedAmountCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                         processedAmountCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                         // processedAmountCell.style.backgroundColor = '#e8f5e8'; // Removed
                         updateProcessedAmountTotal();
@@ -16584,7 +16593,7 @@ function formatPercentValue(value) {
                         const finalAmount = applyRateToProcessedAmount(row, baseProcessedAmount);
                         if (cells[8]) {
                             const val = Number(finalAmount);
-                            cells[8].textContent = formatNumberWithThousands(val);
+                            cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                             cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                             updateProcessedAmountTotal();
                         }
@@ -16600,7 +16609,7 @@ function formatPercentValue(value) {
                     row.setAttribute('data-base-processed-amount', val.toString());
                     // Apply rate multiplication if checkbox is checked or Rate Value has value
                     val = applyRateToProcessedAmount(row, val);
-                    cells[8].textContent = formatNumberWithThousands(val);
+                    cells[8].textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                     cells[8].style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                 }
                 
