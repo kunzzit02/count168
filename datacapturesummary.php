@@ -13310,20 +13310,17 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
             });
         }
 
-        // Match templates using case-insensitive key lookup so that sub rows are found after refresh
-        // when DB key (e.g. "ABC") and column A key (e.g. "abc") differ in case
+        // Match templates using original case-sensitive idProduct
+        // But use normalized version to find the row in the table
         // IMPORTANT: Use original full idProduct value (from normalizedIdMap) when applying templates
         // to preserve complete text (e.g., "AG(AGIN) - OP7AUD=SLOT" instead of just "AG")
         uniqueIds.forEach(normalizedIdProduct => {
-            const templateKey = Object.keys(templates).find(k =>
-                normalizeIdProductText(k).toLowerCase() === (normalizedIdProduct || '').toLowerCase()
-            );
-            if (!templateKey || !templates[templateKey]) {
-                return;
-            }
-            const template = templates[templateKey];
-            // Get the original full idProduct value from the map (prefer from request, fallback to API key)
-            const originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || templateKey;
+            if (templates[normalizedIdProduct]) {
+                // Get the original full idProduct value from the map
+                const originalIdProduct = normalizedIdMap.get(normalizedIdProduct) || normalizedIdProduct;
+                
+                // Check if there are multiple main templates for the same id_product (different accounts)
+                const template = templates[normalizedIdProduct];
                 if (template.allMains && Array.isArray(template.allMains) && template.allMains.length > 0) {
                     // Sort templates by row_index to apply them in the correct order
                     const sortedTemplates = [...template.allMains].sort((a, b) => {
@@ -13346,6 +13343,7 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     // Use originalIdProduct (full value) instead of normalizedIdProduct
                     applyTemplateToSummaryRow(originalIdProduct, template);
                 }
+            }
         });
 
         // After applying all templates, reorder rows globally by row_index
