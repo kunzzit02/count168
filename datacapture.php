@@ -223,7 +223,7 @@ if ($current_user_id && count($user_companies) > 0) {
             <div class="bottom-section">
                 <div class="excel-table-container">
                     <div class="excel-table-header">
-                        <span>Data Capture Table</span>a
+                        <span>Data Capture Table</span>
                         <!-- Data Capture Type Selector -->
                         <select id="dataCaptureTypeSelector" class="data-capture-type-selector">
                             <option value="1.GENERAL">1.GENERAL</option>
