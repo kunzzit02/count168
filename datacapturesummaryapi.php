@@ -1421,11 +1421,15 @@ if ($action === 'delete_template' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $deletedCount = $stmt->rowCount();
         
         // 删除同步：A_ID 删除后，同步删除所有 sync_source_process_id = A_ID 的 process 中对应行
-        if ($deletedCount > 0 && $sourceProcessId && $rowForSync) {
+        // 优先用请求的 process_id；若未传（如按 template_id 删除），则用 $rowForSync['process_id'] 作为源
+        $effectiveSourceProcessId = $sourceProcessId !== null
+            ? $sourceProcessId
+            : (isset($rowForSync['process_id']) && $rowForSync['process_id'] !== null && $rowForSync['process_id'] !== '' ? (int)$rowForSync['process_id'] : null);
+        if ($deletedCount > 0 && $effectiveSourceProcessId !== null && $rowForSync) {
             $subOrder = isset($rowForSync['sub_order']) && $rowForSync['sub_order'] !== null && $rowForSync['sub_order'] !== '' ? (float)$rowForSync['sub_order'] : null;
             syncDeleteTemplateToMultiUseProcesses(
                 $pdo,
-                $sourceProcessId,
+                $effectiveSourceProcessId,
                 $rowForSync['id_product'],
                 $rowForSync['account_id'],
                 $rowForSync['product_type'],
