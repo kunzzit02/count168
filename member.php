@@ -175,18 +175,23 @@ $today = date('d/m/Y');
 
         .transaction-page .transaction-main-content {
             display: flex;
+            flex-direction: column;
             gap: 24px;
             margin-bottom: 15px;
+            overflow: visible;
         }
 
         .transaction-page .transaction-search-section,
         .transaction-page .transaction-add-section {
             flex: 1;
+            display: flex;
+            flex-direction: column;
             padding: clamp(12px, 1.04vw, 20px);
             border: 1px solid #e5e7eb;
             border-radius: 8px;
             background-color: white;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: visible;
         }
 
         .transaction-page .transaction-form-group {
@@ -689,14 +694,15 @@ $today = date('d/m/Y');
             gap: 12px;
         }
         .member-currency-filter {
-            display: flex;
+            display: flex !important;
             align-items: center;
             gap: clamp(8px, 0.83vw, 16px);
             flex-wrap: wrap;
             margin-top: 12px;
+            min-height: 36px;
         }
         .member-company-filter {
-            display: flex;
+            display: flex !important;
             align-items: center;
             gap: clamp(8px, 0.83vw, 16px);
             flex-wrap: wrap;
@@ -739,11 +745,16 @@ $today = date('d/m/Y');
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
         .member-currency-section {
-            display: flex;
+            display: flex !important;
             flex-direction: column;
             gap: 16px;
             margin: 20px 0 25px 0;
             min-height: 180px;
+            padding: 16px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
         .member-currency-tables {
             display: flex;
@@ -897,7 +908,7 @@ $today = date('d/m/Y');
                     </div>
                 </div>
                 <?php if (!empty($memberCompanies)): ?>
-                <div class="member-company-filter" id="member_company_filter">
+                <div class="member-company-filter" id="member_company_filter" style="display:flex;visibility:visible;">
                     <span class="transaction-company-label">Company:</span>
                     <div id="member_company_buttons" class="transaction-company-buttons member-currency-buttons">
                         <?php foreach ($memberCompanies as $company): 
@@ -946,15 +957,17 @@ $today = date('d/m/Y');
                 </div>
                 <?php endif; ?>
                 <?php endif; ?>
-                <div class="transaction-company-filter member-currency-filter" id="member_currency_filter">
+                <div class="transaction-company-filter member-currency-filter" id="member_currency_filter" style="display:flex;visibility:visible;">
                     <span class="transaction-company-label">Currency:</span>
                     <div id="member_currency_buttons" class="transaction-company-buttons member-currency-buttons"></div>
                 </div>
             </div>
         </div>
 
-        <div class="member-currency-section" id="member_currency_tables_section">
-            <div id="member_currency_tables" class="member-currency-tables">Loading...</div>
+        <div class="member-currency-section" id="member_currency_tables_section" style="display:flex;visibility:visible;">
+            <div id="member_currency_tables" class="member-currency-tables">
+                <p class="member-currency-empty" style="margin:0;">Loading...</p>
+            </div>
         </div>
 
         <div id="notificationContainer" class="transaction-notification-container"></div>
@@ -973,10 +986,20 @@ $today = date('d/m/Y');
         let memberIsAllSelected = true;
 
         document.addEventListener('DOMContentLoaded', () => {
+            const filterEl = document.getElementById('member_currency_filter');
+            const sectionEl = document.getElementById('member_currency_tables_section');
+            console.log('Member page: currency_filter exists=', !!filterEl, 'tables_section exists=', !!sectionEl);
+            if (filterEl) {
+                filterEl.style.setProperty('display', 'flex', 'important');
+                filterEl.style.setProperty('visibility', 'visible', 'important');
+            }
+            if (sectionEl) {
+                sectionEl.style.setProperty('display', 'flex', 'important');
+                sectionEl.style.setProperty('visibility', 'visible', 'important');
+            }
             initDatePickers();
             setupFormListeners();
             setupCompanyButtons();
-            // 延迟执行首次搜索，确保 flatpickr 已初始化日期值
             setTimeout(performMemberSearch, 150);
         });
 
