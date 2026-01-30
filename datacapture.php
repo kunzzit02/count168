@@ -7784,7 +7784,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         parent = cells[1] || '';
                         type = cells[2] || '';
                         numbers = cells.slice(3);
-                    } else if (cells.length >= 4 && (cells[3] || '').toLowerCase() === 'major' && looksLikeNumber(cells[4])) {
+                    } else if (cells.length >= 5 && (cells[3] || '').toLowerCase() === 'major' && looksLikeNumber(cells[4])) {
                         // (Lvl, ID, Code, Major, Bet...) 如 MG  m99m35  m35-A-L  Major  163  ...
                         parent = cells[1] || '';
                         type = cells[3] || '';
@@ -7821,13 +7821,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (cells.length >= 6 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && /^major$/i.test((cells[4] || '').trim()) && looksLikeBetOrAmountDownline(cells[5])) {
                         const parent = (cells[2] || '').trim();
                         const child = (cells[3] || '').trim() || parent;
-                        const row = [parent, child, 'Major', ...cells.slice(5).slice(0, 8)];
+                        const row = [deriveManagerIdFromCode(parent), child, 'Major', ...cells.slice(5).slice(0, 8)];
                         pushRow(row);
                         return;
                     }
                     if (cells.length >= 5 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && /^major$/i.test((cells[3] || '').trim()) && looksLikeBetOrAmountDownline(cells[4])) {
                         const parent = (cells[2] || '').trim();
-                        const row = [parent, parent, 'Major', ...cells.slice(4).slice(0, 8)];
+                        const row = [deriveManagerIdFromCode(parent), parent, 'Major', ...cells.slice(4).slice(0, 8)];
                         pushRow(row);
                         return;
                     }
