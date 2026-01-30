@@ -893,6 +893,7 @@ $today = date('d/m/Y');
 </head>
 <body class="transaction-page member-winloss-page">
     <?php include 'sidebar.php'; ?>
+    <!-- member-page-v2: Currency + Report section always rendered -->
     <div class="transaction-container">
         <h1 class="transaction-title">Win/Loss</h1>
         <div class="transaction-separator-line"></div>
@@ -907,15 +908,21 @@ $today = date('d/m/Y');
                         <input type="text" id="date_to" class="transaction-input transaction-date-input" value="<?php echo $today; ?>" readonly>
                     </div>
                 </div>
-                <?php if (!empty($memberCompanies)): ?>
+                <?php
+                try {
+                    if (!empty($memberCompanies) && is_array($memberCompanies)):
+                        $currentCompanyIdSafe = (int)($currentCompanyId ?? 0);
+                ?>
                 <div class="member-company-filter" id="member_company_filter" style="display:flex;visibility:visible;">
                     <span class="transaction-company-label">Company:</span>
                     <div id="member_company_buttons" class="transaction-company-buttons member-currency-buttons">
-                        <?php foreach ($memberCompanies as $company): 
-                            $compId   = (int)$company['id'];
-                            $compCode = strtoupper($company['company_id'] ?? '');
-                            $compName = $company['company_name'] ?? '';
-                            $isActive = ($compId === $currentCompanyId);
+                        <?php foreach ($memberCompanies as $company):
+                            $company = is_array($company) ? $company : [];
+                            $compId   = (int)($company['id'] ?? 0);
+                            $compCode = strtoupper((string)($company['company_id'] ?? ''));
+                            $compName = (string)($company['company_name'] ?? $compCode);
+                            $isActive = ($compId > 0 && $compId === $currentCompanyIdSafe);
+                            if ($compId <= 0) continue;
                         ?>
                             <button
                                 type="button"
@@ -929,34 +936,39 @@ $today = date('d/m/Y');
                     </div>
                 </div>
                 <?php else: ?>
-                <!-- Debug info: If company list is empty, display debug info -->
-                <?php if (isset($debugInfo) && !empty($debugInfo)): ?>
+                <?php if (isset($debugInfo) && is_array($debugInfo) && !empty($debugInfo)): ?>
                 <div class="member-alert member-alert-error" style="display: block; margin-top: 12px;">
                     <strong>Debug Info:</strong> No associated companies found.
                     <br>User ID: <?php echo htmlspecialchars($debugInfo['user_id'] ?? 'N/A'); ?>,
                     User Type: <?php echo htmlspecialchars($debugInfo['user_type'] ?? 'N/A'); ?>,
                     Account Company Records: <?php echo htmlspecialchars($debugInfo['account_company_count'] ?? '0'); ?>
-                    <?php if (isset($debugInfo['stored_company_ids']) && !empty($debugInfo['stored_company_ids'])): ?>
-                        <br>Stored Company IDs: <?php echo htmlspecialchars(implode(', ', $debugInfo['stored_company_ids'])); ?>
+                    <?php if (!empty($debugInfo['stored_company_ids'])): ?>
+                        <br>Stored Company IDs: <?php echo htmlspecialchars(implode(', ', (array)$debugInfo['stored_company_ids'])); ?>
                     <?php endif; ?>
-                    <?php if (isset($debugInfo['existing_company_ids']) && !empty($debugInfo['existing_company_ids'])): ?>
-                        <br>Existing Company IDs: <?php echo htmlspecialchars(implode(', ', $debugInfo['existing_company_ids'])); ?>
+                    <?php if (!empty($debugInfo['existing_company_ids'])): ?>
+                        <br>Existing Company IDs: <?php echo htmlspecialchars(implode(', ', (array)$debugInfo['existing_company_ids'])); ?>
                     <?php endif; ?>
-                    <?php if (isset($debugInfo['missing_company_ids']) && !empty($debugInfo['missing_company_ids'])): ?>
-                        <br><strong style="color: red;">Missing Company IDs (in account_company but not in company table): <?php echo htmlspecialchars(implode(', ', $debugInfo['missing_company_ids'])); ?></strong>
+                    <?php if (!empty($debugInfo['missing_company_ids'])): ?>
+                        <br><strong style="color: red;">Missing Company IDs: <?php echo htmlspecialchars(implode(', ', (array)$debugInfo['missing_company_ids'])); ?></strong>
                     <?php endif; ?>
                     <?php if (isset($debugInfo['companies_found'])): ?>
                         <br>Companies Found: <?php echo htmlspecialchars($debugInfo['companies_found']); ?>
                     <?php endif; ?>
-                    <?php if (isset($debugInfo['used_direct_query'])): ?>
+                    <?php if (!empty($debugInfo['used_direct_query'])): ?>
                         <br><strong style="color: orange;">Used direct query (skipped JOIN)</strong>
                     <?php endif; ?>
-                    <?php if (isset($debugInfo['error'])): ?>
+                    <?php if (!empty($debugInfo['error'])): ?>
                         <br><strong>Error:</strong> <?php echo htmlspecialchars($debugInfo['error']); ?>
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>
                 <?php endif; ?>
+                <?php
+                } catch (Throwable $e) {
+                    error_log('Member page company block: ' . $e->getMessage());
+                    echo '<div class="member-alert member-alert-error" style="display:block;margin-top:12px;">Company list unavailable.</div>';
+                }
+                ?>
                 <div class="transaction-company-filter member-currency-filter" id="member_currency_filter" style="display:flex;visibility:visible;">
                     <span class="transaction-company-label">Currency:</span>
                     <div id="member_currency_buttons" class="transaction-company-buttons member-currency-buttons"></div>
