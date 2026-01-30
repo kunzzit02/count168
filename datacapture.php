@@ -8023,9 +8023,9 @@ if ($current_user_id && count($user_companies) > 0) {
             const downlineStart = nonEmpty.findIndex(l => /^downline payment/i.test(l));
             if (downlineStart === -1) return null;
 
-            // 若 Downline 段内有多个下线块（如 MG 块 + AG 块），交给 parseCitibetPaymentReport 处理以保留所有下线（如 gaosheng）
+            // 若 Downline 段内有多个下线块（如 MG + MA/AG/PL 等），交给 parseCitibetPaymentReport 处理以保留所有下线（如 raymond ray）
             const downlineSection = nonEmpty.slice(downlineStart + 1);
-            const blockHeaderRe = /^(\d+\s+)?(mg|pl|ag)\s+/i;
+            const blockHeaderRe = /^(\d+\s+)?(mg|pl|ag|ma)\s+/i;
             const downlineBlockCount = downlineSection.filter(l => blockHeaderRe.test((l || '').trim())).length;
             if (downlineBlockCount >= 2) return null;
 
