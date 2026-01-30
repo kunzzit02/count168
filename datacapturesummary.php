@@ -398,6 +398,13 @@ $company_id = $_SESSION['company_id'] ?? null;
             }
         });
 
+        // Save rate values on browser refresh (F5); do not save when leaving via Back or Submit
+        window.addEventListener('beforeunload', function() {
+            if (!window.isNavigatingAwayByBackOrSubmit && typeof saveRateValuesForRefresh === 'function') {
+                saveRateValuesForRefresh();
+            }
+        });
+
         // Close modal when clicking outside
         window.onclick = function() {
             // Prevent modals from closing when clicking outside their content.
@@ -496,14 +503,75 @@ function getCurrentProcessId() {
     return null;
 }
 
+        // Flag: set true when navigating away by Back or Submit so beforeunload does not save rate values
+        window.isNavigatingAwayByBackOrSubmit = false;
+
+        // Save current Rate Value column to localStorage (for refresh only; cleared on Back/Submit)
+        function saveRateValuesForRefresh() {
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if (!summaryTableBody) return;
+            const rows = summaryTableBody.querySelectorAll('tr');
+            const rateValues = [];
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                const rateValueCell = cells[7];
+                const val = rateValueCell && rateValueCell.textContent ? rateValueCell.textContent.trim() : '';
+                rateValues.push(val);
+            });
+            try {
+                localStorage.setItem('capturedTableRateValues', JSON.stringify(rateValues));
+            } catch (e) {
+                console.warn('saveRateValuesForRefresh:', e);
+            }
+        }
+
+        // Restore Rate Value column from localStorage after load (only set by refresh/beforeunload)
+        function restoreRateValuesFromRefresh() {
+            let saved;
+            try {
+                const raw = localStorage.getItem('capturedTableRateValues');
+                if (!raw) return;
+                saved = JSON.parse(raw);
+            } catch (e) {
+                return;
+            }
+            if (!Array.isArray(saved) || saved.length === 0) return;
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if (!summaryTableBody) return;
+            const rows = summaryTableBody.querySelectorAll('tr');
+            rows.forEach((row, i) => {
+                const val = saved[i];
+                if (val === undefined || val === null || String(val).trim() === '') return;
+                const cells = row.querySelectorAll('td');
+                const rateValueCell = cells[7];
+                const processedAmountCell = cells[8];
+                if (!rateValueCell) return;
+                rateValueCell.textContent = String(val).trim();
+                const baseAmount = parseFloat(row.getAttribute('data-base-processed-amount') || '0') || 0;
+                if (processedAmountCell && typeof applyRateToProcessedAmount === 'function') {
+                    const finalAmount = applyRateToProcessedAmount(row, baseAmount);
+                    processedAmountCell.textContent = typeof formatNumberWithThousands === 'function' ? formatNumberWithThousands(Number(finalAmount)) : finalAmount;
+                    processedAmountCell.style.color = finalAmount > 0 ? '#0D60FF' : (finalAmount < 0 ? '#A91215' : '#000000');
+                }
+            });
+            try {
+                localStorage.removeItem('capturedTableRateValues');
+            } catch (e) {}
+            if (typeof updateProcessedAmountTotal === 'function') {
+                updateProcessedAmountTotal();
+            }
+        }
+
         // Go back to datacapture page, preserving localStorage data
         function goBackToDataCapture() {
-            // Keep localStorage data intact so datacapture.php can restore it
+            window.isNavigatingAwayByBackOrSubmit = true;
+            try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
             window.location.href = 'datacapture.php?restore=1';
         }
 
-        // Refresh page function
+        // Refresh page function: save rate values so they are restored after reload
         function refreshPage() {
+            saveRateValuesForRefresh();
             window.location.reload();
         }
 
@@ -994,7 +1062,10 @@ function getCurrentProcessId() {
             // Attempt to auto-populate summary rows from saved templates
             autoPopulateSummaryRowsFromTemplates(columnAData)
                 .catch(error => console.error('Auto-populate templates error:', error))
-                .finally(() => updateProcessedAmountTotal());
+                .finally(() => {
+                    restoreRateValuesFromRefresh();
+                    updateProcessedAmountTotal();
+                });
         }
 
         // Preserve source structure while updating numbers from current table data
@@ -17370,6 +17441,8 @@ function formatPercentValue(value) {
                     
                     // Clear localStorage after successful submission
                     setTimeout(() => {
+                        window.isNavigatingAwayByBackOrSubmit = true;
+                        try { localStorage.removeItem('capturedTableRateValues'); } catch (e) {}
                         localStorage.removeItem('capturedTableData');
                         localStorage.removeItem('capturedProcessData');
                         
