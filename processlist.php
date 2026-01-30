@@ -3012,7 +3012,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const multiUsePanel = document.getElementById('multi_use_processes');
             const processInput = document.getElementById('add_process_id');
             if (multiUseToggle && multiUsePanel && processInput) {
-                multiUseToggle.addEventListener('change', function() {
+                multiUseToggle.addEventListener('change', async function() {
                     if (this.checked) {
                         multiUsePanel.style.display = 'block';
                         processInput.disabled = true;
@@ -3020,6 +3020,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         processInput.style.backgroundColor = '#f8f9fa';
                         processInput.style.cursor = 'not-allowed';
                         processInput.removeAttribute('required');
+                        // 勾选 Multi-Process 后：若已选 Copy From，自动将 Description 与 Copy From 的账号同步（含 Data Capture Formula 在提交时由后端复制）
+                        const copyFromSelect = document.getElementById('add_copy_from');
+                        if (copyFromSelect && copyFromSelect.value) {
+                            try {
+                                await syncFormFromCopyFrom(copyFromSelect.value);
+                            } catch (e) {
+                                console.error('Multi-Process: sync from Copy From failed', e);
+                            }
+                        }
                     } else {
                         multiUsePanel.style.display = 'none';
                         const selectedDisplay = document.getElementById('selected_processes_display');
@@ -3037,48 +3046,21 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
             }
             
-            // 处理 copy-from 下拉选择变化
-            const copyFromSelect = document.getElementById('add_copy_from');
-            if (copyFromSelect) {
-                copyFromSelect.addEventListener('change', async function() {
-                    const processId = this.value;
-                    if (!processId) {
-                        // 清空表单字段
-                        document.getElementById('add_currency').value = '';
-                        document.getElementById('add_remove_words').value = '';
-                        document.getElementById('add_replace_word_from').value = '';
-                        document.getElementById('add_replace_word_to').value = '';
-                        document.getElementById('add_remarks').value = '';
-                        // 清空 day checkboxes
-                        document.querySelectorAll('#day_checkboxes input[name="day_use[]"]').forEach(cb => cb.checked = false);
-                        // 清空 description
-                        if (window.selectedDescriptions) {
-                            window.selectedDescriptions = [];
-                        }
-                        document.getElementById('add_description').value = '';
-                        document.getElementById('selected_descriptions_display').style.display = 'none';
-                        document.getElementById('selected_descriptions_list').innerHTML = '';
-                        // 清空 description 复选框（在 modal 中）
-                        document.querySelectorAll('#existingDescriptions input[type="checkbox"]').forEach(cb => cb.checked = false);
-                        return;
-                    }
-                    
-                    try {
-                        // 确保 currency 下拉列表已加载
-                        const currencySelect = document.getElementById('add_currency');
-                        if (!currencySelect || currencySelect.options.length <= 1) {
-                            // 如果下拉列表还没加载，先加载数据
-                            await loadAddProcessData();
-                        }
-                        
-                        const response = await fetch(buildApiUrl(`addprocessapi.php?action=copy_from&process_id=${processId}`));
-                        const result = await response.json();
-                        
-                        if (result.success && result.data) {
-                            const data = result.data;
-                            
-                            // 填充货币 - 确保下拉列表已加载并处理类型匹配
-                            if (data.currency_id) {
+            // 从 Copy From 同步到表单（含 Description/账号；Data Capture Formula 在提交时由后端复制）
+            async function syncFormFromCopyFrom(processId) {
+                if (!processId) return;
+                const currencySelect = document.getElementById('add_currency');
+                if (!currencySelect || currencySelect.options.length <= 1) {
+                    await loadAddProcessData();
+                }
+                const response = await fetch(buildApiUrl(`addprocessapi.php?action=copy_from&process_id=${processId}`));
+                const result = await response.json();
+                if (!result.success || !result.data) {
+                    throw new Error(result.error || 'Unknown error');
+                }
+                const data = result.data;
+                // 填充货币
+                if (data.currency_id) {
                                 const currencyIdStr = String(data.currency_id);
                                 
                                 // 函数：尝试设置 currency 值
@@ -3216,12 +3198,32 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                 }
                             }
-                        } else {
-                            showNotification('Failed to load process data: ' + (result.error || 'Unknown error'), 'danger');
-                        }
+            }
+
+            // 处理 copy-from 下拉选择变化
+            const copyFromSelect = document.getElementById('add_copy_from');
+            if (copyFromSelect) {
+                copyFromSelect.addEventListener('change', async function() {
+                    const processId = this.value;
+                    if (!processId) {
+                        document.getElementById('add_currency').value = '';
+                        document.getElementById('add_remove_words').value = '';
+                        document.getElementById('add_replace_word_from').value = '';
+                        document.getElementById('add_replace_word_to').value = '';
+                        document.getElementById('add_remarks').value = '';
+                        document.querySelectorAll('#day_checkboxes input[name="day_use[]"]').forEach(cb => cb.checked = false);
+                        if (window.selectedDescriptions) window.selectedDescriptions = [];
+                        document.getElementById('add_description').value = '';
+                        document.getElementById('selected_descriptions_display').style.display = 'none';
+                        document.getElementById('selected_descriptions_list').innerHTML = '';
+                        document.querySelectorAll('#existingDescriptions input[type="checkbox"]').forEach(cb => cb.checked = false);
+                        return;
+                    }
+                    try {
+                        await syncFormFromCopyFrom(processId);
                     } catch (error) {
                         console.error('Error loading copy-from data:', error);
-                        showNotification('Failed to load process data', 'danger');
+                        showNotification('Failed to load process data: ' + (error.message || 'Unknown error'), 'danger');
                     }
                 });
             }
