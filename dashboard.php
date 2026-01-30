@@ -561,15 +561,20 @@ if (isset($_GET['logout'])) {
         .dropdown {
             position: relative;
             display: inline-block;
-            width: clamp(75px, 5.98vw, 115px);
+            width: clamp(90px, 8vw, 140px);
         }
 
         .dropdown-toggle {
             display: flex;
             align-items: center;
+            justify-content: center;
             font-size: clamp(8px, 0.74vw, 14px);
-            gap: 8px;
+            gap: 6px;
             width: 100%;
+            white-space: nowrap;
+        }
+        .dropdown-toggle #quick-select-text {
+            white-space: nowrap;
         }
 
         .dropdown-menu {
