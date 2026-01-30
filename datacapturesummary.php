@@ -13330,12 +13330,19 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                     });
                     
                     // Apply each main template to its corresponding row based on account_id and row_index
-                    // Use originalIdProduct (full value) instead of normalizedIdProduct
+                    // Use mainTemplate.id_product so we find the correct row when multiple mains (e.g. "ABC (AAA)", "ABC (TTT)")
                     sortedTemplates.forEach(mainTemplate => {
-                        const mainRow = applyMainTemplateToRow(originalIdProduct, mainTemplate);
-                        // Apply sub templates to each main row
+                        const mainIdProduct = mainTemplate.id_product || originalIdProduct;
+                        const mainRow = applyMainTemplateToRow(mainIdProduct, mainTemplate);
+                        // Apply only subs whose parent_id_product matches this main row (so sub with parent "ABC (TTT)" goes under main "ABC (TTT)")
                         if (mainRow && template.subs && Array.isArray(template.subs) && template.subs.length > 0) {
-                            applySubTemplatesToSummaryRow(originalIdProduct, mainRow, template.subs);
+                            const subsForThisMain = template.subs.filter(sub => {
+                                const subParent = (sub.parent_id_product || '').trim();
+                                return subParent === (mainIdProduct || '').trim();
+                            });
+                            if (subsForThisMain.length > 0) {
+                                applySubTemplatesToSummaryRow(mainIdProduct, mainRow, subsForThisMain);
+                            }
                         }
                     });
                 } else {

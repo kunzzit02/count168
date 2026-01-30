@@ -860,6 +860,23 @@ function saveTemplateRow(PDO $pdo, array $row, int $companyId) {
     ]; // Return template info after insert
 }
 
+/**
+ * Normalize id_product for use as template key (strip trailing " (description)").
+ * Matches frontend normalizeIdProductText so that templates group under the same key.
+ */
+function normalizeIdProductForKey($text) {
+    if ($text === null || $text === '') {
+        return '';
+    }
+    $trimmed = trim((string)$text);
+    if ($trimmed === '') {
+        return '';
+    }
+    // Strip trailing " (anything)" to match frontend normalized key
+    $normalized = preg_replace('/\s*\([^)]+\)\s*$/', '', $trimmed);
+    return trim($normalized);
+}
+
 function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
     if (empty($ids) || $processId === null || $processId <= 0) {
         return [];
@@ -915,7 +932,10 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
           AND (process_id = ? OR process_id IS NULL)
           AND (
             (product_type = 'main' AND LOWER(id_product) IN ($placeholders))
-            OR (product_type = 'sub' AND LOWER(parent_id_product) IN ($placeholders))
+            OR (product_type = 'sub' AND (
+                LOWER(parent_id_product) IN ($placeholders)
+                OR LOWER(TRIM(SUBSTRING(parent_id_product, 1, IF(LOCATE('(', parent_id_product) > 0, LOCATE('(', parent_id_product) - 1, LENGTH(parent_id_product))))) IN ($placeholders)
+            ))
           )
         ORDER BY process_id DESC,
                  CASE 
@@ -932,7 +952,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                  id ASC
     ");
 
-    $params = array_merge([$companyId, $processId], $lowerIds, $lowerIds);
+    $params = array_merge([$companyId, $processId], $lowerIds, $lowerIds, $lowerIds);
     $stmt->execute($params);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -965,9 +985,13 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
 
         if ($productType === 'sub') {
             $parentId = $row['parent_id_product'] ?? $row['id_product'];
-            // Use original case from database as key
-            if (!isset($templates[$parentId])) {
-                $templates[$parentId] = [
+            // Use normalized key (strip " (description)") so frontend uniqueIds like "ABC" match sub rows with parent_id_product "ABC (TTT)"
+            $parentKey = normalizeIdProductForKey($parentId);
+            if ($parentKey === '') {
+                $parentKey = $parentId;
+            }
+            if (!isset($templates[$parentKey])) {
+                $templates[$parentKey] = [
                     'main' => null,
                     'subs' => [],
                     'allMains' => [] // Store all main templates for this parent
@@ -978,7 +1002,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             // This allows multiple sub rows with same account but different sub_order or different formulas
             $isDuplicate = false;
             $currentSubOrder = isset($row['sub_order']) && $row['sub_order'] !== null ? (float)$row['sub_order'] : null;
-            foreach ($templates[$parentId]['subs'] as $index => $existingSub) {
+            foreach ($templates[$parentKey]['subs'] as $index => $existingSub) {
                 $existingSubOrder = isset($existingSub['sub_order']) && $existingSub['sub_order'] !== null ? (float)$existingSub['sub_order'] : null;
                 if ($existingSub['id_product'] === $row['id_product'] 
                     && $existingSub['account_id'] === $row['account_id']
@@ -991,7 +1015,7 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
                     $currentUpdated = $row['updated_at'] ?? '';
                     if ($currentUpdated > $existingUpdated) {
                         // Replace with newer one
-                        $templates[$parentId]['subs'][$index] = $row;
+                        $templates[$parentKey]['subs'][$index] = $row;
                     }
                     $isDuplicate = true;
                     break;
@@ -1000,13 +1024,17 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             if (!$isDuplicate) {
                 // Add sub templates for this process (legacy NULL templates will be claimed on fetch)
                 // This allows multiple sub rows with same account but different formulas
-                $templates[$parentId]['subs'][] = $row;
+                $templates[$parentKey]['subs'][] = $row;
             }
         } else {
             $idProduct = $row['id_product'];
-            // Use original case from database as key to preserve case sensitivity
-            if (!isset($templates[$idProduct])) {
-                $templates[$idProduct] = [
+            // Use normalized key so frontend uniqueIds like "ABC" match main rows with id_product "ABC (AAA)"
+            $mainKey = normalizeIdProductForKey($idProduct);
+            if ($mainKey === '') {
+                $mainKey = $idProduct;
+            }
+            if (!isset($templates[$mainKey])) {
+                $templates[$mainKey] = [
                     'main' => null,
                     'subs' => [],
                     'allMains' => [] // Store all main templates for different process_id
@@ -1014,28 +1042,28 @@ function fetchTemplates(PDO $pdo, array $ids, ?int $processId = null) {
             }
             
             // Store all main templates (for all process_id and account_id combinations)
-            $templates[$idProduct]['allMains'][] = $row;
+            $templates[$mainKey]['allMains'][] = $row;
             
             // For backward compatibility, still set 'main' to the best default
             // But frontend should use 'allMains' to apply all templates
             // Priority: 1) template with process_id (specific), 2) generic template (process_id IS NULL), 3) most recent
-            if ($templates[$idProduct]['main'] === null) {
-                $templates[$idProduct]['main'] = $row;
+            if ($templates[$mainKey]['main'] === null) {
+                $templates[$mainKey]['main'] = $row;
             } else {
-                $existing = $templates[$idProduct]['main'];
+                $existing = $templates[$mainKey]['main'];
                 $existingProcessId = $existing['process_id'] ?? null;
                 $currentProcessId = $row['process_id'] ?? null;
                 
                 // If existing is generic (NULL) and current is specific, use current
                 if ($existingProcessId === null && $currentProcessId !== null) {
-                    $templates[$idProduct]['main'] = $row;
+                    $templates[$mainKey]['main'] = $row;
                 }
                 // If both are specific or both are generic, prefer the one with more recent updated_at
                 else if (($existingProcessId === null) === ($currentProcessId === null)) {
                     $existingUpdated = $existing['updated_at'] ?? '';
                     $currentUpdated = $row['updated_at'] ?? '';
                     if ($currentUpdated > $existingUpdated) {
-                        $templates[$idProduct]['main'] = $row;
+                        $templates[$mainKey]['main'] = $row;
                     }
                 }
                 // Otherwise keep existing (existing is specific, current is generic)
