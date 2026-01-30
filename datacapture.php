@@ -7761,7 +7761,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     const overallIdx = cells.findIndex(c => c.toLowerCase() === 'overall');
                     if (overallIdx >= 0) {
                         const data = cells.slice(overallIdx + 1);
-                        const row = ['OVERALL', '', '', ...data.slice(0, 8)];
+                        // 蓝色格子：Total Tax、Total Profit/Loss 放在第 8、9 列（row[7]、row[8]），不放到 10、11 列
+                        const row = new Array(colCount).fill('');
+                        row[0] = 'OVERALL';
+                        row[1] = '';
+                        row[2] = '';
+                        if (data.length >= 4) {
+                            row[3] = data[0] || '';
+                            row[4] = data[1] || '';
+                            row[5] = data[2] || '';
+                            row[6] = data[3] || '';
+                        }
+                        if (data.length >= 8) {
+                            row[7] = data[6] || '';  // Total Tax
+                            row[8] = data[7] || '';  // Total Profit/Loss
+                        }
                         pushRow(row);
                         return;
                     }
@@ -7796,7 +7810,21 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     if (!parent && !type) return;
                     const displayParent = deriveManagerIdFromCode(parent);
-                    const row = [displayParent, parent, type, ...numbers.slice(0, 8)];
+                    // 蓝色格子：Upline 行 Total Tax、Total Profit/Loss 放在第 8、9 列（row[7]、row[8]），不放到 10、11 列
+                    const row = new Array(colCount).fill('');
+                    row[0] = displayParent;
+                    row[1] = parent;
+                    row[2] = type;
+                    if (numbers.length >= 4) {
+                        row[3] = numbers[0] || '';
+                        row[4] = numbers[1] || '';
+                        row[5] = numbers[2] || '';
+                        row[6] = numbers[3] || '';
+                    }
+                    if (numbers.length >= 8) {
+                        row[7] = numbers[6] || '';  // Total Tax
+                        row[8] = numbers[7] || '';  // Total Profit/Loss
+                    }
                     pushRow(row);
                     return;
                 }
