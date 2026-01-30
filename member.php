@@ -1181,11 +1181,11 @@ $today = date('d/m/Y');
 
         function performMemberSearch() {
             fetchMemberSummary()
-                .then(() => fetchMemberHistory())
+                .then(() => renderMemberWinLossSummary())
                 .catch(() => {
                     memberIsAllSelected = true;
                     memberSelectedCurrencies.clear();
-                    fetchMemberHistory();
+                    renderMemberWinLossSummary();
                 });
         }
 
@@ -1409,6 +1409,7 @@ $today = date('d/m/Y');
                         });
                         updateCurrencySelection();
                         renderCurrencyFilters();
+                        renderMemberWinLossSummary();
                         resolve();
                     })
                     .catch(err => {
@@ -1418,6 +1419,7 @@ $today = date('d/m/Y');
                         const buttons = document.getElementById('member_currency_buttons');
                         if (buttons) buttons.innerHTML = '';
                         if (filterWrapper) filterWrapper.style.display = 'none';
+                        renderMemberWinLossSummary();
                         showNotification(err.message || 'Failed to load currency data', 'error');
                         reject(err);
                     });
@@ -1509,7 +1511,7 @@ $today = date('d/m/Y');
                         memberIsAllSelected = true;
                         memberSelectedCurrencies.clear();
                         renderCurrencyFilters();
-                        fetchMemberHistory();
+                        renderMemberWinLossSummary();
                     }
                     return;
                 }
@@ -1527,9 +1529,86 @@ $today = date('d/m/Y');
                 }
 
                 renderCurrencyFilters();
-                fetchMemberHistory();
+                renderMemberWinLossSummary();
             });
             return btn;
+        }
+
+        function renderMemberWinLossSummary() {
+            const section = document.getElementById('member_currency_tables_section');
+            const container = document.getElementById('member_currency_tables');
+            if (!section || !container) return;
+
+            container.innerHTML = '';
+            const currencies = getAvailableCurrencies();
+            let targetCurrencies = memberIsAllSelected ? currencies : Array.from(memberSelectedCurrencies);
+            if (!targetCurrencies.length) targetCurrencies = currencies.length ? currencies : ['-'];
+
+            const grouped = {};
+            memberCurrencySummary.forEach(row => {
+                const code = (row.currency || '').trim() || '-';
+                if (!grouped[code]) grouped[code] = [];
+                grouped[code].push(row);
+            });
+
+            let orderedKeys = targetCurrencies.filter(c => c && grouped[c] && grouped[c].length);
+            if (!orderedKeys.length && memberCurrencySummary.length) {
+                orderedKeys = Object.keys(grouped).sort((a, b) => {
+                    const oa = memberCurrencySortOrder.get(a) ?? Number.MAX_SAFE_INTEGER;
+                    const ob = memberCurrencySortOrder.get(b) ?? Number.MAX_SAFE_INTEGER;
+                    return oa !== ob ? oa - ob : (a === '-' ? 1 : b === '-' ? -1 : (a || '').localeCompare(b || ''));
+                });
+            }
+            if (!orderedKeys.length) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'flex';
+            orderedKeys.forEach(currencyKey => {
+                const rows = grouped[currencyKey] || [];
+                const wrapper = document.createElement('div');
+                wrapper.className = 'member-currency-table-wrapper';
+                const title = document.createElement('h3');
+                title.className = 'member-currency-table-title';
+                title.textContent = `Currency: ${currencyKey}`;
+                wrapper.appendChild(title);
+
+                let totalBf = 0, totalWinLoss = 0, totalCrDr = 0, totalBalance = 0;
+                const rowHtml = rows.map(row => {
+                    const bf = parseFloat(row.bf) || 0, wl = parseFloat(row.win_loss) || 0, cr = parseFloat(row.cr_dr) || 0, bal = parseFloat(row.balance) || 0;
+                    totalBf += bf; totalWinLoss += wl; totalCrDr += cr; totalBalance += bal;
+                    return `<tr class="transaction-table-row">
+                        <td class="transaction-history-col-account">${(row.account_id || row.account_name || '-')}</td>
+                        <td class="transaction-history-col-bf">${formatNumber(bf)}</td>
+                        <td class="transaction-history-col-winloss">${formatNumber(wl)}</td>
+                        <td class="transaction-history-col-crdr">${formatNumber(cr)}</td>
+                        <td class="transaction-history-col-balance">${formatNumber(bal)}</td>
+                    </tr>`;
+                }).join('');
+
+                const table = document.createElement('table');
+                table.className = 'transaction-table member-winloss-table';
+                table.innerHTML = `
+                    <thead><tr class="transaction-table-header">
+                        <th class="transaction-history-col-account">Account</th>
+                        <th class="transaction-history-col-bf">B/F</th>
+                        <th class="transaction-history-col-winloss">Win/Loss</th>
+                        <th class="transaction-history-col-crdr">Cr/Dr</th>
+                        <th class="transaction-history-col-balance">Balance</th>
+                    </tr></thead>
+                    <tbody>${rowHtml || '<tr><td colspan="5" style="text-align:center;">No data</td></tr>'}</tbody>
+                    <tfoot><tr class="transaction-table-row transaction-summary-total">
+                        <td class="transaction-summary-total-label">Total</td>
+                        <td>${formatNumber(totalBf)}</td>
+                        <td>${formatNumber(totalWinLoss)}</td>
+                        <td>${formatNumber(totalCrDr)}</td>
+                        <td>${formatNumber(totalBalance)}</td>
+                    </tr></tfoot>
+                `;
+                wrapper.appendChild(table);
+                container.appendChild(wrapper);
+            });
         }
 
         function fetchMemberHistory(forcedFilter) {
