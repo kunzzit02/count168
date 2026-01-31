@@ -7699,6 +7699,7 @@ if ($current_user_id && count($user_companies) > 0) {
             let section = hasUplineHeader ? '' : 'upline';
             let afterMyEarnings = false;
             let lastDownlineUsername = '';
+            let lastUplineUsername = ''; // Overall 行的完整用户名，用于将后续 Major/Minor 行的缩写（如 ray）还原为 raymond
 
             const pushRow = (arr) => {
                 const row = [...arr];
@@ -7718,6 +7719,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (lower.includes('downline payment')) {
                     section = 'downline';
                     afterMyEarnings = true;
+                    lastUplineUsername = '';
                     return;
                 }
                 if (!hasDownlineHeader && afterMyEarnings && (/^no\.\t/i.test(line) || /^\d+\t(mg|pl)\t/i.test(line))) {
@@ -7762,6 +7764,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (overallIdx >= 0) {
                         const data = cells.slice(overallIdx + 1);
                         const row = ['OVERALL', '', '', ...data.slice(0, 8)];
+                        lastUplineUsername = (overallIdx >= 1 ? (cells[overallIdx - 1] || '').trim() : '');
                         pushRow(row);
                         return;
                     }
@@ -7805,6 +7808,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         numbers = cells.slice(3);
                     }
                     if (!parent && !type) return;
+                    if (lastUplineUsername && (parent || '').trim() && lastUplineUsername.toLowerCase().startsWith((parent || '').trim().toLowerCase())) {
+                        parent = lastUplineUsername;
+                    }
                     const displayParent = deriveManagerIdFromCode(parent);
                     const row = [displayParent, parent, type, ...numbers.slice(0, 8)];
                     pushRow(row);
