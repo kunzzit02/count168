@@ -7940,6 +7940,46 @@ if ($current_user_id && count($user_companies) > 0) {
 
             if (rows.length === 0) return null;
 
+            // 后处理：从原始粘贴文本中提取可能出现的完整名（如 raymond），将表格中仅出现缩写（如 ray）的单元格替换为完整名
+            const rawTokens = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split(/[\s\t\n]+/).map(t => (t || '').trim()).filter(t => t.length > 0);
+            const skipWords = new Set(['overall', 'major', 'minor', 'no.', 'username', 'type', 'bet', 'eat', 'tax', 'profit', 'loss', 'total', 'totals', 'earnings', 'ringgit', 'malaysia', 'payment', 'upline', 'downline', 'lvl', 'mg', 'pl', 'ag', 'ma']);
+            const rawFullNames = new Set();
+            rawTokens.forEach(t => {
+                const lower = t.toLowerCase();
+                if (t.length >= 4 && !skipWords.has(lower) && !/^[\d,.$()-]+$/.test(t) && !/^[$]/.test(t)) rawFullNames.add(t);
+            });
+            const expandMap = new Map();
+            const shortVals = new Set();
+            rows.forEach(r => {
+                const a = (r[0] || '').toString().trim();
+                const b = (r[1] || '').toString().trim();
+                if (a) shortVals.add(a.toLowerCase());
+                if (b) shortVals.add(b.toLowerCase());
+            });
+            shortVals.forEach(val => {
+                const candidates = [];
+                rawFullNames.forEach(full => {
+                    if (full.length > val.length && full.toLowerCase().startsWith(val)) candidates.push(full);
+                });
+                if (candidates.length === 1) expandMap.set(val, candidates[0]);
+                else if (candidates.length > 1) {
+                    const noDigit = candidates.filter(f => !/\d/.test(f));
+                    expandMap.set(val, (noDigit.length >= 1 ? noDigit[0] : candidates[0]));
+                }
+            });
+            if (expandMap.size > 0) {
+                rows.forEach(r => {
+                    if (r[0]) {
+                        const key = (r[0]).toString().trim().toLowerCase();
+                        if (expandMap.has(key)) r[0] = expandMap.get(key);
+                    }
+                    if (r[1]) {
+                        const key = (r[1]).toString().trim().toLowerCase();
+                        if (expandMap.has(key)) r[1] = expandMap.get(key);
+                    }
+                });
+            }
+
             return {
                 dataMatrix: rows,
                 maxRows: rows.length,
