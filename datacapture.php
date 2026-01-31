@@ -7776,25 +7776,18 @@ if ($current_user_id && count($user_companies) > 0) {
                         const data = cells.slice(overallIdx + 1);
                         const row = ['OVERALL', '', '', ...data.slice(0, 8)];
                         pushRow(row);
-                        lastUplineParent = ''; // 非「上一行的下一行」，不再使用上一行的完整名，避免把后续的 ray 误成 raymond
                         return;
                     }
 
                     // Minor 整行不要：第二列或第三列为 Minor 即跳过
                     const col1 = (cells[1] || '').toLowerCase();
                     const col2 = (cells[2] || '').toLowerCase();
-                    if (col1 === 'minor' || col2 === 'minor') {
-                        lastUplineParent = '';
-                        return;
-                    }
+                    if (col1 === 'minor' || col2 === 'minor') return;
 
                     // Upline minor 数据：前两列为数字、第三列为金额（非 MAJOR），整行跳过不清除进表
                     const looksLikeNumberUpline = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
                     const looksLikeAmountUpline = (s) => /^[$]?[\d,.()\-]+$/.test((s || '').trim());
-                    if (cells.length >= 3 && looksLikeNumberUpline(cells[0]) && looksLikeNumberUpline(cells[1]) && looksLikeAmountUpline(cells[2])) {
-                        lastUplineParent = '';
-                        return;
-                    }
+                    if (cells.length >= 3 && looksLikeNumberUpline(cells[0]) && looksLikeNumberUpline(cells[1]) && looksLikeAmountUpline(cells[2])) return;
 
                     // 支持两种格式：(Lvl, Username, Type, Bet...) 或 (Username, Type, Bet...)；Username 可能多词（如 raymond 或 ray mond），先找 Major/Minor 列再取完整
                     let parent = '';
@@ -7824,19 +7817,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         type = cells[2] || '';
                         numbers = cells.slice(3);
                     }
-                    // 仅当「上一行」是 2 列（Lvl+完整名）且当前 parent 为其缩写时，用完整名还原；否则保持原样，避免把无关的 ray 变成 raymond
+                    // 若上一行是「Lvl + 完整用户名」（如 MA raymond），当前行是「缩写 + Major + 数据」（如 ray Major ...），用完整名还原第一列
                     if (lastUplineParent && (lastUplineParent === parent || lastUplineParent.toLowerCase().startsWith(parent.toLowerCase()))) {
                         parent = lastUplineParent;
                         lastUplineParent = '';
                     }
-                    if (!parent && !type) {
-                        lastUplineParent = '';
-                        return;
-                    }
+                    if (!parent && !type) return;
                     const displayParent = deriveManagerIdFromCode(parent);
                     const row = [displayParent, parent, type, ...numbers.slice(0, 8)];
                     pushRow(row);
-                    lastUplineParent = ''; // 本行已处理，清除缓存，确保下一行不会误用（只对「紧接的下一行」还原）
                     return;
                 }
 
