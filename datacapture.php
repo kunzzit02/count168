@@ -5032,7 +5032,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                     if (textDecoration && textDecoration !== 'none') { styleString += ` text-decoration: ${textDecoration} !important;`; contentStyle += ` text-decoration: ${textDecoration} !important;`; }
                                     targetCell.setAttribute('style', styleString);
                                     targetCell.style.cssText = styleString;
-                                    if (contentStyle && (targetCell.textContent || '').trim() !== '' && !targetCell.querySelector('span[style]')) {
+                                    // 仅当单元格为纯文本（无 <b>/<i>/<u> 等子元素）时才用 span 包裹，避免覆盖已设置的 HTML 格式
+                                    if (contentStyle && (targetCell.textContent || '').trim() !== '' && !targetCell.querySelector('*')) {
                                         const escaped = (targetCell.textContent || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                         targetCell.innerHTML = `<span style="${contentStyle}">${escaped}</span>`;
                                     }
