@@ -7900,6 +7900,19 @@ if ($current_user_id && count($user_companies) > 0) {
                     let dataStart = idx + 3;
                     if (typeColGen >= idx + 1 && typeColGen < cells.length) {
                         parent = typeColGen === idx + 1 ? (cells[idx] || '') : cells.slice(idx + 1, typeColGen).join(' ').trim();
+                        // 无行号时首列可能是完整名（如 raymond），slice 只取到缩写（ray）：用较长且含另一者前缀的作为完整名
+                        const first = (cells[idx] || '').trim();
+                        if (first && !/^\d+$/.test(first) && first.length > parent.length &&
+                            (first.toLowerCase().startsWith(parent.toLowerCase()) || parent.toLowerCase().startsWith(first.toLowerCase()))) {
+                            parent = first;
+                        }
+                        // 多 token 时（如 "raymond ray"）：若其一为另一前缀则只保留较长者，还原为完整名单字
+                        if (parent && parent.includes(' ')) {
+                            const parts = parent.split(/\s+/).filter(Boolean);
+                            const longer = parts.reduce((a, b) => (a.length >= b.length ? a : b));
+                            const shorter = parts.reduce((a, b) => (a.length <= b.length ? a : b));
+                            if (longer !== shorter && longer.toLowerCase().startsWith(shorter.toLowerCase())) parent = longer;
+                        }
                         child = parent;
                         type = cells[typeColGen] || '';
                         dataStart = typeColGen + 1;
