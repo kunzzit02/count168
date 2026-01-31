@@ -4480,10 +4480,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 const requiredRows = actualRequiredRows;
                 const requiredCols = Math.max(maxCols, currentCols);
                 
-                // 655 模式：每次粘贴都按本次内容重置表格尺寸，保证第二次及以后粘贴效果与第一次一致（Table format 不变）
-                const targetRows = Math.min(requiredRows, 702);
-                const targetCols = requiredCols;
-                initializeTable(targetRows, targetCols);
+                if (requiredRows > currentRows || requiredCols > currentCols) {
+                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
+                    const targetCols = Math.max(currentCols, requiredCols);
+                    initializeTable(targetRows, targetCols);
+                }
                 
                 // 重新获取表头和表体（因为可能被重新初始化）
                 const headerRow = tableHeader.querySelector('tr');
