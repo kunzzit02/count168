@@ -7829,11 +7829,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     const looksLikeBetOrAmountForMinor = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
                     if (!hasMajor && cells.length >= 3 && looksLikeBetOrAmountForMinor(cells[0]) && looksLikeBetOrAmountForMinor(cells[1]) && looksLikeAmount(cells[2]) && (cells[2] || '').toLowerCase() !== 'major') return;
 
-                    // 同一行同时含 No. + Lvl + 用户名 + Major + 数据（如 "1  AG  gaosheng  gaosheng  Major  9344  ..."）：直接输出该行，避免 gaosheng 等下线数据丢失
+                    // 同一行同时含 No. + Lvl + 用户名 + Major + 数据（如 "1  AG  gaosheng  gaosheng  Major  9344  ..." 或 "1  MA  raymond  ray  Major  ..."）：直接输出该行；若 child 为 parent 缩写（如 ray vs raymond）则用完整名还原
                     const looksLikeBetOrAmountDownline = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
                     if (cells.length >= 6 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && /^major$/i.test((cells[4] || '').trim()) && looksLikeBetOrAmountDownline(cells[5])) {
                         const parent = (cells[2] || '').trim();
-                        const child = (cells[3] || '').trim() || parent;
+                        let child = (cells[3] || '').trim() || parent;
+                        if (parent && child && parent.toLowerCase().startsWith(child.toLowerCase()) && child.length < parent.length) child = parent;
                         const row = [deriveManagerIdFromCode(parent), child, 'Major', ...cells.slice(5).slice(0, 8)];
                         pushRow(row);
                         return;
@@ -7867,10 +7868,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         lastDownlineUsername = '';
                         return;
                     }
-                    // 数据行 "gaosheng\tgaosheng\tMajor\t9344\t..."（两列 username）：与上一行 username 合并
+                    // 数据行 "gaosheng\tgaosheng\tMajor\t9344\t..." 或 "raymond\tray\tMajor\t..."（两列 username）：与上一行 username 合并；若 code 为完整名缩写则用完整名还原
                     if (lastDownlineUsername && cells.length >= 4 && /^major$/i.test((cells[2] || '').trim()) &&
                         ((cells[0] || '').trim() === lastDownlineUsername || (cells[1] || '').trim() === lastDownlineUsername)) {
-                        const code = (cells[0] || '').trim() === lastDownlineUsername ? (cells[1] || '') : (cells[0] || '');
+                        let code = (cells[0] || '').trim() === lastDownlineUsername ? (cells[1] || '') : (cells[0] || '');
+                        if (code && lastDownlineUsername.toLowerCase().startsWith(code.toLowerCase()) && code.length < lastDownlineUsername.length) code = lastDownlineUsername;
                         const row = [lastDownlineUsername, code, 'Major', ...cells.slice(3).slice(0, 8)];
                         pushRow(row);
                         lastDownlineUsername = '';
