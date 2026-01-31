@@ -4624,6 +4624,15 @@ if ($current_user_id && count($user_companies) > 0) {
                     let hasVerticalSplit = false;
                     let cellsWithSplit = [];
                     
+                    // 655模式：单元格过少的行不进行上下拆分，避免短行被误拆成两行导致 G/H、J/K 等稀疏
+                    // Rows with too few cells are not split, so we don't get two sparse rows from one short row
+                    const doVerticalSplitDetection = sourceCells.length >= 3;
+                    if (!doVerticalSplitDetection) {
+                        hasVerticalSplit = false;
+                        cellsWithSplit = [];
+                    }
+                    
+                    if (doVerticalSplitDetection) {
                     // 先检查整个行的HTML，看是否有<br>标签
                     // First check the entire row HTML to see if there are <br> tags
                     let rowHtml = sourceRow.innerHTML || '';
@@ -4730,6 +4739,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 });
                             }
                         });
+                    }
                     }
                     
                     console.log(`655: Row ${sourceRowIndex}: Final check - hasVerticalSplit=${hasVerticalSplit}, cellsWithSplit.length=${cellsWithSplit.length}`);
