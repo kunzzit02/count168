@@ -7829,12 +7829,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     const looksLikeBetOrAmountForMinor = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
                     if (!hasMajor && cells.length >= 3 && looksLikeBetOrAmountForMinor(cells[0]) && looksLikeBetOrAmountForMinor(cells[1]) && looksLikeAmount(cells[2]) && (cells[2] || '').toLowerCase() !== 'major') return;
 
-                    // 同一行同时含 No. + Lvl + 用户名 + Major + 数据（如 "1  AG  gaosheng  gaosheng  Major  9344  ..." 或 "1  MA  raymond  ray  Major  ..."）：直接输出该行；若 child 为 parent 缩写（如 ray vs raymond）则用完整名还原
+                    // 同一行同时含 No. + Lvl + 用户名 + Major + 数据（如 "1  AG  gaosheng  gaosheng  Major  9344  ..."）：直接输出该行，避免 gaosheng 等下线数据丢失
                     const looksLikeBetOrAmountDownline = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
                     if (cells.length >= 6 && /^\d+$/.test((cells[0] || '').trim()) && /^[a-z]{2,4}$/i.test((cells[1] || '').trim()) && /^major$/i.test((cells[4] || '').trim()) && looksLikeBetOrAmountDownline(cells[5])) {
                         const parent = (cells[2] || '').trim();
-                        let child = (cells[3] || '').trim() || parent;
-                        if (parent && child && parent.toLowerCase().startsWith(child.toLowerCase()) && child.length < parent.length) child = parent;
+                        const child = (cells[3] || '').trim() || parent;
                         const row = [deriveManagerIdFromCode(parent), child, 'Major', ...cells.slice(5).slice(0, 8)];
                         pushRow(row);
                         return;
@@ -7868,11 +7867,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         lastDownlineUsername = '';
                         return;
                     }
-                    // 数据行 "gaosheng\tgaosheng\tMajor\t9344\t..." 或 "raymond\tray\tMajor\t..."（两列 username）：与上一行 username 合并；若 code 为完整名缩写则用完整名还原
+                    // 数据行 "gaosheng\tgaosheng\tMajor\t9344\t..."（两列 username）：与上一行 username 合并
                     if (lastDownlineUsername && cells.length >= 4 && /^major$/i.test((cells[2] || '').trim()) &&
                         ((cells[0] || '').trim() === lastDownlineUsername || (cells[1] || '').trim() === lastDownlineUsername)) {
-                        let code = (cells[0] || '').trim() === lastDownlineUsername ? (cells[1] || '') : (cells[0] || '');
-                        if (code && lastDownlineUsername.toLowerCase().startsWith(code.toLowerCase()) && code.length < lastDownlineUsername.length) code = lastDownlineUsername;
+                        const code = (cells[0] || '').trim() === lastDownlineUsername ? (cells[1] || '') : (cells[0] || '');
                         const row = [lastDownlineUsername, code, 'Major', ...cells.slice(3).slice(0, 8)];
                         pushRow(row);
                         lastDownlineUsername = '';
@@ -7900,19 +7898,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     let dataStart = idx + 3;
                     if (typeColGen >= idx + 1 && typeColGen < cells.length) {
                         parent = typeColGen === idx + 1 ? (cells[idx] || '') : cells.slice(idx + 1, typeColGen).join(' ').trim();
-                        // 无行号时首列可能是完整名（如 raymond），slice 只取到缩写（ray）：用较长且含另一者前缀的作为完整名
-                        const first = (cells[idx] || '').trim();
-                        if (first && !/^\d+$/.test(first) && first.length > parent.length &&
-                            (first.toLowerCase().startsWith(parent.toLowerCase()) || parent.toLowerCase().startsWith(first.toLowerCase()))) {
-                            parent = first;
-                        }
-                        // 多 token 时（如 "raymond ray"）：若其一为另一前缀则只保留较长者，还原为完整名单字
-                        if (parent && parent.includes(' ')) {
-                            const parts = parent.split(/\s+/).filter(Boolean);
-                            const longer = parts.reduce((a, b) => (a.length >= b.length ? a : b));
-                            const shorter = parts.reduce((a, b) => (a.length <= b.length ? a : b));
-                            if (longer !== shorter && longer.toLowerCase().startsWith(shorter.toLowerCase())) parent = longer;
-                        }
                         child = parent;
                         type = cells[typeColGen] || '';
                         dataStart = typeColGen + 1;
@@ -7939,46 +7924,6 @@ if ($current_user_id && count($user_companies) > 0) {
             });
 
             if (rows.length === 0) return null;
-
-            // 后处理：从原始粘贴文本中提取可能出现的完整名（如 raymond），将表格中仅出现缩写（如 ray）的单元格替换为完整名
-            const rawTokens = pastedData.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split(/[\s\t\n]+/).map(t => (t || '').trim()).filter(t => t.length > 0);
-            const skipWords = new Set(['overall', 'major', 'minor', 'no.', 'username', 'type', 'bet', 'eat', 'tax', 'profit', 'loss', 'total', 'totals', 'earnings', 'ringgit', 'malaysia', 'payment', 'upline', 'downline', 'lvl', 'mg', 'pl', 'ag', 'ma']);
-            const rawFullNames = new Set();
-            rawTokens.forEach(t => {
-                const lower = t.toLowerCase();
-                if (t.length >= 4 && !skipWords.has(lower) && !/^[\d,.$()-]+$/.test(t) && !/^[$]/.test(t)) rawFullNames.add(t);
-            });
-            const expandMap = new Map();
-            const shortVals = new Set();
-            rows.forEach(r => {
-                const a = (r[0] || '').toString().trim();
-                const b = (r[1] || '').toString().trim();
-                if (a) shortVals.add(a.toLowerCase());
-                if (b) shortVals.add(b.toLowerCase());
-            });
-            shortVals.forEach(val => {
-                const candidates = [];
-                rawFullNames.forEach(full => {
-                    if (full.length > val.length && full.toLowerCase().startsWith(val)) candidates.push(full);
-                });
-                if (candidates.length === 1) expandMap.set(val, candidates[0]);
-                else if (candidates.length > 1) {
-                    const noDigit = candidates.filter(f => !/\d/.test(f));
-                    expandMap.set(val, (noDigit.length >= 1 ? noDigit[0] : candidates[0]));
-                }
-            });
-            if (expandMap.size > 0) {
-                rows.forEach(r => {
-                    if (r[0]) {
-                        const key = (r[0]).toString().trim().toLowerCase();
-                        if (expandMap.has(key)) r[0] = expandMap.get(key);
-                    }
-                    if (r[1]) {
-                        const key = (r[1]).toString().trim().toLowerCase();
-                        if (expandMap.has(key)) r[1] = expandMap.get(key);
-                    }
-                });
-            }
 
             return {
                 dataMatrix: rows,
