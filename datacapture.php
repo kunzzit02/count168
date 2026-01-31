@@ -4547,7 +4547,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const color = sourceCellComputedStyle.color;
                                     const fontWeight = sourceCellComputedStyle.fontWeight;
                                     const textAlign = sourceCellComputedStyle.textAlign;
-                                    
+                                    const textDecoration = sourceCellComputedStyle.textDecoration;
                                     let styleString = '';
                                     if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
                                         styleString += ` background-color: ${bgColor} !important;`;
@@ -4560,6 +4560,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                     if (textAlign && textAlign !== 'left') {
                                         styleString += ` text-align: ${textAlign} !important;`;
+                                    }
+                                    if (textDecoration && textDecoration !== 'none') {
+                                        styleString += ` text-decoration: ${textDecoration} !important;`;
                                     }
                                     if (styleString) {
                                         targetHeader.setAttribute('style', styleString);
@@ -4847,10 +4850,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const color = sourceCellComputedStyle.color;
                                         const fontWeight = sourceCellComputedStyle.fontWeight;
                                         const textAlign = sourceCellComputedStyle.textAlign;
+                                        const textDecoration = sourceCellComputedStyle.textDecoration;
                                         let styleString = 'border: 1px solid #d0d7de !important;';
                                         if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
                                         if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
                                         if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                        if (textDecoration && textDecoration !== 'none') styleString += ` text-decoration: ${textDecoration} !important;`;
                                         targetCell.setAttribute('style', styleString);
                                         targetCell.style.cssText = styleString;
                                     } else {
@@ -4891,10 +4896,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const color = sourceCellComputedStyle.color;
                                         const fontWeight = sourceCellComputedStyle.fontWeight;
                                         const textAlign = sourceCellComputedStyle.textAlign;
+                                        const textDecoration = sourceCellComputedStyle.textDecoration;
                                         let styleString = 'border: 1px solid #d0d7de !important;';
                                         if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
                                         if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
                                         if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                        if (textDecoration && textDecoration !== 'none') styleString += ` text-decoration: ${textDecoration} !important;`;
                                         targetCell.setAttribute('style', styleString);
                                         targetCell.style.cssText = styleString;
                                     } else {
@@ -5004,7 +5011,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     targetCell.textContent = '';
                                 }
                                 
-                                // 655模式：数据格不保留背景色，只保留边框及文字颜色等
+                                // 655模式：数据格不保留背景色，只保留边框及文字颜色等；格式写入内容 span 以便多次粘贴后仍保持 Excel 格式
                                 const sourceCellStyle = sourceCell.getAttribute('style');
                                 const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
                                 if (sourceCellStyle) {
@@ -5016,12 +5023,19 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const color = sourceCellComputedStyle.color;
                                     const fontWeight = sourceCellComputedStyle.fontWeight;
                                     const textAlign = sourceCellComputedStyle.textAlign;
+                                    const textDecoration = sourceCellComputedStyle.textDecoration;
                                     let styleString = 'border: 1px solid #d0d7de !important;';
-                                    if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
-                                    if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
-                                    if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                    let contentStyle = '';
+                                    if (color && color !== 'rgb(0, 0, 0)') { styleString += ` color: ${color} !important;`; contentStyle += ` color: ${color} !important;`; }
+                                    if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') { styleString += ` font-weight: ${fontWeight} !important;`; contentStyle += ` font-weight: ${fontWeight} !important;`; }
+                                    if (textAlign && textAlign !== 'left') { styleString += ` text-align: ${textAlign} !important;`; contentStyle += ` text-align: ${textAlign} !important;`; }
+                                    if (textDecoration && textDecoration !== 'none') { styleString += ` text-decoration: ${textDecoration} !important;`; contentStyle += ` text-decoration: ${textDecoration} !important;`; }
                                     targetCell.setAttribute('style', styleString);
                                     targetCell.style.cssText = styleString;
+                                    if (contentStyle && (targetCell.textContent || '').trim() !== '' && !targetCell.querySelector('span[style]')) {
+                                        const escaped = (targetCell.textContent || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                                        targetCell.innerHTML = `<span style="${contentStyle}">${escaped}</span>`;
+                                    }
                                 }
                                 if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
                                     targetCell.style.border = '1px solid #d0d7de';
