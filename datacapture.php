@@ -7699,6 +7699,8 @@ if ($current_user_id && count($user_companies) > 0) {
             let section = hasUplineHeader ? '' : 'upline';
             let afterMyEarnings = false;
             let lastDownlineUsername = '';
+            // 当 Username 单元格在源表里是两行（如 raymond + ray）时，复制后会变成两行；上一行仅 Lvl+完整名，下一行是缩写+Major+数据。用此变量保留完整名，下一行用完整名还原。
+            let lastUplineParent = '';
 
             const pushRow = (arr) => {
                 const row = [...arr];
@@ -7713,11 +7715,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 const lower = line.toLowerCase();
                 if (lower.includes('upline payment')) {
                     section = 'upline';
+                    lastUplineParent = '';
                     return;
                 }
                 if (lower.includes('downline payment')) {
                     section = 'downline';
                     afterMyEarnings = true;
+                    lastUplineParent = '';
                     return;
                 }
                 if (!hasDownlineHeader && afterMyEarnings && (/^no\.\t/i.test(line) || /^\d+\t(mg|pl)\t/i.test(line))) {
@@ -7755,7 +7759,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
 
                 const cells = splitLine(line);
-                if (cells.length < 3) return;
+                // 源表 Username 单元格若为两行（如 raymond / ray），复制后第一行只有 Lvl+完整名（2 列），第二行是缩写+Major+数据。保留完整名供下一行还原。
+                if (cells.length < 3) {
+                    const looksLikeNumberCell = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
+                    if (section === 'upline' && cells.length === 2 && /^[a-z]{2,4}$/i.test((cells[0] || '').trim()) && !looksLikeNumberCell(cells[1])) {
+                        lastUplineParent = (cells[1] || '').trim();
+                    } else if (section === 'downline' && cells.length === 2 && /^[a-z]{2,4}$/i.test((cells[0] || '').trim()) && !/^\d+$/.test((cells[0] || '').trim())) {
+                        lastDownlineUsername = (cells[1] || '').trim();
+                    }
+                    return;
+                }
 
                 if (section === 'upline') {
                     const overallIdx = cells.findIndex(c => c.toLowerCase() === 'overall');
@@ -7803,6 +7816,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         parent = cells[1] || '';
                         type = cells[2] || '';
                         numbers = cells.slice(3);
+                    }
+                    // 若上一行是「Lvl + 完整用户名」（如 MA raymond），当前行是「缩写 + Major + 数据」（如 ray Major ...），用完整名还原第一列
+                    if (lastUplineParent && (lastUplineParent === parent || lastUplineParent.toLowerCase().startsWith(parent.toLowerCase()))) {
+                        parent = lastUplineParent;
+                        lastUplineParent = '';
                     }
                     if (!parent && !type) return;
                     const displayParent = deriveManagerIdFromCode(parent);
