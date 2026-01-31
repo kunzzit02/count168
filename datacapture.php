@@ -7817,14 +7817,16 @@ if ($current_user_id && count($user_companies) > 0) {
                         type = cells[2] || '';
                         numbers = cells.slice(3);
                     }
-                    // 若上一行是「Lvl + 完整用户名」（如 MA raymond），当前行是「缩写 + Major + 数据」（如 ray Major ...），用完整名还原第一列
+                    // 若上一行是「Lvl + 完整用户名」（如 MA raymond），当前行是「缩写 + Major + 数据」（如 ray Major ...），第一列用完整名、第二列保留粘贴的原始字（ray）
+                    const originalParentFromLine = parent;
                     if (lastUplineParent && (lastUplineParent === parent || lastUplineParent.toLowerCase().startsWith(parent.toLowerCase()))) {
                         parent = lastUplineParent;
                         lastUplineParent = '';
                     }
                     if (!parent && !type) return;
                     const displayParent = deriveManagerIdFromCode(parent);
-                    const row = [displayParent, parent, type, ...numbers.slice(0, 8)];
+                    const col2Value = (parent !== originalParentFromLine) ? originalParentFromLine : parent;
+                    const row = [displayParent, col2Value, type, ...numbers.slice(0, 8)];
                     pushRow(row);
                     return;
                 }
