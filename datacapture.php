@@ -4480,11 +4480,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 const requiredRows = actualRequiredRows;
                 const requiredCols = Math.max(maxCols, currentCols);
                 
-                if (requiredRows > currentRows || requiredCols > currentCols) {
-                    const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
-                    const targetCols = Math.max(currentCols, requiredCols);
-                    initializeTable(targetRows, targetCols);
-                }
+                // 655 模式：每次粘贴都按本次内容重置表格尺寸，保证第二次及以后粘贴效果与第一次一致（Table format 不变）
+                const targetRows = Math.min(requiredRows, 702);
+                const targetCols = requiredCols;
+                initializeTable(targetRows, targetCols);
                 
                 // 重新获取表头和表体（因为可能被重新初始化）
                 const headerRow = tableHeader.querySelector('tr');
@@ -24481,8 +24480,9 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         });
 
-        // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴
+        // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴；655 模式不在此处理，由 655 专用 handler 统一处理以保证每次粘贴效果一致
         document.addEventListener('paste', function(e) {
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') return;
             const target = e.target;
             if (target && target.contentEditable === 'true' && target.closest('#dataTable')) {
                 console.log('Global paste event triggered on table cell');
