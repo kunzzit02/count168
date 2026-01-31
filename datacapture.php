@@ -4480,43 +4480,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const requiredRows = actualRequiredRows;
                 const requiredCols = Math.max(maxCols, currentCols);
                 
-                // 655模式：第二次及以后粘贴视为追加——保留已有行，新内容从下方写入，保证格式一致
-                const appendMode655 = (currentRows > 0);
-                let startRowIndex655 = 0;
-                let existingBodyRows655 = null;
-                
-                if (appendMode655) {
-                    const totalRowsNeeded = currentRows + requiredRows;
-                    const totalColsNeeded = Math.max(currentCols, requiredCols);
-                    existingBodyRows655 = [];
-                    for (let r = 0; r < currentRows; r++) {
-                        const tr = tableBody.children[r];
-                        const cells = [];
-                        for (let c = 0; c < currentCols; c++) {
-                            const cell = tr && tr.children[c + 1] ? tr.children[c + 1] : null;
-                            cells.push({
-                                html: cell ? (cell.innerHTML || '') : '',
-                                text: cell ? (cell.textContent || '') : '',
-                                style: cell && cell.getAttribute ? (cell.getAttribute('style') || '') : ''
-                            });
-                        }
-                        existingBodyRows655.push(cells);
-                    }
-                    const targetRows = Math.min(totalRowsNeeded, 702);
-                    const targetCols = totalColsNeeded;
-                    initializeTable(targetRows, targetCols);
-                    for (let r = 0; r < currentRows && r < tableBody.children.length; r++) {
-                        const tr = tableBody.children[r];
-                        const saved = existingBodyRows655[r];
-                        for (let c = 0; c < saved.length && tr && tr.children[c + 1]; c++) {
-                            const cell = tr.children[c + 1];
-                            const s = saved[c];
-                            if (s.html && s.html.trim() !== '') cell.innerHTML = s.html; else cell.textContent = s.text || '';
-                            if (s.style) cell.setAttribute('style', s.style);
-                        }
-                    }
-                    startRowIndex655 = currentRows;
-                } else if (requiredRows > currentRows || requiredCols > currentCols) {
+                if (requiredRows > currentRows || requiredCols > currentCols) {
                     const targetRows = Math.max(currentRows, Math.min(requiredRows, 702));
                     const targetCols = Math.max(currentCols, requiredCols);
                     initializeTable(targetRows, targetCols);
@@ -4524,12 +4488,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 重新获取表头和表体（因为可能被重新初始化）
                 const headerRow = tableHeader.querySelector('tr');
-                let actualCols = document.querySelectorAll('#tableHeader th').length - 1;
+                const actualCols = document.querySelectorAll('#tableHeader th').length - 1;
                 const currentPasteChanges = [];
                 let successCount = 0;
                 
-                // 处理表头行：填充到tableHeader（追加模式下不覆盖表头，保留第一次粘贴的表头）
-                if (!appendMode655 && headerRows.length > 0 && headerRow) {
+                // 处理表头行：填充到tableHeader
+                if (headerRows.length > 0 && headerRow) {
                     const firstHeaderRow = headerRows[0];
                     const headerCells = firstHeaderRow.querySelectorAll('th, td');
                     let currentCol = 0;
@@ -4634,10 +4598,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 
                 // 处理数据行：填充到tableBody
-                // 使用实际行索引（考虑拆分后的行）；追加模式从 startRowIndex655 开始写
-                // Use actual row index (considering split rows); append mode writes from startRowIndex655
-                let actualRowIndex = startRowIndex655;
-                console.log(`655: Starting to process ${dataRows.length} data rows, startRowIndex=${startRowIndex655}, appendMode=${appendMode655}`);
+                // 使用实际行索引（考虑拆分后的行）
+                // Use actual row index (considering split rows)
+                let actualRowIndex = 0;
+                console.log(`655: Starting to process ${dataRows.length} data rows`);
                 dataRows.forEach((sourceRow, sourceRowIndex) => {
                     let tableRow = tableBody.children[actualRowIndex];
                     if (!tableRow) {
