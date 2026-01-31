@@ -7793,12 +7793,18 @@ if ($current_user_id && count($user_companies) > 0) {
                     let parent = '';
                     let type = '';
                     let numbers = [];
+                    let uplineCol2Override = null;
                     const looksLikeNumber = (s) => /^[\d,.$()-]+$/.test((s || '').trim());
                     const typeColUpline = cells.findIndex((c, i) => i >= 1 && ((c || '').toLowerCase() === 'major' || (c || '').toLowerCase() === 'minor'));
                     if (typeColUpline >= 1 && typeColUpline < cells.length - 1 && looksLikeNumber(cells[typeColUpline + 1])) {
                         parent = typeColUpline === 1 ? (cells[0] || '') : cells.slice(1, typeColUpline).join(' ').trim();
                         type = cells[typeColUpline] || '';
                         numbers = cells.slice(typeColUpline + 1);
+                        if (lastUplineParent && typeColUpline === 1) {
+                            uplineCol2Override = (cells[0] || '').trim();
+                            parent = lastUplineParent;
+                            lastUplineParent = '';
+                        }
                     } else if ((col1 === 'major') && cells.length >= 3 && looksLikeNumber(cells[2])) {
                         parent = cells[0] || '';
                         type = cells[1] || '';
@@ -7817,7 +7823,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         type = cells[2] || '';
                         numbers = cells.slice(3);
                     }
-                    // 若上一行是「Lvl + 完整用户名」（如 MA raymond），当前行是「缩写 + Major + 数据」（如 ray Major ...），第一列用完整名、第二列保留粘贴的原始字（ray）
+                    // 若上一行是「Lvl + 完整用户名」（如 MA raymond）或「Lvl + 父ID」（如 PL m35002），当前行是「子Code + Major + 数据」（如 Motor2 Major ...），第一列用父ID、第二列用子Code
                     const originalParentFromLine = parent;
                     if (lastUplineParent && (lastUplineParent === parent || lastUplineParent.toLowerCase().startsWith(parent.toLowerCase()))) {
                         parent = lastUplineParent;
@@ -7825,7 +7831,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                     if (!parent && !type) return;
                     const displayParent = deriveManagerIdFromCode(parent);
-                    const col2Value = (parent !== originalParentFromLine) ? originalParentFromLine : parent;
+                    const col2Value = uplineCol2Override !== null ? uplineCol2Override : ((parent !== originalParentFromLine) ? originalParentFromLine : parent);
                     const row = [displayParent, col2Value, type, ...numbers.slice(0, 8)];
                     pushRow(row);
                     return;
