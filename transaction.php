@@ -3273,6 +3273,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         
         // ==================== 打开历史记录弹窗 ====================
         function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
+            const aid = parseInt(accountId, 10);
+            if (!aid || aid <= 0) {
+                showNotification('Invalid account for history', 'error');
+                return;
+            }
             const dateFrom = document.getElementById('date_from').value;
             const dateTo = document.getElementById('date_to').value;
             
@@ -3281,8 +3286,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 return;
             }
             
-            // 构建 URL，优先使用该行的 currency，否则使用选中的 currency
-            let url = `transaction_history_api.php?account_id=${accountId}&date_from=${dateFrom}&date_to=${dateTo}`;
+            // 构建 URL，仅请求当前行的账户数据（使用数字 id，避免关联账户混入）
+            let url = `transaction_history_api.php?account_id=${aid}&date_from=${dateFrom}&date_to=${dateTo}`;
             // 优先使用该行的 currency
             if (rowCurrency) {
                 url += `&currency=${rowCurrency}`;
@@ -3309,10 +3314,12 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                 .then(data => {
                     if (data.success) {
                         console.log('✅ 历史记录加载成功:', data.data);
-                        
-                        // 设置标题
+                        // 标题使用 API 返回的账户信息，确保与表格数据一致（避免单向连接时显示错误账户）
+                        const acc = data.data && data.data.account;
+                        const titleCode = acc ? (acc.account_id || accountCode) : accountCode;
+                        const titleName = acc ? (acc.name || accountName) : accountName;
                         document.getElementById('modal_title').textContent = 
-                            `Payment History - ${accountCode} (${accountName})`;
+                            `Payment History - ${titleCode} (${titleName})`;
                         
                         // 填充表格
                         const tbody = document.getElementById('modal_tbody');

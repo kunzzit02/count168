@@ -1204,7 +1204,7 @@ $today = date('d/m/Y');
                         .then(text => parseJsonResponse(text))
                         .then(data => {
                             if (!data.success) throw new Error(data.error || 'Switch failed');
-                            memberConfig.accountId = data.account_id;
+                            memberConfig.accountId = Number(data.account_id) || data.account_id;
                             memberConfig.accountCode = data.account_code || code;
                             memberConfig.accountName = data.account_name || name;
                             container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
@@ -1545,7 +1545,7 @@ $today = date('d/m/Y');
                     return;
                 }
                 const paramsFallback = new URLSearchParams({
-                    account_id: memberConfig.accountId,
+                    account_id: Number(memberConfig.accountId),
                     date_from: dateFrom,
                     date_to: dateTo,
                     company_id: memberConfig.companyId
@@ -1588,7 +1588,7 @@ $today = date('d/m/Y');
 
             const requests = targetCurrencies.map(code => {
                 const params = new URLSearchParams({
-                    account_id: memberConfig.accountId,
+                    account_id: Number(memberConfig.accountId),
                     date_from: dateFrom,
                     date_to: dateTo,
                     company_id: memberConfig.companyId

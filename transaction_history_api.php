@@ -148,6 +148,10 @@ try {
     if (!$account) {
         throw new Exception('账户不存在或不属于当前公司');
     }
+    // 强制校验：返回的账户必须与请求的 account_id 一致，避免单向/双向连接时误显示其他账户数据
+    if ((int)$account['id'] !== (int)$account_id) {
+        throw new Exception('账户校验失败');
+    }
     
     // 仅使用当前请求的账户：Win/Loss 与 Payment History 只显示该账户自身数据，不聚合关联账户
     $account_ids = [$account_id];
