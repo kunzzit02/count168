@@ -226,8 +226,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         <span>Data Capture Table</span>
                         <!-- Data Capture Type Selector -->
                         <select id="dataCaptureTypeSelector" class="data-capture-type-selector">
-                            <option value="1.Text">1.Text</option>
-                            <option value="2.Format">2.Format</option>
+                            <option value="1.Text">1.TEXT</option>
+                            <option value="2.Format">2.FORMAT</option>
                             <!-- <option value="3.API">API</option> -->
                             <option value="CITIBET_MAJOR">3.CITIBET</option>
                             <option value="4.RETURN">4.RETURN</option>
