@@ -1036,7 +1036,8 @@ $today = date('d/m/Y');
             setupFormListeners();
             setupCompanyButtons();
             loadMemberLinkedAccounts();
-            setTimeout(performMemberSearch, 150);
+            // 立即发起数据请求，不等待 150ms，缩短首屏加载时间
+            performMemberSearch();
         });
 
         function performMemberSearch() {
@@ -1586,36 +1587,55 @@ $today = date('d/m/Y');
                 return;
             }
 
-            const requests = targetCurrencies.map(code => {
-                const params = new URLSearchParams({
-                    account_id: Number(memberConfig.accountId),
-                    date_from: dateFrom,
-                    date_to: dateTo,
-                    company_id: memberConfig.companyId
-                });
-                if (code) {
-                    params.append('currency', code);
-                }
-                const url = `transaction_history_api.php?${params.toString()}&_t=${Date.now()}`;
-                return fetch(url, { cache: 'no-cache' })
-                    .then(res => res.text())
-                    .then(text => parseJsonResponse(text))
-                    .then(data => {
-                        if (!data.success) {
-                            throw new Error(data.error || 'Query failed');
-                        }
-                        return data.data?.history || [];
-                    });
+            // 多币别时只请求一次 history（不传 currency），在前端按 currency 分组，减少请求数
+            const singleRequest = targetCurrencies.length > 1;
+            const params = new URLSearchParams({
+                account_id: Number(memberConfig.accountId),
+                date_from: dateFrom,
+                date_to: dateTo,
+                company_id: memberConfig.companyId
             });
+            if (singleRequest) {
+                // 一次请求取全部，不传 currency
+            } else if (targetCurrencies[0]) {
+                params.append('currency', targetCurrencies[0]);
+            }
+            const url = `transaction_history_api.php?${params.toString()}&_t=${Date.now()}`;
 
-            Promise.all(requests)
-                .then(results => {
-                    const grouped = {};
-                    targetCurrencies.forEach((code, index) => {
-                        const key = code || '-';
-                        grouped[key] = results[index] || [];
-                    });
-                    renderHistoryTable({ grouped, order: targetCurrencies });
+            fetch(url, { cache: 'no-cache' })
+                .then(res => res.text())
+                .then(text => parseJsonResponse(text))
+                .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.error || 'Query failed');
+                    }
+                    const history = data.data?.history || [];
+                    if (singleRequest) {
+                        const grouped = {};
+                        const order = [];
+                        history.forEach(row => {
+                            const c = (row.currency || '-').trim();
+                            if (!grouped[c]) {
+                                grouped[c] = [];
+                                order.push(c);
+                            }
+                            grouped[c].push(row);
+                        });
+                        // 按 targetCurrencies 顺序排列，未出现的币别放最后
+                        const orderSet = new Set(order);
+                        targetCurrencies.forEach(code => {
+                            if (orderSet.has(code)) orderSet.delete(code);
+                        });
+                        const finalOrder = targetCurrencies.filter(c => (grouped[c] && grouped[c].length));
+                        order.forEach(c => { if (finalOrder.indexOf(c) === -1) finalOrder.push(c); });
+                        renderHistoryTable({ grouped, order: finalOrder.length ? finalOrder : order });
+                    } else {
+                        const grouped = {};
+                        targetCurrencies.forEach(code => {
+                            grouped[code || '-'] = history;
+                        });
+                        renderHistoryTable({ grouped, order: targetCurrencies });
+                    }
                 })
                 .catch(err => {
                     console.error('History fetch failed:', err);
