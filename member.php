@@ -888,8 +888,8 @@ $today = date('d/m/Y');
         }
 
         .member-winloss-table .transaction-history-col-remark {
-            width: 20%;
-            min-width: 150px;
+            width: 10%;
+            min-width: 90px;
         }
 
         .text-uppercase {
