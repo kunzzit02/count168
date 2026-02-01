@@ -876,8 +876,8 @@ $today = date('d/m/Y');
         .member-winloss-table .transaction-history-col-winloss,
         .member-winloss-table .transaction-history-col-crdr,
         .member-winloss-table .transaction-history-col-balance {
-            width: 12%;
-            min-width: 140px;
+            width: 8%;
+            min-width: 90px;
             text-align: right;
         }
 
