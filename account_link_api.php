@@ -468,11 +468,11 @@ function getLinkedAccounts($pdo, $account_id, $company_id) {
         $stmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // 将未访问的关联账户加入队列（只处理双向连接，单向连接不继续传播）
+        // 将关联账户计入可见列表（单向、双向都计入）；仅双向连接加入队列继续传播
         foreach ($linked_data as $row) {
             $linked_id = $row['linked_id'];
             if (!isset($visited[$linked_id])) {
-                // 只有双向连接才继续传播
+                $visited[$linked_id] = true;
                 if ($row['link_type'] === 'bidirectional') {
                     $queue[] = $linked_id;
                 }
@@ -536,11 +536,11 @@ function getLinkedAccountsForMember($pdo, $account_id, $company_id) {
         $stmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // 将未访问的关联账户加入队列（只处理双向连接，单向连接不继续传播）
+        // 将关联账户计入可见列表（单向、双向都计入）；仅双向连接加入队列继续传播
         foreach ($linked_data as $row) {
             $linked_id = $row['linked_id'];
             if (!isset($visited[$linked_id])) {
-                // 只有双向连接才继续传播
+                $visited[$linked_id] = true;
                 if ($row['link_type'] === 'bidirectional') {
                     $queue[] = $linked_id;
                 }
