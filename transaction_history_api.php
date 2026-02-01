@@ -149,23 +149,10 @@ try {
         throw new Exception('账户不存在或不属于当前公司');
     }
     
-    // 获取聚合账户列表：当前账户 + 关联账户（按 Bidirectional/Unidirectional 可见性）
+    // 仅使用当前请求的账户：Win/Loss 与 Payment History 只显示该账户自身数据，不聚合关联账户
     $account_ids = [$account_id];
-    try {
-        $has_account_link = $pdo->query("SHOW TABLES LIKE 'account_link'")->rowCount() > 0;
-        if ($has_account_link) {
-            require_once __DIR__ . '/account_link_api.php';
-            $linked = getLinkedAccountsForMember($pdo, $account_id, $company_id);
-            if (!empty($linked)) {
-                $account_ids = array_values(array_unique(array_merge([$account_id], array_column($linked, 'id'))));
-            }
-        }
-    } catch (Throwable $e) {
-        // account_link 不存在或出错时仅使用当前账户
-        $account_ids = [$account_id];
-    }
     
-    // 1. 计算 B/F (Opening Balance)（聚合所有可见关联账户）
+    // 1. 计算 B/F (Opening Balance)（仅当前账户）
     // 如果指定了 currency，按 currency 计算
     // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的 currency
     $bfCurrency = null;

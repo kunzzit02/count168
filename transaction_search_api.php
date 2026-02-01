@@ -75,21 +75,22 @@ $show_inactive = isset($_GET['show_inactive']) && $_GET['show_inactive'] === '1'
 $show_capture_only = isset($_GET['show_capture_only']) && $_GET['show_capture_only'] === '1';
 $hide_zero_balance = isset($_GET['hide_zero_balance']) && $_GET['hide_zero_balance'] === '1';
 
-// 解析目标账户（用于 member 或精确过滤）
+// 解析目标账户：优先使用请求中的 target_account_id（保证 member 切换账户后显示所选账户数据），否则 member 用 session
 $target_account_ids = [];
 $isMemberUser = isset($_SESSION['user_type']) && strtolower($_SESSION['user_type']) === 'member';
-if ($isMemberUser) {
-    $memberAccountId = (int)($_SESSION['user_id'] ?? 0);
-    if ($memberAccountId > 0) {
-        $target_account_ids = [$memberAccountId];
-    }
-} elseif (isset($_GET['target_account_id']) && $_GET['target_account_id'] !== '') {
+if (isset($_GET['target_account_id']) && $_GET['target_account_id'] !== '') {
     $rawIds = explode(',', $_GET['target_account_id']);
     foreach ($rawIds as $rawId) {
         $accountId = (int)trim($rawId);
         if ($accountId > 0 && !in_array($accountId, $target_account_ids, true)) {
             $target_account_ids[] = $accountId;
         }
+    }
+}
+if (empty($target_account_ids) && $isMemberUser) {
+    $memberAccountId = (int)($_SESSION['user_id'] ?? 0);
+    if ($memberAccountId > 0) {
+        $target_account_ids = [$memberAccountId];
     }
 }
     $currency_filters = [];
