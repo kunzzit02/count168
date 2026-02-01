@@ -921,7 +921,8 @@ $today = date('d/m/Y');
                 </div>
                 <?php
                 try {
-                    if (!empty($memberCompanies) && is_array($memberCompanies)):
+                    // 仅在有 2 个及以上公司时显示 Company 选项；0/1 个时隐藏
+                    if (!empty($memberCompanies) && is_array($memberCompanies) && count($memberCompanies) > 1):
                         $currentCompanyIdSafe = (int)($currentCompanyId ?? 0);
                 ?>
                 <div class="member-company-filter" id="member_company_filter" style="display:flex;visibility:visible;">
