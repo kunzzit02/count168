@@ -949,12 +949,13 @@ $today = date('d/m/Y');
                 </div>
                 <?php else: ?>
                 <?php
-                    // 仅在 0 个公司且存在调试信息时显示 debug；有 1 家公司时只隐藏 Company 选项，不显示 debug
-                    $showDebug = empty($memberCompanies) && isset($debugInfo) && is_array($debugInfo) && !empty($debugInfo);
+                    // 0 个公司时显示 debug；或有数据完整性警告（missing_company_ids/error/exception）时也显示，不因“仅 1 个公司”而隐藏
+                    $hasIntegrityWarnings = !empty($debugInfo['missing_company_ids']) || !empty($debugInfo['error']) || !empty($debugInfo['exception']);
+                    $showDebug = isset($debugInfo) && is_array($debugInfo) && ((empty($memberCompanies) && !empty($debugInfo)) || $hasIntegrityWarnings);
                 ?>
                 <?php if ($showDebug): ?>
                 <div class="member-alert member-alert-error" style="display: block; margin-top: 12px;">
-                    <strong>Debug Info:</strong> No associated companies found.
+                    <strong>Debug Info:</strong> <?php echo empty($memberCompanies) ? 'No associated companies found.' : 'Company data integrity warning.'; ?>
                     <br>User ID: <?php echo htmlspecialchars($debugInfo['user_id'] ?? 'N/A'); ?>,
                     User Type: <?php echo htmlspecialchars($debugInfo['user_type'] ?? 'N/A'); ?>,
                     Account Company Records: <?php echo htmlspecialchars($debugInfo['account_company_count'] ?? '0'); ?>
