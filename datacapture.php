@@ -10207,7 +10207,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 getClipboardData('Text') ||
                 '';
             
-            // ========== 2.655 专用分支：与 1.GENERAL 完全分开，保留 2.655 现有功能 ==========
+            // ========== 2.655 专用分支：与 1.GENERAL 完全分开；不管粘贴多少次，效果与第一次一致 ==========
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
                 let htmlToUse = getClipboardData('text/html') || '';
                 if (htmlToUse && /<table\b/i.test(htmlToUse)) {
@@ -10219,6 +10219,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         is655GridReady = true;
                         toggleTableDisplayFor655();
                     }
+                    e.stopPropagation();
                     return;
                 }
                 if (pastedData && pastedData.includes('\t')) {
@@ -10229,6 +10230,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         is655GridReady = true;
                         toggleTableDisplayFor655();
                     }
+                    e.stopPropagation();
                     return;
                 }
                 if (pastedData && /<table\b/i.test(pastedData)) {
@@ -10240,8 +10242,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         is655GridReady = true;
                         toggleTableDisplayFor655();
                     }
+                    e.stopPropagation();
                     return;
                 }
+                e.stopPropagation();
                 return;
             }
             
