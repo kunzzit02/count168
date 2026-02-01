@@ -10207,7 +10207,45 @@ if ($current_user_id && count($user_companies) > 0) {
                 getClipboardData('Text') ||
                 '';
             
-            // 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换
+            // ========== 2.655 专用分支：与 1.GENERAL 完全分开，保留 2.655 现有功能 ==========
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
+                let htmlToUse = getClipboardData('text/html') || '';
+                if (htmlToUse && /<table\b/i.test(htmlToUse)) {
+                    const sanitized = sanitizePastedHTML(htmlToUse);
+                    const previewFragment = build655PreviewFragmentFromClipboardHtml(htmlToUse);
+                    if (previewFragment) render655Preview(previewFragment);
+                    const filled = parseAndFillHTMLTableForGeneral655(sanitized || htmlToUse);
+                    if (filled) {
+                        is655GridReady = true;
+                        toggleTableDisplayFor655();
+                    }
+                    return;
+                }
+                if (pastedData && pastedData.includes('\t')) {
+                    const tableHtml = tsvToHtmlTable(pastedData);
+                    render655Preview(tableHtml);
+                    const filled = parseAndFillHTMLTableForGeneral655(tableHtml);
+                    if (filled) {
+                        is655GridReady = true;
+                        toggleTableDisplayFor655();
+                    }
+                    return;
+                }
+                if (pastedData && /<table\b/i.test(pastedData)) {
+                    const sanitized = sanitizePastedHTML(pastedData);
+                    const previewFragment = build655PreviewFragmentFromClipboardHtml(pastedData);
+                    if (previewFragment) render655Preview(previewFragment);
+                    const filled = parseAndFillHTMLTableForGeneral655(sanitized || pastedData);
+                    if (filled) {
+                        is655GridReady = true;
+                        toggleTableDisplayFor655();
+                    }
+                    return;
+                }
+                return;
+            }
+            
+            // ========== 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换 ==========
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.GENERAL') {
                 console.log('1.GENERAL mode detected, preserving Excel format...');
                 
