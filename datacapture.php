@@ -228,10 +228,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         <select id="dataCaptureTypeSelector" class="data-capture-type-selector">
                             <option value="1.Text">1.Text</option>
                             <option value="2.Format">2.Format</option>
-                            <!-- <option value="3.API">3.API</option> -->
-                            <option value="4.RETURN">3.RETURN</option>
+                            <!-- <option value="3.API">API</option> -->
+                            <option value="CITIBET_MAJOR">3.CITIBET</option>
+                            <option value="4.RETURN">4.RETURN</option>
                             <!-- <option value="GENERAL">GENERAL</option> -->
-                            <option value="CITIBET_MAJOR">CITIBET</option>
                             <!-- <option value="VPOWER">VPOWER</option> -->
                             <!-- <option value="API_RETURN">API-RETURN</option> -->
                             <!-- <option value="WBET">WBET</option> -->
