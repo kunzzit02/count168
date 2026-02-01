@@ -10218,6 +10218,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (filled) {
                         is655GridReady = true;
                         toggleTableDisplayFor655();
+                        setTimeout(updateSubmitButtonState, 0);
                     }
                     e.stopPropagation();
                     return;
@@ -10229,6 +10230,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (filled) {
                         is655GridReady = true;
                         toggleTableDisplayFor655();
+                        setTimeout(updateSubmitButtonState, 0);
                     }
                     e.stopPropagation();
                     return;
@@ -10241,11 +10243,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (filled) {
                         is655GridReady = true;
                         toggleTableDisplayFor655();
+                        setTimeout(updateSubmitButtonState, 0);
                     }
                     e.stopPropagation();
                     return;
                 }
-                e.stopPropagation();
+                // 未识别为表格粘贴时不阻止冒泡，让 tableBody 等父级监听器照常运行（如 updateSubmitButtonState）
                 return;
             }
             
