@@ -1120,6 +1120,8 @@ $today = date('d/m/Y');
             if (!accountId || !companyId) {
                 if (loadingEl) loadingEl.style.display = 'none';
                 container.innerHTML = '<span class="member-account-loading">-</span>';
+                const filterEl = document.getElementById('member_account_filter');
+                if (filterEl) filterEl.style.display = 'none';
                 return;
             }
             fetch(`account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
@@ -1134,11 +1136,21 @@ $today = date('d/m/Y');
                     }
                     if (!data.success || !Array.isArray(data.data)) {
                         container.innerHTML = '<span class="member-account-loading">-</span>';
+                        const filterEl = document.getElementById('member_account_filter');
+                        if (filterEl) filterEl.style.display = 'none';
                         return;
                     }
                     const list = data.data;
+                    const filterEl = document.getElementById('member_account_filter');
+                    if (list.length <= 1) {
+                        if (filterEl) filterEl.style.display = 'none';
+                        container.innerHTML = '';
+                        if (loadingEl) loadingEl.style.display = 'none';
+                        return;
+                    }
                     container.innerHTML = '';
                     if (loadingEl) loadingEl.style.display = 'none';
+                    if (filterEl) filterEl.style.display = 'flex';
                     list.forEach(acc => {
                         const id = acc.id;
                         const code = (acc.account_id || acc.name || String(id)).trim();
@@ -1159,6 +1171,8 @@ $today = date('d/m/Y');
                     console.error('Failed to load linked accounts:', err);
                     if (loadingEl) loadingEl.style.display = 'none';
                     container.innerHTML = '<span class="member-account-loading">-</span>';
+                    const filterEl = document.getElementById('member_account_filter');
+                    if (filterEl) filterEl.style.display = 'none';
                 });
         }
 
