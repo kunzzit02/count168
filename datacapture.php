@@ -2460,7 +2460,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 // Create simulated paste event
                 const mockEvent = {
                     preventDefault: () => {},
-                    stopPropagation: () => {},
                     clipboardData: {
                         getData: () => text
                     },
@@ -4543,12 +4542,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                         targetHeader.style.cssText = '';
                                     }
                                 } else {
-                                    // 即使没有style属性，也尝试从computed style获取样式（含蓝字/下划线等网页样式）
+                                    // 即使没有style属性，也尝试从computed style获取样式
                                     const bgColor = sourceCellComputedStyle.backgroundColor;
                                     const color = sourceCellComputedStyle.color;
                                     const fontWeight = sourceCellComputedStyle.fontWeight;
                                     const textAlign = sourceCellComputedStyle.textAlign;
-                                    const textDecoration = sourceCellComputedStyle.textDecoration;
+                                    
                                     let styleString = '';
                                     if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
                                         styleString += ` background-color: ${bgColor} !important;`;
@@ -4561,9 +4560,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                     if (textAlign && textAlign !== 'left') {
                                         styleString += ` text-align: ${textAlign} !important;`;
-                                    }
-                                    if (textDecoration && textDecoration !== 'none' && textDecoration !== 'none solid rgb(0, 0, 0)') {
-                                        styleString += ` text-decoration: ${textDecoration} !important;`;
                                     }
                                     if (styleString) {
                                         targetHeader.setAttribute('style', styleString);
@@ -4715,31 +4711,24 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     
-                    // 若本行已因 Sub Total/Grand Total 或重复段被标记为需拆分，对尚未拆分的单元格仅当「两段相同」时按长度一半拆（如 191191、53,627.0053,627.00），避免误拆普通数字（如 -631.84、1,068.50）导致错位/重复
+                    // 若本行已因 Sub Total/Grand Total 或重复段被标记为需拆分，对尚未拆分的单元格按“长度一半”拆（如 53,627.0053,627.00）
                     if (hasVerticalSplit && cellsWithSplit.length > 0) {
                         sourceCells.forEach((sourceCell, cellIndex) => {
                             if (cellsWithSplit.some(s => s.index === cellIndex)) return;
                             let cellText = (sourceCell.textContent || sourceCell.innerText || '').trim();
                             if (cellText.length < 4) return;
-                            // 单个数字/金额不拆（避免 -631.84、1,068.50 被拆成两行）
-                            if (/^-?[\d,]+\.?\d*$/.test(cellText)) return;
                             const half = Math.floor(cellText.length / 2);
                             const first = cellText.substring(0, half).trim();
                             const second = cellText.substring(half).trim();
-                            if (first === '' || second === '') return;
-                            // 仅当两段完全相同或均为数字且数值相等时才拆，避免误拆
-                            if (first !== second) {
-                                const n1 = parseFloat(first.replace(/,/g, ''));
-                                const n2 = parseFloat(second.replace(/,/g, ''));
-                                if (!(Number.isFinite(n1) && Number.isFinite(n2) && n1 === n2)) return;
+                            if (first !== '' && second !== '') {
+                                cellsWithSplit.push({
+                                    index: cellIndex,
+                                    cell: sourceCell,
+                                    topData: first,
+                                    bottomData: second,
+                                    allLines: [first, second]
+                                });
                             }
-                            cellsWithSplit.push({
-                                index: cellIndex,
-                                cell: sourceCell,
-                                topData: first,
-                                bottomData: second,
-                                allLines: [first, second]
-                            });
                         });
                     }
                     
@@ -4848,12 +4837,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const color = sourceCellComputedStyle.color;
                                         const fontWeight = sourceCellComputedStyle.fontWeight;
                                         const textAlign = sourceCellComputedStyle.textAlign;
-                                        const textDecoration = sourceCellComputedStyle.textDecoration;
                                         let styleString = 'border: 1px solid #d0d7de !important;';
                                         if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
                                         if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
                                         if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
-                                        if (textDecoration && textDecoration !== 'none' && textDecoration !== 'none solid rgb(0, 0, 0)') styleString += ` text-decoration: ${textDecoration} !important;`;
                                         targetCell.setAttribute('style', styleString);
                                         targetCell.style.cssText = styleString;
                                     } else {
@@ -4894,12 +4881,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const color = sourceCellComputedStyle.color;
                                         const fontWeight = sourceCellComputedStyle.fontWeight;
                                         const textAlign = sourceCellComputedStyle.textAlign;
-                                        const textDecoration = sourceCellComputedStyle.textDecoration;
                                         let styleString = 'border: 1px solid #d0d7de !important;';
                                         if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
                                         if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
                                         if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
-                                        if (textDecoration && textDecoration !== 'none' && textDecoration !== 'none solid rgb(0, 0, 0)') styleString += ` text-decoration: ${textDecoration} !important;`;
                                         targetCell.setAttribute('style', styleString);
                                         targetCell.style.cssText = styleString;
                                     } else {
@@ -5021,12 +5006,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const color = sourceCellComputedStyle.color;
                                     const fontWeight = sourceCellComputedStyle.fontWeight;
                                     const textAlign = sourceCellComputedStyle.textAlign;
-                                    const textDecoration = sourceCellComputedStyle.textDecoration;
                                     let styleString = 'border: 1px solid #d0d7de !important;';
                                     if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
                                     if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
                                     if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
-                                    if (textDecoration && textDecoration !== 'none' && textDecoration !== 'none solid rgb(0, 0, 0)') styleString += ` text-decoration: ${textDecoration} !important;`;
                                     targetCell.setAttribute('style', styleString);
                                     targetCell.style.cssText = styleString;
                                 }
@@ -10188,13 +10171,13 @@ if ($current_user_id && count($user_companies) > 0) {
             // 在编辑模式（typing mode）下，不允许粘贴
             const hasFocus = document.activeElement === cell;
             if (hasFocus) {
-                if (e && typeof e.preventDefault === 'function') e.preventDefault();
-                if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+                e.preventDefault();
+                e.stopPropagation();
                 console.log('Paste blocked: cell is in typing mode');
                 return;
             }
             
-            if (e && typeof e.preventDefault === 'function') e.preventDefault();
+            e.preventDefault();
             console.log('Paste event triggered');
             
             // 先拿到纯文本内容，用来判断是不是 Payment Report
@@ -10215,52 +10198,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 getClipboardData('Text') ||
                 '';
             
-            // ========== 2.655 专用分支：与 1.GENERAL 完全分开；不管粘贴多少次，效果与第一次一致 ==========
-            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
-                let htmlToUse = getClipboardData('text/html') || '';
-                if (htmlToUse && /<table\b/i.test(htmlToUse)) {
-                    const sanitized = sanitizePastedHTML(htmlToUse);
-                    const previewFragment = build655PreviewFragmentFromClipboardHtml(htmlToUse);
-                    if (previewFragment) render655Preview(previewFragment);
-                    const filled = parseAndFillHTMLTableForGeneral655(sanitized || htmlToUse);
-                    if (filled) {
-                        is655GridReady = true;
-                        toggleTableDisplayFor655();
-                        setTimeout(updateSubmitButtonState, 0);
-                    }
-                    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-                    return;
-                }
-                if (pastedData && pastedData.includes('\t')) {
-                    const tableHtml = tsvToHtmlTable(pastedData);
-                    render655Preview(tableHtml);
-                    const filled = parseAndFillHTMLTableForGeneral655(tableHtml);
-                    if (filled) {
-                        is655GridReady = true;
-                        toggleTableDisplayFor655();
-                        setTimeout(updateSubmitButtonState, 0);
-                    }
-                    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-                    return;
-                }
-                if (pastedData && /<table\b/i.test(pastedData)) {
-                    const sanitized = sanitizePastedHTML(pastedData);
-                    const previewFragment = build655PreviewFragmentFromClipboardHtml(pastedData);
-                    if (previewFragment) render655Preview(previewFragment);
-                    const filled = parseAndFillHTMLTableForGeneral655(sanitized || pastedData);
-                    if (filled) {
-                        is655GridReady = true;
-                        toggleTableDisplayFor655();
-                        setTimeout(updateSubmitButtonState, 0);
-                    }
-                    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-                    return;
-                }
-                // 未识别为表格粘贴时不阻止冒泡，让 tableBody 等父级监听器照常运行（如 updateSubmitButtonState）
-                return;
-            }
-            
-            // ========== 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换 ==========
+            // 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.GENERAL') {
                 console.log('1.GENERAL mode detected, preserving Excel format...');
                 
@@ -24423,7 +24361,8 @@ if ($current_user_id && count($user_companies) > 0) {
         function render655Preview(tableHtml) {
             const frame = document.getElementById('tablePreviewFrame655');
             if (!frame) {
-                return; // 655 表格视图时 iframe 可能被隐藏或未挂载，静默返回
+                console.error('655: tablePreviewFrame655 not found');
+                return;
             }
 
             const safeTable = tableHtml ? String(tableHtml) : '';
@@ -24494,31 +24433,19 @@ if ($current_user_id && count($user_companies) > 0) {
             if (isEditableFormField(target)) return;
 
             const clipboard = (e.clipboardData || window.clipboardData);
-            if (!clipboard) return;
-            // 655：单行 TSV（仅有 \t 无换行）也视为表格，始终走网上模式
-            let tableLike = clipboardLooksLikeTable(clipboard);
-            if (!tableLike) {
-                try {
-                    const t = clipboard.getData('text/plain') || '';
-                    if (t && t.includes('\t')) tableLike = true;
-                } catch (_) {}
-            }
-            if (!tableLike) return;
+            if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
 
             // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
             e.preventDefault();
             e.stopPropagation();
 
+            // 确保容器可见并接收内容
             const dataTable = document.getElementById('dataTable');
-            const pastedInCell = target.closest && target.closest('#dataTable');
-            // 第二次及以后粘贴（焦点在表格格内）：只填表、不切换回粘贴区，避免变成 Excel 格式
-            if (!pastedInCell) {
-                if (dataTable) dataTable.style.display = 'none';
-                pasteArea655.style.display = 'block';
-                placeCaretAtEnd(pasteArea655);
-            }
+            if (dataTable) dataTable.style.display = 'none';
+            pasteArea655.style.display = 'block';
+            placeCaretAtEnd(pasteArea655);
 
-            // 取出剪贴板内容并填充（网上模式，保留蓝/红/粗体/下划线）
+            // 取出剪贴板内容并插入到容器里（显示效果在容器内）
             let html = '';
             try {
                 html = clipboard.getData('text/html') || '';
@@ -24554,9 +24481,8 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         });
 
-        // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴；655 由上一段全局监听统一处理，不走 handleCellPaste
+        // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴
         document.addEventListener('paste', function(e) {
-            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') return;
             const target = e.target;
             if (target && target.contentEditable === 'true' && target.closest('#dataTable')) {
                 console.log('Global paste event triggered on table cell');
