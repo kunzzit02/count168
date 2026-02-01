@@ -356,17 +356,17 @@ function getAllLinkedAccountsForDisplayWithType($pdo, $account_id, $company_id) 
     if ($has_link_type) {
         // 查询所有与当前账户关联的账户（考虑连接类型和方向）
         // 双向连接：两个方向都可以
-        // 单向连接：只有 source_account_id = account_id 的连接才可见（当前账户是发起者）；source_account_id 为 NULL 时兼容视为可见
+        // 单向连接：仅发起者可见（source_account_id = 当前账户）；source_account_id 为 NULL 时无发起者，不展示以保持访问控制
         $stmt = $pdo->prepare("
             SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_1 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id IS NULL)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
             UNION
             SELECT account_id_1 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_2 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id IS NULL)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
         ");
         $stmt->execute([$account_id, $company_id, $account_id, $account_id, $company_id, $account_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -454,17 +454,17 @@ function getLinkedAccounts($pdo, $account_id, $company_id) {
         
         // 查找与当前账户直接关联的所有账户（考虑连接类型）
         // 双向连接：两个方向都可以
-        // 单向连接：只有 source_account_id = current_id 的连接才可见；source_account_id 为 NULL 时兼容视为可见
+        // 单向连接：仅发起者可见（source_account_id = current_id）；source_account_id 为 NULL 时无发起者，不展示
         $stmt = $pdo->prepare("
             SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_1 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id IS NULL)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
             UNION
             SELECT account_id_1 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_2 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id IS NULL)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
         ");
         $stmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -523,17 +523,17 @@ function getLinkedAccountsForMember($pdo, $account_id, $company_id) {
         
         // 查找与当前账户直接关联的所有账户（考虑连接类型）
         // 双向连接：两个方向都可以
-        // 单向连接：只有 source_account_id = current_id 的连接才可见（当前账户是发起者）；source_account_id 为 NULL 时兼容视为可见
+        // 单向连接：仅发起者可见（source_account_id = current_id）；source_account_id 为 NULL 时无发起者，不展示
         $stmt = $pdo->prepare("
             SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_1 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id IS NULL)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
             UNION
             SELECT account_id_1 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_2 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id IS NULL)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
         ");
         $stmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
