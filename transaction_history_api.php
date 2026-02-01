@@ -501,70 +501,70 @@ try {
         ];
     }
     
+    $account_ids_int = array_map('intval', $account_ids);
     foreach ($transactions as $t) {
-        $is_to_account = in_array((int)$t['account_id'], array_map('intval', $account_ids));
+        $is_to_account = in_array((int)$t['account_id'], $account_ids_int);
+        $is_from_account = in_array((int)($t['from_account_id'] ?? 0), $account_ids_int);
         $win_loss = 0;
         $cr_dr = 0;
         $approvalStatus = $has_approval_status ? ($t['approval_status'] ?? null) : null;
+        // 关联账户间内部转账：to 和 from 都在聚合列表内时，对聚合视图 Cr/Dr 为 0
+        $is_internal_transfer = $is_to_account && $is_from_account;
         
         // 根据交易类型计算 Win/Loss 和 Cr/Dr
         // Win/Loss 只包含 Data Capture，WIN/LOSE 交易移到 Cr/Dr
         switch ($t['transaction_type']) {
             case 'WIN':
-                if ($is_to_account) {
-                    // WIN 类型移到 Cr/Dr
+                if (!$is_internal_transfer && $is_to_account) {
                     $cr_dr = $t['amount'];
                 }
                 break;
                 
             case 'LOSE':
-                if ($is_to_account) {
-                    // LOSE 类型移到 Cr/Dr
+                if (!$is_internal_transfer && $is_to_account) {
                     $cr_dr = -$t['amount'];
                 }
                 break;
                 
             case 'RECEIVE':
-                if ($is_to_account) {
-                    // 作为接收方，Cr/Dr 增加
+                if ($is_internal_transfer) {
+                    $cr_dr = 0;
+                } elseif ($is_to_account) {
                     $cr_dr = $t['amount'];
                 } else {
-                    // 作为发送方，Cr/Dr 减少
                     $cr_dr = -$t['amount'];
                 }
                 break;
                 
             case 'CLAIM':
-                // CLAIM 算法与 RECEIVE 相同
-                if ($is_to_account) {
-                    // 作为接收方，Cr/Dr 增加
+                if ($is_internal_transfer) {
+                    $cr_dr = 0;
+                } elseif ($is_to_account) {
                     $cr_dr = $t['amount'];
                 } else {
-                    // 作为发送方，Cr/Dr 减少
                     $cr_dr = -$t['amount'];
                 }
                 break;
                 
             case 'PAYMENT':
-                if ($is_to_account) {
-                    // 收款方，Cr/Dr 增加
+                if ($is_internal_transfer) {
+                    $cr_dr = 0;
+                } elseif ($is_to_account) {
                     $cr_dr = $t['amount'];
                 } else {
-                    // 付款方，Cr/Dr 减少
                     $cr_dr = -$t['amount'];
                 }
                 break;
                 
             case 'CONTRA':
-                // 未批准的 CONTRA：显示在历史里，但不影响余额
                 if ($approvalStatus && strtoupper((string)$approvalStatus) === 'PENDING') {
                     $cr_dr = 0;
                 } else {
-                    if ($is_to_account) {
-                        // 作为接收方，Cr/Dr 增加
+                    if ($is_internal_transfer) {
+                        $cr_dr = 0;
+                    } elseif ($is_to_account) {
                         $cr_dr = $t['amount'];
                     } else {
-                        // 作为发送方，Cr/Dr 减少
                         $cr_dr = -$t['amount'];
                     }
                 }
