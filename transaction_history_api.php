@@ -149,41 +149,64 @@ try {
         throw new Exception('账户不存在或不属于当前公司');
     }
     
-    // 1. 计算 B/F (Opening Balance)
+    // 获取聚合账户列表：当前账户 + 关联账户（按 Bidirectional/Unidirectional 可见性）
+    $account_ids = [$account_id];
+    try {
+        $has_account_link = $pdo->query("SHOW TABLES LIKE 'account_link'")->rowCount() > 0;
+        if ($has_account_link) {
+            require_once __DIR__ . '/account_link_api.php';
+            $linked = getLinkedAccountsForMember($pdo, $account_id, $company_id);
+            if (!empty($linked)) {
+                $account_ids = array_values(array_unique(array_merge([$account_id], array_column($linked, 'id'))));
+            }
+        }
+    } catch (Throwable $e) {
+        // account_link 不存在或出错时仅使用当前账户
+        $account_ids = [$account_id];
+    }
+    
+    // 1. 计算 B/F (Opening Balance)（聚合所有可见关联账户）
     // 如果指定了 currency，按 currency 计算
     // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的 currency
     $bfCurrency = null;
     if ($currency_id) {
-        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id);
+        $bf = 0;
+        foreach ($account_ids as $aid) {
+            $bf += calculateBFByCurrency($pdo, $aid, $currency_id, $date_from_db, $company_id);
+        }
         $bfCurrency = $currency;
     } else {
-        // 如果没有指定 currency，从 data_capture_details 中获取该账户实际使用的第一个 currency
-        // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
+        // 如果没有指定 currency，从 data_capture_details 中获取任一聚合账户使用的第一个 currency
+        $placeholders = implode(',', array_fill(0, count($account_ids), '?'));
         $stmt = $pdo->prepare("
             SELECT DISTINCT c.code 
             FROM data_capture_details dcd
             JOIN currency c ON dcd.currency_id = c.id
             WHERE dcd.company_id = ?
-              AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+              AND CAST(dcd.account_id AS CHAR) IN ($placeholders)
             ORDER BY c.code ASC
             LIMIT 1
         ");
-        $stmt->execute([$company_id, $account_id]);
+        $stmt->execute(array_merge([$company_id], $account_ids));
         $bfCurrency = $stmt->fetchColumn();
         
         if ($bfCurrency) {
-            // 获取该 currency 的 currency_id
             $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
             $stmt->execute([$bfCurrency, $company_id]);
             $bfCurrencyId = $stmt->fetchColumn();
             if ($bfCurrencyId) {
-                // 这里必须传入 company_id，函数签名为 ($pdo, $account_id, $currency_id, $date_from, $company_id)
-                $bf = calculateBFByCurrency($pdo, $account_id, $bfCurrencyId, $date_from_db, $company_id);
+                $bf = 0;
+                foreach ($account_ids as $aid) {
+                    $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id);
+                }
             } else {
-                $bf = calculateBF($pdo, $account_id, $date_from_db, $company_id);
+                $bf = 0;
+                foreach ($account_ids as $aid) {
+                    $bf += calculateBF($pdo, $aid, $date_from_db, $company_id);
+                }
             }
         } else {
-            // 如果没有 data_capture 记录，尝试从 account_currency 表获取第一个 currency
+            // 尝试从 account_currency 表获取第一个 currency（使用第一个聚合账户）
             $stmt = $pdo->prepare("
                 SELECT c.code 
                 FROM account_currency ac
@@ -192,24 +215,29 @@ try {
                 ORDER BY ac.created_at ASC
                 LIMIT 1
             ");
-            $stmt->execute([$account_id]);
+            $stmt->execute([$account_ids[0]]);
             $bfCurrency = $stmt->fetchColumn();
             
             if ($bfCurrency) {
-                // 获取该 currency 的 currency_id
                 $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
                 $stmt->execute([$bfCurrency, $company_id]);
                 $bfCurrencyId = $stmt->fetchColumn();
                 if ($bfCurrencyId) {
-                    // 同样需要传入 company_id，避免 PHP 报参数数量错误
-                    $bf = calculateBFByCurrency($pdo, $account_id, $bfCurrencyId, $date_from_db, $company_id);
+                    $bf = 0;
+                    foreach ($account_ids as $aid) {
+                        $bf += calculateBFByCurrency($pdo, $aid, $bfCurrencyId, $date_from_db, $company_id);
+                    }
                 } else {
-                    $bf = calculateBF($pdo, $account_id, $date_from_db, $company_id);
+                    $bf = 0;
+                    foreach ($account_ids as $aid) {
+                        $bf += calculateBF($pdo, $aid, $date_from_db, $company_id);
+                    }
                 }
             } else {
-                // 如果 account_currency 也没有记录，使用旧的 calculateBF 方法
-                $bf = calculateBF($pdo, $account_id, $date_from_db, $company_id);
-                // bfCurrency 保持为 null，后续会处理
+                $bf = 0;
+                foreach ($account_ids as $aid) {
+                    $bf += calculateBF($pdo, $aid, $date_from_db, $company_id);
+                }
             }
         }
     }
@@ -251,10 +279,10 @@ try {
                     LEFT JOIN description d ON p.description_id = d.id
                     WHERE dcd.company_id = ?
                       AND dc.company_id = ?
-                      AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                      AND CAST(dcd.account_id AS CHAR) IN (" . implode(',', array_fill(0, count($account_ids), '?')) . ")
                       AND dc.capture_date BETWEEN ? AND ?";
     
-    $captureParams = [$company_id, $company_id, $account_id, $date_from_db, $date_to_db];
+    $captureParams = array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db]);
     if ($currency_id) {
         $sqlCapture .= " AND dcd.currency_id = ?";
         $captureParams[] = $currency_id;
@@ -310,13 +338,14 @@ try {
         $sql .= " LEFT JOIN currency c ON t.currency_id = c.id";
     }
     
+    $ph = implode(',', array_fill(0, count($account_ids), '?'));
     // 这里只查询非 RATE 的交易（RATE 在后续通过 transaction_entry 单独处理）
     $sql .= " WHERE t.company_id = ?
               AND t.transaction_type <> 'RATE'
-              AND (t.account_id = ? OR t.from_account_id = ?)
+              AND (t.account_id IN ($ph) OR t.from_account_id IN ($ph))
               AND t.transaction_date BETWEEN ? AND ?";
     
-    $transactionParams = [$company_id, $account_id, $account_id, $date_from_db, $date_to_db];
+    $transactionParams = array_merge([$company_id], $account_ids, $account_ids, [$date_from_db, $date_to_db]);
     
     // 如果指定了 currency，根据 data_capture 的 currency 或 transactions.currency_id 来过滤
     if ($currency) {
@@ -326,28 +355,23 @@ try {
             $transactionParams[] = $currency_id;
         } else {
             // 如果表没有 currency_id 字段，使用 data_capture_details 来过滤
-            // 检查 To Account 或 From Account 在 data_capture_details 中是否有该 currency 的记录
-            // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
             $sql .= " AND (
-                (t.account_id = ? AND EXISTS (
+                (t.account_id IN ($ph) AND EXISTS (
                     SELECT 1
                     FROM data_capture_details dcd
                     WHERE dcd.company_id = ?
-                      AND CAST(dcd.account_id AS CHAR) = CAST(t.account_id AS CHAR)
+                      AND CAST(dcd.account_id AS CHAR) IN ($ph)
                       AND dcd.currency_id = ?
                 )) OR 
-                (t.from_account_id = ? AND EXISTS (
+                (t.from_account_id IN ($ph) AND EXISTS (
                     SELECT 1
                     FROM data_capture_details dcd
                     WHERE dcd.company_id = ?
-                      AND CAST(dcd.account_id AS CHAR) = CAST(t.from_account_id AS CHAR)
+                      AND CAST(dcd.account_id AS CHAR) IN ($ph)
                       AND dcd.currency_id = ?
                 ))
             )";
-            $transactionParams[] = $account_id;
-            $transactionParams[] = $currency_id;
-            $transactionParams[] = $account_id;
-            $transactionParams[] = $currency_id;
+            $transactionParams = array_merge($transactionParams, $account_ids, [$company_id], $account_ids, [$currency_id], $account_ids, [$company_id], $account_ids, [$currency_id]);
         }
     }
     
@@ -361,7 +385,7 @@ try {
     $history = [];
     
     // 第一行：B/F (Opening Balance)
-    // 使用从 data_capture 中获取的 currency，如果没有则尝试从 account_currency 表获取
+    // 使用从 data_capture 中获取的 currency，如果没有则尝试从 account_currency 表获取（使用第一个聚合账户）
     if (!$bfCurrency) {
         $stmt = $pdo->prepare("
             SELECT c.code 
@@ -371,7 +395,7 @@ try {
             ORDER BY ac.created_at ASC
             LIMIT 1
         ");
-        $stmt->execute([$account_id]);
+        $stmt->execute([$account_ids[0]]);
         $bfCurrency = $stmt->fetchColumn();
     }
     $history[] = [
@@ -478,7 +502,7 @@ try {
     }
     
     foreach ($transactions as $t) {
-        $is_to_account = ($t['account_id'] == $account_id);
+        $is_to_account = in_array((int)$t['account_id'], array_map('intval', $account_ids));
         $win_loss = 0;
         $cr_dr = 0;
         $approvalStatus = $has_approval_status ? ($t['approval_status'] ?? null) : null;
@@ -600,7 +624,7 @@ try {
             $transactionCurrency = $currency;
         } else {
             // 从 data_capture_details 中获取该账户在该交易日期使用的 currency
-            // 注意：account_id 可能是字符串或整数，使用 CAST 来统一类型进行比较
+            $ph = implode(',', array_fill(0, count($account_ids), '?'));
             $stmt = $pdo->prepare("
                 SELECT DISTINCT c.code 
                 FROM data_capture_details dcd
@@ -608,12 +632,12 @@ try {
                 JOIN currency c ON dcd.currency_id = c.id
                 WHERE dcd.company_id = ?
                   AND dc.company_id = ?
-                  AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
+                  AND CAST(dcd.account_id AS CHAR) IN ($ph)
                   AND dc.capture_date <= ?
                 ORDER BY dc.capture_date DESC, c.code ASC
                 LIMIT 1
             ");
-            $stmt->execute([$company_id, $company_id, $account_id, $t['transaction_date']]);
+            $stmt->execute(array_merge([$company_id, $company_id], $account_ids, [$t['transaction_date']]));
             $transactionCurrency = $stmt->fetchColumn();
             
             // 如果找不到，使用 B/F 的 currency
@@ -655,6 +679,7 @@ try {
     }
     
     // ==================== 追加 RATE 分录（从 transaction_entry 读取） ====================
+    $ratePh = implode(',', array_fill(0, count($account_ids), '?'));
     $rateSql = "SELECT 
                     e.id AS entry_id,
                     e.amount,
@@ -678,9 +703,9 @@ try {
                 WHERE h.company_id = ?
                   AND e.company_id = ?
                   AND h.transaction_type = 'RATE'
-                  AND e.account_id = ?
+                  AND e.account_id IN ($ratePh)
                   AND h.transaction_date BETWEEN ? AND ?";
-    $rateParams = [$company_id, $company_id, $account_id, $date_from_db, $date_to_db];
+    $rateParams = array_merge([$company_id, $company_id], $account_ids, [$date_from_db, $date_to_db]);
     
     if ($currency && $currency_id) {
         $rateSql .= " AND e.currency_id = ?";
