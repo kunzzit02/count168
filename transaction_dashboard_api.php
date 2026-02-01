@@ -80,6 +80,23 @@ try {
     $date_from_db = $date_from;
     $date_to_db = $date_to;
     
+    // 一次检测并缓存，避免循环内重复查询
+    $hasTransactionCurrency = false;
+    try {
+        $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+        $hasTransactionCurrency = $check && $check->rowCount() > 0;
+    } catch (Throwable $e) {
+        // 忽略
+    }
+    
+    // 公司 currency 映射只查一次，供多角色复用
+    $currency_map = [];
+    $currency_stmt = $pdo->prepare("SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?");
+    $currency_stmt->execute([$company_id]);
+    foreach ($currency_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $currency_map[$row['id']] = strtoupper($row['code']);
+    }
+    
     // 定义要查询的角色
     $roles = ['CAPITAL', 'EXPENSES', 'PROFIT'];
     $result = [];
@@ -105,15 +122,6 @@ try {
         
         $total_balance = 0;
         $daily_data = []; // 用于存储每日数据
-        
-        // 获取所有 currency
-        $currency_map = [];
-        $currency_stmt = $pdo->prepare("SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ?");
-        $currency_stmt->execute([$company_id]);
-        $currency_rows = $currency_stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($currency_rows as $row) {
-            $currency_map[$row['id']] = strtoupper($row['code']);
-        }
         
         // 为每个账户计算余额
         foreach ($accounts as $account) {
@@ -149,12 +157,8 @@ try {
             }
             
             // 如果没有找到 currency，尝试从 transactions 表获取
-            if (empty($account_currencies)) {
+            if (empty($account_currencies) && $hasTransactionCurrency) {
                 try {
-                    $check_transaction_currency = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-                    $has_transaction_currency = $check_transaction_currency->rowCount() > 0;
-                    
-                    if ($has_transaction_currency) {
                         $txn_currency_stmt = $pdo->prepare("
                             SELECT DISTINCT t.currency_id, UPPER(c.code) AS currency_code
                             FROM transactions t
@@ -174,7 +178,6 @@ try {
                                 ];
                             }
                         }
-                    }
                 } catch (PDOException $e) {
                     // 忽略错误
                 }
@@ -199,14 +202,14 @@ try {
                 $currency_id = (int)$ac_currency['currency_id'];
                 $currency_code = $ac_currency['currency_code'];
                 
-                // 计算 B/F
-                $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id);
+                // 计算 B/F（传入已缓存的列检测，避免重复 SHOW COLUMNS）
+                $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id, $hasTransactionCurrency);
                 
                 // 计算 Win/Loss
                 $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
                 
-                // 计算 Cr/Dr
-                $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
+                // 计算 Cr/Dr（传入已缓存的列检测）
+                $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id, $hasTransactionCurrency);
                 $cr_dr = $cr_dr_result['value'];
                 
                 // 计算 Balance
@@ -242,11 +245,8 @@ try {
                     $daily_data[$date] += (float)$daily_row['win_loss'];
                 }
                 
-                // 2. 获取 Transactions 的每日 Cr/Dr
-                $check_transaction_currency = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-                $has_transaction_currency = $check_transaction_currency->rowCount() > 0;
-                
-                if ($has_transaction_currency) {
+                // 2. 获取 Transactions 的每日 Cr/Dr（使用请求级缓存的列检测）
+                if ($hasTransactionCurrency) {
                     // 作为 To Account 的每日 Cr/Dr
                     $txn_daily_stmt = $pdo->prepare("
                         SELECT DATE(t.transaction_date) as date,
@@ -347,8 +347,9 @@ try {
 
 /**
  * 按 Currency 计算 B/F (Balance Forward)
+ * @param bool|null $has_transaction_currency 若已缓存可传入，避免重复 SHOW COLUMNS
  */
-function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id) {
+function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $company_id, $has_transaction_currency = null) {
     $bf = 0;
     
     // 1. 计算起始日期之前所有 Data Capture 的累计金额（按 currency 过滤）
@@ -366,9 +367,10 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     $bf += $stmt->fetchColumn();
     
     // 2. 计算起始日期之前所有 Cr/Dr（作为 To Account）
-    $check_transaction_currency = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-    $has_transaction_currency = $check_transaction_currency->rowCount() > 0;
-    
+    if ($has_transaction_currency === null) {
+        $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+        $has_transaction_currency = $check && $check->rowCount() > 0;
+    }
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
@@ -437,14 +439,16 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
 
 /**
  * 按 Currency 计算 Cr/Dr
+ * @param bool|null $has_transaction_currency 若已缓存可传入，避免重复 SHOW COLUMNS
  */
-function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
+function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id, $has_transaction_currency = null) {
     $cr_dr = 0;
     $has_transactions = false;
     
-    $check_transaction_currency = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-    $has_transaction_currency = $check_transaction_currency->rowCount() > 0;
-    
+    if ($has_transaction_currency === null) {
+        $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+        $has_transaction_currency = $check && $check->rowCount() > 0;
+    }
     if ($has_transaction_currency) {
         // 作为 To Account
         $sql = "SELECT 

@@ -2692,9 +2692,9 @@ if (isset($_GET['logout'])) {
                 initDatePickers();
                 initChartDataButtons();
                 await loadOwnerCompanies();
-                // 确保日期范围已设置后再加载数据
+                // 确保日期范围已设置后再加载数据（首次加载立即请求，不等待防抖）
                 if (dateRange.startDate && dateRange.endDate && window.companyId) {
-                    await loadData();
+                    await loadData(true);
                 } else {
                     showError('Missing required parameters, please refresh the page');
                 }
