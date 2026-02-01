@@ -11,6 +11,10 @@ if (!isset($_SESSION['user_id'])) {
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
+// 仅在被直接请求时执行 API 逻辑，被 require 时只加载函数定义，避免输出「无效的操作」等
+$isDirectRequest = (basename($_SERVER['SCRIPT_FILENAME'] ?? '') === 'account_link_api.php');
+
+if ($isDirectRequest) {
 try {
     switch ($action) {
         case 'get_linked_accounts':
@@ -271,6 +275,7 @@ try {
         'success' => false,
         'error' => $e->getMessage()
     ]);
+}
 }
 
 /**
