@@ -975,6 +975,12 @@ $today = date('d/m/Y');
                     echo '<div class="member-alert member-alert-error" style="display:block;margin-top:12px;">Company list unavailable.</div>';
                 }
                 ?>
+                <div class="member-account-filter transaction-company-filter" id="member_account_filter" style="display:flex;visibility:visible;">
+                    <span class="transaction-company-label">Account / 连接:</span>
+                    <div id="member_account_buttons" class="transaction-company-buttons member-currency-buttons">
+                        <span class="member-account-loading" id="member_account_loading">Loading...</span>
+                    </div>
+                </div>
                 <div class="transaction-company-filter member-currency-filter" id="member_currency_filter" style="display:flex;visibility:visible;">
                     <span class="transaction-company-label">Currency:</span>
                     <div id="member_currency_buttons" class="transaction-company-buttons member-currency-buttons"></div>
@@ -1018,6 +1024,7 @@ $today = date('d/m/Y');
             initDatePickers();
             setupFormListeners();
             setupCompanyButtons();
+            loadMemberLinkedAccounts();
             setTimeout(performMemberSearch, 150);
         });
 
@@ -1095,12 +1102,94 @@ $today = date('d/m/Y');
                         });
 
                         showNotification(`Switched to company ${label || companyId}`, 'success');
+                        loadMemberLinkedAccounts();
                         performMemberSearch();
                     })
                     .catch(err => {
                         console.error('Failed to switch company:', err);
                         showNotification(err.message || 'Failed to switch company', 'error');
                     });
+            });
+        }
+
+        function loadMemberLinkedAccounts() {
+            const container = document.getElementById('member_account_buttons');
+            const loadingEl = document.getElementById('member_account_loading');
+            if (!container) return;
+            if (loadingEl) loadingEl.style.display = 'inline';
+            const accountId = memberConfig.accountId;
+            const companyId = memberConfig.companyId;
+            if (!accountId || !companyId) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                container.innerHTML = '<span class="member-account-loading">-</span>';
+                return;
+            }
+            fetch(`account_link_api.php?action=get_all_linked_accounts&account_id=${accountId}&company_id=${companyId}&_t=${Date.now()}`, { cache: 'no-cache' })
+                .then(res => res.text())
+                .then(text => {
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        console.error('Linked accounts response not JSON:', text.substring(0, 200));
+                        throw new Error('Invalid response');
+                    }
+                    if (!data.success || !Array.isArray(data.data)) {
+                        container.innerHTML = '<span class="member-account-loading">-</span>';
+                        return;
+                    }
+                    const list = data.data;
+                    container.innerHTML = '';
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    list.forEach(acc => {
+                        const id = acc.id;
+                        const code = (acc.account_id || acc.name || String(id)).trim();
+                        const name = (acc.name || code).trim();
+                        const isActive = Number(id) === Number(memberConfig.accountId);
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'transaction-company-btn' + (isActive ? ' active' : '');
+                        btn.dataset.accountId = id;
+                        btn.dataset.accountCode = code;
+                        btn.dataset.accountName = name;
+                        btn.textContent = code || name || id;
+                        container.appendChild(btn);
+                    });
+                    setupAccountButtons();
+                })
+                .catch(err => {
+                    console.error('Failed to load linked accounts:', err);
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    container.innerHTML = '<span class="member-account-loading">-</span>';
+                });
+        }
+
+        function setupAccountButtons() {
+            const container = document.getElementById('member_account_buttons');
+            if (!container) return;
+            container.querySelectorAll('.transaction-company-btn[data-account-id]').forEach(btn => {
+                btn.onclick = function () {
+                    const accountId = parseInt(btn.dataset.accountId || '0', 10);
+                    const code = btn.dataset.accountCode || '';
+                    const name = btn.dataset.accountName || '';
+                    if (!accountId || accountId === memberConfig.accountId) return;
+                    fetch(`update_account_session_api.php?account_id=${accountId}&_t=${Date.now()}`, { cache: 'no-cache' })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (!data.success) throw new Error(data.error || 'Switch failed');
+                            memberConfig.accountId = data.account_id;
+                            memberConfig.accountCode = data.account_code || code;
+                            memberConfig.accountName = data.account_name || name;
+                            container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
+                            btn.classList.add('active');
+                            showNotification(`Switched to account ${code || name || accountId}`, 'success');
+                            performMemberSearch();
+                        })
+                        .catch(err => {
+                            console.error('Failed to switch account:', err);
+                            showNotification(err.message || 'Failed to switch account', 'error');
+                        });
+                };
             });
         }
 
