@@ -507,12 +507,14 @@ function getLinkedAccounts($pdo, $account_id, $company_id) {
  * 单向连接：只有发起连接的账户可以看到被连接的账户
  */
 function getLinkedAccountsForMember($pdo, $account_id, $company_id) {
+    $account_id = (int) $account_id;
+    $company_id = (int) $company_id;
     $visited = [];
     $result = [];
     $queue = [$account_id];
     
     while (!empty($queue)) {
-        $current_id = array_shift($queue);
+        $current_id = (int) array_shift($queue);
         
         if (isset($visited[$current_id])) {
             continue;
@@ -521,7 +523,7 @@ function getLinkedAccountsForMember($pdo, $account_id, $company_id) {
         $visited[$current_id] = true;
         
         // 查找与当前账户直接关联的所有账户（考虑连接类型）
-        // 单向连接：仅发起者/接收者可见；插入时强制有 source_account_id，不兼容 NULL
+        // 单向连接：发起者可见（source_account_id=当前）或接收者可见（source_account_id=另一列，即 B 能看到 A）
         $stmt = $pdo->prepare("
             SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
@@ -538,7 +540,7 @@ function getLinkedAccountsForMember($pdo, $account_id, $company_id) {
         
         // 将关联账户计入可见列表（单向、双向都计入）；仅双向连接加入队列继续传播
         foreach ($linked_data as $row) {
-            $linked_id = $row['linked_id'];
+            $linked_id = (int) $row['linked_id'];
             if (!isset($visited[$linked_id])) {
                 $visited[$linked_id] = true;
                 if ($row['link_type'] === 'bidirectional') {
@@ -551,7 +553,7 @@ function getLinkedAccountsForMember($pdo, $account_id, $company_id) {
     // 获取所有关联账户的详细信息（排除当前账户）
     $linked_ids = array_keys($visited);
     $linked_ids = array_filter($linked_ids, function($id) use ($account_id) {
-        return $id != $account_id;
+        return (int) $id !== $account_id;
     });
     
     if (!empty($linked_ids)) {
