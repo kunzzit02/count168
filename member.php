@@ -1221,9 +1221,43 @@ $today = date('d/m/Y');
             try {
                 return JSON.parse(t);
             } catch (e) {
+                // 提取第一个完整的 JSON 对象（按大括号匹配，避免多对象或夹杂 HTML 时取错范围）
                 const start = t.indexOf('{');
-                const end = t.lastIndexOf('}');
-                if (start !== -1 && end !== -1 && end > start) {
+                if (start === -1) {
+                    console.error('JSON parse failed, response start:', t.substring(0, 120));
+                    throw new Error('服务器返回格式错误，请重试');
+                }
+                let depth = 0;
+                let inString = false;
+                let escape = false;
+                let quote = '';
+                let end = -1;
+                for (let i = start; i < t.length; i++) {
+                    const c = t[i];
+                    if (escape) {
+                        escape = false;
+                        continue;
+                    }
+                    if (inString) {
+                        if (c === '\\') escape = true;
+                        else if (c === quote) inString = false;
+                        continue;
+                    }
+                    if (c === '"' || c === "'") {
+                        inString = true;
+                        quote = c;
+                        continue;
+                    }
+                    if (c === '{') depth++;
+                    else if (c === '}') {
+                        depth--;
+                        if (depth === 0) {
+                            end = i;
+                            break;
+                        }
+                    }
+                }
+                if (end !== -1 && end > start) {
                     try {
                         return JSON.parse(t.substring(start, end + 1));
                     } catch (e2) {
