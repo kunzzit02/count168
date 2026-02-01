@@ -435,7 +435,7 @@ function getAllLinkedAccountsForDisplay($pdo, $account_id, $company_id) {
 /**
  * 获取与指定账户关联的所有账户（用于 account-list.php，显示所有关联账户）
  * 双向连接：所有关联账户互相可见
- * 单向连接：显示所有关联账户（不考虑方向）
+ * 单向连接：显示所有关联账户（不考虑方向），发起方与接收方都能在列表中看到对方
  */
 function getLinkedAccounts($pdo, $account_id, $company_id) {
     $visited = [];
@@ -452,17 +452,17 @@ function getLinkedAccounts($pdo, $account_id, $company_id) {
         $visited[$current_id] = true;
         
         // 查找与当前账户直接关联的所有账户（考虑连接类型）
-        // 单向连接：仅发起者可见（source_account_id = 当前），接收者看不到发起者
+        // 单向连接：不考虑方向，发起方与接收方都可见（account-list 需显示全部关联）
         $stmt = $pdo->prepare("
             SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_1 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_2)))
             UNION
             SELECT account_id_1 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_2 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND source_account_id = ?))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_1)))
         ");
         $stmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
