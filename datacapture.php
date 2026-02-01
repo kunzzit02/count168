@@ -4714,24 +4714,31 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     });
                     
-                    // 若本行已因 Sub Total/Grand Total 或重复段被标记为需拆分，对尚未拆分的单元格按“长度一半”拆（如 53,627.0053,627.00）
+                    // 若本行已因 Sub Total/Grand Total 或重复段被标记为需拆分，对尚未拆分的单元格仅当「两段相同」时按长度一半拆（如 191191、53,627.0053,627.00），避免误拆普通数字（如 -631.84、1,068.50）导致错位/重复
                     if (hasVerticalSplit && cellsWithSplit.length > 0) {
                         sourceCells.forEach((sourceCell, cellIndex) => {
                             if (cellsWithSplit.some(s => s.index === cellIndex)) return;
                             let cellText = (sourceCell.textContent || sourceCell.innerText || '').trim();
                             if (cellText.length < 4) return;
+                            // 单个数字/金额不拆（避免 -631.84、1,068.50 被拆成两行）
+                            if (/^-?[\d,]+\.?\d*$/.test(cellText)) return;
                             const half = Math.floor(cellText.length / 2);
                             const first = cellText.substring(0, half).trim();
                             const second = cellText.substring(half).trim();
-                            if (first !== '' && second !== '') {
-                                cellsWithSplit.push({
-                                    index: cellIndex,
-                                    cell: sourceCell,
-                                    topData: first,
-                                    bottomData: second,
-                                    allLines: [first, second]
-                                });
+                            if (first === '' || second === '') return;
+                            // 仅当两段完全相同或均为数字且数值相等时才拆，避免误拆
+                            if (first !== second) {
+                                const n1 = parseFloat(first.replace(/,/g, ''));
+                                const n2 = parseFloat(second.replace(/,/g, ''));
+                                if (!(Number.isFinite(n1) && Number.isFinite(n2) && n1 === n2)) return;
                             }
+                            cellsWithSplit.push({
+                                index: cellIndex,
+                                cell: sourceCell,
+                                topData: first,
+                                bottomData: second,
+                                allLines: [first, second]
+                            });
                         });
                     }
                     
