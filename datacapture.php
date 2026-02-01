@@ -10198,6 +10198,44 @@ if ($current_user_id && count($user_companies) > 0) {
                 getClipboardData('Text') ||
                 '';
             
+            // 2.655 模式专用：始终使用网上模式（parseAndFillHTMLTableForGeneral655），不落入 Excel 模式；无论粘贴多少次都一致
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
+                let htmlToUse = getClipboardData('text/html') || '';
+                if (htmlToUse && /<table\b/i.test(htmlToUse)) {
+                    const sanitized = sanitizePastedHTML(htmlToUse);
+                    const previewFragment = build655PreviewFragmentFromClipboardHtml(htmlToUse);
+                    if (previewFragment) render655Preview(previewFragment);
+                    const filled = parseAndFillHTMLTableForGeneral655(sanitized || htmlToUse);
+                    if (filled) {
+                        is655GridReady = true;
+                        toggleTableDisplayFor655();
+                    }
+                    return;
+                }
+                if (pastedData && pastedData.includes('\t')) {
+                    const tableHtml = tsvToHtmlTable(pastedData);
+                    render655Preview(tableHtml);
+                    const filled = parseAndFillHTMLTableForGeneral655(tableHtml);
+                    if (filled) {
+                        is655GridReady = true;
+                        toggleTableDisplayFor655();
+                    }
+                    return;
+                }
+                if (pastedData && /<table\b/i.test(pastedData)) {
+                    const sanitized = sanitizePastedHTML(pastedData);
+                    const previewFragment = build655PreviewFragmentFromClipboardHtml(pastedData);
+                    if (previewFragment) render655Preview(previewFragment);
+                    const filled = parseAndFillHTMLTableForGeneral655(sanitized || pastedData);
+                    if (filled) {
+                        is655GridReady = true;
+                        toggleTableDisplayFor655();
+                    }
+                    return;
+                }
+                return;
+            }
+            
             // 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.GENERAL') {
                 console.log('1.GENERAL mode detected, preserving Excel format...');
@@ -22620,25 +22658,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 return true;
             }
 
-            // 2) Fallback to tab-separated plain text
+            // 2) Fallback to tab-separated plain text：仍用 655 网上模式解析，不落入 Excel 模式
             const textData = getClipboardData('text/plain') || '';
             if (textData && textData.includes('\t')) {
                 setTimeout(() => {
-                    const tableBody = document.getElementById('tableBody');
-                    if (tableBody && tableBody.children.length > 0) {
-                        const firstRow = tableBody.children[0];
-                        if (firstRow && firstRow.children.length > 1) {
-                            const firstCell = firstRow.children[1];
-                            if (firstCell) {
-                                const mockEvent = {
-                                    target: firstCell,
-                                    clipboardData: clipboard,
-                                    preventDefault: () => {},
-                                    stopPropagation: () => {}
-                                };
-                                handleCellPaste(mockEvent);
-                            }
-                        }
+                    const tableHtml = tsvToHtmlTable(textData);
+                    render655Preview(tableHtml);
+                    const filled = parseAndFillHTMLTableForGeneral655(tableHtml);
+                    if (filled) {
+                        is655GridReady = true;
+                        toggleTableDisplayFor655();
                     }
                 }, 10);
                 return true;
@@ -24433,7 +24462,16 @@ if ($current_user_id && count($user_companies) > 0) {
             if (isEditableFormField(target)) return;
 
             const clipboard = (e.clipboardData || window.clipboardData);
-            if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
+            if (!clipboard) return;
+            // 655 模式：单行 TSV（仅有 \t 无换行）也视为表格，始终走网上模式
+            let tableLike = clipboardLooksLikeTable(clipboard);
+            if (!tableLike && currentDataCaptureType === '655') {
+                try {
+                    const t = clipboard.getData('text/plain') || '';
+                    if (t && t.includes('\t')) tableLike = true;
+                } catch (_) {}
+            }
+            if (!tableLike) return;
 
             // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
             e.preventDefault();
