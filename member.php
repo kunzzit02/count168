@@ -1086,7 +1086,8 @@ $today = date('d/m/Y');
 
                 const url = `update_company_session_api.php?company_id=${companyId}&_t=${Date.now()}`;
                 fetch(url, { cache: 'no-cache' })
-                    .then(res => res.json())
+                    .then(res => res.text())
+                    .then(text => parseJsonResponse(text))
                     .then(data => {
                         if (!data.success) {
                             throw new Error(data.error || 'Failed to switch company');
@@ -1171,7 +1172,8 @@ $today = date('d/m/Y');
                     const name = btn.dataset.accountName || '';
                     if (!accountId || accountId === memberConfig.accountId) return;
                     fetch(`update_account_session_api.php?account_id=${accountId}&_t=${Date.now()}`, { cache: 'no-cache' })
-                        .then(res => res.json())
+                        .then(res => res.text())
+                        .then(text => parseJsonResponse(text))
                         .then(data => {
                             if (!data.success) throw new Error(data.error || 'Switch failed');
                             memberConfig.accountId = data.account_id;
@@ -1212,6 +1214,26 @@ $today = date('d/m/Y');
             }
             const text = String(value).trim();
             return text ? text.toUpperCase() : '-';
+        }
+
+        function parseJsonResponse(text) {
+            const t = (text || '').trim();
+            try {
+                return JSON.parse(t);
+            } catch (e) {
+                const start = t.indexOf('{');
+                const end = t.lastIndexOf('}');
+                if (start !== -1 && end !== -1 && end > start) {
+                    try {
+                        return JSON.parse(t.substring(start, end + 1));
+                    } catch (e2) {
+                        console.error('JSON parse failed, response start:', t.substring(0, 120));
+                        throw new Error('服务器返回格式错误，请重试');
+                    }
+                }
+                console.error('JSON parse failed, response start:', t.substring(0, 120));
+                throw new Error('服务器返回格式错误，请重试');
+            }
         }
 
         function showNotification(message, type = 'info') {
@@ -1267,7 +1289,8 @@ $today = date('d/m/Y');
 
                 const url = `transaction_search_api.php?${params.toString()}&_t=${Date.now()}`;
                 fetch(url, { cache: 'no-cache' })
-                    .then(res => res.json())
+                    .then(res => res.text())
+                    .then(text => parseJsonResponse(text))
                     .then(data => {
                         if (!data.success) {
                             throw new Error(data.error || 'Query failed');
@@ -1478,7 +1501,8 @@ $today = date('d/m/Y');
                 }
                 const url = `transaction_history_api.php?${params.toString()}&_t=${Date.now()}`;
                 return fetch(url, { cache: 'no-cache' })
-                    .then(res => res.json())
+                    .then(res => res.text())
+                    .then(text => parseJsonResponse(text))
                     .then(data => {
                         if (!data.success) {
                             throw new Error(data.error || 'Query failed');
