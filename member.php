@@ -1505,9 +1505,7 @@ $today = date('d/m/Y');
             }
 
             if (!targetCurrencies.length) {
-                // 没有任何交易记录时：
-                // 1) 如果还有可用币别，显示这些币别的空表
-                // 2) 如果连币别都没有，仍然显示一个占位表，而不是直接隐藏区域
+                // 没有任何币别时：若 summary 未返回币别，仍尝试拉取一次 history（不传 currency）以兜底显示数据
                 if (availableCurrencies.length > 0) {
                     const grouped = {};
                     availableCurrencies.forEach(code => {
@@ -1515,11 +1513,49 @@ $today = date('d/m/Y');
                         grouped[key] = [];
                     });
                     renderCurrencyTables(grouped, availableCurrencies);
-                } else {
-                    const grouped = { '-': [] };
-                    renderCurrencyTables(grouped, ['-']);
+                    showNotification('No transaction records found in the selected date range, empty table displayed', 'info');
+                    return;
                 }
-                showNotification('No transaction records found in the selected date range, empty table displayed', 'info');
+                const paramsFallback = new URLSearchParams({
+                    account_id: memberConfig.accountId,
+                    date_from: dateFrom,
+                    date_to: dateTo,
+                    company_id: memberConfig.companyId
+                });
+                const urlFallback = `transaction_history_api.php?${paramsFallback.toString()}&_t=${Date.now()}`;
+                fetch(urlFallback, { cache: 'no-cache' })
+                    .then(res => res.text())
+                    .then(text => parseJsonResponse(text))
+                    .then(data => {
+                        if (!data.success) {
+                            renderCurrencyTables({ '-': [] }, ['-']);
+                            showNotification(data.error || 'No data in the selected date range.', 'info');
+                            return;
+                        }
+                        const history = data.data?.history || [];
+                        const order = [];
+                        const grouped = {};
+                        history.forEach(row => {
+                            const c = (row.currency || '-').trim();
+                            if (!grouped[c]) {
+                                grouped[c] = [];
+                                order.push(c);
+                            }
+                            grouped[c].push(row);
+                        });
+                        if (order.length > 0) {
+                            renderHistoryTable({ grouped, order });
+                            showNotification('Query completed', 'success');
+                        } else {
+                            renderCurrencyTables({ '-': [] }, ['-']);
+                            showNotification('No data in the selected date range.', 'info');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('History fallback fetch failed:', err);
+                        renderCurrencyTables({ '-': [] }, ['-']);
+                        showNotification(err.message || 'No data in the selected date range.', 'info');
+                    });
                 return;
             }
 
