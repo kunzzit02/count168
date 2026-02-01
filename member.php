@@ -1204,7 +1204,7 @@ $today = date('d/m/Y');
                         .then(text => parseJsonResponse(text))
                         .then(data => {
                             if (!data.success) throw new Error(data.error || 'Switch failed');
-                            memberConfig.accountId = Number(data.account_id) || data.account_id;
+                            memberConfig.accountId = Number(data.account_id) ?? data.account_id;
                             memberConfig.accountCode = data.account_code || code;
                             memberConfig.accountName = data.account_name || name;
                             container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
