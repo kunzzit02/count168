@@ -948,7 +948,11 @@ $today = date('d/m/Y');
                     </div>
                 </div>
                 <?php else: ?>
-                <?php if (isset($debugInfo) && is_array($debugInfo) && !empty($debugInfo)): ?>
+                <?php
+                    // 仅在 0 个公司且存在调试信息时显示 debug；有 1 家公司时只隐藏 Company 选项，不显示 debug
+                    $showDebug = empty($memberCompanies) && isset($debugInfo) && is_array($debugInfo) && !empty($debugInfo);
+                ?>
+                <?php if ($showDebug): ?>
                 <div class="member-alert member-alert-error" style="display: block; margin-top: 12px;">
                     <strong>Debug Info:</strong> No associated companies found.
                     <br>User ID: <?php echo htmlspecialchars($debugInfo['user_id'] ?? 'N/A'); ?>,
