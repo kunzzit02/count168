@@ -2460,6 +2460,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 // Create simulated paste event
                 const mockEvent = {
                     preventDefault: () => {},
+                    stopPropagation: () => {},
                     clipboardData: {
                         getData: () => text
                     },
@@ -10187,13 +10188,13 @@ if ($current_user_id && count($user_companies) > 0) {
             // 在编辑模式（typing mode）下，不允许粘贴
             const hasFocus = document.activeElement === cell;
             if (hasFocus) {
-                e.preventDefault();
-                e.stopPropagation();
+                if (e && typeof e.preventDefault === 'function') e.preventDefault();
+                if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
                 console.log('Paste blocked: cell is in typing mode');
                 return;
             }
             
-            e.preventDefault();
+            if (e && typeof e.preventDefault === 'function') e.preventDefault();
             console.log('Paste event triggered');
             
             // 先拿到纯文本内容，用来判断是不是 Payment Report
@@ -10227,7 +10228,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         toggleTableDisplayFor655();
                         setTimeout(updateSubmitButtonState, 0);
                     }
-                    e.stopPropagation();
+                    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
                     return;
                 }
                 if (pastedData && pastedData.includes('\t')) {
@@ -10239,7 +10240,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         toggleTableDisplayFor655();
                         setTimeout(updateSubmitButtonState, 0);
                     }
-                    e.stopPropagation();
+                    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
                     return;
                 }
                 if (pastedData && /<table\b/i.test(pastedData)) {
@@ -10252,7 +10253,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         toggleTableDisplayFor655();
                         setTimeout(updateSubmitButtonState, 0);
                     }
-                    e.stopPropagation();
+                    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
                     return;
                 }
                 // 未识别为表格粘贴时不阻止冒泡，让 tableBody 等父级监听器照常运行（如 updateSubmitButtonState）
@@ -24422,8 +24423,7 @@ if ($current_user_id && count($user_companies) > 0) {
         function render655Preview(tableHtml) {
             const frame = document.getElementById('tablePreviewFrame655');
             if (!frame) {
-                console.error('655: tablePreviewFrame655 not found');
-                return;
+                return; // 655 表格视图时 iframe 可能被隐藏或未挂载，静默返回
             }
 
             const safeTable = tableHtml ? String(tableHtml) : '';
