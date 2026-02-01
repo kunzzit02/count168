@@ -972,7 +972,7 @@ $today = date('d/m/Y');
                     echo '<div class="member-alert member-alert-error" style="display:block;margin-top:12px;">Company list unavailable.</div>';
                 }
                 ?>
-                <div class="member-account-filter transaction-company-filter" id="member_account_filter" style="display:flex;visibility:visible;">
+                <div class="member-account-filter transaction-company-filter" id="member_account_filter" style="display:none;">
                     <span class="transaction-company-label">Account:</span>
                     <div id="member_account_buttons" class="transaction-company-buttons member-currency-buttons">
                         <span class="member-account-loading" id="member_account_loading">Loading...</span>
