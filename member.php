@@ -694,9 +694,17 @@ $today = date('d/m/Y');
             gap: 12px;
         }
         .member-company-filter,
-        .member-account-filter,
         .member-currency-filter {
             display: flex !important;
+            align-items: center;
+            gap: clamp(8px, 0.83vw, 16px);
+            flex-wrap: wrap;
+            margin-top: 12px;
+            min-height: 36px;
+        }
+        /* Account 区域由 JS 控制 display，不用 !important 以便可隐藏 */
+        .member-account-filter {
+            display: none;
             align-items: center;
             gap: clamp(8px, 0.83vw, 16px);
             flex-wrap: wrap;
