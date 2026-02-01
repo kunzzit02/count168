@@ -4542,12 +4542,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                         targetHeader.style.cssText = '';
                                     }
                                 } else {
-                                    // 即使没有style属性，也尝试从computed style获取样式
+                                    // 即使没有style属性，也尝试从computed style获取样式（含蓝字/下划线等网页样式）
                                     const bgColor = sourceCellComputedStyle.backgroundColor;
                                     const color = sourceCellComputedStyle.color;
                                     const fontWeight = sourceCellComputedStyle.fontWeight;
                                     const textAlign = sourceCellComputedStyle.textAlign;
-                                    
+                                    const textDecoration = sourceCellComputedStyle.textDecoration;
                                     let styleString = '';
                                     if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
                                         styleString += ` background-color: ${bgColor} !important;`;
@@ -4560,6 +4560,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                     }
                                     if (textAlign && textAlign !== 'left') {
                                         styleString += ` text-align: ${textAlign} !important;`;
+                                    }
+                                    if (textDecoration && textDecoration !== 'none' && textDecoration !== 'none solid rgb(0, 0, 0)') {
+                                        styleString += ` text-decoration: ${textDecoration} !important;`;
                                     }
                                     if (styleString) {
                                         targetHeader.setAttribute('style', styleString);
@@ -4837,10 +4840,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const color = sourceCellComputedStyle.color;
                                         const fontWeight = sourceCellComputedStyle.fontWeight;
                                         const textAlign = sourceCellComputedStyle.textAlign;
+                                        const textDecoration = sourceCellComputedStyle.textDecoration;
                                         let styleString = 'border: 1px solid #d0d7de !important;';
                                         if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
                                         if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
                                         if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                        if (textDecoration && textDecoration !== 'none' && textDecoration !== 'none solid rgb(0, 0, 0)') styleString += ` text-decoration: ${textDecoration} !important;`;
                                         targetCell.setAttribute('style', styleString);
                                         targetCell.style.cssText = styleString;
                                     } else {
@@ -4881,10 +4886,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                         const color = sourceCellComputedStyle.color;
                                         const fontWeight = sourceCellComputedStyle.fontWeight;
                                         const textAlign = sourceCellComputedStyle.textAlign;
+                                        const textDecoration = sourceCellComputedStyle.textDecoration;
                                         let styleString = 'border: 1px solid #d0d7de !important;';
                                         if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
                                         if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
                                         if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                        if (textDecoration && textDecoration !== 'none' && textDecoration !== 'none solid rgb(0, 0, 0)') styleString += ` text-decoration: ${textDecoration} !important;`;
                                         targetCell.setAttribute('style', styleString);
                                         targetCell.style.cssText = styleString;
                                     } else {
@@ -5006,10 +5013,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const color = sourceCellComputedStyle.color;
                                     const fontWeight = sourceCellComputedStyle.fontWeight;
                                     const textAlign = sourceCellComputedStyle.textAlign;
+                                    const textDecoration = sourceCellComputedStyle.textDecoration;
                                     let styleString = 'border: 1px solid #d0d7de !important;';
                                     if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
                                     if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
                                     if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                    if (textDecoration && textDecoration !== 'none' && textDecoration !== 'none solid rgb(0, 0, 0)') styleString += ` text-decoration: ${textDecoration} !important;`;
                                     targetCell.setAttribute('style', styleString);
                                     targetCell.style.cssText = styleString;
                                 }
@@ -24433,19 +24442,31 @@ if ($current_user_id && count($user_companies) > 0) {
             if (isEditableFormField(target)) return;
 
             const clipboard = (e.clipboardData || window.clipboardData);
-            if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
+            if (!clipboard) return;
+            // 655：单行 TSV（仅有 \t 无换行）也视为表格，始终走网上模式
+            let tableLike = clipboardLooksLikeTable(clipboard);
+            if (!tableLike) {
+                try {
+                    const t = clipboard.getData('text/plain') || '';
+                    if (t && t.includes('\t')) tableLike = true;
+                } catch (_) {}
+            }
+            if (!tableLike) return;
 
             // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
             e.preventDefault();
             e.stopPropagation();
 
-            // 确保容器可见并接收内容
             const dataTable = document.getElementById('dataTable');
-            if (dataTable) dataTable.style.display = 'none';
-            pasteArea655.style.display = 'block';
-            placeCaretAtEnd(pasteArea655);
+            const pastedInCell = target.closest && target.closest('#dataTable');
+            // 第二次及以后粘贴（焦点在表格格内）：只填表、不切换回粘贴区，避免变成 Excel 格式
+            if (!pastedInCell) {
+                if (dataTable) dataTable.style.display = 'none';
+                pasteArea655.style.display = 'block';
+                placeCaretAtEnd(pasteArea655);
+            }
 
-            // 取出剪贴板内容并插入到容器里（显示效果在容器内）
+            // 取出剪贴板内容并填充（网上模式，保留蓝/红/粗体/下划线）
             let html = '';
             try {
                 html = clipboard.getData('text/html') || '';
@@ -24481,8 +24502,9 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         });
 
-        // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴
+        // 全局粘贴事件处理（bubble阶段）：仅处理表格单元格内粘贴；655 由上一段全局监听统一处理，不走 handleCellPaste
         document.addEventListener('paste', function(e) {
+            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') return;
             const target = e.target;
             if (target && target.contentEditable === 'true' && target.closest('#dataTable')) {
                 console.log('Global paste event triggered on table cell');
