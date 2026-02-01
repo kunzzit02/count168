@@ -1545,7 +1545,6 @@ $today = date('d/m/Y');
                         });
                         if (order.length > 0) {
                             renderHistoryTable({ grouped, order });
-                            showNotification('Query completed', 'success');
                         } else {
                             renderCurrencyTables({ '-': [] }, ['-']);
                             showNotification('No data in the selected date range.', 'info');
