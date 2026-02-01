@@ -881,6 +881,12 @@ $today = date('d/m/Y');
             text-align: right;
         }
 
+        .member-winloss-table .transaction-history-col-description {
+            width: 20%;
+            min-width: 150px;
+            text-align: left;
+        }
+
         .member-winloss-table .transaction-history-col-remark {
             width: 20%;
             min-width: 150px;
@@ -1481,6 +1487,7 @@ $today = date('d/m/Y');
                         <td class="transaction-history-col-winloss">${winLoss}</td>
                         <td class="transaction-history-col-crdr">${crdr}</td>
                         <td class="transaction-history-col-balance">${balance}</td>
+                        <td class="transaction-history-col-description">${row.description != null && row.description !== '' ? row.description : '-'}</td>
                         <td class="transaction-history-col-remark text-uppercase">${getHistoryRemark(row)}</td>
                     </tr>
                 `);
@@ -1496,11 +1503,12 @@ $today = date('d/m/Y');
                         <th class="transaction-history-col-winloss">Win/Loss</th>
                         <th class="transaction-history-col-crdr">Cr/Dr</th>
                         <th class="transaction-history-col-balance">Balance</th>
+                        <th class="transaction-history-col-description">Description</th>
                         <th class="transaction-history-col-remark">Remark</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${rowsHtml.join('') || `<tr class="transaction-table-row"><td colspan="8" style="text-align:center;">No data</td></tr>`}
+                    ${rowsHtml.join('') || `<tr class="transaction-table-row"><td colspan="9" style="text-align:center;">No data</td></tr>`}
                 </tbody>
                 <tfoot>
                     <tr class="transaction-table-row transaction-summary-total">
@@ -1511,6 +1519,7 @@ $today = date('d/m/Y');
                         <td class="transaction-history-col-winloss">${formatNumber(totalWinLoss)}</td>
                         <td class="transaction-history-col-crdr">${formatNumber(totalCrDr)}</td>
                         <td class="transaction-history-col-balance">${formatNumber(closingBalance)}</td>
+                        <td class="transaction-history-col-description">-</td>
                         <td class="transaction-history-col-remark">-</td>
                     </tr>
                 </tfoot>
