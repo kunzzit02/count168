@@ -1144,9 +1144,6 @@ if (isset($_GET['logout'])) {
                     hideAllDropdowns();
                 }
             });
-            
-            // 加载公司列表
-            loadOwnerCompanies();
         }
 
         // 兼容性：保留旧函数名
@@ -1960,8 +1957,17 @@ if (isset($_GET['logout'])) {
         // 设置加载状态
         function setLoadingState(loading) {
             const chartDateRange = document.getElementById('chart-date-range');
-            if (loading && chartDateRange) {
+            if (!chartDateRange) return;
+            if (loading) {
                 chartDateRange.textContent = 'Loading data...';
+                chartDateRange.style.color = '#6b7280';
+            } else {
+                // 加载结束：显示当前日期范围，避免一直显示 Loading data...
+                if (dateRange && dateRange.startDate && dateRange.endDate) {
+                    chartDateRange.textContent = `${formatDateForDisplay(dateRange.startDate)} to ${formatDateForDisplay(dateRange.endDate)}`;
+                } else {
+                    chartDateRange.textContent = 'No data';
+                }
                 chartDateRange.style.color = '#6b7280';
             }
         }
@@ -1985,40 +1991,32 @@ if (isset($_GET['logout'])) {
 
         function updateDashboard(data) {
             try {
-            // 使用 requestAnimationFrame 批量更新 DOM，减少重绘
-            requestAnimationFrame(() => {
+                // 单次 requestAnimationFrame 批量更新 DOM 与图表，减少一帧延迟
+                requestAnimationFrame(() => {
                     try {
-                // 更新KPI卡片
                         const capitalEl = document.getElementById('capital-value');
                         const expensesEl = document.getElementById('expenses-value');
                         const profitEl = document.getElementById('profit-value');
-                        
                         if (capitalEl) capitalEl.textContent = formatCurrency(data.capital);
                         if (expensesEl) expensesEl.textContent = formatCurrency(data.expenses);
                         if (profitEl) profitEl.textContent = formatCurrency(data.profit);
-                        
-                        // 更新图表日期范围
                         const chartDateRangeEl = document.getElementById('chart-date-range');
                         if (chartDateRangeEl && data.date_range) {
-                            chartDateRangeEl.textContent = 
+                            chartDateRangeEl.textContent =
                                 `${formatDateForDisplay(data.date_range.from)} to ${formatDateForDisplay(data.date_range.to)}`;
                             chartDateRangeEl.style.color = '#6b7280';
                         }
-                
-                // 更新图表（使用 requestAnimationFrame 延迟，避免与 DOM 更新冲突）
-                requestAnimationFrame(() => {
-                            try {
-                    updateChart(data);
-                            } catch (chartError) {
-                                console.error('更新图表失败:', chartError);
-                                showError('Chart update failed');
-                            }
-                });
+                        try {
+                            updateChart(data);
+                        } catch (chartError) {
+                            console.error('更新图表失败:', chartError);
+                            showError('Chart update failed');
+                        }
                     } catch (domError) {
                         console.error('更新DOM失败:', domError);
                         showError('UI update failed');
                     }
-            });
+                });
             } catch (error) {
                 console.error('updateDashboard 错误:', error);
                 showError('Data update failed');
@@ -2689,9 +2687,11 @@ if (isset($_GET['logout'])) {
                     event.preventDefault(); // 阻止默认错误处理
                 });
                 
+                // 提前发起公司列表请求，与 initDatePickers 并行，减少首屏等待
+                const loadCompaniesPromise = loadOwnerCompanies();
                 initDatePickers();
                 initChartDataButtons();
-                await loadOwnerCompanies();
+                await loadCompaniesPromise;
                 // 确保日期范围已设置后再加载数据（首次加载立即请求，不等待防抖）
                 if (dateRange.startDate && dateRange.endDate && window.companyId) {
                     await loadData(true);
