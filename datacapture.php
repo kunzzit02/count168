@@ -24607,8 +24607,6 @@ if ($current_user_id && count($user_companies) > 0) {
                         if (container) {
                             if (currentDataCaptureType === 'CITIBET_MAJOR') container.classList.add('citibet-mode');
                             else container.classList.remove('citibet-mode');
-                            if (currentDataCaptureType === '655') container.classList.add('data-capture-mode-655');
-                            else container.classList.remove('data-capture-mode-655');
                         }
                         // 655：恢复时暂时不设置 is655GridReady，等恢复表格数据后再统一设置
                         // 这样可以避免状态不一致的问题
@@ -24908,8 +24906,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (excelTableContainer) {
                     if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
                     else excelTableContainer.classList.remove('citibet-mode');
-                    if (currentDataCaptureType === '655') excelTableContainer.classList.add('data-capture-mode-655');
-                    else excelTableContainer.classList.remove('data-capture-mode-655');
                 }
                 // 初始化显示状态
                 toggleTableDisplayFor655();
@@ -24924,8 +24920,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (excelTableContainer) {
                         if (currentDataCaptureType === 'CITIBET_MAJOR') excelTableContainer.classList.add('citibet-mode');
                         else excelTableContainer.classList.remove('citibet-mode');
-                        if (currentDataCaptureType === '655') excelTableContainer.classList.add('data-capture-mode-655');
-                        else excelTableContainer.classList.remove('data-capture-mode-655');
                     }
                     // 切到655时：检查是否有保存的预览数据，如果有则恢复显示
                     if (currentDataCaptureType === '655') {
@@ -26092,12 +26086,6 @@ if ($current_user_id && count($user_companies) > 0) {
             text-align: center;
             min-width: clamp(30px, 3.49vw, 67px);
             position: relative;
-        }
-
-        /* 2.655 模式：无单元格边框，与未粘贴时的白区一致，减轻“粘贴多次变 Excel 感” */
-        .excel-table-container.data-capture-mode-655 .excel-table th,
-        .excel-table-container.data-capture-mode-655 .excel-table td {
-            border: none !important;
         }
 
         .excel-table th {
