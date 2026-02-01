@@ -693,6 +693,8 @@ $today = date('d/m/Y');
             flex-direction: column;
             gap: 12px;
         }
+        .member-company-filter,
+        .member-account-filter,
         .member-currency-filter {
             display: flex !important;
             align-items: center;
@@ -701,22 +703,17 @@ $today = date('d/m/Y');
             margin-top: 12px;
             min-height: 36px;
         }
-        .member-company-filter {
-            display: flex !important;
-            align-items: center;
-            gap: clamp(8px, 0.83vw, 16px);
-            flex-wrap: wrap;
-            margin-top: 12px;
-            font-weight: bold;
-        }
-        /* Member 页面 Company 按钮加粗，和其它重要按钮风格一致 */
-        .member-company-filter .transaction-company-btn {
-            font-weight: 700;
-        }
+        /* Member 页面 Company/Account/Currency 标签统一样式 */
+        .member-company-filter .transaction-company-label,
+        .member-account-filter .transaction-company-label,
         .member-currency-filter .transaction-company-label {
             font-weight: bold;
             color: #374151;
             font-size: clamp(10px, 0.73vw, 14px);
+        }
+        /* Member 页面 Company 按钮加粗，和其它重要按钮风格一致 */
+        .member-company-filter .transaction-company-btn {
+            font-weight: 700;
         }
         .member-currency-buttons {
             display: inline-flex;
@@ -976,7 +973,7 @@ $today = date('d/m/Y');
                 }
                 ?>
                 <div class="member-account-filter transaction-company-filter" id="member_account_filter" style="display:flex;visibility:visible;">
-                    <span class="transaction-company-label">Account / 连接:</span>
+                    <span class="transaction-company-label">Account:</span>
                     <div id="member_account_buttons" class="transaction-company-buttons member-currency-buttons">
                         <span class="member-account-loading" id="member_account_loading">Loading...</span>
                     </div>
