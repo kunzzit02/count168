@@ -4521,12 +4521,51 @@ if ($current_user_id && count($user_companies) > 0) {
                                     .replace(/javascript:/gi, '')
                                     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
                                 
-                                // 655 网上模式：表头只保留纯文本，不保留粗体/红色/下划线等
-                                targetHeader.textContent = cellText || '';
+                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                    // 655：移除class/id与布局样式，避免跑到页面最上面
+                                    targetHeader.innerHTML = sanitize655HtmlFragment(cleanContent);
+                                } else {
+                                    targetHeader.textContent = cellText;
+                                }
                                 
-                                // 655 网上模式：表头样式仅保留边框与内边距，不复制颜色/字重/背景
-                                targetHeader.setAttribute('style', 'border: 1px solid #d0d7de; padding: 4px 8px;');
-                                targetHeader.style.cssText = 'border: 1px solid #d0d7de; padding: 4px 8px;';
+                                // 保留样式（包括背景色、文字颜色等所有样式）
+                                const sourceCellStyle = sourceCell.getAttribute('style');
+                                const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
+                                
+                                if (sourceCellStyle) {
+                                    const sanitizedStyle = sanitizeCopiedStyleString(sourceCellStyle);
+                                    if (sanitizedStyle) {
+                                        targetHeader.setAttribute('style', sanitizedStyle);
+                                        targetHeader.style.cssText = sanitizedStyle;
+                                    } else {
+                                        targetHeader.removeAttribute('style');
+                                        targetHeader.style.cssText = '';
+                                    }
+                                } else {
+                                    // 即使没有style属性，也尝试从computed style获取样式
+                                    const bgColor = sourceCellComputedStyle.backgroundColor;
+                                    const color = sourceCellComputedStyle.color;
+                                    const fontWeight = sourceCellComputedStyle.fontWeight;
+                                    const textAlign = sourceCellComputedStyle.textAlign;
+                                    
+                                    let styleString = '';
+                                    if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+                                        styleString += ` background-color: ${bgColor} !important;`;
+                                    }
+                                    if (color && color !== 'rgb(0, 0, 0)') {
+                                        styleString += ` color: ${color} !important;`;
+                                    }
+                                    if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') {
+                                        styleString += ` font-weight: ${fontWeight} !important;`;
+                                    }
+                                    if (textAlign && textAlign !== 'left') {
+                                        styleString += ` text-align: ${textAlign} !important;`;
+                                    }
+                                    if (styleString) {
+                                        targetHeader.setAttribute('style', styleString);
+                                        targetHeader.style.cssText = styleString;
+                                    }
+                                }
                                 
                                 // 655：不要复制class，避免外部CSS（如fixedDataTable...）影响布局
                                 
@@ -4788,9 +4827,29 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                                     targetCell.textContent = topData;
                                     
-                                    // 655 网上模式：数据格仅保留边框与内边距，不保留颜色/粗体/下划线
-                                    targetCell.setAttribute('style', 'border: 1px solid #d0d7de; padding: 4px 8px;');
-                                    targetCell.style.cssText = 'border: 1px solid #d0d7de; padding: 4px 8px;';
+                                    // 655模式：数据格不保留背景色，只保留边框及其他样式
+                                    if (sourceCellStyle) {
+                                        const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                        let mergedStyle = sanitizedCellStyle && !sanitizedCellStyle.includes('border') ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}` : (sanitizedCellStyle || 'border: 1px solid #d0d7de !important;');
+                                        targetCell.setAttribute('style', mergedStyle);
+                                        targetCell.style.cssText = mergedStyle;
+                                    } else if (sourceCellComputedStyle) {
+                                        const color = sourceCellComputedStyle.color;
+                                        const fontWeight = sourceCellComputedStyle.fontWeight;
+                                        const textAlign = sourceCellComputedStyle.textAlign;
+                                        let styleString = 'border: 1px solid #d0d7de !important;';
+                                        if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
+                                        if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
+                                        if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                        targetCell.setAttribute('style', styleString);
+                                        targetCell.style.cssText = styleString;
+                                    } else {
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                        targetCell.style.padding = '4px 8px';
+                                    }
+                                    if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                    }
                                     currentPasteChanges.push({
                                         row: actualRowIndex,
                                         col: currentCol,
@@ -4812,9 +4871,29 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                                     targetCell.textContent = bottomData;
                                     
-                                    // 655 网上模式：数据格仅保留边框与内边距，不保留颜色/粗体/下划线
-                                    targetCell.setAttribute('style', 'border: 1px solid #d0d7de; padding: 4px 8px;');
-                                    targetCell.style.cssText = 'border: 1px solid #d0d7de; padding: 4px 8px;';
+                                    // 655模式：数据格不保留背景色
+                                    if (sourceCellStyle) {
+                                        const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                        let mergedStyle = sanitizedCellStyle && !sanitizedCellStyle.includes('border') ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}` : (sanitizedCellStyle || 'border: 1px solid #d0d7de !important;');
+                                        targetCell.setAttribute('style', mergedStyle);
+                                        targetCell.style.cssText = mergedStyle;
+                                    } else if (sourceCellComputedStyle) {
+                                        const color = sourceCellComputedStyle.color;
+                                        const fontWeight = sourceCellComputedStyle.fontWeight;
+                                        const textAlign = sourceCellComputedStyle.textAlign;
+                                        let styleString = 'border: 1px solid #d0d7de !important;';
+                                        if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
+                                        if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
+                                        if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                        targetCell.setAttribute('style', styleString);
+                                        targetCell.style.cssText = styleString;
+                                    } else {
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                        targetCell.style.padding = '4px 8px';
+                                    }
+                                    if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
+                                        targetCell.style.border = '1px solid #d0d7de';
+                                    }
                                     currentPasteChanges.push({
                                         row: nextRowIndex,
                                         col: currentCol,
@@ -4857,9 +4936,17 @@ if ($current_user_id && count($user_companies) > 0) {
                         return;
                     }
                     
-                    // 655 网上模式：数据行不复制源行样式（无背景/颜色/粗体）
-                    tableRow.removeAttribute('style');
-                    tableRow.style.cssText = '';
+                    // 655模式：数据行不保留背景色
+                    if (sourceRowStyle) {
+                        const sanitizedRowStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceRowStyle));
+                        if (sanitizedRowStyle) {
+                            tableRow.setAttribute('style', sanitizedRowStyle);
+                            tableRow.style.cssText = sanitizedRowStyle;
+                        } else {
+                            tableRow.removeAttribute('style');
+                            tableRow.style.cssText = '';
+                        }
+                    }
                     // 不再从 computed 复制行背景色
                     
                     let currentCol = 0;
@@ -4881,12 +4968,54 @@ if ($current_user_id && count($user_companies) > 0) {
                             if (targetCell && targetCell.contentEditable === 'true') {
                                 const oldValue = targetCell.textContent || targetCell.innerHTML || '';
                                 
-                                // 655 网上模式：数据格只保留纯文本，不保留粗体/红色/下划线
-                                targetCell.textContent = cellText || '';
+                                let cleanContent = cellContent
+                                    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                                    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                                    .replace(/javascript:/gi, '')
+                                    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
                                 
-                                // 655 网上模式：数据格样式仅保留边框与内边距
-                                targetCell.setAttribute('style', 'border: 1px solid #d0d7de; padding: 4px 8px;');
-                                targetCell.style.cssText = 'border: 1px solid #d0d7de; padding: 4px 8px;';
+                                // 保留所有HTML格式
+                                if (cleanContent.includes('<') && cleanContent.includes('>')) {
+                                    // 655：移除class/id与布局样式，避免跑到页面最上面
+                                    targetCell.innerHTML = sanitize655HtmlFragment(cleanContent);
+                                } else if (cellText && cellText.trim() !== '') {
+                                    const sourceCellStyle = sourceCell.getAttribute('style');
+                                    if (sourceCellStyle) {
+                                        const sanitizedSpanStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                        if (sanitizedSpanStyle) {
+                                            targetCell.innerHTML = `<span style="${sanitizedSpanStyle}">${cellText}</span>`;
+                                        } else {
+                                            targetCell.textContent = cellText;
+                                        }
+                                    } else {
+                                        targetCell.textContent = cellText;
+                                    }
+                                } else {
+                                    targetCell.textContent = '';
+                                }
+                                
+                                // 655模式：数据格不保留背景色，只保留边框及文字颜色等
+                                const sourceCellStyle = sourceCell.getAttribute('style');
+                                const sourceCellComputedStyle = window.getComputedStyle(sourceCell);
+                                if (sourceCellStyle) {
+                                    const sanitizedCellStyle = stripBackgroundFromStyle(sanitizeCopiedStyleString(sourceCellStyle));
+                                    let mergedStyle = sanitizedCellStyle && !sanitizedCellStyle.includes('border') ? `border: 1px solid #d0d7de !important; ${sanitizedCellStyle}` : (sanitizedCellStyle || 'border: 1px solid #d0d7de !important;');
+                                    targetCell.setAttribute('style', mergedStyle);
+                                    targetCell.style.cssText = mergedStyle;
+                                } else {
+                                    const color = sourceCellComputedStyle.color;
+                                    const fontWeight = sourceCellComputedStyle.fontWeight;
+                                    const textAlign = sourceCellComputedStyle.textAlign;
+                                    let styleString = 'border: 1px solid #d0d7de !important;';
+                                    if (color && color !== 'rgb(0, 0, 0)') styleString += ` color: ${color} !important;`;
+                                    if (fontWeight && fontWeight !== 'normal' && fontWeight !== '400') styleString += ` font-weight: ${fontWeight} !important;`;
+                                    if (textAlign && textAlign !== 'left') styleString += ` text-align: ${textAlign} !important;`;
+                                    targetCell.setAttribute('style', styleString);
+                                    targetCell.style.cssText = styleString;
+                                }
+                                if (!targetCell.style.border || targetCell.style.border === 'none' || targetCell.style.border === '0px') {
+                                    targetCell.style.border = '1px solid #d0d7de';
+                                }
                                 currentPasteChanges.push({
                                     row: actualRowIndex,
                                     col: currentCol,
@@ -10068,44 +10197,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 getClipboardData('text') ||
                 getClipboardData('Text') ||
                 '';
-            
-            // 2.655 模式专用：始终使用网上模式（parseAndFillHTMLTableForGeneral655），不落入 Excel 模式；无论粘贴多少次都一致
-            if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '655') {
-                let htmlToUse = getClipboardData('text/html') || '';
-                if (htmlToUse && /<table\b/i.test(htmlToUse)) {
-                    const sanitized = sanitizePastedHTML(htmlToUse);
-                    const previewFragment = build655PreviewFragmentFromClipboardHtml(htmlToUse);
-                    if (previewFragment) render655Preview(previewFragment);
-                    const filled = parseAndFillHTMLTableForGeneral655(sanitized || htmlToUse);
-                    if (filled) {
-                        is655GridReady = true;
-                        toggleTableDisplayFor655();
-                    }
-                    return;
-                }
-                if (pastedData && pastedData.includes('\t')) {
-                    const tableHtml = tsvToHtmlTable(pastedData);
-                    render655Preview(tableHtml);
-                    const filled = parseAndFillHTMLTableForGeneral655(tableHtml);
-                    if (filled) {
-                        is655GridReady = true;
-                        toggleTableDisplayFor655();
-                    }
-                    return;
-                }
-                if (pastedData && /<table\b/i.test(pastedData)) {
-                    const sanitized = sanitizePastedHTML(pastedData);
-                    const previewFragment = build655PreviewFragmentFromClipboardHtml(pastedData);
-                    if (previewFragment) render655Preview(previewFragment);
-                    const filled = parseAndFillHTMLTableForGeneral655(sanitized || pastedData);
-                    if (filled) {
-                        is655GridReady = true;
-                        toggleTableDisplayFor655();
-                    }
-                    return;
-                }
-                return;
-            }
             
             // 1.GENERAL 专用解析：完全保持Excel原始格式，不做任何转换
             if (typeof currentDataCaptureType !== 'undefined' && currentDataCaptureType === '1.GENERAL') {
@@ -22529,16 +22620,25 @@ if ($current_user_id && count($user_companies) > 0) {
                 return true;
             }
 
-            // 2) Fallback to tab-separated plain text：仍用 655 网上模式解析，不落入 Excel 模式
+            // 2) Fallback to tab-separated plain text
             const textData = getClipboardData('text/plain') || '';
             if (textData && textData.includes('\t')) {
                 setTimeout(() => {
-                    const tableHtml = tsvToHtmlTable(textData);
-                    render655Preview(tableHtml);
-                    const filled = parseAndFillHTMLTableForGeneral655(tableHtml);
-                    if (filled) {
-                        is655GridReady = true;
-                        toggleTableDisplayFor655();
+                    const tableBody = document.getElementById('tableBody');
+                    if (tableBody && tableBody.children.length > 0) {
+                        const firstRow = tableBody.children[0];
+                        if (firstRow && firstRow.children.length > 1) {
+                            const firstCell = firstRow.children[1];
+                            if (firstCell) {
+                                const mockEvent = {
+                                    target: firstCell,
+                                    clipboardData: clipboard,
+                                    preventDefault: () => {},
+                                    stopPropagation: () => {}
+                                };
+                                handleCellPaste(mockEvent);
+                            }
+                        }
                     }
                 }, 10);
                 return true;
@@ -24333,16 +24433,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (isEditableFormField(target)) return;
 
             const clipboard = (e.clipboardData || window.clipboardData);
-            if (!clipboard) return;
-            // 655 模式：单行 TSV（仅有 \t 无换行）也视为表格，始终走网上模式
-            let tableLike = clipboardLooksLikeTable(clipboard);
-            if (!tableLike && currentDataCaptureType === '655') {
-                try {
-                    const t = clipboard.getData('text/plain') || '';
-                    if (t && t.includes('\t')) tableLike = true;
-                } catch (_) {}
-            }
-            if (!tableLike) return;
+            if (!clipboard || !clipboardLooksLikeTable(clipboard)) return;
 
             // 关键：阻止默认粘贴，避免<table>被贴到页面其它位置
             e.preventDefault();
