@@ -356,17 +356,17 @@ function getAllLinkedAccountsForDisplayWithType($pdo, $account_id, $company_id) 
     if ($has_link_type) {
         // 查询所有与当前账户关联的账户（考虑连接类型和方向）
         // 双向连接：两个方向都可以
-        // 单向连接：发起者可见（source_account_id = 当前）或接收者可见（当前为另一端，即 source_account_id = 另一列）
+        // 单向连接：发起者可见（source_account_id = 当前）或接收者可见（source_account_id = 另一列）；source_account_id 为 NULL 时兼容显示
         $stmt = $pdo->prepare("
             SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_1 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_2)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_2 OR source_account_id IS NULL)))
             UNION
             SELECT account_id_1 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_2 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_1)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_1 OR source_account_id IS NULL)))
         ");
         $stmt->execute([$account_id, $company_id, $account_id, $account_id, $company_id, $account_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -453,18 +453,17 @@ function getLinkedAccounts($pdo, $account_id, $company_id) {
         $visited[$current_id] = true;
         
         // 查找与当前账户直接关联的所有账户（考虑连接类型）
-        // 双向连接：两个方向都可以
-        // 单向连接：发起者可见（source_account_id = current_id）或接收者可见（当前为另一端）
+        // 单向连接：发起者/接收者可见；source_account_id 为 NULL 时兼容显示
         $stmt = $pdo->prepare("
             SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_1 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_2)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_2 OR source_account_id IS NULL)))
             UNION
             SELECT account_id_1 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_2 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_1)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_1 OR source_account_id IS NULL)))
         ");
         $stmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -522,18 +521,17 @@ function getLinkedAccountsForMember($pdo, $account_id, $company_id) {
         $visited[$current_id] = true;
         
         // 查找与当前账户直接关联的所有账户（考虑连接类型）
-        // 双向连接：两个方向都可以
-        // 单向连接：发起者可见（source_account_id = current_id）或接收者可见（当前为另一端）
+        // 单向连接：发起者/接收者可见；source_account_id 为 NULL 时兼容显示（member 页关联账户列表）
         $stmt = $pdo->prepare("
             SELECT account_id_2 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_1 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_2)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_2 OR source_account_id IS NULL)))
             UNION
             SELECT account_id_1 AS linked_id, link_type, source_account_id
             FROM account_link 
             WHERE account_id_2 = ? AND company_id = ?
-            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_1)))
+            AND (link_type = 'bidirectional' OR (link_type = 'unidirectional' AND (source_account_id = ? OR source_account_id = account_id_1 OR source_account_id IS NULL)))
         ");
         $stmt->execute([$current_id, $company_id, $current_id, $current_id, $company_id, $current_id]);
         $linked_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
