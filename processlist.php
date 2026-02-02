@@ -1336,10 +1336,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <label for="bank_day_start">Day start</label>
                                     <input type="date" id="bank_day_start" name="day_start" class="bank-input">
                                 </div>
-                                <div class="form-group">
-                                    <label for="bank_day_end">Day end</label>
-                                    <input type="date" id="bank_day_end" name="day_end" class="bank-input">
-                                </div>
                             </div>
                             
                             <div class="form-row">
@@ -2281,8 +2277,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
                 const dayStart = process.day_start || '';
                 document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
-                const dayEnd = process.day_end || '';
-                document.getElementById('bank_day_end').value = dayEnd ? (dayEnd.length === 10 ? dayEnd : dayEnd.split(' ')[0]) : '';
                 document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
                 document.getElementById('addBankModal').style.display = 'block';
             } catch (error) {
@@ -3510,6 +3504,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 if (customerBtn && customerBtn.getAttribute('data-value')) {
                     formData.append('customer_id', customerBtn.getAttribute('data-value'));
+                }
+                var dayStartVal = document.getElementById('bank_day_start').value;
+                var contractVal = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value) || '';
+                var months = parseInt(contractVal.match(/\d+/), 10) || 0;
+                if (dayStartVal && months > 0) {
+                    var d = new Date(dayStartVal + 'T00:00:00');
+                    d.setMonth(d.getMonth() + months);
+                    formData.set('day_end', d.toISOString().slice(0, 10));
+                } else {
+                    formData.set('day_end', '');
                 }
                 try {
                     if (editId) {
