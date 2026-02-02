@@ -1299,10 +1299,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <label for="bank_contract">Contract</label>
                                     <select id="bank_contract" name="contract" class="bank-select">
                                         <option value="">Select Contract</option>
-                                        <option value="1 month">1 month</option>
-                                        <option value="2 months">2 months</option>
-                                        <option value="3 months">3 months</option>
-                                        <option value="6 months">6 months</option>
+                                        <option value="1 MONTH">1 MONTH</option>
+                                        <option value="2 MONTHS">2 MONTHS</option>
+                                        <option value="3 MONTHS">3 MONTHS</option>
+                                        <option value="6 MONTHS">6 MONTHS</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -1949,7 +1949,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 pageItems = processes.slice(startIndex, Math.min(startIndex + pageSize, processes.length));
             }
 
-            const contractMap = { '1':'1 month','2':'2 months','3':'3 months','6':'6 months' };
+            const contractMap = { '1':'1 MONTH','1 month':'1 MONTH','2':'2 MONTHS','2 months':'2 MONTHS','3':'3 MONTHS','3 months':'3 MONTHS','6':'6 MONTHS','6 months':'6 MONTHS' };
             const todayStr = new Date().toISOString().slice(0, 10);
             function getContractStateClass(dayStart, dayEnd) {
                 if (!dayStart && !dayEnd) return '';
