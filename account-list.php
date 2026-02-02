@@ -262,24 +262,95 @@ $showAll = isset($_GET['showAll']) ? true : false;
             background-color: #ffffff;
             padding: clamp(8px, 0.78vw, 15px);
         }
+        /* Link Account: pill buttons + description (first image design) */
+        .link-type-section {
+            margin-bottom: 16px;
+        }
+        .link-type-pills {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .link-type-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .link-type-pill .link-type-radio {
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .link-type-pill-check {
+            opacity: 0;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .link-type-pill:has(.link-type-radio:checked) .link-type-pill-check {
+            opacity: 1;
+        }
+        .link-type-pill:hover {
+            background: #e5e7eb;
+            border-color: #9ca3af;
+        }
+        .link-type-pill:has(.link-type-radio:checked) {
+            background: linear-gradient(180deg, #7eb8ff 0%, #2563eb 100%);
+            border-color: #2563eb;
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+        }
+        .link-type-desc {
+            margin: 10px 0 0 0;
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.5;
+            text-align: center;
+        }
         .link-account-search-wrap {
             display: flex;
             justify-content: center;
             margin-bottom: 12px;
         }
-        .link-account-search-input {
+        .link-account-search-inner {
+            position: relative;
             width: 250px;
+        }
+        .link-account-search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            color: #9ca3af;
+            pointer-events: none;
+        }
+        .link-account-search-input {
+            width: 100%;
             box-sizing: border-box;
-            padding: 8px 12px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
+            padding: 8px 12px 8px 38px;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
             font-size: 14px;
             font-family: inherit;
         }
         .link-account-search-input:focus {
             outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
         }
         .link-account-search-input::placeholder {
             color: #9ca3af;
@@ -626,21 +697,29 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 <span class="account-close" onclick="closeLinkAccountModal()">&times;</span>
             </div>
             <div class="account-modal-body link-account-modal-body">
-                <!-- Link Type Selection -->
-                <div style="margin-bottom: 16px;">
-                    <div style="display: flex; gap: 16px; justify-content: center;">
-                        <label style="display: flex; align-items: center; cursor: pointer;">
-                            <input type="radio" name="linkType" value="bidirectional" id="linkTypeBidirectional" checked style="margin-right: 8px; cursor: pointer;">
-                            <span style="font-weight: bold;">Bidirectional</span>
+                <!-- Link Type Selection: pill buttons (first image design) -->
+                <div class="link-type-section">
+                    <div class="link-type-pills">
+                        <label class="link-type-pill" id="linkTypeLabelBidirectional">
+                            <input type="radio" name="linkType" value="bidirectional" id="linkTypeBidirectional" checked class="link-type-radio">
+                            <span class="link-type-pill-check">&#10003;</span>
+                            <span class="link-type-pill-text">Bidirectional</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer;">
-                            <input type="radio" name="linkType" value="unidirectional" id="linkTypeUnidirectional" style="margin-right: 8px; cursor: pointer;">
-                            <span style="font-weight: bold;">Unidirectional</span>
+                        <label class="link-type-pill" id="linkTypeLabelUnidirectional">
+                            <input type="radio" name="linkType" value="unidirectional" id="linkTypeUnidirectional" class="link-type-radio">
+                            <span class="link-type-pill-check">&#10003;</span>
+                            <span class="link-type-pill-text">Unidirectional</span>
                         </label>
                     </div>
+                    <p class="link-type-desc" id="linkTypeDescription">Bidirectional: Data syncs both ways.<br>Unidirectional flows from A to B.</p>
                 </div>
                 <div class="link-account-search-wrap">
-                    <input type="text" id="linkAccountSearchInput" class="link-account-search-input" placeholder="Search account..." autocomplete="off" aria-label="Search account">
+                    <div class="link-account-search-inner">
+                        <svg class="link-account-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <input type="text" id="linkAccountSearchInput" class="link-account-search-input" placeholder="Search account..." autocomplete="off" aria-label="Search account">
+                    </div>
                 </div>
                 <div style="margin-bottom: 16px;">
                     <div style="margin-bottom: 12px;">
@@ -1687,9 +1766,13 @@ $showAll = isset($_GET['showAll']) ? true : false;
             currentLinkType = 'bidirectional';
         }
         
-        // 更新连接类型描述（描述元素已移除，此函数保留以防将来需要）
         function updateLinkTypeDescription() {
-            // Description element has been removed, function kept for compatibility
+            const descEl = document.getElementById('linkTypeDescription');
+            if (!descEl) return;
+            const isBidi = document.getElementById('linkTypeBidirectional') && document.getElementById('linkTypeBidirectional').checked;
+            descEl.innerHTML = isBidi
+                ? 'Bidirectional: Data syncs both ways.<br>Unidirectional flows from A to B.'
+                : 'Bidirectional: Data syncs both ways.<br>Unidirectional flows from A to B.';
         }
         
         // 保存账户关联
