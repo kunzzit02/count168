@@ -340,7 +340,7 @@ body.process-page {
 /* Currency column center alignment */
 .process-page .process-card .card-item:nth-child(5),
 .process-page .table-header .header-item:nth-child(5) {
-    justify-content: center;
+    justify-content: flex-start;
     text-align: center;
 }
 
