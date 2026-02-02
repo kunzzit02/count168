@@ -364,18 +364,29 @@ body.process-page {
     flex-shrink: 0;
 }
 
-/* Bank Contract 列按合同状态着色：执行中=浅绿，未开始=浅黄，已过期=浅灰 */
-.process-page .bank-data-table td.contract-cell.contract-active {
-    background-color: #beffd4 !important;
-    color: #000;
+/* Bank Contract 列：椭圆徽章围着字（与 Status ACTIVE 一致） */
+.contract-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: clamp(0px, 0.1vw, 2px) clamp(4px, 0.42vw, 8px);
+    border-radius: 20px;
+    font-size: clamp(7px, 0.63vw, 12px);
+    font-weight: bold;
 }
-.process-page .bank-data-table td.contract-cell.contract-pending {
+.contract-badge.contract-active {
+    background-color: #beffd4;
+    color: #000;
+    border: 0.0625rem solid #beffd4;
+}
+.contract-badge.contract-pending {
     background-color: #fff9c4;
     color: #000;
+    border: 0.0625rem solid #fff9c4;
 }
-.process-page .bank-data-table td.contract-cell.contract-expired {
+.contract-badge.contract-expired {
     background-color: #e8e8e8;
     color: #666;
+    border: 0.0625rem solid #e8e8e8;
 }
 
 /* Table Header - copied from accountCSS.css */
