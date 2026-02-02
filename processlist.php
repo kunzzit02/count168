@@ -592,14 +592,15 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         
         .bank-add-btn {
-            width: 32px;
-            height: 32px;
+            width: clamp(18px, 1.25vw, 24px);
+            height: clamp(18px, 1.25vw, 24px);
             border-radius: 50%;
             background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
             color: white;
             border: none;
             cursor: pointer;
-            font-size: 18px;
+            font-size: clamp(12px, 0.83vw, 16px);
+            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -615,11 +616,12 @@ if ($current_user_id && count($user_companies) > 0) {
         .bank-input,
         .bank-select {
             width: 100%;
-            padding: 8px 12px;
+            padding: 5px 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 14px;
+            font-size: 13px;
             box-sizing: border-box;
+            min-height: 28px;
         }
         
         .bank-input:focus,
