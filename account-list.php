@@ -264,28 +264,29 @@ $showAll = isset($_GET['showAll']) ? true : false;
             background-color: #ffffff;
             padding: clamp(8px, 0.78vw, 15px);
         }
-        /* Link Account: pill buttons + description (first image design) */
+        /* Link Account: pill buttons + description (comfortable spacing & size) */
         .link-type-section {
-            margin-bottom: 16px;
+            margin-top: 14px;
+            margin-bottom: 14px;
         }
         .link-type-pills {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             justify-content: flex-start;
             flex-wrap: wrap;
         }
         .link-type-pill {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 8px 18px;
+            gap: 5px;
+            padding: 6px 14px;
             border-radius: 9999px;
             cursor: pointer;
             transition: all 0.2s ease;
             border: 1px solid #d1d5db;
             background: #f3f4f6;
             color: #374151;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
         }
         .link-type-pill .link-type-radio {
@@ -298,7 +299,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
         .link-type-pill-check {
             opacity: 0;
             color: #fff;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
         }
         .link-type-pill:has(.link-type-radio:checked) .link-type-pill-check {
@@ -315,7 +316,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
             box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
         }
         .link-type-desc {
-            margin: 10px 0 0 0;
+            margin: 8px 0 0 0;
             font-size: 12px;
             color: #6b7280;
             line-height: 1.5;
@@ -324,7 +325,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
         .link-account-search-wrap {
             display: flex;
             justify-content: flex-start;
-            margin-bottom: 12px;
+            margin-top: 2px;
+            margin-bottom: 14px;
         }
         .link-account-search-inner {
             position: relative;
