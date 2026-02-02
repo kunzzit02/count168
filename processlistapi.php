@@ -631,7 +631,7 @@ function getBankProcesses() {
                     bp.status,
                     bp.dts_modified,
                     a_cm.name as card_merchant_name,
-                    a_cust.name as customer_name
+                    a_cust.account_id as customer_account
                 FROM bank_process bp
                 LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                 LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
@@ -668,7 +668,7 @@ function getBankProcesses() {
                 'card_lower' => $r['card_merchant_name'] ?? '',
                 'contract' => $r['contract'] ?? '',
                 'insurance' => $r['insurance'] ?? '',
-                'customer' => $r['customer_name'] ?? '',
+                'customer' => $r['customer_account'] ?? '',
                 'cost' => $r['cost'],
                 'price' => $r['price'],
                 'profit' => $r['profit'],
@@ -704,7 +704,7 @@ function getBankProcess() {
                 bp.card_merchant_id, bp.customer_id, bp.contract, bp.insurance,
                 bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.status,
                 bp.dts_modified, bp.dts_created,
-                a_cm.name as card_merchant_name, a_cust.name as customer_name
+                a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name
             FROM bank_process bp
             LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
             LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
@@ -726,6 +726,7 @@ function getBankProcess() {
             'customer_id' => $process['customer_id'],
             'card_merchant_name' => $process['card_merchant_name'],
             'customer_name' => $process['customer_name'],
+            'customer_account' => $process['customer_account'] ?? '',
             'contract' => $process['contract'],
             'insurance' => $process['insurance'],
             'cost' => $process['cost'],
