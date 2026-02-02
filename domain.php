@@ -1262,9 +1262,9 @@ try {
                         <option value="1year">1 Year</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label>Expiration Date</label>
-                    <div style="padding: clamp(8px, 0.73vw, 14px); background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(11px, 0.94vw, 18px); font-weight: 600; color: #1e293b; text-align: center;" id="expDateDisplay">
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label style="font-size: clamp(9px, 0.73vw, 13px);">Expiration Date</label>
+                    <div style="padding: clamp(5px, 0.5vw, 8px); background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: clamp(4px, 0.42vw, 6px); font-size: clamp(10px, 0.78vw, 14px); font-weight: 600; color: #1e293b; text-align: center;" id="expDateDisplay">
                         Not set
                     </div>
                 </div>
