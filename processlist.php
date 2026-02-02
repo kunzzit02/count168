@@ -914,7 +914,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="header-item bank-header" style="display: none;">Cost</div>
                 <div class="header-item bank-header" style="display: none;">Price</div>
                 <div class="header-item bank-header" style="display: none;">Profit</div>
-                <div class="header-item bank-header" style="display: none;">Status</div>
+                <div class="header-item bank-header" style="display: none;">Statue</div>
                 <div class="header-item bank-header" style="display: none;">Date</div>
                 <div class="header-item bank-header" style="display: none;">Action
                     <input type="checkbox" id="selectAllBankProcesses" title="Select all" style="margin-left: 10px; cursor: pointer; display: none;" onchange="toggleSelectAllBankProcesses()">
@@ -1877,7 +1877,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     card.className = 'process-card';
                     card.setAttribute('data-id', process.id);
                     // 设置 Bank 表格的列数（15列：Cost/Price/Profit 拆成三列）
-                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.65fr 0.5fr 0.3fr';
+                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
                     
                     const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                     card.innerHTML = `
@@ -1887,7 +1887,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="card-item">${escapeHtml(process.bank || '')}</div>
                         <div class="card-item">${escapeHtml(process.types || '')}</div>
                         <div class="card-item">${escapeHtml(process.card_lower || '')}</div>
-                        <div class="card-item">${(function(){ const c = process.contract; if (!c) return ''; const map = { '1':'1 month', '2':'2 months', '3':'3 months', '6':'6 months' }; return escapeHtml(map[String(c)] || c); })()}</div>
+                        <div class="card-item">${escapeHtml(process.contract || '')}</div>
                         <div class="card-item">${escapeHtml(process.insurance || '')}</div>
                         <div class="card-item">${escapeHtml(process.customer || '')}</div>
                         <div class="card-item">${(function(){ const c = process.cost; if (c != null && c !== '') return escapeHtml(String(c)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(p => p.trim()).filter(Boolean); return escapeHtml(parts[0] || ''); })()}</div>
@@ -1895,15 +1895,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="card-item">${(function(){ const p = process.profit; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[2] || ''); })()}</div>
                         <div class="card-item">
                             <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
-                                ${escapeHtml((process.status || '').toUpperCase())}
+                                ${escapeHtml((process.statue || process.status || '').toUpperCase())}
                             </span>
                         </div>
                         <div class="card-item">${escapeHtml(process.date || '')}</div>
-                        <div class="card-item card-item-action">
+                        <div class="card-item">
                             <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '<span class="action-checkbox-placeholder" aria-hidden="true"></span>' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
+                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                         </div>
                     `;
                     container.appendChild(card);
@@ -1930,11 +1930,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         </div>
                         <div class="card-item">${escapeHtml(process.currency || '')}</div>
                         <div class="card-item">${escapeHtml(process.day_use || process.day_name || '')}</div>
-                        <div class="card-item card-item-action">
+                        <div class="card-item">
                             <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '<span class="action-checkbox-placeholder" aria-hidden="true"></span>' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
+                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                         </div>
                     `;
                     container.appendChild(card);
@@ -2440,31 +2440,20 @@ if ($current_user_id && count($user_companies) > 0) {
                     const card = document.querySelector(`.process-card[data-id="${processId}"]`);
                     if (card) {
                         const items = card.querySelectorAll('.card-item');
-                        const statusColIndex = selectedPermission === 'Bank' ? 12 : 3;
-                        if (items.length > statusColIndex) {
+                        if (items.length > 3) {
                             const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
-                            items[statusColIndex].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
-                            // 更新 Action 列：ACTIVE 用占位符保持列宽一致，INACTIVE 显示复选框
-                            const actionCell = items[items.length - 1];
+                            items[3].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                            // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
+                            const actionCell = items[6]; // Action 列
                             if (actionCell) {
                                 const existingCheckbox = actionCell.querySelector('.row-checkbox');
-                                const existingPlaceholder = actionCell.querySelector('.action-checkbox-placeholder');
-                                const editBtn = actionCell.querySelector('.edit-btn');
                                 if (result.newStatus === 'active') {
-                                    if (existingCheckbox) {
-                                        existingCheckbox.remove();
-                                        const placeholder = document.createElement('span');
-                                        placeholder.className = 'action-checkbox-placeholder';
-                                        placeholder.setAttribute('aria-hidden', 'true');
-                                        if (editBtn && editBtn.nextSibling) actionCell.insertBefore(placeholder, editBtn.nextSibling);
-                                        else actionCell.appendChild(placeholder);
-                                    }
+                                    if (existingCheckbox) existingCheckbox.remove();
                                 } else {
-                                    if (existingPlaceholder) existingPlaceholder.remove();
                                     if (!existingCheckbox) {
                                         const checkbox = document.createElement('input');
                                         checkbox.type = 'checkbox';
-                                        checkbox.className = 'row-checkbox' + (selectedPermission === 'Bank' ? ' bank-checkbox' : '');
+                                        checkbox.className = 'row-checkbox';
                                         checkbox.dataset.id = String(processId);
                                         checkbox.title = 'Select for deletion';
                                         checkbox.style.marginLeft = '10px';
@@ -5254,10 +5243,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 设置 Bank 表格的列数（15列：Cost, Price, Profit 三列）
                 if (tableHeader) {
-                    tableHeader.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.65fr 0.5fr 0.3fr';
+                    tableHeader.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
                 }
                 processCards.forEach(card => {
-                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.65fr 0.5fr 0.3fr';
+                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
                 });
             } else {
                 // 隐藏 waiting 复选框
