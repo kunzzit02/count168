@@ -191,6 +191,155 @@ if ($current_user_id && count($user_companies) > 0) {
         .description-delete-btn:hover {
             color: #900;
         }
+
+        /* Country Selection Modal (layout: left = Add/Available, right = Selected) */
+        .country-selection-modal .modal-content {
+            max-width: 56.25rem;
+            width: 90%;
+        }
+        .country-selection-container {
+            display: flex;
+            gap: 0;
+            height: clamp(300px, 26.04vw, 500px);
+            flex-wrap: wrap;
+        }
+        .available-countries-section {
+            flex: 1;
+            border-right: 0.0625rem solid #e9ecef;
+            padding-right: clamp(10px, 1.04vw, 20px);
+            min-width: 20rem;
+        }
+        .selected-countries-section {
+            flex: 1;
+            padding-left: clamp(10px, 1.04vw, 20px);
+            min-width: 20rem;
+        }
+        .available-countries-section h3,
+        .selected-countries-section h3 {
+            margin-top: 0;
+            margin-bottom: clamp(6px, 0.52vw, 10px);
+            color: #495057;
+            font-size: clamp(12px, 0.83vw, 16px);
+        }
+        .add-country-bar {
+            margin-bottom: clamp(10px, 1.04vw, 20px);
+            padding-bottom: clamp(10px, 1.04vw, 20px);
+            border-bottom: 1px solid #e9ecef;
+        }
+        .add-country-bar h3 {
+            margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
+            color: #495057;
+            font-size: clamp(12px, 0.83vw, 16px);
+            font-weight: bold;
+        }
+        .add-country-form { margin: 0; }
+        .add-country-input-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .add-country-input-group input {
+            width: 100%;
+            padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+            border: 1px solid #d1d5db;
+            border-radius: clamp(4px, 0.42vw, 8px);
+            font-size: clamp(8px, 0.73vw, 14px);
+            box-sizing: border-box;
+        }
+        .country-search { margin-bottom: 0.9375rem; }
+        .country-search input {
+            width: 100%;
+            padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+            border: 1px solid #d1d5db;
+            border-radius: clamp(4px, 0.42vw, 8px);
+            font-size: clamp(8px, 0.73vw, 14px);
+            box-sizing: border-box;
+        }
+        .country-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 0px 10px;
+            background-color: #f8f9fa;
+        }
+        .selected-countries-list {
+            max-height: 18.75rem;
+            overflow-y: auto;
+            border: 0.0625rem solid #e9ecef;
+            border-radius: 0.25rem;
+            padding: 0.625rem;
+            background-color: #f8f9fa;
+        }
+        .country-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+            padding: clamp(4px, 0.21vw, 8px) 0;
+            border-bottom: 0.0625rem solid #e9ecef;
+        }
+        .country-item:last-child { border-bottom: none; }
+        .country-item-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        .country-item input[type="checkbox"] { margin: 0; width: clamp(10px, 0.73vw, 14px); }
+        .country-item label { margin: 0; font-size: clamp(10px, 0.73vw, 14px); cursor: pointer; flex: 1; color: #333; }
+        .country-delete-btn {
+            border: none;
+            background: transparent;
+            color: #c00;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 6px;
+            line-height: 1;
+        }
+        .country-delete-btn:hover { color: #900; }
+        .country-item:hover { background-color: #e9ecef; }
+        .selected-country-modal-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: clamp(2px, 0.42vw, 8px) 8px;
+            border-bottom: 0.0625rem solid #e9ecef;
+            background-color: #e3f2fd;
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .selected-country-modal-item:last-child { border-bottom: none; margin-bottom: 0; }
+        .selected-country-modal-item span {
+            flex: 1;
+            font-size: clamp(10px, 0.73vw, 14px);
+            color: #1976d2;
+            font-weight: 500;
+        }
+        .remove-country-modal {
+            background: none;
+            border: none;
+            color: #1976d2;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0;
+            width: 1.25rem;
+            height: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+        .remove-country-modal:hover { background-color: #1976d2; color: white; }
+        .no-countries {
+            text-align: center;
+            color: #6c757d;
+            font-size: clamp(10px, 0.78vw, 15px);
+            font-style: italic;
+            padding: clamp(20px, 2.08vw, 40px) 20px;
+        }
+
         /* Bank Modal Styles - Separate from Gambling modal */
         .bank-modal .bank-modal-content {
             max-width: 1000px;
@@ -849,11 +998,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="bank-form-left">
                         <!-- Bank Information Section -->
                         <div class="bank-section">
-                            <h3 class="bank-section-title">Bank Information <span class="bank-chinese">资者</span></h3>
+                            <h3 class="bank-section-title">Bank Information</h3>
                             
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_country">国家</label>
+                                    <label for="bank_country">Country</label>
                                     <div class="select-with-add">
                                         <select id="bank_country" name="country" class="bank-select">
                                             <option value="">Select Country</option>
@@ -1041,6 +1190,50 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="modal-footer">
                     <button type="button" class="btn btn-cancel" onclick="closeDescriptionSelectionModal()">Cancel</button>
                     <button type="button" class="btn btn-save" id="confirmDescriptionsBtn" onclick="confirmDescriptions()">Confirm Selection</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Country Selection Modal (layout: left = Add/Available, right = Selected) -->
+    <div id="countrySelectionModal" class="modal" style="display: none;">
+        <div class="modal-content country-selection-modal">
+            <div class="modal-header">
+                <h2>Select or Add Country</h2>
+                <span class="close" onclick="closeCountrySelectionModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="country-selection-container">
+                    <!-- Left side - Add new and available countries -->
+                    <div class="available-countries-section">
+                        <div class="add-country-bar">
+                            <h3>Add New Country</h3>
+                            <form id="addCountryForm" class="add-country-form">
+                                <div class="add-country-input-group">
+                                    <input type="text" id="new_country_name" name="country_name" placeholder="Enter new country name...">
+                                    <button type="submit" class="btn btn-save">Add</button>
+                                </div>
+                            </form>
+                        </div>
+                        <h3>Available Countries</h3>
+                        <div class="country-search">
+                            <input type="text" id="countrySearch" placeholder="Search countries..." onkeyup="filterCountries()">
+                        </div>
+                        <div class="country-list" id="existingCountries">
+                            <!-- Available countries will be loaded here -->
+                        </div>
+                    </div>
+                    <!-- Right side - Selected countries -->
+                    <div class="selected-countries-section">
+                        <h3>Selected Countries</h3>
+                        <div class="selected-countries-list" id="selectedCountriesInModal">
+                            <!-- Selected countries will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-save" id="confirmCountriesBtn" onclick="confirmCountries()">Confirm</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeCountrySelectionModal()">Cancel</button>
                 </div>
             </div>
         </div>
@@ -2816,6 +3009,32 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
+        // Add Country form submit (in modal: add new country to available list and select it)
+        const addCountryForm = document.getElementById('addCountryForm');
+        if (addCountryForm) {
+            addCountryForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const nameInput = document.getElementById('new_country_name');
+                const countryName = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
+                if (!countryName) {
+                    showNotification('Please enter a country name', 'danger');
+                    return;
+                }
+                if (!window.selectedCountries) window.selectedCountries = [];
+                if (!window.selectedCountries.includes(countryName)) {
+                    window.selectedCountries.push(countryName);
+                }
+                if (!availableCountriesList.includes(countryName)) {
+                    availableCountriesList.push(countryName);
+                    availableCountriesList.sort((a, b) => a.localeCompare(b));
+                }
+                updateSelectedCountriesInModal();
+                loadExistingCountries();
+                if (nameInput) nameInput.value = '';
+                showNotification('Country added and selected', 'success');
+            });
+        }
+
         // 页面加载完成后执行
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
@@ -2950,10 +3169,225 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
         
-        // Placeholder functions for add modals
+        // Country Selection Modal
+        const DEFAULT_COUNTRIES = ['China', 'Malaysia', 'Singapore', 'Thailand', 'Philippines', 'Indonesia', 'Vietnam', 'Myanmar', 'Cambodia', 'Japan', 'Korea', 'Taiwan', 'Hong Kong', 'India', 'USA', 'UK', 'Australia', 'Canada', 'Germany', 'France', 'Other'];
+        let availableCountriesList = [];
+
         function showAddCountryModal() {
-            alert('Add Country functionality to be implemented');
+            loadExistingCountries();
+            updateSelectedCountriesInModal();
+            const modal = document.getElementById('countrySelectionModal');
+            if (modal) {
+                modal.classList.add('show');
+                modal.style.display = 'block';
+            }
         }
+
+        function loadExistingCountries() {
+            const select = document.getElementById('bank_country');
+            const existingOptions = [];
+            if (select && select.options) {
+                for (let i = 0; i < select.options.length; i++) {
+                    const v = (select.options[i].value || '').trim();
+                    if (v) existingOptions.push(v);
+                }
+            }
+            const combined = [...new Set([...DEFAULT_COUNTRIES, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            availableCountriesList = combined;
+
+            const listEl = document.getElementById('existingCountries');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            combined.forEach((name, index) => {
+                const id = 'country_' + (Date.now() + index);
+                const item = document.createElement('div');
+                item.className = 'country-item';
+                const left = document.createElement('div');
+                left.className = 'country-item-left';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'available_countries';
+                checkbox.value = name;
+                checkbox.id = id;
+                checkbox.dataset.countryId = id;
+                const label = document.createElement('label');
+                label.htmlFor = id;
+                label.textContent = name;
+                left.appendChild(checkbox);
+                left.appendChild(label);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'country-delete-btn';
+                deleteBtn.title = 'Remove from list';
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    removeCountryFromAvailable(name, item);
+                });
+                item.appendChild(left);
+                item.appendChild(deleteBtn);
+                listEl.appendChild(item);
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) moveCountryToSelected(this);
+                    else moveCountryToAvailable(this);
+                });
+            });
+        }
+
+        function updateSelectedCountriesInModal() {
+            const selectedList = document.getElementById('selectedCountriesInModal');
+            if (!selectedList) return;
+            selectedList.innerHTML = '';
+            const current = (document.getElementById('bank_country')?.value || '').trim();
+            if (!window.selectedCountries) window.selectedCountries = [];
+            if (current && !window.selectedCountries.includes(current)) {
+                window.selectedCountries = [current];
+            }
+            if (window.selectedCountries.length > 0) {
+                window.selectedCountries.forEach((name, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'selected-country-modal-item';
+                    const safeName = (name || '').replace(/'/g, "\\'");
+                    div.innerHTML = '<span>' + escapeHtml(name) + '</span><button type="button" class="remove-country-modal" onclick="moveCountryBackToAvailable(\'' + safeName + '\', \'cid' + idx + '\')">&times;</button>';
+                    selectedList.appendChild(div);
+                });
+            } else {
+                selectedList.innerHTML = '<div class="no-countries">No countries selected</div>';
+            }
+        }
+
+        function filterCountries() {
+            const term = (document.getElementById('countrySearch')?.value || '').toLowerCase();
+            const items = document.querySelectorAll('#existingCountries .country-item');
+            items.forEach(item => {
+                const text = item.querySelector('label')?.textContent?.toLowerCase() || '';
+                item.style.display = text.includes(term) ? 'block' : 'none';
+            });
+        }
+
+        function moveCountryToSelected(checkbox) {
+            const name = checkbox.value;
+            const id = checkbox.dataset.countryId;
+            const item = checkbox.closest('.country-item');
+            if (!window.selectedCountries) window.selectedCountries = [];
+            if (!window.selectedCountries.includes(name)) window.selectedCountries.push(name);
+            const selectedList = document.getElementById('selectedCountriesInModal');
+            const placeholder = selectedList.querySelector('.no-countries');
+            if (placeholder) placeholder.remove();
+            const div = document.createElement('div');
+            div.className = 'selected-country-modal-item';
+            const safeName = (name || '').replace(/'/g, "\\'");
+            div.innerHTML = '<span>' + escapeHtml(name) + '</span><button type="button" class="remove-country-modal" onclick="moveCountryBackToAvailable(\'' + safeName + '\', \'' + id + '\')">&times;</button>';
+            selectedList.appendChild(div);
+            if (item) item.remove();
+        }
+
+        function moveCountryBackToAvailable(countryName, countryId) {
+            if (window.selectedCountries) {
+                const idx = window.selectedCountries.indexOf(countryName);
+                if (idx > -1) window.selectedCountries.splice(idx, 1);
+            }
+            const selectedList = document.getElementById('selectedCountriesInModal');
+            selectedList.querySelectorAll('.selected-country-modal-item').forEach(item => {
+                if (item.querySelector('span')?.textContent === countryName) item.remove();
+            });
+            if (!selectedList.querySelector('.selected-country-modal-item')) {
+                selectedList.innerHTML = '<div class="no-countries">No countries selected</div>';
+            }
+            const listEl = document.getElementById('existingCountries');
+            if (!listEl) return;
+            const id = 'country_' + (countryId || Date.now());
+            const newItem = document.createElement('div');
+            newItem.className = 'country-item';
+            const left = document.createElement('div');
+            left.className = 'country-item-left';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.name = 'available_countries';
+            cb.value = countryName;
+            cb.id = id;
+            cb.dataset.countryId = id;
+            const label = document.createElement('label');
+            label.htmlFor = id;
+            label.textContent = countryName;
+            left.appendChild(cb);
+            left.appendChild(label);
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'country-delete-btn';
+            delBtn.innerHTML = '&times;';
+            delBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                removeCountryFromAvailable(countryName, newItem);
+            });
+            newItem.appendChild(left);
+            newItem.appendChild(delBtn);
+            listEl.appendChild(newItem);
+            cb.addEventListener('change', function() {
+                if (this.checked) moveCountryToSelected(this);
+                else moveCountryToAvailable(this);
+            });
+        }
+
+        function moveCountryToAvailable(checkbox) {
+            const name = checkbox.value;
+            const item = checkbox.closest('.country-item');
+            if (window.selectedCountries) {
+                const idx = window.selectedCountries.indexOf(name);
+                if (idx > -1) window.selectedCountries.splice(idx, 1);
+            }
+            document.getElementById('selectedCountriesInModal').querySelectorAll('.selected-country-modal-item').forEach(el => {
+                if (el.querySelector('span')?.textContent === name) el.remove();
+            });
+            const selectedList = document.getElementById('selectedCountriesInModal');
+            if (!selectedList.querySelector('.selected-country-modal-item')) {
+                selectedList.innerHTML = '<div class="no-countries">No countries selected</div>';
+            }
+        }
+
+        function removeCountryFromAvailable(countryName, itemEl) {
+            if (itemEl && itemEl.parentNode) itemEl.remove();
+        }
+
+        function closeCountrySelectionModal() {
+            const modal = document.getElementById('countrySelectionModal');
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            }
+            const form = document.getElementById('addCountryForm');
+            if (form) form.reset();
+            const search = document.getElementById('countrySearch');
+            if (search) search.value = '';
+            document.querySelectorAll('input[name="available_countries"]').forEach(cb => cb.checked = false);
+        }
+
+        function confirmCountries() {
+            if (window.selectedCountries && window.selectedCountries.length > 0) {
+                const first = window.selectedCountries[0];
+                const select = document.getElementById('bank_country');
+                if (select) {
+                    let found = false;
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === first) { found = true; break; }
+                    }
+                    if (!found) {
+                        const opt = document.createElement('option');
+                        opt.value = first;
+                        opt.textContent = first;
+                        select.appendChild(opt);
+                    }
+                    select.value = first;
+                }
+                closeCountrySelectionModal();
+            } else {
+                showNotification('Please select at least one country', 'danger');
+            }
+        }
+
+        // Placeholder functions for add modals
         
         function showAddBankModal() {
             alert('Add Bank functionality to be implemented');
