@@ -889,6 +889,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 <?php endif; ?>
             </div>
             
+            <!-- 包装器保证 th 与数据区同宽，列对齐 -->
+            <div class="process-table-wrapper" id="processTableWrapper">
             <!-- Table Header -->
             <div class="table-header" id="tableHeader">
                 <!-- Gambling table headers (default) -->
@@ -926,6 +928,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="process-card">
                     <div class="card-item">Load the Data...</div>
                 </div>
+            </div>
             </div>
             
             <!-- 分页控件 - 浮动在右下角 -->
@@ -1949,14 +1952,18 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        /** 仅调整数据列宽度与 th 一致，th 不改 */
+        /** 仅调整数据列宽度与 th 一致，th 不改；双 rAF 确保布局完成后再取宽 */
         function syncBankTableColumnWidth() {
             if (selectedPermission !== 'Bank') return;
             const tableHeader = document.getElementById('tableHeader');
             const processTableBody = document.getElementById('processTableBody');
             if (!tableHeader || !processTableBody) return;
-            const w = tableHeader.offsetWidth;
-            processTableBody.style.setProperty('--table-header-width', w + 'px');
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    const rect = tableHeader.getBoundingClientRect();
+                    processTableBody.style.setProperty('--table-header-width', rect.width + 'px');
+                });
+            });
         }
 
         function renderPagination() {

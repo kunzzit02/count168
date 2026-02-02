@@ -283,6 +283,17 @@ body.process-page {
     overflow-y: auto;
 }
 
+/* 包装器：表头与数据区同宽，Bank 数据区可横向滚动 */
+.process-page .process-table-wrapper {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+}
+.process-page .process-table-wrapper .process-cards.bank-mode {
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
 /* Table Header - copied from accountCSS.css */
 .process-page .table-header {
     display: grid;
@@ -337,6 +348,12 @@ body.process-page {
 .process-page .process-cards.bank-mode .process-card {
     width: var(--table-header-width, 100%);
     min-width: var(--table-header-width, 100%);
+    box-sizing: border-box;
+}
+
+/* Bank：数据格与 th 同 padding，从 Country 起内容对齐 */
+.process-page .process-cards.bank-mode .process-card .card-item {
+    padding: 2px 4px;
     box-sizing: border-box;
 }
 
