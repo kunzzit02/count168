@@ -215,6 +215,57 @@ function assignNewProcessesToRestrictedUsers(PDO $pdo, int $companyId, array $cr
     }
 }
 
+// Bank 类别：添加 bank_process 记录，不影响 Gambling 的 process 表
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_POST['permission'] === 'Bank') {
+    try {
+        $country = trim($_POST['country'] ?? '');
+        $bank = trim($_POST['bank'] ?? '');
+        $type = trim($_POST['type'] ?? '');
+        $name = trim($_POST['name'] ?? '');
+        if (empty($country) || empty($bank) || empty($type) || empty($name)) {
+            echo json_encode(['success' => false, 'error' => 'Country, Bank, Type and Name are required']);
+            exit;
+        }
+        $card_merchant_id = isset($_POST['card_merchant_id']) && $_POST['card_merchant_id'] !== '' ? (int)$_POST['card_merchant_id'] : null;
+        $customer_id = isset($_POST['customer_id']) && $_POST['customer_id'] !== '' ? (int)$_POST['customer_id'] : null;
+        $contract = trim($_POST['contract'] ?? '');
+        $insurance = isset($_POST['insurance']) && $_POST['insurance'] !== '' ? (float)$_POST['insurance'] : null;
+        $cost = isset($_POST['cost']) && $_POST['cost'] !== '' ? (float)$_POST['cost'] : null;
+        $price = isset($_POST['price']) && $_POST['price'] !== '' ? (float)$_POST['price'] : null;
+        $profit = isset($_POST['profit']) && $_POST['profit'] !== '' ? (float)$_POST['profit'] : null;
+        $profit_sharing = trim($_POST['profit_sharing'] ?? '');
+        $day_start = trim($_POST['day_start'] ?? '');
+        $day_start = $day_start !== '' ? $day_start : null;
+        $currentUserId = null;
+        $createdByType = 'user';
+        $createdByOwnerId = null;
+        if (!empty($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner') {
+            $createdByType = 'owner';
+            $createdByOwnerId = $_SESSION['owner_id'] ?? null;
+        } else {
+            $currentUserId = getCurrentUserId($pdo);
+        }
+        $stmt = $pdo->prepare("INSERT INTO bank_process (
+            company_id, country, bank, type, name, card_merchant_id, customer_id,
+            contract, insurance, cost, price, profit, profit_sharing, day_start, status,
+            created_by, created_by_type, created_by_owner_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)");
+        $stmt->execute([
+            $companyId, $country, $bank, $type, $name, $card_merchant_id, $customer_id,
+            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start,
+            $currentUserId, $createdByType, $createdByOwnerId
+        ]);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Bank process added successfully',
+            'created_processes' => [['id' => (int)$pdo->lastInsertId(), 'process_id' => $name, 'description_id' => null]]
+        ]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // 处理 copy-from 请求
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'copy_from') {
     try {

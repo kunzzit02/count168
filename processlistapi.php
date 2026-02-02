@@ -114,6 +114,12 @@ function getProcesses() {
     global $pdo;
     
     try {
+        // Bank 类别：从 bank_process 表获取数据，不影响 Gambling 的 process 表
+        if (isset($_GET['permission']) && $_GET['permission'] === 'Bank') {
+            getBankProcesses();
+            return;
+        }
+
         // 获取 company_id，优先从 URL 参数获取，否则从 session 获取
         $requested_company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
 
@@ -267,6 +273,12 @@ function getProcess() {
     global $pdo;
     
     try {
+        // Bank 类别：从 bank_process 表获取单条记录
+        if (isset($_GET['permission']) && $_GET['permission'] === 'Bank') {
+            getBankProcess();
+            return;
+        }
+
         // 获取当前用户的 company_id
         $currentCompanyId = $_SESSION['company_id'] ?? null;
         
@@ -381,6 +393,12 @@ function updateProcess() {
     global $pdo;
     
     try {
+        // Bank 类别：更新 bank_process 表
+        if (isset($_POST['permission']) && $_POST['permission'] === 'Bank') {
+            updateBankProcess();
+            return;
+        }
+
         // 获取当前用户的 company_id
         $currentCompanyId = $_SESSION['company_id'] ?? null;
         
@@ -559,6 +577,230 @@ function updateProcess() {
             'success' => false,
             'error' => 'Failed to update process: ' . $e->getMessage()
         ]);
+    }
+}
+
+/**
+ * Bank 类别：从 bank_process 表获取列表，不影响 Gambling 的 process 表
+ */
+function getBankProcesses() {
+    global $pdo;
+    try {
+        $requested_company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
+        if (!$requested_company_id) {
+            echo json_encode(['success' => false, 'error' => '缺少公司信息']);
+            return;
+        }
+        $current_user_id = $_SESSION['user_id'] ?? null;
+        $current_user_role = $_SESSION['role'] ?? '';
+        $has_permission = false;
+        if ($current_user_role === 'owner') {
+            $owner_id = $_SESSION['owner_id'] ?? $current_user_id;
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM company WHERE id = ? AND owner_id = ?");
+            $stmt->execute([$requested_company_id, $owner_id]);
+            if ($stmt->fetchColumn() > 0) $has_permission = true;
+        } else {
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_company_map WHERE user_id = ? AND company_id = ?");
+            $stmt->execute([$current_user_id, $requested_company_id]);
+            if ($stmt->fetchColumn() > 0) $has_permission = true;
+        }
+        if (!$has_permission) {
+            echo json_encode(['success' => false, 'error' => '您没有权限访问此公司的数据']);
+            return;
+        }
+        $targetCompanyId = $requested_company_id;
+        $searchTerm = $_GET['search'] ?? '';
+        $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
+        $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
+
+        $sql = "SELECT 
+                    bp.id,
+                    bp.country,
+                    bp.bank,
+                    bp.type,
+                    bp.name,
+                    bp.card_merchant_id,
+                    bp.customer_id,
+                    bp.contract,
+                    bp.insurance,
+                    bp.cost,
+                    bp.price,
+                    bp.profit,
+                    bp.profit_sharing,
+                    bp.day_start,
+                    bp.status,
+                    bp.dts_modified,
+                    a_cm.name as card_merchant_name,
+                    a_cust.name as customer_name
+                FROM bank_process bp
+                LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
+                LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
+                WHERE bp.company_id = ?";
+        $params = [$targetCompanyId];
+        if (!empty($searchTerm)) {
+            $sql .= " AND (bp.country LIKE ? OR bp.bank LIKE ? OR bp.type LIKE ? OR bp.name LIKE ?)";
+            $term = "%$searchTerm%";
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+        if ($showAll) {
+            $sql .= " AND bp.status = 'active'";
+        } elseif ($showInactive) {
+            $sql .= " AND bp.status = 'inactive'";
+        } else {
+            $sql .= " AND bp.status = 'active'";
+        }
+        $sql .= " ORDER BY bp.dts_created DESC";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $formattedProcesses = [];
+        foreach ($rows as $r) {
+            $formattedProcesses[] = [
+                'id' => $r['id'],
+                'supplier' => $r['name'] ?? '',
+                'country' => $r['country'] ?? '',
+                'bank' => $r['bank'] ?? '',
+                'types' => $r['type'] ?? '',
+                'card_lower' => $r['card_merchant_name'] ?? '',
+                'contract' => $r['contract'] ?? '',
+                'insurance' => $r['insurance'] ?? '',
+                'customer' => $r['customer_name'] ?? '',
+                'cost' => $r['cost'],
+                'price' => $r['price'],
+                'profit' => $r['profit'],
+                'status' => $r['status'],
+                'date' => $r['day_start'] ?? '',
+            ];
+        }
+        echo json_encode(['success' => true, 'data' => $formattedProcesses]);
+    } catch (PDOException $e) {
+        error_log("getBankProcesses: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Failed to fetch bank processes: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Bank 类别：从 bank_process 表获取单条记录（编辑用）
+ */
+function getBankProcess() {
+    global $pdo;
+    try {
+        $currentCompanyId = $_SESSION['company_id'] ?? null;
+        if (!$currentCompanyId) {
+            echo json_encode(['success' => false, 'error' => 'User company_id not found in session']);
+            return;
+        }
+        $processId = $_GET['id'] ?? '';
+        if (empty($processId)) {
+            echo json_encode(['success' => false, 'error' => 'Process ID is required']);
+            return;
+        }
+        $stmt = $pdo->prepare("SELECT 
+                bp.id, bp.country, bp.bank, bp.type, bp.name,
+                bp.card_merchant_id, bp.customer_id, bp.contract, bp.insurance,
+                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.status,
+                bp.dts_modified, bp.dts_created,
+                a_cm.name as card_merchant_name, a_cust.name as customer_name
+            FROM bank_process bp
+            LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
+            LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
+            WHERE bp.id = ? AND bp.company_id = ?");
+        $stmt->execute([$processId, $currentCompanyId]);
+        $process = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$process) {
+            echo json_encode(['success' => false, 'error' => 'Process not found']);
+            return;
+        }
+        $formatted = [
+            'id' => $process['id'],
+            'process_name' => $process['name'] ?: $process['bank'],
+            'country' => $process['country'],
+            'bank' => $process['bank'],
+            'type' => $process['type'],
+            'name' => $process['name'],
+            'card_merchant_id' => $process['card_merchant_id'],
+            'customer_id' => $process['customer_id'],
+            'card_merchant_name' => $process['card_merchant_name'],
+            'customer_name' => $process['customer_name'],
+            'contract' => $process['contract'],
+            'insurance' => $process['insurance'],
+            'cost' => $process['cost'],
+            'price' => $process['price'],
+            'profit' => $process['profit'],
+            'profit_sharing' => $process['profit_sharing'],
+            'day_start' => $process['day_start'],
+            'status' => $process['status'],
+            'dts_modified' => $process['dts_modified'],
+            'dts_created' => $process['dts_created'],
+        ];
+        echo json_encode(['success' => true, 'data' => $formatted]);
+    } catch (PDOException $e) {
+        error_log("getBankProcess: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Failed to fetch bank process: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * Bank 类别：更新 bank_process 表
+ */
+function updateBankProcess() {
+    global $pdo;
+    try {
+        $currentCompanyId = $_SESSION['company_id'] ?? null;
+        if (!$currentCompanyId) {
+            echo json_encode(['success' => false, 'error' => 'User company_id not found in session']);
+            return;
+        }
+        $id = $_POST['id'] ?? '';
+        if (empty($id)) {
+            echo json_encode(['success' => false, 'error' => 'Process ID is required']);
+            return;
+        }
+        $checkStmt = $pdo->prepare("SELECT id FROM bank_process WHERE id = ? AND company_id = ?");
+        $checkStmt->execute([$id, $currentCompanyId]);
+        if (!$checkStmt->fetch()) {
+            echo json_encode(['success' => false, 'error' => 'Process not found or no permission']);
+            return;
+        }
+        $country = $_POST['country'] ?? null;
+        $bank = $_POST['bank'] ?? null;
+        $type = $_POST['type'] ?? null;
+        $name = $_POST['name'] ?? null;
+        $card_merchant_id = !empty($_POST['card_merchant_id']) ? (int)$_POST['card_merchant_id'] : null;
+        $customer_id = !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null;
+        $contract = $_POST['contract'] ?? null;
+        $insurance = isset($_POST['insurance']) && $_POST['insurance'] !== '' ? (float)$_POST['insurance'] : null;
+        $cost = isset($_POST['cost']) && $_POST['cost'] !== '' ? (float)$_POST['cost'] : null;
+        $price = isset($_POST['price']) && $_POST['price'] !== '' ? (float)$_POST['price'] : null;
+        $profit = isset($_POST['profit']) && $_POST['profit'] !== '' ? (float)$_POST['profit'] : null;
+        $profit_sharing = $_POST['profit_sharing'] ?? null;
+        $day_start = $_POST['day_start'] ?? null;
+        $status = $_POST['status'] ?? 'active';
+        if (!in_array($status, ['active', 'inactive', 'waiting'], true)) {
+            $status = 'active';
+        }
+        $isOwner = isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'owner';
+        $modifiedByType = $isOwner ? 'owner' : 'user';
+        $modifiedByOwnerId = $isOwner ? ($_SESSION['owner_id'] ?? null) : null;
+        $currentUserId = $isOwner ? null : getCurrentUserId($pdo);
+        $stmt = $pdo->prepare("UPDATE bank_process SET 
+            country=?, bank=?, type=?, name=?, card_merchant_id=?, customer_id=?,
+            contract=?, insurance=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, status=?,
+            dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
+            WHERE id=? AND company_id=?");
+        $stmt->execute([
+            $country, $bank, $type, $name, $card_merchant_id, $customer_id,
+            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $status,
+            $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
+        ]);
+        echo json_encode(['success' => true, 'message' => 'Process updated successfully!']);
+    } catch (Exception $e) {
+        error_log("updateBankProcess: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => 'Failed to update process: ' . $e->getMessage()]);
     }
 }
 ?>

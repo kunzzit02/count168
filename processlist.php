@@ -5,37 +5,52 @@ require_once 'session_check.php';
 // 处理删除请求（只允许删除inactive状态的进程）
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
     try {
-        $ids = $_POST['ids'];
+        $ids = is_array($_POST['ids']) ? $_POST['ids'] : (isset($_POST['ids']) ? [$_POST['ids']] : []);
+        $ids = array_map('intval', array_filter($ids));
+        $permission = isset($_POST['permission']) ? trim($_POST['permission']) : '';
+
         if (!empty($ids)) {
-            // 检查是否有 formula 链接到这些 process
+            $company_id_session = $_SESSION['company_id'] ?? null;
+            if (!$company_id_session) {
+                header('Location: processlist.php?error=delete_failed');
+                exit;
+            }
+
+            // Bank 类别：从 bank_process 表删除，不影响 Gambling 的 process 表
+            if ($permission === 'Bank') {
+                $placeholders = str_repeat('?,', count($ids) - 1) . '?';
+                $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id IN ($placeholders) AND company_id = ? AND status = 'inactive'");
+                $params = array_merge($ids, [$company_id_session]);
+                $stmt->execute($params);
+                $bankIdsToDelete = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                if (empty($bankIdsToDelete)) {
+                    header('Location: processlist.php?error=no_inactive_processes');
+                    exit;
+                }
+                $delPlaceholders = str_repeat('?,', count($bankIdsToDelete) - 1) . '?';
+                $stmt = $pdo->prepare("DELETE FROM bank_process WHERE id IN ($delPlaceholders) AND company_id = ? AND status = 'inactive'");
+                $stmt->execute(array_merge($bankIdsToDelete, [$company_id_session]));
+                header('Location: processlist.php?success=deleted');
+                exit;
+            }
+
+            // Gambling：原有 process 表删除逻辑
             $placeholders = str_repeat('?,', count($ids) - 1) . '?';
-            
-            // 获取要删除的 process 的 id、process_id 和 company_id
             $stmt = $pdo->prepare("SELECT id, process_id, company_id FROM process WHERE id IN ($placeholders) AND status = 'inactive'");
             $stmt->execute($ids);
             $processesToDelete = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
+
             if (empty($processesToDelete)) {
-                // 没有可删除的 process（可能都是 active 状态）
                 header('Location: processlist.php?error=no_inactive_processes');
                 exit;
             }
-            
-            // 检查每个 process 是否被 formula 使用
+
             $processIds = array_column($processesToDelete, 'id');
             $processCompanyIds = array_unique(array_column($processesToDelete, 'company_id'));
-            
-            // 检查 data_capture_templates 表中是否有记录使用这些 process
-            // 注意：data_capture_templates.process_id 现在是 INT(11)，存储的是 process.id（整数）
-            // 不再存储 process.process_id（字符串代码）
-            
             $formulaCount = 0;
             if (!empty($processIds)) {
                 $idPlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
                 $formulaCheckParams = $processIds;
-                
-                // 构建查询：检查 data_capture_templates 表中是否有使用这些 process.id 的记录
-                // 只检查这些 process 所属的 company 下的 formula（确保准确性）
                 if (!empty($processCompanyIds)) {
                     $companyPlaceholders = str_repeat('?,', count($processCompanyIds) - 1) . '?';
                     $formulaCheckSql = "SELECT COUNT(*) as count FROM data_capture_templates 
@@ -43,27 +58,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                                         AND company_id IN ($companyPlaceholders)";
                     $formulaCheckParams = array_merge($formulaCheckParams, $processCompanyIds);
                 } else {
-                    // 如果没有 company_id，检查所有公司的 formula（向后兼容，但应该不会发生）
                     $formulaCheckSql = "SELECT COUNT(*) as count FROM data_capture_templates 
                                         WHERE process_id IN ($idPlaceholders)";
                 }
-                
                 $stmt = $pdo->prepare($formulaCheckSql);
                 $stmt->execute($formulaCheckParams);
-                $formulaCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                $formulaCount = (int)$stmt->fetch(PDO::FETCH_ASSOC)['count'];
             }
-            
+
             if ($formulaCount > 0) {
-                // 有 formula 链接到这些 process，无法删除
                 header('Location: processlist.php?error=process_linked_to_formula');
                 exit;
             }
-            
-            // 可以删除，执行删除操作
+
             $deletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
             $stmt = $pdo->prepare("DELETE FROM process WHERE id IN ($deletePlaceholders) AND status = 'inactive'");
             $stmt->execute($processIds);
-            
             header('Location: processlist.php?success=deleted');
             exit;
         }
@@ -1869,8 +1879,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     // 设置 Bank 表格的列数（15列：Cost/Price/Profit 拆成三列）
                     card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
                     
-                    const statusClass = process.status === 'active' ? 'status-active' : 'status-inactive';
-                    
+                    const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                     card.innerHTML = `
                         <div class="card-item">${startIndex + idx + 1}</div>
                         <div class="card-item">${escapeHtml(process.supplier || '')}</div>
@@ -2142,8 +2151,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 // Load edit form data first
                 await loadEditProcessData();
                 
-                // Fetch process data
-                const response = await fetch(buildApiUrl(`processlistapi.php?action=get_process&id=${id}`));
+                // Fetch process data（Bank 类别需传 permission 以从 bank_process 取数）
+                let getProcessUrl = `processlistapi.php?action=get_process&id=${id}`;
+                if (selectedPermission === 'Bank') {
+                    getProcessUrl += '&permission=Bank';
+                }
+                const response = await fetch(buildApiUrl(getProcessUrl));
                 const result = await response.json();
                 
                 if (result.success && result.data) {
@@ -2406,7 +2419,9 @@ if ($current_user_id && count($user_companies) > 0) {
             try {
                 const formData = new FormData();
                 formData.append('id', processId);
-                
+                if (selectedPermission === 'Bank') {
+                    formData.append('permission', 'Bank');
+                }
                 const response = await fetch(buildApiUrl('toggleprocessstatusapi.php'), {
                     method: 'POST',
                     body: formData
@@ -2426,7 +2441,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (card) {
                         const items = card.querySelectorAll('.card-item');
                         if (items.length > 3) {
-                            const statusClass = result.newStatus === 'active' ? 'status-active' : 'status-inactive';
+                            const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                             items[3].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
                             // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
                             const actionCell = items[6]; // Action 列
@@ -3133,6 +3148,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     input.value = id;
                     form.appendChild(input);
                 });
+                if (selectedPermission === 'Bank') {
+                    const permInput = document.createElement('input');
+                    permInput.type = 'hidden';
+                    permInput.name = 'permission';
+                    permInput.value = 'Bank';
+                    form.appendChild(permInput);
+                }
                 document.body.appendChild(form);
                 form.submit();
                 
@@ -3384,6 +3406,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 e.preventDefault();
                 
                 const formData = new FormData(this);
+                
+                if (selectedPermission === 'Bank') {
+                    formData.append('permission', 'Bank');
+                }
                 
                 // Add selected descriptions
                 if (window.selectedDescriptions && window.selectedDescriptions.length > 0) {

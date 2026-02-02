@@ -559,6 +559,12 @@ body.process-page {
     border: 0.0625rem solid #ffc3c3;
 }
 
+.status-waiting {
+    background-color: #fff3c3;
+    color: #000000ff;
+    border: 0.0625rem solid #fff3c3;
+}
+
 .status-clickable {
     cursor: pointer;
     transition: all 0.2s ease;
