@@ -565,10 +565,12 @@ body.process-page {
     border: 0.0625rem solid #fff3c3;
 }
 
-/* Bank 表格状态列固定最小宽度，避免 ACTIVE/INACTIVE/WAITING 长度不同导致列错位 */
+/* Bank 表格状态列：固定最小宽度 + 与表头一致的左对齐，避免列错位/歪斜 */
 .bank-status-cell {
     min-width: 5.5rem;
     box-sizing: border-box;
+    justify-content: flex-start;
+    text-align: left;
 }
 
 .status-clickable {
