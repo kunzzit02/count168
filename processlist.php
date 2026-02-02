@@ -1287,10 +1287,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <label for="bank_contract">Contract</label>
                                     <select id="bank_contract" name="contract" class="bank-select">
                                         <option value="">Select Contract</option>
-                                        <option value="1">1 month</option>
-                                        <option value="2">2 months</option>
-                                        <option value="3">3 months</option>
-                                        <option value="6">6 months</option>
+                                        <option value="1 month">1 month</option>
+                                        <option value="2 months">2 months</option>
+                                        <option value="3 months">3 months</option>
+                                        <option value="6 months">6 months</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -1887,7 +1887,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="card-item">${escapeHtml(process.bank || '')}</div>
                         <div class="card-item">${escapeHtml(process.types || '')}</div>
                         <div class="card-item">${escapeHtml(process.card_lower || '')}</div>
-                        <div class="card-item">${escapeHtml(process.contract || '')}</div>
+                        <div class="card-item">${escapeHtml((function(){ const c = process.contract; if (!c) return ''; const m = { '1':'1 month','2':'2 months','3':'3 months','6':'6 months' }; return m[c] || c; })())}</div>
                         <div class="card-item">${escapeHtml(process.insurance || '')}</div>
                         <div class="card-item">${escapeHtml(process.customer || '')}</div>
                         <div class="card-item">${(function(){ const c = process.cost; if (c != null && c !== '') return escapeHtml(String(c)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(p => p.trim()).filter(Boolean); return escapeHtml(parts[0] || ''); })()}</div>
