@@ -368,7 +368,7 @@ try {
             margin-bottom: clamp(4px, 0.42vw, 8px);
             font-weight: bold;
             color: #374151;
-            font-size: clamp(10px, 0.73vw, 12px);
+            font-size: clamp(10px, 0.73vw, 13px);
         }
 
         .form-group input,
