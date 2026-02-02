@@ -340,7 +340,7 @@ body.process-page {
 /* Currency column center alignment */
 .process-page .process-card .card-item:nth-child(5),
 .process-page .table-header .header-item:nth-child(5) {
-    justify-content: flex-start;
+    justify-content: center;
     text-align: center;
 }
 
@@ -563,6 +563,12 @@ body.process-page {
     background-color: #fff3c3;
     color: #000000ff;
     border: 0.0625rem solid #fff3c3;
+}
+
+/* Bank 表格状态列固定最小宽度，避免 ACTIVE/INACTIVE/WAITING 长度不同导致列错位 */
+.bank-status-cell {
+    min-width: 5.5rem;
+    box-sizing: border-box;
 }
 
 .status-clickable {
