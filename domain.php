@@ -1270,8 +1270,8 @@ try {
                     </div>
                 </div>
                 <div class="form-group" style="margin-bottom: 8px;">
-                    <label style="margin-bottom: 3px;">Permissions (for Process List & Data Capture)</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 3px; align-items: center; line-height: 1;">
+                    <label style="margin-bottom: 2px;">Permissions (for Process List & Data Capture)</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 1px; align-items: center; line-height: 1;">
                         <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelGambling">
                             <input type="checkbox" value="Gambling" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
                             <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Gambling</span>
