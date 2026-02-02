@@ -4038,10 +4038,27 @@ if ($current_user_id && count($user_companies) > 0) {
             let isOpen = false;
             
             // Load accounts into dropdown
+            const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
             function loadAccounts(filterText = '') {
                 optionsContainer.innerHTML = '';
                 const filterLower = filterText.toLowerCase().trim();
                 const accounts = window.bankAccounts || [];
+                
+                // Always add "Select Account" as first option so user can clear selection
+                {
+                    const selectOpt = document.createElement('div');
+                    selectOpt.className = 'custom-select-option';
+                    selectOpt.setAttribute('data-value', '');
+                    selectOpt.textContent = 'Select Account';
+                    selectOpt.addEventListener('click', () => {
+                        accountButton.textContent = placeholderText;
+                        accountButton.setAttribute('data-value', '');
+                        accountDropdown.style.display = 'none';
+                        isOpen = false;
+                        updateBankAddButtonTitles();
+                    });
+                    optionsContainer.appendChild(selectOpt);
+                }
                 
                 const filteredAccounts = accounts.filter(account => {
                     const accountId = (account.account_id || '').toLowerCase();
