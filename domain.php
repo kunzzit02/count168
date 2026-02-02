@@ -1297,7 +1297,7 @@ try {
                 </div>
                 <div class="form-actions" style="margin-top: 20px;">
                     <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
-                    <button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()" style="background: linear-gradient(180deg, #6366f1 0%, #4f46e5 100%); color: white; margin-right: 8px;">Reset</button>
+                    <button type="button" class="btn btn-cancel" onclick="resetCompanyExpDateInModal()" style="background: linear-gradient(180deg, #ffa2b6 0%, #c91212 100%); color: white; margin-right: 8px;">Reset</button>
                     <button type="button" class="btn btn-cancel" onclick="closeCompanyExpDateModal()">Cancel</button>
                 </div>
             </div>
