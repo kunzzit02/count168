@@ -300,6 +300,8 @@ body.process-page {
 
 .process-page .table-header .header-item {
     padding: 2px 4px;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 /* Bank Action 列固定宽度，避免 inactive 时多出 checkbox 导致表头与数据错位 */
