@@ -474,6 +474,7 @@ if (isset($_GET['logout'])) {
             margin-top: 4px;
             max-height: 220px;
             overflow-y: auto;
+            overflow-x: hidden;
             display: none;
         }
 
@@ -498,6 +499,22 @@ if (isset($_GET['logout'])) {
             grid-template-columns: repeat(4, 1fr);
             gap: clamp(0px, 0.21vw, 4px);
             padding: clamp(2px, 0.36vw, 8px);
+        }
+
+        /* Select Year & Month：下拉不出现水平滚动条，年份文字完整显示 */
+        #month-date-picker .date-dropdown {
+            min-width: 260px;
+            overflow-x: hidden;
+        }
+        #month-date-picker .year-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            padding: 10px 12px;
+        }
+        #month-date-picker .year-grid .date-option {
+            font-size: 14px;
+            padding: 8px 6px;
+            min-width: 0;
+            text-align: center;
         }
 
         .month-grid {
