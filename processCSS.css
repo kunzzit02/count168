@@ -375,6 +375,21 @@ body.process-page {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
+/* Action 列：固定结构，active 时用占位保持与 inactive 同宽，列对齐不歪 */
+.process-page .card-item.card-item-action {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    min-width: 0;
+}
+.process-page .action-checkbox-placeholder {
+    display: inline-block;
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(10px, 0.83vw, 16px);
+    margin-left: clamp(10px, 0.73vw, 14px);
+    flex-shrink: 0;
+}
+
 .process-page .row-checkbox {
     appearance: none;
     -webkit-appearance: none;
