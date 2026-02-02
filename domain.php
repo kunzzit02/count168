@@ -687,24 +687,54 @@ try {
             box-shadow: none !important;
         }
         
-        .permission-label:hover span {
-            color: #6366f1;
+        /* Company Settings 权限：药丸形按钮（与第一张图一致：选中蓝渐变+白字，未选灰底灰边） */
+        .permission-toggle-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 12px;
+            margin-top: 6px;
+            align-items: center;
         }
-        
-        #permissionGambling:checked ~ span,
-        #permissionBank:checked ~ span,
-        #permissionLoan:checked ~ span,
-        #permissionRate:checked ~ span,
-        #permissionMoney:checked ~ span {
-            color: #6366f1;
+        .permission-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 18px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            line-height: 1.2;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        
-        #permissionGambling:checked,
-        #permissionBank:checked,
-        #permissionLoan:checked,
-        #permissionRate:checked,
-        #permissionMoney:checked {
-            accent-color: #6366f1;
+        .permission-toggle-btn .permission-checkbox {
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .permission-toggle-btn:hover {
+            background: #e5e7eb;
+            border-color: #9ca3af;
+        }
+        .permission-toggle-btn:has(.permission-checkbox:checked) {
+            background: linear-gradient(180deg, #7eb8ff 0%, #2563eb 100%);
+            border-color: #2563eb;
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+        }
+        .permission-toggle-btn:has(.permission-checkbox:checked) span {
+            color: #fff;
+        }
+        .permission-toggle-btn:has(.permission-checkbox:checked):hover {
+            background: linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%);
+            box-shadow: 0 3px 10px rgba(37, 99, 235, 0.4);
         }
         
         /* Company badge in table */
@@ -1271,26 +1301,26 @@ try {
                 </div>
                 <div class="form-group" style="margin-bottom: 8px;">
                     <label style="margin-bottom: 2px;">Permissions (for Process List & Data Capture)</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 2px 10px; margin-top: 1px; align-items: center; line-height: 1;">
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelGambling">
+                    <div class="permission-toggle-row">
+                        <label class="permission-toggle-btn" id="permissionLabelGambling">
                             <input type="checkbox" value="Gambling" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Gambling</span>
+                            <span>Gambling</span>
                         </label>
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelBank">
+                        <label class="permission-toggle-btn" id="permissionLabelBank">
                             <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Bank</span>
+                            <span>Bank</span>
                         </label>
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelLoan">
+                        <label class="permission-toggle-btn" id="permissionLabelLoan">
                             <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Loan</span>
+                            <span>Loan</span>
                         </label>
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelRate">
+                        <label class="permission-toggle-btn" id="permissionLabelRate">
                             <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Rate</span>
+                            <span>Rate</span>
                         </label>
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelMoney">
+                        <label class="permission-toggle-btn" id="permissionLabelMoney">
                             <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Money</span>
+                            <span>Money</span>
                         </label>
                     </div>
                     <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
