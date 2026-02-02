@@ -150,6 +150,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <link href='https://fonts.googleapis.com/css2?family=Amaranth:wght@400;700&display=swap' rel='stylesheet'>
     <title>Process List</title>
     <link rel="stylesheet" href="processCSS.css?v=<?php echo time(); ?>" />
+    <link rel="stylesheet" href="accountCSS.css?v=<?php echo time(); ?>" />
     <?php include 'sidebar.php'; ?>
     <style>
         /* Input formatting - 统一管理输入框格式 */
@@ -1335,57 +1336,101 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
     </div>
 
-    <!-- Add Account Modal (same as datacapturesummary - for Card Merchant/Customer + button) -->
-    <div id="addAccountModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 560px;">
-            <div class="modal-header">
+    <!-- Add Account Modal (same structure as datacapturesummary - for Card Merchant/Customer + button) -->
+    <div id="addAccountModal" class="account-modal" style="display: none;">
+        <div class="account-modal-content">
+            <div class="account-modal-header">
                 <h2>Add Account</h2>
-                <span class="close" onclick="closeAddAccountModal()">&times;</span>
+                <span class="account-close" onclick="closeAddAccountModal()">&times;</span>
             </div>
-            <div class="modal-body">
-                <form id="addAccountForm" class="bank-form" style="display: block;">
-                    <div class="bank-section">
-                        <h3 class="bank-section-title">Personal Information</h3>
-                        <div class="form-row bank-row-two-cols">
-                            <div class="form-group">
+            <div class="account-modal-body">
+                <form id="addAccountForm" class="account-form">
+                    <!-- Two columns: Personal Information and Payment -->
+                    <div class="account-form-columns">
+                        <div class="account-form-column">
+                            <h3 class="account-section-header">Personal Information</h3>
+                            <div class="account-form-group">
                                 <label for="add_account_id">Account ID *</label>
-                                <input type="text" id="add_account_id" name="account_id" class="bank-input" required>
+                                <input type="text" id="add_account_id" name="account_id" required>
                             </div>
-                            <div class="form-group">
+                            <div class="account-form-group">
                                 <label for="add_name">Name *</label>
-                                <input type="text" id="add_name" name="name" class="bank-input" required>
+                                <input type="text" id="add_name" name="name" required>
                             </div>
-                        </div>
-                        <div class="form-row bank-row-two-cols">
-                            <div class="form-group">
+                            <div class="account-form-group">
                                 <label for="add_role">Role *</label>
-                                <select id="add_role" name="role" class="bank-select" required>
+                                <select id="add_role" name="role" required>
                                     <option value="">Select Role</option>
                                 </select>
                             </div>
-                            <div class="form-group">
+                            <div class="account-form-group">
                                 <label for="add_password">Password *</label>
-                                <input type="password" id="add_password" name="password" class="bank-input" required>
+                                <input type="password" id="add_password" name="password" required>
+                            </div>
+                        </div>
+                        <div class="account-form-column">
+                            <h3 class="account-section-header">Payment</h3>
+                            <div class="account-form-group">
+                                <label>Payment Alert</label>
+                                <div class="account-radio-group">
+                                    <label class="account-radio-label">
+                                        <input type="radio" name="add_payment_alert" value="1">
+                                        Yes
+                                    </label>
+                                    <label class="account-radio-label">
+                                        <input type="radio" name="add_payment_alert" value="0" checked>
+                                        No
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="account-form-row" id="add_alert_fields" style="display: none;">
+                                <div class="account-form-group">
+                                    <label for="add_alert_type">Alert Type</label>
+                                    <select id="add_alert_type" name="alert_type">
+                                        <option value="">Select Type</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                        <?php for ($i = 1; $i <= 31; $i++): ?>
+                                            <option value="<?php echo $i; ?>"><?php echo $i; ?> Days</option>
+                                        <?php endfor; ?>
+                                    </select>
+                                </div>
+                                <div class="account-form-group">
+                                    <label for="add_alert_start_date">Start Date</label>
+                                    <input type="date" id="add_alert_start_date" name="alert_start_date">
+                                </div>
+                            </div>
+                            <div class="account-form-group" id="add_alert_amount_row" style="display: none;">
+                                <label for="add_alert_amount">Alert (Amount)</label>
+                                <input type="number" id="add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)">
+                            </div>
+                            <div class="account-form-group">
+                                <label for="add_remark">Remark</label>
+                                <textarea id="add_remark" name="remark" rows="1" style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
                             </div>
                         </div>
                     </div>
-                    <div class="bank-section">
-                        <h3 class="bank-section-title">Payment</h3>
-                        <div class="form-group">
-                            <label>Payment Alert</label>
-                            <div style="display: flex; gap: 16px;">
-                                <label><input type="radio" name="add_payment_alert" value="1"> Yes</label>
-                                <label><input type="radio" name="add_payment_alert" value="0" checked> No</label>
+                    <!-- Advanced Account Section -->
+                    <div class="account-form-section">
+                        <div class="account-advance-section">
+                            <h3>Advanced Account</h3>
+                            <div class="account-other-currency">
+                                <label>Other Currency:</label>
+                                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                                    <input type="text" id="addCurrencyInput" placeholder="Enter new currency code (e.g., USD)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInputBank('add'); return false;">Create Currency</button>
+                                </div>
+                                <div class="account-currency-list" id="addCurrencyList"></div>
+                            </div>
+                            <div class="account-other-currency" style="margin-top: 20px;">
+                                <label>Company:</label>
+                                <div class="account-currency-list" id="addCompanyList"></div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label for="add_remark">Remark</label>
-                            <textarea id="add_remark" name="remark" class="bank-input" rows="2" style="resize: vertical;"></textarea>
-                        </div>
                     </div>
-                    <div class="form-actions bank-actions">
-                        <button type="submit" class="btn btn-save">Add Account</button>
-                        <button type="button" class="btn btn-cancel" onclick="closeAddAccountModal()">Cancel</button>
+                    <div class="account-form-actions">
+                        <button type="submit" class="account-btn account-btn-save">Add Account</button>
+                        <button type="button" class="account-btn account-btn-cancel" onclick="closeAddAccountModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -3349,35 +3394,314 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
-        // Add Account form submit (same as datacapturesummary - addaccountapi.php)
+        // Add Account modal state (same as datacapturesummary)
+        let selectedCurrencyIdsForAdd = [];
+        let selectedCompanyIdsForAdd = [<?php echo json_encode($company_id); ?>];
+        let deletedCurrencyIds = [];
+        let bankAccountCurrencies = [];
+        
+        async function loadEditDataBank() {
+            try {
+                const res = await fetch(buildApiUrl('editdataapi.php'));
+                const result = await res.json();
+                if (!result.success) return;
+                bankAccountCurrencies = result.currencies || [];
+                const roles = result.roles || [];
+                const addRoleSelect = document.getElementById('add_role');
+                if (addRoleSelect) {
+                    addRoleSelect.innerHTML = '<option value="">Select Role</option>';
+                    roles.forEach(code => {
+                        const opt = document.createElement('option');
+                        opt.value = code;
+                        opt.textContent = code;
+                        addRoleSelect.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.error('loadEditDataBank', e);
+            }
+        }
+        
+        function toggleAlertFieldsBank(type) {
+            const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
+            const alertFields = document.getElementById('add_alert_fields');
+            const alertAmountRow = document.getElementById('add_alert_amount_row');
+            if (paymentAlert && paymentAlert.value === '1') {
+                if (alertFields) alertFields.style.display = 'flex';
+                if (alertAmountRow) alertAmountRow.style.display = 'block';
+            } else {
+                if (alertFields) alertFields.style.display = 'none';
+                if (alertAmountRow) alertAmountRow.style.display = 'none';
+            }
+        }
+        
+        function validatePaymentAlertForAddBank() {
+            const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
+            const alertType = document.getElementById('add_alert_type');
+            const alertStartDate = document.getElementById('add_alert_start_date');
+            const alertAmount = document.getElementById('add_alert_amount');
+            if (paymentAlert && paymentAlert.value === '1') {
+                if (!alertType || !alertType.value || !alertStartDate || !alertStartDate.value) {
+                    showNotification('When Payment Alert is Yes, both Alert Type and Start Date must be filled.', 'danger');
+                    return false;
+                }
+                if (alertAmount && alertAmount.value && (isNaN(parseFloat(alertAmount.value)) || parseFloat(alertAmount.value) >= 0)) {
+                    showNotification('Alert Amount must be a negative number.', 'danger');
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        async function loadAccountCurrenciesBank(accountId, type) {
+            const listId = type === 'add' ? 'addCurrencyList' : 'editCurrencyList';
+            const listElement = document.getElementById(listId);
+            if (!listElement) return;
+            listElement.innerHTML = '';
+            if (type === 'add' && !accountId) deletedCurrencyIds = [];
+            try {
+                const url = accountId
+                    ? buildApiUrl('account_currency_api.php?action=get_available_currencies&account_id=' + accountId)
+                    : buildApiUrl('account_currency_api.php?action=get_available_currencies');
+                const response = await fetch(url);
+                const result = await response.json();
+                if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
+                    listElement.innerHTML = '<div class="currency-toggle-note">No currencies available.</div>';
+                    return;
+                }
+                const isAddMode = type === 'add' && !accountId;
+                let currencyToAutoSelect = null;
+                if (isAddMode && selectedCurrencyIdsForAdd.length === 0) {
+                    const myr = result.data.find(c => String(c.code || '').toUpperCase() === 'MYR');
+                    currencyToAutoSelect = myr || (result.data.length ? result.data.sort((a,b) => a.id - b.id)[0] : null);
+                }
+                result.data.forEach(currency => {
+                    if (deletedCurrencyIds.includes(currency.id)) return;
+                    const code = String(currency.code || '').toUpperCase();
+                    const item = document.createElement('div');
+                    item.className = 'account-currency-item currency-toggle-item';
+                    item.setAttribute('data-currency-id', currency.id);
+                    const codeSpan = document.createElement('span');
+                    codeSpan.className = 'currency-code-text';
+                    codeSpan.textContent = code;
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'currency-delete-btn';
+                    deleteBtn.innerHTML = '×';
+                    deleteBtn.setAttribute('type', 'button');
+                    deleteBtn.setAttribute('title', 'Delete currency permanently');
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteCurrencyPermanentlyBank(currency.id, code, item);
+                    });
+                    item.appendChild(codeSpan);
+                    item.appendChild(deleteBtn);
+                    if (currency.is_linked) item.classList.add('selected');
+                    else if (isAddMode && selectedCurrencyIdsForAdd.includes(currency.id)) item.classList.add('selected');
+                    else if (isAddMode && currencyToAutoSelect && currency.id === currencyToAutoSelect.id) {
+                        item.classList.add('selected');
+                        if (!selectedCurrencyIdsForAdd.includes(currency.id)) selectedCurrencyIdsForAdd.push(currency.id);
+                    }
+                    if (isAddMode) {
+                        codeSpan.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const shouldSelect = !item.classList.contains('selected');
+                            if (shouldSelect) {
+                                item.classList.add('selected');
+                                if (!selectedCurrencyIdsForAdd.includes(currency.id)) selectedCurrencyIdsForAdd.push(currency.id);
+                            } else {
+                                item.classList.remove('selected');
+                                selectedCurrencyIdsForAdd = selectedCurrencyIdsForAdd.filter(id => id !== currency.id);
+                            }
+                        });
+                    }
+                    listElement.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading account currencies:', error);
+                listElement.innerHTML = '<div class="currency-toggle-note">Failed to load currencies.</div>';
+            }
+        }
+        
+        async function deleteCurrencyPermanentlyBank(currencyId, currencyCode, itemElement) {
+            if (!confirm('Are you sure you want to permanently delete currency ' + currencyCode + '? This action cannot be undone.')) return;
+            try {
+                const res = await fetch(buildApiUrl('deletecurrencyapi.php'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: currencyId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    if (itemElement && itemElement.parentNode) itemElement.remove();
+                    if (!deletedCurrencyIds.includes(currencyId)) deletedCurrencyIds.push(currencyId);
+                    showNotification('Currency ' + currencyCode + ' deleted successfully!', 'success');
+                } else {
+                    showNotification(data.error || 'Failed to delete currency', 'danger');
+                }
+            } catch (e) {
+                showNotification('Failed to delete currency', 'danger');
+            }
+        }
+        
+        async function loadAccountCompaniesBank(accountId, type) {
+            const listId = type === 'add' ? 'addCompanyList' : 'editCompanyList';
+            const listElement = document.getElementById(listId);
+            if (!listElement) return;
+            listElement.innerHTML = '';
+            if (type === 'add' && !accountId) {
+                const currentCompanyId = <?php echo json_encode($company_id); ?>;
+                if (currentCompanyId && !selectedCompanyIdsForAdd.includes(currentCompanyId))
+                    selectedCompanyIdsForAdd.push(currentCompanyId);
+            }
+            try {
+                const url = accountId
+                    ? buildApiUrl('account_company_api.php?action=get_available_companies&account_id=' + accountId)
+                    : buildApiUrl('account_company_api.php?action=get_available_companies');
+                const response = await fetch(url);
+                const result = await response.json();
+                if (!result.success || !Array.isArray(result.data) || result.data.length === 0) {
+                    listElement.innerHTML = '<div class="currency-toggle-note">No companies available.</div>';
+                    return;
+                }
+                const isAddMode = type === 'add' && !accountId;
+                result.data.forEach(company => {
+                    const code = String(company.company_code || '').toUpperCase();
+                    const item = document.createElement('div');
+                    item.className = 'account-currency-item currency-toggle-item';
+                    item.setAttribute('data-company-id', company.id);
+                    item.textContent = code;
+                    if (company.is_linked) item.classList.add('selected');
+                    else if (isAddMode && selectedCompanyIdsForAdd.includes(company.id)) item.classList.add('selected');
+                    if (isAddMode) {
+                        item.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const shouldSelect = !item.classList.contains('selected');
+                            if (shouldSelect) {
+                                item.classList.add('selected');
+                                if (!selectedCompanyIdsForAdd.includes(company.id)) selectedCompanyIdsForAdd.push(company.id);
+                            } else {
+                                item.classList.remove('selected');
+                                selectedCompanyIdsForAdd = selectedCompanyIdsForAdd.filter(id => id !== company.id);
+                            }
+                        });
+                    }
+                    listElement.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error loading account companies:', error);
+                listElement.innerHTML = '<div class="currency-toggle-note">Failed to load companies.</div>';
+            }
+        }
+        
+        async function addCurrencyFromInputBank(type) {
+            const input = document.getElementById('addCurrencyInput');
+            const currencyCode = (input && input.value.trim() || '').toUpperCase();
+            if (!currencyCode) {
+                showNotification('Please enter currency code', 'danger');
+                if (input) input.focus();
+                return false;
+            }
+            const existing = bankAccountCurrencies.find(c => (c.code || '').toUpperCase() === currencyCode);
+            if (existing) {
+                showNotification('Currency ' + currencyCode + ' already exists', 'info');
+                if (input) input.value = '';
+                return;
+            }
+            try {
+                const currentCompanyId = <?php echo json_encode($company_id); ?>;
+                const res = await fetch(buildApiUrl('addcurrencyapi.php'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId })
+                });
+                const result = await res.json();
+                if (result.success && result.data) {
+                    bankAccountCurrencies.push({ id: result.data.id, code: result.data.code });
+                    await loadAccountCurrenciesBank(null, 'add');
+                    showNotification('Currency ' + currencyCode + ' created successfully', 'success');
+                    if (input) input.value = '';
+                } else {
+                    showNotification(result.error || 'Failed to create currency', 'danger');
+                }
+            } catch (e) {
+                showNotification('Failed to create currency', 'danger');
+            }
+            return false;
+        }
+
+        // Add Account form submit (same as datacapturesummary - addaccountapi.php + link currencies/companies)
         const addAccountFormEl = document.getElementById('addAccountForm');
         if (addAccountFormEl) {
             addAccountFormEl.addEventListener('submit', async function(e) {
                 e.preventDefault();
+                if (!validatePaymentAlertForAddBank()) return;
                 const formData = new FormData(this);
                 const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
-                if (paymentAlert) formData.set('payment_alert', paymentAlert.value);
+                if (paymentAlert) {
+                    formData.set('payment_alert', paymentAlert.value);
+                    if (paymentAlert.value === '0' || paymentAlert.value === 0) {
+                        formData.set('alert_type', '');
+                        formData.set('alert_start_date', '');
+                        formData.set('alert_amount', '');
+                    }
+                }
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
                 if (currentCompanyId) formData.set('company_id', currentCompanyId);
+                if (selectedCurrencyIdsForAdd.length > 0) formData.set('currency_ids', JSON.stringify(selectedCurrencyIdsForAdd));
+                if (selectedCompanyIdsForAdd.length > 0) formData.set('company_ids', JSON.stringify(selectedCompanyIdsForAdd));
                 try {
                     const response = await fetch(buildApiUrl('addaccountapi.php'), { method: 'POST', body: formData });
                     const result = await response.json();
                     if (result.success) {
-                        showNotification('Account added successfully!', 'success');
+                        const newAccountId = result.data && result.data.id;
+                        let hasErrors = false;
+                        if (selectedCurrencyIdsForAdd.length > 0 && newAccountId) {
+                            try {
+                                const currencyPromises = selectedCurrencyIdsForAdd.map(currencyId =>
+                                    fetch(buildApiUrl('account_currency_api.php?action=add_currency'), {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ account_id: newAccountId, currency_id: currencyId })
+                                    }).then(r => r.json())
+                                );
+                                const currencyResults = await Promise.all(currencyPromises);
+                                if (currencyResults.some(r => !r.success)) hasErrors = true;
+                            } catch (err) { hasErrors = true; }
+                        }
+                        if (selectedCompanyIdsForAdd.length > 0 && newAccountId) {
+                            try {
+                                const companyPromises = selectedCompanyIdsForAdd.map(companyId =>
+                                    fetch(buildApiUrl('account_company_api.php?action=add_company'), {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ account_id: newAccountId, company_id: companyId })
+                                    }).then(r => r.json())
+                                );
+                                const companyResults = await Promise.all(companyPromises);
+                                if (companyResults.some(r => !r.success)) hasErrors = true;
+                            } catch (err) { hasErrors = true; }
+                        }
+                        if (hasErrors) showNotification('Account created successfully, but some associations failed.', 'warning');
+                        else if (selectedCurrencyIdsForAdd.length > 0 || selectedCompanyIdsForAdd.length > 0) showNotification('Account added successfully with currencies and companies!', 'success');
+                        else showNotification('Account added successfully!', 'success');
+                        selectedCurrencyIdsForAdd = [];
+                        selectedCompanyIdsForAdd = currentCompanyId ? [currentCompanyId] : [];
                         closeAddAccountModal();
                         await loadBankAccounts();
                         refreshBankAccountDropdowns();
-                        const newId = result.data && result.data.id;
-                        if (newId) {
+                        if (newAccountId) {
                             const cardBtn = document.getElementById('bank_card_merchant');
                             const customerBtn = document.getElementById('bank_customer');
-                            const displayText = result.data.account_id || result.data.name || String(newId);
+                            const displayText = result.data.account_id || result.data.name || String(newAccountId);
                             if (cardBtn && !cardBtn.getAttribute('data-value')) {
                                 cardBtn.textContent = displayText;
-                                cardBtn.setAttribute('data-value', newId);
+                                cardBtn.setAttribute('data-value', newAccountId);
                             } else if (customerBtn && !customerBtn.getAttribute('data-value')) {
                                 customerBtn.textContent = displayText;
-                                customerBtn.setAttribute('data-value', newId);
+                                customerBtn.setAttribute('data-value', newAccountId);
                             }
                         }
                     } else {
@@ -3992,13 +4316,14 @@ if ($current_user_id && count($user_companies) > 0) {
 
         // Placeholder functions for add modals
         
-        function showAddAccountModal() {
+        async function showAddAccountModal() {
             const modal = document.getElementById('addAccountModal');
-            if (modal) {
-                modal.style.display = 'block';
-                modal.classList.add('show');
-                loadRolesForAddAccount();
-            }
+            if (!modal) return;
+            modal.style.display = 'block';
+            modal.classList.add('show');
+            await loadEditDataBank();
+            await loadAccountCurrenciesBank(null, 'add');
+            await loadAccountCompaniesBank(null, 'add');
         }
         
         function closeAddAccountModal() {
@@ -4009,24 +4334,10 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             const form = document.getElementById('addAccountForm');
             if (form) form.reset();
-        }
-        
-        async function loadRolesForAddAccount() {
-            try {
-                const response = await fetch(buildApiUrl('roleapi.php'));
-                const result = await response.json();
-                const select = document.getElementById('add_role');
-                if (!select || !result.success || !result.data) return;
-                select.innerHTML = '<option value="">Select Role</option>';
-                (result.data || []).forEach(r => {
-                    const opt = document.createElement('option');
-                    opt.value = r.code || r.id;
-                    opt.textContent = r.code || r.name || String(r.id);
-                    select.appendChild(opt);
-                });
-            } catch (e) {
-                console.error('Load roles for Add Account failed', e);
-            }
+            selectedCurrencyIdsForAdd = [];
+            deletedCurrencyIds = [];
+            const currentCompanyId = <?php echo json_encode($company_id); ?>;
+            selectedCompanyIdsForAdd = currentCompanyId ? [currentCompanyId] : [];
         }
         
         function refreshBankAccountDropdowns() {
@@ -4059,6 +4370,25 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Add Account modal: payment alert toggle
+            document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
+                radio.addEventListener('change', function() { toggleAlertFieldsBank('add'); });
+            });
+            // Add Account modal: uppercase for account fields and currency input
+            ['add_account_id', 'add_name', 'add_remark', 'addCurrencyInput'].forEach(inputId => {
+                const input = document.getElementById(inputId);
+                if (input) {
+                    input.addEventListener('input', function() { forceUppercase(this); });
+                    input.addEventListener('paste', function() { setTimeout(() => forceUppercase(this), 0); });
+                }
+            });
+            const addCurrencyInput = document.getElementById('addCurrencyInput');
+            if (addCurrencyInput) {
+                addCurrencyInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); addCurrencyFromInputBank('add'); }
+                });
+            }
+            
             // 统一管理需要大写的输入框
             const uppercaseInputs = [
                 'add_process_id', 
