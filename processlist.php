@@ -616,12 +616,14 @@ if ($current_user_id && count($user_companies) > 0) {
         .bank-input,
         .bank-select {
             width: 100%;
-            height: 38px;
-            padding: 6px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
+            padding: 12px 16px;
+            border: 0.125rem solid #e5e7eb;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
             box-sizing: border-box;
+            background: #ffffff;
+            color: #374151;
+            font-family: inherit;
         }
         
         .bank-input:focus,
@@ -865,7 +867,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="header-item bank-header" style="display: none;">Country</div>
                 <div class="header-item bank-header" style="display: none;">Bank</div>
                 <div class="header-item bank-header" style="display: none;">Types</div>
-                <div class="header-item bank-header" style="display: none;">Card Lower</div>
+                <div class="header-item bank-header" style="display: none;">Card Owner</div>
                 <div class="header-item bank-header" style="display: none;">Contract</div>
                 <div class="header-item bank-header" style="display: none;">Insurance</div>
                 <div class="header-item bank-header" style="display: none;">Customer</div>
