@@ -1239,14 +1239,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <input type="number" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Column -->
-                    <div class="bank-form-right">
-                        <!-- Detail Section - Part 2 -->
-                        <div class="bank-section">
-                            <h3 class="bank-section-title" style="visibility: hidden;">Detail</h3>
                             
                             <div class="form-row bank-row-three-cols">
                                 <div class="form-group">
@@ -1263,8 +1255,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                         </div>
-                        
-                        <!-- Day start and Profit Sharing -->
+                    </div>
+                    
+                    <!-- Right Column: Day start and Profit Sharing only -->
+                    <div class="bank-form-right">
                         <div class="bank-section">
                             <div class="form-row">
                                 <div class="form-group">
