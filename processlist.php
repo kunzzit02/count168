@@ -1893,17 +1893,17 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="card-item">${(function(){ const c = process.cost; if (c != null && c !== '') return escapeHtml(String(c)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(p => p.trim()).filter(Boolean); return escapeHtml(parts[0] || ''); })()}</div>
                         <div class="card-item">${(function(){ const p = process.price; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[1] || ''); })()}</div>
                         <div class="card-item">${(function(){ const p = process.profit; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[2] || ''); })()}</div>
-                        <div class="card-item">
+                        <div class="card-item bank-status-cell">
                             <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
                                 ${escapeHtml((process.statue || process.status || '').toUpperCase())}
                             </span>
                         </div>
                         <div class="card-item">${escapeHtml(process.date || '')}</div>
-                        <div class="card-item">
+                        <div class="card-item bank-action-cell">
                             <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
+                            ${process.status === 'active' ? '<span class="bank-action-placeholder" aria-hidden="true"></span>' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                         </div>
                     `;
                     container.appendChild(card);
@@ -2440,20 +2440,33 @@ if ($current_user_id && count($user_companies) > 0) {
                     const card = document.querySelector(`.process-card[data-id="${processId}"]`);
                     if (card) {
                         const items = card.querySelectorAll('.card-item');
+                        const isBankCard = items.length > 10;
+                        const statusIdx = isBankCard ? 12 : 3;
+                        const actionIdx = isBankCard ? 14 : 6;
                         if (items.length > 3) {
                             const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
-                            items[3].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
-                            // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
-                            const actionCell = items[6]; // Action 列
+                            if (items[statusIdx]) {
+                                items[statusIdx].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                            }
+                            // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示；Bank 表 active 时保留占位符以保持列宽一致
+                            const actionCell = items[actionIdx];
                             if (actionCell) {
                                 const existingCheckbox = actionCell.querySelector('.row-checkbox');
+                                const existingPlaceholder = actionCell.querySelector('.bank-action-placeholder');
                                 if (result.newStatus === 'active') {
                                     if (existingCheckbox) existingCheckbox.remove();
+                                    if (isBankCard && !existingPlaceholder) {
+                                        const placeholder = document.createElement('span');
+                                        placeholder.className = 'bank-action-placeholder';
+                                        placeholder.setAttribute('aria-hidden', 'true');
+                                        actionCell.appendChild(placeholder);
+                                    }
                                 } else {
+                                    if (existingPlaceholder) existingPlaceholder.remove();
                                     if (!existingCheckbox) {
                                         const checkbox = document.createElement('input');
                                         checkbox.type = 'checkbox';
-                                        checkbox.className = 'row-checkbox';
+                                        checkbox.className = 'row-checkbox' + (isBankCard ? ' bank-checkbox' : '');
                                         checkbox.dataset.id = String(processId);
                                         checkbox.title = 'Select for deletion';
                                         checkbox.style.marginLeft = '10px';
