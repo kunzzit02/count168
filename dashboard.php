@@ -501,9 +501,10 @@ if (isset($_GET['logout'])) {
             padding: clamp(2px, 0.36vw, 8px);
         }
 
-        /* Select Year & Month：下拉不出现水平滚动条，年份文字完整显示 */
+        /* Select Year & Month：下拉与上方输入框同宽，无水平滚动条 */
         #month-date-picker .date-dropdown {
-            min-width: 260px;
+            width: 100%;
+            min-width: 0;
             overflow-x: hidden;
         }
         #month-date-picker .year-grid {
