@@ -269,7 +269,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
         .link-type-pills {
             display: flex;
             gap: 12px;
-            justify-content: center;
+            justify-content: flex-start;
             flex-wrap: wrap;
         }
         .link-type-pill {
@@ -317,11 +317,11 @@ $showAll = isset($_GET['showAll']) ? true : false;
             font-size: 12px;
             color: #6b7280;
             line-height: 1.5;
-            text-align: center;
+            text-align: left;
         }
         .link-account-search-wrap {
             display: flex;
-            justify-content: center;
+            justify-content: flex-start;
             margin-bottom: 12px;
         }
         .link-account-search-inner {
@@ -711,7 +711,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                             <span class="link-type-pill-text">Unidirectional</span>
                         </label>
                     </div>
-                    <p class="link-type-desc" id="linkTypeDescription">Bidirectional: Data syncs both ways.<br>Unidirectional flows from A to B.</p>
+                    <p class="link-type-desc" id="linkTypeDescription">Bidirectional: Data syncs both ways.</p>
                 </div>
                 <div class="link-account-search-wrap">
                     <div class="link-account-search-inner">
@@ -1770,9 +1770,9 @@ $showAll = isset($_GET['showAll']) ? true : false;
             const descEl = document.getElementById('linkTypeDescription');
             if (!descEl) return;
             const isBidi = document.getElementById('linkTypeBidirectional') && document.getElementById('linkTypeBidirectional').checked;
-            descEl.innerHTML = isBidi
-                ? 'Bidirectional: Data syncs both ways.<br>Unidirectional flows from A to B.'
-                : 'Bidirectional: Data syncs both ways.<br>Unidirectional flows from A to B.';
+            descEl.textContent = isBidi
+                ? 'Bidirectional: Data syncs both ways.'
+                : 'Unidirectional flows from A to B.';
         }
         
         // 保存账户关联
