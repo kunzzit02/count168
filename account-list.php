@@ -262,6 +262,23 @@ $showAll = isset($_GET['showAll']) ? true : false;
             background-color: #ffffff;
             padding: clamp(8px, 0.78vw, 15px);
         }
+        .link-account-search-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .link-account-search-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+        }
+        .link-account-search-input::placeholder {
+            color: #9ca3af;
+        }
     </style>
 </head>
 <body>
@@ -616,6 +633,9 @@ $showAll = isset($_GET['showAll']) ? true : false;
                             <span style="font-weight: bold;">Unidirectional</span>
                         </label>
                     </div>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <input type="text" id="linkAccountSearchInput" class="link-account-search-input" placeholder="Search account..." autocomplete="off" aria-label="Search account">
                 </div>
                 <div style="margin-bottom: 16px;">
                     <div style="margin-bottom: 12px;">
@@ -1794,6 +1814,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
             const listElement = document.getElementById('linkAccountList');
             if (!listElement) return;
             listElement.innerHTML = '';
+            const searchInput = document.getElementById('linkAccountSearchInput');
+            if (searchInput) searchInput.value = '';
 
             if (!accountId) {
                 listElement.innerHTML = '<div class="currency-toggle-note">Invalid account ID</div>';
@@ -1893,6 +1915,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     const item = document.createElement('div');
                     item.className = 'account-item-compact';
                     item.setAttribute('data-linked-account-id', account.id);
+                    item.setAttribute('data-account-id', accountIdDisplay);
                     item.style.cssText = 'display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); margin-bottom: 0px; border-radius: 4px; transition: background-color 0.2s; background-color: white; border: 1px solid #eee;';
                     
                     if (isLinked) {
@@ -1941,6 +1964,28 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 listElement.innerHTML = '<div class="currency-toggle-note">加载关联账户失败</div>';
             }
         }
+        
+        function filterLinkAccountList() {
+            const listElement = document.getElementById('linkAccountList');
+            if (!listElement) return;
+            const searchInput = document.getElementById('linkAccountSearchInput');
+            const searchVal = (searchInput ? searchInput.value : '').trim().toUpperCase();
+            const items = listElement.querySelectorAll('.account-item-compact');
+            items.forEach(item => {
+                const accountId = (item.getAttribute('data-account-id') || '').toUpperCase();
+                item.style.display = accountId.includes(searchVal) ? 'flex' : 'none';
+            });
+            Array.from(listElement.children).forEach(row => {
+                const rowItems = row.querySelectorAll('.account-item-compact');
+                const allHidden = rowItems.length > 0 && Array.from(rowItems).every(el => el.style.display === 'none');
+                row.style.display = allHidden ? 'none' : '';
+            });
+        }
+        
+        (function() {
+            const linkSearchInput = document.getElementById('linkAccountSearchInput');
+            if (linkSearchInput) linkSearchInput.addEventListener('input', filterLinkAccountList);
+        })();
         
         // Select All Linked Accounts
         function selectAllLinkedAccounts() {
