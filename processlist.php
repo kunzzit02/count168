@@ -889,8 +889,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 <?php endif; ?>
             </div>
             
-            <!-- 表头与数据同一滚动容器，保证列宽一致、不对歪 -->
-            <div class="process-table-wrapper" id="processTableWrapper">
             <!-- Table Header -->
             <div class="table-header" id="tableHeader">
                 <!-- Gambling table headers (default) -->
@@ -928,7 +926,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="process-card">
                     <div class="card-item">Load the Data...</div>
                 </div>
-            </div>
             </div>
             
             <!-- 分页控件 - 浮动在右下角 -->
@@ -1902,11 +1899,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             </span>
                         </div>
                         <div class="card-item">${escapeHtml(process.date || '')}</div>
-                        <div class="card-item card-item-action">
+                        <div class="card-item">
                             <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '<span class="action-checkbox-placeholder" aria-hidden="true"></span>' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()">`}
+                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                         </div>
                     `;
                     container.appendChild(card);
@@ -1933,11 +1930,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         </div>
                         <div class="card-item">${escapeHtml(process.currency || '')}</div>
                         <div class="card-item">${escapeHtml(process.day_use || process.day_name || '')}</div>
-                        <div class="card-item card-item-action">
+                        <div class="card-item">
                             <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '<span class="action-checkbox-placeholder" aria-hidden="true"></span>' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()">`}
+                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                         </div>
                     `;
                     container.appendChild(card);
@@ -2443,40 +2440,30 @@ if ($current_user_id && count($user_companies) > 0) {
                     const card = document.querySelector(`.process-card[data-id="${processId}"]`);
                     if (card) {
                         const items = card.querySelectorAll('.card-item');
-                        const statusCell = card.querySelector('.card-item .status-clickable')?.closest('.card-item');
-                        if (statusCell) {
+                        if (items.length > 3) {
                             const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
-                            statusCell.innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
-                        }
-                        if (items.length > 0) {
-                            // 更新删除复选框显示：ACTIVE 用占位保持列对齐，INACTIVE 显示复选框（Action 列为最后一列）
-                            const actionCell = items[items.length - 1];
-                            if (actionCell && actionCell.classList.contains('card-item-action')) {
+                            items[3].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                            // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
+                            const actionCell = items[6]; // Action 列
+                            if (actionCell) {
                                 const existingCheckbox = actionCell.querySelector('.row-checkbox');
-                                const existingPlaceholder = actionCell.querySelector('.action-checkbox-placeholder');
                                 if (result.newStatus === 'active') {
                                     if (existingCheckbox) existingCheckbox.remove();
-                                    if (!existingPlaceholder) {
-                                        const placeholder = document.createElement('span');
-                                        placeholder.className = 'action-checkbox-placeholder';
-                                        placeholder.setAttribute('aria-hidden', 'true');
-                                        actionCell.appendChild(placeholder);
-                                    }
                                 } else {
-                                    if (existingPlaceholder) existingPlaceholder.remove();
                                     if (!existingCheckbox) {
                                         const checkbox = document.createElement('input');
                                         checkbox.type = 'checkbox';
-                                        checkbox.className = 'row-checkbox' + (selectedPermission === 'Bank' ? ' bank-checkbox' : '');
+                                        checkbox.className = 'row-checkbox';
                                         checkbox.dataset.id = String(processId);
                                         checkbox.title = 'Select for deletion';
+                                        checkbox.style.marginLeft = '10px';
                                         checkbox.onchange = updateDeleteButton;
                                         actionCell.appendChild(checkbox);
                                     }
                                 }
                             }
                         }
-
+                        
                         // 根据 showAll 和 showInactive 状态决定是否显示该卡片
                         // showAll=true: 显示所有流程
                         // showInactive=true: 只显示 inactive 流程

@@ -283,14 +283,15 @@ body.process-page {
     overflow-y: auto;
 }
 
-/* Table Header - 与 process-card 保持相同 padding/gap，列才能对齐 */
+/* Table Header - copied from accountCSS.css */
 .process-page .table-header {
     display: grid;
     grid-template-columns: 0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1fr 0.3fr;
     gap: 15px;
-    padding: 0px 22px;
+    padding: 0px 20px;
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     border-radius: 8px 8px 0 0;
+    margin-top: 20px;
     font-weight: bold;
     color: white;
     font-size: clamp(10px, 0.89vw, 17px);
@@ -300,24 +301,12 @@ body.process-page {
 .process-page .table-header .header-item {
     padding: 2px 4px;
 }
-
-/* 表头+数据同一滚动容器，列宽一致、不因滚动条错位 */
-.process-page .process-table-wrapper {
-    max-height: calc(100vh - 280px);
-    overflow-y: auto;
-    margin-top: 20px;
-}
-.process-page .process-table-wrapper .table-header {
-    margin-top: 0;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-}
-
 /* Process Cards - copied from accountCSS.css */
 .process-page .process-cards {
     display: flex;
     flex-direction: column;
+    max-height: calc(100vh - 280px);
+    overflow-y: auto;
 }
 
 .process-page .process-card {
@@ -384,21 +373,6 @@ body.process-page {
     display: block;
     object-fit: contain;
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
-}
-
-/* Action 列：固定结构，active 时用占位保持与 inactive 同宽，列对齐不歪 */
-.process-page .card-item.card-item-action {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    min-width: 0;
-}
-.process-page .action-checkbox-placeholder {
-    display: inline-block;
-    width: clamp(10px, 0.83vw, 16px);
-    height: clamp(10px, 0.83vw, 16px);
-    margin-left: clamp(10px, 0.73vw, 14px);
-    flex-shrink: 0;
 }
 
 .process-page .row-checkbox {
