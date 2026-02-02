@@ -294,6 +294,66 @@ body.process-page {
     overflow-y: auto;
 }
 
+/* Bank 真实 table：th/td 列由浏览器对齐 */
+.process-page .bank-table-wrapper {
+    margin-top: 20px;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 280px);
+}
+.process-page .bank-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(12px, 0.82vw, 15px);
+    font-weight: bold;
+    color: #374151;
+    border-radius: 8px 8px 0 0;
+    overflow: hidden;
+}
+.process-page .bank-data-table thead {
+    background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.process-page .bank-data-table th {
+    padding: 8px 10px;
+    text-align: left;
+    white-space: nowrap;
+    border: none;
+}
+.process-page .bank-data-table th:first-child {
+    border-radius: 8px 0 0 0;
+}
+.process-page .bank-data-table th:last-child {
+    border-radius: 0 8px 0 0;
+}
+.process-page .bank-data-table td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+}
+.process-page .bank-data-table tbody tr:nth-child(even) {
+    background: #cceeff99;
+}
+.process-page .bank-data-table tbody tr:nth-child(odd) {
+    background: #ffffff;
+}
+.process-page .bank-data-table tbody tr:hover {
+    background: #e8f4fc;
+}
+.process-page .bank-data-table .bank-th-action,
+.process-page .bank-data-table .bank-td-action {
+    white-space: nowrap;
+}
+.process-page .bank-data-table .bank-th-action .header-action-checkbox {
+    margin-left: 10px;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
 /* Table Header - copied from accountCSS.css */
 .process-page .table-header {
     display: grid;

@@ -930,6 +930,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 </div>
             </div>
             </div>
+
+            <!-- Bank 用真实 table 保证 th/td 列对齐 -->
+            <div id="bankTableWrapper" class="bank-table-wrapper" style="display: none;">
+                <table id="bankTable" class="bank-data-table">
+                    <thead><tr id="bankTableHeadRow"></tr></thead>
+                    <tbody id="bankTableBody"></tbody>
+                </table>
+            </div>
             
             <!-- 分页控件 - 浮动在右下角 -->
             <div class="pagination-container" id="paginationContainer">
@@ -1843,31 +1851,26 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function renderTable() {
+            if (selectedPermission === 'Bank') {
+                renderBankTable();
+                return;
+            }
             const container = document.getElementById('processTableBody');
             container.innerHTML = '';
 
             if (processes.length === 0) {
                 const emptyCard = document.createElement('div');
                 emptyCard.className = 'process-card';
-                if (selectedPermission === 'Bank') {
-                    emptyCard.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
-                }
                 emptyCard.innerHTML = `<div class="card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">No process data found</div>`;
                 container.appendChild(emptyCard);
-                if (selectedPermission === 'Bank') requestAnimationFrame(syncBankTableColumnWidth);
                 return;
             }
 
-            // 如果 showAll 为 true，显示所有流程，不分页
-            let pageItems;
-            let startIndex;
-            
+            let pageItems, startIndex;
             if (showAll) {
-                // 显示所有流程，不分页
                 pageItems = processes;
                 startIndex = 0;
             } else {
-                // 正常分页逻辑
                 const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
                 if (currentPage > totalPages) currentPage = totalPages;
                 startIndex = (currentPage - 1) * pageSize;
@@ -1875,45 +1878,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 pageItems = processes.slice(startIndex, endIndex);
             }
 
-            // 根据类别渲染不同的表格
-            if (selectedPermission === 'Bank') {
-                // Bank 类别的表格
-                pageItems.forEach((process, idx) => {
-                    const card = document.createElement('div');
-                    card.className = 'process-card';
-                    card.setAttribute('data-id', process.id);
-                    card.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
-                    
-                    const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
-                    card.innerHTML = `
-                        <div class="card-item">${startIndex + idx + 1}</div>
-                        <div class="card-item">${escapeHtml(process.supplier || '')}</div>
-                        <div class="card-item">${escapeHtml(process.country || '')}</div>
-                        <div class="card-item">${escapeHtml(process.bank || '')}</div>
-                        <div class="card-item">${escapeHtml(process.types || '')}</div>
-                        <div class="card-item">${escapeHtml(process.card_lower || '')}</div>
-                        <div class="card-item">${escapeHtml((function(){ const c = process.contract; if (!c) return ''; const m = { '1':'1 month','2':'2 months','3':'3 months','6':'6 months' }; return m[c] || c; })())}</div>
-                        <div class="card-item">${escapeHtml(process.insurance || '')}</div>
-                        <div class="card-item">${escapeHtml(process.customer || '')}</div>
-                        <div class="card-item">${(function(){ const c = process.cost; if (c != null && c !== '') return escapeHtml(String(c)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(p => p.trim()).filter(Boolean); return escapeHtml(parts[0] || ''); })()}</div>
-                        <div class="card-item">${(function(){ const p = process.price; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[1] || ''); })()}</div>
-                        <div class="card-item">${(function(){ const p = process.profit; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[2] || ''); })()}</div>
-                        <div class="card-item">
-                            <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
-                                ${escapeHtml((process.status || '').toUpperCase())}
-                            </span>
-                        </div>
-                        <div class="card-item">${escapeHtml(process.date || '')}</div>
-                        <div class="card-item">
-                            <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
-                                <img src="images/edit.svg" alt="Edit" />
-                            </button>
-                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
-                        </div>
-                    `;
-                    container.appendChild(card);
-                });
-            } else {
+            // Gambling 类别的表格
+            {
                 // Gambling 类别的表格（原有逻辑）
                 pageItems.forEach((process, idx) => {
                     const card = document.createElement('div');
@@ -1947,9 +1913,73 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             renderPagination();
             updateSelectAllProcessesVisibility();
-            if (selectedPermission === 'Bank') {
-                requestAnimationFrame(syncBankTableColumnWidth);
+        }
+
+        /** Bank 用真实 table 渲染，th/td 列由浏览器对齐 */
+        function renderBankTable() {
+            const headRow = document.getElementById('bankTableHeadRow');
+            const tbody = document.getElementById('bankTableBody');
+            if (!headRow || !tbody) return;
+
+            const thLabels = ['No','Supplier','Country','Bank','Types','Card Owner','Contract','Insurance','Customer','Cost','Price','Profit','Status','Date','Action'];
+            headRow.innerHTML = thLabels.map((label, i) => {
+                if (label === 'Action') {
+                    return '<th class="bank-th-action">Action <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()"></th>';
+                }
+                return '<th>' + escapeHtml(label) + '</th>';
+            }).join('');
+
+            tbody.innerHTML = '';
+            if (processes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 20px;">No process data found</td></tr>';
+                renderPagination();
+                updateSelectAllProcessesVisibility();
+                return;
             }
+
+            let pageItems, startIndex;
+            if (showAll) {
+                pageItems = processes;
+                startIndex = 0;
+            } else {
+                const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
+                if (currentPage > totalPages) currentPage = totalPages;
+                startIndex = (currentPage - 1) * pageSize;
+                pageItems = processes.slice(startIndex, Math.min(startIndex + pageSize, processes.length));
+            }
+
+            const contractMap = { '1':'1 month','2':'2 months','3':'3 months','6':'6 months' };
+            pageItems.forEach((process, idx) => {
+                const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
+                const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
+                const cost = process.cost != null && process.cost !== '' ? process.cost : '';
+                const price = process.price != null && process.price !== '' ? process.price : '';
+                const profit = process.profit != null && process.profit !== '' ? process.profit : '';
+                const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
+                const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+                    (process.status === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-id', process.id);
+                tr.innerHTML = '<td>' + (startIndex + idx + 1) + '</td>' +
+                    '<td>' + escapeHtml(process.supplier || '') + '</td>' +
+                    '<td>' + escapeHtml(process.country || '') + '</td>' +
+                    '<td>' + escapeHtml(process.bank || '') + '</td>' +
+                    '<td>' + escapeHtml(process.types || '') + '</td>' +
+                    '<td>' + escapeHtml(process.card_lower || '') + '</td>' +
+                    '<td>' + escapeHtml(contract) + '</td>' +
+                    '<td>' + escapeHtml(process.insurance || '') + '</td>' +
+                    '<td>' + escapeHtml(process.customer || '') + '</td>' +
+                    '<td>' + escapeHtml(String(cost)) + '</td>' +
+                    '<td>' + escapeHtml(String(price)) + '</td>' +
+                    '<td>' + escapeHtml(String(profit)) + '</td>' +
+                    '<td>' + statusBadge + '</td>' +
+                    '<td>' + escapeHtml(process.date || '') + '</td>' +
+                    '<td class="bank-td-action">' + actionCell + '</td>';
+                tbody.appendChild(tr);
+            });
+
+            renderPagination();
+            updateSelectAllProcessesVisibility();
         }
 
         /** 仅调整数据列宽度与 th 一致，th 不改；双 rAF 确保布局完成后再取宽 */
@@ -2454,58 +2484,56 @@ if ($current_user_id && count($user_companies) > 0) {
                 const result = await response.json();
                 
                 if (result.success) {
-                    // 更新本地数据
                     const process = processes.find(p => p.id === processId);
-                    if (process) {
-                        process.status = result.newStatus;
-                    }
-                    
-                    // 立即更新状态 badge 的显示
-                    const card = document.querySelector(`.process-card[data-id="${processId}"]`);
-                    if (card) {
-                        const items = card.querySelectorAll('.card-item');
-                        if (items.length > 3) {
-                            const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
-                            items[3].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
-                            // 更新删除复选框显示：ACTIVE 不显示，INACTIVE 才显示
-                            const actionCell = items[6]; // Action 列
-                            if (actionCell) {
-                                const existingCheckbox = actionCell.querySelector('.row-checkbox');
-                                if (result.newStatus === 'active') {
-                                    if (existingCheckbox) existingCheckbox.remove();
-                                } else {
-                                    if (!existingCheckbox) {
-                                        const checkbox = document.createElement('input');
-                                        checkbox.type = 'checkbox';
-                                        checkbox.className = 'row-checkbox';
-                                        checkbox.dataset.id = String(processId);
-                                        checkbox.title = 'Select for deletion';
-                                        checkbox.style.marginLeft = '10px';
-                                        checkbox.onchange = updateDeleteButton;
-                                        actionCell.appendChild(checkbox);
+                    if (process) process.status = result.newStatus;
+                    const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
+                    const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                    const actionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' + (result.newStatus === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
+
+                    if (selectedPermission === 'Bank') {
+                        const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
+                        if (row) {
+                            const cells = row.querySelectorAll('td');
+                            if (cells.length >= 15) {
+                                cells[12].innerHTML = statusBadge;
+                                cells[14].innerHTML = actionCellHtml;
+                            }
+                        }
+                    } else {
+                        const card = document.querySelector(`.process-card[data-id="${processId}"]`);
+                        if (card) {
+                            const items = card.querySelectorAll('.card-item');
+                            if (items.length > 3) {
+                                items[3].innerHTML = statusBadge;
+                                const actionCell = items[6];
+                                if (actionCell) {
+                                    const existingCheckbox = actionCell.querySelector('.row-checkbox');
+                                    if (result.newStatus === 'active') {
+                                        if (existingCheckbox) existingCheckbox.remove();
+                                    } else {
+                                        if (!existingCheckbox) {
+                                            const checkbox = document.createElement('input');
+                                            checkbox.type = 'checkbox';
+                                            checkbox.className = 'row-checkbox';
+                                            checkbox.dataset.id = String(processId);
+                                            checkbox.title = 'Select for deletion';
+                                            checkbox.style.marginLeft = '10px';
+                                            checkbox.onchange = updateDeleteButton;
+                                            actionCell.appendChild(checkbox);
+                                        }
                                     }
                                 }
                             }
                         }
-                        
-                        // 根据 showAll 和 showInactive 状态决定是否显示该卡片
-                        // showAll=true: 显示所有流程
-                        // showInactive=true: 只显示 inactive 流程
-                        // showInactive=false: 只显示 active 流程
-                        const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
-                        if (!shouldShow) {
-                            // 如果不应该显示，从 processes 数组中移除并重新渲染
-                            const processIndex = processes.findIndex(p => p.id === processId);
-                            if (processIndex > -1) {
-                                processes.splice(processIndex, 1);
-                            }
-                            // 重新渲染表格（会隐藏该卡片）
-                            renderTable();
-                        }
-                        // 如果应该显示，状态 badge 已经更新，不需要重新渲染整个表格
                     }
-                    
-                    // 更新删除按钮状态
+
+                    const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
+                    if (!shouldShow) {
+                        const processIndex = processes.findIndex(p => p.id === processId);
+                        if (processIndex > -1) processes.splice(processIndex, 1);
+                        renderTable();
+                    }
+
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
                     
@@ -5259,29 +5287,24 @@ if ($current_user_id && count($user_companies) > 0) {
             const processCards = document.querySelectorAll('.process-card');
             
             const processTableBodyEl = document.getElementById('processTableBody');
+            const processTableWrapperEl = document.getElementById('processTableWrapper');
+            const bankTableWrapperEl = document.getElementById('bankTableWrapper');
             if (permission === 'Bank') {
+                if (processTableWrapperEl) processTableWrapperEl.style.display = 'none';
+                if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'block';
                 if (processTableBodyEl) processTableBodyEl.classList.add('bank-mode');
-                // 显示 waiting 复选框
-                if (waitingSection) {
-                    waitingSection.style.display = 'flex';
-                }
-                // 显示 Bank 表格头部，隐藏 Gambling 表格头部
+                if (waitingSection) waitingSection.style.display = 'flex';
                 gamblingHeaders.forEach(header => header.style.display = 'none');
                 bankHeaders.forEach(header => header.style.display = 'flex');
                 if (selectAllGambling) selectAllGambling.style.display = 'none';
                 if (selectAllBank) selectAllBank.style.display = 'inline-block';
-                
-                if (tableHeader) {
-                    tableHeader.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
-                }
-                processCards.forEach(card => {
-                    card.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
-                });
-                requestAnimationFrame(syncBankTableColumnWidth);
+                if (tableHeader) tableHeader.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
+                processCards.forEach(card => { card.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS; });
             } else {
+                if (processTableWrapperEl) processTableWrapperEl.style.display = 'grid';
+                if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'none';
                 if (processTableBodyEl) processTableBodyEl.classList.remove('bank-mode');
                 if (processTableBodyEl) processTableBodyEl.style.removeProperty('--table-header-width');
-                // 隐藏 waiting 复选框
                 if (waitingSection) {
                     waitingSection.style.display = 'none';
                 }
