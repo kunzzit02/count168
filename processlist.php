@@ -1742,6 +1742,8 @@ if ($current_user_id && count($user_companies) > 0) {
         let waiting = false;
         let currentPage = 1;
         const pageSize = 20;
+        /** Bank 表头与数据行共用同一 grid-template-columns，保证列对齐 */
+        const BANK_GRID_TEMPLATE_COLUMNS = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
 
         // 构造同目录 API URL
         function buildApiUrl(fileName) {
@@ -1842,13 +1844,13 @@ if ($current_user_id && count($user_companies) > 0) {
             container.innerHTML = '';
 
             if (processes.length === 0) {
-                container.innerHTML = `
-                    <div class="process-card">
-                        <div class="card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">
-                            No process data found
-                        </div>
-                    </div>
-                `;
+                const emptyCard = document.createElement('div');
+                emptyCard.className = 'process-card';
+                if (selectedPermission === 'Bank') {
+                    emptyCard.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
+                }
+                emptyCard.innerHTML = `<div class="card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">No process data found</div>`;
+                container.appendChild(emptyCard);
                 if (selectedPermission === 'Bank') requestAnimationFrame(syncBankTableColumnWidth);
                 return;
             }
@@ -1877,8 +1879,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const card = document.createElement('div');
                     card.className = 'process-card';
                     card.setAttribute('data-id', process.id);
-                    // 设置 Bank 表格的列数（15列：Cost/Price/Profit 拆成三列）
-                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
+                    card.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
                     
                     const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                     card.innerHTML = `
@@ -5263,12 +5264,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (selectAllGambling) selectAllGambling.style.display = 'none';
                 if (selectAllBank) selectAllBank.style.display = 'inline-block';
                 
-                // 设置 Bank 表格的列数（15列：Cost, Price, Profit 三列）
                 if (tableHeader) {
-                    tableHeader.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
+                    tableHeader.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
                 }
                 processCards.forEach(card => {
-                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
+                    card.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
                 });
                 requestAnimationFrame(syncBankTableColumnWidth);
             } else {
