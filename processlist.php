@@ -929,16 +929,16 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="card-item">Load the Data...</div>
                 </div>
             </div>
+            </div>
 
-            <!-- Bank 用真实 table，与 Gambling 同容器保证宽度一致 -->
+            <!-- Bank 用真实 table 保证 th/td 列对齐 -->
             <div id="bankTableWrapper" class="bank-table-wrapper" style="display: none;">
                 <table id="bankTable" class="bank-data-table">
                     <thead><tr id="bankTableHeadRow"></tr></thead>
                     <tbody id="bankTableBody"></tbody>
                 </table>
             </div>
-            </div>
-
+            
             <!-- 分页控件 - 浮动在右下角 -->
             <div class="pagination-container" id="paginationContainer">
                 <button class="pagination-btn" id="prevBtn" onclick="prevPage()">◀</button>
@@ -5402,9 +5402,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const processTableWrapperEl = document.getElementById('processTableWrapper');
             const bankTableWrapperEl = document.getElementById('bankTableWrapper');
             if (permission === 'Bank') {
-                if (processTableWrapperEl) processTableWrapperEl.style.display = 'grid';
-                if (tableHeader) tableHeader.style.display = 'none';
-                if (processTableBodyEl) processTableBodyEl.style.display = 'none';
+                if (processTableWrapperEl) processTableWrapperEl.style.display = 'none';
                 if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'block';
                 if (processTableBodyEl) processTableBodyEl.classList.add('bank-mode');
                 if (waitingSection) waitingSection.style.display = 'flex';
@@ -5416,8 +5414,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 processCards.forEach(card => { card.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS; });
             } else {
                 if (processTableWrapperEl) processTableWrapperEl.style.display = 'grid';
-                if (tableHeader) tableHeader.style.display = 'grid';
-                if (processTableBodyEl) processTableBodyEl.style.display = 'flex';
                 if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'none';
                 if (processTableBodyEl) processTableBodyEl.classList.remove('bank-mode');
                 if (processTableBodyEl) processTableBodyEl.style.removeProperty('--table-header-width');
