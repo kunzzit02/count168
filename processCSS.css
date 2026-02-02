@@ -364,6 +364,29 @@ body.process-page {
     flex-shrink: 0;
 }
 
+/* Bank Contract 列按状态显示颜色（与 Status 徽章风格一致） */
+.process-page .bank-data-table .contract-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: bold;
+    color: #000;
+}
+.process-page .bank-data-table .contract-in-progress {
+    background-color: #beffd4;
+    border: 1px solid #beffd4;
+}
+.process-page .bank-data-table .contract-expired,
+.process-page .bank-data-table .contract-none {
+    background-color: #e5e7eb;
+    border: 1px solid #d1d5db;
+    color: #6b7280;
+}
+.process-page .bank-data-table .contract-not-started {
+    background-color: #fff3c3;
+    border: 1px solid #fff3c3;
+}
+
 /* Table Header - copied from accountCSS.css */
 .process-page .table-header {
     display: grid;
