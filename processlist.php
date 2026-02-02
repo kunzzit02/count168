@@ -1192,7 +1192,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_card_merchant">卡商</label>
+                                    <label for="bank_card_merchant">Card Merchant</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
                                             <button type="button" class="custom-select-button" id="bank_card_merchant" data-placeholder="Select Account" name="card_merchant">Select Account</button>
@@ -1207,7 +1207,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                     </div>
                                 </div>
                                 <div class="form-group">
-                                    <label for="bank_customer">顾客</label>
+                                    <label for="bank_customer">Customer</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
                                             <button type="button" class="custom-select-button" id="bank_customer" data-placeholder="Select Account" name="customer">Select Account</button>
@@ -1225,17 +1225,17 @@ if ($current_user_id && count($user_companies) > 0) {
                             
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_contract">合约</label>
+                                    <label for="bank_contract">Contract</label>
                                     <select id="bank_contract" name="contract" class="bank-select">
                                         <option value="">Select Contract</option>
-                                        <option value="1">一个月</option>
-                                        <option value="2">2个月</option>
-                                        <option value="3">3个月</option>
-                                        <option value="6">6个月</option>
+                                        <option value="1">1 month</option>
+                                        <option value="2">2 months</option>
+                                        <option value="3">3 months</option>
+                                        <option value="6">6 months</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
-                                    <label for="bank_insurance">保</label>
+                                    <label for="bank_insurance">Insurance</label>
                                     <input type="number" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
                                 </div>
                             </div>
@@ -1250,11 +1250,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             
                             <div class="form-row bank-row-three-cols">
                                 <div class="form-group">
-                                    <label for="bank_cost">买价</label>
+                                    <label for="bank_cost">Buy Price</label>
                                     <input type="number" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
                                 </div>
                                 <div class="form-group">
-                                    <label for="bank_price">出价</label>
+                                    <label for="bank_price">Sell Price</label>
                                     <input type="number" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
                                 </div>
                                 <div class="form-group">
@@ -2863,7 +2863,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 
             } catch (error) {
                 console.error('Delete error:', error);
-                showNotification('删除失败: ' + error.message, 'danger');
+                showNotification('Delete failed: ' + error.message, 'danger');
                 closeConfirmDeleteModal();
                 pendingDeleteIds = [];
             }
@@ -4111,17 +4111,17 @@ if ($current_user_id && count($user_companies) > 0) {
             const successParam = urlParams.get('success');
             
             if (errorParam === 'process_linked_to_formula') {
-                showNotification('无法删除：该流程已链接到公式，请先删除相关的公式记录', 'danger');
+                showNotification('Cannot delete: This process is linked to a formula. Please remove the related formula records first.', 'danger');
                 // 清除 URL 参数
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (errorParam === 'no_inactive_processes') {
-                showNotification('无法删除：只能删除 inactive 状态的流程', 'danger');
+                showNotification('Cannot delete: Only inactive processes can be deleted.', 'danger');
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (errorParam === 'delete_failed') {
-                showNotification('删除失败，请重试', 'danger');
+                showNotification('Delete failed. Please try again.', 'danger');
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (successParam === 'deleted') {
-                showNotification('删除成功！', 'success');
+                showNotification('Deleted successfully!', 'success');
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
             
