@@ -427,8 +427,8 @@ if (isset($_GET['logout'])) {
         }
         /* Select Year & Month：框大小与红框一致，输入框与下拉同宽 */
         #month-date-picker {
-            width: 150px;
-            min-width: 150px;
+            width: 180px;
+            min-width: 180px;
         }
 
         .date-part {
