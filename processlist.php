@@ -1245,9 +1245,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <label for="bank_type">Type</label>
                                     <select id="bank_type" name="type" class="bank-select">
                                         <option value="">Select Type</option>
-                                        <option value="Saving">Saving</option>
-                                        <option value="Enterprise">Enterprise</option>
-                                        <option value="Large Enterprise">Large Enterprise</option>
+                                        <option value="PERSONAL">PERSONAL</option>
+                                        <option value="BUSINESS">BUSINESS</option>
+                                        <option value="ENTERPRISE">ENTERPRISE</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
