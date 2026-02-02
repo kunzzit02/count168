@@ -1925,7 +1925,6 @@ if ($current_user_id && count($user_companies) > 0) {
             const thLabels = ['No','Supplier','Country','Bank','Types','Card Owner','Contract','Insurance','Customer','Cost','Price','Profit','Status','Date','Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
-                if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
                 if (label === 'Action') {
                     return '<th class="bank-th-action">Action <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()"></th>';
                 }
@@ -1988,7 +1987,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     '<td>' + escapeHtml(String(cost)) + '</td>' +
                     '<td>' + escapeHtml(String(price)) + '</td>' +
                     '<td>' + escapeHtml(String(profit)) + '</td>' +
-                    '<td class="bank-td-status">' + statusBadge + '</td>' +
+                    '<td>' + statusBadge + '</td>' +
                     '<td>' + escapeHtml(process.date || '') + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
