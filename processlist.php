@@ -584,7 +584,7 @@ if ($current_user_id && count($user_companies) > 0) {
         .select-with-add {
             display: flex;
             gap: 8px;
-            align-items: flex-start;
+            align-items: center;
         }
         
         .select-with-add .bank-select {
@@ -592,14 +592,15 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         
         .bank-add-btn {
-            width: 32px;
-            height: 32px;
+            width: clamp(18px, 1.25vw, 24px);
+            height: clamp(18px, 1.25vw, 24px);
             border-radius: 50%;
             background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
             color: white;
             border: none;
             cursor: pointer;
-            font-size: 18px;
+            font-size: clamp(12px, 0.83vw, 16px);
+            font-weight: bold;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -615,7 +616,8 @@ if ($current_user_id && count($user_companies) > 0) {
         .bank-input,
         .bank-select {
             width: 100%;
-            padding: 8px 12px;
+            height: 38px;
+            padding: 6px 12px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
@@ -768,7 +770,7 @@ if ($current_user_id && count($user_companies) > 0) {
         .profit-sharing-with-add {
             display: flex;
             gap: 8px;
-            align-items: flex-start;
+            align-items: center;
         }
         
         .profit-sharing-with-add .bank-input {
@@ -1206,32 +1208,20 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_card_merchant">Card Merchant</label>
-                                    <div class="account-select-with-buttons">
-                                        <div class="custom-select-wrapper">
-                                            <button type="button" class="custom-select-button" id="bank_card_merchant" data-placeholder="Select Account" name="card_merchant">Select Account</button>
-                                            <div class="custom-select-dropdown" id="bank_card_merchant_dropdown">
-                                                <div class="custom-select-search">
-                                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                                </div>
-                                                <div class="custom-select-options"></div>
-                                            </div>
-                                        </div>
-                                        <button type="button" class="account-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
+                                    <div class="select-with-add">
+                                        <select id="bank_card_merchant" name="card_merchant_id" class="bank-select">
+                                            <option value="">Select Account</option>
+                                        </select>
+                                        <button type="button" class="bank-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_customer">Customer</label>
-                                    <div class="account-select-with-buttons">
-                                        <div class="custom-select-wrapper">
-                                            <button type="button" class="custom-select-button" id="bank_customer" data-placeholder="Select Account" name="customer">Select Account</button>
-                                            <div class="custom-select-dropdown" id="bank_customer_dropdown">
-                                                <div class="custom-select-search">
-                                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                                </div>
-                                                <div class="custom-select-options"></div>
-                                            </div>
-                                        </div>
-                                        <button type="button" class="account-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
+                                    <div class="select-with-add">
+                                        <select id="bank_customer" name="customer_id" class="bank-select">
+                                            <option value="">Select Account</option>
+                                        </select>
+                                        <button type="button" class="bank-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
                                     </div>
                                 </div>
                             </div>
@@ -1786,16 +1776,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 profitInput.value = '';
             }
             // 重置 account 选择器
-            const cardMerchantButton = document.getElementById('bank_card_merchant');
-            const customerButton = document.getElementById('bank_customer');
-            if (cardMerchantButton) {
-                cardMerchantButton.textContent = 'Select Account';
-                cardMerchantButton.removeAttribute('data-value');
-            }
-            if (customerButton) {
-                customerButton.textContent = 'Select Account';
-                customerButton.removeAttribute('data-value');
-            }
+            const cardMerchantSelect = document.getElementById('bank_card_merchant');
+            const customerSelect = document.getElementById('bank_customer');
+            if (cardMerchantSelect) cardMerchantSelect.value = '';
+            if (customerSelect) customerSelect.value = '';
         }
 
         function closeAddModal() {
@@ -3077,16 +3061,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 const formData = new FormData(this);
                 formData.append('permission', 'Bank');
                 
-                // 添加 account 选择的值
-                const cardMerchantButton = document.getElementById('bank_card_merchant');
-                const customerButton = document.getElementById('bank_customer');
-                if (cardMerchantButton && cardMerchantButton.getAttribute('data-value')) {
-                    formData.append('card_merchant_id', cardMerchantButton.getAttribute('data-value'));
-                }
-                if (customerButton && customerButton.getAttribute('data-value')) {
-                    formData.append('customer_id', customerButton.getAttribute('data-value'));
-                }
-                
                 try {
                     const response = await fetch(buildApiUrl('addprocessapi.php'), {
                         method: 'POST',
@@ -3267,12 +3241,8 @@ if ($current_user_id && count($user_companies) > 0) {
         // Load Bank Add Process Data
         async function loadAddBankProcessData() {
             try {
-                // 加载 account 数据用于卡商和顾客选择
                 await loadBankAccounts();
-                
-                // 初始化 account 选择器
-                initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
-                initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
+                populateBankAccountSelects();
                 
                 // 设置 Profit 自动计算（只初始化一次）
                 if (!bankProfitCalculatorsInitialized) {
@@ -3318,7 +3288,25 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
-        // Initialize Bank Account Select
+        // Populate Card Merchant and Customer selects from bank accounts (same style as Country/Bank)
+        function populateBankAccountSelects() {
+            const accounts = window.bankAccounts || [];
+            const cardSelect = document.getElementById('bank_card_merchant');
+            const customerSelect = document.getElementById('bank_customer');
+            if (!cardSelect || !customerSelect) return;
+            
+            const defaultOption = '<option value="">Select Account</option>';
+            const optionsHtml = accounts.map(acc => {
+                const val = acc.id != null ? acc.id : (acc.account_id != null ? acc.account_id : '');
+                const text = (acc.name || acc.account_id || acc.login_id || String(val)).trim() || String(val);
+                return `<option value="${escapeHtml(String(val))}">${escapeHtml(text)}</option>`;
+            }).join('');
+            
+            cardSelect.innerHTML = defaultOption + optionsHtml;
+            customerSelect.innerHTML = defaultOption + optionsHtml;
+        }
+        
+        // Initialize Bank Account Select (used elsewhere if needed)
         function initBankAccountSelect(buttonId, dropdownId) {
             const accountButton = document.getElementById(buttonId);
             const accountDropdown = document.getElementById(dropdownId);
