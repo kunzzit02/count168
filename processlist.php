@@ -1916,32 +1916,6 @@ if ($current_user_id && count($user_companies) > 0) {
             updateSelectAllProcessesVisibility();
         }
 
-        /**
-         * 根据 day_start 与 contract 计算合约状态，用于 Contract 列颜色。
-         * @param {string} dayStart - 开始日期 YYYY-MM-DD（列表里为 process.date）
-         * @param {string} contract - 合约时长如 "1 month" 或 "1"
-         * @returns {string|null} 'in_progress' | 'expired' | 'not_started' | null（无日期为 null，样式用 contract-none）
-         */
-        function getContractStatus(dayStart, contract) {
-            if (!dayStart) return null;
-            const start = new Date(dayStart);
-            if (isNaN(start.getTime())) return null;
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            start.setHours(0, 0, 0, 0);
-            let months = 0;
-            if (contract) {
-                const m = String(contract).match(/^(\d+)/);
-                if (m) months = parseInt(m[1], 10);
-            }
-            if (months <= 0) return null;
-            const end = new Date(start);
-            end.setMonth(end.getMonth() + months);
-            if (today < start) return 'not_started';
-            if (today > end) return 'expired';
-            return 'in_progress';
-        }
-
         /** Bank 用真实 table 渲染，th/td 列由浏览器对齐 */
         function renderBankTable() {
             const headRow = document.getElementById('bankTableHeadRow');
@@ -1979,8 +1953,6 @@ if ($current_user_id && count($user_companies) > 0) {
             pageItems.forEach((process, idx) => {
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
-                const contractStatus = getContractStatus(process.date, process.contract);
-                const contractBadgeClass = contractStatus ? ('contract-badge contract-' + contractStatus) : 'contract-badge contract-none';
                 const cost = process.cost != null && process.cost !== '' ? process.cost : '';
                 const price = process.price != null && process.price !== '' ? process.price : '';
                 const profit = process.profit != null && process.profit !== '' ? process.profit : '';
@@ -1995,7 +1967,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     '<td>' + escapeHtml(process.bank || '') + '</td>' +
                     '<td>' + escapeHtml(process.types || '') + '</td>' +
                     '<td>' + escapeHtml(process.card_lower || '') + '</td>' +
-                    '<td><span class="' + contractBadgeClass + '">' + escapeHtml(contract) + '</span></td>' +
+                    '<td>' + escapeHtml(contract) + '</td>' +
                     '<td>' + escapeHtml(process.insurance || '') + '</td>' +
                     '<td>' + escapeHtml(process.customer || '') + '</td>' +
                     '<td>' + escapeHtml(String(cost)) + '</td>' +
