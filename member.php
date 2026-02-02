@@ -14,8 +14,9 @@ $accountName = $_SESSION['name'] ?? '';
 $currentCompanyId = isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 0;
 
 // MEMBER 单向连接：刷新后从 URL account_id 恢复所选被连接方，避免变回连接方账号
-$memberLoginAccountId = isset($_SESSION['member_login_account_id']) ? (int)$_SESSION['member_login_account_id'] : $accountDbId;
-if (isset($_GET['account_id']) && $currentCompanyId > 0) {
+// 仅当 session 中有 member_login_account_id 时才根据 URL 恢复，否则以错误基准建图会越权或误拒（兼容旧 session）
+if (isset($_GET['account_id']) && $currentCompanyId > 0 && isset($_SESSION['member_login_account_id'])) {
+    $memberLoginAccountId = (int)$_SESSION['member_login_account_id'];
     $urlAccountId = (int)$_GET['account_id'];
     if ($urlAccountId > 0) {
         $linkedIds = [$memberLoginAccountId];
