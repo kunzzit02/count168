@@ -1268,31 +1268,31 @@ try {
                         Not set
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Permissions (for Process List & Data Capture)</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 12px 16px; margin-top: 6px; align-items: center;">
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 6px; transition: color 0.2s;" id="permissionLabelGambling">
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <label style="margin-bottom: 3px;">Permissions (for Process List & Data Capture)</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 3px; align-items: center; line-height: 1;">
+                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelGambling">
                             <input type="checkbox" value="Gambling" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
                             <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Gambling</span>
                         </label>
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 6px; transition: color 0.2s;" id="permissionLabelBank">
+                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelBank">
                             <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="updatePermissionDisplay()">
                             <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Bank</span>
                         </label>
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 6px; transition: color 0.2s;" id="permissionLabelLoan">
+                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelLoan">
                             <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="updatePermissionDisplay()">
                             <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Loan</span>
                         </label>
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 6px; transition: color 0.2s;" id="permissionLabelRate">
+                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelRate">
                             <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="updatePermissionDisplay()">
                             <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Rate</span>
                         </label>
-                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 6px; transition: color 0.2s;" id="permissionLabelMoney">
+                        <label class="permission-label" style="display: flex; align-items: center; cursor: pointer; gap: 5px; transition: color 0.2s; line-height: 1; padding: 0;" id="permissionLabelMoney">
                             <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="updatePermissionDisplay()">
                             <span style="font-size: clamp(7px, 0.52vw, 10px); color: #374151;">Money</span>
                         </label>
                     </div>
-                    <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 8px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
+                    <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
                 </div>
                 <div class="form-actions" style="margin-top: 20px;">
                     <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
