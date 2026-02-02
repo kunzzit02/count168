@@ -914,7 +914,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="header-item bank-header" style="display: none;">Cost</div>
                 <div class="header-item bank-header" style="display: none;">Price</div>
                 <div class="header-item bank-header" style="display: none;">Profit</div>
-                <div class="header-item bank-header bank-status-cell" style="display: none;">Statue</div>
+                <div class="header-item bank-header" style="display: none;">Statue</div>
                 <div class="header-item bank-header" style="display: none;">Date</div>
                 <div class="header-item bank-header" style="display: none;">Action
                     <input type="checkbox" id="selectAllBankProcesses" title="Select all" style="margin-left: 10px; cursor: pointer; display: none;" onchange="toggleSelectAllBankProcesses()">
@@ -1893,7 +1893,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="card-item">${(function(){ const c = process.cost; if (c != null && c !== '') return escapeHtml(String(c)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(p => p.trim()).filter(Boolean); return escapeHtml(parts[0] || ''); })()}</div>
                         <div class="card-item">${(function(){ const p = process.price; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[1] || ''); })()}</div>
                         <div class="card-item">${(function(){ const p = process.profit; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[2] || ''); })()}</div>
-                        <div class="card-item bank-status-cell">
+                        <div class="card-item">
                             <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
                                 ${escapeHtml((process.statue || process.status || '').toUpperCase())}
                             </span>
