@@ -696,7 +696,6 @@ try {
         #permissionLoan:checked ~ span,
         #permissionRate:checked ~ span,
         #permissionMoney:checked ~ span {
-            font-weight: 600;
             color: #6366f1;
         }
         
