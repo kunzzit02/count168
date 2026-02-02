@@ -341,6 +341,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
             margin-top: 0;
             margin-bottom: 0;
             min-width: 260px;
+            margin-right: 20px;
+            margin-top: 35px;
         }
         .link-account-search-inner {
             position: relative;
