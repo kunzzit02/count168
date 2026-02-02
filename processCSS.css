@@ -375,26 +375,10 @@ body.process-page {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
-/* Bank 表：Status(第13列)、Action(第15列) 表头与数据列居中对齐，避免歪斜 */
-.process-page .table-header .header-item:nth-child(20),
-.process-page .table-header .header-item:nth-child(22) {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-}
-/* Bank 数据行：Status、Action 列内容居中（仅 15 列的卡片即 Bank） */
-.process-page .process-card .card-item:nth-child(13),
-.process-page .process-card .card-item:nth-child(15) {
-    justify-content: center;
-    text-align: center;
-}
-
 /* Action 列：固定结构，active 时用占位保持与 inactive 同宽，列对齐不歪 */
 .process-page .card-item.card-item-action {
     display: flex;
     align-items: center;
-    justify-content: center;
     flex-shrink: 0;
     min-width: 0;
 }
