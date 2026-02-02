@@ -1307,18 +1307,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_insurance">Insurance</label>
-                                    <input type="number" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
+                                    <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
                             
                             <div class="form-row bank-row-three-cols">
                                 <div class="form-group">
                                     <label for="bank_cost">Buy Price</label>
-                                    <input type="number" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
+                                    <input type="text" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_price">Sell Price</label>
-                                    <input type="number" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" step="0.01" min="0">
+                                    <input type="text" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_profit">Profit</label>
@@ -3551,6 +3551,17 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             });
         }
+
+        // Insurance、Buy Price、Sell Price 只允许数字、逗号、句号
+        function allowOnlyNumberCommaPeriod(el) {
+            if (!el) return;
+            el.addEventListener('input', function() {
+                this.value = this.value.replace(/[^\d.,]/g, '');
+            });
+        }
+        allowOnlyNumberCommaPeriod(document.getElementById('bank_insurance'));
+        allowOnlyNumberCommaPeriod(document.getElementById('bank_cost'));
+        allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
 
         // 处理编辑表单提交
         const editProcessForm = document.getElementById('editProcessForm');
