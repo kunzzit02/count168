@@ -353,26 +353,6 @@ body.process-page {
     background: #ffffff;
 }
 
-/* Bank Status 列：固定最小宽度，使 ACTIVE/INACTIVE/WAITING 时列宽一致 */
-.process-page .bank-status-cell {
-    min-width: 5.5em;
-}
-
-/* Bank Action 列：active 时用占位符保持与 inactive（含复选框）同宽，避免列错位 */
-.process-page .bank-action-cell {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-}
-.process-page .bank-action-placeholder {
-    display: inline-block;
-    width: 18px;
-    min-width: 18px;
-    margin-left: 10px;
-    height: 18px;
-    flex-shrink: 0;
-}
-
 .process-page .edit-btn {
     background-color: transparent;
     color: black;
