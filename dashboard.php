@@ -206,7 +206,6 @@ if (isset($_GET['logout'])) {
         .transaction-company-btn.active {
             background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
             color: #fff;
-            border-color: transparent;
             box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
         }
         
