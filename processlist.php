@@ -1342,7 +1342,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="form-group">
                                     <label for="bank_profit_sharing">Profit Sharing</label>
                                     <div class="profit-sharing-with-add">
-                                        <input type="text" id="bank_profit_sharing" name="profit_sharing" placeholder="Enter Profit Sharing" class="bank-input">
+                                        <input type="text" id="bank_profit_sharing" name="profit_sharing" placeholder="Enter Profit Sharing" class="bank-input" readonly>
                                         <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
                                     </div>
                                 </div>
