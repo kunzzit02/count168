@@ -328,6 +328,11 @@ body.process-page {
     white-space: nowrap;
     border: none;
 }
+.process-page .bank-data-table th:first-child,
+.process-page .bank-data-table td:first-child {
+    width: 1%;
+    max-width: 52px;
+}
 .process-page .bank-data-table th:first-child {
     border-radius: 8px 0 0 0;
 }
