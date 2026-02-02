@@ -622,16 +622,6 @@ if ($current_user_id && count($user_companies) > 0) {
             border-radius: 4px;
             font-size: 13px;
             box-sizing: border-box;
-            color: #374151;
-        }
-        
-        .bank-input::placeholder {
-            color: #6b7280;
-            opacity: 1;
-        }
-        
-        .bank-select option {
-            color: #374151;
         }
         
         .bank-input:focus,
