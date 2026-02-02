@@ -13,6 +13,53 @@ $accountCode = $_SESSION['login_id'] ?? '';
 $accountName = $_SESSION['name'] ?? '';
 $currentCompanyId = isset($_SESSION['company_id']) ? (int)$_SESSION['company_id'] : 0;
 
+// MEMBER 单向连接：刷新后从 URL account_id 恢复所选被连接方，避免变回连接方账号
+$memberLoginAccountId = isset($_SESSION['member_login_account_id']) ? (int)$_SESSION['member_login_account_id'] : $accountDbId;
+if (isset($_GET['account_id']) && $currentCompanyId > 0) {
+    $urlAccountId = (int)$_GET['account_id'];
+    if ($urlAccountId > 0) {
+        $linkedIds = [$memberLoginAccountId];
+        try {
+            $visited = [];
+            $queue = [$memberLoginAccountId];
+            $checkTable = $pdo->query("SHOW TABLES LIKE 'account_link'");
+            if ($checkTable && $checkTable->rowCount() > 0) {
+                while (!empty($queue)) {
+                    $cur = array_shift($queue);
+                    if (isset($visited[$cur])) continue;
+                    $visited[$cur] = true;
+                    $linkedIds[] = $cur;
+                    $st = $pdo->prepare("
+                        SELECT account_id_2 AS linked_id FROM account_link WHERE account_id_1 = ? AND company_id = ?
+                        UNION
+                        SELECT account_id_1 AS linked_id FROM account_link WHERE account_id_2 = ? AND company_id = ?
+                    ");
+                    $st->execute([$cur, $currentCompanyId, $cur, $currentCompanyId]);
+                    foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $lid) {
+                        if (!isset($visited[$lid])) $queue[] = $lid;
+                    }
+                }
+            }
+        } catch (PDOException $e) {
+            $linkedIds = [$memberLoginAccountId];
+        }
+        if (in_array($urlAccountId, $linkedIds)) {
+            $st = $pdo->prepare("SELECT id, account_id, name FROM account WHERE id = ?");
+            $st->execute([$urlAccountId]);
+            $row = $st->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $accountDbId = (int)$row['id'];
+                $accountCode = $row['account_id'] ?? '';
+                $accountName = $row['name'] ?? '';
+                $_SESSION['user_id'] = $accountDbId;
+                $_SESSION['login_id'] = $accountCode;
+                $_SESSION['name'] = $accountName;
+                $_SESSION['account_id'] = $accountCode;
+            }
+        }
+    }
+}
+
 // 获取当前 member 用户有权限的公司列表（用于前端公司按钮切换）
 $memberCompanies = [];
 $debugInfo = []; // 用于调试
@@ -1210,6 +1257,10 @@ $today = date('d/m/Y');
                             memberConfig.accountName = data.account_name || name;
                             container.querySelectorAll('.transaction-company-btn').forEach(b => b.classList.remove('active'));
                             btn.classList.add('active');
+                            // 刷新后保持所选被连接方：将 account_id 写入 URL
+                            const params = new URLSearchParams(window.location.search);
+                            params.set('account_id', String(accountId));
+                            window.history.replaceState(null, '', window.location.pathname + '?' + params.toString());
                             showNotification(`Switched to account ${code || name || accountId}`, 'success');
                             performMemberSearch();
                         })

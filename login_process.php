@@ -83,7 +83,8 @@ try {
         
         // 检查账户是否存在且密码匹配
         if ($account && !empty($account['password']) && $password === $account['password']) {
-            // Member 登录成功
+            // Member 登录成功（保留 member_login_account_id 供 Win/Loss 刷新后恢复所选被连接方）
+            $_SESSION['member_login_account_id'] = $account['id'];
             $_SESSION['user_id'] = $account['id'];
             $_SESSION['login_id'] = $account['account_id'];
             $_SESSION['name'] = $account['name'];
