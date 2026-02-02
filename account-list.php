@@ -251,6 +251,13 @@ $showAll = isset($_GET['showAll']) ? true : false;
             padding-left: 2.1875rem;
             padding-right: 1.25rem;
         }
+        /* 红框区域固定：标题、药丸、说明、搜索不随列表滚动 */
+        #linkAccountModal .link-account-fixed-area {
+            flex-shrink: 0;
+            padding-left: 2.1875rem;
+            padding-right: 1.25rem;
+            padding-bottom: 8px;
+        }
         #linkAccountModal .link-account-form-actions {
             flex-shrink: 0;
             border-top: 1px solid #e2e8f0;
@@ -700,8 +707,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 <h2>Link Account</h2>
                 <span class="account-close" onclick="closeLinkAccountModal()">&times;</span>
             </div>
-            <div class="account-modal-body link-account-modal-body">
-                <!-- Link Type Selection: pill buttons (first image design) -->
+            <!-- 红框区域：固定不随列表滚动 -->
+            <div class="link-account-fixed-area">
                 <div class="link-type-section">
                     <div class="link-type-pills">
                         <label class="link-type-pill" id="linkTypeLabelBidirectional">
@@ -725,6 +732,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         <input type="text" id="linkAccountSearchInput" class="link-account-search-input" placeholder="Search account..." autocomplete="off" aria-label="Search account">
                     </div>
                 </div>
+            </div>
+            <div class="account-modal-body link-account-modal-body">
                 <div style="margin-bottom: 16px;">
                     <div style="margin-bottom: 12px;">
                         <div id="linkAccountList" class="link-account-list">
