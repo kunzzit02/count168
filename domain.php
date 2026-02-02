@@ -662,60 +662,42 @@ try {
         }
         
         /* Permission checkbox styles */
-        .permission-checkbox {
-            width: 12px !important;
-            height: 12px !important;
+        /* Permissions: simple checkbox list (no box styling) */
+        .permissions-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 24px;
+            margin-top: 8px;
+        }
+        
+        .permission-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             cursor: pointer;
-            margin: 0 !important;
-            outline: none !important;
-            border: none !important;
-            box-shadow: none !important;
-            -webkit-appearance: checkbox;
-            -moz-appearance: checkbox;
-            appearance: checkbox;
+            user-select: none;
         }
         
-        .permission-checkbox:focus {
-            outline: none !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-        
-        .permission-checkbox:focus-visible {
-            outline: none !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-        
-        #permissionLabelGambling:hover,
-        #permissionLabelBank:hover,
-        #permissionLabelLoan:hover,
-        #permissionLabelRate:hover,
-        #permissionLabelMoney:hover {
-            background: #f3f4f6;
-            border-color: #6366f1;
-        }
-        
-        #permissionGambling:checked ~ span,
-        #permissionBank:checked ~ span,
-        #permissionLoan:checked ~ span,
-        #permissionRate:checked ~ span,
-        #permissionMoney:checked ~ span {
-            font-weight: 600;
+        .permission-item:hover {
             color: #6366f1;
         }
         
-        #permissionGambling:checked,
-        #permissionBank:checked,
-        #permissionLoan:checked,
-        #permissionRate:checked,
-        #permissionMoney:checked {
+        .permission-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            margin: 0;
             accent-color: #6366f1;
+            flex-shrink: 0;
         }
         
-        label[for^="permission"]:has(input:checked) {
-            background: #eef2ff !important;
-            border-color: #6366f1 !important;
+        .permission-item span {
+            font-size: clamp(9px, 0.73vw, 14px);
+            color: #374151;
+        }
+        
+        .permission-item:hover span {
+            color: #6366f1;
         }
         
         /* Company badge in table */
@@ -1280,26 +1262,26 @@ try {
                 </div>
                 <div class="form-group">
                     <label>Permissions (for Process List & Data Capture)</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelGambling">
+                    <div class="permissions-list">
+                        <label class="permission-item" id="permissionLabelGambling">
                             <input type="checkbox" value="Gambling" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Gambling</span>
+                            <span>Gambling</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelBank">
+                        <label class="permission-item" id="permissionLabelBank">
                             <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Bank</span>
+                            <span>Bank</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelLoan">
+                        <label class="permission-item" id="permissionLabelLoan">
                             <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Loan</span>
+                            <span>Loan</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelRate">
+                        <label class="permission-item" id="permissionLabelRate">
                             <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Rate</span>
+                            <span>Rate</span>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelMoney">
+                        <label class="permission-item" id="permissionLabelMoney">
                             <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Money</span>
+                            <span>Money</span>
                         </label>
                     </div>
                     <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 8px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
