@@ -3425,6 +3425,37 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
+        // Country -> currency code for auto-add when selecting account (Card Merchant / Customer)
+        const COUNTRY_TO_CURRENCY = { 'Malaysia': 'MYR', 'Singapore': 'SGD' };
+        
+        async function ensureAccountHasCountryCurrency(accountId) {
+            if (!accountId) return;
+            const countrySelect = document.getElementById('bank_country');
+            const countryName = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
+            const currencyCode = countryName ? (COUNTRY_TO_CURRENCY[countryName] || null) : null;
+            if (!currencyCode) return;
+            try {
+                const apiUrl = buildApiUrl('addprocessapi.php');
+                const res = await fetch(apiUrl);
+                const result = await res.json();
+                if (!result.success || !result.currencies || !result.currencies.length) return;
+                const currency = result.currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
+                if (!currency || !currency.id) return;
+                const addUrl = buildApiUrl('account_currency_api.php?action=add_currency');
+                const addRes = await fetch(addUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: accountId, currency_id: currency.id })
+                });
+                const addResult = await addRes.json();
+                if (addResult.success) {
+                    showNotification(`${currencyCode} added to account`, 'success');
+                }
+            } catch (e) {
+                console.warn('ensureAccountHasCountryCurrency', e);
+            }
+        }
+        
         // Load accounts for Bank form
         async function loadBankAccounts() {
             try {
@@ -3484,6 +3515,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             accountButton.setAttribute('data-value', account.id);
                             accountDropdown.style.display = 'none';
                             isOpen = false;
+                            // Auto-add country currency (MYR/SGD) to selected account when Country is Malaysia/Singapore
+                            ensureAccountHasCountryCurrency(account.id);
                         });
                         optionsContainer.appendChild(option);
                     });
