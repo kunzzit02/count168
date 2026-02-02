@@ -1538,6 +1538,34 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
     </div>
 
+    <!-- Profit Sharing Modal (account select + amount input) -->
+    <div id="profitSharingModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h2>Add Profit Sharing</h2>
+                <span class="close" onclick="closeProfitSharingModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="profitSharingForm" class="bank-form" style="display: block;">
+                    <div class="form-group">
+                        <label for="profit_sharing_account">Account</label>
+                        <select id="profit_sharing_account" name="account_id" class="bank-select" required>
+                            <option value="">Select Account</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="profit_sharing_amount">Amount</label>
+                        <input type="number" id="profit_sharing_amount" name="amount" class="bank-input" placeholder="Enter amount" step="0.01" min="0" required>
+                    </div>
+                    <div class="form-actions bank-actions" style="margin-top: 16px;">
+                        <button type="submit" class="btn btn-save">Add</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeProfitSharingModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Description Selection Modal -->
     <div id="descriptionSelectionModal" class="modal" style="display: none;">
         <div class="modal-content description-selection-modal">
@@ -3938,6 +3966,25 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             });
         }
+        
+        const profitSharingFormEl = document.getElementById('profitSharingForm');
+        if (profitSharingFormEl) {
+            profitSharingFormEl.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const accountSelect = document.getElementById('profit_sharing_account');
+                const amountInput = document.getElementById('profit_sharing_amount');
+                const mainInput = document.getElementById('bank_profit_sharing');
+                if (!accountSelect || !amountInput || !mainInput) return;
+                const accountId = accountSelect.value;
+                const accountText = accountSelect.options[accountSelect.selectedIndex].text;
+                const amount = amountInput.value.trim();
+                if (!accountId || !amount) return;
+                const entry = accountText + ': ' + amount;
+                const current = (mainInput.value || '').trim();
+                mainInput.value = current ? current + ', ' + entry : entry;
+                closeProfitSharingModal();
+            });
+        }
 
         // 页面加载完成后执行
         // Profit calculation flag to prevent duplicate listeners
@@ -4689,8 +4736,37 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
         
-        function showAddProfitSharingModal() {
-            alert('Add Profit Sharing functionality to be implemented');
+        async function showAddProfitSharingModal() {
+            if (!window.bankAccounts || window.bankAccounts.length === 0) {
+                await loadBankAccounts();
+            }
+            const selectEl = document.getElementById('profit_sharing_account');
+            if (selectEl) {
+                selectEl.innerHTML = '<option value="">Select Account</option>';
+                const accounts = window.bankAccounts || [];
+                accounts.forEach(acc => {
+                    const opt = document.createElement('option');
+                    opt.value = acc.id;
+                    opt.textContent = acc.account_id || acc.name || String(acc.id);
+                    selectEl.appendChild(opt);
+                });
+            }
+            document.getElementById('profit_sharing_amount').value = '';
+            const modal = document.getElementById('profitSharingModal');
+            if (modal) {
+                modal.style.display = 'block';
+                modal.classList.add('show');
+            }
+        }
+        
+        function closeProfitSharingModal() {
+            const modal = document.getElementById('profitSharingModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.classList.remove('show');
+            }
+            const form = document.getElementById('profitSharingForm');
+            if (form) form.reset();
         }
 
         document.addEventListener('DOMContentLoaded', function() {
