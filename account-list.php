@@ -241,7 +241,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
         #linkAccountModal .account-modal-content {
             display: flex;
             flex-direction: column;
-            max-height: 90vh;
+            max-height: 70vh;
             overflow: hidden;
         }
         #linkAccountModal .link-account-modal-body {
