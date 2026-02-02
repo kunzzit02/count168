@@ -1210,19 +1210,31 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_card_merchant">Card Merchant</label>
-                                    <div class="select-with-add">
-                                        <select id="bank_card_merchant" name="card_merchant_id" class="bank-select">
-                                            <option value="">Select Account</option>
-                                        </select>
+                                    <div class="account-select-with-buttons">
+                                        <div class="custom-select-wrapper">
+                                            <button type="button" class="custom-select-button" id="bank_card_merchant" data-placeholder="Select Account" name="card_merchant">Select Account</button>
+                                            <div class="custom-select-dropdown" id="bank_card_merchant_dropdown">
+                                                <div class="custom-select-search">
+                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                </div>
+                                                <div class="custom-select-options"></div>
+                                            </div>
+                                        </div>
                                         <button type="button" class="bank-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_customer">Customer</label>
-                                    <div class="select-with-add">
-                                        <select id="bank_customer" name="customer_id" class="bank-select">
-                                            <option value="">Select Account</option>
-                                        </select>
+                                    <div class="account-select-with-buttons">
+                                        <div class="custom-select-wrapper">
+                                            <button type="button" class="custom-select-button" id="bank_customer" data-placeholder="Select Account" name="customer">Select Account</button>
+                                            <div class="custom-select-dropdown" id="bank_customer_dropdown">
+                                                <div class="custom-select-search">
+                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                </div>
+                                                <div class="custom-select-options"></div>
+                                            </div>
+                                        </div>
                                         <button type="button" class="bank-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button>
                                     </div>
                                 </div>
@@ -1288,6 +1300,63 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="form-actions bank-actions">
                         <button type="submit" class="btn btn-save">Add Process</button>
                         <button type="button" class="btn btn-cancel" onclick="closeAddBankModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Account Modal (same as datacapturesummary - for Card Merchant/Customer + button) -->
+    <div id="addAccountModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="modal-header">
+                <h2>Add Account</h2>
+                <span class="close" onclick="closeAddAccountModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="addAccountForm" class="bank-form" style="display: block;">
+                    <div class="bank-section">
+                        <h3 class="bank-section-title">Personal Information</h3>
+                        <div class="form-row bank-row-two-cols">
+                            <div class="form-group">
+                                <label for="add_account_id">Account ID *</label>
+                                <input type="text" id="add_account_id" name="account_id" class="bank-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="add_name">Name *</label>
+                                <input type="text" id="add_name" name="name" class="bank-input" required>
+                            </div>
+                        </div>
+                        <div class="form-row bank-row-two-cols">
+                            <div class="form-group">
+                                <label for="add_role">Role *</label>
+                                <select id="add_role" name="role" class="bank-select" required>
+                                    <option value="">Select Role</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="add_password">Password *</label>
+                                <input type="password" id="add_password" name="password" class="bank-input" required>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bank-section">
+                        <h3 class="bank-section-title">Payment</h3>
+                        <div class="form-group">
+                            <label>Payment Alert</label>
+                            <div style="display: flex; gap: 16px;">
+                                <label><input type="radio" name="add_payment_alert" value="1"> Yes</label>
+                                <label><input type="radio" name="add_payment_alert" value="0" checked> No</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="add_remark">Remark</label>
+                            <textarea id="add_remark" name="remark" class="bank-input" rows="2" style="resize: vertical;"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions bank-actions">
+                        <button type="submit" class="btn btn-save">Add Account</button>
+                        <button type="button" class="btn btn-cancel" onclick="closeAddAccountModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -1777,11 +1846,17 @@ if ($current_user_id && count($user_companies) > 0) {
             if (profitInput) {
                 profitInput.value = '';
             }
-            // 重置 account 选择器
-            const cardMerchantSelect = document.getElementById('bank_card_merchant');
-            const customerSelect = document.getElementById('bank_customer');
-            if (cardMerchantSelect) cardMerchantSelect.value = '';
-            if (customerSelect) customerSelect.value = '';
+            // 重置 account 选择器（custom select 按钮）
+            const cardMerchantBtn = document.getElementById('bank_card_merchant');
+            const customerBtn = document.getElementById('bank_customer');
+            if (cardMerchantBtn) {
+                cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
+                cardMerchantBtn.removeAttribute('data-value');
+            }
+            if (customerBtn) {
+                customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
+                customerBtn.removeAttribute('data-value');
+            }
         }
 
         function closeAddModal() {
@@ -3063,6 +3138,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 const formData = new FormData(this);
                 formData.append('permission', 'Bank');
                 
+                const cardMerchantBtn = document.getElementById('bank_card_merchant');
+                const customerBtn = document.getElementById('bank_customer');
+                if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
+                    formData.append('card_merchant_id', cardMerchantBtn.getAttribute('data-value'));
+                }
+                if (customerBtn && customerBtn.getAttribute('data-value')) {
+                    formData.append('customer_id', customerBtn.getAttribute('data-value'));
+                }
+                
                 try {
                     const response = await fetch(buildApiUrl('addprocessapi.php'), {
                         method: 'POST',
@@ -3236,6 +3320,47 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
+        // Add Account form submit (same as datacapturesummary - addaccountapi.php)
+        const addAccountFormEl = document.getElementById('addAccountForm');
+        if (addAccountFormEl) {
+            addAccountFormEl.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+                const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
+                if (paymentAlert) formData.set('payment_alert', paymentAlert.value);
+                const currentCompanyId = <?php echo json_encode($company_id); ?>;
+                if (currentCompanyId) formData.set('company_id', currentCompanyId);
+                try {
+                    const response = await fetch(buildApiUrl('addaccountapi.php'), { method: 'POST', body: formData });
+                    const result = await response.json();
+                    if (result.success) {
+                        showNotification('Account added successfully!', 'success');
+                        closeAddAccountModal();
+                        await loadBankAccounts();
+                        refreshBankAccountDropdowns();
+                        const newId = result.data && result.data.id;
+                        if (newId) {
+                            const cardBtn = document.getElementById('bank_card_merchant');
+                            const customerBtn = document.getElementById('bank_customer');
+                            const displayText = result.data.account_id || result.data.name || String(newId);
+                            if (cardBtn && !cardBtn.getAttribute('data-value')) {
+                                cardBtn.textContent = displayText;
+                                cardBtn.setAttribute('data-value', newId);
+                            } else if (customerBtn && !customerBtn.getAttribute('data-value')) {
+                                customerBtn.textContent = displayText;
+                                customerBtn.setAttribute('data-value', newId);
+                            }
+                        }
+                    } else {
+                        showNotification(result.error || 'Failed to add account', 'danger');
+                    }
+                } catch (err) {
+                    console.error('Add account error', err);
+                    showNotification('Failed to add account', 'danger');
+                }
+            });
+        }
+
         // 页面加载完成后执行
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
@@ -3244,7 +3369,8 @@ if ($current_user_id && count($user_companies) > 0) {
         async function loadAddBankProcessData() {
             try {
                 await loadBankAccounts();
-                populateBankAccountSelects();
+                initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
+                initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
                 
                 // 设置 Profit 自动计算（只初始化一次）
                 if (!bankProfitCalculatorsInitialized) {
@@ -3290,25 +3416,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
-        // Populate Card Merchant and Customer selects from bank accounts (same style as Country/Bank)
-        function populateBankAccountSelects() {
-            const accounts = window.bankAccounts || [];
-            const cardSelect = document.getElementById('bank_card_merchant');
-            const customerSelect = document.getElementById('bank_customer');
-            if (!cardSelect || !customerSelect) return;
-            
-            const defaultOption = '<option value="">Select Account</option>';
-            const optionsHtml = accounts.map(acc => {
-                const val = acc.id != null ? acc.id : (acc.account_id != null ? acc.account_id : '');
-                const text = (acc.name || acc.account_id || acc.login_id || String(val)).trim() || String(val);
-                return `<option value="${escapeHtml(String(val))}">${escapeHtml(text)}</option>`;
-            }).join('');
-            
-            cardSelect.innerHTML = defaultOption + optionsHtml;
-            customerSelect.innerHTML = defaultOption + optionsHtml;
-        }
-        
-        // Initialize Bank Account Select (used elsewhere if needed)
+        // Initialize Bank Account Select (custom dropdown with search, like datacapturesummary Account)
         function initBankAccountSelect(buttonId, dropdownId) {
             const accountButton = document.getElementById(buttonId);
             const accountDropdown = document.getElementById(dropdownId);
@@ -3823,7 +3931,65 @@ if ($current_user_id && count($user_companies) > 0) {
         // Placeholder functions for add modals
         
         function showAddAccountModal() {
-            alert('Add Account functionality to be implemented');
+            const modal = document.getElementById('addAccountModal');
+            if (modal) {
+                modal.style.display = 'block';
+                modal.classList.add('show');
+                loadRolesForAddAccount();
+            }
+        }
+        
+        function closeAddAccountModal() {
+            const modal = document.getElementById('addAccountModal');
+            if (modal) {
+                modal.style.display = 'none';
+                modal.classList.remove('show');
+            }
+            const form = document.getElementById('addAccountForm');
+            if (form) form.reset();
+        }
+        
+        async function loadRolesForAddAccount() {
+            try {
+                const response = await fetch(buildApiUrl('roleapi.php'));
+                const result = await response.json();
+                const select = document.getElementById('add_role');
+                if (!select || !result.success || !result.data) return;
+                select.innerHTML = '<option value="">Select Role</option>';
+                (result.data || []).forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.code || r.id;
+                    opt.textContent = r.code || r.name || String(r.id);
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                console.error('Load roles for Add Account failed', e);
+            }
+        }
+        
+        function refreshBankAccountDropdowns() {
+            const accounts = window.bankAccounts || [];
+            ['bank_card_merchant', 'bank_customer'].forEach(buttonId => {
+                const btn = document.getElementById(buttonId);
+                const dropdown = document.getElementById(buttonId + '_dropdown');
+                const optionsContainer = dropdown?.querySelector('.custom-select-options');
+                if (!optionsContainer) return;
+                optionsContainer.innerHTML = '';
+                accounts.forEach(account => {
+                    const option = document.createElement('div');
+                    option.className = 'custom-select-option';
+                    option.setAttribute('data-value', account.id);
+                    option.textContent = account.account_id || account.name || '';
+                    option.addEventListener('click', () => {
+                        if (btn) {
+                            btn.textContent = account.account_id || account.name || '';
+                            btn.setAttribute('data-value', account.id);
+                        }
+                        if (dropdown) dropdown.style.display = 'none';
+                    });
+                    optionsContainer.appendChild(option);
+                });
+            });
         }
         
         function showAddProfitSharingModal() {
