@@ -559,6 +559,19 @@ if ($current_user_id && count($user_companies) > 0) {
             display: flex;
             flex-direction: column;
             gap: 6px;
+            min-width: 0;
+        }
+        
+        .bank-form-left .bank-row-two-cols,
+        .bank-form-left .bank-row-three-cols {
+            display: grid;
+            gap: 15px;
+        }
+        .bank-form-left .bank-row-two-cols {
+            grid-template-columns: 1fr 1fr;
+        }
+        .bank-form-left .bank-row-three-cols {
+            grid-template-columns: 1fr 1fr 1fr;
         }
         
         .bank-form .form-group label {
