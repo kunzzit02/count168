@@ -565,6 +565,16 @@ body.process-page {
     border: 0.0625rem solid #fff3c3;
 }
 
+/* 固定 Status 列宽度：ACTIVE / INACTIVE / WAITING 时列宽一致，避免列错位 */
+.process-page .process-card .card-item .role-badge.status-active,
+.process-page .process-card .card-item .role-badge.status-inactive,
+.process-page .process-card .card-item .role-badge.status-waiting {
+    min-width: 6em;
+    justify-content: center;
+    text-align: center;
+    box-sizing: border-box;
+}
+
 .status-clickable {
     cursor: pointer;
     transition: all 0.2s ease;
