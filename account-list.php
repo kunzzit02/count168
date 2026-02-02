@@ -251,9 +251,13 @@ $showAll = isset($_GET['showAll']) ? true : false;
             padding-left: 2.1875rem;
             padding-right: 1.25rem;
         }
-        /* 红框区域固定：标题、药丸、说明、搜索不随列表滚动 */
+        /* 红框区域固定：标题、药丸、说明、搜索不随列表滚动；搜索栏在蓝框位置、与下方列表右对齐 */
         #linkAccountModal .link-account-fixed-area {
             flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
             padding-left: 2.1875rem;
             padding-right: 1.25rem;
             padding-bottom: 8px;
@@ -331,9 +335,10 @@ $showAll = isset($_GET['showAll']) ? true : false;
         }
         .link-account-search-wrap {
             display: flex;
-            justify-content: flex-start;
-            margin-top: 2px;
-            margin-bottom: 14px;
+            justify-content: flex-end;
+            flex-shrink: 0;
+            margin-top: 0;
+            margin-bottom: 0;
         }
         .link-account-search-inner {
             position: relative;
@@ -707,7 +712,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 <h2>Link Account</h2>
                 <span class="account-close" onclick="closeLinkAccountModal()">&times;</span>
             </div>
-            <!-- 红框区域：固定不随列表滚动 -->
+            <!-- 红框区域：固定不随列表滚动；搜索栏在蓝框位置，与下方列表右对齐 -->
             <div class="link-account-fixed-area">
                 <div class="link-type-section">
                     <div class="link-type-pills">
