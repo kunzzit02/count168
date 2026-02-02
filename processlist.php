@@ -529,8 +529,11 @@ if ($current_user_id && count($user_companies) > 0) {
             color: #002C49;
             margin-bottom: 10px;
             margin-top: 0;
+            margin-left: 0;
+            padding-left: 4px;
             padding-bottom: 8px;
             border-bottom: 2px solid #e0e0e0;
+            overflow: visible;
         }
         
         .bank-chinese {
