@@ -692,7 +692,7 @@ try {
             display: flex;
             flex-wrap: wrap;
             gap: 6px 8px;
-            margin-top: 4px;
+            margin-top: 8px;
             align-items: center;
         }
         .permission-toggle-btn {
