@@ -349,12 +349,13 @@ body.process-page {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     background: #e8f4fc;
 }
-/* No、Action 列窄；其余列自动变宽 */
+/* No、Action 列窄；No 列左间距与 Gambling 表头一致（20px+4px=24px） */
 .process-page .bank-data-table th.bank-th-no,
 .process-page .bank-data-table td.bank-td-no {
     width: 2%;
     min-width: 32px;
     max-width: 48px;
+    padding-left: 24px;
 }
 .process-page .bank-data-table .bank-th-action,
 .process-page .bank-data-table .bank-td-action {
