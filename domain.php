@@ -1245,21 +1245,23 @@ try {
                 <div class="form-group">
                     <label id="expDateCompanyName" style="font-weight: bold; font-size: clamp(12px, 1.04vw, 16px); color: #1e293b; margin-bottom: 15px;">Company: </label>
                 </div>
-                <div class="form-group">
-                    <label for="expDateStartDate">Start Date</label>
-                    <input type="date" id="expDateStartDate" class="form-group input" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
-                    <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;" id="expDateStartDateHelp">Select the start date for calculating expiration date</small>
-                </div>
-                <div class="form-group">
-                    <label for="expDatePeriod">Period</label>
-                    <select id="expDatePeriod" class="form-group input" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
-                        <option value="">Select Period</option>
-                        <option value="7days">7 Days</option>
-                        <option value="1month">1 Month</option>
-                        <option value="3months">3 Months</option>
-                        <option value="6months">6 Months</option>
-                        <option value="1year">1 Year</option>
-                    </select>
+                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 140px;">
+                        <label for="expDateStartDate">Start Date</label>
+                        <input type="date" id="expDateStartDate" class="form-group input" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
+                        <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;" id="expDateStartDateHelp">Select the start date for calculating expiration date</small>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 140px;">
+                        <label for="expDatePeriod">Period</label>
+                        <select id="expDatePeriod" class="form-group input" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
+                            <option value="">Select Period</option>
+                            <option value="7days">7 Days</option>
+                            <option value="1month">1 Month</option>
+                            <option value="3months">3 Months</option>
+                            <option value="6months">6 Months</option>
+                            <option value="1year">1 Year</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="form-group" style="margin-bottom: 10px;">
                     <label style="font-size: clamp(9px, 0.73vw, 13px);">Expiration Date</label>
