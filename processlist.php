@@ -1874,7 +1874,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 // Bank 类别的表格
                 pageItems.forEach((process, idx) => {
                     const card = document.createElement('div');
-                    card.className = 'process-card bank-process-card';
+                    card.className = 'process-card';
                     card.setAttribute('data-id', process.id);
                     // 设置 Bank 表格的列数（15列：Cost/Price/Profit 拆成三列）
                     card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
@@ -1899,11 +1899,11 @@ if ($current_user_id && count($user_companies) > 0) {
                             </span>
                         </div>
                         <div class="card-item">${escapeHtml(process.date || '')}</div>
-                        <div class="card-item card-item-action-bank">
+                        <div class="card-item">
                             <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '<span class="bank-action-placeholder" aria-hidden="true"></span>' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
+                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox bank-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
                         </div>
                     `;
                     container.appendChild(card);
