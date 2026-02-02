@@ -661,111 +661,61 @@ try {
             background: #4f46e5;
         }
         
-        /* Permissions section - modern chip/tag design */
-        .permissions-section {
-            margin-top: 4px;
-        }
-        
-        .permissions-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .permission-chip {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 18px;
-            border-radius: 12px;
-            border: 2px solid #e2e8f0;
-            background: #f8fafc;
+        /* Permission checkbox styles */
+        .permission-checkbox {
+            width: 12px !important;
+            height: 12px !important;
             cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            user-select: none;
+            margin: 0 !important;
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            -webkit-appearance: checkbox;
+            -moz-appearance: checkbox;
+            appearance: checkbox;
         }
         
-        .permission-chip:hover {
+        .permission-checkbox:focus {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
+        .permission-checkbox:focus-visible {
+            outline: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
+        #permissionLabelGambling:hover,
+        #permissionLabelBank:hover,
+        #permissionLabelLoan:hover,
+        #permissionLabelRate:hover,
+        #permissionLabelMoney:hover {
+            background: #f3f4f6;
             border-color: #6366f1;
-            background: #f5f3ff;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
         }
         
-        .permission-chip input {
-            position: absolute;
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        
-        .permission-chip .chip-check {
-            width: 18px;
-            height: 18px;
-            border-radius: 6px;
-            border: 2px solid #cbd5e1;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            transition: all 0.2s ease;
-        }
-        
-        .permission-chip .chip-check svg {
-            width: 12px;
-            height: 12px;
-            opacity: 0;
-            transform: scale(0.5);
-            transition: all 0.2s ease;
-        }
-        
-        .permission-chip input:checked + .chip-check {
-            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-            border-color: #4f46e5;
-            color: white;
-        }
-        
-        .permission-chip input:checked + .chip-check svg {
-            opacity: 1;
-            transform: scale(1);
-            stroke: white;
-        }
-        
-        .permission-chip .chip-label {
-            font-size: clamp(11px, 0.9vw, 14px);
-            font-weight: 500;
-            color: #64748b;
-            transition: color 0.2s ease;
-        }
-        
-        .permission-chip:hover .chip-label,
-        .permission-chip input:checked ~ .chip-label {
-            color: #1e293b;
-        }
-        
-        .permission-chip input:checked ~ .chip-label {
+        #permissionGambling:checked ~ span,
+        #permissionBank:checked ~ span,
+        #permissionLoan:checked ~ span,
+        #permissionRate:checked ~ span,
+        #permissionMoney:checked ~ span {
             font-weight: 600;
-            color: #4f46e5;
+            color: #6366f1;
         }
         
-        .permission-chip.permission-chip-checked {
-            border-color: #6366f1;
-            background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
+        #permissionGambling:checked,
+        #permissionBank:checked,
+        #permissionLoan:checked,
+        #permissionRate:checked,
+        #permissionMoney:checked {
+            accent-color: #6366f1;
         }
         
-        .permissions-section .section-hint {
-            color: #94a3b8;
-            font-size: clamp(10px, 0.8vw, 12px);
-            margin-top: 12px;
-            line-height: 1.5;
-            padding: 10px 12px;
-            background: #f8fafc;
-            border-radius: 8px;
-            border-left: 3px solid #e2e8f0;
+        label[for^="permission"]:has(input:checked) {
+            background: #eef2ff !important;
+            border-color: #6366f1 !important;
         }
         
         /* Company badge in table */
@@ -1329,37 +1279,30 @@ try {
                     </div>
                 </div>
                 <div class="form-group">
-                    <label style="font-weight: 600; color: #334155; margin-bottom: 4px;">Permissions (for Process List & Data Capture)</label>
-                    <div class="permissions-section">
-                        <div class="permissions-chips">
-                            <label class="permission-chip" id="permissionLabelGambling">
-                                <input type="checkbox" value="Gambling" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                                <span class="chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-                                <span class="chip-label">Gambling</span>
-                            </label>
-                            <label class="permission-chip" id="permissionLabelBank">
-                                <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                                <span class="chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-                                <span class="chip-label">Bank</span>
-                            </label>
-                            <label class="permission-chip" id="permissionLabelLoan">
-                                <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                                <span class="chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-                                <span class="chip-label">Loan</span>
-                            </label>
-                            <label class="permission-chip" id="permissionLabelRate">
-                                <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                                <span class="chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-                                <span class="chip-label">Rate</span>
-                            </label>
-                            <label class="permission-chip" id="permissionLabelMoney">
-                                <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="updatePermissionDisplay()">
-                                <span class="chip-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
-                                <span class="chip-label">Money</span>
-                            </label>
-                        </div>
-                        <p class="section-hint">Select which options this company can access in Process List and Data Capture pages</p>
+                    <label>Permissions (for Process List & Data Capture)</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelGambling">
+                            <input type="checkbox" value="Gambling" id="permissionGambling" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Gambling</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelBank">
+                            <input type="checkbox" value="Bank" id="permissionBank" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Bank</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelLoan">
+                            <input type="checkbox" value="Loan" id="permissionLoan" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Loan</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelRate">
+                            <input type="checkbox" value="Rate" id="permissionRate" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Rate</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 2px 6px; border: 1px solid #d1d5db; border-radius: 3px; background: white; transition: all 0.2s;" id="permissionLabelMoney">
+                            <input type="checkbox" value="Money" id="permissionMoney" class="permission-checkbox" onchange="updatePermissionDisplay()">
+                            <span style="font-size: clamp(7px, 0.52vw, 10px); margin-left: 3px;">Money</span>
+                        </label>
                     </div>
+                    <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 8px; display: block;">Select which options this company can access in Process List and Data Capture pages</small>
                 </div>
                 <div class="form-actions" style="margin-top: 20px;">
                     <button type="button" class="btn btn-save" onclick="saveCompanyExpDate()">Save</button>
@@ -1996,13 +1939,8 @@ try {
         
         // 更新权限显示
         function updatePermissionDisplay() {
-            ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'].forEach(function(name) {
-                const cb = document.getElementById('permission' + name);
-                const label = document.getElementById('permissionLabel' + name);
-                if (cb && label) {
-                    label.classList.toggle('permission-chip-checked', cb.checked);
-                }
-            });
+            // 这个函数可以用于更新权限相关的UI显示
+            // 目前主要用于触发样式更新
         }
         
         // 保存到期日期设置
