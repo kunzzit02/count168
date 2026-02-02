@@ -687,26 +687,26 @@ try {
             box-shadow: none !important;
         }
         
-        /* Company Settings 权限：药丸形按钮（与第一张图一致：选中蓝渐变+白字，未选灰底灰边） */
+        /* Company Settings 权限：药丸形按钮，框和字略小、视觉舒适 */
         .permission-toggle-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px 8px;
-            margin-top: 8px;
+            gap: 5px 6px;
+            margin-top: 6px;
             align-items: center;
         }
         .permission-toggle-btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 5px 12px;
+            padding: 4px 10px;
             border-radius: 9999px;
             cursor: pointer;
             transition: all 0.2s ease;
             border: 1px solid #d1d5db;
             background: #f3f4f6;
             color: #374151;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             font-family: inherit;
             line-height: 1.2;
