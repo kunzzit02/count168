@@ -425,11 +425,7 @@ if (isset($_GET['logout'])) {
         .enhanced-date-picker.month-only {
             min-width: clamp(80px, 6.77vw, 130px);
         }
-        /* Select Year & Month：框大小与红框一致，输入框与下拉同宽 */
-        #month-date-picker {
-            width: 180px;
-            min-width: 180px;
-        }
+
 
         .date-part {
             position: relative;
