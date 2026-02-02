@@ -266,14 +266,15 @@ $showAll = isset($_GET['showAll']) ? true : false;
             flex-shrink: 0;
             border-top: 1px solid #e2e8f0;
         }
+        /* 蓝框内账号列表：固定 3 列、间距一致、视觉舒适 */
         .link-account-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px 12px;
             border: 1px solid #ddd;
             border-radius: 6px;
             background-color: #ffffff;
-            padding: clamp(8px, 0.78vw, 15px);
+            padding: 12px 14px;
         }
         /* Link Account: pill buttons + description (comfortable spacing & size) */
         .link-type-section {
@@ -1999,26 +2000,10 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     return aId.localeCompare(bId);
                 });
 
-                // 使用 3 列 grid 布局，类似 permission 页面
-                let colCount = 0;
-                let currentRow = null;
-
+                // 蓝框内 3 列网格，账号直接放入列表（搜索时自动重排为 3 列、间距一致）
                 availableAccounts.forEach(account => {
-                    // 每 3 个账户创建一行
-                    if (colCount % 3 === 0) {
-                        if (currentRow) {
-                            listElement.appendChild(currentRow);
-                        }
-                        currentRow = document.createElement('div');
-                        currentRow.style.cssText = 'display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2px, 0.26vw, 5px); margin-bottom: clamp(2px, 0.26vw, 5px);';
-                    }
-
-                    // 根据role决定account_id的显示格式
-                    // 移除括号中的名字，只显示 account_id
                     const accountIdText = String(account.account_id || '').toUpperCase();
                     const accountIdDisplay = accountIdText;
-                    // 根据当前选择的连接类型判断是否应该勾选
-                    // 如果账户有连接，检查连接类型是否匹配当前选择的类型
                     const accountLinkType = window.linkTypesMap && window.linkTypesMap[account.id] ? window.linkTypesMap[account.id] : null;
                     const isLinked = linkedAccountIds.includes(account.id) && 
                                      accountLinkType && 
@@ -2028,7 +2013,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     item.className = 'account-item-compact';
                     item.setAttribute('data-linked-account-id', account.id);
                     item.setAttribute('data-account-id', accountIdDisplay);
-                    item.style.cssText = 'display: flex; align-items: center; padding: clamp(0px, 0.1vw, 2px) clamp(2px, 0.21vw, 4px); margin-bottom: 0px; border-radius: 4px; transition: background-color 0.2s; background-color: white; border: 1px solid #eee;';
+                    item.style.cssText = 'display: flex; align-items: center; padding: 6px 8px; margin: 0; border-radius: 6px; transition: background-color 0.2s; background-color: white; border: 1px solid #eee;';
                     
                     if (isLinked) {
                         item.style.backgroundColor = '#e8f5e9';
@@ -2040,7 +2025,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                     checkbox.id = `link_account_${account.id}`;
                     checkbox.value = account.id;
                     checkbox.checked = isLinked;
-                    checkbox.style.cssText = 'margin: 1px 3px 1px 4px; width: clamp(8px, 0.73vw, 14px); height: clamp(8px, 0.73vw, 14px); flex-shrink: 0;';
+                    checkbox.style.cssText = 'margin: 0 6px 0 0; width: 14px; height: 14px; flex-shrink: 0;';
                     checkbox.addEventListener('change', function() {
                         if (this.checked) {
                             if (!selectedLinkedAccountIdsForLink.includes(account.id)) {
@@ -2057,20 +2042,13 @@ $showAll = isset($_GET['showAll']) ? true : false;
 
                     const label = document.createElement('label');
                     label.htmlFor = `link_account_${account.id}`;
-                    label.style.cssText = 'font-size: small !important; font-weight: 800; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.2;';
+                    label.style.cssText = 'font-size: 13px; font-weight: 600; color: #333; cursor: pointer; flex: 1; min-width: 0; word-break: break-all; line-height: 1.3;';
                     label.textContent = accountIdDisplay;
 
                     item.appendChild(checkbox);
                     item.appendChild(label);
-                    currentRow.appendChild(item);
-
-                    colCount++;
+                    listElement.appendChild(item);
                 });
-
-                // 添加最后一行
-                if (currentRow) {
-                    listElement.appendChild(currentRow);
-                }
             } catch (error) {
                 console.error('Error loading account links:', error);
                 listElement.innerHTML = '<div class="currency-toggle-note">加载关联账户失败</div>';
@@ -2086,11 +2064,6 @@ $showAll = isset($_GET['showAll']) ? true : false;
             items.forEach(item => {
                 const accountId = (item.getAttribute('data-account-id') || '').toUpperCase();
                 item.style.display = accountId.includes(searchVal) ? 'flex' : 'none';
-            });
-            Array.from(listElement.children).forEach(row => {
-                const rowItems = row.querySelectorAll('.account-item-compact');
-                const allHidden = rowItems.length > 0 && Array.from(rowItems).every(el => el.style.display === 'none');
-                row.style.display = allHidden ? 'none' : '';
             });
         }
         
