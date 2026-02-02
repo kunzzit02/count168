@@ -375,6 +375,32 @@ body.process-page {
     filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
 }
 
+/* 占位符：与 checkbox 同尺寸，保证 active/inactive 时 Action 列宽度一致 */
+.process-page .action-checkbox-placeholder {
+    display: inline-block;
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(10px, 0.83vw, 16px);
+    margin-left: clamp(10px, 0.73vw, 14px);
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+/* Action 列固定布局：编辑按钮 + 占位/复选框 始终同宽，列数据位置一致 */
+.process-page .card-item-action {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+/* Status 列固定最小宽度，保证 ACTIVE/INACTIVE/WAITING 时列对齐一致 */
+.process-page .process-card .card-item .role-badge.status-active,
+.process-page .process-card .card-item .role-badge.status-inactive,
+.process-page .process-card .card-item .role-badge.status-waiting {
+    min-width: 5.5rem;
+    text-align: center;
+    display: inline-block;
+}
+
 .process-page .row-checkbox {
     appearance: none;
     -webkit-appearance: none;
