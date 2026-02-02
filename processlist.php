@@ -901,7 +901,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="header-item bank-header" style="display: none;">Contract</div>
                 <div class="header-item bank-header" style="display: none;">Insurance</div>
                 <div class="header-item bank-header" style="display: none;">Customer</div>
-                <div class="header-item bank-header" style="display: none;">Cost/Price/Profit</div>
+                <div class="header-item bank-header" style="display: none;">Cost</div>
+                <div class="header-item bank-header" style="display: none;">Price</div>
+                <div class="header-item bank-header" style="display: none;">Profit</div>
                 <div class="header-item bank-header" style="display: none;">Statue</div>
                 <div class="header-item bank-header" style="display: none;">Date</div>
                 <div class="header-item bank-header" style="display: none;">Action
@@ -1864,8 +1866,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     const card = document.createElement('div');
                     card.className = 'process-card';
                     card.setAttribute('data-id', process.id);
-                    // 设置 Bank 表格的列数（13列）
-                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr 0.4fr 0.5fr 0.3fr';
+                    // 设置 Bank 表格的列数（15列：Cost/Price/Profit 拆成三列）
+                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
                     
                     const statusClass = process.status === 'active' ? 'status-active' : 'status-inactive';
                     
@@ -1879,7 +1881,9 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="card-item">${escapeHtml(process.contract || '')}</div>
                         <div class="card-item">${escapeHtml(process.insurance || '')}</div>
                         <div class="card-item">${escapeHtml(process.customer || '')}</div>
-                        <div class="card-item">${escapeHtml(process.cost_price_profit || '')}</div>
+                        <div class="card-item">${(function(){ const c = process.cost; if (c != null && c !== '') return escapeHtml(String(c)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(p => p.trim()).filter(Boolean); return escapeHtml(parts[0] || ''); })()}</div>
+                        <div class="card-item">${(function(){ const p = process.price; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[1] || ''); })()}</div>
+                        <div class="card-item">${(function(){ const p = process.profit; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[2] || ''); })()}</div>
                         <div class="card-item">
                             <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
                                 ${escapeHtml((process.statue || process.status || '').toUpperCase())}
@@ -5211,12 +5215,12 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (selectAllGambling) selectAllGambling.style.display = 'none';
                 if (selectAllBank) selectAllBank.style.display = 'inline-block';
                 
-                // 设置 Bank 表格的列数（13列）
+                // 设置 Bank 表格的列数（15列：Cost, Price, Profit 三列）
                 if (tableHeader) {
-                    tableHeader.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr 0.4fr 0.5fr 0.3fr';
+                    tableHeader.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
                 }
                 processCards.forEach(card => {
-                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 1fr 0.4fr 0.5fr 0.3fr';
+                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
                 });
             } else {
                 // 隐藏 waiting 复选框
