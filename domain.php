@@ -1248,7 +1248,7 @@ try {
                 <div style="display: flex; gap: 16px; flex-wrap: wrap;">
                     <div class="form-group" style="flex: 1; min-width: 140px;">
                         <label for="expDateStartDate">Start Date</label>
-                        <input type="date" id="expDateStartDate" class="form-group input" style="width: 100%; padding: clamp(5px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
+                        <input type="date" id="expDateStartDate" class="form-group input" style="width: 100%; padding: clamp(4px, 0.31vw, 6px) clamp(6px, 0.63vw, 12px); border: 1px solid #d1d5db; border-radius: clamp(4px, 0.42vw, 8px); font-size: clamp(9px, 0.73vw, 14px);">
                         <small style="color: #64748b; font-size: clamp(7px, 0.57vw, 11px); margin-top: 4px; display: block;" id="expDateStartDateHelp">Select the start date for calculating expiration date</small>
                     </div>
                     <div class="form-group" style="flex: 1; min-width: 140px;">
