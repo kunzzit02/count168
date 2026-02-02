@@ -1887,7 +1887,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="card-item">${escapeHtml(process.bank || '')}</div>
                         <div class="card-item">${escapeHtml(process.types || '')}</div>
                         <div class="card-item">${escapeHtml(process.card_lower || '')}</div>
-                        <div class="card-item">${escapeHtml(process.contract || '')}</div>
+                        <div class="card-item">${(function(){ const c = process.contract; if (!c) return ''; const map = { '1':'1 month', '2':'2 months', '3':'3 months', '6':'6 months' }; return escapeHtml(map[String(c)] || c); })()}</div>
                         <div class="card-item">${escapeHtml(process.insurance || '')}</div>
                         <div class="card-item">${escapeHtml(process.customer || '')}</div>
                         <div class="card-item">${(function(){ const c = process.cost; if (c != null && c !== '') return escapeHtml(String(c)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(p => p.trim()).filter(Boolean); return escapeHtml(parts[0] || ''); })()}</div>
