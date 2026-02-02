@@ -237,6 +237,31 @@ $showAll = isset($_GET['showAll']) ? true : false;
             color: #1a237e;
             font-weight: bold;
         }
+        /* Link Account 模态：底部按钮固定，列表区无独立滚动条 */
+        #linkAccountModal .account-modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+            overflow: hidden;
+        }
+        #linkAccountModal .link-account-modal-body {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
+        #linkAccountModal .link-account-form-actions {
+            flex-shrink: 0;
+            border-top: 1px solid #e2e8f0;
+        }
+        .link-account-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: #ffffff;
+            padding: clamp(8px, 0.78vw, 15px);
+        }
     </style>
 </head>
 <body>
@@ -578,7 +603,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 <h2>Link Account</h2>
                 <span class="account-close" onclick="closeLinkAccountModal()">&times;</span>
             </div>
-            <div class="account-modal-body">
+            <div class="account-modal-body link-account-modal-body">
                 <!-- Link Type Selection -->
                 <div style="margin-bottom: 16px;">
                     <div style="display: flex; gap: 16px; justify-content: center;">
@@ -594,15 +619,15 @@ $showAll = isset($_GET['showAll']) ? true : false;
                 </div>
                 <div style="margin-bottom: 16px;">
                     <div style="margin-bottom: 12px;">
-                        <div id="linkAccountList" style="display: flex; flex-direction: column; gap: 0px; max-height: clamp(400px, 40vw, 600px); overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; background-color: #ffffff; padding: clamp(8px, 0.78vw, 15px);">
+                        <div id="linkAccountList" class="link-account-list">
                             <!-- Linked account items will be loaded here -->
                         </div>
                     </div>
                 </div>
-                <div class="account-form-actions">
-                    <button type="button" class="account-btn account-btn-save" onclick="saveAccountLinks()">Save</button>
-                    <button type="button" class="account-btn account-btn-cancel" onclick="closeLinkAccountModal()">Cancel</button>
-                </div>
+            </div>
+            <div class="account-form-actions link-account-form-actions">
+                <button type="button" class="account-btn account-btn-save" onclick="saveAccountLinks()">Save</button>
+                <button type="button" class="account-btn account-btn-cancel" onclick="closeLinkAccountModal()">Cancel</button>
             </div>
         </div>
     </div>
