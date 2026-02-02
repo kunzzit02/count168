@@ -706,7 +706,7 @@ try {
             border: 1px solid #d1d5db;
             background: #f3f4f6;
             color: #374151;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 600;
             font-family: inherit;
             line-height: 1.2;
