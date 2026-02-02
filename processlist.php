@@ -916,8 +916,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="header-item bank-header" style="display: none;">Profit</div>
                 <div class="header-item bank-header" style="display: none;">Status</div>
                 <div class="header-item bank-header" style="display: none;">Date</div>
-                <div class="header-item bank-header" style="display: none;">Action
-                    <input type="checkbox" id="selectAllBankProcesses" title="Select all" style="margin-left: 10px; cursor: pointer; display: none;" onchange="toggleSelectAllBankProcesses()">
+                <div class="header-item bank-header bank-action-header" style="display: none;">Action
+                    <input type="checkbox" id="selectAllBankProcesses" title="Select all" class="header-action-checkbox" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">
                 </div>
             </div>
             
@@ -2357,14 +2357,16 @@ if ($current_user_id && count($user_companies) > 0) {
             updateDeleteButton();
         }
 
-        // 根据当前页面是否有可删除项，显示/隐藏全选框
+        // 根据当前页面是否有可删除项，显示/隐藏全选框（Bank 用 visibility 保留表头空间，避免错位）
         function updateSelectAllProcessesVisibility() {
             if (selectedPermission === 'Bank') {
                 const selectAllBankCheckbox = document.getElementById('selectAllBankProcesses');
                 if (!selectAllBankCheckbox) return;
                 
                 const anyBankCheckbox = document.querySelectorAll('.bank-checkbox').length > 0;
-                selectAllBankCheckbox.style.display = anyBankCheckbox ? 'inline-block' : 'none';
+                selectAllBankCheckbox.style.visibility = anyBankCheckbox ? 'visible' : 'hidden';
+                selectAllBankCheckbox.style.display = 'inline-block';
+                selectAllBankCheckbox.disabled = !anyBankCheckbox;
                 if (!anyBankCheckbox) {
                     selectAllBankCheckbox.checked = false;
                 }
