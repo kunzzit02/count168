@@ -294,13 +294,15 @@ body.process-page {
     overflow-y: auto;
 }
 
-/* Bank 真实 table：th/td 列由浏览器对齐 */
+/* Bank 真实 table：与 Gambling 同设计、同宽高 */
 .process-page .bank-table-wrapper {
     margin-top: 20px;
     width: 100%;
-    overflow-x: auto;
-    overflow-y: auto;
+    padding: 0 20px;
     max-height: calc(100vh - 280px);
+    overflow-y: auto;
+    overflow-x: auto;
+    box-sizing: border-box;
 }
 .process-page .bank-data-table {
     width: 100%;
@@ -314,12 +316,13 @@ body.process-page {
 .process-page .bank-data-table thead {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
     color: white;
+    font-size: clamp(10px, 0.89vw, 17px);
     position: sticky;
     top: 0;
     z-index: 1;
 }
 .process-page .bank-data-table th {
-    padding: 8px 10px;
+    padding: 2px 4px;
     text-align: left;
     white-space: nowrap;
     border: none;
@@ -331,7 +334,7 @@ body.process-page {
     border-radius: 0 8px 0 0;
 }
 .process-page .bank-data-table td {
-    padding: 8px 10px;
+    padding: 2px 4px;
     text-align: left;
     border-bottom: 1px solid rgba(148, 163, 184, 0.35);
 }
@@ -342,6 +345,7 @@ body.process-page {
     background: #ffffff;
 }
 .process-page .bank-data-table tbody tr:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     background: #e8f4fc;
 }
 .process-page .bank-data-table .bank-th-action,
