@@ -352,10 +352,16 @@ body.process-page {
 .process-page .bank-data-table .bank-td-action {
     white-space: nowrap;
 }
+/* Action 列表头：文字与勾选格垂直居中 */
+.process-page .bank-data-table .bank-th-action {
+    display: flex;
+    align-items: center;
+}
 .process-page .bank-data-table .bank-th-action .header-action-checkbox {
     margin-left: 10px;
     cursor: pointer;
     vertical-align: middle;
+    flex-shrink: 0;
 }
 
 /* Table Header - copied from accountCSS.css */
