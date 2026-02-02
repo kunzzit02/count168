@@ -584,7 +584,7 @@ if ($current_user_id && count($user_companies) > 0) {
         .select-with-add {
             display: flex;
             gap: 8px;
-            align-items: flex-start;
+            align-items: center;
         }
         
         .select-with-add .bank-select {
@@ -616,12 +616,12 @@ if ($current_user_id && count($user_companies) > 0) {
         .bank-input,
         .bank-select {
             width: 100%;
+            height: 32px;
             padding: 5px 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 13px;
             box-sizing: border-box;
-            min-height: 28px;
         }
         
         .bank-input:focus,
@@ -770,7 +770,7 @@ if ($current_user_id && count($user_companies) > 0) {
         .profit-sharing-with-add {
             display: flex;
             gap: 8px;
-            align-items: flex-start;
+            align-items: center;
         }
         
         .profit-sharing-with-add .bank-input {
