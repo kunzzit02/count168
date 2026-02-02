@@ -236,6 +236,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_PO
         $profit_sharing = trim($_POST['profit_sharing'] ?? '');
         $day_start = trim($_POST['day_start'] ?? '');
         $day_start = $day_start !== '' ? $day_start : null;
+        $day_end = trim($_POST['day_end'] ?? '');
+        $day_end = $day_end !== '' ? $day_end : null;
         $currentUserId = null;
         $createdByType = 'user';
         $createdByOwnerId = null;
@@ -247,12 +249,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_PO
         }
         $stmt = $pdo->prepare("INSERT INTO bank_process (
             company_id, country, bank, type, name, card_merchant_id, customer_id,
-            contract, insurance, cost, price, profit, profit_sharing, day_start, status,
+            contract, insurance, cost, price, profit, profit_sharing, day_start, day_end, status,
             created_by, created_by_type, created_by_owner_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)");
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)");
         $stmt->execute([
             $companyId, $country, $bank, $type, $name, $card_merchant_id, $customer_id,
-            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start,
+            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_end,
             $currentUserId, $createdByType, $createdByOwnerId
         ]);
         echo json_encode([

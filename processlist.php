@@ -1336,6 +1336,10 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <label for="bank_day_start">Day start</label>
                                     <input type="date" id="bank_day_start" name="day_start" class="bank-input">
                                 </div>
+                                <div class="form-group">
+                                    <label for="bank_day_end">Day end</label>
+                                    <input type="date" id="bank_day_end" name="day_end" class="bank-input">
+                                </div>
                             </div>
                             
                             <div class="form-row">
@@ -1950,9 +1954,19 @@ if ($current_user_id && count($user_companies) > 0) {
             }
 
             const contractMap = { '1':'1 month','2':'2 months','3':'3 months','6':'6 months' };
+            const todayStr = new Date().toISOString().slice(0, 10);
+            function getContractStateClass(dayStart, dayEnd) {
+                if (!dayStart && !dayEnd) return '';
+                if (dayStart && todayStr < dayStart) return 'contract-pending';
+                if (dayEnd && todayStr > dayEnd) return 'contract-expired';
+                if (dayStart && dayEnd && todayStr >= dayStart && todayStr <= dayEnd) return 'contract-active';
+                if (dayStart && todayStr >= dayStart) return 'contract-active';
+                return 'contract-expired';
+            }
             pageItems.forEach((process, idx) => {
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
+                const contractClass = getContractStateClass(process.day_start || null, process.day_end || null);
                 const cost = process.cost != null && process.cost !== '' ? process.cost : '';
                 const price = process.price != null && process.price !== '' ? process.price : '';
                 const profit = process.profit != null && process.profit !== '' ? process.profit : '';
@@ -1967,7 +1981,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     '<td>' + escapeHtml(process.bank || '') + '</td>' +
                     '<td>' + escapeHtml(process.types || '') + '</td>' +
                     '<td>' + escapeHtml(process.card_lower || '') + '</td>' +
-                    '<td>' + escapeHtml(contract) + '</td>' +
+                    '<td class="' + (contractClass ? 'contract-cell ' + contractClass : '') + '">' + escapeHtml(contract) + '</td>' +
                     '<td>' + escapeHtml(process.insurance || '') + '</td>' +
                     '<td>' + escapeHtml(process.customer || '') + '</td>' +
                     '<td>' + escapeHtml(String(cost)) + '</td>' +
@@ -2264,6 +2278,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
                 const dayStart = process.day_start || '';
                 document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+                const dayEnd = process.day_end || '';
+                document.getElementById('bank_day_end').value = dayEnd ? (dayEnd.length === 10 ? dayEnd : dayEnd.split(' ')[0]) : '';
                 document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
                 document.getElementById('addBankModal').style.display = 'block';
             } catch (error) {

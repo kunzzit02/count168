@@ -364,6 +364,20 @@ body.process-page {
     flex-shrink: 0;
 }
 
+/* Bank Contract 列按合同状态着色：执行中=浅绿，未开始=浅黄，已过期=浅灰 */
+.process-page .bank-data-table td.contract-cell.contract-active {
+    background-color: #beffd4 !important;
+    color: #000;
+}
+.process-page .bank-data-table td.contract-cell.contract-pending {
+    background-color: #fff9c4;
+    color: #000;
+}
+.process-page .bank-data-table td.contract-cell.contract-expired {
+    background-color: #e8e8e8;
+    color: #666;
+}
+
 /* Table Header - copied from accountCSS.css */
 .process-page .table-header {
     display: grid;
