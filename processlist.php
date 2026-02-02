@@ -849,7 +849,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="bank-form-left">
                         <!-- Bank Information Section -->
                         <div class="bank-section">
-                            <h3 class="bank-section-title">Bank Information <span class="bank-chinese">资者</span></h3>
+                            <h3 class="bank-section-title">Bank Information</h3>
                             
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
