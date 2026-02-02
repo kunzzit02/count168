@@ -3979,7 +3979,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const accountText = accountSelect.options[accountSelect.selectedIndex].text;
                 const amount = amountInput.value.trim();
                 if (!accountId || !amount) return;
-                const entry = accountText + ': ' + amount;
+                const entry = accountText + ' - ' + amount;
                 const current = (mainInput.value || '').trim();
                 mainInput.value = current ? current + ', ' + entry : entry;
                 closeProfitSharingModal();
