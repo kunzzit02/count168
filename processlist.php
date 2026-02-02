@@ -853,7 +853,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_country">国家</label>
+                                    <label for="bank_country">Country</label>
                                     <div class="select-with-add">
                                         <select id="bank_country" name="country" class="bank-select">
                                             <option value="">Select Country</option>
