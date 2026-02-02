@@ -333,6 +333,13 @@ body.process-page {
     transition: all 0.2s ease;
 }
 
+/* Bank：数据列宽度与 th 一致，仅调整数据行 */
+.process-page .process-cards.bank-mode .process-card {
+    width: var(--table-header-width, 100%);
+    min-width: var(--table-header-width, 100%);
+    box-sizing: border-box;
+}
+
 .process-page .process-card:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     transform: translateY(-1px);

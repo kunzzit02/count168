@@ -1849,6 +1849,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         </div>
                     </div>
                 `;
+                if (selectedPermission === 'Bank') requestAnimationFrame(syncBankTableColumnWidth);
                 return;
             }
 
@@ -1942,6 +1943,19 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             renderPagination();
             updateSelectAllProcessesVisibility();
+            if (selectedPermission === 'Bank') {
+                requestAnimationFrame(syncBankTableColumnWidth);
+            }
+        }
+
+        /** 仅调整数据列宽度与 th 一致，th 不改 */
+        function syncBankTableColumnWidth() {
+            if (selectedPermission !== 'Bank') return;
+            const tableHeader = document.getElementById('tableHeader');
+            const processTableBody = document.getElementById('processTableBody');
+            if (!tableHeader || !processTableBody) return;
+            const w = tableHeader.offsetWidth;
+            processTableBody.style.setProperty('--table-header-width', w + 'px');
         }
 
         function renderPagination() {
@@ -5140,7 +5154,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 showError('Error loading data: ' + error.message);
             }
         });
-        
+
+        window.addEventListener('resize', function() {
+            if (selectedPermission === 'Bank') syncBankTableColumnWidth();
+        });
+
         // 切换 process list 的 company
         // 当前选择的权限
         let selectedPermission = null;
@@ -5232,7 +5250,9 @@ if ($current_user_id && count($user_companies) > 0) {
             const tableHeader = document.getElementById('tableHeader');
             const processCards = document.querySelectorAll('.process-card');
             
+            const processTableBodyEl = document.getElementById('processTableBody');
             if (permission === 'Bank') {
+                if (processTableBodyEl) processTableBodyEl.classList.add('bank-mode');
                 // 显示 waiting 复选框
                 if (waitingSection) {
                     waitingSection.style.display = 'flex';
@@ -5250,7 +5270,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 processCards.forEach(card => {
                     card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
                 });
+                requestAnimationFrame(syncBankTableColumnWidth);
             } else {
+                if (processTableBodyEl) processTableBodyEl.classList.remove('bank-mode');
+                if (processTableBodyEl) processTableBodyEl.style.removeProperty('--table-header-width');
                 // 隐藏 waiting 复选框
                 if (waitingSection) {
                     waitingSection.style.display = 'none';
