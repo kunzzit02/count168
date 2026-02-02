@@ -867,7 +867,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="header-item bank-header" style="display: none;">Country</div>
                 <div class="header-item bank-header" style="display: none;">Bank</div>
                 <div class="header-item bank-header" style="display: none;">Types</div>
-                <div class="header-item bank-header" style="display: none;">Card Lower</div>
+                <div class="header-item bank-header" style="display: none;">Card Owner</div>
                 <div class="header-item bank-header" style="display: none;">Contract</div>
                 <div class="header-item bank-header" style="display: none;">Insurance</div>
                 <div class="header-item bank-header" style="display: none;">Customer</div>
