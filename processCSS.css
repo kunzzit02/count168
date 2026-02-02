@@ -312,6 +312,7 @@ body.process-page {
     color: #374151;
     border-radius: 8px 8px 0 0;
     overflow: hidden;
+    table-layout: fixed;
 }
 .process-page .bank-data-table thead {
     background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
@@ -351,6 +352,8 @@ body.process-page {
 .process-page .bank-data-table .bank-th-action,
 .process-page .bank-data-table .bank-td-action {
     white-space: nowrap;
+    width: 1%;
+    max-width: 88px;
 }
 /* Action 列表头：文字与勾选格垂直居中 */
 .process-page .bank-data-table .bank-th-action {
