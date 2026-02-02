@@ -333,16 +333,19 @@ $showAll = isset($_GET['showAll']) ? true : false;
             line-height: 1.5;
             text-align: left;
         }
+        /* 蓝框位置：搜索栏区域 */
         .link-account-search-wrap {
             display: flex;
             justify-content: flex-end;
             flex-shrink: 0;
             margin-top: 0;
             margin-bottom: 0;
+            min-width: 260px;
         }
         .link-account-search-inner {
             position: relative;
-            width: 250px;
+            width: 100%;
+            max-width: 280px;
         }
         .link-account-search-icon {
             position: absolute;
@@ -358,15 +361,16 @@ $showAll = isset($_GET['showAll']) ? true : false;
             width: 100%;
             box-sizing: border-box;
             padding: 8px 12px 8px 38px;
-            border: 1px solid #3b82f6;
+            border: 1px solid #d1d5db;
             border-radius: 8px;
             font-size: 14px;
             font-family: inherit;
+            background: #fff;
         }
         .link-account-search-input:focus {
             outline: none;
-            border-color: #2563eb;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
         }
         .link-account-search-input::placeholder {
             color: #9ca3af;
