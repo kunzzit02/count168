@@ -340,6 +340,154 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: clamp(20px, 2.08vw, 40px) 20px;
         }
 
+        /* Bank Selection Modal (layout: left = Add/Available, right = Selected) */
+        .bank-selection-modal .modal-content {
+            max-width: 56.25rem;
+            width: 90%;
+        }
+        .bank-selection-container {
+            display: flex;
+            gap: 0;
+            height: clamp(300px, 26.04vw, 500px);
+            flex-wrap: wrap;
+        }
+        .available-banks-section {
+            flex: 1;
+            border-right: 0.0625rem solid #e9ecef;
+            padding-right: clamp(10px, 1.04vw, 20px);
+            min-width: 20rem;
+        }
+        .selected-banks-section {
+            flex: 1;
+            padding-left: clamp(10px, 1.04vw, 20px);
+            min-width: 20rem;
+        }
+        .available-banks-section h3,
+        .selected-banks-section h3 {
+            margin-top: 0;
+            margin-bottom: clamp(6px, 0.52vw, 10px);
+            color: #495057;
+            font-size: clamp(12px, 0.83vw, 16px);
+        }
+        .add-bank-bar {
+            margin-bottom: clamp(10px, 1.04vw, 20px);
+            padding-bottom: clamp(10px, 1.04vw, 20px);
+            border-bottom: 1px solid #e9ecef;
+        }
+        .add-bank-bar h3 {
+            margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
+            color: #495057;
+            font-size: clamp(12px, 0.83vw, 16px);
+            font-weight: bold;
+        }
+        .add-bank-form { margin: 0; }
+        .add-bank-input-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .add-bank-input-group input {
+            width: 100%;
+            padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+            border: 1px solid #d1d5db;
+            border-radius: clamp(4px, 0.42vw, 8px);
+            font-size: clamp(8px, 0.73vw, 14px);
+            box-sizing: border-box;
+        }
+        .bank-search { margin-bottom: 0.9375rem; }
+        .bank-search input {
+            width: 100%;
+            padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+            border: 1px solid #d1d5db;
+            border-radius: clamp(4px, 0.42vw, 8px);
+            font-size: clamp(8px, 0.73vw, 14px);
+            box-sizing: border-box;
+        }
+        .bank-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 0px 10px;
+            background-color: #f8f9fa;
+        }
+        .selected-banks-list {
+            max-height: 18.75rem;
+            overflow-y: auto;
+            border: 0.0625rem solid #e9ecef;
+            border-radius: 0.25rem;
+            padding: 0.625rem;
+            background-color: #f8f9fa;
+        }
+        .bank-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: space-between;
+            padding: clamp(4px, 0.21vw, 8px) 0;
+            border-bottom: 0.0625rem solid #e9ecef;
+        }
+        .bank-item:last-child { border-bottom: none; }
+        .bank-item-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        .bank-item input[type="checkbox"] { margin: 0; width: clamp(10px, 0.73vw, 14px); }
+        .bank-item label { margin: 0; font-size: clamp(10px, 0.73vw, 14px); cursor: pointer; flex: 1; color: #333; }
+        .bank-delete-btn {
+            border: none;
+            background: transparent;
+            color: #c00;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 6px;
+            line-height: 1;
+        }
+        .bank-delete-btn:hover { color: #900; }
+        .bank-item:hover { background-color: #e9ecef; }
+        .selected-bank-modal-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: clamp(2px, 0.42vw, 8px) 8px;
+            border-bottom: 0.0625rem solid #e9ecef;
+            background-color: #e3f2fd;
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .selected-bank-modal-item:last-child { border-bottom: none; margin-bottom: 0; }
+        .selected-bank-modal-item span {
+            flex: 1;
+            font-size: clamp(10px, 0.73vw, 14px);
+            color: #1976d2;
+            font-weight: 500;
+        }
+        .remove-bank-modal {
+            background: none;
+            border: none;
+            color: #1976d2;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0;
+            width: 1.25rem;
+            height: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+        .remove-bank-modal:hover { background-color: #1976d2; color: white; }
+        .no-banks {
+            text-align: center;
+            color: #6c757d;
+            font-size: clamp(10px, 0.78vw, 15px);
+            font-style: italic;
+            padding: clamp(20px, 2.08vw, 40px) 20px;
+        }
+
         /* Bank Modal Styles - Separate from Gambling modal */
         .bank-modal .bank-modal-content {
             max-width: 1000px;
@@ -1234,6 +1382,50 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="modal-footer">
                     <button type="button" class="btn btn-save" id="confirmCountriesBtn" onclick="confirmCountries()">Confirm</button>
                     <button type="button" class="btn btn-cancel" onclick="closeCountrySelectionModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bank Selection Modal (layout: left = Add/Available, right = Selected) -->
+    <div id="bankSelectionModal" class="modal" style="display: none;">
+        <div class="modal-content bank-selection-modal">
+            <div class="modal-header">
+                <h2>Select or Add Bank</h2>
+                <span class="close" onclick="closeBankSelectionModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="bank-selection-container">
+                    <!-- Left side - Add new and available banks -->
+                    <div class="available-banks-section">
+                        <div class="add-bank-bar">
+                            <h3>Add New Bank</h3>
+                            <form id="addBankForm" class="add-bank-form">
+                                <div class="add-bank-input-group">
+                                    <input type="text" id="new_bank_name" name="bank_name" placeholder="Enter new bank name...">
+                                    <button type="submit" class="btn btn-save">Add</button>
+                                </div>
+                            </form>
+                        </div>
+                        <h3>Available Banks</h3>
+                        <div class="bank-search">
+                            <input type="text" id="bankSearch" placeholder="Search banks..." onkeyup="filterBanks()">
+                        </div>
+                        <div class="bank-list" id="existingBanks">
+                            <!-- Available banks will be loaded here -->
+                        </div>
+                    </div>
+                    <!-- Right side - Selected banks -->
+                    <div class="selected-banks-section">
+                        <h3>Selected Banks</h3>
+                        <div class="selected-banks-list" id="selectedBanksInModal">
+                            <!-- Selected banks will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-save" id="confirmBanksBtn" onclick="confirmBanks()">Confirm</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeBankSelectionModal()">Cancel</button>
                 </div>
             </div>
         </div>
@@ -3035,6 +3227,32 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
+        // Add Bank form submit (in modal: add new bank to available list and select it)
+        const addBankFormEl = document.getElementById('addBankForm');
+        if (addBankFormEl) {
+            addBankFormEl.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const nameInput = document.getElementById('new_bank_name');
+                const bankName = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
+                if (!bankName) {
+                    showNotification('Please enter a bank name', 'danger');
+                    return;
+                }
+                if (!window.selectedBanks) window.selectedBanks = [];
+                if (!window.selectedBanks.includes(bankName)) {
+                    window.selectedBanks.push(bankName);
+                }
+                if (!availableBanksList.includes(bankName)) {
+                    availableBanksList.push(bankName);
+                    availableBanksList.sort((a, b) => a.localeCompare(b));
+                }
+                updateSelectedBanksInModal();
+                loadExistingBanks();
+                if (nameInput) nameInput.value = '';
+                showNotification('Bank added and selected', 'success');
+            });
+        }
+
         // 页面加载完成后执行
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
@@ -3387,11 +3605,225 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        // Placeholder functions for add modals
-        
+        // Bank Selection Modal
+        const DEFAULT_BANKS = ['Maybank', 'CIMB', 'Public Bank', 'RHB', 'Hong Leong Bank', 'AmBank', 'OCBC', 'UOB', 'HSBC', 'Standard Chartered', 'Citibank', 'Other'];
+        let availableBanksList = [];
+
         function showAddBankModal() {
-            alert('Add Bank functionality to be implemented');
+            loadExistingBanks();
+            updateSelectedBanksInModal();
+            const modal = document.getElementById('bankSelectionModal');
+            if (modal) {
+                modal.classList.add('show');
+                modal.style.display = 'block';
+            }
         }
+
+        function loadExistingBanks() {
+            const select = document.getElementById('bank_bank');
+            const existingOptions = [];
+            if (select && select.options) {
+                for (let i = 0; i < select.options.length; i++) {
+                    const v = (select.options[i].value || '').trim();
+                    if (v) existingOptions.push(v);
+                }
+            }
+            const combined = [...new Set([...DEFAULT_BANKS, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            availableBanksList = combined;
+
+            const listEl = document.getElementById('existingBanks');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            combined.forEach((name, index) => {
+                const id = 'bank_' + (Date.now() + index);
+                const item = document.createElement('div');
+                item.className = 'bank-item';
+                const left = document.createElement('div');
+                left.className = 'bank-item-left';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'available_banks';
+                checkbox.value = name;
+                checkbox.id = id;
+                checkbox.dataset.bankId = id;
+                const label = document.createElement('label');
+                label.htmlFor = id;
+                label.textContent = name;
+                left.appendChild(checkbox);
+                left.appendChild(label);
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'bank-delete-btn';
+                deleteBtn.title = 'Remove from list';
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    removeBankFromAvailable(name, item);
+                });
+                item.appendChild(left);
+                item.appendChild(deleteBtn);
+                listEl.appendChild(item);
+                checkbox.addEventListener('change', function() {
+                    if (this.checked) moveBankToSelected(this);
+                    else moveBankToAvailable(this);
+                });
+            });
+        }
+
+        function updateSelectedBanksInModal() {
+            const selectedList = document.getElementById('selectedBanksInModal');
+            if (!selectedList) return;
+            selectedList.innerHTML = '';
+            const current = (document.getElementById('bank_bank')?.value || '').trim();
+            if (!window.selectedBanks) window.selectedBanks = [];
+            if (current && !window.selectedBanks.includes(current)) {
+                window.selectedBanks = [current];
+            }
+            if (window.selectedBanks.length > 0) {
+                window.selectedBanks.forEach((name, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'selected-bank-modal-item';
+                    const safeName = (name || '').replace(/'/g, "\\'");
+                    div.innerHTML = '<span>' + escapeHtml(name) + '</span><button type="button" class="remove-bank-modal" onclick="moveBankBackToAvailable(\'' + safeName + '\', \'bid' + idx + '\')">&times;</button>';
+                    selectedList.appendChild(div);
+                });
+            } else {
+                selectedList.innerHTML = '<div class="no-banks">No banks selected</div>';
+            }
+        }
+
+        function filterBanks() {
+            const term = (document.getElementById('bankSearch')?.value || '').toLowerCase();
+            const items = document.querySelectorAll('#existingBanks .bank-item');
+            items.forEach(item => {
+                const text = item.querySelector('label')?.textContent?.toLowerCase() || '';
+                item.style.display = text.includes(term) ? 'block' : 'none';
+            });
+        }
+
+        function moveBankToSelected(checkbox) {
+            const name = checkbox.value;
+            const id = checkbox.dataset.bankId;
+            const item = checkbox.closest('.bank-item');
+            if (!window.selectedBanks) window.selectedBanks = [];
+            if (!window.selectedBanks.includes(name)) window.selectedBanks.push(name);
+            const selectedList = document.getElementById('selectedBanksInModal');
+            const placeholder = selectedList.querySelector('.no-banks');
+            if (placeholder) placeholder.remove();
+            const div = document.createElement('div');
+            div.className = 'selected-bank-modal-item';
+            const safeName = (name || '').replace(/'/g, "\\'");
+            div.innerHTML = '<span>' + escapeHtml(name) + '</span><button type="button" class="remove-bank-modal" onclick="moveBankBackToAvailable(\'' + safeName + '\', \'' + id + '\')">&times;</button>';
+            selectedList.appendChild(div);
+            if (item) item.remove();
+        }
+
+        function moveBankBackToAvailable(bankName, bankId) {
+            if (window.selectedBanks) {
+                const idx = window.selectedBanks.indexOf(bankName);
+                if (idx > -1) window.selectedBanks.splice(idx, 1);
+            }
+            const selectedList = document.getElementById('selectedBanksInModal');
+            selectedList.querySelectorAll('.selected-bank-modal-item').forEach(item => {
+                if (item.querySelector('span')?.textContent === bankName) item.remove();
+            });
+            if (!selectedList.querySelector('.selected-bank-modal-item')) {
+                selectedList.innerHTML = '<div class="no-banks">No banks selected</div>';
+            }
+            const listEl = document.getElementById('existingBanks');
+            if (!listEl) return;
+            const id = 'bank_' + (bankId || Date.now());
+            const newItem = document.createElement('div');
+            newItem.className = 'bank-item';
+            const left = document.createElement('div');
+            left.className = 'bank-item-left';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.name = 'available_banks';
+            cb.value = bankName;
+            cb.id = id;
+            cb.dataset.bankId = id;
+            const label = document.createElement('label');
+            label.htmlFor = id;
+            label.textContent = bankName;
+            left.appendChild(cb);
+            left.appendChild(label);
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'bank-delete-btn';
+            delBtn.innerHTML = '&times;';
+            delBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                removeBankFromAvailable(bankName, newItem);
+            });
+            newItem.appendChild(left);
+            newItem.appendChild(delBtn);
+            listEl.appendChild(newItem);
+            cb.addEventListener('change', function() {
+                if (this.checked) moveBankToSelected(this);
+                else moveBankToAvailable(this);
+            });
+        }
+
+        function moveBankToAvailable(checkbox) {
+            const name = checkbox.value;
+            const item = checkbox.closest('.bank-item');
+            if (window.selectedBanks) {
+                const idx = window.selectedBanks.indexOf(name);
+                if (idx > -1) window.selectedBanks.splice(idx, 1);
+            }
+            document.getElementById('selectedBanksInModal').querySelectorAll('.selected-bank-modal-item').forEach(el => {
+                if (el.querySelector('span')?.textContent === name) el.remove();
+            });
+            const selectedList = document.getElementById('selectedBanksInModal');
+            if (!selectedList.querySelector('.selected-bank-modal-item')) {
+                selectedList.innerHTML = '<div class="no-banks">No banks selected</div>';
+            }
+        }
+
+        function removeBankFromAvailable(bankName, itemEl) {
+            if (itemEl && itemEl.parentNode) itemEl.remove();
+        }
+
+        function closeBankSelectionModal() {
+            const modal = document.getElementById('bankSelectionModal');
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.display = 'none';
+            }
+            const form = document.getElementById('addBankForm');
+            if (form) form.reset();
+            const search = document.getElementById('bankSearch');
+            if (search) search.value = '';
+            document.querySelectorAll('input[name="available_banks"]').forEach(cb => cb.checked = false);
+        }
+
+        function confirmBanks() {
+            if (window.selectedBanks && window.selectedBanks.length > 0) {
+                const first = window.selectedBanks[0];
+                const select = document.getElementById('bank_bank');
+                if (select) {
+                    let found = false;
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === first) { found = true; break; }
+                    }
+                    if (!found) {
+                        const opt = document.createElement('option');
+                        opt.value = first;
+                        opt.textContent = first;
+                        select.appendChild(opt);
+                    }
+                    select.value = first;
+                }
+                closeBankSelectionModal();
+            } else {
+                showNotification('Please select at least one bank', 'danger');
+            }
+        }
+
+        // Placeholder functions for add modals
         
         function showAddAccountModal() {
             alert('Add Account functionality to be implemented');
