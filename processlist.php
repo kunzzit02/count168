@@ -636,11 +636,37 @@ if ($current_user_id && count($user_companies) > 0) {
         .account-select-with-buttons {
             display: flex;
             gap: 8px;
-            align-items: flex-start;
+            align-items: center;
         }
         
         .account-select-with-buttons .custom-select-wrapper {
             flex: 1;
+        }
+        
+        /* Card Merchant / Customer select bar: same design as other bank select bars */
+        .bank-form .account-select-with-buttons .custom-select-button {
+            width: 100%;
+            padding: 12px 16px;
+            padding-right: 2.5rem;
+            border: 0.125rem solid #e5e7eb;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            box-sizing: border-box;
+            background: #ffffff;
+            color: #374151;
+            font-family: inherit;
+            cursor: pointer;
+            text-align: left;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            position: relative;
+        }
+        
+        .bank-form .account-select-with-buttons .custom-select-button:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
         
         .account-add-btn {
