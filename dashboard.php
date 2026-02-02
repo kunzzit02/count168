@@ -518,8 +518,8 @@ if (isset($_GET['logout'])) {
             padding: 10px 12px;
         }
         #month-date-picker .year-grid .date-option {
-            font-size: 14px;
-            padding: 8px 6px;
+            font-size: 11px;
+            padding: 8px 4px;
             min-width: 0;
             text-align: center;
         }
