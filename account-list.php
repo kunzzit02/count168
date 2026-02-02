@@ -248,6 +248,8 @@ $showAll = isset($_GET['showAll']) ? true : false;
             flex: 1;
             min-height: 0;
             overflow-y: auto;
+            padding-left: 2.1875rem;
+            padding-right: 1.25rem;
         }
         #linkAccountModal .link-account-form-actions {
             flex-shrink: 0;
