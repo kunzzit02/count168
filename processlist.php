@@ -914,7 +914,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="header-item bank-header" style="display: none;">Cost</div>
                 <div class="header-item bank-header" style="display: none;">Price</div>
                 <div class="header-item bank-header" style="display: none;">Profit</div>
-                <div class="header-item bank-header" style="display: none;">Statue</div>
+                <div class="header-item bank-header" style="display: none;">Status</div>
                 <div class="header-item bank-header" style="display: none;">Date</div>
                 <div class="header-item bank-header" style="display: none;">Action
                     <input type="checkbox" id="selectAllBankProcesses" title="Select all" style="margin-left: 10px; cursor: pointer; display: none;" onchange="toggleSelectAllBankProcesses()">
@@ -1877,7 +1877,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     card.className = 'process-card';
                     card.setAttribute('data-id', process.id);
                     // 设置 Bank 表格的列数（15列：Cost/Price/Profit 拆成三列）
-                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
+                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.65fr 0.5fr 0.3fr';
                     
                     const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                     card.innerHTML = `
@@ -1895,7 +1895,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="card-item">${(function(){ const p = process.profit; if (p != null && p !== '') return escapeHtml(String(p)); const s = process.cost_price_profit; if (!s) return ''; const parts = String(s).split(/[\s/,]+/).map(x => x.trim()).filter(Boolean); return escapeHtml(parts[2] || ''); })()}</div>
                         <div class="card-item">
                             <span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${process.id}, '${process.status}')" title="Click to toggle status" style="cursor: pointer;">
-                                ${escapeHtml((process.statue || process.status || '').toUpperCase())}
+                                ${escapeHtml((process.status || '').toUpperCase())}
                             </span>
                         </div>
                         <div class="card-item">${escapeHtml(process.date || '')}</div>
@@ -5254,10 +5254,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 
                 // 设置 Bank 表格的列数（15列：Cost, Price, Profit 三列）
                 if (tableHeader) {
-                    tableHeader.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
+                    tableHeader.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.65fr 0.5fr 0.3fr';
                 }
                 processCards.forEach(card => {
-                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.4fr 0.5fr 0.3fr';
+                    card.style.gridTemplateColumns = '0.2fr 0.8fr 0.6fr 0.7fr 0.5fr 0.6fr 0.6fr 0.6fr 0.7fr 0.4fr 0.4fr 0.4fr 0.65fr 0.5fr 0.3fr';
                 });
             } else {
                 // 隐藏 waiting 复选框
