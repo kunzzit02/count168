@@ -691,22 +691,22 @@ try {
         .permission-toggle-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px 12px;
-            margin-top: 6px;
+            gap: 6px 8px;
+            margin-top: 4px;
             align-items: center;
         }
         .permission-toggle-btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 8px 18px;
+            padding: 5px 12px;
             border-radius: 9999px;
             cursor: pointer;
             transition: all 0.2s ease;
             border: 1px solid #d1d5db;
             background: #f3f4f6;
             color: #374151;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             font-family: inherit;
             line-height: 1.2;
