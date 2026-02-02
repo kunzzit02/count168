@@ -668,7 +668,7 @@ function getBankProcesses() {
                 'card_lower' => $r['card_merchant_name'] ?? '',
                 'contract' => $r['contract'] ?? '',
                 'insurance' => $r['insurance'] ?? '',
-                'customer' => $r['customer_id'] !== null ? (string)$r['customer_id'] : '',
+                'customer' => $r['customer_name'] ?? '',
                 'cost' => $r['cost'],
                 'price' => $r['price'],
                 'profit' => $r['profit'],
