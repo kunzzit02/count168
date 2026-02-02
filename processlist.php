@@ -616,11 +616,11 @@ if ($current_user_id && count($user_companies) > 0) {
         .bank-input,
         .bank-select {
             width: 100%;
-            height: 32px;
-            padding: 5px 10px;
+            height: 38px;
+            padding: 6px 12px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 14px;
             box-sizing: border-box;
         }
         
