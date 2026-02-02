@@ -889,6 +889,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 <?php endif; ?>
             </div>
             
+            <!-- 表头与数据同一滚动容器，保证列宽一致、不对歪 -->
+            <div class="process-table-wrapper" id="processTableWrapper">
             <!-- Table Header -->
             <div class="table-header" id="tableHeader">
                 <!-- Gambling table headers (default) -->
@@ -926,6 +928,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="process-card">
                     <div class="card-item">Load the Data...</div>
                 </div>
+            </div>
             </div>
             
             <!-- 分页控件 - 浮动在右下角 -->
