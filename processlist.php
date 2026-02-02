@@ -1203,15 +1203,16 @@ if ($current_user_id && count($user_companies) > 0) {
         </div>
     </div>
 
-    <!-- Add Process Popup Modal for Bank Category -->
+    <!-- Add/Edit Process Popup Modal for Bank Category（与 Add 同格式，Edit 时预填并显示 Update） -->
     <div id="addBankModal" class="modal bank-modal" style="display: none;">
         <div class="modal-content bank-modal-content">
             <div class="modal-header">
-                <h2>Add Process</h2>
+                <h2 id="bankModalTitle">Add Process</h2>
                 <span class="close" onclick="closeAddBankModal()">&times;</span>
             </div>
             <div class="modal-body">
                 <form id="addBankProcessForm" class="process-form bank-form">
+                    <input type="hidden" id="bank_edit_id" name="id" value="">
                     <!-- Left Column -->
                     <div class="bank-form-left">
                         <!-- Bank Information Section -->
@@ -1351,7 +1352,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     
                     <!-- Actions: span full width -->
                     <div class="form-actions bank-actions">
-                        <button type="submit" class="btn btn-save">Add Process</button>
+                        <button type="submit" class="btn btn-save" id="bankSubmitBtn">Add Process</button>
                         <button type="button" class="btn btn-cancel" onclick="closeAddBankModal()">Cancel</button>
                     </div>
                 </form>
@@ -2108,13 +2109,15 @@ if ($current_user_id && count($user_companies) > 0) {
         
         function closeAddBankModal() {
             document.getElementById('addBankModal').style.display = 'none';
+            document.getElementById('bank_edit_id').value = '';
+            const titleEl = document.getElementById('bankModalTitle');
+            const submitBtn = document.getElementById('bankSubmitBtn');
+            if (titleEl) titleEl.textContent = 'Add Process';
+            if (submitBtn) submitBtn.textContent = 'Add Process';
             document.getElementById('addBankProcessForm').reset();
-            // 重置 Profit 计算
+            document.getElementById('bank_edit_id').value = '';
             const profitInput = document.getElementById('bank_profit');
-            if (profitInput) {
-                profitInput.value = '';
-            }
-            // 重置 account 选择器（custom select 按钮）
+            if (profitInput) profitInput.value = '';
             const cardMerchantBtn = document.getElementById('bank_card_merchant');
             const customerBtn = document.getElementById('bank_customer');
             if (cardMerchantBtn) {
@@ -2198,23 +2201,89 @@ if ($current_user_id && count($user_companies) > 0) {
             document.getElementById('edit_description').value = '';
         }
 
+        /** Bank 编辑：打开与 Add 同格式的弹窗，预填数据，提交时走 update_process */
+        async function openBankEditModal(id) {
+            try {
+                const response = await fetch(buildApiUrl(`processlistapi.php?action=get_process&id=${id}&permission=Bank`));
+                const result = await response.json();
+                if (!result.success || !result.data) {
+                    showNotification(result.error || 'Failed to load process data', 'danger');
+                    return;
+                }
+                const process = result.data;
+                await loadAddBankProcessData();
+                document.getElementById('bank_edit_id').value = process.id;
+                document.getElementById('bankModalTitle').textContent = 'Edit Process';
+                document.getElementById('bankSubmitBtn').textContent = 'Update Process';
+                const countrySelect = document.getElementById('bank_country');
+                const bankSelect = document.getElementById('bank_bank');
+                if (process.country) {
+                    if (!Array.from(countrySelect.options).some(o => o.value === process.country)) {
+                        const opt = document.createElement('option');
+                        opt.value = process.country;
+                        opt.textContent = process.country;
+                        countrySelect.appendChild(opt);
+                    }
+                    countrySelect.value = process.country;
+                } else {
+                    countrySelect.value = '';
+                }
+                if (process.bank) {
+                    if (!Array.from(bankSelect.options).some(o => o.value === process.bank)) {
+                        const opt = document.createElement('option');
+                        opt.value = process.bank;
+                        opt.textContent = process.bank;
+                        bankSelect.appendChild(opt);
+                    }
+                    bankSelect.value = process.bank;
+                } else {
+                    bankSelect.value = '';
+                }
+                document.getElementById('bank_type').value = process.type || '';
+                document.getElementById('bank_name').value = process.name || '';
+                const cardMerchantBtn = document.getElementById('bank_card_merchant');
+                const customerBtn = document.getElementById('bank_customer');
+                if (cardMerchantBtn && process.card_merchant_id) {
+                    cardMerchantBtn.setAttribute('data-value', process.card_merchant_id);
+                    cardMerchantBtn.textContent = process.card_merchant_name || process.card_merchant_id || 'Select Account';
+                } else if (cardMerchantBtn) {
+                    cardMerchantBtn.removeAttribute('data-value');
+                    cardMerchantBtn.textContent = cardMerchantBtn.getAttribute('data-placeholder') || 'Select Account';
+                }
+                if (customerBtn && process.customer_id) {
+                    customerBtn.setAttribute('data-value', process.customer_id);
+                    customerBtn.textContent = (process.customer_account || process.customer_name || process.customer_id) || 'Select Account';
+                } else if (customerBtn) {
+                    customerBtn.removeAttribute('data-value');
+                    customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
+                }
+                document.getElementById('bank_contract').value = process.contract || '';
+                document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
+                document.getElementById('bank_cost').value = process.cost != null && process.cost !== '' ? process.cost : '';
+                document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';
+                document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
+                const dayStart = process.day_start || '';
+                document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+                document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
+                document.getElementById('addBankModal').style.display = 'block';
+            } catch (error) {
+                console.error('Error opening bank edit modal:', error);
+                showNotification('Failed to load process data', 'danger');
+            }
+        }
+
         async function editProcess(id) {
             try {
-                // Load edit form data first
-                await loadEditProcessData();
-                
-                // Fetch process data（Bank 类别需传 permission 以从 bank_process 取数）
-                let getProcessUrl = `processlistapi.php?action=get_process&id=${id}`;
                 if (selectedPermission === 'Bank') {
-                    getProcessUrl += '&permission=Bank';
+                    await openBankEditModal(id);
+                    return;
                 }
+                await loadEditProcessData();
+                let getProcessUrl = `processlistapi.php?action=get_process&id=${id}`;
                 const response = await fetch(buildApiUrl(getProcessUrl));
                 const result = await response.json();
-                
                 if (result.success && result.data) {
                     const process = result.data;
-                    
-                    // Populate form fields
                     document.getElementById('edit_process_id').value = process.id;
                     document.getElementById('edit_description_id').value = process.description_id || '';
                     document.getElementById('edit_process_name').value = process.process_name || '';
@@ -3399,26 +3468,22 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
-        // 处理 Bank Add Process 表单提交
+        // 处理 Bank Add/Edit Process 表单提交（Edit 时走 update_process）
         const addBankProcessForm = document.getElementById('addBankProcessForm');
         if (addBankProcessForm) {
             addBankProcessForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                
-                // 验证必填字段
                 const country = document.getElementById('bank_country').value;
                 const bank = document.getElementById('bank_bank').value;
                 const type = document.getElementById('bank_type').value;
                 const name = document.getElementById('bank_name').value;
-                
                 if (!country || !bank || !type || !name) {
                     showNotification('Please fill in all required fields (Country, Bank, Type, Name)', 'danger');
                     return;
                 }
-                
+                const editId = document.getElementById('bank_edit_id').value;
                 const formData = new FormData(this);
                 formData.append('permission', 'Bank');
-                
                 const cardMerchantBtn = document.getElementById('bank_card_merchant');
                 const customerBtn = document.getElementById('bank_customer');
                 if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
@@ -3427,26 +3492,38 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (customerBtn && customerBtn.getAttribute('data-value')) {
                     formData.append('customer_id', customerBtn.getAttribute('data-value'));
                 }
-                
                 try {
+                    if (editId) {
+                        formData.append('id', editId);
+                        const response = await fetch(buildApiUrl('processlistapi.php?action=update_process'), {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        if (result.success) {
+                            showNotification(result.message || 'Process updated successfully!', 'success');
+                            closeAddBankModal();
+                            fetchProcesses();
+                        } else {
+                            showNotification(result.error || 'Update failed', 'danger');
+                        }
+                        return;
+                    }
                     const response = await fetch(buildApiUrl('addprocessapi.php'), {
                         method: 'POST',
                         body: formData
                     });
-                    
                     const result = await response.json();
-                    
                     if (result.success) {
                         showNotification('Bank process added successfully!', 'success');
                         closeAddBankModal();
                         fetchProcesses();
                     } else {
-                        let errorMessage = result.error || 'Unknown error occurred';
-                        showNotification(errorMessage, 'danger');
+                        showNotification(result.error || 'Unknown error occurred', 'danger');
                     }
                 } catch (error) {
-                    console.error('Error adding bank process:', error);
-                    showNotification('Failed to add bank process', 'danger');
+                    console.error('Error saving bank process:', error);
+                    showNotification('Failed to save bank process', 'danger');
                 }
             });
         }
