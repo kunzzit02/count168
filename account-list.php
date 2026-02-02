@@ -262,8 +262,13 @@ $showAll = isset($_GET['showAll']) ? true : false;
             background-color: #ffffff;
             padding: clamp(8px, 0.78vw, 15px);
         }
+        .link-account-search-wrap {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
         .link-account-search-input {
-            width: 100%;
+            width: 250px;
             box-sizing: border-box;
             padding: 8px 12px;
             border: 1px solid #d1d5db;
@@ -634,7 +639,7 @@ $showAll = isset($_GET['showAll']) ? true : false;
                         </label>
                     </div>
                 </div>
-                <div style="margin-bottom: 12px;">
+                <div class="link-account-search-wrap">
                     <input type="text" id="linkAccountSearchInput" class="link-account-search-input" placeholder="Search account..." autocomplete="off" aria-label="Search account">
                 </div>
                 <div style="margin-bottom: 16px;">
