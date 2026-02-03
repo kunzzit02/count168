@@ -1347,6 +1347,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                     </div>
                                 </div>
                             </div>
+                            <div class="selected-countries-section" style="margin-top: 12px;">
+                                <h3>Selected Profit Sharing</h3>
+                                <div class="selected-countries-list" id="selectedProfitSharingList">
+                                    <div class="no-countries">No profit sharing selected</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
