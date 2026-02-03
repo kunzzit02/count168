@@ -1653,14 +1653,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             <h3>Add New Country</h3>
                             <form id="addCountryForm" class="add-country-form">
                                 <div class="add-country-input-group">
-                                    <input type="text" id="new_country_name" name="country_name" placeholder="Enter new country name...">
+                                    <input type="text" id="new_country_name" name="country_name" placeholder="Enter new country name..." oninput="this.value=this.value.toUpperCase()">
                                     <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
                         <h3>Available Countries</h3>
                         <div class="country-search">
-                            <input type="text" id="countrySearch" placeholder="Search countries..." onkeyup="filterCountries()">
+                            <input type="text" id="countrySearch" placeholder="Search countries..." onkeyup="filterCountries()" oninput="this.value=this.value.toUpperCase()">
                         </div>
                         <div class="country-list" id="existingCountries">
                             <!-- Available countries will be loaded here -->
@@ -1697,14 +1697,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             <h3>Add New Bank</h3>
                             <form id="addBankForm" class="add-bank-form">
                                 <div class="add-bank-input-group">
-                                    <input type="text" id="new_bank_name" name="bank_name" placeholder="Enter new bank name...">
+                                    <input type="text" id="new_bank_name" name="bank_name" placeholder="Enter new bank name..." oninput="this.value=this.value.toUpperCase()">
                                     <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
                         <h3>Available Banks</h3>
                         <div class="bank-search">
-                            <input type="text" id="bankSearch" placeholder="Search banks..." onkeyup="filterBanks()">
+                            <input type="text" id="bankSearch" placeholder="Search banks..." onkeyup="filterBanks()" oninput="this.value=this.value.toUpperCase()">
                         </div>
                         <div class="bank-list" id="existingBanks">
                             <!-- Available banks will be loaded here -->
