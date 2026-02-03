@@ -3705,15 +3705,29 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
-        // Add Country form submit (in modal: add new country to Available only; user selects it to move to Selected)
+        // Add Country form submit (in modal: save to DB via API, then add to Available; user selects to move to Selected)
         const addCountryForm = document.getElementById('addCountryForm');
         if (addCountryForm) {
-            addCountryForm.addEventListener('submit', function(e) {
+            addCountryForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const nameInput = document.getElementById('new_country_name');
                 const countryName = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
                 if (!countryName) {
                     showNotification('Please enter a country name', 'danger');
+                    return;
+                }
+                try {
+                    const formData = new FormData();
+                    formData.append('country', countryName);
+                    const res = await fetch(buildApiUrl('processlistapi.php?action=add_country'), { method: 'POST', body: formData });
+                    const result = await res.json();
+                    if (!result.success) {
+                        showNotification(result.error || 'Failed to save country', 'danger');
+                        return;
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showNotification('Failed to save country', 'danger');
                     return;
                 }
                 if (!availableCountriesList.includes(countryName)) {
@@ -4213,9 +4227,37 @@ if ($current_user_id && count($user_companies) > 0) {
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
         
+        // Load countries from server (persist after refresh)
+        async function loadCountriesFromServer() {
+            const select = document.getElementById('bank_country');
+            if (!select) return;
+            const currentVal = (select.value || '').trim();
+            try {
+                const res = await fetch(buildApiUrl('processlistapi.php?action=get_countries'));
+                const result = await res.json();
+                const list = (result.success && result.data) ? result.data : [];
+                select.innerHTML = '';
+                const opt0 = document.createElement('option');
+                opt0.value = '';
+                opt0.textContent = 'Select Country';
+                select.appendChild(opt0);
+                list.forEach(function(c) {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    select.appendChild(opt);
+                });
+                if (currentVal && list.indexOf(currentVal) >= 0) select.value = currentVal;
+                else select.value = '';
+            } catch (e) {
+                console.warn('loadCountriesFromServer', e);
+            }
+        }
+
         // Load Bank Add Process Data
         async function loadAddBankProcessData() {
             try {
+                await loadCountriesFromServer();
                 await loadBankAccounts();
                 initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
@@ -5573,6 +5615,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (selectAllBank) selectAllBank.style.display = 'inline-block';
                 if (tableHeader) tableHeader.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
                 processCards.forEach(card => { card.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS; });
+                loadCountriesFromServer();
             } else {
                 if (processTableWrapperEl) processTableWrapperEl.style.display = 'grid';
                 if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'none';
