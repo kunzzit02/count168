@@ -16,20 +16,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 exit;
             }
 
-            // Bank 类别：从 bank_process 表删除；仅允许删除 inactive 且未设置 day_start 的记录
+            // Bank 类别：若有勾选到已设置 day_start 的记录则不允许删除，返回错误
             if ($permission === 'Bank') {
                 $placeholders = str_repeat('?,', count($ids) - 1) . '?';
-                $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id IN ($placeholders) AND company_id = ? AND status = 'inactive' AND (day_start IS NULL OR day_start = '' OR TRIM(CAST(day_start AS CHAR)) = '')");
+                $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id IN ($placeholders) AND company_id = ? AND status = 'inactive'");
                 $params = array_merge($ids, [$company_id_session]);
                 $stmt->execute($params);
-                $bankIdsToDelete = $stmt->fetchAll(PDO::FETCH_COLUMN);
-                if (empty($bankIdsToDelete)) {
+                $inactiveIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                if (empty($inactiveIds)) {
                     header('Location: processlist.php?error=no_inactive_processes');
                     exit;
                 }
-                $delPlaceholders = str_repeat('?,', count($bankIdsToDelete) - 1) . '?';
-                $stmt = $pdo->prepare("DELETE FROM bank_process WHERE id IN ($delPlaceholders) AND company_id = ? AND status = 'inactive' AND (day_start IS NULL OR day_start = '' OR TRIM(CAST(day_start AS CHAR)) = '')");
-                $stmt->execute(array_merge($bankIdsToDelete, [$company_id_session]));
+                $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id IN ($placeholders) AND company_id = ? AND status = 'inactive' AND day_start IS NOT NULL");
+                $stmt->execute($params);
+                $withDayStart = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                if (!empty($withDayStart)) {
+                    header('Location: processlist.php?error=bank_has_day_start');
+                    exit;
+                }
+                $delPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
+                $stmt = $pdo->prepare("DELETE FROM bank_process WHERE id IN ($delPlaceholders) AND company_id = ? AND status = 'inactive'");
+                $stmt->execute(array_merge($inactiveIds, [$company_id_session]));
                 header('Location: processlist.php?success=deleted');
                 exit;
             }
@@ -1986,10 +1993,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 const price = process.price != null && process.price !== '' ? process.price : '';
                 const profit = process.profit != null && process.profit !== '' ? process.profit : '';
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
-                const hasDayStart = process.day_start != null && String(process.day_start).trim() !== '';
-                const canDeleteBank = process.status !== 'active' && !hasDayStart;
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                    (canDeleteBank ? '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">' : '');
+                    (process.status === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
@@ -5478,6 +5483,9 @@ if ($current_user_id && count($user_companies) > 0) {
             if (errorParam === 'process_linked_to_formula') {
                 showNotification('Cannot delete: This process is linked to a formula. Please remove the related formula records first.', 'danger');
                 // 清除 URL 参数
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (errorParam === 'bank_has_day_start') {
+                showNotification('Delete failed: Processes with Day Start set cannot be deleted.', 'danger');
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (errorParam === 'no_inactive_processes') {
                 showNotification('Cannot delete: Only inactive processes can be deleted.', 'danger');
