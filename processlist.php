@@ -3586,6 +3586,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     });
                     const result = await response.json();
                     if (result.success) {
+                        const cardMerchantId = cardMerchantBtn && cardMerchantBtn.getAttribute('data-value') ? cardMerchantBtn.getAttribute('data-value') : null;
+                        const customerId = customerBtn && customerBtn.getAttribute('data-value') ? customerBtn.getAttribute('data-value') : null;
+                        if (cardMerchantId) await ensureAccountHasCountryCurrency(cardMerchantId);
+                        if (customerId) await ensureAccountHasCountryCurrency(customerId);
                         showNotification('Bank process added successfully!', 'success');
                         closeAddBankModal();
                         fetchProcesses();
@@ -4480,7 +4484,6 @@ if ($current_user_id && count($user_companies) > 0) {
                             accountDropdown.style.display = 'none';
                             isOpen = false;
                             updateBankAddButtonTitles();
-                            ensureAccountHasCountryCurrency(account.id);
                         });
                         optionsContainer.appendChild(option);
                     });
