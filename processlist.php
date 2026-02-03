@@ -1940,24 +1940,6 @@ if ($current_user_id && count($user_companies) > 0) {
             }).join('');
 
             tbody.innerHTML = '';
-            if (processes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 20px;">No process data found</td></tr>';
-                renderPagination();
-                updateSelectAllProcessesVisibility();
-                return;
-            }
-
-            let pageItems, startIndex;
-            if (showAll) {
-                pageItems = processes;
-                startIndex = 0;
-            } else {
-                const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
-                if (currentPage > totalPages) currentPage = totalPages;
-                startIndex = (currentPage - 1) * pageSize;
-                pageItems = processes.slice(startIndex, Math.min(startIndex + pageSize, processes.length));
-            }
-
             const contractMap = { '1':'1 MONTH','1 month':'1 MONTH','2':'2 MONTHS','2 months':'2 MONTHS','3':'3 MONTHS','3 months':'3 MONTHS','6':'6 MONTHS','6 months':'6 MONTHS' };
             const todayStr = new Date().toISOString().slice(0, 10);
             function getContractStateClass(dayStart, dayEnd) {
@@ -1968,6 +1950,31 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (dayStart && todayStr >= dayStart) return 'contract-active';
                 return 'contract-expired';
             }
+            // When Waiting is checked, only show rows where contract is pending (yellow)
+            let listToShow = processes;
+            if (waiting) {
+                listToShow = processes.filter(function(p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
+            }
+            window.__bankFilteredLength = waiting ? listToShow.length : null;
+
+            if (listToShow.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 20px;">No process data found</td></tr>';
+                renderPagination();
+                updateSelectAllProcessesVisibility();
+                return;
+            }
+
+            let pageItems, startIndex;
+            if (showAll) {
+                pageItems = listToShow;
+                startIndex = 0;
+            } else {
+                const totalPages = Math.max(1, Math.ceil(listToShow.length / pageSize));
+                if (currentPage > totalPages) currentPage = totalPages;
+                startIndex = (currentPage - 1) * pageSize;
+                pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
+            }
+
             pageItems.forEach((process, idx) => {
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
@@ -2026,8 +2033,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 paginationContainer.style.display = 'none';
                 return;
             }
-            
-            const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
+            const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
+            const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
             
             // 更新分页控件信息
             document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
@@ -2045,7 +2052,8 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function goToPage(page) {
-            const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
+            const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
+            const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
             const newPage = Math.min(Math.max(1, page), totalPages);
             if (newPage !== currentPage) {
                 currentPage = newPage;
