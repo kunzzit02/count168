@@ -583,6 +583,9 @@ if ($current_user_id && count($user_companies) > 0) {
         .bank-form-left .bank-row-two-cols {
             grid-template-columns: 1fr 1fr;
         }
+        .bank-form-left .bank-row-type-name {
+            grid-template-columns: 0.35fr 1fr;
+        }
         .bank-form-left .bank-row-three-cols {
             grid-template-columns: 1fr 1fr 1fr;
         }
@@ -1239,7 +1242,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                             
-                            <div class="form-row bank-row-two-cols">
+                            <div class="form-row bank-row-two-cols bank-row-type-name">
                                 <div class="form-group">
                                     <label for="bank_type">Type</label>
                                     <select id="bank_type" name="type" class="bank-select">
