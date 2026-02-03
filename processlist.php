@@ -4371,6 +4371,14 @@ if ($current_user_id && count($user_companies) > 0) {
         let availableCountriesList = [];
 
         function showAddCountryModal() {
+            const select = document.getElementById('bank_country');
+            if (select && select.options) {
+                window.selectedCountries = [];
+                for (let i = 0; i < select.options.length; i++) {
+                    const v = (select.options[i].value || '').trim();
+                    if (v) window.selectedCountries.push(v);
+                }
+            }
             loadExistingCountries();
             updateSelectedCountriesInModal();
             const modal = document.getElementById('countrySelectionModal');
@@ -4389,7 +4397,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (v) existingOptions.push(v);
                 }
             }
-            const combined = [...new Set([...DEFAULT_COUNTRIES, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            const all = [...new Set([...DEFAULT_COUNTRIES, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            const selectedSet = new Set(window.selectedCountries || []);
+            const combined = all.filter(name => !selectedSet.has(name));
             availableCountriesList = combined;
 
             const listEl = document.getElementById('existingCountries');
@@ -4594,6 +4604,14 @@ if ($current_user_id && count($user_companies) > 0) {
         let availableBanksList = [];
 
         function showAddBankModal() {
+            const select = document.getElementById('bank_bank');
+            if (select && select.options) {
+                window.selectedBanks = [];
+                for (let i = 0; i < select.options.length; i++) {
+                    const v = (select.options[i].value || '').trim();
+                    if (v) window.selectedBanks.push(v);
+                }
+            }
             loadExistingBanks();
             updateSelectedBanksInModal();
             const modal = document.getElementById('bankSelectionModal');
@@ -4612,7 +4630,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (v) existingOptions.push(v);
                 }
             }
-            const combined = [...new Set([...DEFAULT_BANKS, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            const all = [...new Set([...DEFAULT_BANKS, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            const selectedSet = new Set(window.selectedBanks || []);
+            const combined = all.filter(name => !selectedSet.has(name));
             availableBanksList = combined;
 
             const listEl = document.getElementById('existingBanks');
