@@ -3669,7 +3669,7 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
-        // Add Country form submit (in modal: add new country to available list and select it)
+        // Add Country form submit (in modal: add new country to Available only; user selects it to move to Selected)
         const addCountryForm = document.getElementById('addCountryForm');
         if (addCountryForm) {
             addCountryForm.addEventListener('submit', function(e) {
@@ -3680,22 +3680,17 @@ if ($current_user_id && count($user_companies) > 0) {
                     showNotification('Please enter a country name', 'danger');
                     return;
                 }
-                if (!window.selectedCountries) window.selectedCountries = [];
-                if (!window.selectedCountries.includes(countryName)) {
-                    window.selectedCountries.push(countryName);
-                }
                 if (!availableCountriesList.includes(countryName)) {
                     availableCountriesList.push(countryName);
                     availableCountriesList.sort((a, b) => a.localeCompare(b));
                 }
-                updateSelectedCountriesInModal();
                 loadExistingCountries();
                 if (nameInput) nameInput.value = '';
-                showNotification('Country added and selected', 'success');
+                showNotification('Country added to available list', 'success');
             });
         }
 
-        // Add Bank form submit (in modal: add new bank to available list and select it)
+        // Add Bank form submit (in modal: add new bank to Available only; user selects it to move to Selected)
         const addBankFormEl = document.getElementById('addBankForm');
         if (addBankFormEl) {
             addBankFormEl.addEventListener('submit', function(e) {
@@ -3706,18 +3701,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     showNotification('Please enter a bank name', 'danger');
                     return;
                 }
-                if (!window.selectedBanks) window.selectedBanks = [];
-                if (!window.selectedBanks.includes(bankName)) {
-                    window.selectedBanks.push(bankName);
-                }
                 if (!availableBanksList.includes(bankName)) {
                     availableBanksList.push(bankName);
                     availableBanksList.sort((a, b) => a.localeCompare(b));
                 }
-                updateSelectedBanksInModal();
                 loadExistingBanks();
                 if (nameInput) nameInput.value = '';
-                showNotification('Bank added and selected', 'success');
+                showNotification('Bank added to available list', 'success');
             });
         }
 
@@ -4397,7 +4387,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (v) existingOptions.push(v);
                 }
             }
-            const all = [...new Set([...DEFAULT_COUNTRIES, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            const all = [...new Set([...DEFAULT_COUNTRIES, ...existingOptions, ...(availableCountriesList || [])])].sort((a, b) => a.localeCompare(b));
             const selectedSet = new Set(window.selectedCountries || []);
             const combined = all.filter(name => !selectedSet.has(name));
             availableCountriesList = combined;
@@ -4630,7 +4620,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (v) existingOptions.push(v);
                 }
             }
-            const all = [...new Set([...DEFAULT_BANKS, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            const all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
             const selectedSet = new Set(window.selectedBanks || []);
             const combined = all.filter(name => !selectedSet.has(name));
             availableBanksList = combined;
