@@ -545,6 +545,7 @@ body.process-page {
     -webkit-appearance: none;
     display: inline-block;
     margin-left: clamp(10px, 0.73vw, 14px);
+    margin-bottom: 0px;
     width: clamp(10px, 0.83vw, 16px);
     height: clamp(10px, 0.83vw, 16px);
     border: 2px solid #000000ff;
