@@ -4356,9 +4356,31 @@ if ($current_user_id && count($user_companies) > 0) {
                 const apiUrl = buildApiUrl('addprocessapi.php');
                 const res = await fetch(apiUrl);
                 const result = await res.json();
-                if (!result.success || !result.currencies || !result.currencies.length) return;
-                const currency = result.currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
-                if (!currency || !currency.id) return;
+                if (!result.success) return;
+                const currencies = result.currencies || [];
+                let currency = currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
+                if (!currency || !currency.id) {
+                    const currentCompanyId = <?php echo json_encode($company_id ?? null); ?>;
+                    const createRes = await fetch(buildApiUrl('addcurrencyapi.php'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId || undefined })
+                    });
+                    const createResult = await createRes.json();
+                    if (createResult.success && createResult.data) {
+                        currency = { id: createResult.data.id, code: createResult.data.code || currencyCode };
+                    } else if (createResult.error && (createResult.error + '').toLowerCase().includes('already exists')) {
+                        const refetch = await fetch(apiUrl);
+                        const refetchResult = await refetch.json();
+                        if (refetchResult.success && Array.isArray(refetchResult.currencies)) {
+                            currency = refetchResult.currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
+                        }
+                    }
+                    if (!currency || !currency.id) {
+                        console.warn('ensureAccountHasCountryCurrency: could not get or create currency', currencyCode);
+                        return;
+                    }
+                }
                 const getCurrUrl = buildApiUrl('account_currency_api.php?action=get_account_currencies&account_id=' + accountId);
                 const getCurrRes = await fetch(getCurrUrl);
                 const getCurrResult = await getCurrRes.json();
