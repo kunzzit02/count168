@@ -396,6 +396,11 @@ body.process-page {
     vertical-align: middle;
     flex-shrink: 0;
 }
+/* Bank 空数据行：与 Gambling “No process data found” 同位置（左 40px = 20+20） */
+.process-page .bank-data-table .bank-empty-cell {
+    text-align: left;
+    padding: 20px 20px 20px 40px;
+}
 
 /* Bank Contract 列：椭圆徽章围着字（与 Status ACTIVE 一致） */
 .contract-badge {
