@@ -3515,7 +3515,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                 message += ' (Sync not set: source process not found for this company)';
                             }
                         }
-                        showNotification(message, 'success');
+                        // 若有冲突被跳过，用 warning 并附上具体原因，方便用户修改后重试
+                        const notifType = (result.errors && result.errors.length > 0) ? 'warning' : 'success';
+                        if (result.errors && result.errors.length > 0) {
+                            message += ' Reason: ' + (result.errors[0] || 'duplicate Process ID + Description');
+                        }
+                        showNotification(message, notifType);
                         closeAddModal();
                         fetchProcesses(); // 刷新列表
             } else {
