@@ -365,7 +365,7 @@ body.process-page {
 }
 .process-page .bank-data-table .bank-th-types,
 .process-page .bank-data-table .bank-td-types {
-    width: 5%;
+    width: 6%;
     min-width: 50px;
     max-width: 95px;
 }
