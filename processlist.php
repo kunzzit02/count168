@@ -4336,14 +4336,21 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         })();
         
-        // Country -> currency code for auto-add when selecting account (Card Merchant / Customer)
+        // Country field: user may enter country name (Malaysia -> MYR) or currency code directly (MYR, SGD)
         const COUNTRY_TO_CURRENCY = { 'Malaysia': 'MYR', 'Singapore': 'SGD' };
+        
+        function resolveCurrencyCodeFromCountryField(value) {
+            if (!value || (value = String(value).trim()) === '') return null;
+            if (COUNTRY_TO_CURRENCY[value]) return COUNTRY_TO_CURRENCY[value];
+            if (value.length >= 2 && value.length <= 5) return value.toUpperCase();
+            return null;
+        }
         
         async function ensureAccountHasCountryCurrency(accountId) {
             if (!accountId) return;
             const countrySelect = document.getElementById('bank_country');
-            const countryName = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
-            const currencyCode = countryName ? (COUNTRY_TO_CURRENCY[countryName] || null) : null;
+            const countryOrCurrency = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
+            const currencyCode = resolveCurrencyCodeFromCountryField(countryOrCurrency);
             if (!currencyCode) return;
             try {
                 const apiUrl = buildApiUrl('addprocessapi.php');
@@ -4352,6 +4359,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!result.success || !result.currencies || !result.currencies.length) return;
                 const currency = result.currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
                 if (!currency || !currency.id) return;
+                const getCurrUrl = buildApiUrl('account_currency_api.php?action=get_account_currencies&account_id=' + accountId);
+                const getCurrRes = await fetch(getCurrUrl);
+                const getCurrResult = await getCurrRes.json();
+                if (getCurrResult.success && Array.isArray(getCurrResult.data)) {
+                    const alreadyHas = getCurrResult.data.some(c => (c.currency_id || c.id) === currency.id || (c.currency_code || '').toUpperCase() === currencyCode);
+                    if (alreadyHas) return;
+                }
                 const addUrl = buildApiUrl('account_currency_api.php?action=add_currency');
                 const addRes = await fetch(addUrl, {
                     method: 'POST',
@@ -4360,7 +4374,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
                 const addResult = await addRes.json();
                 if (addResult.success) {
-                    showNotification(`${currencyCode} added to account`, 'success');
+                    showNotification(currencyCode + ' added to account', 'success');
                 }
             } catch (e) {
                 console.warn('ensureAccountHasCountryCurrency', e);
