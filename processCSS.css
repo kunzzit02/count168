@@ -357,6 +357,10 @@ body.process-page {
     max-width: 48px;
     padding-left: 24px;
 }
+.process-page .bank-data-table .bank-th-card-owner,
+.process-page .bank-data-table .bank-td-card-owner {
+    min-width: 120px;
+}
 .process-page .bank-data-table .bank-th-action,
 .process-page .bank-data-table .bank-td-action {
     width: 5%;
@@ -364,8 +368,8 @@ body.process-page {
     max-width: 95px;
     white-space: nowrap;
 }
-.process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-action),
-.process-page .bank-data-table td:not(.bank-td-no):not(.bank-td-action) {
+.process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-card-owner):not(.bank-th-action),
+.process-page .bank-data-table td:not(.bank-td-no):not(.bank-td-card-owner):not(.bank-td-action) {
     min-width: 0;
 }
 /* Action 列表头：文字与勾选格垂直居中 */

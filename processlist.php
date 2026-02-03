@@ -1925,6 +1925,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const thLabels = ['No','Supplier','Country','Bank','Types','Card Owner','Contract','Insurance','Customer','Cost','Price','Profit','Status','Date','Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
+                if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
                 if (label === 'Action') {
                     return '<th class="bank-th-action">Action <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()"></th>';
                 }
@@ -1980,7 +1981,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     '<td>' + escapeHtml(process.country || '') + '</td>' +
                     '<td>' + escapeHtml(process.bank || '') + '</td>' +
                     '<td>' + escapeHtml(process.types || '') + '</td>' +
-                    '<td>' + escapeHtml(process.supplier || '') + '</td>' +
+                    '<td class="bank-td-card-owner">' + escapeHtml(process.supplier || '') + '</td>' +
                     '<td>' + contractCell + '</td>' +
                     '<td>' + escapeHtml(process.insurance || '') + '</td>' +
                     '<td>' + escapeHtml(process.customer || '') + '</td>' +
