@@ -245,38 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_PO
             $currentUserId = getCurrentUserId($pdo);
         }
         $stmt = $pdo->prepare("INSERT INTO bank_process (
-          foreach ($users as $user) {
-        $userId = $user['id'];
-        
-        // 从 user_company_permissions 表读取权限
-        $selectPermStmt->execute([$userId, $companyId]);
-        $permissionRow = $selectPermStmt->fetch(PDO::FETCH_ASSOC);
-        
-        // 如果用户没有设置权限（NULL），默认可见全部，跳过
-        if (!$permissionRow || $permissionRow['process_permissions'] === null) {
-            continue;
-        }
-
-        $permissions = json_decode($permissionRow['process_permissions'], true);
-        if (!is_array($permissions)) {
-            $permissions = [];
-        }
-
-        // 空数组 [] 在 permissions.php 中表示「已设置但清空」→ 用户看不到任何流程，
-        // 所以必须把新 process 加给这些用户，否则新公司第一次添加 process 时所有人都看不见。
-        $existingIds = [];
-        foreach ($permissions as $permission) {
-            if (isset($permission['id'])) {
-                $existingIds[(int)$permission['id']] = true;
-            }
-        }
-
-        $added = false;
-        foreach ($processDetails as $process) {
-            $pid = (int)$process['id'];
-            if (isset($existingIds[$pid])) {
-                continue;
-            }  company_id, country, bank, type, name, card_merchant_id, customer_id,
+            company_id, country, bank, type, name, card_merchant_id, customer_id,
             contract, insurance, cost, price, profit, profit_sharing, day_start, day_end, status,
             created_by, created_by_type, created_by_owner_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)");
