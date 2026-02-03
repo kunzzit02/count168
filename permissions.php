@@ -160,7 +160,7 @@ function getCurrentUserProcessPermissions($pdo) {
     return [];
 }
 
-function filterProcessesByPermissions($pdo, $baseQuery, $params = [], $requestCompanyId = null) {
+function filterProcessesByPermissions($pdo, $baseQuery, $params = []) {
     if (session_status() === PHP_SESSION_NONE) {
         session_start();
     }
@@ -171,9 +171,9 @@ function filterProcessesByPermissions($pdo, $baseQuery, $params = [], $requestCo
         return [$baseQuery, $params];
     }
 
-    // 获取当前用户ID和公司ID（优先使用请求传入的 company_id，与列表查询一致）
+    // 获取当前用户ID和公司ID
     $currentUserId = $_SESSION['user_id'] ?? $_SESSION['login_id'] ?? null;
-    $companyId = ($requestCompanyId !== null && $requestCompanyId !== '') ? (int)$requestCompanyId : ($_SESSION['company_id'] ?? null);
+    $companyId = $_SESSION['company_id'] ?? null;
 
     if (!$currentUserId || !$companyId) {
         // 如果没有用户ID或公司ID，不添加过滤条件，显示所有流程

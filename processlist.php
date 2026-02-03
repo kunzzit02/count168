@@ -1090,7 +1090,6 @@ if ($current_user_id && count($user_companies) > 0) {
             </div>
             <div class="modal-body">
                 <form id="addProcessForm" class="process-form add-grid">
-                    <input type="hidden" name="company_id" value="<?php echo (int)($company_id ?? 0); ?>">
                     <!-- Left column -->
                     <div class="add-col">
                         <div class="form-row">
