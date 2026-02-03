@@ -2116,7 +2116,9 @@ if ($current_user_id && count($user_companies) > 0) {
         // 其他必要的函数
         function addProcess() {
             if (selectedPermission === 'Bank') {
-                loadAddBankProcessData().then(() => {
+                loadAddBankProcessData().then(async () => {
+                    const countryEl = document.getElementById('bank_country');
+                    await loadBanksByCountry(countryEl ? countryEl.value : '');
                     document.getElementById('addBankModal').style.display = 'block';
                 });
             } else {
@@ -2243,8 +2245,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         countrySelect.appendChild(opt);
                     }
                     countrySelect.value = process.country;
+                    await loadBanksByCountry(process.country);
                 } else {
                     countrySelect.value = '';
+                    await loadBanksByCountry('');
                 }
                 if (process.bank) {
                     if (!Array.from(bankSelect.options).some(o => o.value === process.bank)) {
@@ -4210,6 +4214,49 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
         
+        // 按 Country 加载 Bank 下拉选项（Country-Bank 联动）
+        async function loadBanksByCountry(country) {
+            const select = document.getElementById('bank_bank');
+            if (!select) return;
+            const currentBank = (select.value || '').trim();
+            select.innerHTML = '';
+            const opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = 'Select Bank';
+            select.appendChild(opt0);
+            if (!country || (country = String(country).trim()) === '') {
+                if (currentBank) select.value = '';
+                return;
+            }
+            try {
+                const url = buildApiUrl('processlistapi.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
+                const res = await fetch(url);
+                const result = await res.json();
+                const banks = (result.success && result.data) ? result.data : [];
+                banks.forEach(function(b) {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    select.appendChild(opt);
+                });
+                if (currentBank && banks.indexOf(currentBank) >= 0) select.value = currentBank;
+                else select.value = '';
+            } catch (e) {
+                console.warn('loadBanksByCountry', e);
+                if (currentBank) select.value = '';
+            }
+        }
+        
+        // Country 变更时刷新 Bank 下拉，并清空 Bank 若不在新列表中
+        (function() {
+            const countrySelect = document.getElementById('bank_country');
+            if (countrySelect) {
+                countrySelect.addEventListener('change', function() {
+                    loadBanksByCountry(this.value);
+                });
+            }
+        })();
+        
         // Country -> currency code for auto-add when selecting account (Card Merchant / Customer)
         const COUNTRY_TO_CURRENCY = { 'Malaysia': 'MYR', 'Singapore': 'SGD' };
         
@@ -4590,7 +4637,14 @@ if ($current_user_id && count($user_companies) > 0) {
         const DEFAULT_BANKS = [];
         let availableBanksList = [];
 
-        function showAddBankModal() {
+        async function showAddBankModal() {
+            const countrySelect = document.getElementById('bank_country');
+            const country = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
+            if (!country) {
+                showNotification('Please select Country first', 'danger');
+                return;
+            }
+            await loadBanksByCountry(country);
             const select = document.getElementById('bank_bank');
             if (select && select.options) {
                 window.selectedBanks = [];
@@ -4599,7 +4653,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (v) window.selectedBanks.push(v);
                 }
             }
-            loadExistingBanks();
+            await loadExistingBanks(country);
             updateSelectedBanksInModal();
             const modal = document.getElementById('bankSelectionModal');
             if (modal) {
@@ -4608,16 +4662,29 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        function loadExistingBanks() {
-            const select = document.getElementById('bank_bank');
-            const existingOptions = [];
-            if (select && select.options) {
-                for (let i = 0; i < select.options.length; i++) {
-                    const v = (select.options[i].value || '').trim();
-                    if (v) existingOptions.push(v);
+        async function loadExistingBanks(countryForApi) {
+            let all = [];
+            if (countryForApi) {
+                try {
+                    const url = buildApiUrl('processlistapi.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
+                    const res = await fetch(url);
+                    const result = await res.json();
+                    all = (result.success && result.data) ? result.data : [];
+                    all = [...new Set([...all, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+                } catch (e) {
+                    all = [...(availableBanksList || [])].sort((a, b) => a.localeCompare(b));
                 }
+            } else {
+                const select = document.getElementById('bank_bank');
+                const existingOptions = [];
+                if (select && select.options) {
+                    for (let i = 0; i < select.options.length; i++) {
+                        const v = (select.options[i].value || '').trim();
+                        if (v) existingOptions.push(v);
+                    }
+                }
+                all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
             }
-            const all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
             const selectedSet = new Set(window.selectedBanks || []);
             const combined = all.filter(name => !selectedSet.has(name));
             availableBanksList = combined;
@@ -4791,7 +4858,21 @@ if ($current_user_id && count($user_companies) > 0) {
             document.querySelectorAll('input[name="available_banks"]').forEach(cb => cb.checked = false);
         }
 
-        function confirmBanks() {
+        async function confirmBanks() {
+            const countrySelect = document.getElementById('bank_country');
+            const country = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
+            const banksToSave = [].concat(window.selectedBanks || [], availableBanksList || []);
+            const uniqueBanks = [...new Set(banksToSave.map(function(n){ return (n || '').trim(); }).filter(Boolean))];
+            if (country && uniqueBanks.length > 0) {
+                try {
+                    const fd = new FormData();
+                    fd.append('country', country);
+                    uniqueBanks.forEach(function(b){ fd.append('banks[]', b); });
+                    const res = await fetch(buildApiUrl('processlistapi.php?action=save_country_banks'), { method: 'POST', body: fd });
+                    const result = await res.json();
+                    if (!result.success) console.warn('save_country_banks', result.error);
+                } catch (e) { console.warn('save_country_banks', e); }
+            }
             const select = document.getElementById('bank_bank');
             if (!select) { closeBankSelectionModal(); return; }
             const existing = new Set();
@@ -4799,9 +4880,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const v = (select.options[i].value || '').trim();
                 if (v) existing.add(v);
             }
-            [].concat(window.selectedBanks || [], availableBanksList || []).forEach(function(name) {
-                const n = (name || '').trim();
-                if (!n) return;
+            uniqueBanks.length && uniqueBanks.forEach(function(n) {
                 if (!existing.has(n)) {
                     const opt = document.createElement('option');
                     opt.value = n;

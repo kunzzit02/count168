@@ -257,6 +257,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_PO
             $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_end,
             $currentUserId, $createdByType, $createdByOwnerId
         ]);
+        if ($country !== '' && $bank !== '') {
+            try {
+                $ins = $pdo->prepare("INSERT IGNORE INTO country_bank (company_id, country, bank) VALUES (?, ?, ?)");
+                $ins->execute([$companyId, $country, $bank]);
+            } catch (Exception $e) { /* ignore */ }
+        }
         echo json_encode([
             'success' => true,
             'message' => 'Bank process added successfully',
