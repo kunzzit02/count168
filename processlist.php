@@ -4481,14 +4481,8 @@ if ($current_user_id && count($user_companies) > 0) {
         let availableCountriesList = [];
 
         function showAddCountryModal() {
-            const select = document.getElementById('bank_country');
-            if (select && select.options) {
-                window.selectedCountries = [];
-                for (let i = 0; i < select.options.length; i++) {
-                    const v = (select.options[i].value || '').trim();
-                    if (v) window.selectedCountries.push(v);
-                }
-            }
+            // Previously added countries go to Available only; Selected is empty by default.
+            window.selectedCountries = [];
             loadExistingCountries();
             updateSelectedCountriesInModal();
             const modal = document.getElementById('countrySelectionModal');
