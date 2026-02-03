@@ -584,7 +584,7 @@ if ($current_user_id && count($user_companies) > 0) {
             grid-template-columns: 1fr 1fr;
         }
         .bank-form-left .bank-row-type-name {
-            grid-template-columns: 0.35fr 1fr;
+            grid-template-columns: 0.45fr 1fr;
         }
         .bank-form-left .bank-row-three-cols {
             grid-template-columns: 1fr 1fr 1fr;
