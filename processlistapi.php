@@ -632,6 +632,7 @@ function getBankProcesses() {
                     bp.status,
                     bp.dts_modified,
                     a_cm.name as card_merchant_name,
+                    a_cm.account_id as card_merchant_account_id,
                     a_cust.account_id as customer_account
                 FROM bank_process bp
                 LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
@@ -666,7 +667,7 @@ function getBankProcesses() {
                 'country' => $r['country'] ?? '',
                 'bank' => $r['bank'] ?? '',
                 'types' => $r['type'] ?? '',
-                'card_lower' => $r['card_merchant_name'] ?? '',
+                'card_lower' => $r['card_merchant_account_id'] ?? '',
                 'contract' => $r['contract'] ?? '',
                 'insurance' => $r['insurance'] ?? '',
                 'customer' => $r['customer_account'] ?? '',
