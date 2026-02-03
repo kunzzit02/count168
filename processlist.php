@@ -2121,9 +2121,11 @@ if ($current_user_id && count($user_companies) > 0) {
         // 其他必要的函数
         function addProcess() {
             if (selectedPermission === 'Bank') {
+                window.selectedProfitSharingEntries = [];
                 loadAddBankProcessData().then(async () => {
                     const countryEl = document.getElementById('bank_country');
                     await loadBanksByCountry(countryEl ? countryEl.value : '');
+                    renderSelectedProfitSharing();
                     document.getElementById('addBankModal').style.display = 'block';
                 });
             } else {
@@ -2135,6 +2137,7 @@ if ($current_user_id && count($user_companies) > 0) {
         function closeAddBankModal() {
             document.getElementById('addBankModal').style.display = 'none';
             document.getElementById('bank_edit_id').value = '';
+            window.selectedProfitSharingEntries = [];
             const titleEl = document.getElementById('bankModalTitle');
             const submitBtn = document.getElementById('bankSubmitBtn');
             if (titleEl) titleEl.textContent = 'Add Process';
@@ -2292,6 +2295,23 @@ if ($current_user_id && count($user_companies) > 0) {
                 const dayStart = process.day_start || '';
                 document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
                 document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
+                // Parse profit_sharing string (e.g. "BB - 6, AA - 10") into selectedProfitSharingEntries
+                window.selectedProfitSharingEntries = [];
+                const psStr = (process.profit_sharing || '').trim();
+                if (psStr) {
+                    psStr.split(',').forEach(function(part) {
+                        const t = part.trim();
+                        const dash = t.lastIndexOf(' - ');
+                        if (dash > -1) {
+                            window.selectedProfitSharingEntries.push({
+                                accountId: '',
+                                accountText: t.substring(0, dash).trim(),
+                                amount: t.substring(dash + 3).trim()
+                            });
+                        }
+                    });
+                }
+                renderSelectedProfitSharing();
                 document.getElementById('addBankModal').style.display = 'block';
             } catch (error) {
                 console.error('Error opening bank edit modal:', error);
@@ -4170,15 +4190,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 e.preventDefault();
                 const accountSelect = document.getElementById('profit_sharing_account');
                 const amountInput = document.getElementById('profit_sharing_amount');
-                const mainInput = document.getElementById('bank_profit_sharing');
-                if (!accountSelect || !amountInput || !mainInput) return;
+                if (!accountSelect || !amountInput) return;
                 const accountId = accountSelect.value;
                 const accountText = accountSelect.options[accountSelect.selectedIndex].text;
                 const amount = amountInput.value.trim();
                 if (!accountId || !amount) return;
-                const entry = accountText + ' - ' + amount;
-                const current = (mainInput.value || '').trim();
-                mainInput.value = current ? current + ', ' + entry : entry;
+                if (!window.selectedProfitSharingEntries) window.selectedProfitSharingEntries = [];
+                window.selectedProfitSharingEntries.push({ accountId: accountId, accountText: accountText, amount: amount });
+                renderSelectedProfitSharing();
                 closeProfitSharingModal();
             });
         }
@@ -5063,6 +5082,39 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             const form = document.getElementById('profitSharingForm');
             if (form) form.reset();
+        }
+
+        // Selected Profit Sharing list (array of { accountId, accountText, amount })
+        window.selectedProfitSharingEntries = [];
+
+        function renderSelectedProfitSharing() {
+            const container = document.getElementById('selectedProfitSharingList');
+            const mainInput = document.getElementById('bank_profit_sharing');
+            if (!container) return;
+            const entries = window.selectedProfitSharingEntries || [];
+            if (entries.length === 0) {
+                container.innerHTML = '<div class="no-countries">No profit sharing selected</div>';
+                if (mainInput) mainInput.value = '';
+                return;
+            }
+            const parts = [];
+            container.innerHTML = '';
+            entries.forEach(function(entry, index) {
+                const text = (entry.accountText || '') + ' - ' + (entry.amount || '');
+                parts.push(text);
+                const div = document.createElement('div');
+                div.className = 'selected-country-modal-item';
+                div.dataset.index = String(index);
+                div.innerHTML = '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(text) : text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</span><button type="button" class="remove-country-modal" onclick="removeProfitSharingEntry(' + index + ')">&times;</button>';
+                container.appendChild(div);
+            });
+            if (mainInput) mainInput.value = parts.join(', ');
+        }
+
+        function removeProfitSharingEntry(index) {
+            if (!window.selectedProfitSharingEntries || index < 0 || index >= window.selectedProfitSharingEntries.length) return;
+            window.selectedProfitSharingEntries.splice(index, 1);
+            renderSelectedProfitSharing();
         }
 
         document.addEventListener('DOMContentLoaded', function() {
