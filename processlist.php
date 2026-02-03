@@ -222,7 +222,6 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         .selected-countries-section {
             flex: 1;
-            padding-left: clamp(10px, 1.04vw, 20px);
             min-width: 20rem;
         }
         .available-countries-section h3,
