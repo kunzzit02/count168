@@ -4717,14 +4717,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 return;
             }
             await loadBanksByCountry(country);
-            const select = document.getElementById('bank_bank');
-            if (select && select.options) {
-                window.selectedBanks = [];
-                for (let i = 0; i < select.options.length; i++) {
-                    const v = (select.options[i].value || '').trim();
-                    if (v) window.selectedBanks.push(v);
-                }
-            }
+            // Previously added banks go to Available only; Selected is empty by default.
+            window.selectedBanks = [];
             await loadExistingBanks(country);
             updateSelectedBanksInModal();
             const modal = document.getElementById('bankSelectionModal');
