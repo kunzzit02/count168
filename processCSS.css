@@ -418,7 +418,7 @@ body.process-page {
 }
 .contract-badge.contract-expired {
     background-color: #e8e8e8;
-    color: #666;
+    color: #000000;
     border: 0.0625rem solid #e8e8e8;
 }
 
