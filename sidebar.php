@@ -1244,6 +1244,7 @@ if ($companyId) {
 </style>
 
 <link rel="icon" type="image/png" href="images/count_logo.png">
+<link rel="preload" href="<?php echo htmlspecialchars($initialAvatarSrc); ?>" as="image">
 <!-- Overlay -->
 <div class="informationmenu-overlay"></div>
 
@@ -1266,7 +1267,7 @@ if ($companyId) {
             <div class="avatar-selector-container">
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
                     <!-- 服务端根据 cookie 输出初始 src，切换页面时首屏即显示正确头像，避免闪烁 -->
-                    <img id="currentAvatarImg" src="<?php echo htmlspecialchars($initialAvatarSrc); ?>" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;" loading="eager">
+                    <img id="currentAvatarImg" src="<?php echo htmlspecialchars($initialAvatarSrc); ?>" data-avatar-id="<?php echo htmlspecialchars($avatarId); ?>" alt="Avatar" fetchpriority="high" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;" loading="eager">
                 </div>
                 
             <div class="avatar-options" id="avatarOptions">
@@ -2050,6 +2051,7 @@ if ($companyId) {
         const options = document.getElementById('avatarOptions');
         if (currentAvatarImg) {
             currentAvatarImg.src = avatarImages[avatarId];
+            currentAvatarImg.setAttribute('data-avatar-id', avatarId);
         }
         
         // 隐藏选项
@@ -2080,7 +2082,7 @@ if ($companyId) {
         }
     }
 
-    // 页面加载时恢复用户选择的头像，并同步 cookie 供下次首屏使用
+    // 页面加载时恢复用户选择的头像，并同步 cookie 供下次首屏使用；仅当与当前显示不一致时才更新 src，避免闪烁
     document.addEventListener('DOMContentLoaded', function() {
         const savedAvatar = localStorage.getItem('selectedAvatar');
         const currentAvatarImg = document.getElementById('currentAvatarImg');
@@ -2093,7 +2095,11 @@ if ($companyId) {
         }
 
         if (currentAvatarImg) {
-            currentAvatarImg.src = avatarImages[currentAvatarId];
+            var renderedId = currentAvatarImg.getAttribute('data-avatar-id');
+            if (renderedId !== currentAvatarId) {
+                currentAvatarImg.src = avatarImages[currentAvatarId];
+                currentAvatarImg.setAttribute('data-avatar-id', currentAvatarId);
+            }
         }
         updateSelectedAvatar();
         
