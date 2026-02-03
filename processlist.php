@@ -1252,7 +1252,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_name">Name</label>
-                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input">
+                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input" oninput="this.value=this.value.toUpperCase()">
                                 </div>
                             </div>
                         </div>
