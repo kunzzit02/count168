@@ -17,7 +17,7 @@ $isMember = isset($_SESSION['user_type']) && strtolower($_SESSION['user_type']) 
 // 获取用户信息
 $user_id = $_SESSION['user_id'];
 $login_id = $_SESSION['login_id'] ?? '';
-$account_id = $_SESSION['account_id'] ?? $_SESSION['user_id'] ?? '';
+$name = $_SESSION['name'] ?? '';
 $role = $_SESSION['role'] ?? '';
 
 require_once 'config.php';
@@ -56,7 +56,7 @@ if ($user_id) {
     }
 }
 
-$avatarLetter = $login_id ? strtoupper($login_id[0]) : 'U';
+$avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
 // 头像 ID 与路径映射（与前端 avatarImages 一致，用于服务端输出初始 src 避免切换页面闪烁）
 $avatarImages = [
@@ -1345,8 +1345,8 @@ if ($companyId) {
 
             <div class="user-avatar-dropdown">
                 <div class="user-info">
-                    <div class="user-name"><?php echo htmlspecialchars($login_id); ?></div>
-                    <div class="user-role"><?php echo htmlspecialchars($account_id); ?></div>
+                    <div class="user-name"><?php echo htmlspecialchars($name); ?></div>
+                    <div class="user-role"><?php echo ucfirst($role); ?></div>
                 </div>
             </div>
         </div>
