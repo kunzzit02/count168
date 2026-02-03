@@ -1865,7 +1865,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (processes.length === 0) {
                 const emptyCard = document.createElement('div');
                 emptyCard.className = 'process-card';
-                emptyCard.innerHTML = `<div class="card-item" style="text-align: center; padding: 20px; grid-column: 1 / -1;">No process data found</div>`;
+                emptyCard.innerHTML = `<div class="card-item" style="text-align: left; padding: 20px; grid-column: 1 / -1;">No process data found</div>`;
                 container.appendChild(emptyCard);
                 return;
             }
@@ -1958,7 +1958,7 @@ if ($current_user_id && count($user_companies) > 0) {
             window.__bankFilteredLength = waiting ? listToShow.length : null;
 
             if (listToShow.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 20px;">No process data found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" style="text-align: left; padding: 20px;">No process data found</td></tr>';
                 renderPagination();
                 updateSelectAllProcessesVisibility();
                 return;
