@@ -4336,31 +4336,40 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         })();
         
-        // Country -> currency code for auto-add when selecting account (Card Merchant / Customer)
+        // Country field = currency code(s) e.g. MYR, SGD or "MYR, SGD"; auto-add to selected account if missing
         const COUNTRY_TO_CURRENCY = { 'Malaysia': 'MYR', 'Singapore': 'SGD' };
+        
+        function getCurrencyCodesFromCountryField() {
+            const countrySelect = document.getElementById('bank_country');
+            const raw = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
+            if (!raw) return [];
+            const normalized = (COUNTRY_TO_CURRENCY[raw] || raw).toUpperCase();
+            const codes = normalized.split(',').map(s => s.trim()).filter(Boolean);
+            return codes;
+        }
         
         async function ensureAccountHasCountryCurrency(accountId) {
             if (!accountId) return;
-            const countrySelect = document.getElementById('bank_country');
-            const countryName = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
-            const currencyCode = countryName ? (COUNTRY_TO_CURRENCY[countryName] || null) : null;
-            if (!currencyCode) return;
+            const currencyCodes = getCurrencyCodesFromCountryField();
+            if (currencyCodes.length === 0) return;
             try {
                 const apiUrl = buildApiUrl('addprocessapi.php');
                 const res = await fetch(apiUrl);
                 const result = await res.json();
                 if (!result.success || !result.currencies || !result.currencies.length) return;
-                const currency = result.currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
-                if (!currency || !currency.id) return;
                 const addUrl = buildApiUrl('account_currency_api.php?action=add_currency');
-                const addRes = await fetch(addUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account_id: accountId, currency_id: currency.id })
-                });
-                const addResult = await addRes.json();
-                if (addResult.success) {
-                    showNotification(`${currencyCode} added to account`, 'success');
+                for (const code of currencyCodes) {
+                    const currency = result.currencies.find(c => (c.code || '').toUpperCase() === code);
+                    if (!currency || !currency.id) continue;
+                    const addRes = await fetch(addUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ account_id: accountId, currency_id: currency.id })
+                    });
+                    const addResult = await addRes.json();
+                    if (addResult.success) {
+                        showNotification(`${code} added to account`, 'success');
+                    }
                 }
             } catch (e) {
                 console.warn('ensureAccountHasCountryCurrency', e);
