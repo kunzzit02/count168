@@ -928,7 +928,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="header-item bank-header" style="display: none;">Status</div>
                 <div class="header-item bank-header" style="display: none;">Date</div>
                 <div class="header-item bank-header bank-action-header" style="display: none;">Action
-                    <input type="checkbox" id="selectAllBankProcesses" title="Select all" class="header-action-checkbox" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">
+                    <input type="checkbox" title="Select all" class="header-action-checkbox" style="margin-left: 10px; cursor: pointer;">
                 </div>
             </div>
             
