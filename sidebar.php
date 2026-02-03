@@ -56,7 +56,7 @@ if ($user_id) {
     }
 }
 
-$avatarLetter = $name ? strtoupper($name[0]) : 'U';
+$avatarLetter = $login_id ? strtoupper($login_id[0]) : 'U';
 
 // 头像 ID 与路径映射（与前端 avatarImages 一致，用于服务端输出初始 src 避免切换页面闪烁）
 $avatarImages = [
@@ -412,7 +412,14 @@ if ($companyId) {
         text-align: center;
     }
 
-    
+    .user-account-id {
+        font-size: clamp(9px, 0.57vw, 11px);
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.75);
+        line-height: 1.2;
+        text-align: center;
+    }
+
     .user-role {
         font-size: clamp(9px, 0.57vw, 11px);
         font-weight: 500;
@@ -1345,7 +1352,8 @@ if ($companyId) {
 
             <div class="user-avatar-dropdown">
                 <div class="user-info">
-                    <div class="user-name"><?php echo htmlspecialchars($name); ?></div>
+                    <div class="user-name"><?php echo htmlspecialchars($login_id); ?></div>
+                    <div class="user-account-id"><?php echo htmlspecialchars((string)($user_id ?? '')); ?></div>
                     <div class="user-role"><?php echo ucfirst($role); ?></div>
                 </div>
             </div>
