@@ -222,7 +222,6 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         .selected-countries-section {
             flex: 1;
-            padding-left: clamp(10px, 1.04vw, 20px);
             min-width: 20rem;
         }
         .available-countries-section h3,
@@ -583,6 +582,9 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         .bank-form-left .bank-row-two-cols {
             grid-template-columns: 1fr 1fr;
+        }
+        .bank-form-left .bank-row-type-name {
+            grid-template-columns: 0.35fr 1fr;
         }
         .bank-form-left .bank-row-three-cols {
             grid-template-columns: 1fr 1fr 1fr;
@@ -1240,7 +1242,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                             
-                            <div class="form-row bank-row-two-cols">
+                            <div class="form-row bank-row-two-cols bank-row-type-name">
                                 <div class="form-group">
                                     <label for="bank_type">Type</label>
                                     <select id="bank_type" name="type" class="bank-select">
@@ -1252,7 +1254,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_name">Name</label>
-                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input">
+                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input" oninput="this.value=this.value.toUpperCase()">
                                 </div>
                             </div>
                         </div>
@@ -1338,13 +1340,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                             
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="bank_profit_sharing">Profit Sharing</label>
-                                    <div class="profit-sharing-with-add">
-                                        <input type="text" id="bank_profit_sharing" name="profit_sharing" placeholder="Enter Profit Sharing" class="bank-input" readonly>
-                                        <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
-                                    </div>
+                            <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
+                            <div class="selected-countries-section" style="margin-top: 12px;">
+                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
+                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
+                                </div>
+                                <div class="selected-countries-list" id="selectedProfitSharingList">
+                                    <div class="no-countries">No profit sharing selected</div>
                                 </div>
                             </div>
                         </div>
@@ -1653,14 +1656,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             <h3>Add New Country</h3>
                             <form id="addCountryForm" class="add-country-form">
                                 <div class="add-country-input-group">
-                                    <input type="text" id="new_country_name" name="country_name" placeholder="Enter new country name...">
+                                    <input type="text" id="new_country_name" name="country_name" placeholder="Enter new country name..." oninput="this.value=this.value.toUpperCase()">
                                     <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
                         <h3>Available Countries</h3>
                         <div class="country-search">
-                            <input type="text" id="countrySearch" placeholder="Search countries..." onkeyup="filterCountries()">
+                            <input type="text" id="countrySearch" placeholder="Search countries..." onkeyup="filterCountries()" oninput="this.value=this.value.toUpperCase()">
                         </div>
                         <div class="country-list" id="existingCountries">
                             <!-- Available countries will be loaded here -->
@@ -1697,14 +1700,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             <h3>Add New Bank</h3>
                             <form id="addBankForm" class="add-bank-form">
                                 <div class="add-bank-input-group">
-                                    <input type="text" id="new_bank_name" name="bank_name" placeholder="Enter new bank name...">
+                                    <input type="text" id="new_bank_name" name="bank_name" placeholder="Enter new bank name..." oninput="this.value=this.value.toUpperCase()">
                                     <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
                         <h3>Available Banks</h3>
                         <div class="bank-search">
-                            <input type="text" id="bankSearch" placeholder="Search banks..." onkeyup="filterBanks()">
+                            <input type="text" id="bankSearch" placeholder="Search banks..." onkeyup="filterBanks()" oninput="this.value=this.value.toUpperCase()">
                         </div>
                         <div class="bank-list" id="existingBanks">
                             <!-- Available banks will be loaded here -->
@@ -1925,31 +1928,18 @@ if ($current_user_id && count($user_companies) > 0) {
             const thLabels = ['No','Supplier','Country','Bank','Types','Card Owner','Contract','Insurance','Customer','Cost','Price','Profit','Status','Date','Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
+                if (label === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
+                if (label === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
+                if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
+                if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
                 if (label === 'Action') {
-                    return '<th class="bank-th-action">Action <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()"></th>';
+                    const showActionCheckbox = showInactive || showAll;
+                    return '<th class="bank-th-action">Action' + (showActionCheckbox ? ' <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">' : '') + '</th>';
                 }
                 return '<th>' + escapeHtml(label) + '</th>';
             }).join('');
 
             tbody.innerHTML = '';
-            if (processes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 20px;">No process data found</td></tr>';
-                renderPagination();
-                updateSelectAllProcessesVisibility();
-                return;
-            }
-
-            let pageItems, startIndex;
-            if (showAll) {
-                pageItems = processes;
-                startIndex = 0;
-            } else {
-                const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
-                if (currentPage > totalPages) currentPage = totalPages;
-                startIndex = (currentPage - 1) * pageSize;
-                pageItems = processes.slice(startIndex, Math.min(startIndex + pageSize, processes.length));
-            }
-
             const contractMap = { '1':'1 MONTH','1 month':'1 MONTH','2':'2 MONTHS','2 months':'2 MONTHS','3':'3 MONTHS','3 months':'3 MONTHS','6':'6 MONTHS','6 months':'6 MONTHS' };
             const todayStr = new Date().toISOString().slice(0, 10);
             function getContractStateClass(dayStart, dayEnd) {
@@ -1960,6 +1950,31 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (dayStart && todayStr >= dayStart) return 'contract-active';
                 return 'contract-expired';
             }
+            // When Waiting is checked, only show rows where contract is pending (yellow)
+            let listToShow = processes;
+            if (waiting) {
+                listToShow = processes.filter(function(p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
+            }
+            window.__bankFilteredLength = waiting ? listToShow.length : null;
+
+            if (listToShow.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="15" style="text-align: center; padding: 20px;">No process data found</td></tr>';
+                renderPagination();
+                updateSelectAllProcessesVisibility();
+                return;
+            }
+
+            let pageItems, startIndex;
+            if (showAll) {
+                pageItems = listToShow;
+                startIndex = 0;
+            } else {
+                const totalPages = Math.max(1, Math.ceil(listToShow.length / pageSize));
+                if (currentPage > totalPages) currentPage = totalPages;
+                startIndex = (currentPage - 1) * pageSize;
+                pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
+            }
+
             pageItems.forEach((process, idx) => {
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
@@ -1976,18 +1991,18 @@ if ($current_user_id && count($user_companies) > 0) {
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
-                    '<td>' + escapeHtml(process.supplier || '') + '</td>' +
-                    '<td>' + escapeHtml(process.country || '') + '</td>' +
-                    '<td>' + escapeHtml(process.bank || '') + '</td>' +
-                    '<td>' + escapeHtml(process.types || '') + '</td>' +
                     '<td>' + escapeHtml(process.card_lower || '') + '</td>' +
+                    '<td class="bank-td-country">' + escapeHtml(process.country || '') + '</td>' +
+                    '<td>' + escapeHtml(process.bank || '') + '</td>' +
+                    '<td class="bank-td-types">' + escapeHtml(process.types || '') + '</td>' +
+                    '<td class="bank-td-card-owner">' + escapeHtml(process.supplier || '') + '</td>' +
                     '<td>' + contractCell + '</td>' +
                     '<td>' + escapeHtml(process.insurance || '') + '</td>' +
                     '<td>' + escapeHtml(process.customer || '') + '</td>' +
                     '<td>' + escapeHtml(String(cost)) + '</td>' +
                     '<td>' + escapeHtml(String(price)) + '</td>' +
                     '<td>' + escapeHtml(String(profit)) + '</td>' +
-                    '<td>' + statusBadge + '</td>' +
+                    '<td class="bank-td-status">' + statusBadge + '</td>' +
                     '<td>' + escapeHtml(process.date || '') + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
@@ -2018,8 +2033,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 paginationContainer.style.display = 'none';
                 return;
             }
-            
-            const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
+            const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
+            const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
             
             // 更新分页控件信息
             document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
@@ -2037,7 +2052,8 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function goToPage(page) {
-            const totalPages = Math.max(1, Math.ceil(processes.length / pageSize));
+            const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
+            const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
             const newPage = Math.min(Math.max(1, page), totalPages);
             if (newPage !== currentPage) {
                 currentPage = newPage;
@@ -2112,7 +2128,11 @@ if ($current_user_id && count($user_companies) > 0) {
         // 其他必要的函数
         function addProcess() {
             if (selectedPermission === 'Bank') {
-                loadAddBankProcessData().then(() => {
+                window.selectedProfitSharingEntries = [];
+                loadAddBankProcessData().then(async () => {
+                    const countryEl = document.getElementById('bank_country');
+                    await loadBanksByCountry(countryEl ? countryEl.value : '');
+                    renderSelectedProfitSharing();
                     document.getElementById('addBankModal').style.display = 'block';
                 });
             } else {
@@ -2124,6 +2144,7 @@ if ($current_user_id && count($user_companies) > 0) {
         function closeAddBankModal() {
             document.getElementById('addBankModal').style.display = 'none';
             document.getElementById('bank_edit_id').value = '';
+            window.selectedProfitSharingEntries = [];
             const titleEl = document.getElementById('bankModalTitle');
             const submitBtn = document.getElementById('bankSubmitBtn');
             if (titleEl) titleEl.textContent = 'Add Process';
@@ -2239,8 +2260,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         countrySelect.appendChild(opt);
                     }
                     countrySelect.value = process.country;
+                    await loadBanksByCountry(process.country);
                 } else {
                     countrySelect.value = '';
+                    await loadBanksByCountry('');
                 }
                 if (process.bank) {
                     if (!Array.from(bankSelect.options).some(o => o.value === process.bank)) {
@@ -2279,6 +2302,23 @@ if ($current_user_id && count($user_companies) > 0) {
                 const dayStart = process.day_start || '';
                 document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
                 document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
+                // Parse profit_sharing string (e.g. "BB - 6, AA - 10") into selectedProfitSharingEntries
+                window.selectedProfitSharingEntries = [];
+                const psStr = (process.profit_sharing || '').trim();
+                if (psStr) {
+                    psStr.split(',').forEach(function(part) {
+                        const t = part.trim();
+                        const dash = t.lastIndexOf(' - ');
+                        if (dash > -1) {
+                            window.selectedProfitSharingEntries.push({
+                                accountId: '',
+                                accountText: t.substring(0, dash).trim(),
+                                amount: t.substring(dash + 3).trim()
+                            });
+                        }
+                    });
+                }
+                renderSelectedProfitSharing();
                 document.getElementById('addBankModal').style.display = 'block';
             } catch (error) {
                 console.error('Error opening bank edit modal:', error);
@@ -3665,10 +3705,10 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
 
-        // Add Country form submit (in modal: add new country to available list and select it)
+        // Add Country form submit (in modal: save to DB via API, then add to Available; user selects to move to Selected)
         const addCountryForm = document.getElementById('addCountryForm');
         if (addCountryForm) {
-            addCountryForm.addEventListener('submit', function(e) {
+            addCountryForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const nameInput = document.getElementById('new_country_name');
                 const countryName = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
@@ -3676,22 +3716,31 @@ if ($current_user_id && count($user_companies) > 0) {
                     showNotification('Please enter a country name', 'danger');
                     return;
                 }
-                if (!window.selectedCountries) window.selectedCountries = [];
-                if (!window.selectedCountries.includes(countryName)) {
-                    window.selectedCountries.push(countryName);
+                try {
+                    const formData = new FormData();
+                    formData.append('country', countryName);
+                    const res = await fetch(buildApiUrl('processlistapi.php?action=add_country'), { method: 'POST', body: formData });
+                    const result = await res.json();
+                    if (!result.success) {
+                        showNotification(result.error || 'Failed to save country', 'danger');
+                        return;
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showNotification('Failed to save country', 'danger');
+                    return;
                 }
                 if (!availableCountriesList.includes(countryName)) {
                     availableCountriesList.push(countryName);
                     availableCountriesList.sort((a, b) => a.localeCompare(b));
                 }
-                updateSelectedCountriesInModal();
                 loadExistingCountries();
                 if (nameInput) nameInput.value = '';
-                showNotification('Country added and selected', 'success');
+                showNotification('Country added to available list', 'success');
             });
         }
 
-        // Add Bank form submit (in modal: add new bank to available list and select it)
+        // Add Bank form submit (in modal: add new bank to Available only; user selects it to move to Selected)
         const addBankFormEl = document.getElementById('addBankForm');
         if (addBankFormEl) {
             addBankFormEl.addEventListener('submit', function(e) {
@@ -3702,18 +3751,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     showNotification('Please enter a bank name', 'danger');
                     return;
                 }
-                if (!window.selectedBanks) window.selectedBanks = [];
-                if (!window.selectedBanks.includes(bankName)) {
-                    window.selectedBanks.push(bankName);
-                }
                 if (!availableBanksList.includes(bankName)) {
                     availableBanksList.push(bankName);
                     availableBanksList.sort((a, b) => a.localeCompare(b));
                 }
-                updateSelectedBanksInModal();
                 loadExistingBanks();
                 if (nameInput) nameInput.value = '';
-                showNotification('Bank added and selected', 'success');
+                showNotification('Bank added to available list', 'success');
             });
         }
 
@@ -4167,15 +4211,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 e.preventDefault();
                 const accountSelect = document.getElementById('profit_sharing_account');
                 const amountInput = document.getElementById('profit_sharing_amount');
-                const mainInput = document.getElementById('bank_profit_sharing');
-                if (!accountSelect || !amountInput || !mainInput) return;
+                if (!accountSelect || !amountInput) return;
                 const accountId = accountSelect.value;
                 const accountText = accountSelect.options[accountSelect.selectedIndex].text;
                 const amount = amountInput.value.trim();
                 if (!accountId || !amount) return;
-                const entry = accountText + ' - ' + amount;
-                const current = (mainInput.value || '').trim();
-                mainInput.value = current ? current + ', ' + entry : entry;
+                if (!window.selectedProfitSharingEntries) window.selectedProfitSharingEntries = [];
+                window.selectedProfitSharingEntries.push({ accountId: accountId, accountText: accountText, amount: amount });
+                renderSelectedProfitSharing();
                 closeProfitSharingModal();
             });
         }
@@ -4184,7 +4227,34 @@ if ($current_user_id && count($user_companies) > 0) {
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
         
-        // Load Bank Add Process Data
+        // Load countries from server (persist after refresh)
+        async function loadCountriesFromServer() {
+            const select = document.getElementById('bank_country');
+            if (!select) return;
+            const currentVal = (select.value || '').trim();
+            try {
+                const res = await fetch(buildApiUrl('processlistapi.php?action=get_countries'));
+                const result = await res.json();
+                const list = (result.success && result.data) ? result.data : [];
+                select.innerHTML = '';
+                const opt0 = document.createElement('option');
+                opt0.value = '';
+                opt0.textContent = 'Select Country';
+                select.appendChild(opt0);
+                list.forEach(function(c) {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    select.appendChild(opt);
+                });
+                if (currentVal && list.indexOf(currentVal) >= 0) select.value = currentVal;
+                else select.value = '';
+            } catch (e) {
+                console.warn('loadCountriesFromServer', e);
+            }
+        }
+
+        // Load Bank Add Process Data (do not pre-fill Country dropdown; it only shows Selected from modal)
         async function loadAddBankProcessData() {
             try {
                 await loadBankAccounts();
@@ -4215,6 +4285,49 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.error('Error loading bank process data:', error);
             }
         }
+        
+        // 按 Country 加载 Bank 下拉选项（Country-Bank 联动）
+        async function loadBanksByCountry(country) {
+            const select = document.getElementById('bank_bank');
+            if (!select) return;
+            const currentBank = (select.value || '').trim();
+            select.innerHTML = '';
+            const opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = 'Select Bank';
+            select.appendChild(opt0);
+            if (!country || (country = String(country).trim()) === '') {
+                if (currentBank) select.value = '';
+                return;
+            }
+            try {
+                const url = buildApiUrl('processlistapi.php?action=get_banks_by_country&country=' + encodeURIComponent(country));
+                const res = await fetch(url);
+                const result = await res.json();
+                const banks = (result.success && result.data) ? result.data : [];
+                banks.forEach(function(b) {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    select.appendChild(opt);
+                });
+                if (currentBank && banks.indexOf(currentBank) >= 0) select.value = currentBank;
+                else select.value = '';
+            } catch (e) {
+                console.warn('loadBanksByCountry', e);
+                if (currentBank) select.value = '';
+            }
+        }
+        
+        // Country 变更时刷新 Bank 下拉，并清空 Bank 若不在新列表中
+        (function() {
+            const countrySelect = document.getElementById('bank_country');
+            if (countrySelect) {
+                countrySelect.addEventListener('change', function() {
+                    loadBanksByCountry(this.value);
+                });
+            }
+        })();
         
         // Country -> currency code for auto-add when selecting account (Card Merchant / Customer)
         const COUNTRY_TO_CURRENCY = { 'Malaysia': 'MYR', 'Singapore': 'SGD' };
@@ -4363,11 +4476,19 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         
         // Country Selection Modal
-        const DEFAULT_COUNTRIES = ['China', 'Malaysia', 'Singapore', 'Thailand', 'Philippines', 'Indonesia', 'Vietnam', 'Myanmar', 'Cambodia', 'Japan', 'Korea', 'Taiwan', 'Hong Kong', 'India', 'USA', 'UK', 'Australia', 'Canada', 'Germany', 'France', 'Other'];
+        const DEFAULT_COUNTRIES = [];
         let availableCountriesList = [];
 
-        function showAddCountryModal() {
-            loadExistingCountries();
+        async function showAddCountryModal() {
+            // Previously added countries go to Available only; Selected is empty by default.
+            window.selectedCountries = [];
+            let allCountries = [];
+            try {
+                const res = await fetch(buildApiUrl('processlistapi.php?action=get_countries'));
+                const result = await res.json();
+                allCountries = (result.success && result.data) ? result.data : [];
+            } catch (e) { console.warn('get_countries', e); }
+            loadExistingCountries(allCountries);
             updateSelectedCountriesInModal();
             const modal = document.getElementById('countrySelectionModal');
             if (modal) {
@@ -4376,7 +4497,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        function loadExistingCountries() {
+        function loadExistingCountries(allFromServer) {
             const select = document.getElementById('bank_country');
             const existingOptions = [];
             if (select && select.options) {
@@ -4385,7 +4506,11 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (v) existingOptions.push(v);
                 }
             }
-            const combined = [...new Set([...DEFAULT_COUNTRIES, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            const all = allFromServer && allFromServer.length > 0
+                ? [...new Set([...DEFAULT_COUNTRIES, ...allFromServer, ...(availableCountriesList || [])])].sort((a, b) => a.localeCompare(b))
+                : [...new Set([...DEFAULT_COUNTRIES, ...existingOptions, ...(availableCountriesList || [])])].sort((a, b) => a.localeCompare(b));
+            const selectedSet = new Set(window.selectedCountries || []);
+            const combined = all.filter(name => !selectedSet.has(name));
             availableCountriesList = combined;
 
             const listEl = document.getElementById('existingCountries');
@@ -4558,34 +4683,49 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         function confirmCountries() {
+            const select = document.getElementById('bank_country');
+            if (!select) { closeCountrySelectionModal(); return; }
+            // Dropdown shows only Selected countries, not Available.
+            select.innerHTML = '';
+            const opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = 'Select Country';
+            select.appendChild(opt0);
+            (window.selectedCountries || []).forEach(function(name) {
+                const n = (name || '').trim();
+                if (!n) return;
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = n;
+                select.appendChild(opt);
+            });
             if (window.selectedCountries && window.selectedCountries.length > 0) {
-                const first = window.selectedCountries[0];
-                const select = document.getElementById('bank_country');
-                if (select) {
-                    let found = false;
-                    for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === first) { found = true; break; }
-                    }
-                    if (!found) {
-                        const opt = document.createElement('option');
-                        opt.value = first;
-                        opt.textContent = first;
-                        select.appendChild(opt);
-                    }
-                    select.value = first;
-                }
-                closeCountrySelectionModal();
-            } else {
-                showNotification('Please select at least one country', 'danger');
+                select.value = window.selectedCountries[0] || '';
             }
+            closeCountrySelectionModal();
         }
 
         // Bank Selection Modal
-        const DEFAULT_BANKS = ['Maybank', 'CIMB', 'Public Bank', 'RHB', 'Hong Leong Bank', 'AmBank', 'OCBC', 'UOB', 'HSBC', 'Standard Chartered', 'Citibank', 'Other'];
+        const DEFAULT_BANKS = [];
         let availableBanksList = [];
 
-        function showAddBankModal() {
-            loadExistingBanks();
+        async function showAddBankModal() {
+            const countrySelect = document.getElementById('bank_country');
+            const country = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
+            if (!country) {
+                showNotification('Please select Country first', 'danger');
+                return;
+            }
+            await loadBanksByCountry(country);
+            const select = document.getElementById('bank_bank');
+            if (select && select.options) {
+                window.selectedBanks = [];
+                for (let i = 0; i < select.options.length; i++) {
+                    const v = (select.options[i].value || '').trim();
+                    if (v) window.selectedBanks.push(v);
+                }
+            }
+            await loadExistingBanks(country);
             updateSelectedBanksInModal();
             const modal = document.getElementById('bankSelectionModal');
             if (modal) {
@@ -4594,16 +4734,31 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        function loadExistingBanks() {
-            const select = document.getElementById('bank_bank');
-            const existingOptions = [];
-            if (select && select.options) {
-                for (let i = 0; i < select.options.length; i++) {
-                    const v = (select.options[i].value || '').trim();
-                    if (v) existingOptions.push(v);
+        async function loadExistingBanks(countryForApi) {
+            let all = [];
+            if (countryForApi) {
+                try {
+                    const url = buildApiUrl('processlistapi.php?action=get_banks_by_country&country=' + encodeURIComponent(countryForApi));
+                    const res = await fetch(url);
+                    const result = await res.json();
+                    all = (result.success && result.data) ? result.data : [];
+                    all = [...new Set([...all, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
+                } catch (e) {
+                    all = [...(availableBanksList || [])].sort((a, b) => a.localeCompare(b));
                 }
+            } else {
+                const select = document.getElementById('bank_bank');
+                const existingOptions = [];
+                if (select && select.options) {
+                    for (let i = 0; i < select.options.length; i++) {
+                        const v = (select.options[i].value || '').trim();
+                        if (v) existingOptions.push(v);
+                    }
+                }
+                all = [...new Set([...DEFAULT_BANKS, ...existingOptions, ...(availableBanksList || [])])].sort((a, b) => a.localeCompare(b));
             }
-            const combined = [...new Set([...DEFAULT_BANKS, ...existingOptions])].sort((a, b) => a.localeCompare(b));
+            const selectedSet = new Set(window.selectedBanks || []);
+            const combined = all.filter(name => !selectedSet.has(name));
             availableBanksList = combined;
 
             const listEl = document.getElementById('existingBanks');
@@ -4775,27 +4930,41 @@ if ($current_user_id && count($user_companies) > 0) {
             document.querySelectorAll('input[name="available_banks"]').forEach(cb => cb.checked = false);
         }
 
-        function confirmBanks() {
-            if (window.selectedBanks && window.selectedBanks.length > 0) {
-                const first = window.selectedBanks[0];
-                const select = document.getElementById('bank_bank');
-                if (select) {
-                    let found = false;
-                    for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === first) { found = true; break; }
-                    }
-                    if (!found) {
-                        const opt = document.createElement('option');
-                        opt.value = first;
-                        opt.textContent = first;
-                        select.appendChild(opt);
-                    }
-                    select.value = first;
-                }
-                closeBankSelectionModal();
-            } else {
-                showNotification('Please select at least one bank', 'danger');
+        async function confirmBanks() {
+            const countrySelect = document.getElementById('bank_country');
+            const country = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
+            const banksToSave = [].concat(window.selectedBanks || [], availableBanksList || []);
+            const uniqueBanks = [...new Set(banksToSave.map(function(n){ return (n || '').trim(); }).filter(Boolean))];
+            if (country && uniqueBanks.length > 0) {
+                try {
+                    const fd = new FormData();
+                    fd.append('country', country);
+                    uniqueBanks.forEach(function(b){ fd.append('banks[]', b); });
+                    const res = await fetch(buildApiUrl('processlistapi.php?action=save_country_banks'), { method: 'POST', body: fd });
+                    const result = await res.json();
+                    if (!result.success) console.warn('save_country_banks', result.error);
+                } catch (e) { console.warn('save_country_banks', e); }
             }
+            const select = document.getElementById('bank_bank');
+            if (!select) { closeBankSelectionModal(); return; }
+            const existing = new Set();
+            for (let i = 0; i < select.options.length; i++) {
+                const v = (select.options[i].value || '').trim();
+                if (v) existing.add(v);
+            }
+            uniqueBanks.length && uniqueBanks.forEach(function(n) {
+                if (!existing.has(n)) {
+                    const opt = document.createElement('option');
+                    opt.value = n;
+                    opt.textContent = n;
+                    select.appendChild(opt);
+                    existing.add(n);
+                }
+            });
+            if (window.selectedBanks && window.selectedBanks.length > 0) {
+                select.value = window.selectedBanks[0] || '';
+            }
+            closeBankSelectionModal();
         }
 
         // Placeholder functions for add modals
@@ -4961,6 +5130,39 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             const form = document.getElementById('profitSharingForm');
             if (form) form.reset();
+        }
+
+        // Selected Profit Sharing list (array of { accountId, accountText, amount })
+        window.selectedProfitSharingEntries = [];
+
+        function renderSelectedProfitSharing() {
+            const container = document.getElementById('selectedProfitSharingList');
+            const mainInput = document.getElementById('bank_profit_sharing');
+            if (!container) return;
+            const entries = window.selectedProfitSharingEntries || [];
+            if (entries.length === 0) {
+                container.innerHTML = '<div class="no-countries">No profit sharing selected</div>';
+                if (mainInput) mainInput.value = '';
+                return;
+            }
+            const parts = [];
+            container.innerHTML = '';
+            entries.forEach(function(entry, index) {
+                const text = (entry.accountText || '') + ' - ' + (entry.amount || '');
+                parts.push(text);
+                const div = document.createElement('div');
+                div.className = 'selected-country-modal-item';
+                div.dataset.index = String(index);
+                div.innerHTML = '<span>' + (typeof escapeHtml === 'function' ? escapeHtml(text) : text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')) + '</span><button type="button" class="remove-country-modal" onclick="removeProfitSharingEntry(' + index + ')">&times;</button>';
+                container.appendChild(div);
+            });
+            if (mainInput) mainInput.value = parts.join(', ');
+        }
+
+        function removeProfitSharingEntry(index) {
+            if (!window.selectedProfitSharingEntries || index < 0 || index >= window.selectedProfitSharingEntries.length) return;
+            window.selectedProfitSharingEntries.splice(index, 1);
+            renderSelectedProfitSharing();
         }
 
         document.addEventListener('DOMContentLoaded', function() {

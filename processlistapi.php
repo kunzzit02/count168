@@ -105,6 +105,18 @@ switch ($action) {
     case 'update_process':
         updateProcess();
         break;
+    case 'get_banks_by_country':
+        getBanksByCountry();
+        break;
+    case 'get_countries':
+        getCountries();
+        break;
+    case 'add_country':
+        addCountry();
+        break;
+    case 'save_country_banks':
+        saveCountryBanks();
+        break;
     default:
         getProcesses();
         break;
@@ -632,6 +644,7 @@ function getBankProcesses() {
                     bp.status,
                     bp.dts_modified,
                     a_cm.name as card_merchant_name,
+                    a_cm.account_id as card_merchant_account_id,
                     a_cust.account_id as customer_account
                 FROM bank_process bp
                 LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
@@ -666,7 +679,7 @@ function getBankProcesses() {
                 'country' => $r['country'] ?? '',
                 'bank' => $r['bank'] ?? '',
                 'types' => $r['type'] ?? '',
-                'card_lower' => $r['card_merchant_name'] ?? '',
+                'card_lower' => $r['card_merchant_account_id'] ?? '',
                 'contract' => $r['contract'] ?? '',
                 'insurance' => $r['insurance'] ?? '',
                 'customer' => $r['customer_account'] ?? '',
@@ -804,10 +817,130 @@ function updateBankProcess() {
             $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         ]);
+        if ($country !== '' && $bank !== '') {
+            try {
+                $ins = $pdo->prepare("INSERT IGNORE INTO country_bank (company_id, country, bank) VALUES (?, ?, ?)");
+                $ins->execute([$currentCompanyId, $country, $bank]);
+            } catch (Exception $e) { /* ignore */ }
+        }
         echo json_encode(['success' => true, 'message' => 'Process updated successfully!']);
     } catch (Exception $e) {
         error_log("updateBankProcess: " . $e->getMessage());
         echo json_encode(['success' => false, 'error' => 'Failed to update process: ' . $e->getMessage()]);
+    }
+}
+
+/**
+ * 按 Country 获取该 Country 下的 Bank 列表（用于 Bank 下拉联动）
+ */
+/**
+ * Get all countries for the current company (from country_bank + company_countries).
+ * Used to populate Country dropdown and retain after refresh.
+ */
+function getCountries() {
+    global $pdo;
+    try {
+        $companyId = $_SESSION['company_id'] ?? null;
+        if (!$companyId) {
+            echo json_encode(['success' => false, 'error' => 'Company not found']);
+            return;
+        }
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT country FROM (
+                SELECT country FROM country_bank WHERE company_id = ?
+                UNION
+                SELECT country FROM company_countries WHERE company_id = ?
+            ) t ORDER BY country ASC
+        ");
+        $stmt->execute([$companyId, $companyId]);
+        $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        echo json_encode(['success' => true, 'data' => array_values($rows)]);
+    } catch (Exception $e) {
+        error_log("getCountries: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage(), 'data' => []]);
+    }
+}
+
+/**
+ * Add a new country for the current company (persist so it survives refresh).
+ */
+function addCountry() {
+    global $pdo;
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['success' => false, 'error' => 'Method not allowed']);
+        return;
+    }
+    try {
+        $companyId = $_SESSION['company_id'] ?? null;
+        if (!$companyId) {
+            echo json_encode(['success' => false, 'error' => 'Company not found']);
+            return;
+        }
+        $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
+        if ($country === '') {
+            echo json_encode(['success' => false, 'error' => 'Country name is required']);
+            return;
+        }
+        $stmt = $pdo->prepare("INSERT IGNORE INTO company_countries (company_id, country) VALUES (?, ?)");
+        $stmt->execute([$companyId, $country]);
+        echo json_encode(['success' => true, 'message' => 'Saved']);
+    } catch (Exception $e) {
+        error_log("addCountry: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+}
+
+function getBanksByCountry() {
+    global $pdo;
+    try {
+        $companyId = $_SESSION['company_id'] ?? null;
+        if (!$companyId) {
+            echo json_encode(['success' => false, 'error' => 'Company not found']);
+            return;
+        }
+        $country = isset($_GET['country']) ? trim((string)$_GET['country']) : '';
+        if ($country === '') {
+            echo json_encode(['success' => true, 'data' => []]);
+            return;
+        }
+        $stmt = $pdo->prepare("SELECT bank FROM country_bank WHERE company_id = ? AND country = ? ORDER BY bank ASC");
+        $stmt->execute([$companyId, $country]);
+        $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        echo json_encode(['success' => true, 'data' => array_values($rows)]);
+    } catch (Exception $e) {
+        error_log("getBanksByCountry: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage(), 'data' => []]);
+    }
+}
+
+/**
+ * 保存 Country-Bank 关联（确保这些 bank 都 under 当前 country）
+ */
+function saveCountryBanks() {
+    global $pdo;
+    try {
+        $companyId = $_SESSION['company_id'] ?? null;
+        if (!$companyId) {
+            echo json_encode(['success' => false, 'error' => 'Company not found']);
+            return;
+        }
+        $country = isset($_POST['country']) ? trim((string)$_POST['country']) : '';
+        $banks = isset($_POST['banks']) ? $_POST['banks'] : [];
+        if (!is_array($banks)) $banks = [];
+        if ($country === '') {
+            echo json_encode(['success' => true, 'message' => 'No country']);
+            return;
+        }
+        foreach ($banks as $bank) {
+            $bank = trim((string)$bank);
+            if ($bank === '') continue;
+            $stmt = $pdo->prepare("INSERT IGNORE INTO country_bank (company_id, country, bank) VALUES (?, ?, ?)");
+            $stmt->execute([$companyId, $country, $bank]);
+        }
+        echo json_encode(['success' => true, 'message' => 'Saved']);
+    } catch (Exception $e) {
+        error_log("saveCountryBanks: " . $e->getMessage());
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
 }
 ?>
