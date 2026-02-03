@@ -381,6 +381,10 @@ body.process-page {
     max-width: 95px;
     white-space: nowrap;
 }
+.process-page .bank-data-table .bank-td-action {
+    display: flex;
+    align-items: center;
+}
 .process-page .bank-data-table th:not(.bank-th-no):not(.bank-th-country):not(.bank-th-types):not(.bank-th-card-owner):not(.bank-th-status):not(.bank-th-action),
 .process-page .bank-data-table td:not(.bank-td-no):not(.bank-td-country):not(.bank-td-types):not(.bank-td-card-owner):not(.bank-td-status):not(.bank-td-action) {
     min-width: 0;
