@@ -1976,11 +1976,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
-                    '<td>' + escapeHtml(process.supplier || '') + '</td>' +
+                    '<td>' + escapeHtml(process.card_lower || '') + '</td>' +
                     '<td>' + escapeHtml(process.country || '') + '</td>' +
                     '<td>' + escapeHtml(process.bank || '') + '</td>' +
                     '<td>' + escapeHtml(process.types || '') + '</td>' +
-                    '<td>' + escapeHtml(process.card_lower || '') + '</td>' +
+                    '<td>' + escapeHtml(process.supplier || '') + '</td>' +
                     '<td>' + contractCell + '</td>' +
                     '<td>' + escapeHtml(process.insurance || '') + '</td>' +
                     '<td>' + escapeHtml(process.customer || '') + '</td>' +
