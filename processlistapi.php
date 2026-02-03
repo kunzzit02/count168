@@ -618,7 +618,6 @@ function getBankProcesses() {
         $searchTerm = $_GET['search'] ?? '';
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
-        $waiting = isset($_GET['waiting']) && $_GET['waiting'] == '1';
 
         $sql = "SELECT 
                     bp.id,
@@ -654,9 +653,7 @@ function getBankProcesses() {
             $params[] = $term;
             $params[] = $term;
         }
-        if ($waiting) {
-            $sql .= " AND bp.status = 'waiting'";
-        } elseif ($showAll) {
+        if ($showAll) {
             $sql .= " AND bp.status = 'active'";
         } elseif ($showInactive) {
             $sql .= " AND bp.status = 'inactive'";
