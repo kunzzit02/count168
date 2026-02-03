@@ -58,6 +58,20 @@ if ($user_id) {
 
 $avatarLetter = $name ? strtoupper($name[0]) : 'U';
 
+// 头像 ID 与路径映射（与前端 avatarImages 一致，用于服务端输出初始 src 避免切换页面闪烁）
+$avatarImages = [
+    'male1' => 'images/avatar1.png', 'male2' => 'images/avatar2.png', 'male3' => 'images/avatar3.png',
+    'male4' => 'images/avatar4.png', 'male5' => 'images/avatar5.png', 'male6' => 'images/avatar6.png',
+    'male7' => 'images/avatar7.png', 'male8' => 'images/avatar8.png', 'male9' => 'images/avatar9.png',
+    'female1' => 'images/female1.png', 'female2' => 'images/female2.png', 'female3' => 'images/female3.png',
+    'female4' => 'images/female4.png', 'female5' => 'images/female5.png', 'female6' => 'images/female6.png',
+    'female7' => 'images/female7.png', 'female8' => 'images/female8.png', 'female9' => 'images/female9.png'
+];
+$avatarId = isset($_COOKIE['selectedAvatar']) && isset($avatarImages[$_COOKIE['selectedAvatar']])
+    ? $_COOKIE['selectedAvatar']
+    : 'male1';
+$initialAvatarSrc = $avatarImages[$avatarId];
+
 // 获取当前公司的到期日期
 $company_expiration_date = null;
 $expiration_countdown_text = '';
@@ -1251,40 +1265,8 @@ if ($companyId) {
             <!-- 添加头像选择器（改为使用 PNG 照片） -->
             <div class="avatar-selector-container">
                 <div class="current-avatar" id="currentAvatar" onclick="toggleAvatarOptions()">
-                    <!-- 移除默认 src，避免每次切换页面先闪一下默认头像；实际头像由 JS 根据 localStorage 设置 -->
-                    <img id="currentAvatarImg" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;" loading="eager">
-                    <script>
-                        // 立即设置头像，避免闪烁（在DOMContentLoaded之前执行）
-                        (function() {
-                            const avatarImages = {
-                                male1: 'images/avatar1.png',
-                                male2: 'images/avatar2.png',
-                                male3: 'images/avatar3.png',
-                                male4: 'images/avatar4.png',
-                                male5: 'images/avatar5.png',
-                                male6: 'images/avatar6.png',
-                                male7: 'images/avatar7.png',
-                                male8: 'images/avatar8.png',
-                                male9: 'images/avatar9.png',
-                                female1: 'images/female1.png',
-                                female2: 'images/female2.png',
-                                female3: 'images/female3.png',
-                                female4: 'images/female4.png',
-                                female5: 'images/female5.png',
-                                female6: 'images/female6.png',
-                                female7: 'images/female7.png',
-                                female8: 'images/female8.png',
-                                female9: 'images/female9.png'
-                            };
-                            const savedAvatar = localStorage.getItem('selectedAvatar');
-                            const avatarId = (savedAvatar && avatarImages[savedAvatar]) ? savedAvatar : 'male1';
-                            const img = document.getElementById('currentAvatarImg');
-                            if (img) {
-                                // 直接设置 src，图片尺寸已固定，不会导致布局变化
-                                img.src = avatarImages[avatarId];
-                            }
-                        })();
-                    </script>
+                    <!-- 服务端根据 cookie 输出初始 src，切换页面时首屏即显示正确头像，避免闪烁 -->
+                    <img id="currentAvatarImg" src="<?php echo htmlspecialchars($initialAvatarSrc); ?>" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden;" loading="eager">
                 </div>
                 
             <div class="avatar-options" id="avatarOptions">
@@ -2075,8 +2057,9 @@ if ($companyId) {
             options.classList.remove('show');
         }
         
-        // 保存用户选择到localStorage（可选）
         localStorage.setItem('selectedAvatar', avatarId);
+        // 同步到 cookie，供服务端首屏输出头像 src，避免切换页面时闪烁
+        document.cookie = 'selectedAvatar=' + encodeURIComponent(avatarId) + '; path=/; max-age=31536000; SameSite=Lax';
         
         // 更新选中样式
         updateSelectedAvatar();
@@ -2097,13 +2080,14 @@ if ($companyId) {
         }
     }
 
-    // 页面加载时恢复用户选择的头像
+    // 页面加载时恢复用户选择的头像，并同步 cookie 供下次首屏使用
     document.addEventListener('DOMContentLoaded', function() {
         const savedAvatar = localStorage.getItem('selectedAvatar');
         const currentAvatarImg = document.getElementById('currentAvatarImg');
 
         if (savedAvatar && avatarImages[savedAvatar]) {
             currentAvatarId = savedAvatar;
+            document.cookie = 'selectedAvatar=' + encodeURIComponent(savedAvatar) + '; path=/; max-age=31536000; SameSite=Lax';
         } else {
             currentAvatarId = 'male1';
         }
