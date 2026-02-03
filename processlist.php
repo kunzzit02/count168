@@ -4563,20 +4563,25 @@ if ($current_user_id && count($user_companies) > 0) {
 
         function confirmCountries() {
             if (window.selectedCountries && window.selectedCountries.length > 0) {
-                const first = window.selectedCountries[0];
                 const select = document.getElementById('bank_country');
                 if (select) {
-                    let found = false;
+                    const existing = new Set();
                     for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === first) { found = true; break; }
+                        const v = (select.options[i].value || '').trim();
+                        if (v) existing.add(v);
                     }
-                    if (!found) {
-                        const opt = document.createElement('option');
-                        opt.value = first;
-                        opt.textContent = first;
-                        select.appendChild(opt);
-                    }
-                    select.value = first;
+                    window.selectedCountries.forEach(function(name) {
+                        const n = (name || '').trim();
+                        if (!n) return;
+                        if (!existing.has(n)) {
+                            const opt = document.createElement('option');
+                            opt.value = n;
+                            opt.textContent = n;
+                            select.appendChild(opt);
+                            existing.add(n);
+                        }
+                    });
+                    select.value = window.selectedCountries[0] || '';
                 }
                 closeCountrySelectionModal();
             } else {
@@ -4781,20 +4786,25 @@ if ($current_user_id && count($user_companies) > 0) {
 
         function confirmBanks() {
             if (window.selectedBanks && window.selectedBanks.length > 0) {
-                const first = window.selectedBanks[0];
                 const select = document.getElementById('bank_bank');
                 if (select) {
-                    let found = false;
+                    const existing = new Set();
                     for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === first) { found = true; break; }
+                        const v = (select.options[i].value || '').trim();
+                        if (v) existing.add(v);
                     }
-                    if (!found) {
-                        const opt = document.createElement('option');
-                        opt.value = first;
-                        opt.textContent = first;
-                        select.appendChild(opt);
-                    }
-                    select.value = first;
+                    window.selectedBanks.forEach(function(name) {
+                        const n = (name || '').trim();
+                        if (!n) return;
+                        if (!existing.has(n)) {
+                            const opt = document.createElement('option');
+                            opt.value = n;
+                            opt.textContent = n;
+                            select.appendChild(opt);
+                            existing.add(n);
+                        }
+                    });
+                    select.value = window.selectedBanks[0] || '';
                 }
                 closeBankSelectionModal();
             } else {
