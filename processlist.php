@@ -4367,7 +4367,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         
         // Country Selection Modal
-        const DEFAULT_COUNTRIES = ['China', 'Malaysia', 'Singapore', 'Thailand', 'Philippines', 'Indonesia', 'Vietnam', 'Myanmar', 'Cambodia', 'Japan', 'Korea', 'Taiwan', 'Hong Kong', 'India', 'USA', 'UK', 'Australia', 'Canada', 'Germany', 'France', 'Other'];
+        const DEFAULT_COUNTRIES = [];
         let availableCountriesList = [];
 
         function showAddCountryModal() {
@@ -4585,7 +4585,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Bank Selection Modal
-        const DEFAULT_BANKS = ['Maybank', 'CIMB', 'Public Bank', 'RHB', 'Hong Leong Bank', 'AmBank', 'OCBC', 'UOB', 'HSBC', 'Standard Chartered', 'Citibank', 'Other'];
+        const DEFAULT_BANKS = [];
         let availableBanksList = [];
 
         function showAddBankModal() {
