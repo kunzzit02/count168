@@ -4254,10 +4254,9 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        // Load Bank Add Process Data
+        // Load Bank Add Process Data (do not pre-fill Country dropdown; it only shows Selected from modal)
         async function loadAddBankProcessData() {
             try {
-                await loadCountriesFromServer();
                 await loadBankAccounts();
                 initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
@@ -4480,10 +4479,16 @@ if ($current_user_id && count($user_companies) > 0) {
         const DEFAULT_COUNTRIES = [];
         let availableCountriesList = [];
 
-        function showAddCountryModal() {
+        async function showAddCountryModal() {
             // Previously added countries go to Available only; Selected is empty by default.
             window.selectedCountries = [];
-            loadExistingCountries();
+            let allCountries = [];
+            try {
+                const res = await fetch(buildApiUrl('processlistapi.php?action=get_countries'));
+                const result = await res.json();
+                allCountries = (result.success && result.data) ? result.data : [];
+            } catch (e) { console.warn('get_countries', e); }
+            loadExistingCountries(allCountries);
             updateSelectedCountriesInModal();
             const modal = document.getElementById('countrySelectionModal');
             if (modal) {
@@ -4492,7 +4497,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         }
 
-        function loadExistingCountries() {
+        function loadExistingCountries(allFromServer) {
             const select = document.getElementById('bank_country');
             const existingOptions = [];
             if (select && select.options) {
@@ -4501,7 +4506,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (v) existingOptions.push(v);
                 }
             }
-            const all = [...new Set([...DEFAULT_COUNTRIES, ...existingOptions, ...(availableCountriesList || [])])].sort((a, b) => a.localeCompare(b));
+            const all = allFromServer && allFromServer.length > 0
+                ? [...new Set([...DEFAULT_COUNTRIES, ...allFromServer, ...(availableCountriesList || [])])].sort((a, b) => a.localeCompare(b))
+                : [...new Set([...DEFAULT_COUNTRIES, ...existingOptions, ...(availableCountriesList || [])])].sort((a, b) => a.localeCompare(b));
             const selectedSet = new Set(window.selectedCountries || []);
             const combined = all.filter(name => !selectedSet.has(name));
             availableCountriesList = combined;
@@ -4678,21 +4685,19 @@ if ($current_user_id && count($user_companies) > 0) {
         function confirmCountries() {
             const select = document.getElementById('bank_country');
             if (!select) { closeCountrySelectionModal(); return; }
-            const existing = new Set();
-            for (let i = 0; i < select.options.length; i++) {
-                const v = (select.options[i].value || '').trim();
-                if (v) existing.add(v);
-            }
-            [].concat(window.selectedCountries || [], availableCountriesList || []).forEach(function(name) {
+            // Dropdown shows only Selected countries, not Available.
+            select.innerHTML = '';
+            const opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = 'Select Country';
+            select.appendChild(opt0);
+            (window.selectedCountries || []).forEach(function(name) {
                 const n = (name || '').trim();
                 if (!n) return;
-                if (!existing.has(n)) {
-                    const opt = document.createElement('option');
-                    opt.value = n;
-                    opt.textContent = n;
-                    select.appendChild(opt);
-                    existing.add(n);
-                }
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = n;
+                select.appendChild(opt);
             });
             if (window.selectedCountries && window.selectedCountries.length > 0) {
                 select.value = window.selectedCountries[0] || '';
@@ -5609,7 +5614,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (selectAllBank) selectAllBank.style.display = 'inline-block';
                 if (tableHeader) tableHeader.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS;
                 processCards.forEach(card => { card.style.gridTemplateColumns = BANK_GRID_TEMPLATE_COLUMNS; });
-                loadCountriesFromServer();
             } else {
                 if (processTableWrapperEl) processTableWrapperEl.style.display = 'grid';
                 if (bankTableWrapperEl) bankTableWrapperEl.style.display = 'none';
