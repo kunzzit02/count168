@@ -1340,17 +1340,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                             
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="bank_profit_sharing">Profit Sharing</label>
-                                    <div class="profit-sharing-with-add">
-                                        <input type="text" id="bank_profit_sharing" name="profit_sharing" placeholder="Enter Profit Sharing" class="bank-input" readonly>
-                                        <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
-                                    </div>
-                                </div>
-                            </div>
+                            <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
                             <div class="selected-countries-section" style="margin-top: 12px;">
-                                <h3>Selected Profit Sharing</h3>
+                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
+                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
+                                </div>
                                 <div class="selected-countries-list" id="selectedProfitSharingList">
                                     <div class="no-countries">No profit sharing selected</div>
                                 </div>
