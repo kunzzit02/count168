@@ -4225,8 +4225,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!accountSelect || !amountInput) return;
                 const accountId = accountSelect.value;
                 const accountText = accountSelect.options[accountSelect.selectedIndex].text;
-                const amount = amountInput.value.trim();
-                if (!accountId || !amount) return;
+                const rawAmount = amountInput.value.trim();
+                if (!accountId || rawAmount === '') return;
+                const num = parseFloat(rawAmount);
+                const amount = (isNaN(num) ? rawAmount : num.toFixed(2));
                 if (!window.selectedProfitSharingEntries) window.selectedProfitSharingEntries = [];
                 window.selectedProfitSharingEntries.push({ accountId: accountId, accountText: accountText, amount: amount });
                 renderSelectedProfitSharing();
@@ -5188,7 +5190,9 @@ if ($current_user_id && count($user_companies) > 0) {
             const parts = [];
             container.innerHTML = '';
             entries.forEach(function(entry, index) {
-                const text = (entry.accountText || '') + ' - ' + (entry.amount || '');
+                const amt = entry.amount;
+                const displayAmount = (amt !== '' && amt != null && !isNaN(parseFloat(amt))) ? parseFloat(amt).toFixed(2) : (amt || '');
+                const text = (entry.accountText || '') + ' - ' + displayAmount;
                 parts.push(text);
                 const div = document.createElement('div');
                 div.className = 'selected-country-modal-item';
