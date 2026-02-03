@@ -1925,6 +1925,10 @@ if ($current_user_id && count($user_companies) > 0) {
             const thLabels = ['No','Supplier','Country','Bank','Types','Card Owner','Contract','Insurance','Customer','Cost','Price','Profit','Status','Date','Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
+                if (label === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
+                if (label === 'Types') return '<th class="bank-th-types">' + escapeHtml(label) + '</th>';
+                if (label === 'Card Owner') return '<th class="bank-th-card-owner">' + escapeHtml(label) + '</th>';
+                if (label === 'Status') return '<th class="bank-th-status">' + escapeHtml(label) + '</th>';
                 if (label === 'Action') {
                     return '<th class="bank-th-action">Action <input type="checkbox" id="selectAllBankProcesses" class="header-action-checkbox" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()"></th>';
                 }
@@ -1977,17 +1981,17 @@ if ($current_user_id && count($user_companies) > 0) {
                 tr.setAttribute('data-id', process.id);
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
                     '<td>' + escapeHtml(process.card_lower || '') + '</td>' +
-                    '<td>' + escapeHtml(process.country || '') + '</td>' +
+                    '<td class="bank-td-country">' + escapeHtml(process.country || '') + '</td>' +
                     '<td>' + escapeHtml(process.bank || '') + '</td>' +
-                    '<td>' + escapeHtml(process.types || '') + '</td>' +
-                    '<td>' + escapeHtml(process.supplier || '') + '</td>' +
+                    '<td class="bank-td-types">' + escapeHtml(process.types || '') + '</td>' +
+                    '<td class="bank-td-card-owner">' + escapeHtml(process.supplier || '') + '</td>' +
                     '<td>' + contractCell + '</td>' +
                     '<td>' + escapeHtml(process.insurance || '') + '</td>' +
                     '<td>' + escapeHtml(process.customer || '') + '</td>' +
                     '<td>' + escapeHtml(String(cost)) + '</td>' +
                     '<td>' + escapeHtml(String(price)) + '</td>' +
                     '<td>' + escapeHtml(String(profit)) + '</td>' +
-                    '<td>' + statusBadge + '</td>' +
+                    '<td class="bank-td-status">' + statusBadge + '</td>' +
                     '<td>' + escapeHtml(process.date || '') + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
