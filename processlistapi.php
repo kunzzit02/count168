@@ -236,8 +236,8 @@ function getProcesses() {
             $baseSql = $sql;
         }
         
-        // 权限过滤 - 在添加 GROUP BY 之前
-        list($baseSql, $params) = filterProcessesByPermissions($pdo, $baseSql, $params);
+        // 权限过滤 - 使用请求的 company_id，确保与列表查询一致（避免切换公司后列表为空）
+        list($baseSql, $params) = filterProcessesByPermissions($pdo, $baseSql, $params, $targetCompanyId);
         
         // 添加 GROUP BY 和 ORDER BY
         $baseSql .= " GROUP BY p.id ORDER BY p.dts_created DESC";
