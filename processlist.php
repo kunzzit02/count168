@@ -1299,7 +1299,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <h3 class="bank-section-title">Detail</h3>
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_card_merchant">Card Merchant</label>
+                                    <label for="bank_card_merchant">Supplier</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
                                             <button type="button" class="custom-select-button" id="bank_card_merchant" data-placeholder="Select Account" name="card_merchant">Select Account</button>
