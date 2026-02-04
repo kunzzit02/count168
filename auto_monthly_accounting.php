@@ -4,8 +4,8 @@
  * 每月 4 号自动算账：将 Process 的 Buy Price 记入 Supplier 账户、Sell Price 记入 Customer 账户、Profit 记入 Company 账户。
  *
  * 必须配置定时任务才会自动执行：
- * - Windows：任务计划程序，每月 4 号 14:30 运行 php 本脚本路径
- * - Linux：cron 例如 30 14 4 * * php /path/to/auto_monthly_accounting.php
+ * - Windows：任务计划程序，每月 4 号 16:00 运行 php 本脚本路径
+ * - Linux：cron 例如 0 16 4 * * php /path/to/auto_monthly_accounting.php
  *
  * 手动补跑（例如今天 4 号但定时没跑）：在项目目录执行
  *   php auto_monthly_accounting.php --force
