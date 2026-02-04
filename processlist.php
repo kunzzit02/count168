@@ -515,40 +515,19 @@ if ($current_user_id && count($user_companies) > 0) {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 30px;
-            align-items: stretch;
+            align-items: start;
         }
         
         .bank-form-left {
             display: flex;
             flex-direction: column;
             gap: 25px;
-            min-height: 0;
-        }
-        
-        .bank-form-left .bank-section:last-child {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-        }
-        
-        .bank-form-left .bank-section:last-child .selected-countries-section {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-        }
-        
-        .bank-form-left .bank-section:last-child .selected-countries-list {
-            flex: 1;
-            min-height: 120px;
         }
         
         .bank-form-right {
             display: flex;
             flex-direction: column;
             gap: 25px;
-            min-height: 0;
         }
         
         .bank-section {
