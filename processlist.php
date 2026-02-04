@@ -287,6 +287,7 @@ if ($current_user_id && count($user_companies) > 0) {
             border-radius: 0.25rem;
             padding: 0.625rem;
             background-color: #f8f9fa;
+            margin-bottom: 25px;
         }
         .country-item {
             display: flex;
