@@ -2015,7 +2015,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     '<td>' + escapeHtml(String(price)) + '</td>' +
                     '<td>' + escapeHtml(String(profit)) + '</td>' +
                     '<td class="bank-td-status">' + statusBadge + '</td>' +
-                    '<td>' + escapeHtml(dashIfEmpty(process.date)) + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
             });
