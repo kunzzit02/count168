@@ -1266,7 +1266,30 @@ if ($current_user_id && count($user_companies) > 0) {
                             </div>
                         </div>
                         
-                        <!-- Detail Section - Part 1 -->
+                        <!-- Day start and Selected Profit Sharing (left column) -->
+                        <div class="bank-section">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="bank_day_start">Day start</label>
+                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                </div>
+                            </div>
+                            
+                            <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
+                            <div class="selected-countries-section" style="margin-top: 12px;">
+                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
+                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
+                                </div>
+                                <div class="selected-countries-list" id="selectedProfitSharingList">
+                                    <div class="no-countries">No profit sharing selected</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Detail section -->
+                    <div class="bank-form-right">
                         <div class="bank-section">
                             <h3 class="bank-section-title">Detail</h3>
                             
@@ -1332,29 +1355,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="form-group">
                                     <label for="bank_profit">Profit</label>
                                     <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Column: Day start and Profit Sharing only -->
-                    <div class="bank-form-right">
-                        <div class="bank-section">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="bank_day_start">Day start</label>
-                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
-                                </div>
-                            </div>
-                            
-                            <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
-                            <div class="selected-countries-section" style="margin-top: 12px;">
-                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
-                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
-                                </div>
-                                <div class="selected-countries-list" id="selectedProfitSharingList">
-                                    <div class="no-countries">No profit sharing selected</div>
                                 </div>
                             </div>
                         </div>
