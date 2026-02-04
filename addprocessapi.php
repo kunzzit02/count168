@@ -182,11 +182,8 @@ function assignNewProcessesToRestrictedUsers(PDO $pdo, int $companyId, array $cr
             $permissions = [];
         }
 
-        if (empty($permissions)) {
-            // 即使字段存在但为空数组，仍视为没有限制
-            continue;
-        }
-
+        // 空数组 [] 在 permissions.php 中表示「已设置但清空」→ 用户看不到任何流程，
+        // 所以必须把新 process 加给这些用户，否则新公司第一次添加 process 时所有人都看不见。
         $existingIds = [];
         foreach ($permissions as $permission) {
             if (isset($permission['id'])) {

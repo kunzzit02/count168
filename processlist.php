@@ -16,20 +16,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 exit;
             }
 
-            // Bank 类别：从 bank_process 表删除，不影响 Gambling 的 process 表
+            // Bank 类别：若有勾选到已设置 day_start 的记录则不允许删除，返回错误
             if ($permission === 'Bank') {
                 $placeholders = str_repeat('?,', count($ids) - 1) . '?';
                 $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id IN ($placeholders) AND company_id = ? AND status = 'inactive'");
                 $params = array_merge($ids, [$company_id_session]);
                 $stmt->execute($params);
-                $bankIdsToDelete = $stmt->fetchAll(PDO::FETCH_COLUMN);
-                if (empty($bankIdsToDelete)) {
+                $inactiveIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                if (empty($inactiveIds)) {
                     header('Location: processlist.php?error=no_inactive_processes');
                     exit;
                 }
-                $delPlaceholders = str_repeat('?,', count($bankIdsToDelete) - 1) . '?';
+                $stmt = $pdo->prepare("SELECT id FROM bank_process WHERE id IN ($placeholders) AND company_id = ? AND status = 'inactive' AND day_start IS NOT NULL");
+                $stmt->execute($params);
+                $withDayStart = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                if (!empty($withDayStart)) {
+                    header('Location: processlist.php?error=bank_has_day_start');
+                    exit;
+                }
+                $delPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
                 $stmt = $pdo->prepare("DELETE FROM bank_process WHERE id IN ($delPlaceholders) AND company_id = ? AND status = 'inactive'");
-                $stmt->execute(array_merge($bankIdsToDelete, [$company_id_session]));
+                $stmt->execute(array_merge($inactiveIds, [$company_id_session]));
                 header('Location: processlist.php?success=deleted');
                 exit;
             }
@@ -584,10 +591,10 @@ if ($current_user_id && count($user_companies) > 0) {
             grid-template-columns: 1fr 1fr;
         }
         .bank-form-left .bank-row-type-name {
-            grid-template-columns: 0.35fr 1fr;
+            grid-template-columns: 0.45fr 1fr;
         }
         .bank-form-left .bank-row-three-cols {
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 0.85fr 0.85fr 1fr;
         }
         
         .bank-form .form-group label {
@@ -921,7 +928,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 <div class="header-item bank-header" style="display: none;">Status</div>
                 <div class="header-item bank-header" style="display: none;">Date</div>
                 <div class="header-item bank-header bank-action-header" style="display: none;">Action
-                    <input type="checkbox" id="selectAllBankProcesses" title="Select all" class="header-action-checkbox" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllBankProcesses()">
+                    <input type="checkbox" title="Select all" class="header-action-checkbox" style="margin-left: 10px; cursor: pointer;">
                 </div>
             </div>
             
@@ -1259,10 +1266,34 @@ if ($current_user_id && count($user_companies) > 0) {
                             </div>
                         </div>
                         
-                        <!-- Detail Section - Part 1 -->
+                        <!-- Day start and Selected Profit Sharing (left column) -->
+                        <div class="bank-section">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="bank_day_start">Day start</label>
+                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                </div>
+                            </div>
+                            
+                            <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
+                            <div class="selected-countries-section" style="margin-top: 12px;">
+                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
+                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
+                                </div>
+                                <div class="selected-countries-list" id="selectedProfitSharingList">
+                                    <div class="no-countries">No profit sharing selected</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Detail section -->
+                    <div class="bank-form-right">
                         <div class="bank-section">
                             <h3 class="bank-section-title">Detail</h3>
                             
+                            <!-- Row 1: Card Merchant | Buy Price -->
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_card_merchant">Card Merchant</label>
@@ -1280,6 +1311,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                     </div>
                                 </div>
                                 <div class="form-group">
+                                    <label for="bank_cost">Buy Price</label>
+                                    <input type="text" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                                </div>
+                            </div>
+                            
+                            <!-- Row 2: Customer | Sell Price -->
+                            <div class="form-row bank-row-two-cols">
+                                <div class="form-group">
                                     <label for="bank_customer">Customer</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
@@ -1294,8 +1333,36 @@ if ($current_user_id && count($user_companies) > 0) {
                                         <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_customer')" title="Add New Account">+</button>
                                     </div>
                                 </div>
+                                <div class="form-group">
+                                    <label for="bank_price">Sell Price</label>
+                                    <input type="text" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                                </div>
                             </div>
                             
+                            <!-- Row 3: Profit Account | Profit -->
+                            <div class="form-row bank-row-two-cols">
+                                <div class="form-group">
+                                    <label for="bank_profit_account">Profit Account</label>
+                                    <div class="account-select-with-buttons">
+                                        <div class="custom-select-wrapper">
+                                            <button type="button" class="custom-select-button" id="bank_profit_account" data-placeholder="Select Account" name="profit_account">Select Account</button>
+                                            <div class="custom-select-dropdown" id="bank_profit_account_dropdown">
+                                                <div class="custom-select-search">
+                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                </div>
+                                                <div class="custom-select-options"></div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_profit_account')" title="Add New Account">+</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bank_profit">Profit</label>
+                                    <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
+                                </div>
+                            </div>
+                            
+                            <!-- Row 4: Contract | Insurance -->
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_contract">Contract</label>
@@ -1310,44 +1377,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="form-group">
                                     <label for="bank_insurance">Insurance</label>
                                     <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
-                                </div>
-                            </div>
-                            
-                            <div class="form-row bank-row-three-cols">
-                                <div class="form-group">
-                                    <label for="bank_cost">Buy Price</label>
-                                    <input type="text" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_price">Sell Price</label>
-                                    <input type="text" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_profit">Profit</label>
-                                    <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Column: Day start and Profit Sharing only -->
-                    <div class="bank-form-right">
-                        <div class="bank-section">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="bank_day_start">Day start</label>
-                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
-                                </div>
-                            </div>
-                            
-                            <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
-                            <div class="selected-countries-section" style="margin-top: 12px;">
-                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
-                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
-                                </div>
-                                <div class="selected-countries-list" id="selectedProfitSharingList">
-                                    <div class="no-countries">No profit sharing selected</div>
                                 </div>
                             </div>
                         </div>
@@ -1958,7 +1987,7 @@ if ($current_user_id && count($user_companies) > 0) {
             window.__bankFilteredLength = waiting ? listToShow.length : null;
 
             if (listToShow.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="15" style="text-align: left; padding: 20px;">No process data found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="15" class="bank-empty-cell">No process data found</td></tr>';
                 renderPagination();
                 updateSelectAllProcessesVisibility();
                 return;
@@ -1975,35 +2004,40 @@ if ($current_user_id && count($user_companies) > 0) {
                 pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
             }
 
+            function dashIfEmpty(val) {
+                if (val == null) return '-';
+                const s = String(val).trim();
+                return s === '' ? '-' : val;
+            }
             pageItems.forEach((process, idx) => {
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
                 const contractClass = getContractStateClass(process.day_start || null, process.day_end || null);
-                const contractCell = contractClass
+                const contractCell = (contract && contractClass)
                     ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contract) + '</span>'
-                    : escapeHtml(contract);
-                const cost = process.cost != null && process.cost !== '' ? process.cost : '';
-                const price = process.price != null && process.price !== '' ? process.price : '';
-                const profit = process.profit != null && process.profit !== '' ? process.profit : '';
+                    : (contract ? escapeHtml(contract) : escapeHtml('-'));
+                const cost = dashIfEmpty(process.cost);
+                const price = dashIfEmpty(process.price);
+                const profit = dashIfEmpty(process.profit);
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
                     (process.status === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
-                    '<td>' + escapeHtml(process.card_lower || '') + '</td>' +
-                    '<td class="bank-td-country">' + escapeHtml(process.country || '') + '</td>' +
-                    '<td>' + escapeHtml(process.bank || '') + '</td>' +
-                    '<td class="bank-td-types">' + escapeHtml(process.types || '') + '</td>' +
-                    '<td class="bank-td-card-owner">' + escapeHtml(process.supplier || '') + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
+                    '<td class="bank-td-country">' + escapeHtml(dashIfEmpty(process.country)) + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.bank)) + '</td>' +
+                    '<td class="bank-td-types">' + escapeHtml(dashIfEmpty(process.types)) + '</td>' +
+                    '<td class="bank-td-card-owner">' + escapeHtml(dashIfEmpty(process.supplier)) + '</td>' +
                     '<td>' + contractCell + '</td>' +
-                    '<td>' + escapeHtml(process.insurance || '') + '</td>' +
-                    '<td>' + escapeHtml(process.customer || '') + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.insurance)) + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.customer)) + '</td>' +
                     '<td>' + escapeHtml(String(cost)) + '</td>' +
                     '<td>' + escapeHtml(String(price)) + '</td>' +
                     '<td>' + escapeHtml(String(profit)) + '</td>' +
                     '<td class="bank-td-status">' + statusBadge + '</td>' +
-                    '<td>' + escapeHtml(process.date || '') + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty((process.date === '0000-00-00' || !process.date) ? '' : process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
             });
@@ -2293,6 +2327,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else if (customerBtn) {
                     customerBtn.removeAttribute('data-value');
                     customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
+                }
+                const profitAccountBtn = document.getElementById('bank_profit_account');
+                if (profitAccountBtn && process.profit_account_id) {
+                    profitAccountBtn.setAttribute('data-value', process.profit_account_id);
+                    profitAccountBtn.textContent = (process.profit_account_name || process.profit_account_id) || 'Select Account';
+                } else if (profitAccountBtn) {
+                    profitAccountBtn.removeAttribute('data-value');
+                    profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
                 }
                 document.getElementById('bank_contract').value = process.contract || '';
                 document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
@@ -3540,11 +3582,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 formData.append('permission', 'Bank');
                 const cardMerchantBtn = document.getElementById('bank_card_merchant');
                 const customerBtn = document.getElementById('bank_customer');
+                const profitAccountBtn = document.getElementById('bank_profit_account');
                 if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
                     formData.append('card_merchant_id', cardMerchantBtn.getAttribute('data-value'));
                 }
                 if (customerBtn && customerBtn.getAttribute('data-value')) {
                     formData.append('customer_id', customerBtn.getAttribute('data-value'));
+                }
+                if (profitAccountBtn && profitAccountBtn.getAttribute('data-value')) {
+                    formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
                 }
                 var dayStartVal = document.getElementById('bank_day_start').value;
                 var contractVal = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value) || '';
@@ -3579,6 +3625,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     });
                     const result = await response.json();
                     if (result.success) {
+                        const cardMerchantId = cardMerchantBtn && cardMerchantBtn.getAttribute('data-value') ? cardMerchantBtn.getAttribute('data-value') : null;
+                        const customerId = customerBtn && customerBtn.getAttribute('data-value') ? customerBtn.getAttribute('data-value') : null;
+                        if (cardMerchantId) await ensureAccountHasCountryCurrency(cardMerchantId);
+                        if (customerId) await ensureAccountHasCountryCurrency(customerId);
                         showNotification('Bank process added successfully!', 'success');
                         closeAddBankModal();
                         fetchProcesses();
@@ -4214,8 +4264,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (!accountSelect || !amountInput) return;
                 const accountId = accountSelect.value;
                 const accountText = accountSelect.options[accountSelect.selectedIndex].text;
-                const amount = amountInput.value.trim();
-                if (!accountId || !amount) return;
+                const rawAmount = amountInput.value.trim();
+                if (!accountId || rawAmount === '') return;
+                const num = parseFloat(rawAmount);
+                const amount = (isNaN(num) ? rawAmount : num.toFixed(2));
                 if (!window.selectedProfitSharingEntries) window.selectedProfitSharingEntries = [];
                 window.selectedProfitSharingEntries.push({ accountId: accountId, accountText: accountText, amount: amount });
                 renderSelectedProfitSharing();
@@ -4260,6 +4312,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 await loadBankAccounts();
                 initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
+                initBankAccountSelect('bank_profit_account', 'bank_profit_account_dropdown');
                 updateBankAddButtonTitles();
                 
                 // 设置 Profit 自动计算（只初始化一次）
@@ -4329,22 +4382,58 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         })();
         
-        // Country -> currency code for auto-add when selecting account (Card Merchant / Customer)
+        // Country field: user may enter country name (Malaysia -> MYR) or currency code directly (MYR, SGD)
         const COUNTRY_TO_CURRENCY = { 'Malaysia': 'MYR', 'Singapore': 'SGD' };
+        
+        function resolveCurrencyCodeFromCountryField(value) {
+            if (!value || (value = String(value).trim()) === '') return null;
+            if (COUNTRY_TO_CURRENCY[value]) return COUNTRY_TO_CURRENCY[value];
+            if (value.length >= 2 && value.length <= 5) return value.toUpperCase();
+            return null;
+        }
         
         async function ensureAccountHasCountryCurrency(accountId) {
             if (!accountId) return;
             const countrySelect = document.getElementById('bank_country');
-            const countryName = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
-            const currencyCode = countryName ? (COUNTRY_TO_CURRENCY[countryName] || null) : null;
+            const countryOrCurrency = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
+            const currencyCode = resolveCurrencyCodeFromCountryField(countryOrCurrency);
             if (!currencyCode) return;
             try {
                 const apiUrl = buildApiUrl('addprocessapi.php');
                 const res = await fetch(apiUrl);
                 const result = await res.json();
-                if (!result.success || !result.currencies || !result.currencies.length) return;
-                const currency = result.currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
-                if (!currency || !currency.id) return;
+                if (!result.success) return;
+                const currencies = result.currencies || [];
+                let currency = currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
+                if (!currency || !currency.id) {
+                    const currentCompanyId = <?php echo json_encode($company_id ?? null); ?>;
+                    const createRes = await fetch(buildApiUrl('addcurrencyapi.php'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: currencyCode, company_id: currentCompanyId || undefined })
+                    });
+                    const createResult = await createRes.json();
+                    if (createResult.success && createResult.data) {
+                        currency = { id: createResult.data.id, code: createResult.data.code || currencyCode };
+                    } else if (createResult.error && (createResult.error + '').toLowerCase().includes('already exists')) {
+                        const refetch = await fetch(apiUrl);
+                        const refetchResult = await refetch.json();
+                        if (refetchResult.success && Array.isArray(refetchResult.currencies)) {
+                            currency = refetchResult.currencies.find(c => (c.code || '').toUpperCase() === currencyCode);
+                        }
+                    }
+                    if (!currency || !currency.id) {
+                        console.warn('ensureAccountHasCountryCurrency: could not get or create currency', currencyCode);
+                        return;
+                    }
+                }
+                const getCurrUrl = buildApiUrl('account_currency_api.php?action=get_account_currencies&account_id=' + accountId);
+                const getCurrRes = await fetch(getCurrUrl);
+                const getCurrResult = await getCurrRes.json();
+                if (getCurrResult.success && Array.isArray(getCurrResult.data)) {
+                    const alreadyHas = getCurrResult.data.some(c => (c.currency_id || c.id) === currency.id || (c.currency_code || '').toUpperCase() === currencyCode);
+                    if (alreadyHas) return;
+                }
                 const addUrl = buildApiUrl('account_currency_api.php?action=add_currency');
                 const addRes = await fetch(addUrl, {
                     method: 'POST',
@@ -4353,7 +4442,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
                 const addResult = await addRes.json();
                 if (addResult.success) {
-                    showNotification(`${currencyCode} added to account`, 'success');
+                    showNotification(currencyCode + ' added to account', 'success');
                 }
             } catch (e) {
                 console.warn('ensureAccountHasCountryCurrency', e);
@@ -4437,7 +4526,6 @@ if ($current_user_id && count($user_companies) > 0) {
                             accountDropdown.style.display = 'none';
                             isOpen = false;
                             updateBankAddButtonTitles();
-                            ensureAccountHasCountryCurrency(account.id);
                         });
                         optionsContainer.appendChild(option);
                     });
@@ -4717,14 +4805,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 return;
             }
             await loadBanksByCountry(country);
-            const select = document.getElementById('bank_bank');
-            if (select && select.options) {
-                window.selectedBanks = [];
-                for (let i = 0; i < select.options.length; i++) {
-                    const v = (select.options[i].value || '').trim();
-                    if (v) window.selectedBanks.push(v);
-                }
-            }
+            // Previously added banks go to Available only; Selected is empty by default.
+            window.selectedBanks = [];
             await loadExistingBanks(country);
             updateSelectedBanksInModal();
             const modal = document.getElementById('bankSelectionModal');
@@ -4994,7 +5076,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         
         function updateBankAddButtonTitles() {
-            ['bank_card_merchant', 'bank_customer'].forEach(fieldId => {
+            ['bank_card_merchant', 'bank_customer', 'bank_profit_account'].forEach(fieldId => {
                 const btn = document.getElementById(fieldId);
                 const addBtn = btn && btn.closest('.account-select-with-buttons') && btn.closest('.account-select-with-buttons').querySelector('.bank-add-btn');
                 if (addBtn) addBtn.title = (btn.getAttribute('data-value') ? 'Edit Account' : 'Add New Account');
@@ -5148,7 +5230,9 @@ if ($current_user_id && count($user_companies) > 0) {
             const parts = [];
             container.innerHTML = '';
             entries.forEach(function(entry, index) {
-                const text = (entry.accountText || '') + ' - ' + (entry.amount || '');
+                const amt = entry.amount;
+                const displayAmount = (amt !== '' && amt != null && !isNaN(parseFloat(amt))) ? parseFloat(amt).toFixed(2) : (amt || '');
+                const text = (entry.accountText || '') + ' - ' + displayAmount;
                 parts.push(text);
                 const div = document.createElement('div');
                 div.className = 'selected-country-modal-item';
@@ -5483,6 +5567,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 showNotification('Cannot delete: This process is linked to a formula. Please remove the related formula records first.', 'danger');
                 // 清除 URL 参数
                 window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (errorParam === 'bank_has_day_start') {
+                showNotification('Delete failed: Processes with Day Start set cannot be deleted.', 'danger');
+                window.history.replaceState({}, document.title, window.location.pathname);
             } else if (errorParam === 'no_inactive_processes') {
                 showNotification('Cannot delete: Only inactive processes can be deleted.', 'danger');
                 window.history.replaceState({}, document.title, window.location.pathname);
@@ -5662,4 +5749,5 @@ if ($current_user_id && count($user_companies) > 0) {
         }
     </script>
 </body>
+</html>
 </html>
