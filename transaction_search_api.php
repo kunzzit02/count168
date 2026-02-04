@@ -247,7 +247,8 @@ if (!empty($target_account_ids)) {
                     'left' => ['bf' => 0, 'win_loss' => 0, 'cr_dr' => 0, 'balance' => 0],
                     'right' => ['bf' => 0, 'win_loss' => 0, 'cr_dr' => 0, 'balance' => 0],
                     'summary' => ['bf' => 0, 'win_loss' => 0, 'cr_dr' => 0, 'balance' => 0]
-                ]
+                ],
+                'active_currency_codes' => []
             ]
         ]);
         exit;
@@ -277,6 +278,27 @@ if (!empty($target_account_ids)) {
         $currencyId = (int)$row['id'];
         $currency_map[$code] = $currencyId;
         $currency_id_map[$currencyId] = $code;
+    }
+    
+    // 收集「Edit Account 里勾选的 active 货币」：来自 account_currency 表，供前端 Show 0 balance 时只显示这些货币
+    $active_currency_codes = [];
+    try {
+        $has_ac = $pdo->query("SHOW TABLES LIKE 'account_currency'")->rowCount() > 0;
+        if ($has_ac) {
+            $placeholders = implode(',', array_fill(0, count($accounts), '?'));
+            $ids = array_column($accounts, 'id');
+            $stmt = $pdo->prepare("
+                SELECT DISTINCT UPPER(c.code) AS code
+                FROM account_currency ac
+                INNER JOIN currency c ON ac.currency_id = c.id AND c.company_id = ?
+                WHERE ac.account_id IN ($placeholders)
+            ");
+            $stmt->execute(array_merge([$company_id], $ids));
+            $active_currency_codes = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'code');
+            $active_currency_codes = array_values(array_unique($active_currency_codes));
+        }
+    } catch (PDOException $e) {
+        // 忽略，保持 active_currency_codes 为空，前端不按 active 过滤
     }
     
     foreach ($accounts as $account) {
@@ -643,7 +665,7 @@ if (!empty($target_account_ids)) {
         'balance' => $left_totals['balance'] + $right_totals['balance']
     ];
     
-    // 返回结果
+    // 返回结果（含 active_currency_codes：Edit Account 里勾选的货币，Show 0 balance 时只显示这些）
     echo json_encode([
         'success' => true,
         'data' => [
@@ -653,7 +675,8 @@ if (!empty($target_account_ids)) {
                 'left' => $left_totals,
                 'right' => $right_totals,
                 'summary' => $summary_totals
-            ]
+            ],
+            'active_currency_codes' => $active_currency_codes
         ]
     ]);
     

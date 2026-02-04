@@ -2163,7 +2163,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             
             // 如果选择 All 或选择了多个 currency，按 currency 分组显示
             if (showAllCurrencies || selectedCurrencies.length > 1) {
-                renderCurrencyGroupedTables(sortedLeftRows, sortedRightRows);
+                const showZero = document.getElementById('show_zero_balance')?.checked || false;
+                const activeCurrencyCodes = (lastSearchData && lastSearchData.active_currency_codes && lastSearchData.active_currency_codes.length) ? lastSearchData.active_currency_codes : null;
+                renderCurrencyGroupedTables(sortedLeftRows, sortedRightRows, { showZero, activeCurrencyCodes });
             } else {
                 // 只选择了一个 currency，显示默认表格
                 document.getElementById('default-tables-container').style.display = 'flex';
@@ -2205,7 +2207,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         }
         
         // ==================== 按 Currency 分组渲染表格 ====================
-        function renderCurrencyGroupedTables(leftRows, rightRows) {
+        // options: { showZero, activeCurrencyCodes } — 当 Show 0 balance 勾选时，只显示 Edit Account 里 active 的货币
+        function renderCurrencyGroupedTables(leftRows, rightRows, options) {
+            options = options || {};
             // 隐藏默认表格，显示分组表格容器
             document.getElementById('default-tables-container').style.display = 'none';
             const groupedContainer = document.getElementById('currency-grouped-tables-container');
@@ -2232,7 +2236,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             
             // 为每个 currency 创建表格组
             // 按照 currencyList 的顺序排序（从旧到新），而不是按字母排序
-            const currencies = [];
+            let currencies = [];
             currencyList.forEach(currencyItem => {
                 if (groupedByCurrency[currencyItem.code]) {
                     currencies.push(currencyItem.code);
@@ -2244,6 +2248,11 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     currencies.push(code);
                 }
             });
+            // Show 0 balance 勾选时，只显示 Edit Account 里勾选为 active 的货币
+            if (options.showZero && options.activeCurrencyCodes && options.activeCurrencyCodes.length > 0) {
+                const activeSet = new Set(options.activeCurrencyCodes.map(c => (c || '').toUpperCase()));
+                currencies = currencies.filter(code => activeSet.has((code || '').toUpperCase()));
+            }
             
             let totalSummary = { bf: 0, win_loss: 0, cr_dr: 0, balance: 0 };
             
