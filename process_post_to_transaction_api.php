@@ -3,6 +3,7 @@
  * Process Post to Transaction API
  * 将选中的 Bank Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户（Transaction 页面显示）
  * 仅处理 status = 'active' 的 process。
+ * 重要：Transaction 页显示时，currency 分类严格跟随 Process 的 Country（Country 作为货币代码，如 JPY）。
  */
 
 session_start();
@@ -70,10 +71,14 @@ try {
         $processLabel = $p['name'] ?: ($p['bank'] . ' #' . $p['id']);
         $companyId = (int)$p['company_id'];
         $ownerId = $p['owner_id'] ?? null;
+        // Transaction 页的 currency 分类必须跟随 Process 的 Country（作为货币代码）
         $currencyCode = trim($p['country'] ?? '');
+        if ($currencyCode === '') {
+            continue; // 未设置 Country 的 Process 不入账，避免交易无币别分类
+        }
 
         $currencyId = null;
-        if ($has_currency_id && $currencyCode !== '') {
+        if ($has_currency_id) {
             $cacheKey = $companyId . '_' . $currencyCode;
             if (isset($currencyCache[$cacheKey])) {
                 $currencyId = $currencyCache[$cacheKey];
@@ -89,6 +94,9 @@ try {
                 $currencyCache[$cacheKey] = $currencyId;
             }
         }
+        if (!$currencyId && $has_currency_id) {
+            continue; // 无法解析货币时跳过，保证入账记录必有 currency
+        }
 
         $baseTxn = [
             'company_id' => $companyId,
@@ -98,7 +106,7 @@ try {
             'created_by_owner' => $ownerId,
         ];
         if ($has_currency_id && $currencyId) {
-            $baseTxn['currency_id'] = $currencyId;
+            $baseTxn['currency_id'] = $currencyId; // 使 Transaction 页按此 currency 分类显示（来自 Country）
         }
         if ($has_approval_status) {
             $baseTxn['approval_status'] = 'APPROVED';
