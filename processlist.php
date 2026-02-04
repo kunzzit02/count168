@@ -518,6 +518,31 @@ if ($current_user_id && count($user_companies) > 0) {
             align-items: start;
         }
         
+        /* Symmetric layout: same rows left/right, parallel alignment */
+        .bank-form.bank-form-symmetric {
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto auto auto auto auto;
+            gap: 18px 30px;
+            align-items: start;
+        }
+        .bank-form.bank-form-symmetric .bank-form-cell {
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .bank-form.bank-form-symmetric .bank-form-cell-profit-sharing {
+            min-height: 100px;
+        }
+        .bank-form.bank-form-symmetric .bank-form-spacer {
+            min-height: 38px;
+            visibility: hidden;
+        }
+        .bank-form.bank-form-symmetric .form-actions.bank-form-actions-full {
+            grid-column: 1 / -1;
+            margin-top: 8px;
+        }
+        
         .bank-form-left {
             display: flex;
             flex-direction: column;
@@ -1220,170 +1245,169 @@ if ($current_user_id && count($user_companies) > 0) {
                 <span class="close" onclick="closeAddBankModal()">&times;</span>
             </div>
             <div class="modal-body">
-                <form id="addBankProcessForm" class="process-form bank-form">
-                    <input type="hidden" id="bank_edit_id" name="id" value="">
-                    <!-- Left Column -->
-                    <div class="bank-form-left">
-                        <!-- Bank Information Section -->
-                        <div class="bank-section">
-                            <h3 class="bank-section-title">Bank Information</h3>
-                            
-                            <div class="form-row bank-row-two-cols">
-                                <div class="form-group">
-                                    <label for="bank_country">Country</label>
-                                    <div class="select-with-add">
-                                        <select id="bank_country" name="country" class="bank-select">
-                                            <option value="">Select Country</option>
-                                        </select>
-                                        <button type="button" class="bank-add-btn" onclick="showAddCountryModal()" title="Add New Country">+</button>
-                                    </div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_bank">Bank</label>
-                                    <div class="select-with-add">
-                                        <select id="bank_bank" name="bank" class="bank-select">
-                                            <option value="">Select Bank</option>
-                                        </select>
-                                        <button type="button" class="bank-add-btn" onclick="showAddBankModal()" title="Add New Bank">+</button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="form-row bank-row-two-cols bank-row-type-name">
-                                <div class="form-group">
-                                    <label for="bank_type">Type</label>
-                                    <select id="bank_type" name="type" class="bank-select">
-                                        <option value="">Select Type</option>
-                                        <option value="PERSONAL">PERSONAL</option>
-                                        <option value="BUSINESS">BUSINESS</option>
-                                        <option value="ENTERPRISE">ENTERPRISE</option>
+                <form id="addBankProcessForm" class="process-form bank-form bank-form-symmetric">
+                    <!-- Row 0: section titles (parallel) -->
+                    <div class="bank-form-cell bank-form-cell-left">
+                        <input type="hidden" id="bank_edit_id" name="id" value="">
+                        <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
+                        <h3 class="bank-section-title">Bank Information</h3>
+                    </div>
+                    <div class="bank-form-cell bank-form-cell-right">
+                        <h3 class="bank-section-title">Detail</h3>
+                    </div>
+                    <!-- Row 1: Country|Bank <-> Card Merchant|Buy Price -->
+                    <div class="bank-form-cell bank-form-cell-left">
+                        <div class="form-row bank-row-two-cols">
+                            <div class="form-group">
+                                <label for="bank_country">Country</label>
+                                <div class="select-with-add">
+                                    <select id="bank_country" name="country" class="bank-select">
+                                        <option value="">Select Country</option>
                                     </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_name">Name</label>
-                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input" oninput="this.value=this.value.toUpperCase()">
+                                    <button type="button" class="bank-add-btn" onclick="showAddCountryModal()" title="Add New Country">+</button>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <!-- Day start and Selected Profit Sharing (left column) -->
-                        <div class="bank-section">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="bank_day_start">Day start</label>
-                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
-                                </div>
-                            </div>
-                            
-                            <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
-                            <div class="selected-countries-section" style="margin-top: 12px;">
-                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
-                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
-                                </div>
-                                <div class="selected-countries-list" id="selectedProfitSharingList">
-                                    <div class="no-countries">No profit sharing selected</div>
+                            <div class="form-group">
+                                <label for="bank_bank">Bank</label>
+                                <div class="select-with-add">
+                                    <select id="bank_bank" name="bank" class="bank-select">
+                                        <option value="">Select Bank</option>
+                                    </select>
+                                    <button type="button" class="bank-add-btn" onclick="showAddBankModal()" title="Add New Bank">+</button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Right Column: Detail section -->
-                    <div class="bank-form-right">
-                        <div class="bank-section">
-                            <h3 class="bank-section-title">Detail</h3>
-                            
-                            <!-- Row 1: Card Merchant | Buy Price -->
-                            <div class="form-row bank-row-two-cols">
-                                <div class="form-group">
-                                    <label for="bank_card_merchant">Card Merchant</label>
-                                    <div class="account-select-with-buttons">
-                                        <div class="custom-select-wrapper">
-                                            <button type="button" class="custom-select-button" id="bank_card_merchant" data-placeholder="Select Account" name="card_merchant">Select Account</button>
-                                            <div class="custom-select-dropdown" id="bank_card_merchant_dropdown">
-                                                <div class="custom-select-search">
-                                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                                </div>
-                                                <div class="custom-select-options"></div>
+                    <div class="bank-form-cell bank-form-cell-right">
+                        <div class="form-row bank-row-two-cols">
+                            <div class="form-group">
+                                <label for="bank_card_merchant">Card Merchant</label>
+                                <div class="account-select-with-buttons">
+                                    <div class="custom-select-wrapper">
+                                        <button type="button" class="custom-select-button" id="bank_card_merchant" data-placeholder="Select Account" name="card_merchant">Select Account</button>
+                                        <div class="custom-select-dropdown" id="bank_card_merchant_dropdown">
+                                            <div class="custom-select-search">
+                                                <input type="text" placeholder="Search account..." autocomplete="off">
                                             </div>
+                                            <div class="custom-select-options"></div>
                                         </div>
-                                        <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_card_merchant')" title="Add New Account">+</button>
                                     </div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_cost">Buy Price</label>
-                                    <input type="text" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                                    <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_card_merchant')" title="Add New Account">+</button>
                                 </div>
                             </div>
-                            
-                            <!-- Row 2: Customer | Sell Price -->
-                            <div class="form-row bank-row-two-cols">
-                                <div class="form-group">
-                                    <label for="bank_customer">Customer</label>
-                                    <div class="account-select-with-buttons">
-                                        <div class="custom-select-wrapper">
-                                            <button type="button" class="custom-select-button" id="bank_customer" data-placeholder="Select Account" name="customer">Select Account</button>
-                                            <div class="custom-select-dropdown" id="bank_customer_dropdown">
-                                                <div class="custom-select-search">
-                                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                                </div>
-                                                <div class="custom-select-options"></div>
+                            <div class="form-group">
+                                <label for="bank_cost">Buy Price</label>
+                                <input type="text" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Row 2: Type|Name <-> Customer|Sell Price -->
+                    <div class="bank-form-cell bank-form-cell-left">
+                        <div class="form-row bank-row-two-cols bank-row-type-name">
+                            <div class="form-group">
+                                <label for="bank_type">Type</label>
+                                <select id="bank_type" name="type" class="bank-select">
+                                    <option value="">Select Type</option>
+                                    <option value="PERSONAL">PERSONAL</option>
+                                    <option value="BUSINESS">BUSINESS</option>
+                                    <option value="ENTERPRISE">ENTERPRISE</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="bank_name">Name</label>
+                                <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input" oninput="this.value=this.value.toUpperCase()">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bank-form-cell bank-form-cell-right">
+                        <div class="form-row bank-row-two-cols">
+                            <div class="form-group">
+                                <label for="bank_customer">Customer</label>
+                                <div class="account-select-with-buttons">
+                                    <div class="custom-select-wrapper">
+                                        <button type="button" class="custom-select-button" id="bank_customer" data-placeholder="Select Account" name="customer">Select Account</button>
+                                        <div class="custom-select-dropdown" id="bank_customer_dropdown">
+                                            <div class="custom-select-search">
+                                                <input type="text" placeholder="Search account..." autocomplete="off">
                                             </div>
+                                            <div class="custom-select-options"></div>
                                         </div>
-                                        <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_customer')" title="Add New Account">+</button>
                                     </div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_price">Sell Price</label>
-                                    <input type="text" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                                    <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_customer')" title="Add New Account">+</button>
                                 </div>
                             </div>
-                            
-                            <!-- Row 3: Profit Account | Profit -->
-                            <div class="form-row bank-row-two-cols">
-                                <div class="form-group">
-                                    <label for="bank_profit_account">Profit Account</label>
-                                    <div class="account-select-with-buttons">
-                                        <div class="custom-select-wrapper">
-                                            <button type="button" class="custom-select-button" id="bank_profit_account" data-placeholder="Select Account" name="profit_account">Select Account</button>
-                                            <div class="custom-select-dropdown" id="bank_profit_account_dropdown">
-                                                <div class="custom-select-search">
-                                                    <input type="text" placeholder="Search account..." autocomplete="off">
-                                                </div>
-                                                <div class="custom-select-options"></div>
+                            <div class="form-group">
+                                <label for="bank_price">Sell Price</label>
+                                <input type="text" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Row 3: Day start|spacer <-> Profit Account|Profit -->
+                    <div class="bank-form-cell bank-form-cell-left">
+                        <div class="form-row bank-row-two-cols">
+                            <div class="form-group">
+                                <label for="bank_day_start">Day start</label>
+                                <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                            </div>
+                            <div class="form-group bank-form-spacer"></div>
+                        </div>
+                    </div>
+                    <div class="bank-form-cell bank-form-cell-right">
+                        <div class="form-row bank-row-two-cols">
+                            <div class="form-group">
+                                <label for="bank_profit_account">Profit Account</label>
+                                <div class="account-select-with-buttons">
+                                    <div class="custom-select-wrapper">
+                                        <button type="button" class="custom-select-button" id="bank_profit_account" data-placeholder="Select Account" name="profit_account">Select Account</button>
+                                        <div class="custom-select-dropdown" id="bank_profit_account_dropdown">
+                                            <div class="custom-select-search">
+                                                <input type="text" placeholder="Search account..." autocomplete="off">
                                             </div>
+                                            <div class="custom-select-options"></div>
                                         </div>
-                                        <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_profit_account')" title="Add New Account">+</button>
                                     </div>
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_profit">Profit</label>
-                                    <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
+                                    <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_profit_account')" title="Add New Account">+</button>
                                 </div>
                             </div>
-                            
-                            <!-- Row 4: Contract | Insurance -->
-                            <div class="form-row bank-row-two-cols">
-                                <div class="form-group">
-                                    <label for="bank_contract">Contract</label>
-                                    <select id="bank_contract" name="contract" class="bank-select">
-                                        <option value="">Select Contract</option>
-                                        <option value="1 MONTH">1 MONTH</option>
-                                        <option value="2 MONTHS">2 MONTHS</option>
-                                        <option value="3 MONTHS">3 MONTHS</option>
-                                        <option value="6 MONTHS">6 MONTHS</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_insurance">Insurance</label>
-                                    <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
-                                </div>
+                            <div class="form-group">
+                                <label for="bank_profit">Profit</label>
+                                <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Row 4: Selected Profit Sharing <-> Contract|Insurance -->
+                    <div class="bank-form-cell bank-form-cell-left bank-form-cell-profit-sharing">
+                        <div class="selected-countries-section">
+                            <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                <h3 style="margin: 0; font-size: 14px;">Selected Profit Sharing</h3>
+                                <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
+                            </div>
+                            <div class="selected-countries-list" id="selectedProfitSharingList">
+                                <div class="no-countries">No profit sharing selected</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bank-form-cell bank-form-cell-right">
+                        <div class="form-row bank-row-two-cols">
+                            <div class="form-group">
+                                <label for="bank_contract">Contract</label>
+                                <select id="bank_contract" name="contract" class="bank-select">
+                                    <option value="">Select Contract</option>
+                                    <option value="1 MONTH">1 MONTH</option>
+                                    <option value="2 MONTHS">2 MONTHS</option>
+                                    <option value="3 MONTHS">3 MONTHS</option>
+                                    <option value="6 MONTHS">6 MONTHS</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="bank_insurance">Insurance</label>
+                                <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
                             </div>
                         </div>
                     </div>
                     
                     <!-- Actions: span full width -->
-                    <div class="form-actions bank-actions">
+                    <div class="form-actions bank-actions bank-form-actions-full">
                         <button type="submit" class="btn btn-save" id="bankSubmitBtn">Add Process</button>
                         <button type="button" class="btn btn-cancel" onclick="closeAddBankModal()">Cancel</button>
                     </div>
