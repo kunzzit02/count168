@@ -2954,7 +2954,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (result.success) {
                     showNotification(result.message || '入账成功', 'success');
                     updateDeleteButton();
-                    loadProcesses();
+                    fetchProcesses();
                 } else {
                     showNotification(result.error || '入账失败', 'danger');
                 }
