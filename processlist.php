@@ -1986,9 +1986,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
                 const contractClass = getContractStateClass(process.day_start || null, process.day_end || null);
-                const contractCell = contractClass
+                const contractCell = (contract && contractClass)
                     ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contract) + '</span>'
-                    : escapeHtml(contract);
+                    : (contract ? escapeHtml(contract) : '');
                 const cost = process.cost != null && process.cost !== '' ? process.cost : '';
                 const price = process.price != null && process.price !== '' ? process.price : '';
                 const profit = process.profit != null && process.profit !== '' ? process.profit : '';
