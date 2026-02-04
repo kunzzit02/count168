@@ -512,10 +512,48 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         
         .bank-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        
+        .bank-form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 30px;
-            align-items: start;
+            align-items: stretch;
+            min-height: 0;
+        }
+        
+        .bank-form-row + .bank-form-row {
+            margin-top: 20px;
+        }
+        
+        .bank-form-row-last {
+            min-height: 160px;
+        }
+        
+        .bank-form-cell {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        
+        .bank-form-cell-left,
+        .bank-form-cell-right {
+            align-items: stretch;
+        }
+        
+        .bank-form-cell .selected-countries-section {
+            flex: 1;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .bank-form-cell .selected-countries-list {
+            flex: 1;
+            min-height: 80px;
         }
         
         .bank-form-left {
@@ -583,17 +621,26 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         
         .bank-form-left .bank-row-two-cols,
-        .bank-form-left .bank-row-three-cols {
+        .bank-form-left .bank-row-three-cols,
+        .bank-form-cell-left .bank-row-two-cols,
+        .bank-form-cell-left .bank-row-three-cols,
+        .bank-form-cell-right .bank-row-two-cols,
+        .bank-form-cell-right .bank-row-three-cols {
             display: grid;
             gap: 15px;
         }
-        .bank-form-left .bank-row-two-cols {
+        .bank-form-left .bank-row-two-cols,
+        .bank-form-cell-left .bank-row-two-cols,
+        .bank-form-cell-right .bank-row-two-cols {
             grid-template-columns: 1fr 1fr;
         }
-        .bank-form-left .bank-row-type-name {
+        .bank-form-left .bank-row-type-name,
+        .bank-form-cell-left .bank-row-type-name {
             grid-template-columns: 0.45fr 1fr;
         }
-        .bank-form-left .bank-row-three-cols {
+        .bank-form-left .bank-row-three-cols,
+        .bank-form-cell-left .bank-row-three-cols,
+        .bank-form-cell-right .bank-row-three-cols {
             grid-template-columns: 0.85fr 0.85fr 1fr;
         }
         
@@ -1222,12 +1269,10 @@ if ($current_user_id && count($user_companies) > 0) {
             <div class="modal-body">
                 <form id="addBankProcessForm" class="process-form bank-form">
                     <input type="hidden" id="bank_edit_id" name="id" value="">
-                    <!-- Left Column -->
-                    <div class="bank-form-left">
-                        <!-- Bank Information Section -->
-                        <div class="bank-section">
+                    <!-- Row 1: same height left & right -->
+                    <div class="bank-form-row">
+                        <div class="bank-form-cell bank-form-cell-left">
                             <h3 class="bank-section-title">Bank Information</h3>
-                            
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_country">Country</label>
@@ -1248,52 +1293,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                     </div>
                                 </div>
                             </div>
-                            
-                            <div class="form-row bank-row-two-cols bank-row-type-name">
-                                <div class="form-group">
-                                    <label for="bank_type">Type</label>
-                                    <select id="bank_type" name="type" class="bank-select">
-                                        <option value="">Select Type</option>
-                                        <option value="PERSONAL">PERSONAL</option>
-                                        <option value="BUSINESS">BUSINESS</option>
-                                        <option value="ENTERPRISE">ENTERPRISE</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_name">Name</label>
-                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input" oninput="this.value=this.value.toUpperCase()">
-                                </div>
-                            </div>
                         </div>
-                        
-                        <!-- Day start and Selected Profit Sharing (left column) -->
-                        <div class="bank-section">
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="bank_day_start">Day start</label>
-                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
-                                </div>
-                            </div>
-                            
-                            <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
-                            <div class="selected-countries-section" style="margin-top: 12px;">
-                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
-                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
-                                </div>
-                                <div class="selected-countries-list" id="selectedProfitSharingList">
-                                    <div class="no-countries">No profit sharing selected</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Column: Detail section -->
-                    <div class="bank-form-right">
-                        <div class="bank-section">
+                        <div class="bank-form-cell bank-form-cell-right">
                             <h3 class="bank-section-title">Detail</h3>
-                            
-                            <!-- Row 1: Card Merchant | Buy Price -->
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_card_merchant">Card Merchant</label>
@@ -1315,8 +1317,28 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <input type="text" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
-                            
-                            <!-- Row 2: Customer | Sell Price -->
+                        </div>
+                    </div>
+                    <!-- Row 2 -->
+                    <div class="bank-form-row">
+                        <div class="bank-form-cell bank-form-cell-left">
+                            <div class="form-row bank-row-two-cols bank-row-type-name">
+                                <div class="form-group">
+                                    <label for="bank_type">Type</label>
+                                    <select id="bank_type" name="type" class="bank-select">
+                                        <option value="">Select Type</option>
+                                        <option value="PERSONAL">PERSONAL</option>
+                                        <option value="BUSINESS">BUSINESS</option>
+                                        <option value="ENTERPRISE">ENTERPRISE</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bank_name">Name</label>
+                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input" oninput="this.value=this.value.toUpperCase()">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bank-form-cell bank-form-cell-right">
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_customer">Customer</label>
@@ -1338,8 +1360,19 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <input type="text" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
-                            
-                            <!-- Row 3: Profit Account | Profit -->
+                        </div>
+                    </div>
+                    <!-- Row 3 -->
+                    <div class="bank-form-row">
+                        <div class="bank-form-cell bank-form-cell-left">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="bank_day_start">Day start</label>
+                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bank-form-cell bank-form-cell-right">
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_profit_account">Profit Account</label>
@@ -1361,8 +1394,23 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
                                 </div>
                             </div>
-                            
-                            <!-- Row 4: Contract | Insurance -->
+                        </div>
+                    </div>
+                    <!-- Row 4: Selected Profit Sharing | Contract & Insurance -->
+                    <div class="bank-form-row bank-form-row-last">
+                        <div class="bank-form-cell bank-form-cell-left">
+                            <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
+                            <div class="selected-countries-section">
+                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <h3 style="margin: 0;">Selected Profit Sharing</h3>
+                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
+                                </div>
+                                <div class="selected-countries-list" id="selectedProfitSharingList">
+                                    <div class="no-countries">No profit sharing selected</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bank-form-cell bank-form-cell-right">
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_contract">Contract</label>
