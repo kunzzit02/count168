@@ -1043,10 +1043,12 @@ if ($current_user_id && count($user_companies) > 0) {
                             <label for="waiting">Waiting</label>
                         </div>
                     </div>
-                    <button class="btn btn-primary" id="processPostToTransactionBtn" onclick="postToTransactionSelected()"
-                        title="将选中 Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户" style="display: none;" disabled>Post to Transaction</button>
-                    <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
-                        title="Only inactive processes can be deleted" disabled>Delete</button>
+                    <div class="process-list-action-buttons-group" style="display: flex; align-items: center; gap: 8px;">
+                        <button class="btn btn-primary" id="processPostToTransactionBtn" onclick="postToTransactionSelected()"
+                            title="将选中 Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户" style="display: none;" disabled>Post to Transaction</button>
+                        <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
+                            title="Only inactive processes can be deleted" disabled>Delete</button>
+                    </div>
                 </div>
 
                 <?php if (count($user_companies) > 1): ?>
