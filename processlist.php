@@ -1982,35 +1982,40 @@ if ($current_user_id && count($user_companies) > 0) {
                 pageItems = listToShow.slice(startIndex, Math.min(startIndex + pageSize, listToShow.length));
             }
 
+            function dashIfEmpty(val) {
+                if (val == null) return '-';
+                const s = String(val).trim();
+                return s === '' ? '-' : val;
+            }
             pageItems.forEach((process, idx) => {
                 const statusClass = process.status === 'active' ? 'status-active' : (process.status === 'waiting' ? 'status-waiting' : 'status-inactive');
                 const contract = process.contract ? (contractMap[process.contract] || process.contract) : '';
                 const contractClass = getContractStateClass(process.day_start || null, process.day_end || null);
                 const contractCell = (contract && contractClass)
                     ? '<span class="contract-badge ' + contractClass + '">' + escapeHtml(contract) + '</span>'
-                    : (contract ? escapeHtml(contract) : '');
-                const cost = process.cost != null && process.cost !== '' ? process.cost : '';
-                const price = process.price != null && process.price !== '' ? process.price : '';
-                const profit = process.profit != null && process.profit !== '' ? process.profit : '';
+                    : (contract ? escapeHtml(contract) : escapeHtml('-'));
+                const cost = dashIfEmpty(process.cost);
+                const price = dashIfEmpty(process.price);
+                const profit = dashIfEmpty(process.profit);
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
                     (process.status === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
-                    '<td>' + escapeHtml(process.card_lower || '') + '</td>' +
-                    '<td class="bank-td-country">' + escapeHtml(process.country || '') + '</td>' +
-                    '<td>' + escapeHtml(process.bank || '') + '</td>' +
-                    '<td class="bank-td-types">' + escapeHtml(process.types || '') + '</td>' +
-                    '<td class="bank-td-card-owner">' + escapeHtml(process.supplier || '') + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
+                    '<td class="bank-td-country">' + escapeHtml(dashIfEmpty(process.country)) + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.bank)) + '</td>' +
+                    '<td class="bank-td-types">' + escapeHtml(dashIfEmpty(process.types)) + '</td>' +
+                    '<td class="bank-td-card-owner">' + escapeHtml(dashIfEmpty(process.supplier)) + '</td>' +
                     '<td>' + contractCell + '</td>' +
-                    '<td>' + escapeHtml(process.insurance || '') + '</td>' +
-                    '<td>' + escapeHtml(process.customer || '') + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.insurance)) + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.customer)) + '</td>' +
                     '<td>' + escapeHtml(String(cost)) + '</td>' +
                     '<td>' + escapeHtml(String(price)) + '</td>' +
                     '<td>' + escapeHtml(String(profit)) + '</td>' +
                     '<td class="bank-td-status">' + statusBadge + '</td>' +
-                    '<td>' + escapeHtml(process.date || '') + '</td>' +
+                    '<td>' + escapeHtml(dashIfEmpty(process.date)) + '</td>' +
                     '<td class="bank-td-action">' + actionCell + '</td>';
                 tbody.appendChild(tr);
             });
