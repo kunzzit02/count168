@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                 }
                 $stmt = $pdo->prepare($formulaCheckSql);
                 $stmt->execute($formulaCheckParams);
-                $formulaCount = (int)$stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                $formulaCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['count'];
             }
 
             if ($formulaCount > 0) {
@@ -123,12 +123,12 @@ try {
             $user_companies = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
     }
-} catch(PDOException $e) {
+} catch (PDOException $e) {
     error_log("Failed to get user company list: " . $e->getMessage());
 }
 
 // 如果 URL 中有 company_id 参数，使用它（用于切换 company）
-$company_id = isset($_GET['company_id']) ? (int)$_GET['company_id'] : ($_SESSION['company_id'] ?? null);
+$company_id = isset($_GET['company_id']) ? (int) $_GET['company_id'] : ($_SESSION['company_id'] ?? null);
 
 // 验证 company_id 是否属于当前用户
 if ($current_user_id && count($user_companies) > 0) {
@@ -146,7 +146,7 @@ if ($current_user_id && count($user_companies) > 0) {
         $company_id = $user_companies[0]['id'];
         // 更新 session（确保登录后默认使用第一个 company）
         $_SESSION['company_id'] = $company_id;
-    } elseif (isset($_GET['company_id']) && $company_id == (int)$_GET['company_id']) {
+    } elseif (isset($_GET['company_id']) && $company_id == (int) $_GET['company_id']) {
         // 如果 URL 中有 company_id 参数且验证通过，更新 session（实现跨页面同步）
         $_SESSION['company_id'] = $company_id;
     } elseif (!isset($_GET['company_id']) && $company_id == $_SESSION['company_id']) {
@@ -161,6 +161,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -183,6 +184,7 @@ if ($current_user_id && count($user_companies) > 0) {
         #edit_remarks {
             text-transform: uppercase;
         }
+
         /* 注意：searchInput 和 descriptionSearch 不使用 CSS text-transform，保持实际值的显示 */
 
         /* 描述列表删除按钮样式 */
@@ -192,11 +194,13 @@ if ($current_user_id && count($user_companies) > 0) {
             justify-content: space-between;
             gap: 8px;
         }
+
         .description-item-left {
             display: flex;
             align-items: center;
             gap: 8px;
         }
+
         .description-delete-btn {
             border: none;
             background: transparent;
@@ -206,6 +210,7 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: 4px 6px;
             line-height: 1;
         }
+
         .description-delete-btn:hover {
             color: #900;
         }
@@ -215,22 +220,26 @@ if ($current_user_id && count($user_companies) > 0) {
             max-width: 56.25rem;
             width: 90%;
         }
+
         .country-selection-container {
             display: flex;
             gap: 0;
             height: clamp(300px, 26.04vw, 500px);
             flex-wrap: wrap;
         }
+
         .available-countries-section {
             flex: 1;
             border-right: 0.0625rem solid #e9ecef;
             padding-right: clamp(10px, 1.04vw, 20px);
             min-width: 20rem;
         }
+
         .selected-countries-section {
             flex: 1;
             min-width: 20rem;
         }
+
         .available-countries-section h3,
         .selected-countries-section h3 {
             margin-top: 0;
@@ -238,23 +247,30 @@ if ($current_user_id && count($user_companies) > 0) {
             color: #495057;
             font-size: clamp(12px, 0.83vw, 16px);
         }
+
         .add-country-bar {
             margin-bottom: clamp(10px, 1.04vw, 20px);
             padding-bottom: clamp(10px, 1.04vw, 20px);
             border-bottom: 1px solid #e9ecef;
         }
+
         .add-country-bar h3 {
             margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
             color: #495057;
             font-size: clamp(12px, 0.83vw, 16px);
             font-weight: bold;
         }
-        .add-country-form { margin: 0; }
+
+        .add-country-form {
+            margin: 0;
+        }
+
         .add-country-input-group {
             display: flex;
             gap: 0.5rem;
             align-items: center;
         }
+
         .add-country-input-group input {
             width: 100%;
             padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
@@ -263,7 +279,11 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(8px, 0.73vw, 14px);
             box-sizing: border-box;
         }
-        .country-search { margin-bottom: 0.9375rem; }
+
+        .country-search {
+            margin-bottom: 0.9375rem;
+        }
+
         .country-search input {
             width: 100%;
             padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
@@ -272,6 +292,7 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(8px, 0.73vw, 14px);
             box-sizing: border-box;
         }
+
         .country-list {
             max-height: 300px;
             overflow-y: auto;
@@ -280,6 +301,7 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: 0px 10px;
             background-color: #f8f9fa;
         }
+
         .selected-countries-list {
             max-height: 18.75rem;
             overflow-y: auto;
@@ -289,6 +311,7 @@ if ($current_user_id && count($user_companies) > 0) {
             background-color: #f8f9fa;
             margin-bottom: 25px;
         }
+
         .country-item {
             display: flex;
             align-items: center;
@@ -297,15 +320,31 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: clamp(4px, 0.21vw, 8px) 0;
             border-bottom: 0.0625rem solid #e9ecef;
         }
-        .country-item:last-child { border-bottom: none; }
+
+        .country-item:last-child {
+            border-bottom: none;
+        }
+
         .country-item-left {
             display: flex;
             align-items: center;
             gap: 8px;
             flex: 1;
         }
-        .country-item input[type="checkbox"] { margin: 0; width: clamp(10px, 0.73vw, 14px); }
-        .country-item label { margin: 0; font-size: clamp(10px, 0.73vw, 14px); cursor: pointer; flex: 1; color: #333; }
+
+        .country-item input[type="checkbox"] {
+            margin: 0;
+            width: clamp(10px, 0.73vw, 14px);
+        }
+
+        .country-item label {
+            margin: 0;
+            font-size: clamp(10px, 0.73vw, 14px);
+            cursor: pointer;
+            flex: 1;
+            color: #333;
+        }
+
         .country-delete-btn {
             border: none;
             background: transparent;
@@ -315,8 +354,15 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: 4px 6px;
             line-height: 1;
         }
-        .country-delete-btn:hover { color: #900; }
-        .country-item:hover { background-color: #e9ecef; }
+
+        .country-delete-btn:hover {
+            color: #900;
+        }
+
+        .country-item:hover {
+            background-color: #e9ecef;
+        }
+
         .selected-country-modal-item {
             display: flex;
             align-items: center;
@@ -327,13 +373,19 @@ if ($current_user_id && count($user_companies) > 0) {
             border-radius: 0.25rem;
             margin-bottom: 0.5rem;
         }
-        .selected-country-modal-item:last-child { border-bottom: none; margin-bottom: 0; }
+
+        .selected-country-modal-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
         .selected-country-modal-item span {
             flex: 1;
             font-size: clamp(10px, 0.73vw, 14px);
             color: #1976d2;
             font-weight: 500;
         }
+
         .remove-country-modal {
             background: none;
             border: none;
@@ -349,7 +401,12 @@ if ($current_user_id && count($user_companies) > 0) {
             justify-content: center;
             border-radius: 50%;
         }
-        .remove-country-modal:hover { background-color: #1976d2; color: white; }
+
+        .remove-country-modal:hover {
+            background-color: #1976d2;
+            color: white;
+        }
+
         .no-countries {
             text-align: center;
             color: #6c757d;
@@ -363,23 +420,27 @@ if ($current_user_id && count($user_companies) > 0) {
             max-width: 56.25rem;
             width: 90%;
         }
+
         .bank-selection-container {
             display: flex;
             gap: 0;
             height: clamp(300px, 26.04vw, 500px);
             flex-wrap: wrap;
         }
+
         .available-banks-section {
             flex: 1;
             border-right: 0.0625rem solid #e9ecef;
             padding-right: clamp(10px, 1.04vw, 20px);
             min-width: 20rem;
         }
+
         .selected-banks-section {
             flex: 1;
             padding-left: clamp(10px, 1.04vw, 20px);
             min-width: 20rem;
         }
+
         .available-banks-section h3,
         .selected-banks-section h3 {
             margin-top: 0;
@@ -387,23 +448,30 @@ if ($current_user_id && count($user_companies) > 0) {
             color: #495057;
             font-size: clamp(12px, 0.83vw, 16px);
         }
+
         .add-bank-bar {
             margin-bottom: clamp(10px, 1.04vw, 20px);
             padding-bottom: clamp(10px, 1.04vw, 20px);
             border-bottom: 1px solid #e9ecef;
         }
+
         .add-bank-bar h3 {
             margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
             color: #495057;
             font-size: clamp(12px, 0.83vw, 16px);
             font-weight: bold;
         }
-        .add-bank-form { margin: 0; }
+
+        .add-bank-form {
+            margin: 0;
+        }
+
         .add-bank-input-group {
             display: flex;
             gap: 0.5rem;
             align-items: center;
         }
+
         .add-bank-input-group input {
             width: 100%;
             padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
@@ -412,7 +480,11 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(8px, 0.73vw, 14px);
             box-sizing: border-box;
         }
-        .bank-search { margin-bottom: 0.9375rem; }
+
+        .bank-search {
+            margin-bottom: 0.9375rem;
+        }
+
         .bank-search input {
             width: 100%;
             padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
@@ -421,6 +493,7 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: clamp(8px, 0.73vw, 14px);
             box-sizing: border-box;
         }
+
         .bank-list {
             max-height: 300px;
             overflow-y: auto;
@@ -429,6 +502,7 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: 0px 10px;
             background-color: #f8f9fa;
         }
+
         .selected-banks-list {
             max-height: 18.75rem;
             overflow-y: auto;
@@ -437,6 +511,7 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: 0.625rem;
             background-color: #f8f9fa;
         }
+
         .bank-item {
             display: flex;
             align-items: center;
@@ -445,15 +520,31 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: clamp(4px, 0.21vw, 8px) 0;
             border-bottom: 0.0625rem solid #e9ecef;
         }
-        .bank-item:last-child { border-bottom: none; }
+
+        .bank-item:last-child {
+            border-bottom: none;
+        }
+
         .bank-item-left {
             display: flex;
             align-items: center;
             gap: 8px;
             flex: 1;
         }
-        .bank-item input[type="checkbox"] { margin: 0; width: clamp(10px, 0.73vw, 14px); }
-        .bank-item label { margin: 0; font-size: clamp(10px, 0.73vw, 14px); cursor: pointer; flex: 1; color: #333; }
+
+        .bank-item input[type="checkbox"] {
+            margin: 0;
+            width: clamp(10px, 0.73vw, 14px);
+        }
+
+        .bank-item label {
+            margin: 0;
+            font-size: clamp(10px, 0.73vw, 14px);
+            cursor: pointer;
+            flex: 1;
+            color: #333;
+        }
+
         .bank-delete-btn {
             border: none;
             background: transparent;
@@ -463,8 +554,15 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: 4px 6px;
             line-height: 1;
         }
-        .bank-delete-btn:hover { color: #900; }
-        .bank-item:hover { background-color: #e9ecef; }
+
+        .bank-delete-btn:hover {
+            color: #900;
+        }
+
+        .bank-item:hover {
+            background-color: #e9ecef;
+        }
+
         .selected-bank-modal-item {
             display: flex;
             align-items: center;
@@ -475,13 +573,19 @@ if ($current_user_id && count($user_companies) > 0) {
             border-radius: 0.25rem;
             margin-bottom: 0.5rem;
         }
-        .selected-bank-modal-item:last-child { border-bottom: none; margin-bottom: 0; }
+
+        .selected-bank-modal-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
         .selected-bank-modal-item span {
             flex: 1;
             font-size: clamp(10px, 0.73vw, 14px);
             color: #1976d2;
             font-weight: 500;
         }
+
         .remove-bank-modal {
             background: none;
             border: none;
@@ -497,7 +601,12 @@ if ($current_user_id && count($user_companies) > 0) {
             justify-content: center;
             border-radius: 50%;
         }
-        .remove-bank-modal:hover { background-color: #1976d2; color: white; }
+
+        .remove-bank-modal:hover {
+            background-color: #1976d2;
+            color: white;
+        }
+
         .no-banks {
             text-align: center;
             color: #6c757d;
@@ -511,13 +620,13 @@ if ($current_user_id && count($user_companies) > 0) {
             max-width: 1000px;
             width: 90%;
         }
-        
+
         .bank-form {
             display: flex;
             flex-direction: column;
             gap: 0;
         }
-        
+
         .bank-form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -525,60 +634,60 @@ if ($current_user_id && count($user_companies) > 0) {
             align-items: stretch;
             min-height: 0;
         }
-        
-        .bank-form-row + .bank-form-row {
+
+        .bank-form-row+.bank-form-row {
             margin-top: 20px;
         }
-        
+
         .bank-form-row-last {
             min-height: 160px;
         }
-        
+
         .bank-form-cell {
             display: flex;
             flex-direction: column;
             min-height: 0;
         }
-        
+
         .bank-form-cell-left,
         .bank-form-cell-right {
             align-items: stretch;
         }
-        
+
         .bank-form-cell .selected-countries-section {
             flex: 1;
             min-height: 120px;
             display: flex;
             flex-direction: column;
         }
-        
+
         .bank-form-cell .selected-countries-list {
             flex: 1;
             min-height: 80px;
         }
-        
+
         .bank-form-left {
             display: flex;
             flex-direction: column;
             gap: 25px;
         }
-        
+
         .bank-form-right {
             display: flex;
             flex-direction: column;
             gap: 25px;
         }
-        
+
         .bank-section {
             display: flex;
             flex-direction: column;
             gap: 15px;
         }
-        
+
         .bank-section:first-child {
             margin-top: 0;
         }
-        
+
         .bank-section-title {
             font-size: 16px;
             font-weight: bold;
@@ -591,36 +700,36 @@ if ($current_user_id && count($user_companies) > 0) {
             border-bottom: 2px solid #e0e0e0;
             overflow: visible;
         }
-        
+
         .bank-chinese {
             font-size: 12px;
             color: #666;
             font-weight: normal;
         }
-        
+
         .bank-row-two-cols {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
         }
-        
+
         .bank-row-three-cols {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 15px;
         }
-        
+
         .bank-form .form-row {
             margin-bottom: 0;
         }
-        
+
         .bank-form .form-group {
             display: flex;
             flex-direction: column;
             gap: 6px;
             min-width: 0;
         }
-        
+
         .bank-form-left .bank-row-two-cols,
         .bank-form-left .bank-row-three-cols,
         .bank-form-cell-left .bank-row-two-cols,
@@ -630,38 +739,41 @@ if ($current_user_id && count($user_companies) > 0) {
             display: grid;
             gap: 15px;
         }
+
         .bank-form-left .bank-row-two-cols,
         .bank-form-cell-left .bank-row-two-cols,
         .bank-form-cell-right .bank-row-two-cols {
             grid-template-columns: 1fr 1fr;
         }
+
         .bank-form-left .bank-row-type-name,
         .bank-form-cell-left .bank-row-type-name {
             grid-template-columns: 0.45fr 1fr;
         }
+
         .bank-form-left .bank-row-three-cols,
         .bank-form-cell-left .bank-row-three-cols,
         .bank-form-cell-right .bank-row-three-cols {
             grid-template-columns: 0.85fr 0.85fr 1fr;
         }
-        
+
         .bank-form .form-group label {
             font-size: 13px;
             font-weight: 600;
             color: #374151;
             margin-bottom: 0;
         }
-        
+
         .select-with-add {
             display: flex;
             gap: 8px;
             align-items: center;
         }
-        
+
         .select-with-add .bank-select {
             flex: 1;
         }
-        
+
         .bank-add-btn {
             width: clamp(18px, 1.25vw, 24px);
             height: clamp(18px, 1.25vw, 24px);
@@ -678,12 +790,12 @@ if ($current_user_id && count($user_companies) > 0) {
             flex-shrink: 0;
             transition: all 0.2s ease;
         }
-        
+
         .bank-add-btn:hover {
             background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
             transform: scale(1.05);
         }
-        
+
         .bank-input,
         .bank-select {
             width: 100%;
@@ -696,24 +808,24 @@ if ($current_user_id && count($user_companies) > 0) {
             color: #374151;
             font-family: inherit;
         }
-        
+
         .bank-input:focus,
         .bank-select:focus {
             outline: none;
             border-color: #6366f1;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
-        
+
         .account-select-with-buttons {
             display: flex;
             gap: 8px;
             align-items: center;
         }
-        
+
         .account-select-with-buttons .custom-select-wrapper {
             flex: 1;
         }
-        
+
         /* Card Merchant / Customer select bar: same design as other bank select bars */
         .bank-form .account-select-with-buttons .custom-select-button {
             width: 100%;
@@ -733,13 +845,13 @@ if ($current_user_id && count($user_companies) > 0) {
             white-space: nowrap;
             position: relative;
         }
-        
+
         .bank-form .account-select-with-buttons .custom-select-button:focus {
             outline: none;
             border-color: #6366f1;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
-        
+
         .account-add-btn {
             width: 32px;
             height: 32px;
@@ -755,17 +867,17 @@ if ($current_user_id && count($user_companies) > 0) {
             flex-shrink: 0;
             transition: all 0.2s ease;
         }
-        
+
         .account-add-btn:hover {
             background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
             transform: scale(1.05);
         }
-        
+
         .custom-select-wrapper {
             position: relative;
             width: 100%;
         }
-        
+
         .custom-select-button {
             width: 100%;
             padding: 8px 30px 8px 12px;
@@ -780,7 +892,7 @@ if ($current_user_id && count($user_companies) > 0) {
             white-space: nowrap;
             position: relative;
         }
-        
+
         .custom-select-button::after {
             content: '▼';
             position: absolute;
@@ -791,11 +903,11 @@ if ($current_user_id && count($user_companies) > 0) {
             color: #666;
             pointer-events: none;
         }
-        
+
         .custom-select-button.open::after {
             content: '▲';
         }
-        
+
         .custom-select-dropdown {
             position: absolute;
             top: 100%;
@@ -804,18 +916,18 @@ if ($current_user_id && count($user_companies) > 0) {
             background: white;
             border: 1px solid #ddd;
             border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
             z-index: 1000;
             display: none;
             max-height: 300px;
             overflow: hidden;
             margin-top: 2px;
         }
-        
+
         .custom-select-dropdown.show {
             display: block;
         }
-        
+
         .custom-select-search {
             padding: 8px;
             border-bottom: 1px solid #eee;
@@ -824,7 +936,7 @@ if ($current_user_id && count($user_companies) > 0) {
             background: white;
             z-index: 1;
         }
-        
+
         .custom-select-search input {
             width: 100%;
             padding: 6px 8px;
@@ -833,49 +945,49 @@ if ($current_user_id && count($user_companies) > 0) {
             font-size: 14px;
             box-sizing: border-box;
         }
-        
+
         .custom-select-options {
             max-height: 250px;
             overflow-y: auto;
         }
-        
+
         .custom-select-option {
             padding: 8px 12px;
             cursor: pointer;
             font-size: 14px;
             border-bottom: 1px solid #f5f5f5;
         }
-        
+
         .custom-select-option:hover {
             background-color: #f0f0f0;
         }
-        
+
         .custom-select-option.selected {
             background-color: #e3f2fd;
             font-weight: bold;
         }
-        
+
         .custom-select-option:last-child {
             border-bottom: none;
         }
-        
+
         .custom-select-no-results {
             padding: 12px;
             text-align: center;
             color: #999;
             font-size: 14px;
         }
-        
+
         .profit-sharing-with-add {
             display: flex;
             gap: 8px;
             align-items: center;
         }
-        
+
         .profit-sharing-with-add .bank-input {
             flex: 1;
         }
-        
+
         .bank-actions {
             grid-column: 1 / -1;
             display: flex;
@@ -887,13 +999,16 @@ if ($current_user_id && count($user_companies) > 0) {
         }
     </style>
 </head>
+
 <body class="process-page">
     <div class="container">
         <div class="content">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
+            <div
+                style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
                 <h1 class="page-title" style="margin: 0;">Process List</h1>
                 <!-- Permission Filter -->
-                <div id="process-list-permission-filter" class="process-company-filter process-permission-filter-header" style="display: none;">
+                <div id="process-list-permission-filter" class="process-company-filter process-permission-filter-header"
+                    style="display: none;">
                     <span class="process-company-label">Category:</span>
                     <div id="process-list-permission-buttons" class="process-company-buttons">
                         <!-- Permission buttons will be loaded dynamically -->
@@ -902,16 +1017,18 @@ if ($current_user_id && count($user_companies) > 0) {
             </div>
 
             <div class="separator-line"></div>
-            
+
             <div class="action-buttons-container">
                 <div class="action-buttons">
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <button class="btn btn-add" onclick="addProcess()">Add Process</button>
                         <div class="search-container">
                             <svg class="search-icon" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                                <path
+                                    d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
                             </svg>
-                            <input type="text" id="searchInput" placeholder="Search by Description" class="search-input" value="<?php echo $searchTerm; ?>">
+                            <input type="text" id="searchInput" placeholder="Search by Description" class="search-input"
+                                value="<?php echo $searchTerm; ?>">
                         </div>
                         <div class="checkbox-section">
                             <input type="checkbox" id="showInactive" name="showInactive" <?php echo $showInactive ? 'checked' : ''; ?>>
@@ -926,76 +1043,82 @@ if ($current_user_id && count($user_companies) > 0) {
                             <label for="waiting">Waiting</label>
                         </div>
                     </div>
-                    <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()" title="Only inactive processes can be deleted" disabled>Delete</button>
+                    <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
+                        title="Only inactive processes can be deleted" disabled>Delete</button>
                 </div>
-                
+
                 <?php if (count($user_companies) > 1): ?>
-                <div id="process-list-company-filter" class="process-company-filter" style="display: flex; margin-top: 10px;">
-                    <span class="process-company-label">Company:</span>
-                    <div id="process-list-company-buttons" class="process-company-buttons">
-                        <?php foreach($user_companies as $comp): ?>
-                            <button type="button" 
-                                    class="process-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>" 
+                    <div id="process-list-company-filter" class="process-company-filter"
+                        style="display: flex; margin-top: 10px;">
+                        <span class="process-company-label">Company:</span>
+                        <div id="process-list-company-buttons" class="process-company-buttons">
+                            <?php foreach ($user_companies as $comp): ?>
+                                <button type="button"
+                                    class="process-company-btn <?php echo $comp['id'] == $company_id ? 'active' : ''; ?>"
                                     data-company-id="<?php echo $comp['id']; ?>"
                                     onclick="switchProcessListCompany(<?php echo $comp['id']; ?>)">
-                                <?php echo htmlspecialchars($comp['company_id']); ?>
-                            </button>
-                        <?php endforeach; ?>
+                                    <?php echo htmlspecialchars($comp['company_id']); ?>
+                                </button>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
-                </div>
                 <?php endif; ?>
             </div>
-            
+
             <!-- 包装器保证 th 与数据区同宽，列对齐 -->
             <div class="process-table-wrapper" id="processTableWrapper">
-            <!-- Table Header -->
-            <div class="table-header" id="tableHeader">
-                <!-- Gambling table headers (default) -->
-                <div class="header-item gambling-header">No</div>
-                <div class="header-item gambling-header">Process ID</div>
-                <div class="header-item gambling-header">Description</div>
-                <div class="header-item gambling-header">Status</div>
-                <div class="header-item gambling-header">Currency</div>
-                <div class="header-item gambling-header">Day Use</div>
-                <div class="header-item gambling-header">Action
-                    <input type="checkbox" id="selectAllProcesses" title="Select all" style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllProcesses()">
+                <!-- Table Header -->
+                <div class="table-header" id="tableHeader">
+                    <!-- Gambling table headers (default) -->
+                    <div class="header-item gambling-header">No</div>
+                    <div class="header-item gambling-header">Process ID</div>
+                    <div class="header-item gambling-header">Description</div>
+                    <div class="header-item gambling-header">Status</div>
+                    <div class="header-item gambling-header">Currency</div>
+                    <div class="header-item gambling-header">Day Use</div>
+                    <div class="header-item gambling-header">Action
+                        <input type="checkbox" id="selectAllProcesses" title="Select all"
+                            style="margin-left: 10px; cursor: pointer;" onchange="toggleSelectAllProcesses()">
+                    </div>
+                    <!-- Bank table headers (hidden by default) -->
+                    <div class="header-item bank-header" style="display: none;">No</div>
+                    <div class="header-item bank-header" style="display: none;">Supplier</div>
+                    <div class="header-item bank-header" style="display: none;">Country</div>
+                    <div class="header-item bank-header" style="display: none;">Bank</div>
+                    <div class="header-item bank-header" style="display: none;">Types</div>
+                    <div class="header-item bank-header" style="display: none;">Card Owner</div>
+                    <div class="header-item bank-header" style="display: none;">Contract</div>
+                    <div class="header-item bank-header" style="display: none;">Insurance</div>
+                    <div class="header-item bank-header" style="display: none;">Customer</div>
+                    <div class="header-item bank-header" style="display: none;">Cost</div>
+                    <div class="header-item bank-header" style="display: none;">Price</div>
+                    <div class="header-item bank-header" style="display: none;">Profit</div>
+                    <div class="header-item bank-header" style="display: none;">Status</div>
+                    <div class="header-item bank-header" style="display: none;">Date</div>
+                    <div class="header-item bank-header bank-action-header" style="display: none;">Action
+                        <input type="checkbox" title="Select all" class="header-action-checkbox"
+                            style="margin-left: 10px; cursor: pointer;">
+                    </div>
                 </div>
-                <!-- Bank table headers (hidden by default) -->
-                <div class="header-item bank-header" style="display: none;">No</div>
-                <div class="header-item bank-header" style="display: none;">Supplier</div>
-                <div class="header-item bank-header" style="display: none;">Country</div>
-                <div class="header-item bank-header" style="display: none;">Bank</div>
-                <div class="header-item bank-header" style="display: none;">Types</div>
-                <div class="header-item bank-header" style="display: none;">Card Owner</div>
-                <div class="header-item bank-header" style="display: none;">Contract</div>
-                <div class="header-item bank-header" style="display: none;">Insurance</div>
-                <div class="header-item bank-header" style="display: none;">Customer</div>
-                <div class="header-item bank-header" style="display: none;">Cost</div>
-                <div class="header-item bank-header" style="display: none;">Price</div>
-                <div class="header-item bank-header" style="display: none;">Profit</div>
-                <div class="header-item bank-header" style="display: none;">Status</div>
-                <div class="header-item bank-header" style="display: none;">Date</div>
-                <div class="header-item bank-header bank-action-header" style="display: none;">Action
-                    <input type="checkbox" title="Select all" class="header-action-checkbox" style="margin-left: 10px; cursor: pointer;">
+
+                <!-- Process Cards List -->
+                <div class="process-cards" id="processTableBody">
+                    <div class="process-card">
+                        <div class="card-item">Load the Data...</div>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Process Cards List -->
-            <div class="process-cards" id="processTableBody">
-                <div class="process-card">
-                    <div class="card-item">Load the Data...</div>
-                </div>
-            </div>
             </div>
 
             <!-- Bank 用真实 table 保证 th/td 列对齐 -->
             <div id="bankTableWrapper" class="bank-table-wrapper" style="display: none;">
                 <table id="bankTable" class="bank-data-table">
-                    <thead><tr id="bankTableHeadRow"></tr></thead>
+                    <thead>
+                        <tr id="bankTableHeadRow"></tr>
+                    </thead>
                     <tbody id="bankTableBody"></tbody>
                 </table>
             </div>
-            
+
             <!-- 分页控件 - 浮动在右下角 -->
             <div class="pagination-container" id="paginationContainer">
                 <button class="pagination-btn" id="prevBtn" onclick="prevPage()">◀</button>
@@ -1023,7 +1146,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="edit_process_name">Process Name *</label>
-                                <input type="text" id="edit_process_name" name="process_name" required readonly style="background-color: #f5f5f5; cursor: not-allowed;">
+                                <input type="text" id="edit_process_name" name="process_name" required readonly
+                                    style="background-color: #f5f5f5; cursor: not-allowed;">
                             </div>
                         </div>
 
@@ -1031,12 +1155,13 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-group">
                                 <label for="edit_description">Description</label>
                                 <div class="input-with-icon">
-                                    <input type="text" id="edit_description" name="description" readonly placeholder="Click + to select descriptions">
+                                    <input type="text" id="edit_description" name="description" readonly
+                                        placeholder="Click + to select descriptions">
                                     <button type="button" class="add-icon" onclick="expandEditDescription()">+</button>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Selected Descriptions Display for Edit (hidden by default) -->
                         <div class="form-row" id="edit_selected_descriptions_display" style="display: none;">
                             <div class="form-group">
@@ -1056,8 +1181,10 @@ if ($current_user_id && count($user_companies) > 0) {
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_dts_modified" style="font-weight: 600; color: #666;">DTS Modified:</label>
-                                <div id="edit_dts_modified" readonly style="background-color: #f5f5f5; cursor: not-allowed; margin-top: 5px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%; min-width: 200px; min-height: 38px; box-sizing: border-box;">
+                                <label for="edit_dts_modified" style="font-weight: 600; color: #666;">DTS
+                                    Modified:</label>
+                                <div id="edit_dts_modified" readonly
+                                    style="background-color: #f5f5f5; cursor: not-allowed; margin-top: 5px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%; min-width: 200px; min-height: 38px; box-sizing: border-box;">
                                     <span id="edit_dts_modified_date" style="min-height: 1em;"></span>
                                     <span id="edit_dts_modified_user" style="font-weight: 600; min-height: 1em;"></span>
                                 </div>
@@ -1066,8 +1193,10 @@ if ($current_user_id && count($user_companies) > 0) {
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="edit_dts_created" style="font-weight: 600; color: #666;">DTS Created:</label>
-                                <div id="edit_dts_created" readonly style="background-color: #f5f5f5; cursor: not-allowed; margin-top: 5px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%; min-width: 200px; min-height: 38px; box-sizing: border-box;">
+                                <label for="edit_dts_created" style="font-weight: 600; color: #666;">DTS
+                                    Created:</label>
+                                <div id="edit_dts_created" readonly
+                                    style="background-color: #f5f5f5; cursor: not-allowed; margin-top: 5px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; width: 100%; min-width: 200px; min-height: 38px; box-sizing: border-box;">
                                     <span id="edit_dts_created_date" style="min-height: 1em;"></span>
                                     <span id="edit_dts_created_user" style="font-weight: 600; min-height: 1em;"></span>
                                 </div>
@@ -1080,8 +1209,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="edit_remove_words">Remove Words</label>
-                                <input type="text" id="edit_remove_words" name="remove_word" placeholder="Enter words to remove">
-                                <small class="field-help">(Use semicolon to separate multiple words, e.g. abc;cde;efg)</small>
+                                <input type="text" id="edit_remove_words" name="remove_word"
+                                    placeholder="Enter words to remove">
+                                <small class="field-help">(Use semicolon to separate multiple words, e.g.
+                                    abc;cde;efg)</small>
                             </div>
                         </div>
 
@@ -1101,13 +1232,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row row-two-cols">
                             <div class="form-group">
                                 <label for="edit_replace_word_from">Replace From</label>
-                                <input type="text" id="edit_replace_word_from" name="replace_word_from" placeholder="Old word">
+                                <input type="text" id="edit_replace_word_from" name="replace_word_from"
+                                    placeholder="Old word">
                                 <small class="field-help">(Word to be replaced)</small>
                             </div>
-                            
+
                             <div class="form-group">
                                 <label for="edit_replace_word_to">Replace To</label>
-                                <input type="text" id="edit_replace_word_to" name="replace_word_to" placeholder="New word">
+                                <input type="text" id="edit_replace_word_to" name="replace_word_to"
+                                    placeholder="New word">
                                 <small class="field-help">(Replacement word)</small>
                             </div>
                         </div>
@@ -1115,7 +1248,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="edit_remarks">Remarks</label>
-                                <textarea id="edit_remarks" name="remark" rows="5" placeholder="Enter remarks..."></textarea>
+                                <textarea id="edit_remarks" name="remark" rows="5"
+                                    placeholder="Enter remarks..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -1148,12 +1282,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </select>
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="add_process_id">Process ID *</label>
                                 <div class="input-with-checkbox">
-                                    <input type="text" id="add_process_id" name="process_id" placeholder="Enter Process ID" required>
+                                    <input type="text" id="add_process_id" name="process_id"
+                                        placeholder="Enter Process ID" required>
                                     <div class="checkbox-container">
                                         <input type="checkbox" id="add_multi_use" name="multi_use_purpose">
                                         <label for="add_multi_use">Multi-Process</label>
@@ -1161,18 +1296,19 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Multi-use Process Selection (hidden by default) -->
                         <div class="form-row" id="multi_use_processes" style="display: none;">
                             <div class="form-group">
                                 <label>Select Multi-use Processes</label>
                                 <div class="process-checkboxes" id="process_checkboxes"></div>
                                 <div class="multi-use-actions">
-                                    <button type="button" class="btn btn-save btn-small" onclick="confirmMultiUseProcessSelection()">Confirm</button>
+                                    <button type="button" class="btn btn-save btn-small"
+                                        onclick="confirmMultiUseProcessSelection()">Confirm</button>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Selected Processes Display (hidden by default) -->
                         <div class="form-row" id="selected_processes_display" style="display: none;">
                             <div class="form-group">
@@ -1180,17 +1316,18 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="selected-processes" id="selected_processes_list"></div>
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="add_description">Description *</label>
                                 <div class="input-with-icon">
-                                    <input type="text" id="add_description" name="description" required readonly placeholder="Click + to select descriptions">
+                                    <input type="text" id="add_description" name="description" required readonly
+                                        placeholder="Click + to select descriptions">
                                     <button type="button" class="add-icon" onclick="expandDescription()">+</button>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Selected Descriptions Display (hidden by default) -->
                         <div class="form-row" id="selected_descriptions_display" style="display: none;">
                             <div class="form-group">
@@ -1198,7 +1335,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="selected-descriptions" id="selected_descriptions_list"></div>
                             </div>
                         </div>
-                        
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="add_currency">Currency</label>
@@ -1214,8 +1351,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="add_remove_words">Remove Words</label>
-                                <input type="text" id="add_remove_words" name="remove_word" placeholder="Enter words to remove">
-                                <small class="field-help">(Use semicolon to separate multiple words, e.g. abc;cde;efg)</small>
+                                <input type="text" id="add_remove_words" name="remove_word"
+                                    placeholder="Enter words to remove">
+                                <small class="field-help">(Use semicolon to separate multiple words, e.g.
+                                    abc;cde;efg)</small>
                             </div>
                         </div>
                         <div class="form-row">
@@ -1233,19 +1372,22 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row row-two-cols">
                             <div class="form-group">
                                 <label for="add_replace_word_from">Replace From</label>
-                                <input type="text" id="add_replace_word_from" name="replace_word_from" placeholder="Old word">
+                                <input type="text" id="add_replace_word_from" name="replace_word_from"
+                                    placeholder="Old word">
                                 <small class="field-help">(Word to be replaced)</small>
                             </div>
                             <div class="form-group">
                                 <label for="add_replace_word_to">Replace To</label>
-                                <input type="text" id="add_replace_word_to" name="replace_word_to" placeholder="New word">
+                                <input type="text" id="add_replace_word_to" name="replace_word_to"
+                                    placeholder="New word">
                                 <small class="field-help">(Replacement word)</small>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="add_remarks">Remarks</label>
-                                <textarea id="add_remarks" name="remark" rows="5" placeholder="Enter remarks..."></textarea>
+                                <textarea id="add_remarks" name="remark" rows="5"
+                                    placeholder="Enter remarks..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -1281,7 +1423,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                         <select id="bank_country" name="country" class="bank-select">
                                             <option value="">Select Country</option>
                                         </select>
-                                        <button type="button" class="bank-add-btn" onclick="showAddCountryModal()" title="Add New Country">+</button>
+                                        <button type="button" class="bank-add-btn" onclick="showAddCountryModal()"
+                                            title="Add New Country">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
@@ -1290,7 +1433,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                         <select id="bank_bank" name="bank" class="bank-select">
                                             <option value="">Select Bank</option>
                                         </select>
-                                        <button type="button" class="bank-add-btn" onclick="showAddBankModal()" title="Add New Bank">+</button>
+                                        <button type="button" class="bank-add-btn" onclick="showAddBankModal()"
+                                            title="Add New Bank">+</button>
                                     </div>
                                 </div>
                             </div>
@@ -1302,20 +1446,26 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <label for="bank_card_merchant">Supplier</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
-                                            <button type="button" class="custom-select-button" id="bank_card_merchant" data-placeholder="Select Account" name="card_merchant">Select Account</button>
+                                            <button type="button" class="custom-select-button" id="bank_card_merchant"
+                                                data-placeholder="Select Account" name="card_merchant">Select
+                                                Account</button>
                                             <div class="custom-select-dropdown" id="bank_card_merchant_dropdown">
                                                 <div class="custom-select-search">
-                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                    <input type="text" placeholder="Search account..."
+                                                        autocomplete="off">
                                                 </div>
                                                 <div class="custom-select-options"></div>
                                             </div>
                                         </div>
-                                        <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_card_merchant')" title="Add New Account">+</button>
+                                        <button type="button" class="bank-add-btn"
+                                            onclick="bankAccountPlusClick('bank_card_merchant')"
+                                            title="Add New Account">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_cost">Buy Price</label>
-                                    <input type="text" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                                    <input type="text" id="bank_cost" name="cost" placeholder="Enter amount"
+                                        class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
                         </div>
@@ -1335,7 +1485,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_name">Name</label>
-                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name" class="bank-input" oninput="this.value=this.value.toUpperCase()">
+                                    <input type="text" id="bank_name" name="name" placeholder="Enter Name"
+                                        class="bank-input" oninput="this.value=this.value.toUpperCase()">
                                 </div>
                             </div>
                         </div>
@@ -1345,20 +1496,26 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <label for="bank_customer">Customer</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
-                                            <button type="button" class="custom-select-button" id="bank_customer" data-placeholder="Select Account" name="customer">Select Account</button>
+                                            <button type="button" class="custom-select-button" id="bank_customer"
+                                                data-placeholder="Select Account" name="customer">Select
+                                                Account</button>
                                             <div class="custom-select-dropdown" id="bank_customer_dropdown">
                                                 <div class="custom-select-search">
-                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                    <input type="text" placeholder="Search account..."
+                                                        autocomplete="off">
                                                 </div>
                                                 <div class="custom-select-options"></div>
                                             </div>
                                         </div>
-                                        <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_customer')" title="Add New Account">+</button>
+                                        <button type="button" class="bank-add-btn"
+                                            onclick="bankAccountPlusClick('bank_customer')"
+                                            title="Add New Account">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_price">Sell Price</label>
-                                    <input type="text" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                                    <input type="text" id="bank_price" name="price" placeholder="Enter amount"
+                                        class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
                         </div>
@@ -1379,20 +1536,26 @@ if ($current_user_id && count($user_companies) > 0) {
                                     <label for="bank_profit_account">Company</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
-                                            <button type="button" class="custom-select-button" id="bank_profit_account" data-placeholder="Select Account" name="profit_account">Select Account</button>
+                                            <button type="button" class="custom-select-button" id="bank_profit_account"
+                                                data-placeholder="Select Account" name="profit_account">Select
+                                                Account</button>
                                             <div class="custom-select-dropdown" id="bank_profit_account_dropdown">
                                                 <div class="custom-select-search">
-                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                    <input type="text" placeholder="Search account..."
+                                                        autocomplete="off">
                                                 </div>
                                                 <div class="custom-select-options"></div>
                                             </div>
                                         </div>
-                                        <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_profit_account')" title="Add New Account">+</button>
+                                        <button type="button" class="bank-add-btn"
+                                            onclick="bankAccountPlusClick('bank_profit_account')"
+                                            title="Add New Account">+</button>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_profit">Profit</label>
-                                    <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
+                                    <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated"
+                                        class="bank-input" readonly style="background-color: #f5f5f5;">
                                 </div>
                             </div>
                         </div>
@@ -1402,9 +1565,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="bank-form-cell bank-form-cell-left">
                             <input type="hidden" id="bank_profit_sharing" name="profit_sharing">
                             <div class="selected-countries-section">
-                                <div class="selected-profit-sharing-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                <div class="selected-profit-sharing-header"
+                                    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                                     <h3 style="margin: 0;">Selected Profit Sharing</h3>
-                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()" title="Add Profit Sharing">+</button>
+                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()"
+                                        title="Add Profit Sharing">+</button>
                                 </div>
                                 <div class="selected-countries-list" id="selectedProfitSharingList">
                                     <div class="no-countries">No profit sharing selected</div>
@@ -1428,12 +1593,13 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_insurance">Insurance</label>
-                                    <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                                    <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount"
+                                        class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Actions: span full width -->
                     <div class="form-actions bank-actions">
                         <button type="submit" class="btn btn-save" id="bankSubmitBtn">Add Process</button>
@@ -1510,11 +1676,13 @@ if ($current_user_id && count($user_companies) > 0) {
                             </div>
                             <div class="account-form-group" id="add_alert_amount_row" style="display: none;">
                                 <label for="add_alert_amount">Alert (Amount)</label>
-                                <input type="number" id="add_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)">
+                                <input type="number" id="add_alert_amount" name="alert_amount" step="0.01"
+                                    placeholder="Enter amount (auto-converted to negative)">
                             </div>
                             <div class="account-form-group">
                                 <label for="add_remark">Remark</label>
-                                <textarea id="add_remark" name="remark" rows="1" style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
+                                <textarea id="add_remark" name="remark" rows="1"
+                                    style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
                             </div>
                         </div>
                     </div>
@@ -1525,8 +1693,12 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="account-other-currency">
                                 <label>Other Currency:</label>
                                 <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-                                    <input type="text" id="addCurrencyInput" placeholder="Enter new currency code (e.g., USD)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInputBank('add'); return false;">Create Currency</button>
+                                    <input type="text" id="addCurrencyInput"
+                                        placeholder="Enter new currency code (e.g., USD)"
+                                        style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <button type="button" class="account-btn-add-currency"
+                                        onclick="addCurrencyFromInputBank('add'); return false;">Create
+                                        Currency</button>
                                 </div>
                                 <div class="account-currency-list" id="addCurrencyList"></div>
                             </div>
@@ -1538,7 +1710,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     </div>
                     <div class="account-form-actions">
                         <button type="submit" class="account-btn account-btn-save">Add Account</button>
-                        <button type="button" class="account-btn account-btn-cancel" onclick="closeAddAccountModal()">Cancel</button>
+                        <button type="button" class="account-btn account-btn-cancel"
+                            onclick="closeAddAccountModal()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -1612,11 +1785,13 @@ if ($current_user_id && count($user_companies) > 0) {
                             </div>
                             <div class="account-form-group" id="edit_alert_amount_row" style="display: none;">
                                 <label for="edit_alert_amount">Alert (Amount)</label>
-                                <input type="number" id="edit_alert_amount" name="alert_amount" step="0.01" placeholder="Enter amount (auto-converted to negative)">
+                                <input type="number" id="edit_alert_amount" name="alert_amount" step="0.01"
+                                    placeholder="Enter amount (auto-converted to negative)">
                             </div>
                             <div class="account-form-group">
                                 <label for="edit_remark">Remark</label>
-                                <textarea id="edit_remark" name="remark" rows="1" style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
+                                <textarea id="edit_remark" name="remark" rows="1"
+                                    style="resize: none; overflow-y: hidden; line-height: 1.5;"></textarea>
                             </div>
                         </div>
                     </div>
@@ -1626,8 +1801,12 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="account-other-currency">
                                 <label>Other Currency:</label>
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="editCurrencyInput" placeholder="Enter new currency code (e.g., USD)" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                                    <button type="button" class="account-btn-add-currency" onclick="addCurrencyFromInputBank('edit'); return false;">Create Currency</button>
+                                    <input type="text" id="editCurrencyInput"
+                                        placeholder="Enter new currency code (e.g., USD)"
+                                        style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                    <button type="button" class="account-btn-add-currency"
+                                        onclick="addCurrencyFromInputBank('edit'); return false;">Create
+                                        Currency</button>
                                 </div>
                                 <div class="account-currency-list" id="editCurrencyList"></div>
                             </div>
@@ -1639,7 +1818,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     </div>
                     <div class="account-form-actions">
                         <button type="submit" class="account-btn account-btn-save">Update Account</button>
-                        <button type="button" class="account-btn account-btn-cancel" onclick="closeEditAccountModalFromBank()">Cancel</button>
+                        <button type="button" class="account-btn account-btn-cancel"
+                            onclick="closeEditAccountModalFromBank()">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -1659,18 +1839,22 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="form-row bank-row-two-cols profit-sharing-row">
                             <div class="form-group">
                                 <label for="profit_sharing_account">Account</label>
-                                <select id="profit_sharing_account" name="account_id" class="bank-select profit-sharing-account">
+                                <select id="profit_sharing_account" name="account_id"
+                                    class="bank-select profit-sharing-account">
                                     <option value="">Select Account</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label for="profit_sharing_amount">Amount</label>
-                                <input type="number" id="profit_sharing_amount" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0">
+                                <input type="number" id="profit_sharing_amount" name="amount"
+                                    class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01"
+                                    min="0">
                             </div>
                         </div>
                     </div>
                     <div class="profit-sharing-add-row-wrap" style="margin-top: 10px;">
-                        <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn" title="Add another Account &amp; Amount">+</button>
+                        <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn"
+                            title="Add another Account &amp; Amount">+</button>
                     </div>
                     <div class="form-actions bank-actions" style="margin-top: 16px;">
                         <button type="submit" class="btn btn-save">Add</button>
@@ -1697,7 +1881,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <!-- Selected descriptions will be displayed here -->
                         </div>
                     </div>
-                    
+
                     <!-- Right side - Add new and available descriptions -->
                     <div class="available-descriptions-section">
                         <!-- Add new description section -->
@@ -1705,25 +1889,29 @@ if ($current_user_id && count($user_companies) > 0) {
                             <h3>Add New Description</h3>
                             <form id="addDescriptionForm" class="add-description-form">
                                 <div class="add-description-input-group">
-                                    <input type="text" id="new_description_name" name="description_name" placeholder="Enter new description name..." required>
+                                    <input type="text" id="new_description_name" name="description_name"
+                                        placeholder="Enter new description name..." required>
                                     <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
-                        
+
                         <h3>Available Descriptions</h3>
                         <div class="description-search">
-                            <input type="text" id="descriptionSearch" placeholder="Search descriptions..." onkeyup="filterDescriptions()">
+                            <input type="text" id="descriptionSearch" placeholder="Search descriptions..."
+                                onkeyup="filterDescriptions()">
                         </div>
                         <div class="description-list" id="existingDescriptions">
                             <!-- Available descriptions will be loaded here -->
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-cancel" onclick="closeDescriptionSelectionModal()">Cancel</button>
-                    <button type="button" class="btn btn-save" id="confirmDescriptionsBtn" onclick="confirmDescriptions()">Confirm Selection</button>
+                    <button type="button" class="btn btn-cancel"
+                        onclick="closeDescriptionSelectionModal()">Cancel</button>
+                    <button type="button" class="btn btn-save" id="confirmDescriptionsBtn"
+                        onclick="confirmDescriptions()">Confirm Selection</button>
                 </div>
             </div>
         </div>
@@ -1744,14 +1932,17 @@ if ($current_user_id && count($user_companies) > 0) {
                             <h3>Add New Country</h3>
                             <form id="addCountryForm" class="add-country-form">
                                 <div class="add-country-input-group">
-                                    <input type="text" id="new_country_name" name="country_name" placeholder="Enter new country name..." oninput="this.value=this.value.toUpperCase()">
+                                    <input type="text" id="new_country_name" name="country_name"
+                                        placeholder="Enter new country name..."
+                                        oninput="this.value=this.value.toUpperCase()">
                                     <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
                         <h3>Available Countries</h3>
                         <div class="country-search">
-                            <input type="text" id="countrySearch" placeholder="Search countries..." onkeyup="filterCountries()" oninput="this.value=this.value.toUpperCase()">
+                            <input type="text" id="countrySearch" placeholder="Search countries..."
+                                onkeyup="filterCountries()" oninput="this.value=this.value.toUpperCase()">
                         </div>
                         <div class="country-list" id="existingCountries">
                             <!-- Available countries will be loaded here -->
@@ -1766,7 +1957,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-save" id="confirmCountriesBtn" onclick="confirmCountries()">Confirm</button>
+                    <button type="button" class="btn btn-save" id="confirmCountriesBtn"
+                        onclick="confirmCountries()">Confirm</button>
                     <button type="button" class="btn btn-cancel" onclick="closeCountrySelectionModal()">Cancel</button>
                 </div>
             </div>
@@ -1788,14 +1980,17 @@ if ($current_user_id && count($user_companies) > 0) {
                             <h3>Add New Bank</h3>
                             <form id="addBankForm" class="add-bank-form">
                                 <div class="add-bank-input-group">
-                                    <input type="text" id="new_bank_name" name="bank_name" placeholder="Enter new bank name..." oninput="this.value=this.value.toUpperCase()">
+                                    <input type="text" id="new_bank_name" name="bank_name"
+                                        placeholder="Enter new bank name..."
+                                        oninput="this.value=this.value.toUpperCase()">
                                     <button type="submit" class="btn btn-save">Add</button>
                                 </div>
                             </form>
                         </div>
                         <h3>Available Banks</h3>
                         <div class="bank-search">
-                            <input type="text" id="bankSearch" placeholder="Search banks..." onkeyup="filterBanks()" oninput="this.value=this.value.toUpperCase()">
+                            <input type="text" id="bankSearch" placeholder="Search banks..." onkeyup="filterBanks()"
+                                oninput="this.value=this.value.toUpperCase()">
                         </div>
                         <div class="bank-list" id="existingBanks">
                             <!-- Available banks will be loaded here -->
@@ -1810,7 +2005,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-save" id="confirmBanksBtn" onclick="confirmBanks()">Confirm</button>
+                    <button type="button" class="btn btn-save" id="confirmBanksBtn"
+                        onclick="confirmBanks()">Confirm</button>
                     <button type="button" class="btn btn-cancel" onclick="closeBankSelectionModal()">Cancel</button>
                 </div>
             </div>
@@ -1825,14 +2021,17 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="process-confirm-modal-content">
             <div class="process-confirm-icon-container">
                 <svg class="process-confirm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
             </div>
             <h2 class="process-confirm-title">Confirm Delete</h2>
             <p id="confirmDeleteMessage" class="process-confirm-message">This action cannot be undone.</p>
             <div class="process-confirm-actions">
-                <button type="button" class="process-btn process-btn-cancel confirm-cancel" onclick="closeConfirmDeleteModal()">Cancel</button>
-                <button type="button" class="process-btn process-btn-delete confirm-delete" onclick="confirmDelete()">Delete</button>
+                <button type="button" class="process-btn process-btn-cancel confirm-cancel"
+                    onclick="closeConfirmDeleteModal()">Cancel</button>
+                <button type="button" class="process-btn process-btn-delete confirm-delete"
+                    onclick="confirmDelete()">Delete</button>
             </div>
         </div>
     </div>
@@ -1865,18 +2064,18 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 const searchTerm = searchInput.value;
                 const url = buildApiUrl('processlistapi.php');
-                
+
                 // 添加当前选择的 company_id
                 const currentCompanyId = <?php echo json_encode($company_id); ?>;
                 if (currentCompanyId) {
                     url.searchParams.set('company_id', currentCompanyId);
                 }
-                
+
                 // 添加权限过滤
                 if (selectedPermission) {
                     url.searchParams.set('permission', selectedPermission);
                 }
-                
+
                 if (searchTerm.trim()) {
                     url.searchParams.set('search', searchTerm);
                 }
@@ -1889,17 +2088,17 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (waiting) {
                     url.searchParams.set('waiting', '1');
                 }
-                
+
                 console.log('fetchProcesses ->', url.toString());
                 const response = await fetch(url);
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
+
                 const result = await response.json();
                 console.log('API Response:', result);
-                
+
                 if (result.success) {
                     processes = result.data;
                     // 根据类别进行不同的排序
@@ -1979,9 +2178,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     card.setAttribute('data-id', process.id);
                     // 恢复 Gambling 表格的列数（7列）
                     card.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr';
-                    
+
                     const statusClass = process.status === 'active' ? 'status-active' : 'status-inactive';
-                    
+
                     card.innerHTML = `
                         <div class="card-item">${startIndex + idx + 1}</div>
                         <div class="card-item">${escapeHtml((process.process_name || '').toUpperCase())}</div>
@@ -2013,7 +2212,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const tbody = document.getElementById('bankTableBody');
             if (!headRow || !tbody) return;
 
-            const thLabels = ['No','Supplier','Country','Bank','Types','Card Owner','Contract','Insurance','Customer','Cost','Price','Profit','Status','Date','Action'];
+            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
                 if (label === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
@@ -2028,7 +2227,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }).join('');
 
             tbody.innerHTML = '';
-            const contractMap = { '1':'1 MONTH','1 month':'1 MONTH','2':'2 MONTHS','2 months':'2 MONTHS','3':'3 MONTHS','3 months':'3 MONTHS','6':'6 MONTHS','6 months':'6 MONTHS','1+1':'1+1','1+2':'1+2','1+3':'1+3' };
+            const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1', '1+2': '1+2', '1+3': '1+3' };
             const todayStr = new Date().toISOString().slice(0, 10);
             function getContractStateClass(dayStart, dayEnd) {
                 if (!dayStart && !dayEnd) return '';
@@ -2041,7 +2240,7 @@ if ($current_user_id && count($user_companies) > 0) {
             // When Waiting is checked, only show rows where contract is pending (yellow)
             let listToShow = processes;
             if (waiting) {
-                listToShow = processes.filter(function(p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
+                listToShow = processes.filter(function (p) { return getContractStateClass(p.day_start || null, p.day_end || null) === 'contract-pending'; });
             }
             window.__bankFilteredLength = waiting ? listToShow.length : null;
 
@@ -2111,8 +2310,8 @@ if ($current_user_id && count($user_companies) > 0) {
             const tableHeader = document.getElementById('tableHeader');
             const processTableBody = document.getElementById('processTableBody');
             if (!tableHeader || !processTableBody) return;
-            requestAnimationFrame(function() {
-                requestAnimationFrame(function() {
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
                     const rect = tableHeader.getBoundingClientRect();
                     processTableBody.style.setProperty('--table-header-width', rect.width + 'px');
                 });
@@ -2128,7 +2327,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             const totalCount = (selectedPermission === 'Bank' && window.__bankFilteredLength != null) ? window.__bankFilteredLength : processes.length;
             const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-            
+
             // 更新分页控件信息
             document.getElementById('paginationInfo').textContent = `${currentPage} of ${totalPages}`;
 
@@ -2179,7 +2378,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // Notification functions
         function showNotification(message, type = 'success') {
             const container = document.getElementById('processNotificationContainer');
-            
+
             // 检查现有通知数量，最多保留2个
             const existingNotifications = container.querySelectorAll('.process-notification');
             if (existingNotifications.length >= 2) {
@@ -2192,20 +2391,20 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 }, 300);
             }
-            
+
             // 创建新通知
             const notification = document.createElement('div');
             notification.className = `process-notification process-notification-${type}`;
             notification.textContent = message;
-            
+
             // 添加到容器
             container.appendChild(notification);
-            
+
             // 触发显示动画
             setTimeout(() => {
                 notification.classList.add('show');
             }, 10);
-            
+
             // 1.5秒后开始消失动画
             setTimeout(() => {
                 notification.classList.remove('show');
@@ -2233,7 +2432,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 document.getElementById('addModal').style.display = 'block';
             }
         }
-        
+
         function closeAddBankModal() {
             document.getElementById('addBankModal').style.display = 'none';
             document.getElementById('bank_edit_id').value = '';
@@ -2261,13 +2460,13 @@ if ($current_user_id && count($user_companies) > 0) {
         function closeAddModal() {
             document.getElementById('addModal').style.display = 'none';
             document.getElementById('addProcessForm').reset();
-            
+
             // 重置 multi-use 状态
             const multiUseCheckbox = document.getElementById('add_multi_use');
             const multiUsePanel = document.getElementById('multi_use_processes');
             const selectedProcessesDisplay = document.getElementById('selected_processes_display');
             const processInput = document.getElementById('add_process_id');
-            
+
             if (multiUseCheckbox) {
                 multiUseCheckbox.checked = false;
             }
@@ -2283,11 +2482,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 processInput.style.cursor = 'default';
                 processInput.setAttribute('required', 'required');
             }
-            
+
             // 清除所有 process 复选框
             const processCheckboxes = document.querySelectorAll('#process_checkboxes input[type="checkbox"]');
             processCheckboxes.forEach(cb => cb.checked = false);
-            
+
             // 清除选中的 processes
             if (window.selectedProcesses) {
                 window.selectedProcesses = [];
@@ -2296,14 +2495,14 @@ if ($current_user_id && count($user_companies) > 0) {
             if (selectedProcessesList) {
                 selectedProcessesList.innerHTML = '';
             }
-            
+
             // 清除选中的描述
             if (window.selectedDescriptions) {
                 window.selectedDescriptions = [];
             }
             document.getElementById('selected_descriptions_display').style.display = 'none';
             document.getElementById('add_description').value = '';
-            
+
             // 清除 All Day 复选框
             const allDayCheckbox = document.getElementById('add_all_day');
             if (allDayCheckbox) {
@@ -2314,13 +2513,13 @@ if ($current_user_id && count($user_companies) > 0) {
         function closeEditModal() {
             document.getElementById('editModal').style.display = 'none';
             document.getElementById('editProcessForm').reset();
-            
+
             // 清除 All Day 复选框
             const allDayCheckbox = document.getElementById('edit_all_day');
             if (allDayCheckbox) {
                 allDayCheckbox.checked = false;
             }
-            
+
             // 清除选中的描述
             if (window.selectedDescriptions) {
                 window.selectedDescriptions = [];
@@ -2407,7 +2606,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 window.selectedProfitSharingEntries = [];
                 const psStr = (process.profit_sharing || '').trim();
                 if (psStr) {
-                    psStr.split(',').forEach(function(part) {
+                    psStr.split(',').forEach(function (part) {
                         const t = part.trim();
                         const dash = t.lastIndexOf(' - ');
                         if (dash > -1) {
@@ -2443,7 +2642,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     document.getElementById('edit_description_id').value = process.description_id || '';
                     document.getElementById('edit_process_name').value = process.process_name || '';
                     document.getElementById('edit_status').value = process.status || 'active';
-                    
+
                     // Set currency - ensure type matching like account-list.php
                     const currencySelect = document.getElementById('edit_currency');
                     if (process.currency_id) {
@@ -2463,7 +2662,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 尝试根据货币代码自动匹配当前公司的相同货币
                         if (process.currency_code) {
                             const currencyCode = process.currency_code.toUpperCase();
-                            const matchingOption = Array.from(currencySelect.options).find(opt => 
+                            const matchingOption = Array.from(currencySelect.options).find(opt =>
                                 opt.textContent.toUpperCase() === currencyCode
                             );
                             if (matchingOption) {
@@ -2476,19 +2675,19 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification('Warning: The original currency does not belong to your company. Please select a currency manually.', 'danger');
                         }
                     }
-                    
+
                     document.getElementById('edit_remove_words').value = process.remove_word || '';
-                    
+
                     // Handle replace word fields
                     if (process.replace_word) {
                         const parts = process.replace_word.split(' == ');
                         document.getElementById('edit_replace_word_from').value = parts[0] || '';
                         document.getElementById('edit_replace_word_to').value = parts[1] || '';
-                } else {
+                    } else {
                         document.getElementById('edit_replace_word_from').value = '';
                         document.getElementById('edit_replace_word_to').value = '';
                     }
-                    
+
                     // Handle remarks
                     if (process.remarks) {
                         try {
@@ -2502,7 +2701,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             document.getElementById('edit_remarks').value = process.remarks;
                         }
                     }
-                    
+
                     // Handle day use checkboxes
                     if (process.day_use) {
                         const dayIdsArray = process.day_use.split(',');
@@ -2513,11 +2712,11 @@ if ($current_user_id && count($user_companies) > 0) {
                         // 更新 All Day 复选框状态
                         updateAllDayCheckbox('edit');
                     }
-                    
+
                     // Handle description - initialize selected descriptions
                     const descInput = document.getElementById('edit_description');
                     let descriptionNames = [];
-                    
+
                     if (process.description_names && Array.isArray(process.description_names) && process.description_names.length > 0) {
                         descriptionNames = process.description_names;
                     } else if (process.description_names && typeof process.description_names === 'string') {
@@ -2526,10 +2725,10 @@ if ($current_user_id && count($user_companies) > 0) {
                     } else if (process.description_name) {
                         descriptionNames = [process.description_name];
                     }
-                    
+
                     // 初始化选中的描述
                     window.selectedDescriptions = descriptionNames;
-                    
+
                     if (descInput) {
                         if (descriptionNames.length > 0) {
                             descInput.value = `${descriptionNames.length} description(s) selected`;
@@ -2539,13 +2738,13 @@ if ($current_user_id && count($user_companies) > 0) {
                             descInput.value = '';
                         }
                     }
-                    
+
                     // Populate read-only information fields (date on left, user on right)
                     const dtsModified = process.dts_modified || '';
                     const modifiedBy = process.modified_by || '';
                     const dtsCreated = process.dts_created || '';
                     const createdBy = process.created_by || '';
-                    
+
                     // DTS Modified 只有在真正修改过时才显示（不为空且不等于创建时间）
                     // 如果为空或等于创建时间，表示从未修改过，显示为空
                     let displayModifiedDate = '';
@@ -2554,12 +2753,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         displayModifiedDate = dtsModified;
                         displayModifiedBy = modifiedBy || '';
                     }
-                    
+
                     document.getElementById('edit_dts_modified_date').textContent = displayModifiedDate;
                     document.getElementById('edit_dts_modified_user').textContent = displayModifiedBy;
                     document.getElementById('edit_dts_created_date').textContent = dtsCreated || '';
                     document.getElementById('edit_dts_created_user').textContent = createdBy || '';
-                    
+
                     // Show modal
                     document.getElementById('editModal').style.display = 'block';
                 } else {
@@ -2576,15 +2775,15 @@ if ($current_user_id && count($user_companies) > 0) {
 
         function deleteSelected() {
             const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked:not([disabled])');
-            
+
             if (selectedCheckboxes.length === 0) {
                 showNotification('Please select processes to delete', 'danger');
                 return;
             }
-            
+
             // 收集选中的 ID
             pendingDeleteIds = Array.from(selectedCheckboxes).map(cb => cb.dataset.id);
-            
+
             // 显示确认对话框
             const message = `Are you sure you want to delete ${pendingDeleteIds.length} process(es)? This action cannot be undone.`;
             document.getElementById('confirmDeleteMessage').textContent = message;
@@ -2598,24 +2797,24 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.error('selectAllBankProcesses checkbox not found');
                 return;
             }
-            
+
             const allCheckboxes = Array.from(document.querySelectorAll('.bank-checkbox')).filter(cb => !cb.disabled);
             console.log('Found bank checkboxes:', allCheckboxes.length, 'Select all checked:', selectAllCheckbox.checked);
-            
+
             allCheckboxes.forEach(checkbox => {
                 checkbox.checked = selectAllCheckbox.checked;
             });
-            
+
             updateDeleteButton();
         }
-        
+
         function toggleSelectAllProcesses() {
             const selectAllCheckbox = document.getElementById('selectAllProcesses');
             if (!selectAllCheckbox) {
                 console.error('selectAllProcesses checkbox not found');
                 return;
             }
-            
+
             // 根据类别选择不同的复选框
             let allCheckboxes;
             if (selectedPermission === 'Bank') {
@@ -2623,13 +2822,13 @@ if ($current_user_id && count($user_companies) > 0) {
             } else {
                 allCheckboxes = Array.from(document.querySelectorAll('.row-checkbox:not(.bank-checkbox)')).filter(cb => !cb.disabled);
             }
-            
+
             console.log('Found checkboxes:', allCheckboxes.length, 'Select all checked:', selectAllCheckbox.checked);
-            
+
             allCheckboxes.forEach(checkbox => {
                 checkbox.checked = selectAllCheckbox.checked;
             });
-            
+
             updateDeleteButton();
         }
 
@@ -2638,7 +2837,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (selectedPermission === 'Bank') {
                 const selectAllBankCheckbox = document.getElementById('selectAllBankProcesses');
                 if (!selectAllBankCheckbox) return;
-                
+
                 const anyBankCheckbox = document.querySelectorAll('.bank-checkbox').length > 0;
                 selectAllBankCheckbox.style.visibility = anyBankCheckbox ? 'visible' : 'hidden';
                 selectAllBankCheckbox.style.display = 'inline-block';
@@ -2649,7 +2848,7 @@ if ($current_user_id && count($user_companies) > 0) {
             } else {
                 const selectAllCheckbox = document.getElementById('selectAllProcesses');
                 if (!selectAllCheckbox) return;
-                
+
                 const anyRowCheckbox = document.querySelectorAll('.row-checkbox:not(.bank-checkbox)').length > 0;
                 selectAllCheckbox.style.display = anyRowCheckbox ? 'inline-block' : 'none';
                 if (!anyRowCheckbox) {
@@ -2663,7 +2862,7 @@ if ($current_user_id && count($user_companies) > 0) {
             let selectedCheckboxes;
             let allCheckboxes;
             let selectAllCheckbox;
-            
+
             if (selectedPermission === 'Bank') {
                 selectedCheckboxes = document.querySelectorAll('.bank-checkbox:checked');
                 allCheckboxes = Array.from(document.querySelectorAll('.bank-checkbox')).filter(cb => !cb.disabled);
@@ -2673,16 +2872,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 allCheckboxes = Array.from(document.querySelectorAll('.row-checkbox:not(.bank-checkbox)')).filter(cb => !cb.disabled);
                 selectAllCheckbox = document.getElementById('selectAllProcesses');
             }
-            
+
             const deleteBtn = document.getElementById('processDeleteSelectedBtn');
-            
+
             // 更新全选 checkbox 状态
             if (selectAllCheckbox && allCheckboxes.length > 0) {
-                const allSelected = allCheckboxes.length > 0 && 
+                const allSelected = allCheckboxes.length > 0 &&
                     allCheckboxes.every(cb => cb.checked);
                 selectAllCheckbox.checked = allSelected;
             }
-            
+
             if (selectedCheckboxes.length > 0) {
                 deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
                 deleteBtn.disabled = false;
@@ -2704,46 +2903,62 @@ if ($current_user_id && count($user_companies) > 0) {
                     method: 'POST',
                     body: formData
                 });
-                
+
                 const result = await response.json();
-                
+
                 if (result.success) {
                     const process = processes.find(p => p.id === processId);
-                    if (process) process.status = result.newStatus;
-                    const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
-                    const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
-                    const actionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' + (result.newStatus === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
+                    if (process) {
+                        process.status = result.newStatus;
+                        if (result.newDayEnd) process.day_end = result.newDayEnd;
+                    }
 
-                    if (selectedPermission === 'Bank') {
-                        const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
-                        if (row) {
-                            const cells = row.querySelectorAll('td');
-                            if (cells.length >= 15) {
-                                cells[12].innerHTML = statusBadge;
-                                cells[14].innerHTML = actionCellHtml;
-                            }
-                        }
+                    const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
+
+                    if (!shouldShow) {
+                        const processIndex = processes.findIndex(p => p.id === processId);
+                        if (processIndex > -1) processes.splice(processIndex, 1);
+                        renderTable();
+                    } else if (result.newDayEnd) {
+                        // If day_end changed, we must re-render to update the Date cell and Contract class logic
+                        renderTable();
                     } else {
-                        const card = document.querySelector(`.process-card[data-id="${processId}"]`);
-                        if (card) {
-                            const items = card.querySelectorAll('.card-item');
-                            if (items.length > 3) {
-                                items[3].innerHTML = statusBadge;
-                                const actionCell = items[6];
-                                if (actionCell) {
-                                    const existingCheckbox = actionCell.querySelector('.row-checkbox');
-                                    if (result.newStatus === 'active') {
-                                        if (existingCheckbox) existingCheckbox.remove();
-                                    } else {
-                                        if (!existingCheckbox) {
-                                            const checkbox = document.createElement('input');
-                                            checkbox.type = 'checkbox';
-                                            checkbox.className = 'row-checkbox';
-                                            checkbox.dataset.id = String(processId);
-                                            checkbox.title = 'Select for deletion';
-                                            checkbox.style.marginLeft = '10px';
-                                            checkbox.onchange = updateDeleteButton;
-                                            actionCell.appendChild(checkbox);
+                        // Manual DOM update for simple status change
+                        const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
+                        const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                        const actionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' + (result.newStatus === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
+
+                        if (selectedPermission === 'Bank') {
+                            const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
+                            if (row) {
+                                const cells = row.querySelectorAll('td');
+                                if (cells.length >= 15) {
+                                    cells[12].innerHTML = statusBadge;
+                                    cells[14].innerHTML = actionCellHtml;
+                                }
+                            }
+                        } else {
+                            const card = document.querySelector(`.process-card[data-id="${processId}"]`);
+                            if (card) {
+                                const items = card.querySelectorAll('.card-item');
+                                if (items.length > 3) {
+                                    items[3].innerHTML = statusBadge;
+                                    const actionCell = items[6];
+                                    if (actionCell) {
+                                        const existingCheckbox = actionCell.querySelector('.row-checkbox');
+                                        if (result.newStatus === 'active') {
+                                            if (existingCheckbox) existingCheckbox.remove();
+                                        } else {
+                                            if (!existingCheckbox) {
+                                                const checkbox = document.createElement('input');
+                                                checkbox.type = 'checkbox';
+                                                checkbox.className = 'row-checkbox';
+                                                checkbox.dataset.id = String(processId);
+                                                checkbox.title = 'Select for deletion';
+                                                checkbox.style.marginLeft = '10px';
+                                                checkbox.onchange = updateDeleteButton;
+                                                actionCell.appendChild(checkbox);
+                                            }
                                         }
                                     }
                                 }
@@ -2751,16 +2966,10 @@ if ($current_user_id && count($user_companies) > 0) {
                         }
                     }
 
-                    const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
-                    if (!shouldShow) {
-                        const processIndex = processes.findIndex(p => p.id === processId);
-                        if (processIndex > -1) processes.splice(processIndex, 1);
-                        renderTable();
-                    }
 
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
-                    
+
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Process status changed to ${statusText}`, 'success');
                 } else {
@@ -2837,14 +3046,14 @@ if ($current_user_id && count($user_companies) > 0) {
                             item.appendChild(deleteBtn);
                             descriptionsList.appendChild(item);
 
-                            checkbox.addEventListener('change', function() {
+                            checkbox.addEventListener('change', function () {
                                 if (this.checked) {
                                     moveDescriptionToSelected(this);
                                 } else {
                                     moveDescriptionToAvailable(this);
                                 }
                             });
-                            
+
                             // 如果是编辑模式且该描述已被选中，自动选中并移动到已选择列表
                             if (descriptionSelectionMode === 'edit' && window.selectedDescriptions && window.selectedDescriptions.includes(description.name)) {
                                 checkbox.checked = true;
@@ -2910,7 +3119,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const descriptionName = checkbox.value;
             const descriptionId = checkbox.dataset.descriptionId;
             const descriptionItem = checkbox.closest('.description-item');
-            
+
             // Remove from selected descriptions array
             if (window.selectedDescriptions) {
                 const index = window.selectedDescriptions.indexOf(descriptionName);
@@ -2918,7 +3127,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     window.selectedDescriptions.splice(index, 1);
                 }
             }
-            
+
             // Remove from selected list
             const selectedList = document.getElementById('selectedDescriptionsInModal');
             const selectedItems = selectedList.querySelectorAll('.selected-description-modal-item');
@@ -2954,109 +3163,109 @@ if ($current_user_id && count($user_companies) > 0) {
             // add back to available list
             const list = document.getElementById('existingDescriptions');
             if (list) {
-            const item = document.createElement('div');
-            item.className = 'description-item';
+                const item = document.createElement('div');
+                item.className = 'description-item';
 
-            const left = document.createElement('div');
-            left.className = 'description-item-left';
+                const left = document.createElement('div');
+                left.className = 'description-item-left';
 
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.name = 'available_descriptions';
-            cb.value = descriptionName;
-            cb.id = `desc_${descriptionId}`;
-            cb.dataset.descriptionId = descriptionId;
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.name = 'available_descriptions';
+                cb.value = descriptionName;
+                cb.id = `desc_${descriptionId}`;
+                cb.dataset.descriptionId = descriptionId;
 
-            const label = document.createElement('label');
-            label.htmlFor = `desc_${descriptionId}`;
-            label.textContent = descriptionName.toUpperCase();
+                const label = document.createElement('label');
+                label.htmlFor = `desc_${descriptionId}`;
+                label.textContent = descriptionName.toUpperCase();
 
-            left.appendChild(cb);
-            left.appendChild(label);
+                left.appendChild(cb);
+                left.appendChild(label);
 
-            const deleteBtn = document.createElement('button');
-            deleteBtn.type = 'button';
-            deleteBtn.className = 'description-delete-btn';
-            deleteBtn.title = 'Delete description';
-            deleteBtn.setAttribute('aria-label', 'Delete description');
-            deleteBtn.innerHTML = '&times;';
-            deleteBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                deleteDescription(descriptionId, descriptionName, item);
-            });
+                const deleteBtn = document.createElement('button');
+                deleteBtn.type = 'button';
+                deleteBtn.className = 'description-delete-btn';
+                deleteBtn.title = 'Delete description';
+                deleteBtn.setAttribute('aria-label', 'Delete description');
+                deleteBtn.innerHTML = '&times;';
+                deleteBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    deleteDescription(descriptionId, descriptionName, item);
+                });
 
-            item.appendChild(left);
-            item.appendChild(deleteBtn);
-            list.appendChild(item);
+                item.appendChild(left);
+                item.appendChild(deleteBtn);
+                list.appendChild(item);
 
-            cb.addEventListener('change', function() {
-                if (this.checked) moveDescriptionToSelected(this);
-                else moveDescriptionToAvailable(this);
-            });
+                cb.addEventListener('change', function () {
+                    if (this.checked) moveDescriptionToSelected(this);
+                    else moveDescriptionToAvailable(this);
+                });
             }
         }
 
-    async function deleteDescription(descriptionId, descriptionName, itemElement) {
-        if (!descriptionId) return;
-        const confirmed = confirm(`Are you sure you want to delete description ${descriptionName}? This action cannot be undone.`);
-        if (!confirmed) return;
+        async function deleteDescription(descriptionId, descriptionName, itemElement) {
+            if (!descriptionId) return;
+            const confirmed = confirm(`Are you sure you want to delete description ${descriptionName}? This action cannot be undone.`);
+            if (!confirmed) return;
 
-        try {
-            const formData = new FormData();
-            formData.append('action', 'delete_description');
-            formData.append('description_id', descriptionId);
+            try {
+                const formData = new FormData();
+                formData.append('action', 'delete_description');
+                formData.append('description_id', descriptionId);
 
-            const response = await fetch(buildApiUrl('addprocessapi.php'), {
-                method: 'POST',
-                body: formData
-            });
+                const response = await fetch(buildApiUrl('addprocessapi.php'), {
+                    method: 'POST',
+                    body: formData
+                });
 
-            const result = await response.json();
-            if (result.success) {
-                if (itemElement && itemElement.parentNode) {
-                    itemElement.remove();
-                }
-
-                if (Array.isArray(window.selectedDescriptions)) {
-                    window.selectedDescriptions = window.selectedDescriptions.filter(desc => desc !== descriptionName);
-                }
-
-                updateSelectedDescriptionsInModal();
-                
-                // 根据当前模式更新相应的显示
-                if (descriptionSelectionMode === 'edit') {
-                    displayEditSelectedDescriptions(window.selectedDescriptions || []);
-                    const editDescInput = document.getElementById('edit_description');
-                    if (editDescInput) {
-                        editDescInput.value = (window.selectedDescriptions && window.selectedDescriptions.length > 0)
-                            ? `${window.selectedDescriptions.length} description(s) selected`
-                            : '';
+                const result = await response.json();
+                if (result.success) {
+                    if (itemElement && itemElement.parentNode) {
+                        itemElement.remove();
                     }
+
+                    if (Array.isArray(window.selectedDescriptions)) {
+                        window.selectedDescriptions = window.selectedDescriptions.filter(desc => desc !== descriptionName);
+                    }
+
+                    updateSelectedDescriptionsInModal();
+
+                    // 根据当前模式更新相应的显示
+                    if (descriptionSelectionMode === 'edit') {
+                        displayEditSelectedDescriptions(window.selectedDescriptions || []);
+                        const editDescInput = document.getElementById('edit_description');
+                        if (editDescInput) {
+                            editDescInput.value = (window.selectedDescriptions && window.selectedDescriptions.length > 0)
+                                ? `${window.selectedDescriptions.length} description(s) selected`
+                                : '';
+                        }
+                    } else {
+                        displaySelectedDescriptions(window.selectedDescriptions || []);
+                        const addDescInput = document.getElementById('add_description');
+                        if (addDescInput) {
+                            addDescInput.value = (window.selectedDescriptions && window.selectedDescriptions.length > 0)
+                                ? `${window.selectedDescriptions.length} description(s) selected`
+                                : '';
+                        }
+                    }
+
+                    const descriptionsList = document.getElementById('existingDescriptions');
+                    if (descriptionsList && !descriptionsList.querySelector('.description-item')) {
+                        descriptionsList.innerHTML = '<div class="no-descriptions">No descriptions found</div>';
+                    }
+
+                    showNotification('Description deleted successfully', 'success');
                 } else {
-                    displaySelectedDescriptions(window.selectedDescriptions || []);
-                    const addDescInput = document.getElementById('add_description');
-                    if (addDescInput) {
-                        addDescInput.value = (window.selectedDescriptions && window.selectedDescriptions.length > 0)
-                            ? `${window.selectedDescriptions.length} description(s) selected`
-                            : '';
-                    }
+                    showNotification(result.error || 'Failed to delete description', 'danger');
                 }
-
-                const descriptionsList = document.getElementById('existingDescriptions');
-                if (descriptionsList && !descriptionsList.querySelector('.description-item')) {
-                    descriptionsList.innerHTML = '<div class="no-descriptions">No descriptions found</div>';
-                }
-
-                showNotification('Description deleted successfully', 'success');
-            } else {
-                showNotification(result.error || 'Failed to delete description', 'danger');
+            } catch (error) {
+                console.error('Error deleting description:', error);
+                showNotification('Failed to delete description', 'danger');
             }
-        } catch (error) {
-            console.error('Error deleting description:', error);
-            showNotification('Failed to delete description', 'danger');
         }
-    }
 
         function closeDescriptionSelectionModal() {
             document.getElementById('descriptionSelectionModal').style.display = 'none';
@@ -3067,7 +3276,7 @@ if ($current_user_id && count($user_companies) > 0) {
             try {
                 const response = await fetch(buildApiUrl('addprocessapi.php'));
                 const result = await response.json();
-                
+
                 if (result.success) {
                     // 填充 currency 下拉列表
                     const currencySelect = document.getElementById('add_currency');
@@ -3078,7 +3287,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         option.textContent = currency.code;
                         currencySelect.appendChild(option);
                     });
-                    
+
                     // 填充 copy from 下拉列表
                     const copyFromSelect = document.getElementById('add_copy_from');
                     copyFromSelect.innerHTML = '<option value="">Select Process to Copy From</option>';
@@ -3094,7 +3303,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             const bDesc = (b.description_name || 'No Description').toUpperCase();
                             return aDesc.localeCompare(bDesc);
                         });
-                        
+
                         sortedProcesses.forEach(process => {
                             const option = document.createElement('option');
                             option.value = process.process_id;
@@ -3102,7 +3311,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             copyFromSelect.appendChild(option);
                         });
                     }
-                    
+
                     // 填充 process 复选框（用于 multi-use）
                     const processCheckboxes = document.getElementById('process_checkboxes');
                     if (processCheckboxes) {
@@ -3119,17 +3328,17 @@ if ($current_user_id && count($user_companies) > 0) {
                                 `;
                                 processCheckboxes.appendChild(checkboxItem);
                             });
-                            
+
                             // 添加process复选框变化监听器
                             const processCheckboxesInputs = processCheckboxes.querySelectorAll('input[type="checkbox"]');
                             processCheckboxesInputs.forEach(checkbox => {
-                                checkbox.addEventListener('change', function() {
+                                checkbox.addEventListener('change', function () {
                                     updateSelectedProcessesDisplay();
                                 });
                             });
                         }
                     }
-                    
+
                     // 填充 day 复选框
                     const dayCheckboxes = document.getElementById('day_checkboxes');
                     dayCheckboxes.innerHTML = '';
@@ -3143,19 +3352,19 @@ if ($current_user_id && count($user_companies) > 0) {
                             `;
                             dayCheckboxes.appendChild(checkboxItem);
                         });
-                        
+
                         // 为每个 day 复选框添加事件监听器
                         dayCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                            checkbox.addEventListener('change', function() {
+                            checkbox.addEventListener('change', function () {
                                 updateAllDayCheckbox('add');
                             });
                         });
                     }
-                    
+
                     // 为 All Day 复选框添加事件监听器
                     const allDayCheckbox = document.getElementById('add_all_day');
                     if (allDayCheckbox) {
-                        allDayCheckbox.addEventListener('change', function() {
+                        allDayCheckbox.addEventListener('change', function () {
                             const dayCheckboxes = document.querySelectorAll('#day_checkboxes input[type="checkbox"]');
                             dayCheckboxes.forEach(checkbox => {
                                 checkbox.checked = this.checked;
@@ -3176,7 +3385,7 @@ if ($current_user_id && count($user_companies) > 0) {
             try {
                 const response = await fetch(buildApiUrl('addprocessapi.php'));
                 const result = await response.json();
-                
+
                 if (result.success) {
                     // Populate currency dropdown
                     const currencySelect = document.getElementById('edit_currency');
@@ -3187,7 +3396,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         option.textContent = currency.code;
                         currencySelect.appendChild(option);
                     });
-                    
+
                     // Populate day checkboxes
                     const dayCheckboxes = document.getElementById('edit_day_checkboxes');
                     dayCheckboxes.innerHTML = '';
@@ -3201,19 +3410,19 @@ if ($current_user_id && count($user_companies) > 0) {
                             `;
                             dayCheckboxes.appendChild(checkboxItem);
                         });
-                        
+
                         // 为每个 day 复选框添加事件监听器
                         dayCheckboxes.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                            checkbox.addEventListener('change', function() {
+                            checkbox.addEventListener('change', function () {
                                 updateAllDayCheckbox('edit');
                             });
                         });
                     }
-                    
+
                     // 为 All Day 复选框添加事件监听器
                     const allDayCheckbox = document.getElementById('edit_all_day');
                     if (allDayCheckbox) {
-                        allDayCheckbox.addEventListener('change', function() {
+                        allDayCheckbox.addEventListener('change', function () {
                             const dayCheckboxes = document.querySelectorAll('#edit_day_checkboxes input[type="checkbox"]');
                             dayCheckboxes.forEach(checkbox => {
                                 checkbox.checked = this.checked;
@@ -3245,7 +3454,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     // Display selected descriptions
                     displaySelectedDescriptions(window.selectedDescriptions);
                 }
-                
+
                 closeDescriptionSelectionModal();
             } else {
                 showNotification('Please select at least one description', 'danger');
@@ -3260,16 +3469,16 @@ if ($current_user_id && count($user_companies) > 0) {
                 item.style.display = text.includes(term) ? 'block' : 'none';
             });
         }
-                
-                // Display selected descriptions
+
+        // Display selected descriptions
         function displaySelectedDescriptions(descriptions) {
             const displayDiv = document.getElementById('selected_descriptions_display');
             const listDiv = document.getElementById('selected_descriptions_list');
-            
+
             if (descriptions.length > 0) {
                 displayDiv.style.display = 'block';
                 listDiv.innerHTML = '';
-                
+
                 descriptions.forEach((desc, index) => {
                     const descItem = document.createElement('div');
                     descItem.className = 'selected-description-item';
@@ -3279,7 +3488,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     `;
                     listDiv.appendChild(descItem);
                 });
-                
+
                 // Store selected descriptions for form submission
                 window.selectedDescriptions = descriptions;
             } else {
@@ -3292,11 +3501,11 @@ if ($current_user_id && count($user_companies) > 0) {
         function displayEditSelectedDescriptions(descriptions) {
             const displayDiv = document.getElementById('edit_selected_descriptions_display');
             const listDiv = document.getElementById('edit_selected_descriptions_list');
-            
+
             if (descriptions.length > 0) {
                 displayDiv.style.display = 'block';
                 listDiv.innerHTML = '';
-                
+
                 descriptions.forEach((desc, index) => {
                     const descItem = document.createElement('div');
                     descItem.className = 'selected-description-item';
@@ -3306,7 +3515,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     `;
                     listDiv.appendChild(descItem);
                 });
-                
+
                 // Store selected descriptions for form submission
                 window.selectedDescriptions = descriptions;
             } else {
@@ -3320,7 +3529,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (window.selectedDescriptions) {
                 window.selectedDescriptions.splice(index, 1);
                 displaySelectedDescriptions(window.selectedDescriptions);
-                
+
                 // Update input field
                 if (window.selectedDescriptions.length > 0) {
                     document.getElementById('add_description').value = `${window.selectedDescriptions.length} description(s) selected`;
@@ -3336,7 +3545,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (window.selectedDescriptions) {
                 window.selectedDescriptions.splice(index, 1);
                 displayEditSelectedDescriptions(window.selectedDescriptions);
-                
+
                 // Update input field
                 const editDescInput = document.getElementById('edit_description');
                 if (editDescInput) {
@@ -3404,7 +3613,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 closeConfirmDeleteModal();
                 return;
             }
-            
+
             try {
                 // 创建 FormData 发送删除请求
                 // PHP 期望 $_POST['ids'] 为数组，使用 ids[] 格式
@@ -3412,7 +3621,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 pendingDeleteIds.forEach(id => {
                     formData.append('ids[]', id);
                 });
-                
+
                 // 提交表单（使用表单提交以便跟随重定向）
                 const form = document.createElement('form');
                 form.method = 'POST';
@@ -3433,7 +3642,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
                 document.body.appendChild(form);
                 form.submit();
-                
+
             } catch (error) {
                 console.error('Delete error:', error);
                 showNotification('Delete failed: ' + error.message, 'danger');
@@ -3447,7 +3656,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const prefix = mode === 'add' ? 'add' : 'edit';
             const allDayCheckbox = document.getElementById(`${prefix}_all_day`);
             const dayCheckboxes = document.querySelectorAll(`#${prefix === 'add' ? 'day_checkboxes' : 'edit_day_checkboxes'} input[type="checkbox"]`);
-            
+
             if (allDayCheckbox && dayCheckboxes.length > 0) {
                 const allChecked = Array.from(dayCheckboxes).every(checkbox => checkbox.checked);
                 allDayCheckbox.checked = allChecked;
@@ -3467,13 +3676,13 @@ if ($current_user_id && count($user_companies) > 0) {
         const searchInput = document.getElementById('searchInput');
         if (searchInput) {
             // 搜索框：只允许字母和数字
-            searchInput.addEventListener('input', function() {
+            searchInput.addEventListener('input', function () {
                 const cursorPosition = this.selectionStart;
                 // 只保留大写字母和数字
                 const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
                 this.value = filteredValue;
                 this.setSelectionRange(cursorPosition, cursorPosition);
-                
+
                 // 搜索功能
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
@@ -3481,9 +3690,9 @@ if ($current_user_id && count($user_companies) > 0) {
                     fetchProcesses();
                 }, 300);
             });
-            
+
             // 粘贴事件处理
-            searchInput.addEventListener('paste', function() {
+            searchInput.addEventListener('paste', function () {
                 setTimeout(() => {
                     const cursorPosition = this.selectionStart;
                     const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
@@ -3495,7 +3704,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
         const showInactiveCheckbox = document.getElementById('showInactive');
         if (showInactiveCheckbox) {
-            showInactiveCheckbox.addEventListener('change', function() {
+            showInactiveCheckbox.addEventListener('change', function () {
                 showInactive = this.checked;
                 // 如果勾选了 Show Inactive，取消 Show All
                 if (showInactive) {
@@ -3506,11 +3715,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 fetchProcesses();
             });
         }
-        
+
         // Real-time filter when Show All checkbox changes
         const showAllCheckbox = document.getElementById('showAll');
         if (showAllCheckbox) {
-            showAllCheckbox.addEventListener('change', function() {
+            showAllCheckbox.addEventListener('change', function () {
                 showAll = this.checked;
                 // 如果勾选了 Show All，取消 Show Inactive
                 if (showAll) {
@@ -3524,11 +3733,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 fetchProcesses();
             });
         }
-        
+
         // Real-time filter when Waiting checkbox changes (only for Bank category)
         const waitingCheckbox = document.getElementById('waiting');
         if (waitingCheckbox) {
-            waitingCheckbox.addEventListener('change', function() {
+            waitingCheckbox.addEventListener('change', function () {
                 waiting = this.checked;
                 currentPage = 1;
                 fetchProcesses();
@@ -3538,61 +3747,61 @@ if ($current_user_id && count($user_companies) > 0) {
         // 处理添加表单提交
         const addProcessForm = document.getElementById('addProcessForm');
         if (addProcessForm) {
-            addProcessForm.addEventListener('submit', async function(e) {
+            addProcessForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                
+
                 // 获取 multi-use 相关元素
                 const multiUseCheckbox = document.getElementById('add_multi_use');
                 const processInput = document.getElementById('add_process_id');
-                
+
                 // 验证用户是否选择了 process 或 multi-use processes
                 if (!multiUseCheckbox.checked && (!processInput.value || !processInput.value.trim())) {
                     showNotification('Please enter Process ID or enable Multi-use Purpose', 'danger');
                     return;
                 }
-                
+
                 if (multiUseCheckbox.checked && (!window.selectedProcesses || window.selectedProcesses.length === 0)) {
                     showNotification('Please select at least one process for Multi-use Purpose', 'danger');
                     return;
                 }
-                
+
                 // 验证是否选择了描述
                 if (!window.selectedDescriptions || window.selectedDescriptions.length === 0) {
                     showNotification('Please select at least one description', 'danger');
                     return;
                 }
-                
+
                 const formData = new FormData(this);
-                
+
                 // 显式带上 Copy From（保证同步源会写入 sync_source_process_id）
                 const copyFromSelect = document.getElementById('add_copy_from');
                 if (copyFromSelect && copyFromSelect.value && copyFromSelect.value.trim() !== '') {
                     formData.set('copy_from', copyFromSelect.value.trim());
                 }
-                
+
                 // 添加选中的 descriptions
                 formData.append('selected_descriptions', JSON.stringify(window.selectedDescriptions));
-                
+
                 // 添加选中的 processes (如果是 multi-use)
                 if (multiUseCheckbox.checked && window.selectedProcesses && window.selectedProcesses.length > 0) {
                     formData.append('selected_processes', JSON.stringify(window.selectedProcesses));
                 }
-                
+
                 // 添加选中的 day use
                 const selectedDays = [];
                 document.querySelectorAll('#day_checkboxes input[name="day_use[]"]:checked').forEach(checkbox => {
                     selectedDays.push(checkbox.value);
                 });
                 formData.append('day_use', selectedDays.join(','));
-                
+
                 try {
                     const response = await fetch(buildApiUrl('addprocessapi.php'), {
                         method: 'POST',
                         body: formData
                     });
-                    
+
                     const result = await response.json();
-                    
+
                     if (result.success) {
                         let message = result.message || 'Process added successfully!';
                         // 如果有 copy_from 相关的调试信息，添加到消息中
@@ -3612,7 +3821,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         showNotification(message, 'success');
                         closeAddModal();
                         fetchProcesses(); // 刷新列表
-            } else {
+                    } else {
                         let errorMessage = result.error || 'Unknown error occurred';
                         showNotification(errorMessage, 'danger');
                     }
@@ -3626,7 +3835,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // 处理 Bank Add/Edit Process 表单提交（Edit 时走 update_process）
         const addBankProcessForm = document.getElementById('addBankProcessForm');
         if (addBankProcessForm) {
-            addBankProcessForm.addEventListener('submit', async function(e) {
+            addBankProcessForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const country = document.getElementById('bank_country').value;
                 const bank = document.getElementById('bank_bank').value;
@@ -3704,7 +3913,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // Insurance、Buy Price、Sell Price 只允许数字、逗号、句号
         function allowOnlyNumberCommaPeriod(el) {
             if (!el) return;
-            el.addEventListener('input', function() {
+            el.addEventListener('input', function () {
                 this.value = this.value.replace(/[^\d.,]/g, '');
             });
         }
@@ -3715,39 +3924,39 @@ if ($current_user_id && count($user_companies) > 0) {
         // 处理编辑表单提交
         const editProcessForm = document.getElementById('editProcessForm');
         if (editProcessForm) {
-            editProcessForm.addEventListener('submit', async function(e) {
+            editProcessForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                
+
                 const formData = new FormData(this);
-                
+
                 if (selectedPermission === 'Bank') {
                     formData.append('permission', 'Bank');
                 }
-                
+
                 // Add selected descriptions
                 if (window.selectedDescriptions && window.selectedDescriptions.length > 0) {
                     formData.append('selected_descriptions', JSON.stringify(window.selectedDescriptions));
                 }
-                
+
                 // Add selected day use checkboxes
                 const selectedDays = [];
                 document.querySelectorAll('#edit_day_checkboxes input[name="edit_day_use[]"]:checked').forEach(checkbox => {
                     selectedDays.push(checkbox.value);
                 });
                 formData.append('day_use', selectedDays.join(','));
-                
+
                 try {
                     const response = await fetch(buildApiUrl('processlistapi.php?action=update_process'), {
                         method: 'POST',
                         body: formData
                     });
-                    
+
                     const result = await response.json();
-                    
+
                     if (result.success) {
                         const message = result.message || 'Process updated successfully!';
                         showNotification(message, 'success');
-                closeEditModal();
+                        closeEditModal();
                         fetchProcesses(); // Refresh the list
                     } else {
                         let errorMessage = result.error || 'Unknown error occurred';
@@ -3763,34 +3972,34 @@ if ($current_user_id && count($user_companies) > 0) {
         // 处理添加新描述表单提交
         const addDescriptionForm = document.getElementById('addDescriptionForm');
         if (addDescriptionForm) {
-            addDescriptionForm.addEventListener('submit', async function(e) {
+            addDescriptionForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                
+
                 const descriptionName = document.getElementById('new_description_name').value.trim();
                 if (!descriptionName) {
                     showNotification('Please enter description name', 'danger');
                     return;
                 }
-                
+
                 try {
                     const formData = new FormData();
                     formData.append('action', 'add_description');
                     formData.append('description_name', descriptionName);
-                    
+
                     const response = await fetch(buildApiUrl('addprocessapi.php'), {
                         method: 'POST',
                         body: formData
                     });
-                    
+
                     const result = await response.json();
-                    
+
                     if (result.success) {
                         showNotification('Description added successfully!', 'success');
                         document.getElementById('new_description_name').value = ''; // Clear input field
-                        
+
                         // 重新加载描述列表
                         await loadExistingDescriptions();
-                        
+
                         // 如果有新添加的描述ID，自动选中它
                         if (result.description_id) {
                             const newCheckbox = document.getElementById(`desc_${result.description_id}`);
@@ -3817,7 +4026,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // Add Country form submit (in modal: save to DB via API, then add to Available; user selects to move to Selected)
         const addCountryForm = document.getElementById('addCountryForm');
         if (addCountryForm) {
-            addCountryForm.addEventListener('submit', async function(e) {
+            addCountryForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 const nameInput = document.getElementById('new_country_name');
                 const countryName = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
@@ -3852,7 +4061,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // Add Bank form submit (in modal: add new bank to Available only; user selects it to move to Selected)
         const addBankFormEl = document.getElementById('addBankForm');
         if (addBankFormEl) {
-            addBankFormEl.addEventListener('submit', function(e) {
+            addBankFormEl.addEventListener('submit', function (e) {
                 e.preventDefault();
                 const nameInput = document.getElementById('new_bank_name');
                 const bankName = (nameInput && nameInput.value) ? nameInput.value.trim() : '';
@@ -3878,7 +4087,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // Edit Account modal state (for + button when account selected)
         let selectedCompanyIdsForEdit = [];
         let currentEditAccountIdForBank = null;
-        
+
         let bankAccountRoles = [];
         async function loadEditDataBank() {
             try {
@@ -3901,7 +4110,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.error('loadEditDataBank', e);
             }
         }
-        
+
         function toggleAlertFieldsBank(type) {
             const isAdd = type === 'add';
             const paymentAlert = document.querySelector(isAdd ? 'input[name="add_payment_alert"]:checked' : 'input[name="payment_alert"]:checked');
@@ -3915,7 +4124,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (alertAmountRow) alertAmountRow.style.display = 'none';
             }
         }
-        
+
         function validatePaymentAlertForAddBank() {
             const paymentAlert = document.querySelector('input[name="add_payment_alert"]:checked');
             const alertType = document.getElementById('add_alert_type');
@@ -3933,7 +4142,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             return true;
         }
-        
+
         function validatePaymentAlertForEditBank() {
             const paymentAlert = document.querySelector('input[name="payment_alert"]:checked');
             const alertType = document.getElementById('edit_alert_type');
@@ -3951,7 +4160,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             return true;
         }
-        
+
         async function loadAccountCurrenciesBank(accountId, type) {
             const listId = type === 'add' ? 'addCurrencyList' : 'editCurrencyList';
             const listElement = document.getElementById(listId);
@@ -3972,7 +4181,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 let currencyToAutoSelect = null;
                 if (isAddMode && selectedCurrencyIdsForAdd.length === 0) {
                     const myr = result.data.find(c => String(c.code || '').toUpperCase() === 'MYR');
-                    currencyToAutoSelect = myr || (result.data.length ? result.data.sort((a,b) => a.id - b.id)[0] : null);
+                    currencyToAutoSelect = myr || (result.data.length ? result.data.sort((a, b) => a.id - b.id)[0] : null);
                 }
                 result.data.forEach(currency => {
                     if (deletedCurrencyIds.includes(currency.id)) return;
@@ -4029,7 +4238,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 listElement.innerHTML = '<div class="currency-toggle-note">Failed to load currencies.</div>';
             }
         }
-        
+
         async function toggleAccountCurrencyBank(accountId, currencyId, code, shouldSelect, itemElement) {
             const previousState = itemElement.classList.contains('selected');
             if (shouldSelect) itemElement.classList.add('selected');
@@ -4055,7 +4264,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 showNotification('Currency update failed', 'danger');
             }
         }
-        
+
         async function deleteCurrencyPermanentlyBank(currencyId, currencyCode, itemElement) {
             if (!confirm('Are you sure you want to permanently delete currency ' + currencyCode + '? This action cannot be undone.')) return;
             try {
@@ -4076,7 +4285,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 showNotification('Failed to delete currency', 'danger');
             }
         }
-        
+
         async function loadAccountCompaniesBank(accountId, type) {
             const listId = type === 'add' ? 'addCompanyList' : 'editCompanyList';
             const listElement = document.getElementById(listId);
@@ -4144,7 +4353,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 listElement.innerHTML = '<div class="currency-toggle-note">Failed to load companies.</div>';
             }
         }
-        
+
         async function addCurrencyFromInputBank(type) {
             const isEdit = type === 'edit';
             const input = document.getElementById(isEdit ? 'editCurrencyInput' : 'addCurrencyInput');
@@ -4202,7 +4411,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // Add Account form submit (same as datacapturesummary - addaccountapi.php + link currencies/companies)
         const addAccountFormEl = document.getElementById('addAccountForm');
         if (addAccountFormEl) {
-            addAccountFormEl.addEventListener('submit', async function(e) {
+            addAccountFormEl.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 if (!validatePaymentAlertForAddBank()) return;
                 const formData = new FormData(this);
@@ -4280,10 +4489,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             });
         }
-        
+
         const editAccountFormEl = document.getElementById('editAccountForm');
         if (editAccountFormEl) {
-            editAccountFormEl.addEventListener('submit', async function(e) {
+            editAccountFormEl.addEventListener('submit', async function (e) {
                 e.preventDefault();
                 if (!validatePaymentAlertForEditBank()) return;
                 const formData = new FormData(this);
@@ -4313,15 +4522,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             });
         }
-        
+
         const profitSharingFormEl = document.getElementById('profitSharingForm');
         if (profitSharingFormEl) {
-            profitSharingFormEl.addEventListener('submit', function(e) {
+            profitSharingFormEl.addEventListener('submit', function (e) {
                 e.preventDefault();
                 const rows = document.querySelectorAll('#profitSharingRowsContainer .profit-sharing-row');
                 if (!window.selectedProfitSharingEntries) window.selectedProfitSharingEntries = [];
                 let added = 0;
-                rows.forEach(function(row) {
+                rows.forEach(function (row) {
                     const accountSelect = row.querySelector('.profit-sharing-account');
                     const amountInput = row.querySelector('.profit-sharing-amount');
                     if (!accountSelect || !amountInput) return;
@@ -4342,10 +4551,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 closeProfitSharingModal();
             });
         }
-        
+
         const profitSharingAddRowBtn = document.getElementById('profitSharingAddRowBtn');
         if (profitSharingAddRowBtn) {
-            profitSharingAddRowBtn.addEventListener('click', function() {
+            profitSharingAddRowBtn.addEventListener('click', function () {
                 addProfitSharingRow();
             });
         }
@@ -4353,7 +4562,7 @@ if ($current_user_id && count($user_companies) > 0) {
         // 页面加载完成后执行
         // Profit calculation flag to prevent duplicate listeners
         let bankProfitCalculatorsInitialized = false;
-        
+
         // Load countries from server (persist after refresh)
         async function loadCountriesFromServer() {
             const select = document.getElementById('bank_country');
@@ -4368,7 +4577,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 opt0.value = '';
                 opt0.textContent = 'Select Country';
                 select.appendChild(opt0);
-                list.forEach(function(c) {
+                list.forEach(function (c) {
                     const opt = document.createElement('option');
                     opt.value = c;
                     opt.textContent = c;
@@ -4389,13 +4598,13 @@ if ($current_user_id && count($user_companies) > 0) {
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
                 initBankAccountSelect('bank_profit_account', 'bank_profit_account_dropdown');
                 updateBankAddButtonTitles();
-                
+
                 // 设置 Profit 自动计算（只初始化一次）
                 if (!bankProfitCalculatorsInitialized) {
                     const costInput = document.getElementById('bank_cost');
                     const priceInput = document.getElementById('bank_price');
                     const profitInput = document.getElementById('bank_profit');
-                    
+
                     if (costInput && priceInput && profitInput) {
                         function calculateProfit() {
                             const cost = parseFloat(costInput.value) || 0;
@@ -4403,7 +4612,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             const profit = price - cost;
                             profitInput.value = profit.toFixed(2);
                         }
-                        
+
                         costInput.addEventListener('input', calculateProfit);
                         priceInput.addEventListener('input', calculateProfit);
                         bankProfitCalculatorsInitialized = true;
@@ -4413,7 +4622,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.error('Error loading bank process data:', error);
             }
         }
-        
+
         // 按 Country 加载 Bank 下拉选项（Country-Bank 联动）
         async function loadBanksByCountry(country) {
             const select = document.getElementById('bank_bank');
@@ -4433,7 +4642,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const res = await fetch(url);
                 const result = await res.json();
                 const banks = (result.success && result.data) ? result.data : [];
-                banks.forEach(function(b) {
+                banks.forEach(function (b) {
                     const opt = document.createElement('option');
                     opt.value = b;
                     opt.textContent = b;
@@ -4446,27 +4655,27 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (currentBank) select.value = '';
             }
         }
-        
+
         // Country 变更时刷新 Bank 下拉，并清空 Bank 若不在新列表中
-        (function() {
+        (function () {
             const countrySelect = document.getElementById('bank_country');
             if (countrySelect) {
-                countrySelect.addEventListener('change', function() {
+                countrySelect.addEventListener('change', function () {
                     loadBanksByCountry(this.value);
                 });
             }
         })();
-        
+
         // Country field: user may enter country name (Malaysia -> MYR) or currency code directly (MYR, SGD)
         const COUNTRY_TO_CURRENCY = { 'Malaysia': 'MYR', 'Singapore': 'SGD' };
-        
+
         function resolveCurrencyCodeFromCountryField(value) {
             if (!value || (value = String(value).trim()) === '') return null;
             if (COUNTRY_TO_CURRENCY[value]) return COUNTRY_TO_CURRENCY[value];
             if (value.length >= 2 && value.length <= 5) return value.toUpperCase();
             return null;
         }
-        
+
         async function ensureAccountHasCountryCurrency(accountId) {
             if (!accountId) return;
             const countrySelect = document.getElementById('bank_country');
@@ -4523,7 +4732,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.warn('ensureAccountHasCountryCurrency', e);
             }
         }
-        
+
         // Load accounts for Bank form
         async function loadBankAccounts() {
             try {
@@ -4532,10 +4741,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (currentCompanyId) {
                     url.searchParams.set('company_id', currentCompanyId);
                 }
-                
+
                 const response = await fetch(url);
                 const result = await response.json();
-                
+
                 if (result.success && result.data) {
                     window.bankAccounts = result.data;
                 }
@@ -4543,18 +4752,18 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.error('Error loading accounts:', error);
             }
         }
-        
+
         // Initialize Bank Account Select (custom dropdown with search, like datacapturesummary Account)
         function initBankAccountSelect(buttonId, dropdownId) {
             const accountButton = document.getElementById(buttonId);
             const accountDropdown = document.getElementById(dropdownId);
             const searchInput = accountDropdown?.querySelector('.custom-select-search input');
             const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
-            
+
             if (!accountButton || !accountDropdown || !searchInput || !optionsContainer) return;
-            
+
             let isOpen = false;
-            
+
             // Load accounts into dropdown (Profit Account: only role === 'profit')
             const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
             const isProfitAccountSelect = (buttonId === 'bank_profit_account');
@@ -4566,7 +4775,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (isProfitAccountSelect) {
                     accounts = accounts.filter(acc => (acc.role || '').toLowerCase() === 'profit');
                 }
-                
+
                 // Always add "Select Account" as first option so user can clear selection
                 {
                     const selectOpt = document.createElement('div');
@@ -4582,7 +4791,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     });
                     optionsContainer.appendChild(selectOpt);
                 }
-                
+
                 // Filter by the same text we display so search matches what user sees (exact match on displayed string)
                 function getDisplayText(account) {
                     return String(account.account_id ?? account.name ?? '').trim();
@@ -4597,7 +4806,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     const tb = getDisplayText(b).toLowerCase();
                     return ta.localeCompare(tb);
                 });
-                
+
                 if (filteredAccounts.length === 0) {
                     const noResults = document.createElement('div');
                     noResults.className = 'custom-select-no-results';
@@ -4616,19 +4825,19 @@ if ($current_user_id && count($user_companies) > 0) {
                             isOpen = false;
                             updateBankAddButtonTitles();
                         });
-                    optionsContainer.appendChild(option);
+                        optionsContainer.appendChild(option);
                     });
                 }
             }
-            
+
             // Initial load
             loadAccounts();
-            
+
             // Search input handler: loadAccounts() reads filter from searchInput.value
             searchInput.addEventListener('input', () => {
                 loadAccounts();
             });
-            
+
             // Toggle dropdown: clear search so filter is fresh, then load
             accountButton.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -4643,7 +4852,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     searchInput.focus();
                 }
             });
-            
+
             // Close on outside click
             document.addEventListener('click', (e) => {
                 if (!accountButton.contains(e.target) && !accountDropdown.contains(e.target)) {
@@ -4652,7 +4861,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 }
             });
         }
-        
+
         // Country Selection Modal
         const DEFAULT_COUNTRIES = [];
         let availableCountriesList = [];
@@ -4716,7 +4925,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 deleteBtn.className = 'country-delete-btn';
                 deleteBtn.title = 'Remove from list';
                 deleteBtn.innerHTML = '&times;';
-                deleteBtn.addEventListener('click', function(e) {
+                deleteBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     removeCountryFromAvailable(name, item);
@@ -4724,7 +4933,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 item.appendChild(left);
                 item.appendChild(deleteBtn);
                 listEl.appendChild(item);
-                checkbox.addEventListener('change', function() {
+                checkbox.addEventListener('change', function () {
                     if (this.checked) moveCountryToSelected(this);
                     else moveCountryToAvailable(this);
                 });
@@ -4813,7 +5022,7 @@ if ($current_user_id && count($user_companies) > 0) {
             delBtn.type = 'button';
             delBtn.className = 'country-delete-btn';
             delBtn.innerHTML = '&times;';
-            delBtn.addEventListener('click', function(e) {
+            delBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 removeCountryFromAvailable(countryName, newItem);
@@ -4821,7 +5030,7 @@ if ($current_user_id && count($user_companies) > 0) {
             newItem.appendChild(left);
             newItem.appendChild(delBtn);
             listEl.appendChild(newItem);
-            cb.addEventListener('change', function() {
+            cb.addEventListener('change', function () {
                 if (this.checked) moveCountryToSelected(this);
                 else moveCountryToAvailable(this);
             });
@@ -4869,7 +5078,7 @@ if ($current_user_id && count($user_companies) > 0) {
             opt0.value = '';
             opt0.textContent = 'Select Country';
             select.appendChild(opt0);
-            (window.selectedCountries || []).forEach(function(name) {
+            (window.selectedCountries || []).forEach(function (name) {
                 const n = (name || '').trim();
                 if (!n) return;
                 const opt = document.createElement('option');
@@ -4958,7 +5167,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 deleteBtn.className = 'bank-delete-btn';
                 deleteBtn.title = 'Remove from list';
                 deleteBtn.innerHTML = '&times;';
-                deleteBtn.addEventListener('click', function(e) {
+                deleteBtn.addEventListener('click', function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     removeBankFromAvailable(name, item);
@@ -4966,7 +5175,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 item.appendChild(left);
                 item.appendChild(deleteBtn);
                 listEl.appendChild(item);
-                checkbox.addEventListener('change', function() {
+                checkbox.addEventListener('change', function () {
                     if (this.checked) moveBankToSelected(this);
                     else moveBankToAvailable(this);
                 });
@@ -5055,7 +5264,7 @@ if ($current_user_id && count($user_companies) > 0) {
             delBtn.type = 'button';
             delBtn.className = 'bank-delete-btn';
             delBtn.innerHTML = '&times;';
-            delBtn.addEventListener('click', function(e) {
+            delBtn.addEventListener('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 removeBankFromAvailable(bankName, newItem);
@@ -5063,7 +5272,7 @@ if ($current_user_id && count($user_companies) > 0) {
             newItem.appendChild(left);
             newItem.appendChild(delBtn);
             listEl.appendChild(newItem);
-            cb.addEventListener('change', function() {
+            cb.addEventListener('change', function () {
                 if (this.checked) moveBankToSelected(this);
                 else moveBankToAvailable(this);
             });
@@ -5106,12 +5315,12 @@ if ($current_user_id && count($user_companies) > 0) {
             const countrySelect = document.getElementById('bank_country');
             const country = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
             const banksToSave = [].concat(window.selectedBanks || [], availableBanksList || []);
-            const uniqueBanks = [...new Set(banksToSave.map(function(n){ return (n || '').trim(); }).filter(Boolean))];
+            const uniqueBanks = [...new Set(banksToSave.map(function (n) { return (n || '').trim(); }).filter(Boolean))];
             if (country && uniqueBanks.length > 0) {
                 try {
                     const fd = new FormData();
                     fd.append('country', country);
-                    uniqueBanks.forEach(function(b){ fd.append('banks[]', b); });
+                    uniqueBanks.forEach(function (b) { fd.append('banks[]', b); });
                     const res = await fetch(buildApiUrl('processlistapi.php?action=save_country_banks'), { method: 'POST', body: fd });
                     const result = await res.json();
                     if (!result.success) console.warn('save_country_banks', result.error);
@@ -5124,7 +5333,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const v = (select.options[i].value || '').trim();
                 if (v) existing.add(v);
             }
-            uniqueBanks.length && uniqueBanks.forEach(function(n) {
+            uniqueBanks.length && uniqueBanks.forEach(function (n) {
                 if (!existing.has(n)) {
                     const opt = document.createElement('option');
                     opt.value = n;
@@ -5140,7 +5349,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         // Placeholder functions for add modals
-        
+
         async function showAddAccountModal() {
             const modal = document.getElementById('addAccountModal');
             if (!modal) return;
@@ -5150,7 +5359,7 @@ if ($current_user_id && count($user_companies) > 0) {
             await loadAccountCurrenciesBank(null, 'add');
             await loadAccountCompaniesBank(null, 'add');
         }
-        
+
         function closeAddAccountModal() {
             const modal = document.getElementById('addAccountModal');
             if (modal) {
@@ -5164,7 +5373,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const currentCompanyId = <?php echo json_encode($company_id); ?>;
             selectedCompanyIdsForAdd = currentCompanyId ? [currentCompanyId] : [];
         }
-        
+
         function updateBankAddButtonTitles() {
             ['bank_card_merchant', 'bank_customer', 'bank_profit_account'].forEach(fieldId => {
                 const btn = document.getElementById(fieldId);
@@ -5172,7 +5381,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 if (addBtn) addBtn.title = (btn.getAttribute('data-value') ? 'Edit Account' : 'Add New Account');
             });
         }
-        
+
         function bankAccountPlusClick(fieldId) {
             const btn = document.getElementById(fieldId);
             const accountId = btn && btn.getAttribute('data-value');
@@ -5182,7 +5391,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 showAddAccountModal();
             }
         }
-        
+
         async function openEditAccountModalFromBank(accountId) {
             currentEditAccountIdForBank = accountId;
             selectedCompanyIdsForEdit = [];
@@ -5232,7 +5441,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 showNotification('Failed to load account', 'danger');
             }
         }
-        
+
         function closeEditAccountModalFromBank() {
             const modal = document.getElementById('editAccountModal');
             if (modal) {
@@ -5245,7 +5454,7 @@ if ($current_user_id && count($user_companies) > 0) {
             deletedCurrencyIds = [];
             currentEditAccountIdForBank = null;
         }
-        
+
         function refreshBankAccountDropdowns() {
             const accounts = window.bankAccounts || [];
             ['bank_card_merchant', 'bank_customer'].forEach(buttonId => {
@@ -5270,7 +5479,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
             });
         }
-        
+
         function populateProfitSharingAccountSelect(selectEl) {
             if (!selectEl) return;
             selectEl.innerHTML = '<option value="">Select Account</option>';
@@ -5282,7 +5491,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 selectEl.appendChild(opt);
             });
         }
-        
+
         function addProfitSharingRow() {
             const container = document.getElementById('profitSharingRowsContainer');
             if (!container) return;
@@ -5295,7 +5504,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const newSelect = row.querySelector('.profit-sharing-account');
             populateProfitSharingAccountSelect(newSelect);
         }
-        
+
         async function showAddProfitSharingModal() {
             if (!window.bankAccounts || window.bankAccounts.length === 0) {
                 await loadBankAccounts();
@@ -5318,7 +5527,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 modal.classList.add('show');
             }
         }
-        
+
         function closeProfitSharingModal() {
             const modal = document.getElementById('profitSharingModal');
             if (modal) {
@@ -5349,7 +5558,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }
             const parts = [];
             container.innerHTML = '';
-            entries.forEach(function(entry, index) {
+            entries.forEach(function (entry, index) {
                 const amt = entry.amount;
                 const displayAmount = (amt !== '' && amt != null && !isNaN(parseFloat(amt))) ? parseFloat(amt).toFixed(2) : (amt || '');
                 const text = (entry.accountText || '') + ' - ' + displayAmount;
@@ -5369,26 +5578,26 @@ if ($current_user_id && count($user_companies) > 0) {
             renderSelectedProfitSharing();
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Add Account modal: payment alert toggle
             document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
-                radio.addEventListener('change', function() { toggleAlertFieldsBank('add'); });
+                radio.addEventListener('change', function () { toggleAlertFieldsBank('add'); });
             });
             // Edit Account modal: payment alert toggle
             document.querySelectorAll('input[name="payment_alert"]').forEach(radio => {
-                radio.addEventListener('change', function() { toggleAlertFieldsBank('edit'); });
+                radio.addEventListener('change', function () { toggleAlertFieldsBank('edit'); });
             });
             // Edit Account modal: uppercase for edit_name, edit_remark, editCurrencyInput
             ['edit_name', 'edit_remark', 'editCurrencyInput'].forEach(inputId => {
                 const input = document.getElementById(inputId);
                 if (input) {
-                    input.addEventListener('input', function() { forceUppercase(this); });
-                    input.addEventListener('paste', function() { setTimeout(() => forceUppercase(this), 0); });
+                    input.addEventListener('input', function () { forceUppercase(this); });
+                    input.addEventListener('paste', function () { setTimeout(() => forceUppercase(this), 0); });
                 }
             });
             const editCurrencyInput = document.getElementById('editCurrencyInput');
             if (editCurrencyInput) {
-                editCurrencyInput.addEventListener('keypress', function(e) {
+                editCurrencyInput.addEventListener('keypress', function (e) {
                     if (e.key === 'Enter') { e.preventDefault(); addCurrencyFromInputBank('edit'); }
                 });
             }
@@ -5396,20 +5605,20 @@ if ($current_user_id && count($user_companies) > 0) {
             ['add_account_id', 'add_name', 'add_remark', 'addCurrencyInput'].forEach(inputId => {
                 const input = document.getElementById(inputId);
                 if (input) {
-                    input.addEventListener('input', function() { forceUppercase(this); });
-                    input.addEventListener('paste', function() { setTimeout(() => forceUppercase(this), 0); });
+                    input.addEventListener('input', function () { forceUppercase(this); });
+                    input.addEventListener('paste', function () { setTimeout(() => forceUppercase(this), 0); });
                 }
             });
             const addCurrencyInput = document.getElementById('addCurrencyInput');
             if (addCurrencyInput) {
-                addCurrencyInput.addEventListener('keypress', function(e) {
+                addCurrencyInput.addEventListener('keypress', function (e) {
                     if (e.key === 'Enter') { e.preventDefault(); addCurrencyFromInputBank('add'); }
                 });
             }
-            
+
             // 统一管理需要大写的输入框
             const uppercaseInputs = [
-                'add_process_id', 
+                'add_process_id',
                 'new_description_name',
                 'add_remove_words',
                 'add_replace_word_from',
@@ -5420,34 +5629,34 @@ if ($current_user_id && count($user_companies) > 0) {
                 'edit_replace_word_to',
                 'edit_remarks'
             ];
-            
+
             // 为所有需要大写的输入框添加事件监听
             uppercaseInputs.forEach(inputId => {
                 const input = document.getElementById(inputId);
                 if (input) {
                     // 输入时转换为大写
-                    input.addEventListener('input', function() {
+                    input.addEventListener('input', function () {
                         forceUppercase(this);
                     });
-                    
+
                     // 粘贴时也转换为大写
-                    input.addEventListener('paste', function() {
+                    input.addEventListener('paste', function () {
                         setTimeout(() => forceUppercase(this), 0);
                     });
                 }
             });
-            
+
             // 描述搜索框：只允许字母和数字
             const descSearchInput = document.getElementById('descriptionSearch');
             if (descSearchInput) {
-                descSearchInput.addEventListener('input', function() {
+                descSearchInput.addEventListener('input', function () {
                     const cursorPosition = this.selectionStart;
                     const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
                     this.value = filteredValue;
                     this.setSelectionRange(cursorPosition, cursorPosition);
                 });
-                
-                descSearchInput.addEventListener('paste', function() {
+
+                descSearchInput.addEventListener('paste', function () {
                     setTimeout(() => {
                         const cursorPosition = this.selectionStart;
                         const filteredValue = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
@@ -5456,13 +5665,13 @@ if ($current_user_id && count($user_companies) > 0) {
                     }, 0);
                 });
             }
-            
+
             // 处理 multi-use 复选框变化
             const multiUseToggle = document.getElementById('add_multi_use');
             const multiUsePanel = document.getElementById('multi_use_processes');
             const processInput = document.getElementById('add_process_id');
             if (multiUseToggle && multiUsePanel && processInput) {
-                multiUseToggle.addEventListener('change', async function() {
+                multiUseToggle.addEventListener('change', async function () {
                     if (this.checked) {
                         multiUsePanel.style.display = 'block';
                         processInput.disabled = true;
@@ -5495,7 +5704,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 });
             }
-            
+
             // 从 Copy From 同步到表单（含 Description/账号；Data Capture Formula 在提交时由后端复制）
             async function syncFormFromCopyFrom(processId) {
                 if (!processId) return;
@@ -5511,149 +5720,149 @@ if ($current_user_id && count($user_companies) > 0) {
                 const data = result.data;
                 // 填充货币
                 if (data.currency_id) {
-                                const currencyIdStr = String(data.currency_id);
-                                
-                                // 函数：尝试设置 currency 值
-                                const setCurrencyValue = () => {
-                                    // 检查选项是否存在
-                                    const optionExists = Array.from(currencySelect.options).some(opt => opt.value === currencyIdStr);
-                                    if (optionExists) {
-                                        currencySelect.value = currencyIdStr;
-                                        console.log('Currency set successfully:', currencyIdStr);
-                                        return true;
-                                    }
-                                    return false;
-                                };
-                                
-                                // 立即尝试设置
-                                if (!setCurrencyValue()) {
-                                    // 如果失败，等待下拉列表加载完成
-                                    console.log('Currency dropdown not ready, waiting...');
-                                    let attempts = 0;
-                                    const maxAttempts = 10; // 减少到10次（1秒）
-                                    const checkInterval = setInterval(() => {
-                                        attempts++;
-                                        if (setCurrencyValue() || attempts >= maxAttempts) {
-                                            clearInterval(checkInterval);
-                                            if (attempts >= maxAttempts && currencySelect.value !== currencyIdStr) {
-                                                // 检查是否有警告信息
-                                                if (data.currency_warning) {
-                                                    console.warn('Currency ID', currencyIdStr, 'does not belong to current company. Available options:', Array.from(currencySelect.options).map(opt => ({value: opt.value, text: opt.text})));
-                                                    showNotification('Warning: The original currency does not belong to your company. Please select a currency manually.', 'danger');
-                                                } else {
-                                                    console.error('Failed to set currency after', maxAttempts, 'attempts. Currency ID:', currencyIdStr, 'Available options:', Array.from(currencySelect.options).map(opt => ({value: opt.value, text: opt.text})));
-                                                    showNotification('Warning: Currency could not be set automatically. Please select manually.', 'danger');
-                                                }
-                                            }
-                                        }
-                                    }, 100);
-                                }
-                            } else if (data.currency_warning) {
-                                // 如果 currency_id 为空但有警告，说明原货币不属于当前公司
-                                // 尝试根据货币代码自动匹配当前公司的相同货币
-                                if (data.currency_code) {
-                                    const currencyCode = data.currency_code.toUpperCase();
-                                    const matchingOption = Array.from(currencySelect.options).find(opt => 
-                                        opt.textContent.toUpperCase() === currencyCode
-                                    );
-                                    if (matchingOption) {
-                                        currencySelect.value = matchingOption.value;
-                                        console.log('Auto-matched currency by code:', currencyCode, '-> ID:', matchingOption.value);
+                    const currencyIdStr = String(data.currency_id);
+
+                    // 函数：尝试设置 currency 值
+                    const setCurrencyValue = () => {
+                        // 检查选项是否存在
+                        const optionExists = Array.from(currencySelect.options).some(opt => opt.value === currencyIdStr);
+                        if (optionExists) {
+                            currencySelect.value = currencyIdStr;
+                            console.log('Currency set successfully:', currencyIdStr);
+                            return true;
+                        }
+                        return false;
+                    };
+
+                    // 立即尝试设置
+                    if (!setCurrencyValue()) {
+                        // 如果失败，等待下拉列表加载完成
+                        console.log('Currency dropdown not ready, waiting...');
+                        let attempts = 0;
+                        const maxAttempts = 10; // 减少到10次（1秒）
+                        const checkInterval = setInterval(() => {
+                            attempts++;
+                            if (setCurrencyValue() || attempts >= maxAttempts) {
+                                clearInterval(checkInterval);
+                                if (attempts >= maxAttempts && currencySelect.value !== currencyIdStr) {
+                                    // 检查是否有警告信息
+                                    if (data.currency_warning) {
+                                        console.warn('Currency ID', currencyIdStr, 'does not belong to current company. Available options:', Array.from(currencySelect.options).map(opt => ({ value: opt.value, text: opt.text })));
+                                        showNotification('Warning: The original currency does not belong to your company. Please select a currency manually.', 'danger');
                                     } else {
-                                        showNotification('Warning: The original currency (' + currencyCode + ') does not belong to your company. Please select a currency manually.', 'danger');
-                                    }
-                                } else {
-                                    showNotification('Warning: The original currency does not belong to your company. Please select a currency manually.', 'danger');
-                                }
-                            }
-                            
-                            // 填充移除词汇
-                            if (data.remove_word) {
-                                document.getElementById('add_remove_words').value = data.remove_word;
-                            }
-                            
-                            // 填充替换词汇
-                            if (data.replace_word_from) {
-                                document.getElementById('add_replace_word_from').value = data.replace_word_from;
-                            }
-                            if (data.replace_word_to) {
-                                document.getElementById('add_replace_word_to').value = data.replace_word_to;
-                            }
-                            
-                            // 填充备注
-                            if (data.remark) {
-                                // 如果 remark 是 JSON 格式，尝试解析
-                                try {
-                                    const meta = JSON.parse(data.remark);
-                                    if (meta.user_remarks) {
-                                        document.getElementById('add_remarks').value = meta.user_remarks;
-                                    } else {
-                                        document.getElementById('add_remarks').value = data.remark;
-                                    }
-                                } catch (e) {
-                                    document.getElementById('add_remarks').value = data.remark;
-                                }
-                            }
-                            
-                            // 填充 day use checkboxes
-                            if (data.day_use) {
-                                const dayIdsArray = data.day_use.split(',');
-                                dayIdsArray.forEach(dayId => {
-                                    const checkbox = document.querySelector(`#day_checkboxes input[name="day_use[]"][value="${dayId.trim()}"]`);
-                                    if (checkbox) checkbox.checked = true;
-                                });
-                                // 更新 All Day 复选框状态
-                                updateAllDayCheckbox('add');
-                            }
-                            
-                            // 自动选择 description
-                            if (data.description_name) {
-                                // 先清空之前选择的 description
-                                if (window.selectedDescriptions) {
-                                    // 将之前选择的 description 移回可用列表
-                                    window.selectedDescriptions.forEach(descName => {
-                                        const existingCheckbox = document.querySelector(`#existingDescriptions input[type="checkbox"][value="${CSS.escape(descName)}"]`);
-                                        if (existingCheckbox) {
-                                            existingCheckbox.checked = false;
-                                        }
-                                    });
-                                    window.selectedDescriptions = [];
-                                }
-                                
-                                // 确保 descriptions 列表已加载
-                                await loadExistingDescriptions();
-                                
-                                // 查找对应的 description 复选框
-                                const descriptionName = data.description_name.trim();
-                                const descriptionCheckbox = document.querySelector(`#existingDescriptions input[type="checkbox"][value="${CSS.escape(descriptionName)}"]`);
-                                
-                                if (descriptionCheckbox) {
-                                    // 选中该复选框
-                                    descriptionCheckbox.checked = true;
-                                    // 移动到已选择列表
-                                    moveDescriptionToSelected(descriptionCheckbox);
-                                    // 更新显示
-                                    document.getElementById('add_description').value = `${window.selectedDescriptions.length} description(s) selected`;
-                                    displaySelectedDescriptions(window.selectedDescriptions);
-                                } else {
-                                    console.warn('Description not found in available list:', descriptionName);
-                                    // 如果找不到，仍然设置到 selectedDescriptions 中
-                                    if (!window.selectedDescriptions) {
-                                        window.selectedDescriptions = [];
-                                    }
-                                    if (!window.selectedDescriptions.includes(descriptionName)) {
-                                        window.selectedDescriptions.push(descriptionName);
-                                        document.getElementById('add_description').value = `${window.selectedDescriptions.length} description(s) selected`;
-                                        displaySelectedDescriptions(window.selectedDescriptions);
+                                        console.error('Failed to set currency after', maxAttempts, 'attempts. Currency ID:', currencyIdStr, 'Available options:', Array.from(currencySelect.options).map(opt => ({ value: opt.value, text: opt.text })));
+                                        showNotification('Warning: Currency could not be set automatically. Please select manually.', 'danger');
                                     }
                                 }
                             }
+                        }, 100);
+                    }
+                } else if (data.currency_warning) {
+                    // 如果 currency_id 为空但有警告，说明原货币不属于当前公司
+                    // 尝试根据货币代码自动匹配当前公司的相同货币
+                    if (data.currency_code) {
+                        const currencyCode = data.currency_code.toUpperCase();
+                        const matchingOption = Array.from(currencySelect.options).find(opt =>
+                            opt.textContent.toUpperCase() === currencyCode
+                        );
+                        if (matchingOption) {
+                            currencySelect.value = matchingOption.value;
+                            console.log('Auto-matched currency by code:', currencyCode, '-> ID:', matchingOption.value);
+                        } else {
+                            showNotification('Warning: The original currency (' + currencyCode + ') does not belong to your company. Please select a currency manually.', 'danger');
+                        }
+                    } else {
+                        showNotification('Warning: The original currency does not belong to your company. Please select a currency manually.', 'danger');
+                    }
+                }
+
+                // 填充移除词汇
+                if (data.remove_word) {
+                    document.getElementById('add_remove_words').value = data.remove_word;
+                }
+
+                // 填充替换词汇
+                if (data.replace_word_from) {
+                    document.getElementById('add_replace_word_from').value = data.replace_word_from;
+                }
+                if (data.replace_word_to) {
+                    document.getElementById('add_replace_word_to').value = data.replace_word_to;
+                }
+
+                // 填充备注
+                if (data.remark) {
+                    // 如果 remark 是 JSON 格式，尝试解析
+                    try {
+                        const meta = JSON.parse(data.remark);
+                        if (meta.user_remarks) {
+                            document.getElementById('add_remarks').value = meta.user_remarks;
+                        } else {
+                            document.getElementById('add_remarks').value = data.remark;
+                        }
+                    } catch (e) {
+                        document.getElementById('add_remarks').value = data.remark;
+                    }
+                }
+
+                // 填充 day use checkboxes
+                if (data.day_use) {
+                    const dayIdsArray = data.day_use.split(',');
+                    dayIdsArray.forEach(dayId => {
+                        const checkbox = document.querySelector(`#day_checkboxes input[name="day_use[]"][value="${dayId.trim()}"]`);
+                        if (checkbox) checkbox.checked = true;
+                    });
+                    // 更新 All Day 复选框状态
+                    updateAllDayCheckbox('add');
+                }
+
+                // 自动选择 description
+                if (data.description_name) {
+                    // 先清空之前选择的 description
+                    if (window.selectedDescriptions) {
+                        // 将之前选择的 description 移回可用列表
+                        window.selectedDescriptions.forEach(descName => {
+                            const existingCheckbox = document.querySelector(`#existingDescriptions input[type="checkbox"][value="${CSS.escape(descName)}"]`);
+                            if (existingCheckbox) {
+                                existingCheckbox.checked = false;
+                            }
+                        });
+                        window.selectedDescriptions = [];
+                    }
+
+                    // 确保 descriptions 列表已加载
+                    await loadExistingDescriptions();
+
+                    // 查找对应的 description 复选框
+                    const descriptionName = data.description_name.trim();
+                    const descriptionCheckbox = document.querySelector(`#existingDescriptions input[type="checkbox"][value="${CSS.escape(descriptionName)}"]`);
+
+                    if (descriptionCheckbox) {
+                        // 选中该复选框
+                        descriptionCheckbox.checked = true;
+                        // 移动到已选择列表
+                        moveDescriptionToSelected(descriptionCheckbox);
+                        // 更新显示
+                        document.getElementById('add_description').value = `${window.selectedDescriptions.length} description(s) selected`;
+                        displaySelectedDescriptions(window.selectedDescriptions);
+                    } else {
+                        console.warn('Description not found in available list:', descriptionName);
+                        // 如果找不到，仍然设置到 selectedDescriptions 中
+                        if (!window.selectedDescriptions) {
+                            window.selectedDescriptions = [];
+                        }
+                        if (!window.selectedDescriptions.includes(descriptionName)) {
+                            window.selectedDescriptions.push(descriptionName);
+                            document.getElementById('add_description').value = `${window.selectedDescriptions.length} description(s) selected`;
+                            displaySelectedDescriptions(window.selectedDescriptions);
+                        }
+                    }
+                }
             }
 
             // 处理 copy-from 下拉选择变化
             const copyFromSelect = document.getElementById('add_copy_from');
             if (copyFromSelect) {
-                copyFromSelect.addEventListener('change', async function() {
+                copyFromSelect.addEventListener('change', async function () {
                     const processId = this.value;
                     if (!processId) {
                         document.getElementById('add_currency').value = '';
@@ -5677,12 +5886,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     }
                 });
             }
-            
+
             // 检查 URL 参数并显示相应的消息
             const urlParams = new URLSearchParams(window.location.search);
             const errorParam = urlParams.get('error');
             const successParam = urlParams.get('success');
-            
+
             if (errorParam === 'process_linked_to_formula') {
                 showNotification('Cannot delete: This process is linked to a formula. Please remove the related formula records first.', 'danger');
                 // 清除 URL 参数
@@ -5700,7 +5909,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 showNotification('Deleted successfully!', 'success');
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-            
+
             console.log('DOM loaded, calling fetchProcesses...');
             try {
                 loadPermissionButtons().then(() => {
@@ -5712,24 +5921,26 @@ if ($current_user_id && count($user_companies) > 0) {
             }
         });
 
-        window.addEventListener('resize', function() {
+        window.addEventListener('resize', function () {
             if (selectedPermission === 'Bank') syncBankTableColumnWidth();
         });
 
         // 切换 process list 的 company
         // 当前选择的权限
         let selectedPermission = null;
-        
+
         // 加载权限按钮
         async function loadPermissionButtons() {
             const currentCompanyId = <?php echo json_encode($company_id); ?>;
-            const currentCompanyCode = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
-            
+            const currentCompanyCode = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) {
+                return $c['id'] == $company_id;
+            }))[0]['company_id'] ?? '' : ''); ?>;
+
             if (!currentCompanyCode) {
                 document.getElementById('process-list-permission-filter').style.display = 'none';
                 return;
             }
-            
+
             try {
                 const response = await fetch('domainapi.php', {
                     method: 'POST',
@@ -5741,16 +5952,16 @@ if ($current_user_id && count($user_companies) > 0) {
                         company_id: currentCompanyCode
                     })
                 });
-                
+
                 const result = await response.json();
                 const permissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
-                
+
                 const permissionContainer = document.getElementById('process-list-permission-buttons');
                 permissionContainer.innerHTML = '';
-                
+
                 if (permissions.length > 0) {
                     document.getElementById('process-list-permission-filter').style.display = 'flex';
-                    
+
                     permissions.forEach(permission => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
@@ -5760,7 +5971,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         btn.onclick = () => switchPermission(permission);
                         permissionContainer.appendChild(btn);
                     });
-                    
+
                     // 尝试从 localStorage 恢复之前选择的权限
                     const savedPermission = localStorage.getItem(`selectedPermission_${currentCompanyCode}`);
                     if (savedPermission && permissions.includes(savedPermission)) {
@@ -5777,17 +5988,19 @@ if ($current_user_id && count($user_companies) > 0) {
                 document.getElementById('process-list-permission-filter').style.display = 'none';
             }
         }
-        
+
         // 切换权限
         function switchPermission(permission) {
             selectedPermission = permission;
-            
+
             // 保存到 localStorage
-            const currentCompanyCode = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function($c) use ($company_id) { return $c['id'] == $company_id; }))[0]['company_id'] ?? '' : ''); ?>;
+            const currentCompanyCode = <?php echo json_encode(isset($user_companies) && count($user_companies) > 0 ? array_values(array_filter($user_companies, function ($c) use ($company_id) {
+                return $c['id'] == $company_id;
+            }))[0]['company_id'] ?? '' : ''); ?>;
             if (currentCompanyCode) {
                 localStorage.setItem(`selectedPermission_${currentCompanyCode}`, permission);
             }
-            
+
             // 更新按钮状态
             const buttons = document.querySelectorAll('#process-list-permission-buttons .process-company-btn');
             buttons.forEach(btn => {
@@ -5797,7 +6010,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     btn.classList.remove('active');
                 }
             });
-            
+
             // 根据类别显示/隐藏 waiting 复选框和更新表格头部
             const waitingSection = document.getElementById('waitingCheckboxSection');
             const gamblingHeaders = document.querySelectorAll('.gambling-header');
@@ -5806,7 +6019,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const selectAllBank = document.getElementById('selectAllBankProcesses');
             const tableHeader = document.getElementById('tableHeader');
             const processCards = document.querySelectorAll('.process-card');
-            
+
             const processTableBodyEl = document.getElementById('processTableBody');
             const processTableWrapperEl = document.getElementById('processTableWrapper');
             const bankTableWrapperEl = document.getElementById('bankTableWrapper');
@@ -5834,7 +6047,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 bankHeaders.forEach(header => header.style.display = 'none');
                 if (selectAllGambling) selectAllGambling.style.display = 'inline-block';
                 if (selectAllBank) selectAllBank.style.display = 'none';
-                
+
                 // 恢复 Gambling 表格的列数（7列）
                 if (tableHeader) {
                     tableHeader.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1fr 0.3fr';
@@ -5843,12 +6056,12 @@ if ($current_user_id && count($user_companies) > 0) {
                     card.style.gridTemplateColumns = '0.3fr 0.8fr 1.1fr 0.2fr 0.3fr 1.1fr 0.19fr';
                 });
             }
-            
+
             // 重新加载数据
             currentPage = 1;
             fetchProcesses();
         }
-        
+
         async function switchProcessListCompany(companyId) {
             // 先更新 session
             try {
@@ -5862,12 +6075,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.error('Error updating session:', error);
                 // 即使 API 失败，也继续刷新页面（PHP 端会处理）
             }
-            
+
             const url = new URL(window.location.href);
             url.searchParams.set('company_id', companyId);
             window.location.href = url.toString();
         }
     </script>
 </body>
+
 </html>
+
 </html>
