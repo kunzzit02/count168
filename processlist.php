@@ -1652,17 +1652,22 @@ if ($current_user_id && count($user_companies) > 0) {
             </div>
             <div class="modal-body">
                 <form id="profitSharingForm" class="bank-form" style="display: block;">
-                    <div class="form-row bank-row-two-cols">
-                        <div class="form-group">
-                            <label for="profit_sharing_account">Account</label>
-                            <select id="profit_sharing_account" name="account_id" class="bank-select" required>
-                                <option value="">Select Account</option>
-                            </select>
+                    <div id="profitSharingRowsContainer">
+                        <div class="form-row bank-row-two-cols profit-sharing-row">
+                            <div class="form-group">
+                                <label for="profit_sharing_account">Account</label>
+                                <select id="profit_sharing_account" name="account_id" class="bank-select profit-sharing-account">
+                                    <option value="">Select Account</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="profit_sharing_amount">Amount</label>
+                                <input type="number" id="profit_sharing_amount" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="profit_sharing_amount">Amount</label>
-                            <input type="number" id="profit_sharing_amount" name="amount" class="bank-input" placeholder="Enter amount" step="0.01" min="0" required>
-                        </div>
+                    </div>
+                    <div class="profit-sharing-add-row-wrap" style="margin-top: 10px;">
+                        <button type="button" class="bank-add-btn" id="profitSharingAddRowBtn" title="Add another Account &amp; Amount">+</button>
                     </div>
                     <div class="form-actions bank-actions" style="margin-top: 16px;">
                         <button type="submit" class="btn btn-save">Add</button>
@@ -4310,19 +4315,35 @@ if ($current_user_id && count($user_companies) > 0) {
         if (profitSharingFormEl) {
             profitSharingFormEl.addEventListener('submit', function(e) {
                 e.preventDefault();
-                const accountSelect = document.getElementById('profit_sharing_account');
-                const amountInput = document.getElementById('profit_sharing_amount');
-                if (!accountSelect || !amountInput) return;
-                const accountId = accountSelect.value;
-                const accountText = accountSelect.options[accountSelect.selectedIndex].text;
-                const rawAmount = amountInput.value.trim();
-                if (!accountId || rawAmount === '') return;
-                const num = parseFloat(rawAmount);
-                const amount = (isNaN(num) ? rawAmount : num.toFixed(2));
+                const rows = document.querySelectorAll('#profitSharingRowsContainer .profit-sharing-row');
                 if (!window.selectedProfitSharingEntries) window.selectedProfitSharingEntries = [];
-                window.selectedProfitSharingEntries.push({ accountId: accountId, accountText: accountText, amount: amount });
+                let added = 0;
+                rows.forEach(function(row) {
+                    const accountSelect = row.querySelector('.profit-sharing-account');
+                    const amountInput = row.querySelector('.profit-sharing-amount');
+                    if (!accountSelect || !amountInput) return;
+                    const accountId = (accountSelect.value || '').trim();
+                    const rawAmount = (amountInput.value || '').trim();
+                    if (!accountId || rawAmount === '') return;
+                    const accountText = accountSelect.options[accountSelect.selectedIndex] ? accountSelect.options[accountSelect.selectedIndex].text : '';
+                    const num = parseFloat(rawAmount);
+                    const amount = (isNaN(num) ? rawAmount : num.toFixed(2));
+                    window.selectedProfitSharingEntries.push({ accountId: accountId, accountText: accountText, amount: amount });
+                    added++;
+                });
+                if (added === 0) {
+                    showNotification('Please select at least one Account and enter Amount.', 'warning');
+                    return;
+                }
                 renderSelectedProfitSharing();
                 closeProfitSharingModal();
+            });
+        }
+        
+        const profitSharingAddRowBtn = document.getElementById('profitSharingAddRowBtn');
+        if (profitSharingAddRowBtn) {
+            profitSharingAddRowBtn.addEventListener('click', function() {
+                addProfitSharingRow();
             });
         }
 
@@ -5247,22 +5268,47 @@ if ($current_user_id && count($user_companies) > 0) {
             });
         }
         
+        function populateProfitSharingAccountSelect(selectEl) {
+            if (!selectEl) return;
+            selectEl.innerHTML = '<option value="">Select Account</option>';
+            const accounts = window.bankAccounts || [];
+            accounts.forEach(acc => {
+                const opt = document.createElement('option');
+                opt.value = acc.id;
+                opt.textContent = acc.account_id || acc.name || String(acc.id);
+                selectEl.appendChild(opt);
+            });
+        }
+        
+        function addProfitSharingRow() {
+            const container = document.getElementById('profitSharingRowsContainer');
+            if (!container) return;
+            const row = document.createElement('div');
+            row.className = 'form-row bank-row-two-cols profit-sharing-row';
+            const selectId = 'profit_sharing_account_' + Date.now();
+            const amountId = 'profit_sharing_amount_' + Date.now();
+            row.innerHTML = '<div class="form-group"><label for="' + selectId + '">Account</label><select id="' + selectId + '" name="account_id" class="bank-select profit-sharing-account"><option value="">Select Account</option></select></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
+            container.appendChild(row);
+            const newSelect = row.querySelector('.profit-sharing-account');
+            populateProfitSharingAccountSelect(newSelect);
+        }
+        
         async function showAddProfitSharingModal() {
             if (!window.bankAccounts || window.bankAccounts.length === 0) {
                 await loadBankAccounts();
             }
+            const container = document.getElementById('profitSharingRowsContainer');
+            if (container) {
+                const rows = container.querySelectorAll('.profit-sharing-row');
+                for (let i = 1; i < rows.length; i++) rows[i].remove();
+            }
             const selectEl = document.getElementById('profit_sharing_account');
             if (selectEl) {
-                selectEl.innerHTML = '<option value="">Select Account</option>';
-                const accounts = window.bankAccounts || [];
-                accounts.forEach(acc => {
-                    const opt = document.createElement('option');
-                    opt.value = acc.id;
-                    opt.textContent = acc.account_id || acc.name || String(acc.id);
-                    selectEl.appendChild(opt);
-                });
+                populateProfitSharingAccountSelect(selectEl);
+                selectEl.value = '';
             }
-            document.getElementById('profit_sharing_amount').value = '';
+            const amountEl = document.getElementById('profit_sharing_amount');
+            if (amountEl) amountEl.value = '';
             const modal = document.getElementById('profitSharingModal');
             if (modal) {
                 modal.style.display = 'block';
@@ -5275,6 +5321,11 @@ if ($current_user_id && count($user_companies) > 0) {
             if (modal) {
                 modal.style.display = 'none';
                 modal.classList.remove('show');
+            }
+            const container = document.getElementById('profitSharingRowsContainer');
+            if (container) {
+                const rows = container.querySelectorAll('.profit-sharing-row');
+                for (let i = 1; i < rows.length; i++) rows[i].remove();
             }
             const form = document.getElementById('profitSharingForm');
             if (form) form.reset();
