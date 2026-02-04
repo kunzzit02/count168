@@ -1293,6 +1293,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="bank-section">
                             <h3 class="bank-section-title">Detail</h3>
                             
+                            <!-- Row 1: Card Merchant | Buy Price -->
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_card_merchant">Card Merchant</label>
@@ -1310,6 +1311,14 @@ if ($current_user_id && count($user_companies) > 0) {
                                     </div>
                                 </div>
                                 <div class="form-group">
+                                    <label for="bank_cost">Buy Price</label>
+                                    <input type="text" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                                </div>
+                            </div>
+                            
+                            <!-- Row 2: Customer | Sell Price -->
+                            <div class="form-row bank-row-two-cols">
+                                <div class="form-group">
                                     <label for="bank_customer">Customer</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
@@ -1324,8 +1333,36 @@ if ($current_user_id && count($user_companies) > 0) {
                                         <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_customer')" title="Add New Account">+</button>
                                     </div>
                                 </div>
+                                <div class="form-group">
+                                    <label for="bank_price">Sell Price</label>
+                                    <input type="text" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
+                                </div>
                             </div>
                             
+                            <!-- Row 3: Profit Account | Profit -->
+                            <div class="form-row bank-row-two-cols">
+                                <div class="form-group">
+                                    <label for="bank_profit_account">Profit Account</label>
+                                    <div class="account-select-with-buttons">
+                                        <div class="custom-select-wrapper">
+                                            <button type="button" class="custom-select-button" id="bank_profit_account" data-placeholder="Select Account" name="profit_account">Select Account</button>
+                                            <div class="custom-select-dropdown" id="bank_profit_account_dropdown">
+                                                <div class="custom-select-search">
+                                                    <input type="text" placeholder="Search account..." autocomplete="off">
+                                                </div>
+                                                <div class="custom-select-options"></div>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="bank-add-btn" onclick="bankAccountPlusClick('bank_profit_account')" title="Add New Account">+</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bank_profit">Profit</label>
+                                    <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
+                                </div>
+                            </div>
+                            
+                            <!-- Row 4: Contract | Insurance -->
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_contract">Contract</label>
@@ -1340,21 +1377,6 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="form-group">
                                     <label for="bank_insurance">Insurance</label>
                                     <input type="text" id="bank_insurance" name="insurance" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
-                                </div>
-                            </div>
-                            
-                            <div class="form-row bank-row-three-cols">
-                                <div class="form-group">
-                                    <label for="bank_cost">Buy Price</label>
-                                    <input type="text" id="bank_cost" name="cost" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_price">Sell Price</label>
-                                    <input type="text" id="bank_price" name="price" placeholder="Enter amount" class="bank-input" inputmode="decimal" autocomplete="off">
-                                </div>
-                                <div class="form-group">
-                                    <label for="bank_profit">Profit</label>
-                                    <input type="number" id="bank_profit" name="profit" placeholder="Auto calculated" class="bank-input" readonly style="background-color: #f5f5f5;">
                                 </div>
                             </div>
                         </div>
@@ -2305,6 +2327,14 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else if (customerBtn) {
                     customerBtn.removeAttribute('data-value');
                     customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
+                }
+                const profitAccountBtn = document.getElementById('bank_profit_account');
+                if (profitAccountBtn && process.profit_account_id) {
+                    profitAccountBtn.setAttribute('data-value', process.profit_account_id);
+                    profitAccountBtn.textContent = (process.profit_account_name || process.profit_account_id) || 'Select Account';
+                } else if (profitAccountBtn) {
+                    profitAccountBtn.removeAttribute('data-value');
+                    profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
                 }
                 document.getElementById('bank_contract').value = process.contract || '';
                 document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
@@ -3552,11 +3582,15 @@ if ($current_user_id && count($user_companies) > 0) {
                 formData.append('permission', 'Bank');
                 const cardMerchantBtn = document.getElementById('bank_card_merchant');
                 const customerBtn = document.getElementById('bank_customer');
+                const profitAccountBtn = document.getElementById('bank_profit_account');
                 if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
                     formData.append('card_merchant_id', cardMerchantBtn.getAttribute('data-value'));
                 }
                 if (customerBtn && customerBtn.getAttribute('data-value')) {
                     formData.append('customer_id', customerBtn.getAttribute('data-value'));
+                }
+                if (profitAccountBtn && profitAccountBtn.getAttribute('data-value')) {
+                    formData.append('profit_account_id', profitAccountBtn.getAttribute('data-value'));
                 }
                 var dayStartVal = document.getElementById('bank_day_start').value;
                 var contractVal = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value) || '';
@@ -4278,6 +4312,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 await loadBankAccounts();
                 initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
+                initBankAccountSelect('bank_profit_account', 'bank_profit_account_dropdown');
                 updateBankAddButtonTitles();
                 
                 // 设置 Profit 自动计算（只初始化一次）
@@ -5041,7 +5076,7 @@ if ($current_user_id && count($user_companies) > 0) {
         }
         
         function updateBankAddButtonTitles() {
-            ['bank_card_merchant', 'bank_customer'].forEach(fieldId => {
+            ['bank_card_merchant', 'bank_customer', 'bank_profit_account'].forEach(fieldId => {
                 const btn = document.getElementById(fieldId);
                 const addBtn = btn && btn.closest('.account-select-with-buttons') && btn.closest('.account-select-with-buttons').querySelector('.bank-add-btn');
                 if (addBtn) addBtn.title = (btn.getAttribute('data-value') ? 'Edit Account' : 'Add New Account');
