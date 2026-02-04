@@ -1045,6 +1045,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     </div>
                     <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
                         title="Only inactive processes can be deleted" disabled>Delete</button>
+                    <button class="btn btn-primary" id="processPostToTransactionBtn" onclick="postToTransactionSelected()"
+                        title="将选中 Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户" style="display: none;" disabled>Post to Transaction</button>
                 </div>
 
                 <?php if (count($user_companies) > 1): ?>
@@ -2279,9 +2281,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 const profit = dashIfEmpty(process.profit);
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                    (process.status === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
+                    '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="' + (process.status === 'active' ? 'Select for post to transaction' : 'Select for deletion') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
+                tr.setAttribute('data-status', process.status || '');
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
                     '<td class="bank-td-country">' + escapeHtml(dashIfEmpty(process.country)) + '</td>' +
@@ -2302,6 +2305,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
             renderPagination();
             updateSelectAllProcessesVisibility();
+            updateDeleteButton();
         }
 
         /** 仅调整数据列宽度与 th 一致，th 不改；双 rAF 确保布局完成后再取宽 */
@@ -2887,12 +2891,76 @@ if ($current_user_id && count($user_companies) > 0) {
                 selectAllCheckbox.checked = allSelected;
             }
 
+            let deleteEnabled = false;
+            if (selectedPermission === 'Bank' && selectedCheckboxes.length > 0) {
+                const hasInactive = Array.from(selectedCheckboxes).some(cb => {
+                    const row = cb.closest('tr');
+                    return row && row.getAttribute('data-status') !== 'active';
+                });
+                deleteEnabled = hasInactive;
+            } else if (selectedCheckboxes.length > 0) {
+                deleteEnabled = true;
+            }
+
             if (selectedCheckboxes.length > 0) {
                 deleteBtn.textContent = `Delete (${selectedCheckboxes.length})`;
-                deleteBtn.disabled = false;
+                deleteBtn.disabled = !deleteEnabled;
             } else {
                 deleteBtn.textContent = 'Delete';
                 deleteBtn.disabled = true;
+            }
+
+            updatePostToTransactionButton();
+        }
+
+        function updatePostToTransactionButton() {
+            const postBtn = document.getElementById('processPostToTransactionBtn');
+            if (!postBtn) return;
+            postBtn.style.display = selectedPermission === 'Bank' ? 'inline-block' : 'none';
+            if (selectedPermission !== 'Bank') {
+                postBtn.disabled = true;
+                return;
+            }
+            const selectedCheckboxes = document.querySelectorAll('.bank-checkbox:checked');
+            const activeSelectedIds = Array.from(selectedCheckboxes).filter(cb => {
+                const row = cb.closest('tr');
+                return row && row.getAttribute('data-status') === 'active';
+            }).map(cb => cb.dataset.id);
+            postBtn.disabled = activeSelectedIds.length === 0;
+            postBtn.textContent = activeSelectedIds.length > 0 ? `Post to Transaction (${activeSelectedIds.length})` : 'Post to Transaction';
+        }
+
+        async function postToTransactionSelected() {
+            const selectedCheckboxes = document.querySelectorAll('.bank-checkbox:checked');
+            const activeSelectedIds = Array.from(selectedCheckboxes).filter(cb => {
+                const row = cb.closest('tr');
+                return row && row.getAttribute('data-status') === 'active';
+            }).map(cb => cb.dataset.id);
+            if (activeSelectedIds.length === 0) {
+                showNotification('请先勾选要入账的 Process（仅 active 的 Process 可入账）', 'warning');
+                return;
+            }
+            if (!confirm('确定将选中的 ' + activeSelectedIds.length + ' 个 Process 入账？\n\nBuy Price → Supplier 账户\nSell Price → Customer 账户\nProfit → Company 账户\n\n将在 Transaction 页面生成对应交易记录。')) {
+                return;
+            }
+            try {
+                const formData = new FormData();
+                activeSelectedIds.forEach(id => formData.append('ids[]', id));
+                const response = await fetch(buildApiUrl('process_post_to_transaction_api.php'), {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    showNotification(result.message || '入账成功', 'success');
+                    updateDeleteButton();
+                    loadProcesses();
+                } else {
+                    showNotification(result.error || '入账失败', 'danger');
+                }
+            } catch (err) {
+                console.error('Post to transaction error:', err);
+                showNotification('入账请求失败: ' + err.message, 'danger');
             }
         }
 
@@ -2931,11 +2999,13 @@ if ($current_user_id && count($user_companies) > 0) {
                         // Manual DOM update for simple status change
                         const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                         const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
-                        const actionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' + (result.newStatus === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">');
+                        const actionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+                            '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + (result.newStatus === 'active' ? 'Select for post to transaction' : 'Select for deletion') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
 
                         if (selectedPermission === 'Bank') {
                             const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                             if (row) {
+                                row.setAttribute('data-status', result.newStatus || '');
                                 const cells = row.querySelectorAll('td');
                                 if (cells.length >= 15) {
                                     cells[12].innerHTML = statusBadge;
