@@ -1376,7 +1376,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         <div class="bank-form-cell bank-form-cell-right">
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_profit_account">Profit Account</label>
+                                    <label for="bank_profit_account">Company</label>
                                     <div class="account-select-with-buttons">
                                         <div class="custom-select-wrapper">
                                             <button type="button" class="custom-select-button" id="bank_profit_account" data-placeholder="Select Account" name="profit_account">Select Account</button>
