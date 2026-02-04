@@ -287,6 +287,7 @@ if ($current_user_id && count($user_companies) > 0) {
             border-radius: 0.25rem;
             padding: 0.625rem;
             background-color: #f8f9fa;
+            margin-bottom: 25px;
         }
         .country-item {
             display: flex;
@@ -4528,12 +4529,16 @@ if ($current_user_id && count($user_companies) > 0) {
             
             let isOpen = false;
             
-            // Load accounts into dropdown
+            // Load accounts into dropdown (Profit Account: only role === 'profit')
             const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
+            const isProfitAccountSelect = (buttonId === 'bank_profit_account');
             function loadAccounts(filterText = '') {
                 optionsContainer.innerHTML = '';
                 const filterLower = filterText.toLowerCase().trim();
-                const accounts = window.bankAccounts || [];
+                let accounts = window.bankAccounts || [];
+                if (isProfitAccountSelect) {
+                    accounts = accounts.filter(acc => (acc.role || '').toLowerCase() === 'profit');
+                }
                 
                 // Always add "Select Account" as first option so user can clear selection
                 {
