@@ -2455,6 +2455,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 customerBtn.textContent = customerBtn.getAttribute('data-placeholder') || 'Select Account';
                 customerBtn.removeAttribute('data-value');
             }
+            const profitAccountBtn = document.getElementById('bank_profit_account');
+            if (profitAccountBtn) {
+                profitAccountBtn.textContent = profitAccountBtn.getAttribute('data-placeholder') || 'Select Account';
+                profitAccountBtn.removeAttribute('data-value');
+            }
         }
 
         function closeAddModal() {
