@@ -1421,6 +1421,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                         <option value="2 MONTHS">2 MONTHS</option>
                                         <option value="3 MONTHS">3 MONTHS</option>
                                         <option value="6 MONTHS">6 MONTHS</option>
+                                        <option value="1+1">1+1</option>
+                                        <option value="1+2">1+2</option>
+                                        <option value="1+3">1+3</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -2025,7 +2028,7 @@ if ($current_user_id && count($user_companies) > 0) {
             }).join('');
 
             tbody.innerHTML = '';
-            const contractMap = { '1':'1 MONTH','1 month':'1 MONTH','2':'2 MONTHS','2 months':'2 MONTHS','3':'3 MONTHS','3 months':'3 MONTHS','6':'6 MONTHS','6 months':'6 MONTHS' };
+            const contractMap = { '1':'1 MONTH','1 month':'1 MONTH','2':'2 MONTHS','2 months':'2 MONTHS','3':'3 MONTHS','3 months':'3 MONTHS','6':'6 MONTHS','6 months':'6 MONTHS','1+1':'1+1','1+2':'1+2','1+3':'1+3' };
             const todayStr = new Date().toISOString().slice(0, 10);
             function getContractStateClass(dayStart, dayEnd) {
                 if (!dayStart && !dayEnd) return '';
