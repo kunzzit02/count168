@@ -1,7 +1,14 @@
 <?php
 /**
  * Automated Monthly Accounting Script
- * Reference: User Request for automation on 4th of every month.
+ * 每月 4 号自动算账：将 Process 的 Buy Price 记入 Supplier 账户、Sell Price 记入 Customer 账户、Profit 记入 Company 账户。
+ *
+ * 必须配置定时任务才会自动执行：
+ * - Windows：任务计划程序，每月 4 号 14:30 运行 php 本脚本路径
+ * - Linux：cron 例如 30 14 4 * * php /path/to/auto_monthly_accounting.php
+ *
+ * 手动补跑（例如今天 4 号但定时没跑）：在项目目录执行
+ *   php auto_monthly_accounting.php --force
  */
 
 // Load configuration
@@ -55,7 +62,24 @@ function insertTransaction(PDO $pdo, array $data)
 
 logMessage("Starting automated monthly accounting process...");
 
+// 仅每月 4 号执行（避免误跑）；--force 时跳过日期检查便于手动补跑
+$dayOfMonth = (int) date('j');
+$forceRun = in_array('--force', isset($argv) ? $argv : [], true);
+if ($dayOfMonth !== 4 && !$forceRun) {
+    logMessage("Skip: today is not the 4th (day=$dayOfMonth). Run with --force to run anyway.");
+    exit(0);
+}
+
 try {
+    $transactionDate = date('Y-m-d');
+    // 防重复：今天已有自动算账记录则不再写入
+    $stmt = $pdo->prepare("SELECT id FROM transactions WHERE transaction_date = ? AND description LIKE 'Auto: Buy Price for %' LIMIT 1");
+    $stmt->execute([$transactionDate]);
+    if ($stmt->fetch()) {
+        logMessage("Skip: auto accounting already ran today ($transactionDate). No duplicate run.");
+        exit(0);
+    }
+
     // Fetch all active bank processes
     // We get company_id and profit/cost/price info.
     // We also join with 'company' table to get owner_id for created_by_owner field if needed.
@@ -81,7 +105,6 @@ try {
 
     logMessage("Found " . count($processes) . " active bank processes.");
 
-    $transactionDate = date('Y-m-d');
     $createdCount = 0;
 
     // Cache for currency IDs to avoid repeated DB lookups
