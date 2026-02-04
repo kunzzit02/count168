@@ -1652,15 +1652,17 @@ if ($current_user_id && count($user_companies) > 0) {
             </div>
             <div class="modal-body">
                 <form id="profitSharingForm" class="bank-form" style="display: block;">
-                    <div class="form-group">
-                        <label for="profit_sharing_account">Account</label>
-                        <select id="profit_sharing_account" name="account_id" class="bank-select" required>
-                            <option value="">Select Account</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="profit_sharing_amount">Amount</label>
-                        <input type="number" id="profit_sharing_amount" name="amount" class="bank-input" placeholder="Enter amount" step="0.01" min="0" required>
+                    <div class="form-row bank-row-two-cols">
+                        <div class="form-group">
+                            <label for="profit_sharing_account">Account</label>
+                            <select id="profit_sharing_account" name="account_id" class="bank-select" required>
+                                <option value="">Select Account</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="profit_sharing_amount">Amount</label>
+                            <input type="number" id="profit_sharing_amount" name="amount" class="bank-input" placeholder="Enter amount" step="0.01" min="0" required>
+                        </div>
                     </div>
                     <div class="form-actions bank-actions" style="margin-top: 16px;">
                         <button type="submit" class="btn btn-save">Add</button>
