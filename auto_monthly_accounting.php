@@ -62,7 +62,8 @@ try {
     $sql = "SELECT 
                 bp.id, 
                 bp.name, 
-                bp.bank, 
+                bp.bank,
+                bp.country, 
                 bp.cost, 
                 bp.price, 
                 bp.profit, 
@@ -83,10 +84,44 @@ try {
     $transactionDate = date('Y-m-d');
     $createdCount = 0;
 
+    // Cache for currency IDs to avoid repeated DB lookups
+    $currencyCache = [];
+
     foreach ($processes as $p) {
         $processLabel = $p['name'] ?: ($p['bank'] . ' #' . $p['id']);
         $companyId = $p['company_id'];
         $ownerId = $p['owner_id'];
+        $currencyCode = trim($p['country'] ?? ''); // Assuming 'country' holds the currency code like 'JPY'
+
+        // Resolve Currency ID
+        $currencyId = null;
+        if (!empty($currencyCode)) {
+            $cacheKey = $companyId . '_' . $currencyCode;
+            if (isset($currencyCache[$cacheKey])) {
+                $currencyId = $currencyCache[$cacheKey];
+            } else {
+                // Check if currency exists for this company
+                $stmt = $pdo->prepare("SELECT id FROM currency WHERE code = ? AND company_id = ?");
+                $stmt->execute([$currencyCode, $companyId]);
+                $currencyId = $stmt->fetchColumn();
+
+                // If not found, create it (consistent with existing app logic)
+                if (!$currencyId) {
+                    try {
+                        $stmt = $pdo->prepare("INSERT INTO currency (code, company_id) VALUES (?, ?)");
+                        $stmt->execute([$currencyCode, $companyId]);
+                        $currencyId = $pdo->lastInsertId();
+                        logMessage("Created new currency '$currencyCode' for company $companyId");
+                    } catch (Exception $e) {
+                        logMessage("Failed to create currency '$currencyCode': " . $e->getMessage());
+                    }
+                }
+
+                if ($currencyId) {
+                    $currencyCache[$cacheKey] = $currencyId;
+                }
+            }
+        }
 
         // Base data for this process's transactions
         $baseTxn = [
@@ -100,6 +135,10 @@ try {
             'approved_at' => date('Y-m-d H:i:s'),
             'approved_by_owner' => $ownerId
         ];
+
+        if ($currencyId) {
+            $baseTxn['currency_id'] = $currencyId;
+        }
 
         // 1. Supplier (Buy Price) -> Credit Supplier Account
         if (!empty($p['card_merchant_id']) && $p['cost'] > 0) {
