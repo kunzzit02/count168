@@ -1192,7 +1192,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
             
             const showZeroCk = document.getElementById('show_zero_balance');
             if (showZeroCk) {
-                // show_zero_balance 只在前端过滤，不需要重新搜索
+                // Show 0 balance 影响后端返回的 (account,currency) 范围（只返回 active 货币），勾选/取消时需重新搜索
                 showZeroCk.addEventListener('change', handleCheckboxChange);
             }
             
@@ -2807,8 +2807,12 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         
         // ==================== 处理复选框变化（改为前端重新渲染） ====================
         function handleCheckboxChange() {
-            // 有搜索结果时，不再重新请求后端，只在前端重新渲染列表
-            applyZeroBalanceFilterAndRender();
+            // Show 0 balance 勾选时后端只返回 account 的 active 货币；取消时返回全公司货币。需重新搜索以拿到正确数据
+            if (lastSearchData) {
+                searchTransactions();
+            } else {
+                applyZeroBalanceFilterAndRender();
+            }
         }
         
         // ==================== 过滤无 Cr/Dr 交易的账号 ====================
