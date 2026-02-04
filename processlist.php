@@ -4532,9 +4532,10 @@ if ($current_user_id && count($user_companies) > 0) {
             // Load accounts into dropdown (Profit Account: only role === 'profit')
             const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
             const isProfitAccountSelect = (buttonId === 'bank_profit_account');
-            function loadAccounts(filterText = '') {
+            function loadAccounts() {
                 optionsContainer.innerHTML = '';
-                const filterLower = filterText.toLowerCase().trim();
+                // Always read filter from this dropdown's search input so search matches what user sees
+                const filterLower = (searchInput.value || '').toLowerCase().trim();
                 let accounts = window.bankAccounts || [];
                 if (isProfitAccountSelect) {
                     accounts = accounts.filter(acc => (acc.role || '').toLowerCase() === 'profit');
@@ -4556,15 +4557,18 @@ if ($current_user_id && count($user_companies) > 0) {
                     optionsContainer.appendChild(selectOpt);
                 }
                 
-                // Filter by the same text we display (account_id or name) so search matches what user sees
+                // Filter by the same text we display so search matches what user sees (exact match on displayed string)
+                function getDisplayText(account) {
+                    return String(account.account_id ?? account.name ?? '').trim();
+                }
                 let filteredAccounts = accounts.filter(account => {
-                    const displayText = (account.account_id || account.name || '').toLowerCase();
+                    const displayText = getDisplayText(account).toLowerCase();
                     return !filterLower || displayText.includes(filterLower);
                 });
                 // Sort alphabetically by display text
                 filteredAccounts = filteredAccounts.slice().sort((a, b) => {
-                    const ta = (a.account_id || a.name || '').toLowerCase();
-                    const tb = (b.account_id || b.name || '').toLowerCase();
+                    const ta = getDisplayText(a).toLowerCase();
+                    const tb = getDisplayText(b).toLowerCase();
                     return ta.localeCompare(tb);
                 });
                 
@@ -4578,15 +4582,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         const option = document.createElement('div');
                         option.className = 'custom-select-option';
                         option.setAttribute('data-value', account.id);
-                        option.textContent = account.account_id || account.name || '';
+                        option.textContent = getDisplayText(account);
                         option.addEventListener('click', () => {
-                            accountButton.textContent = account.account_id || account.name || '';
+                            accountButton.textContent = getDisplayText(account);
                             accountButton.setAttribute('data-value', account.id);
                             accountDropdown.style.display = 'none';
                             isOpen = false;
                             updateBankAddButtonTitles();
                         });
-                        optionsContainer.appendChild(option);
+                    optionsContainer.appendChild(option);
                     });
                 }
             }
@@ -4594,12 +4598,12 @@ if ($current_user_id && count($user_companies) > 0) {
             // Initial load
             loadAccounts();
             
-            // Search input handler
-            searchInput.addEventListener('input', (e) => {
-                loadAccounts(e.target.value);
+            // Search input handler: loadAccounts() reads filter from searchInput.value
+            searchInput.addEventListener('input', () => {
+                loadAccounts();
             });
             
-            // Toggle dropdown
+            // Toggle dropdown: clear search so filter is fresh, then load
             accountButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (isOpen) {
@@ -4608,6 +4612,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else {
                     accountDropdown.style.display = 'block';
                     isOpen = true;
+                    searchInput.value = '';
                     loadAccounts();
                     searchInput.focus();
                 }
