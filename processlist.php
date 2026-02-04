@@ -723,6 +723,24 @@ if ($current_user_id && count($user_companies) > 0) {
             margin-bottom: 0;
         }
 
+        .bank-form .bank-day-start-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .bank-form .bank-day-start-input-wrap {
+            flex: 0 0 auto;
+            max-width: 155px;
+        }
+        .bank-form .bank-day-start-input-wrap .bank-input {
+            width: 100%;
+        }
+        .bank-form .bank-day-start-frequency-wrap {
+            flex: 1;
+            min-width: 160px;
+        }
+
         .bank-form .form-group {
             display: flex;
             flex-direction: column;
@@ -1527,10 +1545,17 @@ if ($current_user_id && count($user_companies) > 0) {
                     <!-- Row 3 -->
                     <div class="bank-form-row">
                         <div class="bank-form-cell bank-form-cell-left">
-                            <div class="form-row">
-                                <div class="form-group">
+                            <div class="form-row bank-day-start-row">
+                                <div class="form-group bank-day-start-input-wrap">
                                     <label for="bank_day_start">Day start</label>
                                     <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                </div>
+                                <div class="form-group bank-day-start-frequency-wrap">
+                                    <label for="bank_day_start_frequency">Frequency</label>
+                                    <select id="bank_day_start_frequency" name="day_start_frequency" class="bank-input bank-select">
+                                        <option value="1st_of_every_month">1st of Every Month</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
