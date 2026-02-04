@@ -225,6 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_PO
         }
         $card_merchant_id = isset($_POST['card_merchant_id']) && $_POST['card_merchant_id'] !== '' ? (int)$_POST['card_merchant_id'] : null;
         $customer_id = isset($_POST['customer_id']) && $_POST['customer_id'] !== '' ? (int)$_POST['customer_id'] : null;
+        $profit_account_id = isset($_POST['profit_account_id']) && $_POST['profit_account_id'] !== '' ? (int)$_POST['profit_account_id'] : null;
         $contract = trim($_POST['contract'] ?? '');
         $insurance = isset($_POST['insurance']) && $_POST['insurance'] !== '' ? (float)$_POST['insurance'] : null;
         $cost = isset($_POST['cost']) && $_POST['cost'] !== '' ? (float)$_POST['cost'] : null;
@@ -245,12 +246,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_PO
             $currentUserId = getCurrentUserId($pdo);
         }
         $stmt = $pdo->prepare("INSERT INTO bank_process (
-            company_id, country, bank, type, name, card_merchant_id, customer_id,
+            company_id, country, bank, type, name, card_merchant_id, customer_id, profit_account_id,
             contract, insurance, cost, price, profit, profit_sharing, day_start, day_end, status,
             created_by, created_by_type, created_by_owner_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)");
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)");
         $stmt->execute([
-            $companyId, $country, $bank, $type, $name, $card_merchant_id, $customer_id,
+            $companyId, $country, $bank, $type, $name, $card_merchant_id, $customer_id, $profit_account_id,
             $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_end,
             $currentUserId, $createdByType, $createdByOwnerId
         ]);

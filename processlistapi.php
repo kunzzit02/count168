@@ -717,13 +717,15 @@ function getBankProcess() {
         }
         $stmt = $pdo->prepare("SELECT 
                 bp.id, bp.country, bp.bank, bp.type, bp.name,
-                bp.card_merchant_id, bp.customer_id, bp.contract, bp.insurance,
+                bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance,
                 bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_end, bp.status,
                 bp.dts_modified, bp.dts_created,
-                a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name
+                a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name,
+                a_pa.account_id as profit_account_account_id, a_pa.name as profit_account_name
             FROM bank_process bp
             LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
             LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
+            LEFT JOIN account a_pa ON bp.profit_account_id = a_pa.id
             WHERE bp.id = ? AND bp.company_id = ?");
         $stmt->execute([$processId, $currentCompanyId]);
         $process = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -740,6 +742,8 @@ function getBankProcess() {
             'name' => $process['name'],
             'card_merchant_id' => $process['card_merchant_id'],
             'customer_id' => $process['customer_id'],
+            'profit_account_id' => $process['profit_account_id'] ?? null,
+            'profit_account_name' => $process['profit_account_account_id'] ?? $process['profit_account_name'] ?? '',
             'card_merchant_name' => $process['card_merchant_name'],
             'customer_name' => $process['customer_name'],
             'customer_account' => $process['customer_account'] ?? '',
@@ -790,6 +794,7 @@ function updateBankProcess() {
         $name = $_POST['name'] ?? null;
         $card_merchant_id = !empty($_POST['card_merchant_id']) ? (int)$_POST['card_merchant_id'] : null;
         $customer_id = !empty($_POST['customer_id']) ? (int)$_POST['customer_id'] : null;
+        $profit_account_id = !empty($_POST['profit_account_id']) ? (int)$_POST['profit_account_id'] : null;
         $contract = $_POST['contract'] ?? null;
         $insurance = isset($_POST['insurance']) && $_POST['insurance'] !== '' ? (float)$_POST['insurance'] : null;
         $cost = isset($_POST['cost']) && $_POST['cost'] !== '' ? (float)$_POST['cost'] : null;
@@ -808,12 +813,12 @@ function updateBankProcess() {
         $modifiedByOwnerId = $isOwner ? ($_SESSION['owner_id'] ?? null) : null;
         $currentUserId = $isOwner ? null : getCurrentUserId($pdo);
         $stmt = $pdo->prepare("UPDATE bank_process SET 
-            country=?, bank=?, type=?, name=?, card_merchant_id=?, customer_id=?,
+            country=?, bank=?, type=?, name=?, card_merchant_id=?, customer_id=?, profit_account_id=?,
             contract=?, insurance=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, status=?,
             dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
             WHERE id=? AND company_id=?");
         $stmt->execute([
-            $country, $bank, $type, $name, $card_merchant_id, $customer_id,
+            $country, $bank, $type, $name, $card_merchant_id, $customer_id, $profit_account_id,
             $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         ]);
