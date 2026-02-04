@@ -6134,6 +6134,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
             }
 
+            // Post to Transaction 仅 Bank 显示，Gambling 隐藏
+            updatePostToTransactionButton();
+
             // 重新加载数据
             currentPage = 1;
             fetchProcesses();
