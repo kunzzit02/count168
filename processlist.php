@@ -4556,10 +4556,16 @@ if ($current_user_id && count($user_companies) > 0) {
                     optionsContainer.appendChild(selectOpt);
                 }
                 
-                const filteredAccounts = accounts.filter(account => {
+                let filteredAccounts = accounts.filter(account => {
                     const accountId = (account.account_id || '').toLowerCase();
                     const name = (account.name || '').toLowerCase();
                     return !filterLower || accountId.includes(filterLower) || name.includes(filterLower);
+                });
+                // Sort alphabetically by display text (account_id or name)
+                filteredAccounts = filteredAccounts.slice().sort((a, b) => {
+                    const ta = (a.account_id || a.name || '').toLowerCase();
+                    const tb = (b.account_id || b.name || '').toLowerCase();
+                    return ta.localeCompare(tb);
                 });
                 
                 if (filteredAccounts.length === 0) {
