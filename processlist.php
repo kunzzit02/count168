@@ -682,17 +682,16 @@ if ($current_user_id && count($user_companies) > 0) {
             background: #f1f5f9;
             box-shadow: 0 1px 0 #e5e7eb;
         }
-        /* Post to Transaction 与页面主按钮一致：青绿主色 */
+        /* Transaction 与 Cancel 同尺寸、同字体，仅颜色不同 */
         #processAccountingDueModal .btn-primary {
             background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
             color: white;
             font-family: 'Amaranth';
-            width: auto;
-            min-width: clamp(100px, 8vw, 160px);
-            padding: clamp(6px, 0.42vw, 8px) 16px;
-            font-size: clamp(10px, 0.83vw, 14px);
+            width: clamp(5rem, 6.25vw, 7.5rem);
+            padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
+            font-size: clamp(0.625rem, 0.83vw, 1rem);
             border: none;
-            border-radius: 6px;
+            border-radius: 0.375rem;
             box-shadow: 0 2px 4px rgba(13, 148, 136, 0.3);
             cursor: pointer;
         }
