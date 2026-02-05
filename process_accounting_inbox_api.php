@@ -128,6 +128,7 @@ try {
         if ($frequency === '1st_of_every_month') {
             $need = ($dayOfMonth === 1);
         } else {
+            // Monthly：day_start 如 2月6 → 第一周期 2月6～3月5，应在 3月5 才到期，不是 2月5
             if (empty($dayStart)) {
                 continue;
             }
@@ -140,7 +141,15 @@ try {
             if ($accountingDay < 1) {
                 $accountingDay = 1;
             }
-            $need = ($dayOfMonth === $accountingDay);
+            $dayOfMonthMatch = ($dayOfMonth === $accountingDay);
+            if (!$dayOfMonthMatch) {
+                $need = false;
+            } else {
+                // 第一个周期结束日 = day_start + 1 个月 - 1 天（如 2月6 → 3月5）
+                $firstPeriodEndTs = strtotime('-1 day', strtotime('+1 month', $startTs));
+                $firstPeriodEndDate = $firstPeriodEndTs !== false ? date('Y-m-d', $firstPeriodEndTs) : '';
+                $need = ($firstPeriodEndDate !== '' && $today >= $firstPeriodEndDate);
+            }
         }
 
         if ($need) {
