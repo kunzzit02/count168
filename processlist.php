@@ -1080,6 +1080,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <table class="process-accounting-inbox-table">
                                     <thead>
                                         <tr>
+                                            <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
                                             <th>No</th>
                                             <th>Name/Bank</th>
                                             <th>Country</th>
@@ -3048,21 +3049,52 @@ if ($current_user_id && count($user_companies) > 0) {
             const countEl = document.getElementById('processAccountingInboxCount');
             const countEl2 = document.getElementById('processAccountingInboxCount2');
             const postBtn = document.getElementById('processAccountingInboxPostBtn');
+            const selectAllCb = document.getElementById('processAccountingInboxSelectAll');
             if (!tbody || !countEl) return;
             const count = Array.isArray(items) ? items.length : 0;
             const postableCount = Array.isArray(items) ? items.filter(p => !p.already_posted_today).length : 0;
             countEl.textContent = String(postableCount);
             if (countEl2) countEl2.textContent = String(postableCount);
-            if (postBtn) postBtn.disabled = postableCount === 0;
+            if (selectAllCb) { selectAllCb.checked = false; selectAllCb.disabled = postableCount === 0; }
             if (count === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
+                if (postBtn) postBtn.disabled = true;
                 return;
             }
             tbody.innerHTML = items.map((row, idx) => {
                 const name = (row.name || row.bank || '-');
                 const rowClass = row.already_posted_today ? ' class="process-accounting-inbox-row-posted"' : '';
-                return '<tr' + rowClass + '><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + (row.cost != null ? Number(row.cost) : '-') + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + (row.profit != null ? Number(row.profit) : '-') + '</td></tr>';
+                const cbDisabled = row.already_posted_today ? ' disabled' : '';
+                const cbChecked = row.already_posted_today ? '' : '';
+                const cbClass = 'process-accounting-inbox-row-cb';
+                const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
+                return '<tr' + rowClass + ' data-id="' + row.id + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + (row.cost != null ? Number(row.cost) : '-') + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + (row.profit != null ? Number(row.profit) : '-') + '</td></tr>';
             }).join('');
+            updateAccountingInboxPostButton();
+            (function bindSelectAll() {
+                const selectAll = document.getElementById('processAccountingInboxSelectAll');
+                if (!selectAll || selectAll.onAccountingInboxBound) return;
+                selectAll.onAccountingInboxBound = true;
+                selectAll.addEventListener('change', function () {
+                    const checked = this.checked;
+                    const box = document.getElementById('processAccountingInboxTbody');
+                    if (box) box.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled])').forEach(cb => { cb.checked = checked; });
+                    updateAccountingInboxPostButton();
+                });
+            })();
+        }
+        function updateAccountingInboxPostButton() {
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            const postBtn = document.getElementById('processAccountingInboxPostBtn');
+            const selectAllCb = document.getElementById('processAccountingInboxSelectAll');
+            if (!tbody || !postBtn) return;
+            const checked = tbody.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled]):checked');
+            const count = checked.length;
+            postBtn.disabled = count === 0;
+            if (selectAllCb && !selectAllCb.disabled) {
+                const postable = tbody.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled])');
+                selectAllCb.checked = postable.length > 0 && postable.length === checked.length;
+            }
         }
         function openAccountingInbox() {
             const pop = document.getElementById('processAccountingInboxPopover');
@@ -3086,13 +3118,15 @@ if ($current_user_id && count($user_companies) > 0) {
         }
 
         async function postAccountingInboxToTransaction() {
-            const list = window.__accountingInboxList || [];
-            const ids = list.filter(p => !p.already_posted_today).map(p => p.id).filter(Boolean);
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            if (!tbody) return;
+            const checked = tbody.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled]):checked');
+            const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id, 10)).filter(Boolean);
             if (ids.length === 0) {
-                showNotification('No processes to post (already posted today).', 'warning');
+                showNotification('Please select at least one process to post.', 'warning');
                 return;
             }
-            if (!confirm('Post ' + ids.length + ' process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
+            if (!confirm('Post ' + ids.length + ' selected process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
             try {
                 const formData = new FormData();
                 ids.forEach(id => formData.append('ids[]', id));
