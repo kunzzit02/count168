@@ -179,6 +179,12 @@ function getProcesses() {
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
         
+        $hasTxnProcessId = false;
+        try {
+            $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'process_id'");
+            $hasTxnProcessId = $colStmt && $colStmt->rowCount() > 0;
+        } catch (PDOException $e) { /* ignore */ }
+        
         $sql = "SELECT 
                     p.id,
                     p.process_id,
@@ -193,7 +199,8 @@ function getProcesses() {
                     COALESCE(u_modified.login_id, o_modified.owner_code) as modified_by_login,
                     p.dts_created,
                     COALESCE(u_created.login_id, o_created.owner_code) as created_by_login,
-                    p.status
+                    p.status" .
+                    ($hasTxnProcessId ? ", (SELECT COUNT(*) FROM transactions t WHERE t.process_id = p.id) AS has_transactions" : "") . "
                 FROM process p
                 LEFT JOIN description d ON p.description_id = d.id
                 LEFT JOIN currency c ON p.currency_id = c.id
@@ -263,7 +270,8 @@ function getProcesses() {
                 'created_by' => $process['created_by_login'],
                 'remove_word' => $process['remove_word'],
                 'replace_word' => $process['replace_word_from'] . ' == ' . $process['replace_word_to'],
-                'remarks' => $process['remark']
+                'remarks' => $process['remark'],
+                'has_transactions' => $hasTxnProcessId && ((int)($process['has_transactions'] ?? 0)) > 0,
             ];
         }
         
@@ -646,7 +654,8 @@ function getBankProcesses() {
                     bp.dts_modified,
                     a_cm.name as card_merchant_name,
                     a_cm.account_id as card_merchant_account_id,
-                    a_cust.account_id as customer_account
+                    a_cust.account_id as customer_account,
+                    (SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id) AS has_transactions
                 FROM bank_process bp
                 LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                 LEFT JOIN account a_cust ON bp.customer_id = a_cust.id
@@ -692,6 +701,7 @@ function getBankProcesses() {
                 'day_start' => $r['day_start'] ?? null,
                 'day_start_frequency' => $r['day_start_frequency'] ?? '1st_of_every_month',
                 'day_end' => $r['day_end'] ?? null,
+                'has_transactions' => ((int)($r['has_transactions'] ?? 0)) > 0,
             ];
         }
         echo json_encode(['success' => true, 'data' => $formattedProcesses]);

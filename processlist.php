@@ -34,6 +34,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                     header('Location: processlist.php?error=bank_has_day_start');
                     exit;
                 }
+                // Bank：若该流程已入账到 Transaction（process_accounting_posted 有记录），则不允许删除
+                $papPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
+                $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND process_id IN ($papPlaceholders) LIMIT 1");
+                $stmt->execute(array_merge([$company_id_session], $inactiveIds));
+                if ($stmt->fetch()) {
+                    header('Location: processlist.php?error=process_has_transactions');
+                    exit;
+                }
                 $delPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
                 $stmt = $pdo->prepare("DELETE FROM bank_process WHERE id IN ($delPlaceholders) AND company_id = ? AND status = 'inactive'");
                 $stmt->execute(array_merge($inactiveIds, [$company_id_session]));
@@ -76,6 +84,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
             if ($formulaCount > 0) {
                 header('Location: processlist.php?error=process_linked_to_formula');
                 exit;
+            }
+
+            // Gambling：若该流程在 transactions 表中有记录，则不允许删除
+            $hasProcessIdCol = false;
+            try {
+                $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'process_id'");
+                $hasProcessIdCol = $colStmt && $colStmt->rowCount() > 0;
+            } catch (PDOException $e) { /* ignore */ }
+            if ($hasProcessIdCol) {
+                $txnPlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
+                $stmt = $pdo->prepare("SELECT process_id FROM transactions WHERE process_id IN ($txnPlaceholders) LIMIT 1");
+                $stmt->execute($processIds);
+                if ($stmt->fetch()) {
+                    header('Location: processlist.php?error=process_has_transactions');
+                    exit;
+                }
             }
 
             $deletePlaceholders = str_repeat('?,', count($processIds) - 1) . '?';
@@ -2362,7 +2386,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <button class="edit-btn" onclick="editProcess(${process.id})" aria-label="Edit" title="Edit">
                                 <img src="images/edit.svg" alt="Edit" />
                             </button>
-                            ${process.status === 'active' ? '' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`}
+                            ${process.status === 'active' ? '' : (process.has_transactions ? '<span class="text-muted" title="Cannot delete: has transaction records">—</span>' : `<input type="checkbox" class="row-checkbox" data-id="${process.id}" title="Select for deletion" onchange="updateDeleteButton()" style="margin-left: 10px;">`)}
                         </div>
                     `;
                     container.appendChild(card);
@@ -2445,10 +2469,11 @@ if ($current_user_id && count($user_companies) > 0) {
                 const profit = dashIfEmpty(process.profit);
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                    (process.status === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">');
+                    (process.status === 'active' ? '' : (process.has_transactions ? '<span class="text-muted" title="Cannot delete: has transaction records">—</span>' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.setAttribute('data-status', process.status || '');
+                tr.setAttribute('data-has-transactions', process.has_transactions ? '1' : '0');
                 tr.innerHTML = '<td class="bank-td-no">' + (startIndex + idx + 1) + '</td>' +
                     '<td>' + escapeHtml(dashIfEmpty(process.card_lower)) + '</td>' +
                     '<td class="bank-td-country">' + escapeHtml(dashIfEmpty(process.country)) + '</td>' +
@@ -3295,13 +3320,12 @@ if ($current_user_id && count($user_companies) > 0) {
                         // Manual DOM update for simple status change
                         const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                         const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
-                        const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                            (result.newStatus === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">');
-                        const actionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                            '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + (result.newStatus === 'active' ? 'Select for post to transaction' : 'Select for deletion') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
 
                         if (selectedPermission === 'Bank') {
                             const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
+                            const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
+                            const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+                                (result.newStatus === 'active' ? '' : (hasTx ? '<span class="text-muted" title="Cannot delete: has transaction records">—</span>' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                             if (row) {
                                 row.setAttribute('data-status', result.newStatus || '');
                                 const cells = row.querySelectorAll('td');
@@ -3319,18 +3343,29 @@ if ($current_user_id && count($user_companies) > 0) {
                                     const actionCell = items[6];
                                     if (actionCell) {
                                         const existingCheckbox = actionCell.querySelector('.row-checkbox');
+                                        const existingMuted = actionCell.querySelector('.text-muted');
                                         if (result.newStatus === 'active') {
                                             if (existingCheckbox) existingCheckbox.remove();
+                                            if (existingMuted) existingMuted.remove();
                                         } else {
-                                            if (!existingCheckbox) {
-                                                const checkbox = document.createElement('input');
-                                                checkbox.type = 'checkbox';
-                                                checkbox.className = 'row-checkbox';
-                                                checkbox.dataset.id = String(processId);
-                                                checkbox.title = 'Select for deletion';
-                                                checkbox.style.marginLeft = '10px';
-                                                checkbox.onchange = updateDeleteButton;
-                                                actionCell.appendChild(checkbox);
+                                            const proc = processes.find(function (p) { return p.id === processId; });
+                                            if (!existingCheckbox && !existingMuted) {
+                                                if (proc && proc.has_transactions) {
+                                                    const span = document.createElement('span');
+                                                    span.className = 'text-muted';
+                                                    span.title = 'Cannot delete: has transaction records';
+                                                    span.textContent = '—';
+                                                    actionCell.appendChild(span);
+                                                } else {
+                                                    const checkbox = document.createElement('input');
+                                                    checkbox.type = 'checkbox';
+                                                    checkbox.className = 'row-checkbox';
+                                                    checkbox.dataset.id = String(processId);
+                                                    checkbox.title = 'Select for deletion';
+                                                    checkbox.style.marginLeft = '10px';
+                                                    checkbox.onchange = updateDeleteButton;
+                                                    actionCell.appendChild(checkbox);
+                                                }
                                             }
                                         }
                                     }
@@ -6278,6 +6313,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (errorParam === 'no_inactive_processes') {
                 showNotification('Cannot delete: Only inactive processes can be deleted.', 'danger');
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else if (errorParam === 'process_has_transactions') {
+                showNotification('Cannot delete: This process has transaction records. Remove related transactions first.', 'danger');
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else if (errorParam === 'delete_failed') {
                 showNotification('Delete failed. Please try again.', 'danger');
