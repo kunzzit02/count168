@@ -1082,7 +1082,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                         <tr>
                                             <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
                                             <th>No</th>
-                                            <th>Name/Bank</th>
+                                            <th>Card Owner</th>
                                             <th>Country</th>
                                             <th>Cost</th>
                                             <th>Price</th>
