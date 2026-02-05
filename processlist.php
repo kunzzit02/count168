@@ -666,6 +666,29 @@ if ($current_user_id && count($user_companies) > 0) {
         #processAccountingDueModal .modal-header h2 { display: flex; align-items: center; gap: 8px; }
         #processAccountingDueModal .modal-header-actions { display: flex; align-items: center; gap: 8px; }
         #processAccountingDueModal .modal-header .close { position: static; }
+        /* Post to Transaction 与页面主按钮一致：青绿主色 */
+        #processAccountingDueModal .btn-primary {
+            background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
+            color: white;
+            font-family: 'Amaranth';
+            width: auto;
+            min-width: clamp(100px, 8vw, 160px);
+            padding: clamp(6px, 0.42vw, 8px) 16px;
+            font-size: clamp(10px, 0.83vw, 14px);
+            border: none;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(13, 148, 136, 0.3);
+            cursor: pointer;
+        }
+        #processAccountingDueModal .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(180deg, #0f766e 0%, #0d9488 100%);
+            box-shadow: 0 4px 8px rgba(13, 148, 136, 0.4);
+            transform: translateY(-1px);
+        }
+        #processAccountingDueModal .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
 
         /* Bank Modal Styles - Separate from Gambling modal */
         .bank-modal .bank-modal-content {
