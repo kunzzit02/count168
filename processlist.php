@@ -649,6 +649,24 @@ if ($current_user_id && count($user_companies) > 0) {
         .process-accounting-inbox-table tr.process-accounting-inbox-row-posted td { color: #94a3b8; }
         .process-accounting-inbox-actions { padding: 10px 0 0; border-top: 1px solid #e5e7eb; margin-top: 8px; }
 
+        /* Accounting Due large modal (same size as Add Process) */
+        #processAccountingDueModal .accounting-due-modal-content {
+            width: 86% !important;
+            max-width: 66rem !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+        }
+        #processAccountingDueModal .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        #processAccountingDueModal .modal-header h2 { display: flex; align-items: center; gap: 8px; }
+        #processAccountingDueModal .modal-header-actions { display: flex; align-items: center; gap: 8px; }
+        #processAccountingDueModal .modal-header .close { position: static; }
+
         /* Bank Modal Styles - Separate from Gambling modal */
         .bank-modal .bank-modal-content {
             max-width: 1000px;
@@ -1059,7 +1077,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <h1 class="page-title" style="margin: 0;">Process List</h1>
-                    <!-- Accounting Due Inbox (Bank only): processes due for accounting today -->
+                    <!-- Accounting Due (Bank only): opens large modal like Add Process -->
                     <div class="process-accounting-inbox-wrap" id="processAccountingInboxWrap" style="display: none;">
                         <button type="button" class="process-accounting-inbox-btn process-accounting-inbox-main" id="processAccountingInboxBtn">
                             <svg class="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -1068,34 +1086,6 @@ if ($current_user_id && count($user_companies) > 0) {
                             Accounting Due
                             <span class="process-accounting-inbox-badge" id="processAccountingInboxCount">0</span>
                         </button>
-                        <div class="process-accounting-inbox-popover" id="processAccountingInboxPopover">
-                            <div class="process-accounting-inbox-popover-header">
-                                <div class="process-accounting-inbox-popover-title">
-                                    Accounting Due
-                                    <span class="process-accounting-inbox-badge" id="processAccountingInboxCount2">0</span>
-                                </div>
-                                <button type="button" class="process-accounting-inbox-btn" id="processAccountingInboxRefreshBtn">Refresh</button>
-                            </div>
-                            <div class="process-accounting-inbox-popover-body">
-                                <table class="process-accounting-inbox-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
-                                            <th>No</th>
-                                            <th>Card Owner</th>
-                                            <th>Country</th>
-                                            <th>Cost</th>
-                                            <th>Price</th>
-                                            <th>Profit</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="processAccountingInboxTbody"></tbody>
-                                </table>
-                                <div class="process-accounting-inbox-actions">
-                                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Post to Transaction</button>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 <!-- Permission Filter -->
@@ -1351,6 +1341,41 @@ if ($current_user_id && count($user_companies) > 0) {
                         <button type="button" class="btn btn-cancel" onclick="closeEditModal()">Cancel</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accounting Due Modal (Bank only, large like Add Process) -->
+    <div id="processAccountingDueModal" class="modal" style="display: none;">
+        <div class="modal-content accounting-due-modal-content">
+            <div class="modal-header">
+                <h2>
+                    Accounting Due
+                    <span class="process-accounting-inbox-badge" id="processAccountingInboxCountModal">0</span>
+                </h2>
+                <div class="modal-header-actions">
+                    <button type="button" class="process-accounting-inbox-btn" id="processAccountingInboxRefreshBtn">Refresh</button>
+                    <span class="close" onclick="closeAccountingDueModal()">&times;</span>
+                </div>
+            </div>
+            <div class="modal-body">
+                <table class="process-accounting-inbox-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
+                            <th>No</th>
+                            <th>Card Owner</th>
+                            <th>Country</th>
+                            <th>Cost</th>
+                            <th>Price</th>
+                            <th>Profit</th>
+                        </tr>
+                    </thead>
+                    <tbody id="processAccountingInboxTbody"></tbody>
+                </table>
+                <div class="process-accounting-inbox-actions">
+                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Post to Transaction</button>
+                </div>
             </div>
         </div>
     </div>
@@ -3055,6 +3080,8 @@ if ($current_user_id && count($user_companies) > 0) {
             const postableCount = Array.isArray(items) ? items.filter(p => !p.already_posted_today).length : 0;
             countEl.textContent = String(postableCount);
             if (countEl2) countEl2.textContent = String(postableCount);
+            const countModal = document.getElementById('processAccountingInboxCountModal');
+            if (countModal) countModal.textContent = String(postableCount);
             if (selectAllCb) { selectAllCb.checked = false; selectAllCb.disabled = postableCount === 0; }
             if (count === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
@@ -3096,14 +3123,19 @@ if ($current_user_id && count($user_companies) > 0) {
                 selectAllCb.checked = postable.length > 0 && postable.length === checked.length;
             }
         }
+        function openAccountingDueModal() {
+            const modal = document.getElementById('processAccountingDueModal');
+            if (modal) { modal.style.display = 'block'; loadAccountingInbox(); }
+        }
+        function closeAccountingDueModal() {
+            const modal = document.getElementById('processAccountingDueModal');
+            if (modal) modal.style.display = 'none';
+        }
         function openAccountingInbox() {
-            const pop = document.getElementById('processAccountingInboxPopover');
-            if (pop) pop.style.display = 'block';
-            loadAccountingInbox();
+            openAccountingDueModal();
         }
         function closeAccountingInbox() {
-            const pop = document.getElementById('processAccountingInboxPopover');
-            if (pop) pop.style.display = 'none';
+            closeAccountingDueModal();
         }
         function updateAccountingInboxVisibility() {
             const wrap = document.getElementById('processAccountingInboxWrap');
@@ -6216,11 +6248,11 @@ if ($current_user_id && count($user_companies) > 0) {
             const accountingInboxBtn = document.getElementById('processAccountingInboxBtn');
             if (accountingInboxBtn) {
                 accountingInboxBtn.addEventListener('click', () => {
-                    const pop = document.getElementById('processAccountingInboxPopover');
-                    if (pop && pop.style.display === 'block') {
-                        closeAccountingInbox();
+                    const modal = document.getElementById('processAccountingDueModal');
+                    if (modal && modal.style.display === 'block') {
+                        closeAccountingDueModal();
                     } else {
-                        openAccountingInbox();
+                        openAccountingDueModal();
                     }
                 });
             }
@@ -6232,11 +6264,12 @@ if ($current_user_id && count($user_companies) > 0) {
             if (accountingInboxPost) {
                 accountingInboxPost.addEventListener('click', () => postAccountingInboxToTransaction());
             }
-            document.addEventListener('click', function (e) {
-                const wrap = document.getElementById('processAccountingInboxWrap');
-                if (!wrap || wrap.contains(e.target)) return;
-                closeAccountingInbox();
-            });
+            const accountingDueModal = document.getElementById('processAccountingDueModal');
+            if (accountingDueModal) {
+                accountingDueModal.addEventListener('click', function (e) {
+                    if (e.target === accountingDueModal) closeAccountingDueModal();
+                });
+            }
         });
 
         window.addEventListener('resize', function () {
