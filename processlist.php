@@ -3134,8 +3134,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 const cbDisabled = row.already_posted_today ? ' disabled' : '';
                 const cbChecked = row.already_posted_today ? '' : ' checked';
                 const cbClass = 'process-accounting-inbox-row-cb';
+                const periodType = row.is_partial_first_month ? 'partial_first_month' : 'monthly';
                 const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
-                return '<tr' + rowClass + ' data-id="' + row.id + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + (row.cost != null ? Number(row.cost) : '-') + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + (row.profit != null ? Number(row.profit) : '-') + '</td></tr>';
+                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + (row.cost != null ? Number(row.cost) : '-') + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + (row.profit != null ? Number(row.profit) : '-') + '</td></tr>';
             }).join('');
             updateAccountingInboxPostButton();
             (function bindSelectAll() {
@@ -3193,15 +3194,20 @@ if ($current_user_id && count($user_companies) > 0) {
             const tbody = document.getElementById('processAccountingInboxTbody');
             if (!tbody) return;
             const checked = tbody.querySelectorAll('.process-accounting-inbox-row-cb:not([disabled]):checked');
-            const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id, 10)).filter(Boolean);
-            if (ids.length === 0) {
+            const pairs = Array.from(checked).map(cb => {
+                const tr = cb.closest('tr');
+                const id = parseInt(cb.dataset.id, 10);
+                const periodType = (tr && tr.getAttribute('data-period-type')) || 'monthly';
+                return { id, periodType };
+            }).filter(p => p.id);
+            if (pairs.length === 0) {
                 showNotification('Please select at least one process to post.', 'warning');
                 return;
             }
-            if (!confirm('Post ' + ids.length + ' selected process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
+            if (!confirm('Post ' + pairs.length + ' selected process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
             try {
                 const formData = new FormData();
-                ids.forEach(id => formData.append('ids[]', id));
+                pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
                 const response = await fetch(buildApiUrl('process_post_to_transaction_api.php'), { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
