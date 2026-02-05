@@ -73,7 +73,28 @@ try {
                 'cost' => $r['cost'] ?? 0,
                 'price' => $r['price'] ?? 0,
                 'profit' => $r['profit'] ?? 0,
+                'already_posted_today' => false,
             ];
+        }
+    }
+
+    // Mark which processes were already posted today (grey out in inbox, exclude from Post button)
+    $ids = array_column($needToday, 'id');
+    if (!empty($ids)) {
+        try {
+            $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+            if ($stmtCheck && $stmtCheck->rowCount() > 0) {
+                $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND posted_date = ? AND process_id IN ($placeholders)");
+                $stmt->execute(array_merge([$company_id, $today], $ids));
+                $postedIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                foreach ($needToday as &$item) {
+                    $item['already_posted_today'] = in_array((int)$item['id'], array_map('intval', $postedIds), true);
+                }
+                unset($item);
+            }
+        } catch (Throwable $e) {
+            // ignore
         }
     }
 

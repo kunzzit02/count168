@@ -144,6 +144,19 @@ try {
         }
     }
 
+    // Record which processes were posted today (so Accounting Due inbox can grey them out and disable re-post)
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if ($stmtCheck && $stmtCheck->rowCount() > 0) {
+            $ins = $pdo->prepare("INSERT IGNORE INTO process_accounting_posted (company_id, process_id, posted_date) VALUES (?, ?, ?)");
+            foreach ($processes as $p) {
+                $ins->execute([(int)$p['company_id'], (int)$p['id'], $transactionDate]);
+            }
+        }
+    } catch (Throwable $e) {
+        // ignore if table missing
+    }
+
     echo json_encode([
         'success' => true,
         'message' => "已入账，共生成 $createdCount 条交易记录。",

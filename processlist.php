@@ -645,6 +645,8 @@ if ($current_user_id && count($user_companies) > 0) {
         .process-accounting-inbox-table { width: 100%; border-collapse: collapse; font-size: 12px; }
         .process-accounting-inbox-table th, .process-accounting-inbox-table td { padding: 6px 8px; border-top: 1px solid #e5e7eb; text-align: left; }
         .process-accounting-inbox-table th { background: #f1f5f9; font-weight: 700; }
+        .process-accounting-inbox-table tr.process-accounting-inbox-row-posted { background: #f1f5f9 !important; opacity: 0.7; color: #64748b; }
+        .process-accounting-inbox-table tr.process-accounting-inbox-row-posted td { color: #94a3b8; }
         .process-accounting-inbox-actions { padding: 10px 0 0; border-top: 1px solid #e5e7eb; margin-top: 8px; }
 
         /* Bank Modal Styles - Separate from Gambling modal */
@@ -3048,16 +3050,18 @@ if ($current_user_id && count($user_companies) > 0) {
             const postBtn = document.getElementById('processAccountingInboxPostBtn');
             if (!tbody || !countEl) return;
             const count = Array.isArray(items) ? items.length : 0;
+            const postableCount = Array.isArray(items) ? items.filter(p => !p.already_posted_today).length : 0;
             countEl.textContent = String(count);
             if (countEl2) countEl2.textContent = String(count);
-            if (postBtn) postBtn.disabled = count === 0;
+            if (postBtn) postBtn.disabled = postableCount === 0;
             if (count === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
                 return;
             }
             tbody.innerHTML = items.map((row, idx) => {
                 const name = (row.name || row.bank || '-');
-                return '<tr><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + (row.cost != null ? Number(row.cost) : '-') + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + (row.profit != null ? Number(row.profit) : '-') + '</td></tr>';
+                const rowClass = row.already_posted_today ? ' class="process-accounting-inbox-row-posted"' : '';
+                return '<tr' + rowClass + '><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + (row.cost != null ? Number(row.cost) : '-') + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + (row.profit != null ? Number(row.profit) : '-') + '</td></tr>';
             }).join('');
         }
         function openAccountingInbox() {
@@ -3083,9 +3087,9 @@ if ($current_user_id && count($user_companies) > 0) {
 
         async function postAccountingInboxToTransaction() {
             const list = window.__accountingInboxList || [];
-            const ids = list.map(p => p.id).filter(Boolean);
+            const ids = list.filter(p => !p.already_posted_today).map(p => p.id).filter(Boolean);
             if (ids.length === 0) {
-                showNotification('No processes to post.', 'warning');
+                showNotification('No processes to post (already posted today).', 'warning');
                 return;
             }
             if (!confirm('Post ' + ids.length + ' process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
