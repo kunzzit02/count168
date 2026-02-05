@@ -3182,7 +3182,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 // 1st of every month 首月按比例只入账 Sell Price，Cost/Profit 在列表中显示为 "-"
                 const costDisplay = row.is_partial_first_month ? '-' : (row.cost != null ? Number(row.cost) : '-');
                 const profitDisplay = row.is_partial_first_month ? '-' : (row.profit != null ? Number(row.profit) : '-');
-                const typeDisplay = row.is_partial_first_month ? '剩余天数' : '每月账';
+                const typeDisplay = row.is_partial_first_month ? 'Remaining days' : 'Monthly';
                 return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + costDisplay + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + profitDisplay + '</td><td>' + escapeHtml(typeDisplay) + '</td></tr>';
             }).join('');
             updateAccountingInboxPostButton();
