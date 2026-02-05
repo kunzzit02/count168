@@ -2293,6 +2293,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     if (currentPage > totalPages) currentPage = totalPages;
                     renderTable();
                     renderPagination();
+                    // Bank 类别下刷新列表后同步更新 Accounting Due 徽章
+                    if (selectedPermission === 'Bank') loadAccountingInbox();
                 } else {
                     console.error('API error:', result.error);
                     showNotification('Failed to get data: ' + result.error, 'danger');
@@ -4255,6 +4257,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             showNotification(result.message || 'Process updated successfully!', 'success');
                             closeAddBankModal();
                             fetchProcesses();
+                            if (selectedPermission === 'Bank') loadAccountingInbox();
                         } else {
                             showNotification(result.error || 'Update failed', 'danger');
                         }
@@ -4273,6 +4276,7 @@ if ($current_user_id && count($user_companies) > 0) {
                         showNotification('Bank process added successfully!', 'success');
                         closeAddBankModal();
                         fetchProcesses();
+                        if (selectedPermission === 'Bank') loadAccountingInbox();
                     } else {
                         showNotification(result.error || 'Unknown error occurred', 'danger');
                     }
