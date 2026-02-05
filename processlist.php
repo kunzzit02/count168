@@ -647,7 +647,7 @@ if ($current_user_id && count($user_companies) > 0) {
         .process-accounting-inbox-table th { background: #f1f5f9; font-weight: 700; }
         .process-accounting-inbox-table tr.process-accounting-inbox-row-posted { background: #f1f5f9 !important; opacity: 0.7; color: #64748b; }
         .process-accounting-inbox-table tr.process-accounting-inbox-row-posted td { color: #94a3b8; }
-        .process-accounting-inbox-actions { padding: 10px 0 0; border-top: 1px solid #e5e7eb; margin-top: 8px; }
+        .process-accounting-inbox-actions { padding: 10px 0 0; border-top: 1px solid #e5e7eb; margin-top: 8px; display: flex; align-items: center; gap: 10px; }
 
         /* Accounting Due large modal (same size as Add Process) */
         #processAccountingDueModal .accounting-due-modal-content {
@@ -1416,6 +1416,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 </div>
                 <div class="process-accounting-inbox-actions">
                     <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Post to Transaction</button>
+                    <button type="button" class="btn btn-cancel" onclick="closeAccountingDueModal()">Cancel</button>
                 </div>
             </div>
         </div>
