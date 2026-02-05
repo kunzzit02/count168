@@ -666,6 +666,22 @@ if ($current_user_id && count($user_companies) > 0) {
         #processAccountingDueModal .modal-header h2 { display: flex; align-items: center; gap: 8px; }
         #processAccountingDueModal .modal-header-actions { display: flex; align-items: center; gap: 8px; }
         #processAccountingDueModal .modal-header .close { position: static; }
+        /* 表格区域：超过约 20 行时出现垂直滚动条，表头固定 */
+        #processAccountingDueModal .process-accounting-inbox-table-wrap {
+            max-height: min(70vh, 520px);
+            overflow-y: auto;
+            overflow-x: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        #processAccountingDueModal .process-accounting-inbox-table-wrap .process-accounting-inbox-table th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: #f1f5f9;
+            box-shadow: 0 1px 0 #e5e7eb;
+        }
         /* Post to Transaction 与页面主按钮一致：青绿主色 */
         #processAccountingDueModal .btn-primary {
             background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
@@ -1382,20 +1398,22 @@ if ($current_user_id && count($user_companies) > 0) {
                 </div>
             </div>
             <div class="modal-body">
-                <table class="process-accounting-inbox-table">
-                    <thead>
-                        <tr>
-                            <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
-                            <th>No</th>
-                            <th>Card Owner</th>
-                            <th>Country</th>
-                            <th>Cost</th>
-                            <th>Price</th>
-                            <th>Profit</th>
-                        </tr>
-                    </thead>
-                    <tbody id="processAccountingInboxTbody"></tbody>
-                </table>
+                <div class="process-accounting-inbox-table-wrap">
+                    <table class="process-accounting-inbox-table">
+                        <thead>
+                            <tr>
+                                <th style="width:36px;"><input type="checkbox" id="processAccountingInboxSelectAll" title="Select all" class="process-accounting-inbox-cb"></th>
+                                <th>No</th>
+                                <th>Card Owner</th>
+                                <th>Country</th>
+                                <th>Cost</th>
+                                <th>Price</th>
+                                <th>Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="processAccountingInboxTbody"></tbody>
+                    </table>
+                </div>
                 <div class="process-accounting-inbox-actions">
                     <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Post to Transaction</button>
                 </div>
