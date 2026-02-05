@@ -24959,7 +24959,9 @@ if ($current_user_id && count($user_companies) > 0) {
                 });
                 
                 const result = await response.json();
-                const permissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                const rawPermissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Loan', 'Rate', 'Money'];
+                // Data Capture 页面不显示 Bank 类别，即使 domain 已开启 bank 权限
+                const permissions = rawPermissions.filter(p => p !== 'Bank');
                 
                 const permissionContainer = document.getElementById('data-capture-permission-buttons');
                 permissionContainer.innerHTML = '';
