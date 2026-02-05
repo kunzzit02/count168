@@ -3051,8 +3051,8 @@ if ($current_user_id && count($user_companies) > 0) {
             if (!tbody || !countEl) return;
             const count = Array.isArray(items) ? items.length : 0;
             const postableCount = Array.isArray(items) ? items.filter(p => !p.already_posted_today).length : 0;
-            countEl.textContent = String(count);
-            if (countEl2) countEl2.textContent = String(count);
+            countEl.textContent = String(postableCount);
+            if (countEl2) countEl2.textContent = String(postableCount);
             if (postBtn) postBtn.disabled = postableCount === 0;
             if (count === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
