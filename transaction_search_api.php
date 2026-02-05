@@ -1039,8 +1039,8 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
 /**
  * 按 Currency 计算 Win/Loss
- * Win/Loss = 日期范围内的 Data Capture + 首月按比例（除以天数×剩余天数）的 WIN/LOSE 交易（description 含 "(partial first month)"）
- * 其余 WIN/LOSE（每月1号、Monthly 算账）在 Cr/Dr 中计算
+ * Win/Loss = Data Capture + 仅「首月按比例 Sell Price」的 WIN/LOSE（description 同时含 "Sell Price" 与 "(partial first month)"）
+ * 1st of Every Month 全额、Monthly 的 Buy/Sell/Profit 全部在 Cr/Dr
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
     $win_loss = 0;
@@ -1058,14 +1058,14 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
     $win_loss += $stmt->fetchColumn();
 
-    // 2. 首月按比例的 WIN/LOSE（description 含 "(partial first month)"）计入 Win/Loss
+    // 2. 仅首月按比例的 Sell Price（description 含 Sell Price 且含 partial first month）计入 Win/Loss；Profit/Buy Price 在 Cr/Dr
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
     if ($stmt->rowCount() > 0) {
         $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
                 FROM transactions
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
                   AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
-                  AND (description LIKE '%(partial first month)%')";
+                  AND (description LIKE '%Sell Price%' AND description LIKE '%(partial first month)%')";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss += $stmt->fetchColumn();
@@ -1093,16 +1093,16 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     $has_currency_id = $stmt->rowCount() > 0;
 
     if ($has_currency_id) {
-        // Cr/Dr = PAYMENT/RECEIVE/CONTRA/CLAIM + 每月1号/Monthly 的 WIN/LOSE（排除首月按比例；首月按比例在 Win/Loss）
+        // Cr/Dr = PAYMENT/RECEIVE/CONTRA/CLAIM + 所有 WIN/LOSE 除「Sell Price + partial first month」外（仅后者在 Win/Loss）
         $sql = "
             SELECT
                 COALESCE(SUM(
                     CASE
-                        -- 作为 To Account（收到 / 支付 / Win/Lose，其中 WIN/LOSE 排除 description 含 partial first month）
+                        -- 作为 To Account（收到 / 支付 / Win/Lose；WIN/LOSE 仅排除「Sell Price 且 partial first month」）
                         WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN t.amount
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'WIN' AND (t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'LOSE' AND (t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN -t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'WIN' AND (t.description NOT LIKE '%Sell Price%' OR t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'LOSE' AND (t.description NOT LIKE '%Sell Price%' OR t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN -t.amount
 
                         -- 作为 From Account（支付 / 收到）
                         WHEN t.from_account_id = :acc_id AND t.transaction_type IN ('PAYMENT', 'CONTRA') THEN -t.amount
@@ -1139,8 +1139,8 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN t.amount
                         WHEN transaction_type = 'PAYMENT' THEN t.amount
-                        WHEN transaction_type = 'WIN' AND (t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN t.amount
-                        WHEN transaction_type = 'LOSE' AND (t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN -t.amount
+                        WHEN transaction_type = 'WIN' AND (t.description NOT LIKE '%Sell Price%' OR t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN t.amount
+                        WHEN transaction_type = 'LOSE' AND (t.description NOT LIKE '%Sell Price%' OR t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr,
                     COUNT(*) as txn_count

@@ -417,7 +417,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
 /**
  * 按 Currency 计算 Win/Loss
- * Win/Loss = Data Capture + 首月按比例（description 含 "(partial first month)"）的 WIN/LOSE；其余 WIN/LOSE 在 Cr/Dr
+ * Win/Loss = Data Capture + 仅「首月按比例 Sell Price」的 WIN/LOSE（description 含 Sell Price 且含 partial first month）；其余在 Cr/Dr
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
     $win_loss = 0;
@@ -440,7 +440,7 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
                 FROM transactions
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
                   AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
-                  AND (description LIKE '%(partial first month)%')";
+                  AND (description LIKE '%Sell Price%' AND description LIKE '%(partial first month)%')";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss += $stmt->fetchColumn();
@@ -467,8 +467,8 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN amount
-                        WHEN transaction_type = 'WIN' AND (description NOT LIKE '%(partial first month)%' OR description IS NULL) THEN amount
-                        WHEN transaction_type = 'LOSE' AND (description NOT LIKE '%(partial first month)%' OR description IS NULL) THEN -amount
+                        WHEN transaction_type = 'WIN' AND (description NOT LIKE '%Sell Price%' OR description NOT LIKE '%(partial first month)%' OR description IS NULL) THEN amount
+                        WHEN transaction_type = 'LOSE' AND (description NOT LIKE '%Sell Price%' OR description NOT LIKE '%(partial first month)%' OR description IS NULL) THEN -amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions
