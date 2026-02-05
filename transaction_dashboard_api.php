@@ -416,7 +416,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 }
 
 /**
- * 按 Currency 计算 Win/Loss = Data Capture + WIN/LOSE 交易
+ * 按 Currency 计算 Win/Loss
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
     $win_loss = 0;
@@ -429,20 +429,10 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
               AND dc.currency_id = ?
               AND dc.capture_date BETWEEN ? AND ?";
+    
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
     $win_loss += $stmt->fetchColumn();
-    
-    $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
-    if ($check && $check->rowCount() > 0) {
-        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
-                FROM transactions
-                WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('WIN', 'LOSE') AND currency_id = ?";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
-        $win_loss += $stmt->fetchColumn();
-    }
     
     return $win_loss;
 }
@@ -460,11 +450,13 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $has_transaction_currency = $check && $check->rowCount() > 0;
     }
     if ($has_transaction_currency) {
-        // 作为 To Account（Cr/Dr 不含 WIN/LOSE，WIN/LOSE 已计入 Win/Loss）
+        // 作为 To Account
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN amount
+                        WHEN transaction_type = 'WIN' THEN amount
+                        WHEN transaction_type = 'LOSE' THEN -amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions
@@ -472,7 +464,7 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                   AND account_id = ?
                   AND currency_id = ?
                   AND transaction_date BETWEEN ? AND ?
-                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
+                  AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')"
                   . dashboardContraApprovedWhere($pdo, '');
         
         $stmt = $pdo->prepare($sql);
