@@ -2443,7 +2443,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const profit = dashIfEmpty(process.profit);
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                    '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="' + (process.status === 'active' ? 'Select for transaction' : 'Select for deletion') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
+                    (process.status === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">');
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.setAttribute('data-status', process.status || '');
@@ -3293,6 +3293,8 @@ if ($current_user_id && count($user_companies) > 0) {
                         // Manual DOM update for simple status change
                         const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
                         const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                        const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
+                            (result.newStatus === 'active' ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">');
                         const actionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
                             '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="' + (result.newStatus === 'active' ? 'Select for post to transaction' : 'Select for deletion') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
 
@@ -3303,7 +3305,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 const cells = row.querySelectorAll('td');
                                 if (cells.length >= 15) {
                                     cells[12].innerHTML = statusBadge;
-                                    cells[14].innerHTML = actionCellHtml;
+                                    cells[14].innerHTML = bankActionCellHtml;
                                 }
                             }
                         } else {
