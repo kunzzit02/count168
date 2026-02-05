@@ -3,13 +3,16 @@
  * Process Accounting Inbox API
  * 返回「当天需要算账」的 Bank Process 列表（用于 Process List 标题旁的“需要算账”Inbox）
  * 规则：
- * - 1st of Every Month = 每月1号算账；若设置了 Day start（如 2月20），则先出现一笔「首月按比例」：sell price/当月天数*（20号到月底天数），客户先还这笔，1号起再还全额。
+ * - 1st of Every Month = 每月指定日算账（见 $ACCOUNTING_DAY_FIRST_OF_MONTH，测试可设 5）；若设置了 Day start，则先出现「首月按比例」，该日再还全额。
  * - Monthly = 每月(day_start 日 - 1)号，如 2月8日开始则每月7号算账
  */
 
 session_start();
 header('Content-Type: application/json');
 require_once 'config.php';
+
+// 「1st of Every Month」实际算账日（测试可改为 5，正式用 1）
+$ACCOUNTING_DAY_FIRST_OF_MONTH = 5;
 
 /** @return bool */
 function tableHasColumn(PDO $pdo, string $table, string $column): bool
@@ -126,7 +129,7 @@ try {
         $dayStart = $r['day_start'] ?? null;
 
         if ($frequency === '1st_of_every_month') {
-            $need = ($dayOfMonth === 1);
+            $need = ($dayOfMonth === $ACCOUNTING_DAY_FIRST_OF_MONTH);
         } else {
             if (empty($dayStart)) {
                 continue;
