@@ -126,7 +126,18 @@ try {
         $dayStart = $r['day_start'] ?? null;
 
         if ($frequency === '1st_of_every_month') {
-            $need = ($dayOfMonth === 1);
+            $dayOfMonthMatch = ($dayOfMonth === 1);
+            if (!$dayOfMonthMatch) {
+                $need = false;
+            } elseif (empty($dayStart)) {
+                $need = true;
+            } else {
+                // day_start 为下月（如 3月1号）时，2月1号不算账，首次算账日为 day_start 所在月的下一个月 1 号
+                $startTs = strtotime($dayStart);
+                $firstAccountingTs = $startTs !== false ? strtotime('+1 month', $startTs) : false;
+                $firstAccountingDate = $firstAccountingTs !== false ? date('Y-m-d', $firstAccountingTs) : '';
+                $need = ($firstAccountingDate !== '' && $today >= $firstAccountingDate);
+            }
         } else {
             // Monthly：day_start 如 2月6 → 第一周期 2月6～3月5，应在 3月5 才到期，不是 2月5
             if (empty($dayStart)) {
