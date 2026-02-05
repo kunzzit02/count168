@@ -633,6 +633,15 @@ function getBankProcesses() {
         $showInactive = isset($_GET['showInactive']) && $_GET['showInactive'] == '1';
         $showAll = isset($_GET['showAll']) && $_GET['showAll'] == '1';
 
+        $hasSourceBankProcessId = false;
+        try {
+            $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+            $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
+        } catch (PDOException $e) { /* ignore */ }
+        $hasTxnSubquery = $hasSourceBankProcessId
+            ? "(SELECT COUNT(*) FROM transactions t WHERE t.source_bank_process_id = bp.id AND t.company_id = bp.company_id)"
+            : "(SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id)";
+
         $sql = "SELECT 
                     bp.id,
                     bp.country,
@@ -655,7 +664,7 @@ function getBankProcesses() {
                     a_cm.name as card_merchant_name,
                     a_cm.account_id as card_merchant_account_id,
                     a_cust.account_id as customer_account,
-                    (SELECT COUNT(*) FROM process_accounting_posted pap WHERE pap.process_id = bp.id AND pap.company_id = bp.company_id) AS has_transactions
+                    $hasTxnSubquery AS has_transactions
                 FROM bank_process bp
                 LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                 LEFT JOIN account a_cust ON bp.customer_id = a_cust.id

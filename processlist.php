@@ -34,13 +34,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ids'])) {
                     header('Location: processlist.php?error=bank_has_day_start');
                     exit;
                 }
-                // Bank：若该流程已入账到 Transaction（process_accounting_posted 有记录），则不允许删除
-                $papPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
-                $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND process_id IN ($papPlaceholders) LIMIT 1");
-                $stmt->execute(array_merge([$company_id_session], $inactiveIds));
-                if ($stmt->fetch()) {
-                    header('Location: processlist.php?error=process_has_transactions');
-                    exit;
+                // Bank：若该流程在 transactions 中仍有记录（或无 source_bank_process_id 时看 process_accounting_posted），则不允许删除
+                $hasSourceBankProcessId = false;
+                try {
+                    $colStmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+                    $hasSourceBankProcessId = $colStmt && $colStmt->rowCount() > 0;
+                } catch (PDOException $e) { /* ignore */ }
+                if ($hasSourceBankProcessId) {
+                    $papPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
+                    $stmt = $pdo->prepare("SELECT source_bank_process_id FROM transactions WHERE company_id = ? AND source_bank_process_id IN ($papPlaceholders) LIMIT 1");
+                    $stmt->execute(array_merge([$company_id_session], $inactiveIds));
+                    if ($stmt->fetch()) {
+                        header('Location: processlist.php?error=process_has_transactions');
+                        exit;
+                    }
+                } else {
+                    $papPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
+                    $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND process_id IN ($papPlaceholders) LIMIT 1");
+                    $stmt->execute(array_merge([$company_id_session], $inactiveIds));
+                    if ($stmt->fetch()) {
+                        header('Location: processlist.php?error=process_has_transactions');
+                        exit;
+                    }
                 }
                 $delPlaceholders = str_repeat('?,', count($inactiveIds) - 1) . '?';
                 $stmt = $pdo->prepare("DELETE FROM bank_process WHERE id IN ($delPlaceholders) AND company_id = ? AND status = 'inactive'");
