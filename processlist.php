@@ -615,6 +615,38 @@ if ($current_user_id && count($user_companies) > 0) {
             padding: clamp(20px, 2.08vw, 40px) 20px;
         }
 
+        /* Process Accounting Inbox (需要算账) - 标题右侧 */
+        .process-accounting-inbox-wrap { position: relative; }
+        .process-accounting-inbox-badge {
+            display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 20px;
+            padding: 0 8px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 12px; font-weight: 800;
+        }
+        .process-accounting-inbox-btn {
+            padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 10px; background: #f8fafc;
+            cursor: pointer; font-size: 12px; font-weight: 700; color: #111827; transition: all 0.15s ease;
+        }
+        .process-accounting-inbox-btn:hover { background: #eef2ff; border-color: #a5b4fc; }
+        .process-accounting-inbox-btn.process-accounting-inbox-main {
+            display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px;
+            background: #ffffff; font-weight: 800; color: #0f172a;
+        }
+        .process-accounting-inbox-icon { width: 16px; height: 16px; display: inline-block; }
+        .process-accounting-inbox-popover {
+            position: absolute; left: 0; top: calc(100% + 8px); width: min(720px, calc(100vw - 60px)); max-height: 420px;
+            overflow: hidden; border: 1px solid #d0d7de; border-radius: 14px; background: #fff;
+            box-shadow: 0 10px 30px rgba(16,24,40,0.18); z-index: 1200; display: none;
+        }
+        .process-accounting-inbox-popover-header {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 10px 12px; border-bottom: 1px solid #e5e7eb; background: #f8fafc;
+        }
+        .process-accounting-inbox-popover-title { font-weight: 900; color: #0f172a; font-size: 14px; }
+        .process-accounting-inbox-popover-body { max-height: 320px; overflow: auto; padding: 8px; }
+        .process-accounting-inbox-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .process-accounting-inbox-table th, .process-accounting-inbox-table td { padding: 6px 8px; border-top: 1px solid #e5e7eb; text-align: left; }
+        .process-accounting-inbox-table th { background: #f1f5f9; font-weight: 700; }
+        .process-accounting-inbox-actions { padding: 10px 0 0; border-top: 1px solid #e5e7eb; margin-top: 8px; }
+
         /* Bank Modal Styles - Separate from Gambling modal */
         .bank-modal .bank-modal-content {
             max-width: 1000px;
@@ -1023,7 +1055,46 @@ if ($current_user_id && count($user_companies) > 0) {
         <div class="content">
             <div
                 style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
-                <h1 class="page-title" style="margin: 0;">Process List</h1>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <h1 class="page-title" style="margin: 0;">Process List</h1>
+                    <!-- Accounting Inbox：当天需要算账的 Process -->
+                    <div class="process-accounting-inbox-wrap" id="processAccountingInboxWrap">
+                        <button type="button" class="process-accounting-inbox-btn process-accounting-inbox-main" id="processAccountingInboxBtn">
+                            <svg class="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+                            </svg>
+                            需要算账
+                            <span class="process-accounting-inbox-badge" id="processAccountingInboxCount">0</span>
+                        </button>
+                        <div class="process-accounting-inbox-popover" id="processAccountingInboxPopover">
+                            <div class="process-accounting-inbox-popover-header">
+                                <div class="process-accounting-inbox-popover-title">
+                                    需要算账
+                                    <span class="process-accounting-inbox-badge" id="processAccountingInboxCount2">0</span>
+                                </div>
+                                <button type="button" class="process-accounting-inbox-btn" id="processAccountingInboxRefreshBtn">Refresh</button>
+                            </div>
+                            <div class="process-accounting-inbox-popover-body">
+                                <table class="process-accounting-inbox-table">
+                                    <thead>
+                                        <tr>
+                                            <th>No</th>
+                                            <th>Name/Bank</th>
+                                            <th>Country</th>
+                                            <th>Cost</th>
+                                            <th>Price</th>
+                                            <th>Profit</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="processAccountingInboxTbody"></tbody>
+                                </table>
+                                <div class="process-accounting-inbox-actions">
+                                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Post to Transaction</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <!-- Permission Filter -->
                 <div id="process-list-permission-filter" class="process-company-filter process-permission-filter-header"
                     style="display: none;">
@@ -1061,12 +1132,8 @@ if ($current_user_id && count($user_companies) > 0) {
                             <label for="waiting">Waiting</label>
                         </div>
                     </div>
-                    <div class="process-list-action-buttons-group" style="display: flex; align-items: center; gap: 8px;">
-                        <button class="btn btn-primary" id="processPostToTransactionBtn" onclick="postToTransactionSelected()"
-                            title="将选中 Process 的 Buy Price / Sell Price / Profit 分别记入 Supplier / Customer / Company 账户" style="display: none;" disabled>Post to Transaction</button>
-                        <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
-                            title="Only inactive processes can be deleted" disabled>Delete</button>
-                    </div>
+                    <button class="btn btn-delete" id="processDeleteSelectedBtn" onclick="deleteSelected()"
+                        title="Only inactive processes can be deleted" disabled>Delete</button>
                 </div>
 
                 <?php if (count($user_companies) > 1): ?>
@@ -2637,6 +2704,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
                 const dayStart = process.day_start || '';
                 document.getElementById('bank_day_start').value = dayStart ? (dayStart.length === 10 ? dayStart : dayStart.split(' ')[0]) : '';
+                const freqEl = document.getElementById('bank_day_start_frequency');
+                if (freqEl) freqEl.value = process.day_start_frequency === 'monthly' ? 'monthly' : '1st_of_every_month';
                 document.getElementById('bank_profit_sharing').value = process.profit_sharing || '';
                 // Parse profit_sharing string (e.g. "BB - 6, AA - 10") into selectedProfitSharingEntries
                 window.selectedProfitSharingEntries = [];
@@ -2955,6 +3024,76 @@ if ($current_user_id && count($user_companies) > 0) {
             }).map(cb => cb.dataset.id);
             postBtn.disabled = activeSelectedIds.length === 0;
             postBtn.textContent = activeSelectedIds.length > 0 ? `Post to Transaction (${activeSelectedIds.length})` : 'Post to Transaction';
+        }
+
+        window.__accountingInboxList = [];
+        function loadAccountingInbox() {
+            const url = buildApiUrl('process_accounting_inbox_api.php');
+            const currentCompanyId = <?php echo json_encode($company_id); ?>;
+            const u = new URL(url);
+            if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
+            return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
+                .then(r => r.json())
+                .then(data => {
+                    const list = (data && data.success && data.data) ? data.data : [];
+                    window.__accountingInboxList = list;
+                    renderAccountingInbox(list);
+                })
+                .catch(err => { console.error('Accounting inbox load failed:', err); renderAccountingInbox([]); });
+        }
+        function renderAccountingInbox(items) {
+            const tbody = document.getElementById('processAccountingInboxTbody');
+            const countEl = document.getElementById('processAccountingInboxCount');
+            const countEl2 = document.getElementById('processAccountingInboxCount2');
+            const postBtn = document.getElementById('processAccountingInboxPostBtn');
+            if (!tbody || !countEl) return;
+            const count = Array.isArray(items) ? items.length : 0;
+            countEl.textContent = String(count);
+            if (countEl2) countEl2.textContent = String(count);
+            if (postBtn) postBtn.disabled = count === 0;
+            if (count === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; color:#6b7280;">今日无需算账的 Process。</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map((row, idx) => {
+                const name = (row.name || row.bank || '-');
+                return '<tr><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + (row.cost != null ? Number(row.cost) : '-') + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + (row.profit != null ? Number(row.profit) : '-') + '</td></tr>';
+            }).join('');
+        }
+        function openAccountingInbox() {
+            const pop = document.getElementById('processAccountingInboxPopover');
+            if (pop) pop.style.display = 'block';
+            loadAccountingInbox();
+        }
+        function closeAccountingInbox() {
+            const pop = document.getElementById('processAccountingInboxPopover');
+            if (pop) pop.style.display = 'none';
+        }
+        async function postAccountingInboxToTransaction() {
+            const list = window.__accountingInboxList || [];
+            const ids = list.map(p => p.id).filter(Boolean);
+            if (ids.length === 0) {
+                showNotification('没有需要入账的 Process', 'warning');
+                return;
+            }
+            if (!confirm('确定将 ' + ids.length + ' 个 Process 入账？\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
+            try {
+                const formData = new FormData();
+                ids.forEach(id => formData.append('ids[]', id));
+                const response = await fetch(buildApiUrl('process_post_to_transaction_api.php'), { method: 'POST', body: formData });
+                const result = await response.json();
+                if (result.success) {
+                    showNotification(result.message || '入账成功', 'success');
+                    closeAccountingInbox();
+                    loadAccountingInbox();
+                    fetchProcesses();
+                } else {
+                    showNotification(result.error || '入账失败', 'danger');
+                }
+            } catch (err) {
+                console.error('Post to transaction error:', err);
+                showNotification('入账请求失败: ' + err.message, 'danger');
+            }
         }
 
         async function postToTransactionSelected() {
@@ -3972,6 +4111,8 @@ if ($current_user_id && count($user_companies) > 0) {
                 } else {
                     formData.set('day_end', '');
                 }
+                const freqEl = document.getElementById('bank_day_start_frequency');
+                formData.append('day_start_frequency', (freqEl && freqEl.value) ? freqEl.value : '1st_of_every_month');
                 try {
                     if (editId) {
                         formData.append('id', editId);
@@ -6021,6 +6162,32 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.error('Error in fetchProcesses:', error);
                 showError('Error loading data: ' + error.message);
             }
+            loadAccountingInbox();
+
+            const accountingInboxBtn = document.getElementById('processAccountingInboxBtn');
+            if (accountingInboxBtn) {
+                accountingInboxBtn.addEventListener('click', () => {
+                    const pop = document.getElementById('processAccountingInboxPopover');
+                    if (pop && pop.style.display === 'block') {
+                        closeAccountingInbox();
+                    } else {
+                        openAccountingInbox();
+                    }
+                });
+            }
+            const accountingInboxRefresh = document.getElementById('processAccountingInboxRefreshBtn');
+            if (accountingInboxRefresh) {
+                accountingInboxRefresh.addEventListener('click', () => loadAccountingInbox());
+            }
+            const accountingInboxPost = document.getElementById('processAccountingInboxPostBtn');
+            if (accountingInboxPost) {
+                accountingInboxPost.addEventListener('click', () => postAccountingInboxToTransaction());
+            }
+            document.addEventListener('click', function (e) {
+                const wrap = document.getElementById('processAccountingInboxWrap');
+                if (!wrap || wrap.contains(e.target)) return;
+                closeAccountingInbox();
+            });
         });
 
         window.addEventListener('resize', function () {

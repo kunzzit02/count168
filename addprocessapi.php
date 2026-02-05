@@ -234,6 +234,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_PO
         $profit_sharing = trim($_POST['profit_sharing'] ?? '');
         $day_start = trim($_POST['day_start'] ?? '');
         $day_start = $day_start !== '' ? $day_start : null;
+        $day_start_frequency = trim($_POST['day_start_frequency'] ?? '1st_of_every_month');
+        if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly'], true)) {
+            $day_start_frequency = '1st_of_every_month';
+        }
         $day_end = trim($_POST['day_end'] ?? '');
         $day_end = $day_end !== '' ? $day_end : null;
         $currentUserId = null;
@@ -247,12 +251,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['permission']) && $_PO
         }
         $stmt = $pdo->prepare("INSERT INTO bank_process (
             company_id, country, bank, type, name, card_merchant_id, customer_id, profit_account_id,
-            contract, insurance, cost, price, profit, profit_sharing, day_start, day_end, status,
+            contract, insurance, cost, price, profit, profit_sharing, day_start, day_start_frequency, day_end, status,
             created_by, created_by_type, created_by_owner_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)");
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)");
         $stmt->execute([
             $companyId, $country, $bank, $type, $name, $card_merchant_id, $customer_id, $profit_account_id,
-            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_end,
+            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_start_frequency, $day_end,
             $currentUserId, $createdByType, $createdByOwnerId
         ]);
         if ($country !== '' && $bank !== '') {

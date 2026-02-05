@@ -640,6 +640,7 @@ function getBankProcesses() {
                     bp.profit,
                     bp.profit_sharing,
                     bp.day_start,
+                    bp.day_start_frequency,
                     bp.day_end,
                     bp.status,
                     bp.dts_modified,
@@ -689,6 +690,7 @@ function getBankProcesses() {
                 'status' => $r['status'],
                 'date' => $r['day_start'] ?? '',
                 'day_start' => $r['day_start'] ?? null,
+                'day_start_frequency' => $r['day_start_frequency'] ?? '1st_of_every_month',
                 'day_end' => $r['day_end'] ?? null,
             ];
         }
@@ -718,7 +720,7 @@ function getBankProcess() {
         $stmt = $pdo->prepare("SELECT 
                 bp.id, bp.country, bp.bank, bp.type, bp.name,
                 bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance,
-                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_end, bp.status,
+                bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, bp.status,
                 bp.dts_modified, bp.dts_created,
                 a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name,
                 a_pa.account_id as profit_account_account_id, a_pa.name as profit_account_name
@@ -754,6 +756,7 @@ function getBankProcess() {
             'profit' => $process['profit'],
             'profit_sharing' => $process['profit_sharing'],
             'day_start' => $process['day_start'],
+            'day_start_frequency' => $process['day_start_frequency'] ?? '1st_of_every_month',
             'day_end' => $process['day_end'] ?? null,
             'status' => $process['status'],
             'dts_modified' => $process['dts_modified'],
@@ -802,6 +805,10 @@ function updateBankProcess() {
         $profit = isset($_POST['profit']) && $_POST['profit'] !== '' ? (float)$_POST['profit'] : null;
         $profit_sharing = $_POST['profit_sharing'] ?? null;
         $day_start = $_POST['day_start'] ?? null;
+        $day_start_frequency = trim($_POST['day_start_frequency'] ?? '1st_of_every_month');
+        if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly'], true)) {
+            $day_start_frequency = '1st_of_every_month';
+        }
         $day_end = $_POST['day_end'] ?? null;
         $day_end = ($day_end !== null && $day_end !== '') ? $day_end : null;
         $status = $_POST['status'] ?? 'active';
@@ -814,12 +821,12 @@ function updateBankProcess() {
         $currentUserId = $isOwner ? null : getCurrentUserId($pdo);
         $stmt = $pdo->prepare("UPDATE bank_process SET 
             country=?, bank=?, type=?, name=?, card_merchant_id=?, customer_id=?, profit_account_id=?,
-            contract=?, insurance=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_end=?, status=?,
+            contract=?, insurance=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_start_frequency=?, day_end=?, status=?,
             dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
             WHERE id=? AND company_id=?");
         $stmt->execute([
             $country, $bank, $type, $name, $card_merchant_id, $customer_id, $profit_account_id,
-            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_end, $status,
+            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_start_frequency, $day_end, $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         ]);
         if ($country !== '' && $bank !== '') {
