@@ -3178,7 +3178,10 @@ if ($current_user_id && count($user_companies) > 0) {
                 const cbClass = 'process-accounting-inbox-row-cb';
                 const periodType = row.is_partial_first_month ? 'partial_first_month' : 'monthly';
                 const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
-                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + (row.cost != null ? Number(row.cost) : '-') + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + (row.profit != null ? Number(row.profit) : '-') + '</td></tr>';
+                // 1st of every month 首月按比例只入账 Sell Price，Cost/Profit 在列表中显示为 "-"
+                const costDisplay = row.is_partial_first_month ? '-' : (row.cost != null ? Number(row.cost) : '-');
+                const profitDisplay = row.is_partial_first_month ? '-' : (row.profit != null ? Number(row.profit) : '-');
+                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + costDisplay + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + profitDisplay + '</td></tr>';
             }).join('');
             updateAccountingInboxPostButton();
             (function bindSelectAll() {
