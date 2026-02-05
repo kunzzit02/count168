@@ -166,6 +166,7 @@ try {
             }
         }
 
+        // 首月按比例时：sell price/当月天数*剩余天数 = 该 customer 要先还的金额，记入该 customer 的 account 的 transaction，transaction_type=WIN（即 Win/Loss 列），currency 跟该行 country
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : '';
         if (!empty($p['card_merchant_id']) && $cost > 0) {
             $txn = $baseTxn;
