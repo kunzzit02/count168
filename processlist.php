@@ -1392,7 +1392,6 @@ if ($current_user_id && count($user_companies) > 0) {
                     <span class="process-accounting-inbox-badge" id="processAccountingInboxCountModal">0</span>
                 </h2>
                 <div class="modal-header-actions">
-                    <button type="button" class="process-accounting-inbox-btn" id="processAccountingInboxRefreshBtn">Refresh</button>
                     <span class="close" onclick="closeAccountingDueModal()">&times;</span>
                 </div>
             </div>
