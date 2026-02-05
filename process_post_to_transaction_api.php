@@ -166,9 +166,10 @@ try {
             }
         }
 
-        // 首月按比例时：sell price/当月天数*剩余天数 = 该 customer 要先还的金额，记入该 customer 的 account 的 transaction，transaction_type=WIN（即 Win/Loss 列），currency 跟该行 country
+        // 首月按比例（除以天数×剩余天数）：只入账 Sell Price（customer 要先还的金额）；每月 1 号才入账 Buy Price + Sell Price + Profit
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : '';
-        if (!empty($p['card_merchant_id']) && $cost > 0) {
+        $isPartialFirstMonth = ($periodType === 'partial_first_month');
+        if (!$isPartialFirstMonth && !empty($p['card_merchant_id']) && $cost > 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int)$p['card_merchant_id'];
             $txn['amount'] = $cost;
@@ -184,7 +185,7 @@ try {
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
-        if (!empty($p['profit_account_id']) && $profit > 0) {
+        if (!$isPartialFirstMonth && !empty($p['profit_account_id']) && $profit > 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int)$p['profit_account_id'];
             $txn['amount'] = $profit;
