@@ -3123,7 +3123,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (countEl2) countEl2.textContent = String(postableCount);
             const countModal = document.getElementById('processAccountingInboxCountModal');
             if (countModal) countModal.textContent = String(postableCount);
-            if (selectAllCb) { selectAllCb.checked = false; selectAllCb.disabled = postableCount === 0; }
+            if (selectAllCb) { selectAllCb.checked = postableCount > 0; selectAllCb.disabled = postableCount === 0; }
             if (count === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
                 if (postBtn) postBtn.disabled = true;
@@ -3133,7 +3133,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const name = (row.name || row.bank || '-');
                 const rowClass = row.already_posted_today ? ' class="process-accounting-inbox-row-posted"' : '';
                 const cbDisabled = row.already_posted_today ? ' disabled' : '';
-                const cbChecked = row.already_posted_today ? '' : '';
+                const cbChecked = row.already_posted_today ? '' : ' checked';
                 const cbClass = 'process-accounting-inbox-row-cb';
                 const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
                 return '<tr' + rowClass + ' data-id="' + row.id + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + (row.cost != null ? Number(row.cost) : '-') + '</td><td>' + (row.price != null ? Number(row.price) : '-') + '</td><td>' + (row.profit != null ? Number(row.profit) : '-') + '</td></tr>';
