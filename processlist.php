@@ -1415,7 +1415,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     </table>
                 </div>
                 <div class="process-accounting-inbox-actions">
-                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Post to Transaction</button>
+                    <button type="button" class="btn btn-primary" id="processAccountingInboxPostBtn" disabled>Transaction</button>
                     <button type="button" class="btn btn-cancel" onclick="closeAccountingDueModal()">Cancel</button>
                 </div>
             </div>
@@ -2445,7 +2445,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 const profit = dashIfEmpty(process.profit);
                 const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                    '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="' + (process.status === 'active' ? 'Select for post to transaction' : 'Select for deletion') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
+                    '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="' + (process.status === 'active' ? 'Select for transaction' : 'Select for deletion') + '" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">';
                 const tr = document.createElement('tr');
                 tr.setAttribute('data-id', process.id);
                 tr.setAttribute('data-status', process.status || '');
@@ -3093,7 +3093,7 @@ if ($current_user_id && count($user_companies) > 0) {
                 return row && row.getAttribute('data-status') === 'active';
             }).map(cb => cb.dataset.id);
             postBtn.disabled = activeSelectedIds.length === 0;
-            postBtn.textContent = activeSelectedIds.length > 0 ? `Post to Transaction (${activeSelectedIds.length})` : 'Post to Transaction';
+            postBtn.textContent = activeSelectedIds.length > 0 ? `Transaction (${activeSelectedIds.length})` : 'Transaction';
         }
 
         window.__accountingInboxList = [];
@@ -3215,7 +3215,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     showNotification(result.error || 'Post failed.', 'danger');
                 }
             } catch (err) {
-                console.error('Post to transaction error:', err);
+                console.error('transaction error:', err);
                 showNotification('Request failed: ' + err.message, 'danger');
             }
         }
@@ -3249,7 +3249,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     showNotification(result.error || '入账失败', 'danger');
                 }
             } catch (err) {
-                console.error('Post to transaction error:', err);
+                console.error('transaction error:', err);
                 showNotification('入账请求失败: ' + err.message, 'danger');
             }
         }
