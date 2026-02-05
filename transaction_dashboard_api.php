@@ -417,23 +417,35 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
 /**
  * 按 Currency 计算 Win/Loss
+ * Win/Loss = Data Capture + 首月按比例（description 含 "(partial first month)"）的 WIN/LOSE；其余 WIN/LOSE 在 Cr/Dr
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
     $win_loss = 0;
-    
+
     $sql = "SELECT COALESCE(SUM(dcd.processed_amount), 0) as total
             FROM data_capture_details dcd
             JOIN data_captures dc ON dcd.capture_id = dc.id
             WHERE dcd.company_id = ?
               AND dc.company_id = ?
               AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-              AND dc.currency_id = ?
+              AND dcd.currency_id = ?
               AND dc.capture_date BETWEEN ? AND ?";
-    
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
     $win_loss += $stmt->fetchColumn();
-    
+
+    $check = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+    if ($check && $check->rowCount() > 0) {
+        $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
+                FROM transactions
+                WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
+                  AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
+                  AND (description LIKE '%(partial first month)%')";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
+        $win_loss += $stmt->fetchColumn();
+    }
+
     return $win_loss;
 }
 
@@ -455,8 +467,8 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM', 'RATE') THEN amount
                         WHEN transaction_type = 'PAYMENT' THEN amount
-                        WHEN transaction_type = 'WIN' THEN amount
-                        WHEN transaction_type = 'LOSE' THEN -amount
+                        WHEN transaction_type = 'WIN' AND (description NOT LIKE '%(partial first month)%' OR description IS NULL) THEN amount
+                        WHEN transaction_type = 'LOSE' AND (description NOT LIKE '%(partial first month)%' OR description IS NULL) THEN -amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions
