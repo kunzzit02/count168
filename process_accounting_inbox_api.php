@@ -51,7 +51,6 @@ try {
 
     $today = date('Y-m-d');
     $dayOfMonth = (int) date('j');
-    $todayTs = strtotime($today);
 
     $hasFrequency = true;
     try {
@@ -96,9 +95,7 @@ try {
             if ($startTs === false) {
                 continue;
             }
-            if ($todayTs < $startTs) {
-                continue; // 还未到 day_start，不显示首月按比例
-            }
+            // 点击 Add Process 后马上在 Accounting Due 显示首月按比例，不要求今天已到 day_start
             $processId = (int) $r['id'];
             $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = 'partial_first_month' LIMIT 1");
             $stmt->execute([$company_id, $processId]);
