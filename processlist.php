@@ -6304,12 +6304,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (accountingInboxPost) {
                 accountingInboxPost.addEventListener('click', () => postAccountingInboxToTransaction());
             }
-            const accountingDueModal = document.getElementById('processAccountingDueModal');
-            if (accountingDueModal) {
-                accountingDueModal.addEventListener('click', function (e) {
-                    if (e.target === accountingDueModal) closeAccountingDueModal();
-                });
-            }
+            /* Accounting Due 弹窗：点击弹窗以外区域不关闭，仅通过 X 或 Cancel 关闭 */
         });
 
         window.addEventListener('resize', function () {
