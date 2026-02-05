@@ -1057,19 +1057,19 @@ if ($current_user_id && count($user_companies) > 0) {
                 style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 20px;">
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <h1 class="page-title" style="margin: 0;">Process List</h1>
-                    <!-- Accounting Inbox：当天需要算账的 Process -->
-                    <div class="process-accounting-inbox-wrap" id="processAccountingInboxWrap">
+                    <!-- Accounting Due Inbox (Bank only): processes due for accounting today -->
+                    <div class="process-accounting-inbox-wrap" id="processAccountingInboxWrap" style="display: none;">
                         <button type="button" class="process-accounting-inbox-btn process-accounting-inbox-main" id="processAccountingInboxBtn">
                             <svg class="process-accounting-inbox-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                 <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
                             </svg>
-                            需要算账
+                            Accounting Due
                             <span class="process-accounting-inbox-badge" id="processAccountingInboxCount">0</span>
                         </button>
                         <div class="process-accounting-inbox-popover" id="processAccountingInboxPopover">
                             <div class="process-accounting-inbox-popover-header">
                                 <div class="process-accounting-inbox-popover-title">
-                                    需要算账
+                                    Accounting Due
                                     <span class="process-accounting-inbox-badge" id="processAccountingInboxCount2">0</span>
                                 </div>
                                 <button type="button" class="process-accounting-inbox-btn" id="processAccountingInboxRefreshBtn">Refresh</button>
@@ -3052,7 +3052,7 @@ if ($current_user_id && count($user_companies) > 0) {
             if (countEl2) countEl2.textContent = String(count);
             if (postBtn) postBtn.disabled = count === 0;
             if (count === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; color:#6b7280;">今日无需算账的 Process。</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
                 return;
             }
             tbody.innerHTML = items.map((row, idx) => {
@@ -3069,30 +3069,42 @@ if ($current_user_id && count($user_companies) > 0) {
             const pop = document.getElementById('processAccountingInboxPopover');
             if (pop) pop.style.display = 'none';
         }
+        function updateAccountingInboxVisibility() {
+            const wrap = document.getElementById('processAccountingInboxWrap');
+            if (!wrap) return;
+            if (selectedPermission === 'Bank') {
+                wrap.style.display = 'block';
+                loadAccountingInbox();
+            } else {
+                wrap.style.display = 'none';
+                closeAccountingInbox();
+            }
+        }
+
         async function postAccountingInboxToTransaction() {
             const list = window.__accountingInboxList || [];
             const ids = list.map(p => p.id).filter(Boolean);
             if (ids.length === 0) {
-                showNotification('没有需要入账的 Process', 'warning');
+                showNotification('No processes to post.', 'warning');
                 return;
             }
-            if (!confirm('确定将 ' + ids.length + ' 个 Process 入账？\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
+            if (!confirm('Post ' + ids.length + ' process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
             try {
                 const formData = new FormData();
                 ids.forEach(id => formData.append('ids[]', id));
                 const response = await fetch(buildApiUrl('process_post_to_transaction_api.php'), { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
-                    showNotification(result.message || '入账成功', 'success');
+                    showNotification(result.message || 'Posted successfully.', 'success');
                     closeAccountingInbox();
                     loadAccountingInbox();
                     fetchProcesses();
                 } else {
-                    showNotification(result.error || '入账失败', 'danger');
+                    showNotification(result.error || 'Post failed.', 'danger');
                 }
             } catch (err) {
                 console.error('Post to transaction error:', err);
-                showNotification('入账请求失败: ' + err.message, 'danger');
+                showNotification('Request failed: ' + err.message, 'danger');
             }
         }
 
@@ -6162,7 +6174,6 @@ if ($current_user_id && count($user_companies) > 0) {
                 console.error('Error in fetchProcesses:', error);
                 showError('Error loading data: ' + error.message);
             }
-            loadAccountingInbox();
 
             const accountingInboxBtn = document.getElementById('processAccountingInboxBtn');
             if (accountingInboxBtn) {
@@ -6328,6 +6339,8 @@ if ($current_user_id && count($user_companies) > 0) {
 
             // Post to Transaction 仅 Bank 显示，Gambling 隐藏
             updatePostToTransactionButton();
+            // Accounting Due Inbox: show only on Bank
+            updateAccountingInboxVisibility();
 
             // 重新加载数据
             currentPage = 1;
