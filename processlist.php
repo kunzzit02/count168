@@ -1210,8 +1210,8 @@ if ($current_user_id && count($user_companies) > 0) {
                     <div class="header-item bank-header" style="display: none;">Contract</div>
                     <div class="header-item bank-header" style="display: none;">Insurance</div>
                     <div class="header-item bank-header" style="display: none;">Customer</div>
-                    <div class="header-item bank-header" style="display: none;">Buy Price</div>
-                    <div class="header-item bank-header" style="display: none;">Sell Price</div>
+                    <div class="header-item bank-header" style="display: none;">Cost</div>
+                    <div class="header-item bank-header" style="display: none;">Price</div>
                     <div class="header-item bank-header" style="display: none;">Profit</div>
                     <div class="header-item bank-header" style="display: none;">Status</div>
                     <div class="header-item bank-header" style="display: none;">Date</div>
@@ -1404,8 +1404,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <th>No</th>
                                 <th>Card Owner</th>
                                 <th>Country</th>
-                                <th>Buy Price</th>
-                                <th>Sell Price</th>
+                                <th>Cost</th>
+                                <th>Price</th>
                                 <th>Profit</th>
                             </tr>
                         </thead>
@@ -2378,7 +2378,7 @@ if ($current_user_id && count($user_companies) > 0) {
             const tbody = document.getElementById('bankTableBody');
             if (!headRow || !tbody) return;
 
-            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Buy Price', 'Sell Price', 'Profit', 'Status', 'Date', 'Action'];
+            const thLabels = ['No', 'Supplier', 'Country', 'Bank', 'Types', 'Card Owner', 'Contract', 'Insurance', 'Customer', 'Cost', 'Price', 'Profit', 'Status', 'Date', 'Action'];
             headRow.innerHTML = thLabels.map((label, i) => {
                 if (label === 'No') return '<th class="bank-th-no">' + escapeHtml(label) + '</th>';
                 if (label === 'Country') return '<th class="bank-th-country">' + escapeHtml(label) + '</th>';
