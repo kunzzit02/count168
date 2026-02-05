@@ -804,7 +804,7 @@ function updateBankProcess() {
         $price = isset($_POST['price']) && $_POST['price'] !== '' ? (float)$_POST['price'] : null;
         $profit = isset($_POST['profit']) && $_POST['profit'] !== '' ? (float)$_POST['profit'] : null;
         $profit_sharing = $_POST['profit_sharing'] ?? null;
-        $day_start = $_POST['day_start'] ?? null;
+        $day_start = isset($_POST['day_start']) && trim((string) $_POST['day_start']) !== '' ? trim($_POST['day_start']) : null;
         $day_start_frequency = trim($_POST['day_start_frequency'] ?? '1st_of_every_month');
         if (!in_array($day_start_frequency, ['1st_of_every_month', 'monthly'], true)) {
             $day_start_frequency = '1st_of_every_month';
