@@ -235,10 +235,11 @@ try {
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
-        if (!empty($p['customer_id']) && $price > 0) {
+        // Sell Price 记在右边（-）：存为负数，Transaction 列表显示在右侧
+        if (!empty($p['customer_id']) && $price != 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['customer_id'];
-            $txn['amount'] = $price;
+            $txn['amount'] = -abs($price);
             $txn['description'] = "Process: Sell Price for $processLabel" . $suffix;
             insertTransactionRow($pdo, $txn);
             $createdCount++;
