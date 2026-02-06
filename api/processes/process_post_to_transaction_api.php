@@ -67,7 +67,7 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     }
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, c.owner_id
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
             WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND bp.status = 'active'";
@@ -112,6 +112,44 @@ function recordProcessAccountingPosted(PDO $pdo, int $companyId, int $processId,
     } catch (Throwable $e) {
         // ignore
     }
+}
+
+/** 解析 profit_sharing 字符串 "RUP3 - 55, RUP4 - 10" 为 [['account_text'=>'RUP3','amount'=>55], ...] */
+function parseProfitSharingString(string $profitSharing): array
+{
+    $result = [];
+    $s = trim($profitSharing);
+    if ($s === '') {
+        return $result;
+    }
+    foreach (explode(',', $s) as $part) {
+        $t = trim($part);
+        $dash = strrpos($t, ' - ');
+        if ($dash !== false) {
+            $accountText = trim(substr($t, 0, $dash));
+            $amountStr = trim(substr($t, $dash + 3));
+            $amount = (float) $amountStr;
+            if ($accountText !== '' && $amount > 0) {
+                $result[] = ['account_text' => $accountText, 'amount' => round($amount, 2)];
+            }
+        }
+    }
+    return $result;
+}
+
+/** 按公司内 account_id 或 name 解析账户，返回 account.id，找不到返回 null */
+function resolveAccountIdByText(PDO $pdo, int $companyId, string $accountText): ?int
+{
+    $text = trim($accountText);
+    if ($text === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare("SELECT a.id FROM account a
+            INNER JOIN account_company ac ON a.id = ac.account_id AND ac.company_id = ?
+            WHERE (a.account_id = ? OR a.name = ?) LIMIT 1");
+    $stmt->execute([$companyId, $text, $text]);
+    $id = $stmt->fetchColumn();
+    return $id ? (int) $id : null;
 }
 
 try {
@@ -253,11 +291,31 @@ try {
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
-        if (!empty($p['profit_account_id']) && $profit > 0) {
+        // Profit：先扣 Profit Sharing 再入 Company；Profit Sharing 每笔入对应 account（均记 Win/Loss）
+        $profitSharingEntries = parseProfitSharingString($p['profit_sharing'] ?? '');
+        $profitSharingResolved = [];
+        $totalPs = 0;
+        foreach ($profitSharingEntries as $entry) {
+            $accId = resolveAccountIdByText($pdo, $companyId, $entry['account_text']);
+            if ($accId !== null && $entry['amount'] > 0) {
+                $profitSharingResolved[] = ['account_id' => $accId, 'amount' => $entry['amount'], 'account_text' => $entry['account_text']];
+                $totalPs += $entry['amount'];
+            }
+        }
+        $companyProfit = $profit - $totalPs;
+        if (!empty($p['profit_account_id']) && $companyProfit > 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['profit_account_id'];
-            $txn['amount'] = $profit;
+            $txn['amount'] = round($companyProfit, 2);
             $txn['description'] = "Process: Profit for $processLabel" . $suffix;
+            insertTransactionRow($pdo, $txn);
+            $createdCount++;
+        }
+        foreach ($profitSharingResolved as $ps) {
+            $txn = $baseTxn;
+            $txn['account_id'] = (int) $ps['account_id'];
+            $txn['amount'] = $ps['amount'];
+            $txn['description'] = "Process: Profit Sharing for $processLabel (" . $ps['account_text'] . ' ' . $ps['amount'] . ')' . $suffix;
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
