@@ -6567,18 +6567,26 @@ function getCurrentProcessId() {
             const currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
             const currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
             const isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
+
+            const accountButton = document.getElementById('account');
+            const accountValue = accountButton ? getAccountId(accountButton) : null;
+            const formulaInput = document.getElementById('formula');
+            const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
+
+            // 已选 account 但手动把 currency 改成 Select Currency 且 formula 空白时，与未选 account 一致：弹 "Please select an account" 并阻止保存
+            if (accountValue && isCurrencyPlaceholder && !formulaValue) {
+                showNotification('Error', 'Please select an account', 'error');
+                return;
+            }
+
             if (!currencyVal || isCurrencyPlaceholder) {
                 showNotification('Error', '请先选择 Currency 后再保存。Please select a currency.', 'error');
                 return;
             }
 
             // 再校验 Account、Formula
-            const accountButton = document.getElementById('account');
-            const accountValue = accountButton ? getAccountId(accountButton) : null;
             let currencyValue = currencyVal;
             let currencyName = currencyText;
-            const formulaInput = document.getElementById('formula');
-            const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
 
             if (!accountValue) {
                 showNotification('Error', 'Please select an account', 'error');
