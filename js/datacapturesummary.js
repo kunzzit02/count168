@@ -6551,39 +6551,33 @@ function getCurrentProcessId() {
 
         // Save Formula
         function saveFormula() {
-            // 第一步：只读取 Account、Currency、Formula，立即校验；Edit Formula 中 Currency 空则不能 Save
+            // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，先弹通知再 return
+            const currencySelect = document.getElementById('currency');
+            if (!currencySelect) {
+                showNotification('Error', 'Please select a currency', 'error');
+                return;
+            }
+            const selIdx = currencySelect.selectedIndex;
+            const selOpt = (selIdx >= 0 && currencySelect.options[selIdx]) ? currencySelect.options[selIdx] : null;
+            const currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
+            const currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
+            const isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
+            if (!currencyVal || isCurrencyPlaceholder) {
+                showNotification('Error', '请先选择 Currency 后再保存。Please select a currency.', 'error');
+                return;
+            }
+
+            // 再校验 Account、Formula
             const accountButton = document.getElementById('account');
             const accountValue = accountButton ? getAccountId(accountButton) : null;
-            const currencySelect = document.getElementById('currency');
-            let currencyValue = '';
-            let currencyName = '';
-            if (currencySelect) {
-                const rawVal = currencySelect.value;
-                currencyValue = (rawVal != null && rawVal !== undefined) ? String(rawVal).trim() : '';
-                const idx = currencySelect.selectedIndex;
-                const opt = (idx >= 0 && currencySelect.options[idx]) ? currencySelect.options[idx] : null;
-                currencyName = (opt && opt.text) ? String(opt.text).trim() : '';
-            }
+            let currencyValue = currencyVal;
+            let currencyName = currencyText;
             const formulaInput = document.getElementById('formula');
             const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
 
             if (!accountValue) {
                 showNotification('Error', 'Please select an account', 'error');
                 return;
-            }
-            // Edit Formula：Currency 必选，未选或占位项均不能 Save
-            const currencyPlaceholder = /^select\s*curren/i.test(currencyName || '');
-            const currencyEmpty = !currencyValue || !String(currencyValue).trim();
-            if (currencyEmpty || currencyPlaceholder || !currencyName || !String(currencyName).trim()) {
-                showNotification('Error', 'Please select a currency', 'error');
-                return;
-            }
-            if (currencySelect && currencySelect.options.length > 0 && currencySelect.selectedIndex === 0) {
-                const firstOpt = currencySelect.options[0];
-                if (firstOpt && (firstOpt.value === '' || /^select\s*curren/i.test((firstOpt.text || '').trim()))) {
-                    showNotification('Error', 'Please select a currency', 'error');
-                    return;
-                }
             }
             if (!formulaValue) {
                 showNotification('Error', 'Please enter a formula', 'error');
