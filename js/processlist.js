@@ -2039,18 +2039,17 @@
                 const bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
                 const type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
                 const name = (document.getElementById('bank_name') && document.getElementById('bank_name').value || '').trim();
-                const dayStart = (document.getElementById('bank_day_start') && document.getElementById('bank_day_start').value || '').trim();
-                const cost = (document.getElementById('bank_cost') && document.getElementById('bank_cost').value || '').trim();
-                const price = (document.getElementById('bank_price') && document.getElementById('bank_price').value || '').trim();
-                const contract = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value || '').trim();
-                const cardMerchantBtn = document.getElementById('bank_card_merchant');
-                const customerBtn = document.getElementById('bank_customer');
-                const profitAccountBtn = document.getElementById('bank_profit_account');
-                const hasProfitSharing = !!(window.selectedProfitSharingEntries && window.selectedProfitSharingEntries.length > 0);
-                const cardMerchant = cardMerchantBtn && cardMerchantBtn.getAttribute('data-value');
-                const customer = customerBtn && customerBtn.getAttribute('data-value');
-                const profitAccount = profitAccountBtn && profitAccountBtn.getAttribute('data-value');
-                if (!country || !bank || !type || !name || !dayStart || !cost || !price || !contract || !cardMerchant || !customer || !profitAccount || !hasProfitSharing) {
+const cost = (document.getElementById('bank_cost') && document.getElementById('bank_cost').value || '').trim();
+            const price = (document.getElementById('bank_price') && document.getElementById('bank_price').value || '').trim();
+            const contract = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value || '').trim();
+            const cardMerchantBtn = document.getElementById('bank_card_merchant');
+            const customerBtn = document.getElementById('bank_customer');
+            const profitAccountBtn = document.getElementById('bank_profit_account');
+            const hasProfitSharing = !!(window.selectedProfitSharingEntries && window.selectedProfitSharingEntries.length > 0);
+            const cardMerchant = cardMerchantBtn && cardMerchantBtn.getAttribute('data-value');
+            const customer = customerBtn && customerBtn.getAttribute('data-value');
+            const profitAccount = profitAccountBtn && profitAccountBtn.getAttribute('data-value');
+            if (!country || !bank || !type || !name || !cost || !price || !contract || !cardMerchant || !customer || !profitAccount || !hasProfitSharing) {
                     showNotification('Please fill in all required fields. Only Insurance is optional.', 'danger');
                     return;
                 }
@@ -2140,7 +2139,6 @@
             const bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
             const type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
             const name = (document.getElementById('bank_name') && document.getElementById('bank_name').value || '').trim();
-            const dayStart = (document.getElementById('bank_day_start') && document.getElementById('bank_day_start').value || '').trim();
             const cost = (document.getElementById('bank_cost') && document.getElementById('bank_cost').value || '').trim();
             const price = (document.getElementById('bank_price') && document.getElementById('bank_price').value || '').trim();
             const contract = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value || '').trim();
@@ -2149,7 +2147,7 @@
             const profitAccount = document.getElementById('bank_profit_account') && document.getElementById('bank_profit_account').getAttribute('data-value');
             const hasProfitSharing = !!(window.selectedProfitSharingEntries && window.selectedProfitSharingEntries.length > 0);
             const allFilled = !!(
-                country && bank && type && name && dayStart && cost && price && contract &&
+                country && bank && type && name && cost && price && contract &&
                 cardMerchant && customer && profitAccount && hasProfitSharing
             );
             btn.disabled = !allFilled;

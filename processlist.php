@@ -790,7 +790,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-row bank-day-start-row">
                                 <div class="form-group bank-day-start-input-wrap">
                                     <label for="bank_day_start">Day start</label>
-                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input" required>
+                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
                                 </div>
                                 <div class="form-group bank-day-start-frequency-wrap">
                                     <label for="bank_day_start_frequency">Frequency</label>
