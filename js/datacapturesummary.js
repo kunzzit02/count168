@@ -6556,31 +6556,17 @@ function getCurrentProcessId() {
 
         // Save Formula
         function saveFormula() {
+            // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，先弹通知再 return
             const currencySelect = document.getElementById('currency');
-            const formulaInput = document.getElementById('formula');
-            const formulaValueForCheck = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
-
-            // 解析 Currency 状态（只算一次，后面复用）
-            let selIdx = -1, selOpt = null, currencyVal = '', currencyText = '', isCurrencyPlaceholder = false;
-            if (currencySelect) {
-                selIdx = currencySelect.selectedIndex;
-                selOpt = (selIdx >= 0 && currencySelect.options[selIdx]) ? currencySelect.options[selIdx] : null;
-                currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
-                currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
-                isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
-            }
-
-            // 最先校验：Currency 为 "Select Currency" 且 Formula 为空时，与未选 Account 一样：弹错误通知且不保存
-            if ((!currencyVal || isCurrencyPlaceholder) && !formulaValueForCheck) {
-                showNotification('Error', 'Please select a currency and enter a formula.', 'error');
-                return;
-            }
-
-            // 校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save
             if (!currencySelect) {
                 showNotification('Error', 'Please select a currency', 'error');
                 return;
             }
+            const selIdx = currencySelect.selectedIndex;
+            const selOpt = (selIdx >= 0 && currencySelect.options[selIdx]) ? currencySelect.options[selIdx] : null;
+            const currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
+            const currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
+            const isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
             if (!currencyVal || isCurrencyPlaceholder) {
                 showNotification('Error', '请先选择 Currency 后再保存。Please select a currency.', 'error');
                 return;
@@ -6591,7 +6577,8 @@ function getCurrentProcessId() {
             const accountValue = accountButton ? getAccountId(accountButton) : null;
             let currencyValue = currencyVal;
             let currencyName = currencyText;
-            const formulaValue = formulaValueForCheck;
+            const formulaInput = document.getElementById('formula');
+            const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
 
             if (!accountValue) {
                 showNotification('Error', 'Please select an account', 'error');
