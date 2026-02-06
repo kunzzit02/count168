@@ -1550,7 +1550,7 @@ function getCurrentProcessId() {
                         </div>
                         
                         <div class="form-actions">
-                            <button type="button" class="btn btn-save" onclick="saveFormula()">Save</button>
+                            <button type="button" id="editFormulaSaveBtn" class="btn btn-save" onclick="saveFormula()" disabled>Save</button>
                             <button type="button" class="btn btn-cancel" onclick="closeEditFormulaForm()">Cancel</button>
                         </div>
                     </div>
@@ -1584,6 +1584,34 @@ function getCurrentProcessId() {
                     // Even if no prePopulatedData, set default currency from capturedProcessData
                     populateFormWithData({});
                 }
+                
+                // Account、Currency、Formula 必填：根据三者是否填写启用/禁用 Save 按钮，并监听字段变化
+                setTimeout(() => {
+                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                        updateEditFormulaSaveButtonState();
+                    }
+                    const currencySelect = document.getElementById('currency');
+                    if (currencySelect) {
+                        currencySelect.addEventListener('change', function() {
+                            if (typeof updateEditFormulaSaveButtonState === 'function') {
+                                updateEditFormulaSaveButtonState();
+                            }
+                        });
+                    }
+                    const formulaInput = document.getElementById('formula');
+                    if (formulaInput) {
+                        formulaInput.addEventListener('input', function() {
+                            if (typeof updateEditFormulaSaveButtonState === 'function') {
+                                updateEditFormulaSaveButtonState();
+                            }
+                        });
+                        formulaInput.addEventListener('change', function() {
+                            if (typeof updateEditFormulaSaveButtonState === 'function') {
+                                updateEditFormulaSaveButtonState();
+                            }
+                        });
+                    }
+                }, 150);
             });
             
             // Load id product list into first select box
@@ -1755,6 +1783,9 @@ function getCurrentProcessId() {
                         // 统一走 handleFormulaValueInput
                         handleFormulaValueInput(formulaInput, value);
                     }
+                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                        updateEditFormulaSaveButtonState();
+                    }
                 });
             });
 
@@ -1768,6 +1799,9 @@ function getCurrentProcessId() {
                 ) {
                     e.preventDefault();
                     handleFormulaValueInput(this, e.key);
+                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                        updateEditFormulaSaveButtonState();
+                    }
                 }
             });
         }
@@ -2133,7 +2167,23 @@ function getCurrentProcessId() {
                         currencySelect.innerHTML = '<option value="">Select Currency</option>';
                     }
                 }
+                if (typeof updateEditFormulaSaveButtonState === 'function') {
+                    updateEditFormulaSaveButtonState();
+                }
             });
+        }
+
+        // 根据 Account、Currency、Formula 是否填写来启用/禁用 Save 按钮（三者必填，任一项为空则禁用 Save）
+        function updateEditFormulaSaveButtonState() {
+            const saveBtn = document.getElementById('editFormulaSaveBtn');
+            if (!saveBtn) return;
+            const accountButton = document.getElementById('account');
+            const accountValue = accountButton ? getAccountId(accountButton) : null;
+            const currencySelect = document.getElementById('currency');
+            const currencyValue = (currencySelect && currencySelect.value) ? String(currencySelect.value).trim() : '';
+            const formulaInput = document.getElementById('formula');
+            const formulaValue = (formulaInput && formulaInput.value) ? String(formulaInput.value).trim() : '';
+            saveBtn.disabled = !accountValue || !currencyValue || !formulaValue;
         }
 
         // Load form data (currency and account) from database
@@ -6530,9 +6580,17 @@ function getCurrentProcessId() {
             // Determine old account (when editing) to allow keeping the same
             const oldAccountDbId = (isEditMode && window.currentEditRow) ? (window.currentEditRow.querySelector('td:nth-child(2)')?.getAttribute('data-account-id') || null) : null;
 
-            // Account selection required
+            // Account, Currency, Formula 均为必填；任一项为空则不允许保存
             if (!accountValue) {
                 showNotification('Error', 'Please select an account', 'error');
+                return;
+            }
+            if (!currencyValue || (typeof currencyValue === 'string' && !currencyValue.trim())) {
+                showNotification('Error', 'Please select a currency', 'error');
+                return;
+            }
+            if (!formulaValue || !formulaValue.trim()) {
+                showNotification('Error', 'Please enter a formula', 'error');
                 return;
             }
             // Uniqueness no longer enforced: allow same account in multiple rows
