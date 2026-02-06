@@ -395,6 +395,7 @@
                     await loadBanksByCountry(countryEl ? countryEl.value : '');
                     renderSelectedProfitSharing();
                     document.getElementById('addBankModal').style.display = 'block';
+                    updateBankSubmitButtonState();
                 });
             } else {
                 loadAddProcessData();
@@ -595,6 +596,7 @@
                     });
                 }
                 renderSelectedProfitSharing();
+                updateBankSubmitButtonState();
                 document.getElementById('addBankModal').style.display = 'block';
             } catch (error) {
                 console.error('Error opening bank edit modal:', error);
@@ -2033,20 +2035,28 @@
         if (addBankProcessForm) {
             addBankProcessForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
-                const country = document.getElementById('bank_country').value;
-                const bank = document.getElementById('bank_bank').value;
-                const type = document.getElementById('bank_type').value;
-                const name = document.getElementById('bank_name').value;
-                if (!country || !bank || !type || !name) {
-                    showNotification('Please fill in all required fields (Country, Bank, Type, Name)', 'danger');
+                const country = (document.getElementById('bank_country') && document.getElementById('bank_country').value || '').trim();
+                const bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
+                const type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
+                const name = (document.getElementById('bank_name') && document.getElementById('bank_name').value || '').trim();
+                const dayStart = (document.getElementById('bank_day_start') && document.getElementById('bank_day_start').value || '').trim();
+                const cost = (document.getElementById('bank_cost') && document.getElementById('bank_cost').value || '').trim();
+                const price = (document.getElementById('bank_price') && document.getElementById('bank_price').value || '').trim();
+                const contract = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value || '').trim();
+                const cardMerchantBtn = document.getElementById('bank_card_merchant');
+                const customerBtn = document.getElementById('bank_customer');
+                const profitAccountBtn = document.getElementById('bank_profit_account');
+                const hasProfitSharing = !!(window.selectedProfitSharingEntries && window.selectedProfitSharingEntries.length > 0);
+                const cardMerchant = cardMerchantBtn && cardMerchantBtn.getAttribute('data-value');
+                const customer = customerBtn && customerBtn.getAttribute('data-value');
+                const profitAccount = profitAccountBtn && profitAccountBtn.getAttribute('data-value');
+                if (!country || !bank || !type || !name || !dayStart || !cost || !price || !contract || !cardMerchant || !customer || !profitAccount || !hasProfitSharing) {
+                    showNotification('Please fill in all required fields. Only Insurance is optional.', 'danger');
                     return;
                 }
                 const editId = document.getElementById('bank_edit_id').value;
                 const formData = new FormData(this);
                 formData.append('permission', 'Bank');
-                const cardMerchantBtn = document.getElementById('bank_card_merchant');
-                const customerBtn = document.getElementById('bank_customer');
-                const profitAccountBtn = document.getElementById('bank_profit_account');
                 if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
                     formData.append('card_merchant_id', cardMerchantBtn.getAttribute('data-value'));
                 }
@@ -2120,6 +2130,30 @@
         allowOnlyNumberCommaPeriod(document.getElementById('bank_insurance'));
         allowOnlyNumberCommaPeriod(document.getElementById('bank_cost'));
         allowOnlyNumberCommaPeriod(document.getElementById('bank_price'));
+
+        /** Bank Add/Edit 表单：仅当除 Insurance 外所有必填项都填写后，“Add Process”按钮才可点击 */
+        function updateBankSubmitButtonState() {
+            const modal = document.getElementById('addBankModal');
+            const btn = document.getElementById('bankSubmitBtn');
+            if (!modal || modal.style.display !== 'block' || !btn) return;
+            const country = (document.getElementById('bank_country') && document.getElementById('bank_country').value || '').trim();
+            const bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
+            const type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
+            const name = (document.getElementById('bank_name') && document.getElementById('bank_name').value || '').trim();
+            const dayStart = (document.getElementById('bank_day_start') && document.getElementById('bank_day_start').value || '').trim();
+            const cost = (document.getElementById('bank_cost') && document.getElementById('bank_cost').value || '').trim();
+            const price = (document.getElementById('bank_price') && document.getElementById('bank_price').value || '').trim();
+            const contract = (document.getElementById('bank_contract') && document.getElementById('bank_contract').value || '').trim();
+            const cardMerchant = document.getElementById('bank_card_merchant') && document.getElementById('bank_card_merchant').getAttribute('data-value');
+            const customer = document.getElementById('bank_customer') && document.getElementById('bank_customer').getAttribute('data-value');
+            const profitAccount = document.getElementById('bank_profit_account') && document.getElementById('bank_profit_account').getAttribute('data-value');
+            const hasProfitSharing = !!(window.selectedProfitSharingEntries && window.selectedProfitSharingEntries.length > 0);
+            const allFilled = !!(
+                country && bank && type && name && dayStart && cost && price && contract &&
+                cardMerchant && customer && profitAccount && hasProfitSharing
+            );
+            btn.disabled = !allFilled;
+        }
 
         // 处理编辑表单提交
         const editProcessForm = document.getElementById('editProcessForm');
@@ -2991,6 +3025,7 @@
                         accountDropdown.style.display = 'none';
                         isOpen = false;
                         updateBankAddButtonTitles();
+                        if (typeof updateBankSubmitButtonState === 'function') updateBankSubmitButtonState();
                     });
                     optionsContainer.appendChild(selectOpt);
                 }
@@ -3027,6 +3062,7 @@
                             accountDropdown.style.display = 'none';
                             isOpen = false;
                             updateBankAddButtonTitles();
+                            if (typeof updateBankSubmitButtonState === 'function') updateBankSubmitButtonState();
                         });
                         optionsContainer.appendChild(option);
                     });
@@ -3773,6 +3809,7 @@
                 container.appendChild(div);
             });
             if (mainInput) mainInput.value = parts.join(', ');
+            if (typeof updateBankSubmitButtonState === 'function') updateBankSubmitButtonState();
         }
 
         function removeProfitSharingEntry(index) {
@@ -3818,6 +3855,15 @@
                     if (e.key === 'Enter') { e.preventDefault(); addCurrencyFromInputBank('add'); }
                 });
             }
+
+            // Bank Add/Edit 表单：必填项变化时更新 Add Process 按钮可用状态
+            ['bank_country', 'bank_bank', 'bank_type', 'bank_name', 'bank_day_start', 'bank_cost', 'bank_price', 'bank_contract'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', updateBankSubmitButtonState);
+                    el.addEventListener('change', updateBankSubmitButtonState);
+                }
+            });
 
             // 统一管理需要大写的输入框
             const uppercaseInputs = [

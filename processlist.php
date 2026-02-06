@@ -684,7 +684,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="form-group">
                                     <label for="bank_country">Country (Currency)</label>
                                     <div class="select-with-add">
-                                        <select id="bank_country" name="country" class="bank-select">
+                                        <select id="bank_country" name="country" class="bank-select" required>
                                             <option value="">Select Country</option>
                                         </select>
                                         <button type="button" class="bank-add-btn" onclick="showAddCountryModal()"
@@ -694,7 +694,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="form-group">
                                     <label for="bank_bank">Bank</label>
                                     <div class="select-with-add">
-                                        <select id="bank_bank" name="bank" class="bank-select">
+                                        <select id="bank_bank" name="bank" class="bank-select" required>
                                             <option value="">Select Bank</option>
                                         </select>
                                         <button type="button" class="bank-add-btn" onclick="showAddBankModal()"
@@ -729,7 +729,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="form-group">
                                     <label for="bank_cost">Buy Price</label>
                                     <input type="text" id="bank_cost" name="cost" placeholder="Enter amount"
-                                        class="bank-input" inputmode="decimal" autocomplete="off">
+                                        class="bank-input" inputmode="decimal" autocomplete="off" required>
                                 </div>
                             </div>
                         </div>
@@ -740,7 +740,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-row bank-row-two-cols bank-row-type-name">
                                 <div class="form-group">
                                     <label for="bank_type">Type</label>
-                                    <select id="bank_type" name="type" class="bank-select">
+                                    <select id="bank_type" name="type" class="bank-select" required>
                                         <option value="">Select Type</option>
                                         <option value="PERSONAL">PERSONAL</option>
                                         <option value="BUSINESS">BUSINESS</option>
@@ -750,7 +750,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="form-group">
                                     <label for="bank_name">Name</label>
                                     <input type="text" id="bank_name" name="name" placeholder="Enter Name"
-                                        class="bank-input" oninput="this.value=this.value.toUpperCase()">
+                                        class="bank-input" oninput="this.value=this.value.toUpperCase()" required>
                                 </div>
                             </div>
                         </div>
@@ -779,7 +779,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="form-group">
                                     <label for="bank_price">Sell Price</label>
                                     <input type="text" id="bank_price" name="price" placeholder="Enter amount"
-                                        class="bank-input" inputmode="decimal" autocomplete="off">
+                                        class="bank-input" inputmode="decimal" autocomplete="off" required>
                                 </div>
                             </div>
                         </div>
@@ -790,7 +790,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-row bank-day-start-row">
                                 <div class="form-group bank-day-start-input-wrap">
                                     <label for="bank_day_start">Day start</label>
-                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input">
+                                    <input type="date" id="bank_day_start" name="day_start" class="bank-input" required>
                                 </div>
                                 <div class="form-group bank-day-start-frequency-wrap">
                                     <label for="bank_day_start_frequency">Frequency</label>
@@ -851,7 +851,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
                                     <label for="bank_contract">Contract</label>
-                                    <select id="bank_contract" name="contract" class="bank-select">
+                                    <select id="bank_contract" name="contract" class="bank-select" required>
                                         <option value="">Select Contract</option>
                                         <option value="1 MONTH">1 MONTH</option>
                                         <option value="2 MONTHS">2 MONTHS</option>
@@ -873,7 +873,7 @@ if ($current_user_id && count($user_companies) > 0) {
 
                     <!-- Actions: span full width -->
                     <div class="form-actions bank-actions">
-                        <button type="submit" class="btn btn-save" id="bankSubmitBtn">Add Process</button>
+                        <button type="submit" class="btn btn-save" id="bankSubmitBtn" disabled>Add Process</button>
                         <button type="button" class="btn btn-cancel" onclick="closeAddBankModal()">Cancel</button>
                     </div>
                 </form>
