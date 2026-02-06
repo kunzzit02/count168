@@ -6573,13 +6573,15 @@ function getCurrentProcessId() {
             const formulaInput = document.getElementById('formula');
             const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
 
-            // 已选 account 但手动把 currency 改成 Select Currency 且 formula 空白时，与未选 account 一致：弹 "Please select an account" 并阻止保存
-            if (accountValue && isCurrencyPlaceholder && !formulaValue) {
+            // 未选货币：value 为空或选项为 placeholder（Select Currency）
+            const currencyNotSelected = !currencyVal || isCurrencyPlaceholder;
+            // 已选 account 但（currency 未选或为 Select Currency）且 formula 空白时，与未选 account 一致：弹 "Please select an account" 并阻止保存
+            if (accountValue && currencyNotSelected && !formulaValue) {
                 showNotification('Error', 'Please select an account', 'error');
                 return;
             }
 
-            if (!currencyVal || isCurrencyPlaceholder) {
+            if (currencyNotSelected) {
                 showNotification('Error', '请先选择 Currency 后再保存。Please select a currency.', 'error');
                 return;
             }
