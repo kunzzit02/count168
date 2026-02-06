@@ -2366,6 +2366,10 @@ function getCurrentProcessId() {
                         } else {
                             console.warn('No currencies found for account:', accountId);
                         }
+                        // Currency 选项更新后刷新弹窗 Save 按钮状态，保证空不能 Save
+                        if (typeof updateEditFormulaSaveButtonState === 'function') {
+                            updateEditFormulaSaveButtonState();
+                        }
                     }
                 } else {
                     console.error('API returned error:', result.message || result.error);
@@ -5721,17 +5725,33 @@ function getCurrentProcessId() {
                             // 仅当账户没有 MYR 时，才用行里保存的 data.currency
                             setTimeout(() => {
                                 const currencySelect = document.getElementById('currency');
-                                if (!currencySelect || !data.currency) return;
+                                if (!currencySelect || !data.currency) {
+                                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                                        updateEditFormulaSaveButtonState();
+                                    }
+                                    return;
+                                }
                                 const hasMyr = Array.from(currencySelect.options).some(opt =>
                                     (opt.textContent || '').trim().toUpperCase() === 'MYR'
                                 );
-                                if (hasMyr) return; // 有 MYR 时保持已选的 MYR
+                                if (hasMyr) {
+                                    if (typeof updateEditFormulaSaveButtonState === 'function') {
+                                        updateEditFormulaSaveButtonState();
+                                    }
+                                    return; // 有 MYR 时保持已选的 MYR
+                                }
                                 for (let option of currencySelect.options) {
                                     if ((option.textContent || '').trim() === (data.currency || '').trim()) {
                                         option.selected = true;
                                         console.log('Selected currency from data:', data.currency);
+                                        if (typeof updateEditFormulaSaveButtonState === 'function') {
+                                            updateEditFormulaSaveButtonState();
+                                        }
                                         return;
                                     }
+                                }
+                                if (typeof updateEditFormulaSaveButtonState === 'function') {
+                                    updateEditFormulaSaveButtonState();
                                 }
                             }, 100);
                         }
