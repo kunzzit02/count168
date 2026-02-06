@@ -104,6 +104,28 @@ function getMonthlyPostedIdsForDate(PDO $pdo, int $companyId, string $date, arra
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
+/** 获取曾入账过「monthly」的 process_id 列表（任意日期，用于 Monthly 第一笔是否已做过） */
+function getMonthlyEverPostedIds(PDO $pdo, int $companyId): array
+{
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
+            return [];
+        }
+        $stmt = $pdo->query("SHOW COLUMNS FROM process_accounting_posted LIKE 'period_type'");
+        if (!$stmt || $stmt->rowCount() === 0) {
+            $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ?");
+            $stmt->execute([$companyId]);
+            return array_map('intval', array_unique($stmt->fetchAll(PDO::FETCH_COLUMN)));
+        }
+        $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND (period_type = 'monthly' OR period_type IS NULL OR period_type = '')");
+        $stmt->execute([$companyId]);
+        return array_map('intval', array_unique($stmt->fetchAll(PDO::FETCH_COLUMN)));
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
 /** 获取指定日期已入账的 process_id 列表（无 period_type 时） */
 function getPostedProcessIdsForDate(PDO $pdo, int $companyId, string $date, array $processIds): array
 {
@@ -173,6 +195,8 @@ try {
     $rows = fetchActiveBankProcessesForInbox($pdo, $company_id, $hasFrequency);
     $needToday = [];
 
+    $monthlyEverPostedIds = $hasPeriodType ? getMonthlyEverPostedIds($pdo, $company_id) : [];
+
     // 1) Partial first month
     if ($hasFrequency && $hasPeriodType) {
         foreach ($rows as $r) {
@@ -227,21 +251,28 @@ try {
                 $need = ($firstAccountingDate !== '' && $today >= $firstAccountingDate);
             }
         } else {
+            // Monthly：第一笔从未入账过则马上出现在 Accounting Due；之后按每月 (day_start-1) 日出现
             if (empty($dayStart)) {
                 continue;
             }
-            $startTs = strtotime($dayStart);
-            if ($startTs === false) {
-                continue;
-            }
-            $startDayOfMonth = (int) date('j', $startTs);
-            $accountingDay = max(1, $startDayOfMonth - 1);
-            if ($dayOfMonth !== $accountingDay) {
-                $need = false;
+            $processId = (int) $r['id'];
+            $neverPostedMonthly = !in_array($processId, $monthlyEverPostedIds, true);
+            if ($neverPostedMonthly) {
+                $need = true;
             } else {
-                $firstPeriodEndTs = strtotime('-1 day', strtotime('+1 month', $startTs));
-                $firstPeriodEndDate = $firstPeriodEndTs !== false ? date('Y-m-d', $firstPeriodEndTs) : '';
-                $need = ($firstPeriodEndDate !== '' && $today >= $firstPeriodEndDate);
+                $startTs = strtotime($dayStart);
+                if ($startTs === false) {
+                    continue;
+                }
+                $startDayOfMonth = (int) date('j', $startTs);
+                $accountingDay = max(1, $startDayOfMonth - 1);
+                if ($dayOfMonth !== $accountingDay) {
+                    $need = false;
+                } else {
+                    $firstPeriodEndTs = strtotime('-1 day', strtotime('+1 month', $startTs));
+                    $firstPeriodEndDate = $firstPeriodEndTs !== false ? date('Y-m-d', $firstPeriodEndTs) : '';
+                    $need = ($firstPeriodEndDate !== '' && $today >= $firstPeriodEndDate);
+                }
             }
         }
 
