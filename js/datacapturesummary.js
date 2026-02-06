@@ -6543,75 +6543,53 @@ function getCurrentProcessId() {
 
         // Save Formula
         function saveFormula() {
-            // IMPORTANT: Always use the Id Product from the modal (the one that was set when the modal was opened)
-            // Users can select data from other id products to use in the formula, but the formula should always be saved to the original id product
-            // 重要：始终使用模态窗口中的 Id Product（打开模态窗口时设置的那个）
-            // 用户可以选择其他 id product 的数据来构建公式，但公式应该始终保存到原始的 id product
-            const processValue = document.getElementById('process').value;
+            // 第一步：只读取 Account、Currency、Formula，立即校验，任一项空则直接 return，不执行任何保存逻辑
             const accountButton = document.getElementById('account');
-            const accountValue = getAccountId(accountButton); // Database ID
+            const accountValue = accountButton ? getAccountId(accountButton) : null;
+            const currencySelect = document.getElementById('currency');
+            const currencyValue = (currencySelect && currencySelect.value != null) ? String(currencySelect.value).trim() : '';
+            const currencyName = (currencySelect && currencySelect.options[currencySelect.selectedIndex]) ? String(currencySelect.options[currencySelect.selectedIndex].text || '').trim() : '';
+            const formulaInput = document.getElementById('formula');
+            const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
+
+            if (!accountValue) {
+                showNotification('Error', 'Please select an account', 'error');
+                return;
+            }
+            if (!currencyValue || /^select\s*curren/i.test(currencyName)) {
+                showNotification('Error', 'Please select a currency', 'error');
+                return;
+            }
+            if (!formulaValue) {
+                showNotification('Error', 'Please enter a formula', 'error');
+                return;
+            }
+
+            // IMPORTANT: Always use the Id Product from the modal (the one that was set when the modal was opened)
+            const processValue = document.getElementById('process').value;
             const accountId = getAccountText(accountButton); // Display text
             // Source Percent：如果用户没有填写，则默认 1 (1 = 100%)
             let sourcePercentValue = document.getElementById('sourcePercent').value.trim();
             if (!sourcePercentValue) {
                 sourcePercentValue = '1';
             }
-            const currencySelect = document.getElementById('currency');
-            const currencyValue = currencySelect ? currencySelect.value : ''; // Database ID
-            const currencyName = (currencySelect && currencySelect.options[currencySelect.selectedIndex]) ? currencySelect.options[currencySelect.selectedIndex].text : '';
             const inputMethodSelect = document.getElementById('inputMethod');
             const inputMethodValue = inputMethodSelect.value;
             const inputMethodName = inputMethodSelect.options[inputMethodSelect.selectedIndex].text;
-            // 强制同步读取 formula 输入框的值，确保获取最新的值（包括全选删除后的空值）
-            const formulaInput = document.getElementById('formula');
-            let formulaValue = formulaInput ? formulaInput.value : '';
-            // 确保读取到的是字符串类型（即使是空字符串也要保持）
             if (formulaInput) {
-                // 强制重新读取值，确保获取最新状态
-                formulaValue = String(formulaInput.value || '');
-                console.log('saveFormula - Formula value read from input:', formulaValue, 'Type:', typeof formulaValue);
-                
-                // 新格式直接保存：当前row使用 $数字，其他row使用 [id_product,数字]
-                // 不需要转换，直接保存用户输入的格式
-                // 格式示例：
-                // - 当前row: $2, $5
-                // - 其他row: [BBB,1], [YONG,4]
+                console.log('saveFormula - Formula value read from input:', formulaInput.value, 'Type:', typeof formulaInput.value);
             }
             const descriptionValue = document.getElementById('description').value;
             const enableValue = inputMethodValue ? true : false;
-            // Auto-enable if source percent has value
             const sourcePercentEnableValue = sourcePercentValue && sourcePercentValue.trim() !== '';
 
-            // 使用当前是否有正在编辑的行来更可靠地判断是否为“编辑模式”
-            // 这样即使 window.isEditMode 在其他地方被错误重置，只要 currentEditRow 还在，我们就按编辑逻辑处理
             const isEditMode = !!window.currentEditRow;
-            
-            // Since process field is always readonly now, we determine if it's a sub id product
-            // by checking if Main column is empty (which indicates it's a sub row)
             const currentButton = window.currentAddAccountButton;
             const row = currentButton ? currentButton.closest('tr') : null;
             const idProductCell = row ? row.querySelector('td:first-child') : null;
             const productValues = getProductValuesFromCell(idProductCell);
             const isSubIdProduct = !productValues.main || !productValues.main.trim();
-            // Determine old account (when editing) to allow keeping the same
             const oldAccountDbId = (isEditMode && window.currentEditRow) ? (window.currentEditRow.querySelector('td:nth-child(2)')?.getAttribute('data-account-id') || null) : null;
-
-            // Account, Currency, Formula 均为必填；任一项为空则不允许保存
-            if (!accountValue) {
-                showNotification('Error', 'Please select an account', 'error');
-                return;
-            }
-            const currencyEmpty = !currencyValue || (typeof currencyValue === 'string' && !currencyValue.trim());
-            const currencyPlaceholder = (currencyName || '').trim() && /^select\s*curren/i.test(String(currencyName).trim());
-            if (currencyEmpty || currencyPlaceholder) {
-                showNotification('Error', 'Please select a currency', 'error');
-                return;
-            }
-            if (!formulaValue || !formulaValue.trim()) {
-                showNotification('Error', 'Please enter a formula', 'error');
-                return;
-            }
-            // Uniqueness no longer enforced: allow same account in multiple rows
             
             console.log('Formula data:', {
                 process: processValue,
@@ -13992,6 +13970,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         // Always prefer the latest numbers from Data Capture Table when available
         let resolvedSourceExpression = '';
         const savedSourceValue = mainTemplate.last_source_value || '';
+        const savedFormulaDisplay = mainTemplate.formula_display || '';
         
         // DEBUG: Log template data
         console.log('applyMainTemplateToRow DEBUG - idProduct:', idProduct, 'sourceColumnsValue:', sourceColumnsValue, 'formulaOperatorsValue:', formulaOperatorsValue, 'last_source_value:', savedSourceValue);
@@ -14200,9 +14179,8 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         // Auto-enable if source percent has value
         const enableSourcePercent = percentValue && percentValue.trim() !== '';
         
-        // Priority: Use saved formula_display if available
+        // Priority: Use saved formula_display if available (savedFormulaDisplay declared above with savedSourceValue)
         let formulaDisplay = '';
-        const savedFormulaDisplay = mainTemplate.formula_display || '';
         const isBatchSelectedTemplate = mainTemplate.batch_selection == 1;
         
         // IMPORTANT: 如果 formula_operators 包含 $数字（如 $10+$8*0.7/5），
