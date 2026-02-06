@@ -2173,17 +2173,25 @@ function getCurrentProcessId() {
             });
         }
 
-        // 根据 Account、Currency、Formula 是否填写来启用/禁用 Save 按钮（三者必填，任一项为空则禁用 Save）
+        // 根据 Account、Currency、Formula 是否填写来启用/禁用 Save 按钮（Edit Formula 里 Currency 为 Select Currency 时不能 Save）
         function updateEditFormulaSaveButtonState() {
             const saveBtn = document.getElementById('editFormulaSaveBtn');
             if (!saveBtn) return;
             const accountButton = document.getElementById('account');
             const accountValue = accountButton ? getAccountId(accountButton) : null;
             const currencySelect = document.getElementById('currency');
-            const currencyValue = (currencySelect && currencySelect.value) ? String(currencySelect.value).trim() : '';
+            let currencyOk = false;
+            if (currencySelect) {
+                const currencyValue = (currencySelect.value != null) ? String(currencySelect.value).trim() : '';
+                const idx = currencySelect.selectedIndex;
+                const opt = (idx >= 0 && currencySelect.options[idx]) ? currencySelect.options[idx] : null;
+                const currencyText = (opt && opt.text) ? String(opt.text).trim() : '';
+                const isPlaceholder = /^select\s*curren/i.test(currencyText);
+                currencyOk = !!currencyValue && !isPlaceholder && !!currencyText;
+            }
             const formulaInput = document.getElementById('formula');
             const formulaValue = (formulaInput && formulaInput.value) ? String(formulaInput.value).trim() : '';
-            saveBtn.disabled = !accountValue || !currencyValue || !formulaValue;
+            saveBtn.disabled = !accountValue || !currencyOk || !formulaValue;
         }
 
         // Load form data (currency and account) from database
