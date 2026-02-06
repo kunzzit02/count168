@@ -11,10 +11,10 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
 
-/** 统一 JSON 响应 */
+/** 统一 JSON 响应（前端用 result.error 显示失败原因，故同时返回 error 字段） */
 function jsonResponse(bool $success, string $message = '', $data = null): void
 {
-    $payload = ['success' => $success, 'message' => $message];
+    $payload = ['success' => $success, 'message' => $message, 'error' => $success ? '' : $message];
     if ($data !== null) {
         $payload['data'] = $data;
     }
@@ -121,10 +121,19 @@ try {
         exit;
     }
 
-    // 单选时 PHP 可能将 ids[] 收成标量，统一转为数组
-    $ids = isset($_POST['ids']) ? (is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [(int) $_POST['ids']]) : [];
-    $ids = array_filter($ids);
-    $periodTypes = isset($_POST['period_types']) ? (is_array($_POST['period_types']) ? $_POST['period_types'] : [$_POST['period_types']]) : [];
+    // 兼容 FormData(ids[]/period_types[]) 与 JSON body；单选时 PHP 可能将 ids[] 收成标量
+    $rawIds = $_POST['ids'] ?? $_POST['ids[]'] ?? null;
+    $rawPeriodTypes = $_POST['period_types'] ?? $_POST['period_types[]'] ?? null;
+    if ($rawIds === null && !empty($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (is_array($input)) {
+            $rawIds = $input['ids'] ?? null;
+            $rawPeriodTypes = $rawPeriodTypes ?? ($input['period_types'] ?? null);
+        }
+    }
+    $ids = $rawIds === null ? [] : (is_array($rawIds) ? array_map('intval', $rawIds) : [(int) $rawIds]);
+    $ids = array_values(array_filter($ids));
+    $periodTypes = $rawPeriodTypes === null ? [] : (is_array($rawPeriodTypes) ? $rawPeriodTypes : [$rawPeriodTypes]);
     if (empty($ids)) {
         http_response_code(400);
         jsonResponse(false, '请至少选择一个 Process', null);
