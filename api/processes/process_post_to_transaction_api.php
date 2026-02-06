@@ -294,14 +294,30 @@ try {
             $createdCount++;
         }
         // Profit：先扣 Profit Sharing 再入 Company；Profit Sharing 每笔入对应 account（均记 Win/Loss）
+        // 1st of every month 首月按比例时，Profit Sharing 金额也按「剩余天数/当月天数」折算，再分给各 account
+        $psRatio = 1.0;
+        if ($periodType === 'partial_first_month' && !empty($p['day_start'])) {
+            $ts = strtotime($p['day_start']);
+            if ($ts !== false) {
+                $daysInMonth = (int) date('t', $ts);
+                $dayOfMonth = (int) date('j', $ts);
+                $daysRemaining = $daysInMonth - $dayOfMonth + 1;
+                if ($daysInMonth > 0) {
+                    $psRatio = $daysRemaining / $daysInMonth;
+                }
+            }
+        }
         $profitSharingEntries = parseProfitSharingString($p['profit_sharing'] ?? '');
         $profitSharingResolved = [];
         $totalPs = 0;
         foreach ($profitSharingEntries as $entry) {
             $accId = resolveAccountIdByText($pdo, $companyId, $entry['account_text']);
             if ($accId !== null && $entry['amount'] > 0) {
-                $profitSharingResolved[] = ['account_id' => $accId, 'amount' => $entry['amount'], 'account_text' => $entry['account_text']];
-                $totalPs += $entry['amount'];
+                $proratedAmount = round($entry['amount'] * $psRatio, 2);
+                if ($proratedAmount > 0) {
+                    $profitSharingResolved[] = ['account_id' => $accId, 'amount' => $proratedAmount, 'account_text' => $entry['account_text']];
+                    $totalPs += $proratedAmount;
+                }
             }
         }
         $companyProfit = $profit - $totalPs;
