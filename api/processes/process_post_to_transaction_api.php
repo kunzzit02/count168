@@ -94,6 +94,27 @@ function getOrCreateCurrencyId(PDO $pdo, string $code, int $companyId): ?int
     return (int) $pdo->lastInsertId();
 }
 
+/** 检查该 process 在当日、该 period_type 是否已入账（防重复提交） */
+function isProcessAlreadyPostedToday(PDO $pdo, int $companyId, int $processId, string $date, string $periodType, bool $hasPeriodType): bool
+{
+    try {
+        $stmtCheck = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'");
+        if (!$stmtCheck || $stmtCheck->rowCount() === 0) {
+            return false;
+        }
+        if ($hasPeriodType) {
+            $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND posted_date = ? AND period_type = ? LIMIT 1");
+            $stmt->execute([$companyId, $processId, $date, $periodType]);
+        } else {
+            $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND posted_date = ? LIMIT 1");
+            $stmt->execute([$companyId, $processId, $date]);
+        }
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 /** 记录 process 已入账到 process_accounting_posted */
 function recordProcessAccountingPosted(PDO $pdo, int $companyId, int $processId, string $date, string $periodType, bool $hasPeriodType): void
 {
@@ -170,6 +191,10 @@ try {
             continue;
         }
         $periodType = $pair['period_type'];
+        // 防重复：当日同 process + period_type 已入账则跳过，避免多次点击导致金额翻倍
+        if (isProcessAlreadyPostedToday($pdo, $company_id, (int) $p['id'], $transactionDate, $periodType, $has_period_type)) {
+            continue;
+        }
         $cost = (float) ($p['cost'] ?? 0);
         $price = (float) ($p['price'] ?? 0);
         $profit = (float) ($p['profit'] ?? 0);
