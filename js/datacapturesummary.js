@@ -6266,6 +6266,15 @@ function getCurrentProcessId() {
         // rowElement: optional DOM row element to update with template_key after save
         async function saveTemplateAsync(rowData, rowElement = null) {
             try {
+                // Account、Currency、Formula 必填：任一项空则不保存到后端
+                const hasAccount = rowData.account_id != null && String(rowData.account_id).trim() !== '';
+                const hasCurrency = rowData.currency_id != null && String(rowData.currency_id).trim() !== '';
+                const hasFormula = (rowData.formula_operators != null && String(rowData.formula_operators).trim() !== '') ||
+                    (rowData.last_source_value != null && String(rowData.last_source_value).trim() !== '');
+                if (hasAccount && (!hasCurrency || !hasFormula)) {
+                    return { success: false, message: 'Currency and Formula are required.' };
+                }
+
                 const processId = getCurrentProcessId();
                 if (processId !== null) {
                     rowData.process_id = processId;
@@ -6445,6 +6454,13 @@ function getCurrentProcessId() {
                     // Skip auto-save if row has no bound account yet
                     return;
                 }
+                // Account、Currency、Formula 必填：任一项空则不自动保存
+                const currencyEmpty = !formData.currencyValue || (typeof formData.currencyValue === 'string' && !formData.currencyValue.trim());
+                const currencyPlaceholder = (formData.currencyName || '').trim() && /^select\s*curren/i.test(String(formData.currencyName).trim());
+                const formulaEmpty = !formData.formulaValue || (typeof formData.formulaValue === 'string' && !formData.formulaValue.trim());
+                if (currencyEmpty || currencyPlaceholder || formulaEmpty) {
+                    return;
+                }
                 
                 // Check if this is an empty sub row - if so, delete any existing empty template and skip saving
                 if (isSubRowEmpty(row)) {
@@ -6541,8 +6557,8 @@ function getCurrentProcessId() {
                 sourcePercentValue = '1';
             }
             const currencySelect = document.getElementById('currency');
-            const currencyValue = currencySelect.value; // Database ID
-            const currencyName = currencySelect.options[currencySelect.selectedIndex].text; // Display text
+            const currencyValue = currencySelect ? currencySelect.value : ''; // Database ID
+            const currencyName = (currencySelect && currencySelect.options[currencySelect.selectedIndex]) ? currencySelect.options[currencySelect.selectedIndex].text : '';
             const inputMethodSelect = document.getElementById('inputMethod');
             const inputMethodValue = inputMethodSelect.value;
             const inputMethodName = inputMethodSelect.options[inputMethodSelect.selectedIndex].text;
@@ -6585,7 +6601,9 @@ function getCurrentProcessId() {
                 showNotification('Error', 'Please select an account', 'error');
                 return;
             }
-            if (!currencyValue || (typeof currencyValue === 'string' && !currencyValue.trim())) {
+            const currencyEmpty = !currencyValue || (typeof currencyValue === 'string' && !currencyValue.trim());
+            const currencyPlaceholder = (currencyName || '').trim() && /^select\s*curren/i.test(String(currencyName).trim());
+            if (currencyEmpty || currencyPlaceholder) {
                 showNotification('Error', 'Please select a currency', 'error');
                 return;
             }
