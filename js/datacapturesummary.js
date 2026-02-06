@@ -1598,6 +1598,12 @@ function getCurrentProcessId() {
                     const currencySelect = document.getElementById('currency');
                     if (currencySelect) {
                         currencySelect.addEventListener('change', function() {
+                            const opt = this.options[this.selectedIndex];
+                            const text = opt ? (opt.textContent || opt.text || '').trim() : '';
+                            const val = opt ? (opt.value || '').trim() : '';
+                            if (text && val) {
+                                console.log('Currency changed to:', text);
+                            }
                             if (typeof updateEditFormulaSaveButtonState === 'function') {
                                 updateEditFormulaSaveButtonState();
                             }
