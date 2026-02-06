@@ -11,10 +11,10 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../../config.php';
 
-/** 统一 JSON 响应（前端用 result.error 显示失败原因，故同时返回 error 字段） */
+/** 统一 JSON 响应 */
 function jsonResponse(bool $success, string $message = '', $data = null): void
 {
-    $payload = ['success' => $success, 'message' => $message, 'error' => $success ? '' : $message];
+    $payload = ['success' => $success, 'message' => $message];
     if ($data !== null) {
         $payload['data'] = $data;
     }
@@ -121,19 +121,9 @@ try {
         exit;
     }
 
-    // 兼容 FormData(ids[]/period_types[]) 与 JSON body；单选时 PHP 可能将 ids[] 收成标量
-    $rawIds = $_POST['ids'] ?? $_POST['ids[]'] ?? null;
-    $rawPeriodTypes = $_POST['period_types'] ?? $_POST['period_types[]'] ?? null;
-    if ($rawIds === null && !empty($_SERVER['CONTENT_TYPE']) && strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false) {
-        $input = json_decode(file_get_contents('php://input'), true);
-        if (is_array($input)) {
-            $rawIds = $input['ids'] ?? null;
-            $rawPeriodTypes = $rawPeriodTypes ?? ($input['period_types'] ?? null);
-        }
-    }
-    $ids = $rawIds === null ? [] : (is_array($rawIds) ? array_map('intval', $rawIds) : [(int) $rawIds]);
-    $ids = array_values(array_filter($ids));
-    $periodTypes = $rawPeriodTypes === null ? [] : (is_array($rawPeriodTypes) ? $rawPeriodTypes : [$rawPeriodTypes]);
+    $ids = isset($_POST['ids']) && is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
+    $ids = array_filter($ids);
+    $periodTypes = isset($_POST['period_types']) && is_array($_POST['period_types']) ? $_POST['period_types'] : [];
     if (empty($ids)) {
         http_response_code(400);
         jsonResponse(false, '请至少选择一个 Process', null);
@@ -245,11 +235,10 @@ try {
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
-        // Sell Price 记在右边（-）：存为负数，Transaction 列表显示在右侧
-        if (!empty($p['customer_id']) && $price != 0) {
+        if (!empty($p['customer_id']) && $price > 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['customer_id'];
-            $txn['amount'] = -abs($price);
+            $txn['amount'] = $price;
             $txn['description'] = "Process: Sell Price for $processLabel" . $suffix;
             insertTransactionRow($pdo, $txn);
             $createdCount++;

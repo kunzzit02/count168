@@ -1017,10 +1017,7 @@
             if (!confirm('Post ' + pairs.length + ' selected process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
             try {
                 const formData = new FormData();
-                pairs.forEach((p, i) => {
-                    formData.append('ids[' + i + ']', p.id);
-                    formData.append('period_types[' + i + ']', p.periodType);
-                });
+                pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
                 const response = await fetch(buildApiUrl('api/processes/process_post_to_transaction_api.php'), { method: 'POST', body: formData });
                 const result = await response.json();
                 if (result.success) {
