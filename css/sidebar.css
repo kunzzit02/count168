@@ -489,7 +489,7 @@
 }
 
 .section-arrow {
-    font-size: clamp(8px, 0.625px, 12px);
+    font-size: clamp(8px, 0.625vw, 12px);
     transition: transform 0.3s ease;
     margin-left: auto;
     color: rgba(255, 255, 255, 0.8);
