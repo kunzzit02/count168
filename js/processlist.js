@@ -2980,7 +2980,8 @@
                 const result = await response.json();
 
                 if (result.success && result.data != null) {
-                    window.bankAccounts = Array.isArray(result.data) ? result.data : [];
+                    // API 返回格式为 data: { accounts: [...], count, ... }，与 Account List 一致
+                    window.bankAccounts = (result.data.accounts && Array.isArray(result.data.accounts)) ? result.data.accounts : [];
                 } else {
                     window.bankAccounts = [];
                 }
