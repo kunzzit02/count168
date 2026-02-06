@@ -6556,10 +6556,10 @@ function getCurrentProcessId() {
 
         // Save Formula
         function saveFormula() {
-            // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，先弹通知再 return
+            // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，与未选 Account 时一致：弹「Please select an account」并 return
             const currencySelect = document.getElementById('currency');
             if (!currencySelect) {
-                showNotification('Error', 'Please select a currency', 'error');
+                showNotification('Error', 'Please select an account', 'error');
                 return;
             }
             const selIdx = currencySelect.selectedIndex;
@@ -6568,7 +6568,7 @@ function getCurrentProcessId() {
             const currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
             const isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
             if (!currencyVal || isCurrencyPlaceholder) {
-                showNotification('Error', '请先选择 Currency 后再保存。Please select a currency.', 'error');
+                showNotification('Error', 'Please select an account', 'error');
                 return;
             }
 
