@@ -6547,8 +6547,14 @@ function getCurrentProcessId() {
             const accountButton = document.getElementById('account');
             const accountValue = accountButton ? getAccountId(accountButton) : null;
             const currencySelect = document.getElementById('currency');
-            const currencyValue = (currencySelect && currencySelect.value != null) ? String(currencySelect.value).trim() : '';
-            const currencyName = (currencySelect && currencySelect.options[currencySelect.selectedIndex]) ? String(currencySelect.options[currencySelect.selectedIndex].text || '').trim() : '';
+            let currencyValue = '';
+            let currencyName = '';
+            if (currencySelect) {
+                const rawVal = currencySelect.value;
+                currencyValue = (rawVal != null && rawVal !== undefined) ? String(rawVal).trim() : '';
+                const opt = currencySelect.options[currencySelect.selectedIndex];
+                currencyName = (opt && opt.text) ? String(opt.text).trim() : '';
+            }
             const formulaInput = document.getElementById('formula');
             const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
 
@@ -6556,7 +6562,7 @@ function getCurrentProcessId() {
                 showNotification('Error', 'Please select an account', 'error');
                 return;
             }
-            if (!currencyValue || /^select\s*curren/i.test(currencyName)) {
+            if (!currencyValue || /^select\s*curren/i.test(currencyName || '')) {
                 showNotification('Error', 'Please select a currency', 'error');
                 return;
             }
@@ -7166,6 +7172,15 @@ function getCurrentProcessId() {
                 // This is important because formulaValue is the user's original expression (e.g., "9+5")
                 // and should be preserved exactly as entered, not recalculated from Data Capture Table
                 rowData.last_source_value = formulaValue || '';
+                
+                // 二次校验：Currency、Formula 任一项空则绝不调用 saveTemplateAsync
+                const hasCurrencyForSave = (rowData.currency_id != null && String(rowData.currency_id).trim() !== '');
+                const hasFormulaForSave = (rowData.formula_operators != null && String(rowData.formula_operators).trim() !== '') ||
+                    (rowData.last_source_value != null && String(rowData.last_source_value).trim() !== '');
+                if (!hasCurrencyForSave || !hasFormulaForSave) {
+                    showNotification('Error', 'Currency and Formula are required. Cannot save.', 'error');
+                    return;
+                }
                 
                 // Save template asynchronously (don't block UI)
                 // Pass targetRow so template_key can be updated after save
