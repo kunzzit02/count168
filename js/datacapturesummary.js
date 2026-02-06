@@ -14139,12 +14139,13 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
         }
 
             // 如果模板没有绑定任何表格列（纯手动公式），直接用保存的公式，不尝试从表格重建
+            const formulaDisplayForManual = mainTemplate.formula_display || '';
             if ((!sourceColumnsValue || sourceColumnsValue.trim() === '') &&
                 (!formulaOperatorsValue || formulaOperatorsValue.trim() === '') &&
-                savedFormulaDisplay && savedFormulaDisplay.trim() !== '') {
+                formulaDisplayForManual && formulaDisplayForManual.trim() !== '') {
                 const formulaCell = targetRow.querySelector('td:nth-child(5)');
                 if (formulaCell) {
-                    formulaCell.innerHTML = `<span class="formula-text">${savedFormulaDisplay}</span>`;
+                    formulaCell.innerHTML = `<span class="formula-text">${formulaDisplayForManual}</span>`;
                 }
                 const processedCell = targetRow.querySelector('td:nth-child(8)');
                 if (processedCell && mainTemplate.last_processed_amount !== undefined && mainTemplate.last_processed_amount !== null) {
@@ -14152,7 +14153,7 @@ function applyMainTemplateToRow(idProduct, mainTemplate) {
                     processedCell.textContent = formatNumberWithThousands(roundProcessedAmountTo2Decimals(val));
                     processedCell.style.color = val > 0 ? '#0D60FF' : (val < 0 ? '#A91215' : '#000000');
                 }
-                targetRow.setAttribute('data-formula-display', savedFormulaDisplay);
+                targetRow.setAttribute('data-formula-display', formulaDisplayForManual);
                 targetRow.setAttribute('data-last-source-value', savedSourceValue || '');
                 targetRow.setAttribute('data-source-percent', mainTemplate.source_percent || '1');
                 updateProcessedAmountTotal();
