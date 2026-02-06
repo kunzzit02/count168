@@ -137,6 +137,16 @@ try {
             'period_type' => isset($periodTypes[$i]) && $periodTypes[$i] === 'partial_first_month' ? 'partial_first_month' : 'monthly',
         ];
     }
+    // Accounting Due 每行只入账一次：按 (process_id, period_type) 去重，避免重复提交导致同一笔数额乘多倍
+    $seen = [];
+    $pairs = array_values(array_filter($pairs, function ($p) use (&$seen) {
+        $key = $p['id'] . '_' . $p['period_type'];
+        if (isset($seen[$key])) {
+            return false;
+        }
+        $seen[$key] = true;
+        return true;
+    }));
 
     $company_id = (int) ($_SESSION['company_id'] ?? 0);
     if (!$company_id) {
