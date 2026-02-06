@@ -309,7 +309,7 @@ if ($current_user_id && count($user_companies) > 0) {
                     <!-- Bank table headers (hidden by default) -->
                     <div class="header-item bank-header" style="display: none;">No</div>
                     <div class="header-item bank-header" style="display: none;">Supplier</div>
-                    <div class="header-item bank-header" style="display: none;">Country</div>
+                    <div class="header-item bank-header" style="display: none;">Country (Currency)</div>
                     <div class="header-item bank-header" style="display: none;">Bank</div>
                     <div class="header-item bank-header" style="display: none;">Types</div>
                     <div class="header-item bank-header" style="display: none;">Card Owner</div>
@@ -682,7 +682,7 @@ if ($current_user_id && count($user_companies) > 0) {
                             <h3 class="bank-section-title">Bank Information</h3>
                             <div class="form-row bank-row-two-cols">
                                 <div class="form-group">
-                                    <label for="bank_country">Country</label>
+                                    <label for="bank_country">Country (Currency)</label>
                                     <div class="select-with-add">
                                         <select id="bank_country" name="country" class="bank-select">
                                             <option value="">Select Country</option>
