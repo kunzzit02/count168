@@ -16646,6 +16646,37 @@ function formatPercentValue(value) {
                 const summaryRows = [];
                 const seenRows = new Set(); // Track seen rows to prevent duplicates
                 
+                // 先校验：有 Account 的行必须同时填写 Currency 和 Formula，任一项空则不允许 Submit
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    const cells = row.querySelectorAll('td');
+                    const selectCheckbox = row.querySelector('.summary-select-checkbox');
+                    if (selectCheckbox && selectCheckbox.checked) continue;
+                    const accountCell = cells[1];
+                    if (!accountCell) continue;
+                    const accountText = accountCell.textContent.trim();
+                    const hasButton = accountCell.querySelector('.add-account-btn');
+                    if (!accountText || accountText === '+' || hasButton) continue;
+                    // 该行有 Account，必须填写 Currency 和 Formula
+                    const currencyText = (cells[3] && cells[3].textContent) ? cells[3].textContent.trim().replace(/[()]/g, '') : '';
+                    const formulaCell = cells[4];
+                    const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                    const currencyEmpty = !currencyText || /^select\s*curren/i.test(currencyText);
+                    const formulaEmpty = !formulaText || !formulaText.trim();
+                    if (currencyEmpty || formulaEmpty) {
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Submit';
+                        }
+                        isSubmitting = false;
+                        const msg = currencyEmpty && formulaEmpty
+                            ? 'Each row with Account must have Currency and Formula filled.'
+                            : (currencyEmpty ? 'Each row with Account must have Currency selected.' : 'Each row with Account must have Formula filled.');
+                        showNotification('Error', msg, 'error');
+                        return;
+                    }
+                }
+                
                 rows.forEach(row => {
                     const cells = row.querySelectorAll('td');
                     
