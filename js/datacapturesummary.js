@@ -427,6 +427,11 @@ function getCurrentProcessId() {
             }
             if (summarySubmitContainer) {
                 summarySubmitContainer.style.display = 'flex';
+                setTimeout(function() {
+                    if (typeof updateProcessedAmountTotal === 'function') {
+                        updateProcessedAmountTotal();
+                    }
+                }, 100);
             }
         }
 
@@ -16031,15 +16036,30 @@ function formatPercentValue(value) {
             
             let total = 0;
             let hasValue = false;
-            
+            let allRowsHaveCurrencyAndFormula = true; // 有 Account 的行必须都有 Currency 和 Formula 才能 Submit
+
             summaryTableBody.querySelectorAll('tr').forEach(row => {
-                // 如果 Select 被勾选，则这行不参与合计
                 const selectCheckbox = row.querySelector('.summary-select-checkbox');
                 if (selectCheckbox && selectCheckbox.checked) {
                     return;
                 }
 
                 const cells = row.querySelectorAll('td');
+                const accountCell = cells[1];
+                const accountText = accountCell ? accountCell.textContent.trim() : '';
+                const hasButton = accountCell ? accountCell.querySelector('.add-account-btn') : null;
+                const hasAccount = accountText && accountText !== '+' && !hasButton;
+                if (hasAccount) {
+                    const currencyText = (cells[3] && cells[3].textContent) ? String(cells[3].textContent).trim().replace(/[()]/g, '') : '';
+                    const formulaCell = cells[4];
+                    const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim() || '') : '';
+                    const currencyEmpty = !currencyText || /^select\s*curren/i.test(currencyText);
+                    const formulaEmpty = !formulaText || !String(formulaText).trim();
+                    if (currencyEmpty || formulaEmpty) {
+                        allRowsHaveCurrencyAndFormula = false;
+                    }
+                }
+
                 const processedAmountCell = cells[8]; // Processed Amount column (index 8)
                 if (processedAmountCell) {
                     const text = processedAmountCell.textContent.trim().replace(/,/g, '');
@@ -16055,20 +16075,22 @@ function formatPercentValue(value) {
             
             const finalTotal = hasValue ? total : 0;
             totalCell.textContent = formatNumberWithThousands(finalTotal);
-            // 如果 total 在 -0.05 到 0.05 之间显示蓝色，超出范围显示红色
             if (finalTotal >= -0.05 && finalTotal <= 0.05) {
-                totalCell.style.color = '#0D60FF'; // 蓝色
+                totalCell.style.color = '#0D60FF';
             } else {
-                totalCell.style.color = '#A91215'; // 红色
+                totalCell.style.color = '#A91215';
             }
             
-            // Check if total is within -0.05 to 0.05 range and enable/disable submit button
+            // Submit 按钮：合计在范围内 且 每行有 Account 的都有 Currency 和 Formula 才可点，否则变灰
             if (submitBtn) {
                 const isWithinRange = finalTotal >= -0.05 && finalTotal <= 0.05;
-                submitBtn.disabled = !isWithinRange;
+                const canSubmit = isWithinRange && allRowsHaveCurrencyAndFormula;
+                submitBtn.disabled = !canSubmit;
                 
                 if (!isWithinRange) {
                     submitBtn.title = `Total must be between -0.05 and 0.05. Current total: ${finalTotal.toFixed(2)}`;
+                } else if (!allRowsHaveCurrencyAndFormula) {
+                    submitBtn.title = '请为每一行选择 Currency 并填写 Formula 后再提交。';
                 } else {
                     submitBtn.title = '';
                 }
