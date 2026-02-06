@@ -121,9 +121,10 @@ try {
         exit;
     }
 
-    $ids = isset($_POST['ids']) && is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
+    // 单选时 PHP 可能将 ids[] 收成标量，统一转为数组
+    $ids = isset($_POST['ids']) ? (is_array($_POST['ids']) ? array_map('intval', $_POST['ids']) : [(int) $_POST['ids']]) : [];
     $ids = array_filter($ids);
-    $periodTypes = isset($_POST['period_types']) && is_array($_POST['period_types']) ? $_POST['period_types'] : [];
+    $periodTypes = isset($_POST['period_types']) ? (is_array($_POST['period_types']) ? $_POST['period_types'] : [$_POST['period_types']]) : [];
     if (empty($ids)) {
         http_response_code(400);
         jsonResponse(false, '请至少选择一个 Process', null);
