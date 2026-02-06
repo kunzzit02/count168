@@ -6543,7 +6543,7 @@ function getCurrentProcessId() {
 
         // Save Formula
         function saveFormula() {
-            // 第一步：只读取 Account、Currency、Formula，立即校验，任一项空则直接 return，不执行任何保存逻辑
+            // 第一步：只读取 Account、Currency、Formula，立即校验；Edit Formula 中 Currency 空则不能 Save
             const accountButton = document.getElementById('account');
             const accountValue = accountButton ? getAccountId(accountButton) : null;
             const currencySelect = document.getElementById('currency');
@@ -6552,7 +6552,8 @@ function getCurrentProcessId() {
             if (currencySelect) {
                 const rawVal = currencySelect.value;
                 currencyValue = (rawVal != null && rawVal !== undefined) ? String(rawVal).trim() : '';
-                const opt = currencySelect.options[currencySelect.selectedIndex];
+                const idx = currencySelect.selectedIndex;
+                const opt = (idx >= 0 && currencySelect.options[idx]) ? currencySelect.options[idx] : null;
                 currencyName = (opt && opt.text) ? String(opt.text).trim() : '';
             }
             const formulaInput = document.getElementById('formula');
@@ -6562,9 +6563,19 @@ function getCurrentProcessId() {
                 showNotification('Error', 'Please select an account', 'error');
                 return;
             }
-            if (!currencyValue || /^select\s*curren/i.test(currencyName || '')) {
+            // Edit Formula：Currency 必选，未选或占位项均不能 Save
+            const currencyPlaceholder = /^select\s*curren/i.test(currencyName || '');
+            const currencyEmpty = !currencyValue || !String(currencyValue).trim();
+            if (currencyEmpty || currencyPlaceholder || !currencyName || !String(currencyName).trim()) {
                 showNotification('Error', 'Please select a currency', 'error');
                 return;
+            }
+            if (currencySelect && currencySelect.options.length > 0 && currencySelect.selectedIndex === 0) {
+                const firstOpt = currencySelect.options[0];
+                if (firstOpt && (firstOpt.value === '' || /^select\s*curren/i.test((firstOpt.text || '').trim()))) {
+                    showNotification('Error', 'Please select a currency', 'error');
+                    return;
+                }
             }
             if (!formulaValue) {
                 showNotification('Error', 'Please enter a formula', 'error');
