@@ -16680,12 +16680,13 @@ function formatPercentValue(value) {
                     const accountText = accountCell.textContent.trim();
                     const hasButton = accountCell.querySelector('.add-account-btn');
                     if (!accountText || accountText === '+' || hasButton) continue;
-                    // 该行有 Account，必须填写 Currency 和 Formula
-                    const currencyText = (cells[3] && cells[3].textContent) ? cells[3].textContent.trim().replace(/[()]/g, '') : '';
+                    // 该行有 Account，必须填写 Currency 和 Formula；任一项空则不能 Save，并弹出通知
+                    const currencyCell = cells[3];
+                    const currencyText = (currencyCell && currencyCell.textContent) ? String(currencyCell.textContent).trim().replace(/[()]/g, '') : '';
                     const formulaCell = cells[4];
-                    const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim()) : '';
+                    const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim() || '') : '';
                     const currencyEmpty = !currencyText || /^select\s*curren/i.test(currencyText);
-                    const formulaEmpty = !formulaText || !formulaText.trim();
+                    const formulaEmpty = !formulaText || !String(formulaText).trim();
                     if (currencyEmpty || formulaEmpty) {
                         if (submitBtn) {
                             submitBtn.disabled = false;
@@ -16693,8 +16694,8 @@ function formatPercentValue(value) {
                         }
                         isSubmitting = false;
                         const msg = currencyEmpty && formulaEmpty
-                            ? 'Each row with Account must have Currency and Formula filled.'
-                            : (currencyEmpty ? 'Each row with Account must have Currency selected.' : 'Each row with Account must have Formula filled.');
+                            ? '请先填写 Currency 和 Formula 后再提交。Cannot save: Currency and Formula are required.'
+                            : (currencyEmpty ? '请先选择 Currency 后再提交。Cannot save: Currency is required.' : '请先填写 Formula 后再提交。Cannot save: Formula is required.');
                         showNotification('Error', msg, 'error');
                         return;
                     }
