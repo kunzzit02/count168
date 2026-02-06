@@ -283,11 +283,12 @@ try {
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
-        // Sell Price → Customer：记负数，在 transaction 页面显示在右边「-」侧；Cost/Profit/Profit Sharing 记正数显示在左边「+」侧
+        // Sell Price → Customer：用 LOSE + 正数 amount，Win/Loss 计算时按 -amount 显示在右边「-」侧（Customer 要还钱）；Cost/Profit/Profit Sharing 用 WIN + 正数显示在左边「+」侧
         if (!empty($p['customer_id']) && $price > 0) {
             $txn = $baseTxn;
+            $txn['transaction_type'] = 'LOSE';
             $txn['account_id'] = (int) $p['customer_id'];
-            $txn['amount'] = -round($price, 2);
+            $txn['amount'] = round($price, 2);
             $txn['description'] = "Process: Sell Price for $processLabel" . $suffix;
             insertTransactionRow($pdo, $txn);
             $createdCount++;
