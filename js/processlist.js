@@ -2046,12 +2046,11 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const cardMerchantBtn = document.getElementById('bank_card_merchant');
             const customerBtn = document.getElementById('bank_customer');
             const profitAccountBtn = document.getElementById('bank_profit_account');
-            const hasProfitSharing = !!(window.selectedProfitSharingEntries && window.selectedProfitSharingEntries.length > 0);
             const cardMerchant = cardMerchantBtn && cardMerchantBtn.getAttribute('data-value');
             const customer = customerBtn && customerBtn.getAttribute('data-value');
             const profitAccount = profitAccountBtn && profitAccountBtn.getAttribute('data-value');
-            if (!country || !bank || !type || !name || !cost || !price || !contract || !cardMerchant || !customer || !profitAccount || !hasProfitSharing) {
-                    showNotification('Please fill in all required fields. Only Insurance is optional.', 'danger');
+            if (!country || !bank || !type || !name || !cost || !price || !contract || !cardMerchant || !customer || !profitAccount) {
+                    showNotification('Please fill in all required fields. Only Insurance and Profit Sharing are optional.', 'danger');
                     return;
                 }
                 const editId = document.getElementById('bank_edit_id').value;
@@ -2146,10 +2145,9 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const cardMerchant = document.getElementById('bank_card_merchant') && document.getElementById('bank_card_merchant').getAttribute('data-value');
             const customer = document.getElementById('bank_customer') && document.getElementById('bank_customer').getAttribute('data-value');
             const profitAccount = document.getElementById('bank_profit_account') && document.getElementById('bank_profit_account').getAttribute('data-value');
-            const hasProfitSharing = !!(window.selectedProfitSharingEntries && window.selectedProfitSharingEntries.length > 0);
             const allFilled = !!(
                 country && bank && type && name && cost && price && contract &&
-                cardMerchant && customer && profitAccount && hasProfitSharing
+                cardMerchant && customer && profitAccount
             );
             btn.disabled = !allFilled;
         }
