@@ -226,8 +226,8 @@ try {
         }
 
         $suffix = $periodType === 'partial_first_month' ? ' (partial first month)' : '';
-        $isPartialFirstMonth = ($periodType === 'partial_first_month');
-        if (!$isPartialFirstMonth && !empty($p['card_merchant_id']) && $cost > 0) {
+        // Cost → Supplier(card_merchant)，Price → Customer，Profit → Company；首月按比例时三笔均用折算后的 cost/price/profit
+        if (!empty($p['card_merchant_id']) && $cost > 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['card_merchant_id'];
             $txn['amount'] = $cost;
@@ -243,7 +243,7 @@ try {
             insertTransactionRow($pdo, $txn);
             $createdCount++;
         }
-        if (!$isPartialFirstMonth && !empty($p['profit_account_id']) && $profit > 0) {
+        if (!empty($p['profit_account_id']) && $profit > 0) {
             $txn = $baseTxn;
             $txn['account_id'] = (int) $p['profit_account_id'];
             $txn['amount'] = $profit;

@@ -1043,8 +1043,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
 
 /**
  * 按 Currency 计算 Win/Loss
- * Win/Loss = Data Capture + 仅「首月按比例 Sell Price」的 WIN/LOSE（description 同时含 "Sell Price" 与 "(partial first month)"）
- * 1st of Every Month 全额、Monthly 的 Buy/Sell/Profit 全部在 Cr/Dr
+ * Win/Loss = Data Capture + 所有 Bank Process 的 WIN/LOSE（description 以 "Process: " 开头：Buy Price / Sell Price / Profit，含 Remaining days 与 1号/Monthly）
  */
 function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from, $date_to, $company_id) {
     $win_loss = 0;
@@ -1062,14 +1061,14 @@ function calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from,
     $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from, $date_to]);
     $win_loss += $stmt->fetchColumn();
 
-    // 2. 仅首月按比例的 Sell Price（description 含 Sell Price 且含 partial first month）计入 Win/Loss；Profit/Buy Price 在 Cr/Dr
+    // 2. 所有 Bank Process 的 WIN/LOSE（Cost/Sell Price/Profit，Remaining days 与 1号/Monthly 均计入 Win/Loss）
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
     if ($stmt->rowCount() > 0) {
         $sql = "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) as total
                 FROM transactions
                 WHERE company_id = ? AND account_id = ? AND transaction_date BETWEEN ? AND ?
                   AND currency_id = ? AND transaction_type IN ('WIN', 'LOSE')
-                  AND (description LIKE '%Sell Price%' AND description LIKE '%(partial first month)%')";
+                  AND (description LIKE 'Process: %')";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$company_id, $account_id, $date_from, $date_to, $currency_id]);
         $win_loss += $stmt->fetchColumn();
@@ -1097,16 +1096,16 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
     $has_currency_id = $stmt->rowCount() > 0;
 
     if ($has_currency_id) {
-        // Cr/Dr = PAYMENT/RECEIVE/CONTRA/CLAIM + 所有 WIN/LOSE 除「Sell Price + partial first month」外（仅后者在 Win/Loss）
+        // Cr/Dr = PAYMENT/RECEIVE/CONTRA/CLAIM + WIN/LOSE 中非 Bank Process 的（Bank Process 的 Cost/Price/Profit 全部在 Win/Loss）
         $sql = "
             SELECT
                 COALESCE(SUM(
                     CASE
-                        -- 作为 To Account（收到 / 支付 / Win/Lose；WIN/LOSE 仅排除「Sell Price 且 partial first month」）
+                        -- 作为 To Account（收到 / 支付 / Win/Lose；WIN/LOSE 排除 description 以 Process: 开头的 Bank Process）
                         WHEN t.account_id = :acc_id AND t.transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN t.amount
                         WHEN t.account_id = :acc_id AND t.transaction_type = 'PAYMENT' THEN t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'WIN' AND (t.description NOT LIKE '%Sell Price%' OR t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN t.amount
-                        WHEN t.account_id = :acc_id AND t.transaction_type = 'LOSE' AND (t.description NOT LIKE '%Sell Price%' OR t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN -t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                        WHEN t.account_id = :acc_id AND t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
 
                         -- 作为 From Account（支付 / 收到）
                         WHEN t.from_account_id = :acc_id AND t.transaction_type IN ('PAYMENT', 'CONTRA') THEN -t.amount
@@ -1138,13 +1137,13 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         $cr_dr += (float)($row['cr_dr'] ?? 0);
         $transaction_count += (int)($row['txn_count'] ?? 0);
     } else {
-        // 旧环境（没有 currency_id 字段）：保持原来的 data_capture 过滤逻辑
+        // 旧环境（没有 currency_id 字段）：WIN/LOSE 排除 Bank Process（description LIKE 'Process: %'）
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('RECEIVE', 'CONTRA', 'CLAIM') THEN t.amount
                         WHEN transaction_type = 'PAYMENT' THEN t.amount
-                        WHEN transaction_type = 'WIN' AND (t.description NOT LIKE '%Sell Price%' OR t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN t.amount
-                        WHEN transaction_type = 'LOSE' AND (t.description NOT LIKE '%Sell Price%' OR t.description NOT LIKE '%(partial first month)%' OR t.description IS NULL) THEN -t.amount
+                        WHEN transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                        WHEN transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
                         ELSE 0
                     END), 0) as cr_dr,
                     COUNT(*) as txn_count
