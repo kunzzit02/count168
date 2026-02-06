@@ -2178,15 +2178,13 @@ function getCurrentProcessId() {
             });
         }
 
-        // 根据 Account、Currency、Formula 是否填写来启用/禁用 Save 按钮（Edit Formula 里 Currency 为 Select Currency 或 Formula 为空时不能 Save）
+        // 根据 Account、Currency、Formula 是否填写来启用/禁用 Save 按钮（Edit Formula 里 Currency 为 Select Currency 时不能 Save）
         function updateEditFormulaSaveButtonState() {
-            const modal = document.getElementById('editFormulaModal');
-            if (!modal) return;
-            const saveBtn = modal.querySelector ? modal.querySelector('#editFormulaSaveBtn') : document.getElementById('editFormulaSaveBtn');
+            const saveBtn = document.getElementById('editFormulaSaveBtn');
             if (!saveBtn) return;
-            const accountButton = modal.querySelector ? modal.querySelector('#account') : document.getElementById('account');
+            const accountButton = document.getElementById('account');
             const accountValue = accountButton ? getAccountId(accountButton) : null;
-            const currencySelect = modal.querySelector ? modal.querySelector('#currency') : document.getElementById('currency');
+            const currencySelect = document.getElementById('currency');
             let currencyOk = false;
             if (currencySelect) {
                 const currencyValue = (currencySelect.value != null) ? String(currencySelect.value).trim() : '';
@@ -2196,7 +2194,7 @@ function getCurrentProcessId() {
                 const isPlaceholder = /^select\s*curren/i.test(currencyText);
                 currencyOk = !!currencyValue && !isPlaceholder && !!currencyText;
             }
-            const formulaInput = modal.querySelector ? modal.querySelector('#formula') : document.getElementById('formula');
+            const formulaInput = document.getElementById('formula');
             const formulaValue = (formulaInput && formulaInput.value) ? String(formulaInput.value).trim() : '';
             saveBtn.disabled = !accountValue || !currencyOk || !formulaValue;
         }
@@ -6558,42 +6556,38 @@ function getCurrentProcessId() {
 
         // Save Formula
         function saveFormula() {
-            // 从 Edit Formula 模态内取表单项，确保校验的是当前可见表单
-            const modal = document.getElementById('editFormulaModal');
-            const root = modal && (modal.style.display === 'flex' || modal.style.display === 'block') ? modal : document;
-            const accountButton = root.querySelector ? root.querySelector('#account') : document.getElementById('account');
-            const currencySelect = root.querySelector ? root.querySelector('#currency') : document.getElementById('currency');
-            const formulaInput = root.querySelector ? root.querySelector('#formula') : document.getElementById('formula');
-            const accountValue = accountButton ? getAccountId(accountButton) : null;
-            const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
-
-            let currencyVal = '';
-            let currencyText = '';
-            let isCurrencyPlaceholder = true;
-            if (currencySelect) {
-                const selIdx = currencySelect.selectedIndex;
-                const selOpt = (selIdx >= 0 && currencySelect.options[selIdx]) ? currencySelect.options[selIdx] : null;
-                currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
-                currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
-                isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
+            // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，先弹通知再 return
+            const currencySelect = document.getElementById('currency');
+            if (!currencySelect) {
+                showNotification('Error', 'Please select a currency', 'error');
+                return;
+            }
+            const selIdx = currencySelect.selectedIndex;
+            const selOpt = (selIdx >= 0 && currencySelect.options[selIdx]) ? currencySelect.options[selIdx] : null;
+            const currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
+            const currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
+            const isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
+            if (!currencyVal || isCurrencyPlaceholder) {
+                showNotification('Error', '请先选择 Currency 后再保存。Please select a currency.', 'error');
+                return;
             }
 
-            // 未选 Account、Currency 为 Select Currency 或 Formula 为空：与未选 Account 一样弹出通知并阻止保存
+            // 再校验 Account、Formula
+            const accountButton = document.getElementById('account');
+            const accountValue = accountButton ? getAccountId(accountButton) : null;
+            let currencyValue = currencyVal;
+            let currencyName = currencyText;
+            const formulaInput = document.getElementById('formula');
+            const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
+
             if (!accountValue) {
                 showNotification('Error', 'Please select an account', 'error');
                 return;
             }
-            if (!currencyVal || isCurrencyPlaceholder) {
-                showNotification('Error', 'Please select an account', 'error');
-                return;
-            }
             if (!formulaValue) {
-                showNotification('Error', 'Please select an account', 'error');
+                showNotification('Error', 'Please enter a formula', 'error');
                 return;
             }
-
-            let currencyValue = currencyVal;
-            let currencyName = currencyText;
 
             // IMPORTANT: Always use the Id Product from the modal (the one that was set when the modal was opened)
             const processValue = document.getElementById('process').value;
@@ -16723,7 +16717,10 @@ function formatPercentValue(value) {
                             submitBtn.textContent = 'Submit';
                         }
                         isSubmitting = false;
-                        showNotification('Error', 'Please select an account', 'error');
+                        const msg = currencyEmpty && formulaEmpty
+                            ? '请先填写 Currency 和 Formula 后再提交。Cannot save: Currency and Formula are required.'
+                            : (currencyEmpty ? '请先选择 Currency 后再提交。Cannot save: Currency is required.' : '请先填写 Formula 后再提交。Cannot save: Formula is required.');
+                        showNotification('Error', msg, 'error');
                         return;
                     }
                 }
