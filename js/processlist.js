@@ -597,6 +597,7 @@
                 }
                 renderSelectedProfitSharing();
                 updateBankSubmitButtonState();
+                if (typeof updateBankProfitDisplay === 'function') updateBankProfitDisplay();
                 document.getElementById('addBankModal').style.display = 'block';
             } catch (error) {
                 console.error('Error opening bank edit modal:', error);
@@ -2055,6 +2056,9 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
                 const editId = document.getElementById('bank_edit_id').value;
                 const formData = new FormData(this);
+                // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
+                const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
+                formData.set('profit', grossProfit.toFixed(2));
                 formData.append('permission', 'Bank');
                 if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
                     formData.append('card_merchant_id', cardMerchantBtn.getAttribute('data-value'));
@@ -2830,22 +2834,14 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 initBankAccountSelect('bank_profit_account', 'bank_profit_account_dropdown');
                 updateBankAddButtonTitles();
 
-                // 设置 Profit 自动计算（只初始化一次）
+                // 设置 Profit 自动计算（只初始化一次）；有 Profit Sharing 时显示扣除后的数额
                 if (!bankProfitCalculatorsInitialized) {
                     const costInput = document.getElementById('bank_cost');
                     const priceInput = document.getElementById('bank_price');
                     const profitInput = document.getElementById('bank_profit');
-
                     if (costInput && priceInput && profitInput) {
-                        function calculateProfit() {
-                            const cost = parseFloat(costInput.value) || 0;
-                            const price = parseFloat(priceInput.value) || 0;
-                            const profit = price - cost;
-                            profitInput.value = profit.toFixed(2);
-                        }
-
-                        costInput.addEventListener('input', calculateProfit);
-                        priceInput.addEventListener('input', calculateProfit);
+                        costInput.addEventListener('input', updateBankProfitDisplay);
+                        priceInput.addEventListener('input', updateBankProfitDisplay);
                         bankProfitCalculatorsInitialized = true;
                     }
                 }
@@ -3783,6 +3779,25 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         // Selected Profit Sharing list (array of { accountId, accountText, amount })
         window.selectedProfitSharingEntries = [];
 
+        /** Profit 显示为扣除 Profit Sharing 后的数额（Sell Price - Buy Price - sum(PS)） */
+        function updateBankProfitDisplay() {
+            const costInput = document.getElementById('bank_cost');
+            const priceInput = document.getElementById('bank_price');
+            const profitInput = document.getElementById('bank_profit');
+            if (!costInput || !priceInput || !profitInput) return;
+            const cost = parseFloat(costInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            const gross = price - cost;
+            const entries = window.selectedProfitSharingEntries || [];
+            let sumPs = 0;
+            entries.forEach(function (e) {
+                const amt = parseFloat(e.amount);
+                if (!isNaN(amt)) sumPs += amt;
+            });
+            const net = Math.max(0, gross - sumPs);
+            profitInput.value = net.toFixed(2);
+        }
+
         function renderSelectedProfitSharing() {
             const container = document.getElementById('selectedProfitSharingList');
             const mainInput = document.getElementById('bank_profit_sharing');
@@ -3808,6 +3823,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             });
             if (mainInput) mainInput.value = parts.join(', ');
             if (typeof updateBankSubmitButtonState === 'function') updateBankSubmitButtonState();
+            if (typeof updateBankProfitDisplay === 'function') updateBankProfitDisplay();
         }
 
         function removeProfitSharingEntry(index) {
