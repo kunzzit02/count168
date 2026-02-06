@@ -6566,7 +6566,9 @@ function getCurrentProcessId() {
             const selOpt = (selIdx >= 0 && currencySelect.options[selIdx]) ? currencySelect.options[selIdx] : null;
             const currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
             const currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
-            const isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
+            // 未选货币：value 为空、"0"、或选项文案包含 "select curren"（含 (Select Curren 等显示）
+            const isCurrencyPlaceholder = !currencyVal || currencyVal === '0' ||
+                (selIdx === 0 && selOpt && selOpt.value === '') || /select\s*curren/i.test(currencyText);
 
             const accountButton = document.getElementById('account');
             const accountValue = accountButton ? getAccountId(accountButton) : null;
@@ -6574,7 +6576,7 @@ function getCurrentProcessId() {
             const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
 
             // 未选货币：value 为空或选项为 placeholder（Select Currency）
-            const currencyNotSelected = !currencyVal || isCurrencyPlaceholder;
+            const currencyNotSelected = !currencyVal || currencyVal === '0' || isCurrencyPlaceholder;
             // 已选 account 但（currency 未选或为 Select Currency）且 formula 空白时，与未选 account 一致：弹 "Please select an account" 并阻止保存
             if (accountValue && currencyNotSelected && !formulaValue) {
                 showNotification('Error', 'Please select an account', 'error');
@@ -7201,12 +7203,12 @@ function getCurrentProcessId() {
                 // and should be preserved exactly as entered, not recalculated from Data Capture Table
                 rowData.last_source_value = formulaValue || '';
                 
-                // 二次校验：Currency、Formula 任一项空则绝不调用 saveTemplateAsync
-                const hasCurrencyForSave = (rowData.currency_id != null && String(rowData.currency_id).trim() !== '');
+                // 二次校验：Currency、Formula 任一项空则绝不调用 saveTemplateAsync（与未选 account 一致提示）
+                const hasCurrencyForSave = (rowData.currency_id != null && String(rowData.currency_id).trim() !== '' && String(rowData.currency_id).trim() !== '0');
                 const hasFormulaForSave = (rowData.formula_operators != null && String(rowData.formula_operators).trim() !== '') ||
                     (rowData.last_source_value != null && String(rowData.last_source_value).trim() !== '');
                 if (!hasCurrencyForSave || !hasFormulaForSave) {
-                    showNotification('Error', 'Currency and Formula are required. Cannot save.', 'error');
+                    showNotification('Error', 'Please select an account', 'error');
                     return;
                 }
                 
@@ -16719,7 +16721,8 @@ function formatPercentValue(value) {
                     const currencyText = (currencyCell && currencyCell.textContent) ? String(currencyCell.textContent).trim().replace(/[()]/g, '') : '';
                     const formulaCell = cells[4];
                     const formulaText = formulaCell ? (formulaCell.querySelector('.formula-text')?.textContent.trim() || formulaCell.textContent.trim() || '') : '';
-                    const currencyEmpty = !currencyText || /^select\s*curren/i.test(currencyText);
+                    // 未选货币：为空或文案包含 "select curren"（含 (Select Curren 等）
+                    const currencyEmpty = !currencyText || /select\s*curren/i.test(currencyText);
                     const formulaEmpty = !formulaText || !String(formulaText).trim();
                     if (currencyEmpty || formulaEmpty) {
                         if (submitBtn) {
@@ -16727,8 +16730,9 @@ function formatPercentValue(value) {
                             submitBtn.textContent = 'Submit';
                         }
                         isSubmitting = false;
-                        const msg = currencyEmpty && formulaEmpty
-                            ? '请先填写 Currency 和 Formula 后再提交。Cannot save: Currency and Formula are required.'
+                        // 与 Edit Formula Save 一致：有 account 但 currency/formula 未填时弹 "Please select an account"
+                        const msg = (currencyEmpty && formulaEmpty)
+                            ? 'Please select an account'
                             : (currencyEmpty ? '请先选择 Currency 后再提交。Cannot save: Currency is required.' : '请先填写 Formula 后再提交。Cannot save: Formula is required.');
                         showNotification('Error', msg, 'error');
                         return;
