@@ -4223,7 +4223,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 });
 
                 const result = await response.json();
-                const permissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                const permissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
 
                 const permissionContainer = document.getElementById('process-list-permission-buttons');
                 permissionContainer.innerHTML = '';
