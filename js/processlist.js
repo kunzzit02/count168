@@ -1015,8 +1015,6 @@
                 return;
             }
             if (!confirm('Post ' + pairs.length + ' selected process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
-            const postBtn = document.getElementById('processAccountingInboxPostBtn');
-            if (postBtn) postBtn.disabled = true;
             try {
                 const formData = new FormData();
                 pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
@@ -1029,12 +1027,10 @@
                     fetchProcesses();
                 } else {
                     showNotification(result.error || 'Post failed.', 'danger');
-                    if (postBtn) postBtn.disabled = false;
                 }
             } catch (err) {
                 console.error('transaction error:', err);
                 showNotification('Request failed: ' + err.message, 'danger');
-                if (postBtn) postBtn.disabled = false;
             }
         }
 
