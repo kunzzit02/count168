@@ -1,0 +1,1416 @@
+﻿body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    height: 100vh; /* 添加这行 */
+    background-color: #e9f1ff;
+    background-image:
+        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
+        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
+    background-blend-mode: screen, screen, multiply, screen, normal;
+    color: #334155;
+    overflow-x: hidden;
+    overflow-y: hidden; /* 添加这行，禁止垂直滚动 */
+}
+
+.container {
+    max-width: none;
+    margin: 0;
+    padding: 1px 40px 20px clamp(180px, 14.06vw, 270px);
+    width: 100%;
+    height: 100vh; /* 添加这行 */
+    box-sizing: border-box;
+    overflow: hidden; /* 添加这行 */
+}
+
+h1 {
+    color: #002C49;
+    text-align: left;
+    margin-top: clamp(12px, 1.04vw, 20px);
+    margin-bottom: clamp(16px, 1.35vw, 26px);
+    font-size: clamp(26px, 2.08vw, 40px);
+    font-family: 'Amaranth';
+    font-weight: 500;
+    letter-spacing: -0.025em;
+}
+
+.action-buttons-container {
+    margin-top: 20px;
+    background-color: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-buttons {
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+/* 横线样式 - 超出container */
+.separator-line {
+    width: 100vw;
+    height: 2px;
+    background-color: #939393;
+    margin: 5px 0 -10px 0;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+}
+
+.table-container {
+    overflow-x: visible;
+    margin-top: 0;
+    border: none;
+    border-radius: 0;
+    max-height: calc(100vh - 200px); /* 添加这行，限制最大高度 */
+    overflow-y: auto; /* 添加这行，允许表格内部滚动 */
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn:hover::after {
+    transform: translateX(120%);
+}
+
+.btn-add {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: white;
+    font-family: 'Amaranth';
+    width: clamp(80px, 6.25vw, 120px);
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: clamp(10px, 0.83vw, 16px);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    --sweep-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+}
+
+.btn-add:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-edit {
+    background-color: transparent;
+    color: black;
+    padding: clamp(2px, 0.31vw, 6px) 0;
+    margin: 0px;
+    border: transparent;
+    cursor: pointer;
+}
+
+.btn-edit:hover {
+    background-color: transparent;
+    box-shadow: none;
+}
+
+.btn-edit img {
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(10px, 0.83vw, 16px);
+    display: block;
+    object-fit: contain;
+    /* 响应式的轻微粗体效果 */
+    filter: drop-shadow(clamp(0.02px, 0.01vw, 0.1px) 0 0 currentColor) drop-shadow(clamp(-0.05px, -0.01vw, -0.1px) 0 0 currentColor);
+}
+
+.btn-delete {
+    background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
+    color: white;
+    font-family: 'Amaranth';
+    width: clamp(90px, 6.25vw, 120px);
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: clamp(10px, 0.83vw, 16px);
+    margin-left: 10px;
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+    --sweep-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+}
+
+.btn-delete:hover {
+    background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-delete.active {
+    background: linear-gradient(180deg, #49a70bff 0%, #15581aff 100%) !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3) !important;
+}
+
+.btn-cancel {
+    background: linear-gradient(180deg, #bcbcbc 0%, #585858 100%);
+    color: white;
+    font-family: 'Amaranth';
+    width: clamp(80px, 6.25vw, 120px);
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: clamp(10px, 0.83vw, 16px);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(88, 88, 88, 0.3);
+    --sweep-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+}
+
+.btn-cancel:hover {
+    background: linear-gradient(180deg, #585858 0%, #bcbcbc 100%);
+    box-shadow: 0 4px 8px rgba(84, 84, 84, 0.4);
+    transform: translateY(-1px);
+}
+
+
+/* Status and Role Badges */
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: clamp(0px, 0.1vw, 2px) clamp(4px, 0.42vw, 8px);
+    border-radius: 20px;
+    font-size: clamp(6px, 0.63vw, 12px);
+    font-weight: bold;
+    text-transform: capitalize;
+}
+
+.status-active { 
+    background-color: #beffd4; 
+    color: #000000ff;
+    border: 1px solid #beffd4;
+}
+
+.status-inactive { 
+    background-color: #ffc3c3; 
+    color: #000000ff;
+    border: 1px solid #ffc3c3;
+}
+
+.status-clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.status-clickable:hover {
+    opacity: 0.8;
+    transform: scale(1.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.status-clickable:active {
+    transform: scale(0.95);
+}
+
+.role-admin { 
+    background-color: #ffe0e0; 
+    color: #a30b0b;
+    border: 1px solid #ffa8a8;
+}
+
+.role-manager { 
+    background-color: #ffe5cc; 
+    color: #a24700;
+    border: 1px solid #ffc58c;
+}
+
+.role-supervisor { 
+    background-color: #dff4e7; 
+    color: #0f6d38;
+    border: 1px solid #bbe9cf;
+}
+
+.role-accountant { 
+    background-color: #dfe3ff; 
+    color: #14228a;
+    border: 1px solid #bfc7ff;
+}
+
+.role-audit { 
+    background-color: #f0e1ff; 
+    color: #4f148f;
+    border: 1px solid #ddbdfd;
+}
+
+.role-customer-service { 
+    background-color: #eceef2; 
+    color: #3e434f;
+    border: 1px solid #d6d9e1;
+}
+
+.role-owner { 
+    background-color: #f2dfd2; 
+    color: #5f2e0f;
+    border: 1px solid #dbb99a;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    background-color: #ffffff;
+    margin: 5% auto;
+    padding: 0;
+    border: none;
+    border-radius: 16px;
+    width: clamp(700px, 62.5vw, 1200px);
+    max-width: 900px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+/* 编辑模式下的 modal 更大 - 几乎填满整个页面（整体再往上贴一点） */
+.modal-content.edit-mode {
+    position: relative;
+    width: min(1920px, calc(100vw - clamp(20px, 2.08vw, 40px)));
+    max-width: min(1920px, calc(100vw, calc(100vw - clamp(20px, 2.08vw, 40px))));
+    margin: 10px auto;
+    max-height: min(1080px, calc(100vh - clamp(20px, 1.85vw, 40px)));
+    height: auto;
+}
+
+/* 编辑模式下缩小标题区域 */
+.modal-content.edit-mode h2 {
+    padding: clamp(4px, 0.42vw, 8px) clamp(16px, 1.67vw, 32px);
+}
+
+.modal-content h2 {
+    background-color: #f8fafc;
+    margin: 0;
+    padding: clamp(6px, 0.73vw, 14px) clamp(16px, 1.67vw, 32px);
+    font-size: clamp(14px, 1.25vw, 24px);
+    font-weight: bold;
+    color: #1e293b;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-body {
+    padding: clamp(10px, 1.04vw, 20px) clamp(16px, 1.67vw, 32px);
+    display: flex;
+    gap: clamp(16px, 1.67vw, 32px);
+    align-items: stretch;
+    min-height: clamp(300px, 20.83vw, 400px); /* 添加这行 */
+}
+
+ /* 编辑模式下的 modal-body 布局 */
+ .modal-content.edit-mode .modal-body {
+     gap: clamp(12px, 1.25vw, 24px);
+     min-height: calc(98vh - clamp(80px, 6.25vw, 120px));
+     max-height: calc(98vh - clamp(80px, 6.25vw, 120px));
+     overflow-y: auto;
+     align-items: stretch; /* 确保所有子元素高度一致 */
+     padding-top: clamp(6px, 0.52vw, 10px); /* 减少顶部间距，让内容更靠上 */
+     padding-bottom: clamp(60px, 4.17vw, 80px); /* 增加底部间距，让内容和按钮距离更远 */
+ }
+
+  /* 左侧 User Information 表单布局 - 始终单列纵向排版 */
+  .user-info-grid {
+     display: block;
+ }
+
+ .modal-content.edit-mode .user-info-grid .form-group.user-info-field {
+     margin-bottom: clamp(4px, 0.42vw, 8px);
+ }
+
+ /* 确保两个面板高度一致（基础样式） */
+ .user-info-panel, .permissions-panel {
+     display: flex;
+     flex-direction: column;
+     flex: 1;
+     min-height: 100%; /* 修改这行，从 500px 改为 100% */
+ }
+
+ /* Add User（非 edit-mode）时：左右各 50% 宽度，视觉 balance */
+ .modal-content:not(.edit-mode) .user-info-panel,
+ .modal-content:not(.edit-mode) .permissions-panel {
+     flex: 0 0 50%;
+     max-width: 50%;
+ }
+
+ /* 编辑模式下 user-info-panel 更小 - 与 permissions-container 同宽 */
+ .modal-content.edit-mode .user-info-panel {
+     flex: 0 0 clamp(300px, 23.44vw, 450px);
+     width: clamp(300px, 23.44vw, 450px);
+     max-width: clamp(300px, 23.44vw, 450px);
+     min-width: clamp(300px, 23.44vw, 450px);
+     height: 100%;
+     align-self: stretch;
+ }
+
+/* 编辑模式下 permissions-panel 布局调整 */
+.modal-content.edit-mode .permissions-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    align-self: stretch;
+}
+
+/* 编辑模式下 permissions-container 和 accountProcessPermissionsSection 并排 - 与 user-info-panel 同宽 */
+.modal-content.edit-mode .permissions-container {
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.modal-content.edit-mode #accountProcessPermissionsSection {
+    flex: 1;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+    display: flex !important;
+    flex-direction: row;
+    gap: clamp(12px, 1.25vw, 24px);
+    min-width: 0;
+    overflow-y: auto;
+    max-height: calc(98vh - clamp(120px, 12.5vw, 200px));
+    min-height: clamp(400px, 36.46vw, 700px);
+    box-sizing: border-box;
+}
+
+/* Account 和 Process 部分各占一半 */
+.modal-content.edit-mode #accountProcessPermissionsSection > .form-group {
+    flex: 1;
+    margin-bottom: 0;
+    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 编辑模式下 Account 和 Process 网格高度调整 */
+.modal-content.edit-mode #accountProcessPermissionsSection .account-grid {
+    max-height: clamp(400px, 40vw, 600px);
+}
+
+.user-info-panel form {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* 添加这行 */
+}
+
+.user-info-panel .form-actions {
+    margin-top: 2px; /* 将按钮推到底部 */
+}
+
+ .permissions-panel .permissions-container {
+     flex: 1; /* 让权限容器占用剩余空间 */
+ }
+
+/* 编辑模式下确保 permissions-container 高度与 user-info-panel 一致 */
+.modal-content.edit-mode .permissions-container {
+    height: 100%;
+    min-height: 0;
+}
+
+.permissions-panel .permissions-actions {
+    margin-top: auto; /* 将按钮推到底部 */
+}
+
+.close {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    color: #64748b;
+    font-size: 24px;
+    font-weight: 300;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.close:hover,
+.close:focus {
+    background-color: #f1f5f9;
+    color: #334155;
+}
+
+.form-group {
+    margin-bottom: clamp(10px, 1.04vw, 20px);
+}
+
+/* 编辑模式下缩小 form-group 间距 */
+.modal-content.edit-mode .user-info-panel .form-group {
+    margin-bottom: clamp(6px, 0.63vw, 12px);
+}
+
+.form-group label {
+    display: block;
+    margin: clamp(2px, 0.21vw, 4px) 0px;
+    font-weight: bold;
+    color: #374151;
+    font-size: clamp(10px, 0.73vw, 14px);
+}
+
+/* 编辑模式下缩小 label 间距 */
+.modal-content.edit-mode .user-info-panel .form-group label {
+    margin-bottom: clamp(2px, 0.21vw, 4px);
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    font-size: clamp(8px, 0.73vw, 14px);
+    box-sizing: border-box;
+    transition: all 0.2s;
+    background-color: white;
+}
+
+/* 编辑模式下缩小 input 和 select 的 padding */
+.modal-content.edit-mode .user-info-panel .form-group input,
+.modal-content.edit-mode .user-info-panel .form-group select {
+    padding: clamp(3px, 0.31vw, 6px) clamp(6px, 0.73vw, 14px);
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* C168公司：密码和二级密码在同一行左右排版 */
+.password-row-container {
+    display: flex;
+    gap: clamp(8px, 0.83vw, 16px);
+    align-items: flex-start;
+    width: 100%;
+}
+
+.password-field-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* 防止flex子元素溢出 */
+}
+
+.password-field-wrapper label {
+    display: block;
+    margin: clamp(2px, 0.21vw, 4px) 0px;
+    font-weight: bold;
+    color: #374151;
+    font-size: clamp(10px, 0.73vw, 14px);
+}
+
+.password-field-wrapper input {
+    width: 100%;
+    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    font-size: clamp(8px, 0.73vw, 14px);
+    box-sizing: border-box;
+    transition: all 0.2s;
+    background-color: white;
+}
+
+.password-field-wrapper input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* 编辑模式下缩小 password-field-wrapper 的样式 */
+.modal-content.edit-mode .password-row-container {
+    margin-bottom: clamp(6px, 0.63vw, 12px);
+}
+
+.modal-content.edit-mode .password-field-wrapper label {
+    margin-bottom: clamp(2px, 0.21vw, 4px);
+}
+
+.modal-content.edit-mode .password-field-wrapper input {
+    padding: clamp(3px, 0.31vw, 6px) clamp(6px, 0.73vw, 14px);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: clamp(10px, 1.46vw, 28px);
+    padding-top: clamp(12px, 1.04vw, 20px);
+    border-top: 1px solid #e2e8f0;
+}
+
+ /* 编辑模式下：Save / Cancel 移到整个弹窗底部居中 */
+ .modal-content.edit-mode .user-info-panel .form-actions {
+     position: absolute;
+     left: 50%;
+     bottom: clamp(16px, 1.25vw, 24px);
+     transform: translateX(-50%);
+     margin-top: 0;
+     padding-top: clamp(6px, 0.52vw, 10px);
+     border-top: 2px solid #e2e8f0;
+     justify-content: center;
+     gap: clamp(8px, 0.83vw, 16px);
+     width: calc(100vw - clamp(40px, 4.17vw, 80px));
+     max-width: calc(1920px - clamp(40px, 4.17vw, 80px));
+     box-sizing: border-box;
+ }
+
+.btn-save {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: white;
+    font-family: 'Amaranth';
+    width: clamp(80px, 6.25vw, 120px);
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: clamp(10px, 0.83vw, 16px);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    --sweep-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+}
+
+.btn-save:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    box-shadow: 0 4px 8px rgba(1, 59, 153, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-save:hover::after {
+    transform: translateX(120%);
+}
+
+/* Checkbox styles */
+.user-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-block;
+    margin-left: clamp(10px, 0.73vw, 14px);
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(10px, 0.83vw, 16px);
+    border: 2px solid #000000ff;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    background-color: white;
+}
+
+.user-checkbox:checked {
+    background-color: #000000ff;
+}
+
+.user-checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    color: white;
+    font-size: clamp(8px, 0.73vw, 14px);
+    font-weight: bold;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+#cancelDeleteBtn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+}
+
+/* Notification styles */
+.notification-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 400px;
+}
+
+.notification {
+    padding: 16px 20px;
+    border-radius: 12px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateX(100%);
+    transition: all 0.3s ease-in-out;
+    font-weight: 500;
+    position: relative;
+    word-wrap: break-word;
+    border-left: 4px solid;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification-success {
+    background-color: #f0fdf4;
+    color: #166534;
+    border-left-color: #22c55e;
+}
+
+.notification-danger {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border-left-color: #ef4444;
+}
+
+/* Permissions panel */
+.permissions-panel {
+    border-left: 1px solid #e2e8f0;
+    padding-left: clamp(16px, 1.67vw, 32px);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 编辑模式下 permissions-panel 横向布局 */
+.modal-content.edit-mode .permissions-panel {
+    flex-direction: column;
+}
+
+/* 编辑模式下 permissions-panel 内部创建横向容器 */
+.modal-content.edit-mode .permissions-panel > h3 {
+    margin-bottom: clamp(6px, 0.63vw, 12px);
+}
+
+/* 默认情况下 permissions-panel-wrapper 是纵向布局（添加模式） */
+.permissions-panel-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+/* 编辑模式下显示横向布局 */
+.modal-content.edit-mode .permissions-panel-wrapper {
+    flex-direction: row;
+    gap: clamp(8px, 0.94vw, 18px);
+    min-height: 0;
+    height: 100%;
+    align-items: stretch;
+}
+
+/* 添加模式下 permissions-container-wrapper 显示（在 permissions-panel-wrapper 内） */
+.permissions-container-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+/* 编辑模式下：左侧 User Information 下方的 sidebar permissions 容器（通过 JS 动态移动） */
+.edit-mode-permissions-container {
+    display: none;
+}
+
+.modal-content.edit-mode .edit-mode-permissions-container {
+    display: block;
+    margin-top: clamp(8px, 0.73vw, 14px);
+}
+
+.modal-content.edit-mode .edit-mode-permissions-container h3 {
+    margin-top: clamp(8px, 0.73vw, 14px);
+    margin-bottom: clamp(6px, 0.52vw, 10px);
+    border-bottom: 2px solid #1a237e;
+    padding-bottom: clamp(4px, 0.42vw, 8px);
+    font-size: clamp(12px, 0.94vw, 18px);
+    font-weight: 600;
+}
+
+/* 左侧下方的 sidebar permissions 列表高度稍微矮一点，避免和下方按钮挤在一起 */
+.modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
+    max-height: clamp(220px, 28vh, 450px);
+}
+
+/* 编辑模式下调整左侧 sidebar permission 选项的上下间距（调宽） */
+.modal-content.edit-mode .edit-mode-permissions-container .permissions-container {
+    row-gap: clamp(6px, 0.52vw, 10px);
+}
+
+.modal-content.edit-mode .edit-mode-permissions-container .permission-item {
+    margin-bottom: clamp(2px, 0.31vw, 6px);
+    padding: clamp(4px, 0.42vw, 8px) 0px;
+}
+
+ /* 编辑模式下左侧容器（包含 permissions-container 和 permissions-actions）- 与 user-info-panel 同宽 */
+ .modal-content.edit-mode .permissions-container-wrapper {
+     flex: 0 0 clamp(300px, 20vw, 450px);
+     width: clamp(300px, 20vw, 450px);
+     max-width: clamp(300px, 20vw, 450px);
+     min-width: clamp(300px, 20vw, 450px);
+     box-sizing: border-box;
+     padding: 0;
+ }
+
+ /* 编辑模式下 permissions-container 调整 - 与 user-info-panel 同高同宽
+    同时保持左右两列 grid 排版，跟 User Information 一样 */
+ .modal-content.edit-mode .permissions-container {
+     margin-bottom: 0;
+     flex: 1;
+     width: clamp(300px, 23.44vw, 450px);
+     box-sizing: border-box;
+     display: grid;
+     grid-template-columns: repeat(2, minmax(0, 1fr));
+     grid-auto-flow: column;
+     column-gap: clamp(8px, 0.73vw, 14px);
+     row-gap: clamp(4px, 0.42vw, 8px);
+     align-content: flex-start;
+ }
+
+/* 确保 user-info-panel 和 permissions-panel 高度一致 */
+.modal-content.edit-mode .user-info-panel,
+.modal-content.edit-mode .permissions-panel {
+    height: 100%;
+    align-items: stretch;
+}
+
+/* 确保 permissions-container-wrapper 高度填满 */
+.modal-content.edit-mode .permissions-container-wrapper {
+    height: 100%;
+    align-items: stretch;
+}
+
+/* 编辑模式下 permissions-actions 保持在 permissions-container 底部 */
+.modal-content.edit-mode .permissions-actions {
+    margin-top: auto;
+}
+
+.permissions-panel h3 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #1a237e;
+    padding-bottom: clamp(6px, 0.52vw, 10px);
+    font-size: clamp(12px, 0.94vw, 18px);
+    font-weight: bold;
+}
+
+.user-info-panel h3 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #1a237e;
+    padding-bottom: clamp(6px, 0.52vw, 10px);
+    font-size: clamp(12px, 0.94vw, 18px);
+    font-weight: 600;
+}
+
+/* 编辑模式下缩小 h3 间距 */
+.modal-content.edit-mode .user-info-panel h3 {
+    margin-bottom: clamp(8px, 0.73vw, 14px);
+    padding-bottom: clamp(4px, 0.42vw, 8px);
+}
+
+ /* Sidebar Permissions：改为 2 列 Grid 排版（像 User Information）
+    左列：Home / Admin / Account / Process
+    右列：Data Capture / Transaction Payment / Report / Maintenance */
+  /* 基础模式（Add User）下的 sidebar permissions：单列纵向列表，右侧高度略高 */
+  .permissions-container {
+      max-height: clamp(380px, 60vh, 620px);
+      min-height: 260px;
+      overflow-y: auto;
+      flex: 1;
+      margin-bottom: auto;
+      display: flex;
+      flex-direction: column;
+  }
+
+  /* 左列：Home / Admin / Account / Process（第 1〜4 个） */
+  .permissions-container .permission-item:nth-child(1),
+  .permissions-container .permission-item:nth-child(2),
+  .permissions-container .permission-item:nth-child(3),
+  .permissions-container .permission-item:nth-child(4) {
+      grid-column: 1;
+  }
+
+  /* 右列：Data Capture / Transaction Payment / Report / Maintenance（第 5〜8 个） */
+  .permissions-container .permission-item:nth-child(5),
+  .permissions-container .permission-item:nth-child(6),
+  .permissions-container .permission-item:nth-child(7),
+  .permissions-container .permission-item:nth-child(8) {
+      grid-column: 2;
+  }
+
+ /* 编辑模式下 permissions-container 固定宽度（不改布局，只控制宽度） */
+ .modal-content.edit-mode .permissions-container {
+     flex: 0 0 45%;
+     max-width: 500px;
+     margin-bottom: 0;
+ }
+
+.permission-item {
+    margin-bottom: clamp(0px, 0.42vw, 7px);
+    padding: clamp(4px, 0.52vw, 10px) 0px;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+    border: 1px solid transparent;
+}
+
+.permission-item:hover {
+    background-color: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.permission-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-size: clamp(10px, 0.73vw, 14px);
+    font-weight: bold;
+}
+
+.permission-checkbox {
+    margin-right: clamp(6px, 0.625vw, 12px);
+    width: clamp(12px, 0.73vw, 14px);
+    height: clamp(12px, 0.73vw, 14px);
+    accent-color: #6366f1;
+}
+
+.permission-name {
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.52vw, 10px);
+    color: #374151;
+    white-space: nowrap;
+}
+
+.permission-icon {
+    width: clamp(14px, 0.94vw, 18px);
+    height: 18px;
+    color: #6b7280;
+}
+
+.permissions-actions {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+     gap: 12px;
+     justify-content: center; /* 让 Select All / Clear All 居中 */
+}
+
+/* 编辑模式下 permissions-actions 保持在 permissions-container 底部 */
+.modal-content.edit-mode .permissions-actions {
+    margin-top: auto;
+}
+
+/* 确保表单元素占满剩余空间 */
+.user-info-panel .form-group:last-of-type {
+    margin-bottom: auto;
+}
+
+/* 确保权限面板的按钮对齐到底部 */
+.permissions-panel {
+    justify-content: space-between;
+}
+
+.btn-secondary {
+    background: linear-gradient(180deg, #44e44d 0%, #227426 100%);
+    color: white;
+    font-family: 'Amaranth';
+    width: clamp(80px, 6.25vw, 120px);
+    padding: clamp(6px, 0.42vw, 8px) 0px;
+    font-size: clamp(10px, 0.83vw, 16px);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+    --sweep-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background: linear-gradient(180deg, #227426 0%, #44e44d 100%);
+    box-shadow: 0 4px 8px rgba(0, 141, 28, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-clearall {
+    background: linear-gradient(180deg, #F30E12 0%, #A91215 100%);
+    color: white;
+    font-family: 'Amaranth';
+    width: clamp(90px, 6.25vw, 120px);
+    padding: clamp(6px, 0.42vw, 8px) 20px;
+    font-size: clamp(10px, 0.83vw, 16px);
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+    --sweep-color: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+}
+
+.btn-clearall:hover {
+    background: linear-gradient(180deg, #A91215 0%, #F30E12 100%);
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-secondary:first-child {
+    margin-left: 0;
+}
+
+/* Input formatting */
+#login_id, #name {
+    text-transform: uppercase;
+}
+
+#email {
+    text-transform: lowercase;
+}
+
+/* Search input styles */
+.search-container {
+    position: relative;
+}
+
+.search-icon {
+    position: absolute;
+    left: 10px;
+    top: 25%;
+    z-index: 2;
+    width: clamp(10px, 0.83vw, 16px);
+    height: clamp(14px, 0.83vw, 16px);
+    pointer-events: none;
+    object-fit: contain;
+}
+
+.search-input {
+    width: clamp(165px, 13vw, 250px);
+    padding: 7px 2px clamp(6px, 0.42vw, 8px) clamp(20px, 2.08vw, 32px) !important;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 6px;
+    font-size: clamp(10px, 0.8vw, 15px);
+    background: rgba(255, 255, 255, 1);
+    color: #000000ff;
+    backdrop-filter: blur(8px) saturate(1.2);
+    -webkit-backdrop-filter: blur(8px) saturate(1.2);
+    box-shadow: 0 3px 4px rgba(15, 23, 42, 0.1);
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 3px 4px rgba(15, 23, 42, 0.1);
+    background: rgba(255, 255, 255, 1);
+}
+
+/* Hide rows when filtered */
+.table-row-hidden {
+    display: none !important;
+}
+
+/* Checkbox section */
+.checkbox-section {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    background: transparent;
+}
+
+.checkbox-section input[type="checkbox"] {
+    width: 0.9375rem;
+    height: 0.9375rem;
+    accent-color: #1a237e;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 2px solid #000000ff;
+    border-radius: 3px;
+    background-color: white;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.checkbox-section input[type="checkbox"]:checked {
+    background-color: #1a237e;
+    border-color: #1a237e;
+}
+
+.checkbox-section input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.checkbox-section label {
+    font-size: clamp(10px, 0.8vw, 15px);
+    color: #495057;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+/* 新的卡片式表格样式 */
+.table-container {
+    overflow-x: visible;
+    margin-top: 0px;
+    border: none;
+    border-radius: 0;
+}
+
+.table-header {
+    display: grid;
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.5fr 1.5fr 2.5fr 2fr 1.95fr;
+    gap: 15px;
+    padding: 0px 20px;
+    background: linear-gradient(180deg, #60C1FE 0%, #0F61FF 100%);
+    border-radius: 8px 8px 0 0;
+    margin-top: 20px;
+    font-weight: bold;
+    color: white;
+    font-size: clamp(10px, 0.89vw, 17px);
+    min-width: 0; /* 允许内容收缩 */
+}
+
+/* 可排序的表头项 */
+.header-sortable {
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.2s ease;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.header-sortable:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 排序指示器 */
+.sort-indicator {
+    font-size: clamp(8px, 0.6vw, 12px);
+    color: rgba(255, 255, 255, 0.8);
+    display: inline;
+    margin-left: 4px;
+}
+
+.sort-indicator[style*="display: inline"] {
+    display: inline !important;
+}
+
+.user-cards {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 250px);
+    overflow-y: auto;
+}
+
+.user-card {
+    display: none;
+    grid-template-columns: 1fr 2fr 2fr 3.5fr 2.5fr 1.5fr 2.5fr 2.45fr 1.53fr;
+    gap: 15px;
+    padding: clamp(1px, 0.21vw, 4px) 22px;
+    background: #f0e5fb;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+    align-items: center;
+    transition: all 0.2s ease;
+    min-width: 0; /* 允许内容收缩 */
+}
+
+.user-card.show-card {
+    display: grid;  /* 添加新class来显示 */
+}
+
+/* Zebra striping for cards - 基于索引而不是 DOM 位置 */
+.user-card.row-even {
+    background: #cceeff99;
+}
+.user-card.row-odd {
+    background: #ffffff;
+}
+
+.user-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.card-item {
+    font-size: clamp(12px, 0.82vw, 15px);
+    font-weight: bold;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Force uppercase for specific columns */
+.card-item.uppercase-text {
+    text-transform: uppercase;
+}
+
+/* 分页样式 - 修改为图片中的设计 */
+.pagination-container {
+    position: fixed;
+    bottom: clamp(15px, 1.56vw, 30px);
+    right: 40px;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 0px;
+    border-radius: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    z-index: 100;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.pagination-btn {
+    background: transparent;
+    border: none;
+    color: #007AFF;
+    font-size: clamp(8px, 0.83vw, 16px);
+    font-weight: 500;
+    width: clamp(20px, 1.46vw, 28px);
+    height: clamp(20px, 1.46vw, 28px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 14px;
+    transition: all 0.2s ease;
+    margin: 0;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background-color: rgba(0, 122, 255, 0.1);
+    color: #0056b3;
+}
+
+.pagination-btn:disabled {
+    color: #C7C7CC;
+    cursor: not-allowed;
+}
+
+.pagination-info {
+    font-size: clamp(10px, 0.78vw, 15px);
+    font-weight: 500;
+    color: #000000;
+    margin: 0 clamp(0px, 0.63vw, 12px);
+    white-space: nowrap;
+    width: clamp(30px, 3.13vw, 60px);
+    text-align: center;
+}
+
+/* Custom Confirmation Modal */
+#confirmModal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.2s ease-out;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.confirm-modal-content {
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fafc 100%);
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 24px;
+    width: clamp(400px, 35vw, 550px);
+    max-width: 90%;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    animation: slideDown 0.3s ease-out;
+    overflow: hidden;
+    position: relative;
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-80px) scale(0.95);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.confirm-icon-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-top: clamp(30px, 2.6vw, 50px);
+    padding-bottom: clamp(15px, 1.3vw, 25px);
+}
+
+.confirm-icon {
+    width: clamp(50px, 4.17vw, 80px);
+    height: clamp(50px, 4.17vw, 80px);
+    color: #dc2626;
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    border-radius: 50%;
+    padding: clamp(10px, 0.83vw, 16px);
+    animation: iconPulse 2s ease-in-out infinite;
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+    }
+}
+
+.confirm-title {
+    text-align: center;
+    color: #1e293b;
+    font-size: clamp(20px, 1.67vw, 32px);
+    font-weight: 700;
+    margin: 0 0 clamp(15px, 1.3vw, 25px) 0;
+    font-family: 'Amaranth', -apple-system, sans-serif;
+    letter-spacing: -0.02em;
+}
+
+.confirm-message {
+    text-align: center;
+    font-size: clamp(13px, 0.94vw, 18px);
+    color: #475569;
+    line-height: 1.7;
+    margin: 0;
+    padding: 0 clamp(25px, 2.08vw, 40px);
+    white-space: pre-line;
+    font-weight: 500;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 0;
+    padding: clamp(25px, 2.08vw, 40px);
+    justify-content: center;
+    background: rgba(248, 250, 252, 0.8);
+    margin-top: clamp(18px, 1.67vw, 32px);
+}
+
+/* Scrollbar for long user lists */
+.confirm-message::-webkit-scrollbar {
+    width: 6px;
+}
+
+.confirm-message::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+.confirm-message::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+.confirm-message::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Company Buttons Style (from transaction.php) */
+.transaction-company-filter {
+    display: flex;
+    align-items: center;
+    gap: clamp(8px, 0.83vw, 16px);
+    flex-wrap: wrap;
+}
+.transaction-company-label {
+    font-weight: bold;
+    color: #374151;
+    font-size: clamp(10px, 0.73vw, 14px);
+    font-family: 'Amaranth', sans-serif;
+    white-space: nowrap;
+}
+.transaction-company-buttons {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+.transaction-company-btn {
+    padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
+    background: #f1f5f9;
+    border: 1px solid #d0d7de;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: clamp(9px, 0.63vw, 12px);
+    transition: all 0.2s ease;
+    color: #1f2937;
+    font-weight: 600;
+}
+.transaction-company-btn:hover {
+    background: #e2e8f0;
+    border-color: #a5b4fc;
+}
+.transaction-company-btn.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+/* Account and Process item hover styles */
+.account-item-compact:hover {
+    background-color: #f0f8ff !important;
+    border-color: #1a237e !important;
+}
+
+.account-item-compact input[type="checkbox"]:checked + .account-label {
+    color: #1a237e;
+    font-weight: bold;
+}

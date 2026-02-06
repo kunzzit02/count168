@@ -1,0 +1,80 @@
+/* 登录表单上方跑马灯维护提示 */
+.maintenance-marquee-wrapper {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #004ff9, #56ccf2);
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.maintenance-marquee-track {
+    display: flex;
+    width: max-content;
+    animation: maintenance-scroll 18s linear infinite;
+}
+
+.maintenance-marquee-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 14px;
+    white-space: nowrap;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.maintenance-marquee-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.35);
+    flex-shrink: 0;
+}
+
+.maintenance-marquee-label {
+    opacity: 0.9;
+    margin-right: 8px;
+}
+
+@keyframes maintenance-scroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+@media (max-width: 768px) {
+    .maintenance-marquee-inner {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+}
+
+.telegram-icon {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    z-index: 1000;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.telegram-icon:hover {
+    transform: scale(1.1);
+}
+
+@media (max-width: 480px) {
+    .telegram-icon {
+        width: 50px;
+        height: 50px;
+        bottom: 15px;
+        right: 15px;
+    }
+}

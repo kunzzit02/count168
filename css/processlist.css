@@ -1,0 +1,817 @@
+/* Input formatting - 统一管理输入框格式 */
+#add_process_id,
+#new_description_name,
+#add_remove_words,
+#add_replace_word_from,
+#add_replace_word_to,
+#add_remarks,
+#edit_remove_words,
+#edit_replace_word_from,
+#edit_replace_word_to,
+#edit_remarks {
+    text-transform: uppercase;
+}
+ /* 注意：searchInput 和 descriptionSearch 不使用 CSS text-transform，保持实际值的显示 */
+ /* 描述列表删除按钮样式 */
+.description-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+ .description-item-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+ .description-delete-btn {
+    border: none;
+    background: transparent;
+    color: #c00;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+}
+ .description-delete-btn:hover {
+    color: #900;
+}
+ /* Country Selection Modal (layout: left = Add/Available, right = Selected) */
+.country-selection-modal .modal-content {
+    max-width: 56.25rem;
+    width: 90%;
+}
+ .country-selection-container {
+    display: flex;
+    gap: 0;
+    height: clamp(300px, 26.04vw, 500px);
+    flex-wrap: wrap;
+}
+ .available-countries-section {
+    flex: 1;
+    border-right: 0.0625rem solid #e9ecef;
+    padding-right: clamp(10px, 1.04vw, 20px);
+    min-width: 20rem;
+}
+ .selected-countries-section {
+    flex: 1;
+    min-width: 20rem;
+}
+ .available-countries-section h3,
+.selected-countries-section h3 {
+    margin-top: 0;
+    margin-bottom: clamp(6px, 0.52vw, 10px);
+    color: #495057;
+    font-size: clamp(12px, 0.83vw, 16px);
+}
+ .add-country-bar {
+    margin-bottom: clamp(10px, 1.04vw, 20px);
+    padding-bottom: clamp(10px, 1.04vw, 20px);
+    border-bottom: 1px solid #e9ecef;
+}
+ .add-country-bar h3 {
+    margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
+    color: #495057;
+    font-size: clamp(12px, 0.83vw, 16px);
+    font-weight: bold;
+}
+ .add-country-form {
+    margin: 0;
+}
+ .add-country-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+ .add-country-input-group input {
+    width: 100%;
+    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    font-size: clamp(8px, 0.73vw, 14px);
+    box-sizing: border-box;
+}
+ .country-search {
+    margin-bottom: 0.9375rem;
+}
+ .country-search input {
+    width: 100%;
+    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    font-size: clamp(8px, 0.73vw, 14px);
+    box-sizing: border-box;
+}
+ .country-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 0px 10px;
+    background-color: #f8f9fa;
+}
+ .selected-countries-list {
+    max-height: 18.75rem;
+    overflow-y: auto;
+    border: 0.0625rem solid #e9ecef;
+    border-radius: 0.25rem;
+    padding: 0.625rem;
+    background-color: #f8f9fa;
+    margin-bottom: 25px;
+}
+ .country-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+    padding: clamp(4px, 0.21vw, 8px) 0;
+    border-bottom: 0.0625rem solid #e9ecef;
+}
+ .country-item:last-child {
+    border-bottom: none;
+}
+ .country-item-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+ .country-item input[type="checkbox"] {
+    margin: 0;
+    width: clamp(10px, 0.73vw, 14px);
+}
+ .country-item label {
+    margin: 0;
+    font-size: clamp(10px, 0.73vw, 14px);
+    cursor: pointer;
+    flex: 1;
+    color: #333;
+}
+ .country-delete-btn {
+    border: none;
+    background: transparent;
+    color: #c00;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+}
+ .country-delete-btn:hover {
+    color: #900;
+}
+ .country-item:hover {
+    background-color: #e9ecef;
+}
+ .selected-country-modal-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: clamp(2px, 0.42vw, 8px) 8px;
+    border-bottom: 0.0625rem solid #e9ecef;
+    background-color: #e3f2fd;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+ .selected-country-modal-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+ .selected-country-modal-item span {
+    flex: 1;
+    font-size: clamp(10px, 0.73vw, 14px);
+    color: #1976d2;
+    font-weight: 500;
+}
+ .remove-country-modal {
+    background: none;
+    border: none;
+    color: #1976d2;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+ .remove-country-modal:hover {
+    background-color: #1976d2;
+    color: white;
+}
+ .no-countries {
+    text-align: center;
+    color: #6c757d;
+    font-size: clamp(10px, 0.78vw, 15px);
+    font-style: italic;
+    padding: clamp(20px, 2.08vw, 40px) 20px;
+}
+ /* Bank Selection Modal (layout: left = Add/Available, right = Selected) */
+.bank-selection-modal .modal-content {
+    max-width: 56.25rem;
+    width: 90%;
+}
+ .bank-selection-container {
+    display: flex;
+    gap: 0;
+    height: clamp(300px, 26.04vw, 500px);
+    flex-wrap: wrap;
+}
+ .available-banks-section {
+    flex: 1;
+    border-right: 0.0625rem solid #e9ecef;
+    padding-right: clamp(10px, 1.04vw, 20px);
+    min-width: 20rem;
+}
+ .selected-banks-section {
+    flex: 1;
+    padding-left: clamp(10px, 1.04vw, 20px);
+    min-width: 20rem;
+}
+ .available-banks-section h3,
+.selected-banks-section h3 {
+    margin-top: 0;
+    margin-bottom: clamp(6px, 0.52vw, 10px);
+    color: #495057;
+    font-size: clamp(12px, 0.83vw, 16px);
+}
+ .add-bank-bar {
+    margin-bottom: clamp(10px, 1.04vw, 20px);
+    padding-bottom: clamp(10px, 1.04vw, 20px);
+    border-bottom: 1px solid #e9ecef;
+}
+ .add-bank-bar h3 {
+    margin: 0 0 clamp(6px, 0.52vw, 10px) 0;
+    color: #495057;
+    font-size: clamp(12px, 0.83vw, 16px);
+    font-weight: bold;
+}
+ .add-bank-form {
+    margin: 0;
+}
+ .add-bank-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+ .add-bank-input-group input {
+    width: 100%;
+    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    font-size: clamp(8px, 0.73vw, 14px);
+    box-sizing: border-box;
+}
+ .bank-search {
+    margin-bottom: 0.9375rem;
+}
+ .bank-search input {
+    width: 100%;
+    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.83vw, 16px);
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    font-size: clamp(8px, 0.73vw, 14px);
+    box-sizing: border-box;
+}
+ .bank-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 0px 10px;
+    background-color: #f8f9fa;
+}
+ .selected-banks-list {
+    max-height: 18.75rem;
+    overflow-y: auto;
+    border: 0.0625rem solid #e9ecef;
+    border-radius: 0.25rem;
+    padding: 0.625rem;
+    background-color: #f8f9fa;
+}
+ .bank-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+    padding: clamp(4px, 0.21vw, 8px) 0;
+    border-bottom: 0.0625rem solid #e9ecef;
+}
+ .bank-item:last-child {
+    border-bottom: none;
+}
+ .bank-item-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+ .bank-item input[type="checkbox"] {
+    margin: 0;
+    width: clamp(10px, 0.73vw, 14px);
+}
+ .bank-item label {
+    margin: 0;
+    font-size: clamp(10px, 0.73vw, 14px);
+    cursor: pointer;
+    flex: 1;
+    color: #333;
+}
+ .bank-delete-btn {
+    border: none;
+    background: transparent;
+    color: #c00;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+}
+ .bank-delete-btn:hover {
+    color: #900;
+}
+ .bank-item:hover {
+    background-color: #e9ecef;
+}
+ .selected-bank-modal-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: clamp(2px, 0.42vw, 8px) 8px;
+    border-bottom: 0.0625rem solid #e9ecef;
+    background-color: #e3f2fd;
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+ .selected-bank-modal-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+ .selected-bank-modal-item span {
+    flex: 1;
+    font-size: clamp(10px, 0.73vw, 14px);
+    color: #1976d2;
+    font-weight: 500;
+}
+ .remove-bank-modal {
+    background: none;
+    border: none;
+    color: #1976d2;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+ .remove-bank-modal:hover {
+    background-color: #1976d2;
+    color: white;
+}
+ .no-banks {
+    text-align: center;
+    color: #6c757d;
+    font-size: clamp(10px, 0.78vw, 15px);
+    font-style: italic;
+    padding: clamp(20px, 2.08vw, 40px) 20px;
+}
+ /* Process Accounting Inbox (需要算账) - 标题右侧 */
+.process-accounting-inbox-wrap { position: relative; }
+.process-accounting-inbox-badge {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 20px;
+    padding: 0 8px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 12px; font-weight: 800;
+}
+.process-accounting-inbox-btn {
+    padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 10px; background: #f8fafc;
+    cursor: pointer; font-size: 12px; font-weight: 700; color: #111827; transition: all 0.15s ease;
+}
+.process-accounting-inbox-btn:hover { background: #eef2ff; border-color: #a5b4fc; }
+.process-accounting-inbox-btn.process-accounting-inbox-main {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px;
+    background: #ffffff; font-weight: 800; color: #0f172a;
+}
+.process-accounting-inbox-icon { width: 16px; height: 16px; display: inline-block; }
+.process-accounting-inbox-popover {
+    position: absolute; left: 0; top: calc(100% + 8px); width: min(720px, calc(100vw - 60px)); max-height: 420px;
+    overflow: hidden; border: 1px solid #d0d7de; border-radius: 14px; background: #fff;
+    box-shadow: 0 10px 30px rgba(16,24,40,0.18); z-index: 1200; display: none;
+}
+.process-accounting-inbox-popover-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 12px; border-bottom: 1px solid #e5e7eb; background: #f8fafc;
+}
+.process-accounting-inbox-popover-title { font-weight: 900; color: #0f172a; font-size: 14px; }
+.process-accounting-inbox-popover-body { max-height: 320px; overflow: auto; padding: 8px; }
+.process-accounting-inbox-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.process-accounting-inbox-table th, .process-accounting-inbox-table td { padding: 6px 8px; border-top: 1px solid #e5e7eb; text-align: left; }
+.process-accounting-inbox-table th { background: #f1f5f9; font-weight: 700; }
+.process-accounting-inbox-table tr.process-accounting-inbox-row-posted { background: #f1f5f9 !important; opacity: 0.7; color: #64748b; }
+.process-accounting-inbox-table tr.process-accounting-inbox-row-posted td { color: #94a3b8; }
+.process-accounting-inbox-actions { padding: 10px 0 0; border-top: 1px solid #e5e7eb; margin-top: 8px; display: flex; align-items: center; gap: 10px; }
+ /* Accounting Due large modal (same size as Add Process) */
+#processAccountingDueModal .accounting-due-modal-content {
+    width: 86% !important;
+    max-width: 66rem !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+#processAccountingDueModal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+#processAccountingDueModal .modal-header h2 { display: flex; align-items: center; gap: 8px; }
+#processAccountingDueModal .modal-header-actions { display: flex; align-items: center; gap: 8px; }
+#processAccountingDueModal .modal-header .close { position: static; }
+/* 表格区域：超过约 20 行时出现垂直滚动条，表头固定 */
+#processAccountingDueModal .process-accounting-inbox-table-wrap {
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+#processAccountingDueModal .process-accounting-inbox-table-wrap .process-accounting-inbox-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f1f5f9;
+    box-shadow: 0 1px 0 #e5e7eb;
+}
+/* Transaction 与 Cancel 同尺寸、同字体，仅颜色不同 */
+#processAccountingDueModal .btn-primary {
+    background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
+    color: white;
+    font-family: 'Amaranth';
+    width: clamp(5rem, 6.25vw, 7.5rem);
+    padding: clamp(0.375rem, 0.42vw, 0.5rem) 1.25rem;
+    font-size: clamp(0.625rem, 0.83vw, 1rem);
+    border: none;
+    border-radius: 0.375rem;
+    box-shadow: 0 2px 4px rgba(13, 148, 136, 0.3);
+    cursor: pointer;
+}
+#processAccountingDueModal .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, #0f766e 0%, #0d9488 100%);
+    box-shadow: 0 4px 8px rgba(13, 148, 136, 0.4);
+    transform: translateY(-1px);
+}
+#processAccountingDueModal .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+ /* Bank Modal Styles - Separate from Gambling modal */
+.bank-modal .bank-modal-content {
+    max-width: 1000px;
+    width: 90%;
+}
+ .bank-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+ .bank-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    align-items: stretch;
+    min-height: 0;
+}
+ .bank-form-row+.bank-form-row {
+    margin-top: 20px;
+}
+ .bank-form-row-last {
+    min-height: 160px;
+}
+ .bank-form-cell {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+ .bank-form-cell-left,
+.bank-form-cell-right {
+    align-items: stretch;
+}
+ .bank-form-cell .selected-countries-section {
+    flex: 1;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+}
+ .bank-form-cell .selected-countries-list {
+    flex: 1;
+    min-height: 80px;
+}
+ .bank-form-left {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+ .bank-form-right {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+ .bank-section {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+ .bank-section:first-child {
+    margin-top: 0;
+}
+ .bank-section-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #002C49;
+    margin-bottom: 10px;
+    margin-top: 0;
+    margin-left: 0;
+    padding-left: 4px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e0e0e0;
+    overflow: visible;
+}
+ .bank-chinese {
+    font-size: 12px;
+    color: #666;
+    font-weight: normal;
+}
+ .bank-row-two-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+ .bank-row-three-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+}
+ .bank-form .form-row {
+    margin-bottom: 0;
+}
+ .bank-form .bank-day-start-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.bank-form .bank-day-start-input-wrap {
+    flex: 0 0 auto;
+    max-width: 155px;
+}
+.bank-form .bank-day-start-input-wrap .bank-input {
+    width: 100%;
+}
+.bank-form .bank-day-start-frequency-wrap {
+    flex: 1;
+    min-width: 160px;
+}
+ .bank-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+ .bank-form-left .bank-row-two-cols,
+.bank-form-left .bank-row-three-cols,
+.bank-form-cell-left .bank-row-two-cols,
+.bank-form-cell-left .bank-row-three-cols,
+.bank-form-cell-right .bank-row-two-cols,
+.bank-form-cell-right .bank-row-three-cols {
+    display: grid;
+    gap: 15px;
+}
+ .bank-form-left .bank-row-two-cols,
+.bank-form-cell-left .bank-row-two-cols,
+.bank-form-cell-right .bank-row-two-cols {
+    grid-template-columns: 1fr 1fr;
+}
+ .bank-form-left .bank-row-type-name,
+.bank-form-cell-left .bank-row-type-name {
+    grid-template-columns: 0.45fr 1fr;
+}
+ .bank-form-left .bank-row-three-cols,
+.bank-form-cell-left .bank-row-three-cols,
+.bank-form-cell-right .bank-row-three-cols {
+    grid-template-columns: 0.85fr 0.85fr 1fr;
+}
+ .bank-form .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0;
+}
+ .select-with-add {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+ .select-with-add .bank-select {
+    flex: 1;
+}
+ .bank-add-btn {
+    width: clamp(18px, 1.25vw, 24px);
+    height: clamp(18px, 1.25vw, 24px);
+    border-radius: 50%;
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: clamp(12px, 0.83vw, 16px);
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+ .bank-add-btn:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    transform: scale(1.05);
+}
+ .bank-input,
+.bank-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 0.125rem solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    box-sizing: border-box;
+    background: #ffffff;
+    color: #374151;
+    font-family: inherit;
+}
+ .bank-input:focus,
+.bank-select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+ .account-select-with-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+ .account-select-with-buttons .custom-select-wrapper {
+    flex: 1;
+}
+ /* Card Merchant / Customer select bar: same design as other bank select bars */
+.bank-form .account-select-with-buttons .custom-select-button {
+    width: 100%;
+    padding: 12px 16px;
+    padding-right: 2.5rem;
+    border: 0.125rem solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    box-sizing: border-box;
+    background: #ffffff;
+    color: #374151;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    position: relative;
+}
+ .bank-form .account-select-with-buttons .custom-select-button:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+ .account-add-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+ .account-add-btn:hover {
+    background: linear-gradient(180deg, #0D60FF 0%, #63C4FF 100%);
+    transform: scale(1.05);
+}
+ .custom-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+ .custom-select-button {
+    width: 100%;
+    padding: 8px 30px 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    text-align: left;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    position: relative;
+}
+ .custom-select-button::after {
+    content: '▼';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: #666;
+    pointer-events: none;
+}
+ .custom-select-button.open::after {
+    content: '▲';
+}
+ .custom-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    display: none;
+    max-height: 300px;
+    overflow: hidden;
+    margin-top: 2px;
+}
+ .custom-select-dropdown.show {
+    display: block;
+}
+ .custom-select-search {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1;
+}
+ .custom-select-search input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+ .custom-select-options {
+    max-height: 250px;
+    overflow-y: auto;
+}
+ .custom-select-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    border-bottom: 1px solid #f5f5f5;
+}
+ .custom-select-option:hover {
+    background-color: #f0f0f0;
+}
+ .custom-select-option.selected {
+    background-color: #e3f2fd;
+    font-weight: bold;
+}
+ .custom-select-option:last-child {
+    border-bottom: none;
+}
+ .custom-select-no-results {
+    padding: 12px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+ .profit-sharing-with-add {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+ .profit-sharing-with-add .bank-input {
+    flex: 1;
+}
+ .bank-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}

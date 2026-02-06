@@ -1,0 +1,777 @@
+﻿body.dashboard-page {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: #e9f1ff;
+    background-image:
+        radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 48%),
+        radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 45%),
+        radial-gradient(circle at 40% 70%, rgba(206, 232, 255, 0.55) 0%, rgba(255, 255, 255, 0) 60%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(145deg, #97BFFC 0%, #AECFFA 40%, #f9fbff 100%);
+    background-blend-mode: screen, screen, multiply, screen, normal;
+    color: #334155;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.dashboard-container {
+    max-width: none;
+    margin: 0;
+    padding: 8px clamp(20px, 2.08vw, 40px) 8px clamp(180px, 14.06vw, 270px);
+    width: 100%;
+    min-height: 100vh;
+    box-sizing: border-box;
+    overflow: visible;
+}
+
+.dashboard-title {
+    color: #002C49;
+    text-align: left;
+    margin-top: 0;
+    margin-bottom: clamp(6px, 0.5vw, 10px);
+    font-size: clamp(22px, 1.8vw, 32px);
+    font-family: 'Amaranth';
+    font-weight: 500;
+    letter-spacing: -0.025em;
+}
+
+/* Company & Currency Buttons */
+.transaction-company-filter {
+    display: none;
+    align-items: center;
+    gap: clamp(8px, 0.83vw, 16px);
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+.transaction-company-label {
+    font-weight: bold;
+    color: #374151;
+    font-size: small;
+    font-family: 'Amaranth', sans-serif;
+    white-space: nowrap;
+}
+.transaction-company-buttons {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+.transaction-company-btn {
+    padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
+    background: #f1f5f9;
+    border: 1px solid #d0d7de;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: clamp(9px, 0.63vw, 12px);
+    transition: all 0.2s ease;
+    color: #1f2937;
+    font-weight: 600;
+}
+.transaction-company-btn:hover {
+    background: #e2e8f0;
+    border-color: #a5b4fc;
+}
+.transaction-company-btn.active {
+    background: linear-gradient(180deg, #63C4FF 0%, #0D60FF 100%);
+    color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.dashboard-content {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 0.9vw, 14px);
+}
+
+.dashboard-card {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: clamp(8px, 0.7vw, 14px);
+}
+
+.dashboard-card-body {
+    padding: clamp(8px, 0.6vw, 12px) clamp(12px, 1vw, 18px);
+}
+
+/* KPI卡片网格 - 水平排列 */
+.dashboard-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: clamp(12px, 1.04vw, 20px);
+}
+
+.dashboard-kpi-card {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: clamp(10px, 0.9vw, 16px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(4px, 0.4vw, 8px);
+}
+
+.dashboard-kpi-card .icon {
+    width: 32px;
+    height: 22px;
+    font-size: clamp(16px, 1.2vw, 24px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: clamp(2px, 0.2vw, 4px);
+}
+
+.dashboard-kpi-card .kpi-label {
+    font-size: clamp(10px, 0.75vw, 14px);
+    color: #6b7280;
+    font-weight: 600;
+    margin-bottom: clamp(2px, 0.2vw, 4px);
+    font-family: 'Amaranth', sans-serif;
+}
+
+.dashboard-kpi-card .kpi-value {
+    font-size: clamp(16px, 1.2vw, 24px);
+    font-weight: bold;
+    color: #111827;
+    font-family: 'Amaranth', sans-serif;
+}
+
+/* 图表区域 */
+.dashboard-chart-section {
+    background-color: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: clamp(10px, 0.9vw, 16px);
+}
+
+.dashboard-chart-header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    margin-bottom: clamp(16px, 1.35vw, 26px);
+    gap: clamp(12px, 1.04vw, 20px);
+}
+
+.dashboard-chart-title {
+    font-size: clamp(16px, 1.25vw, 24px);
+    font-weight: 600;
+    color: #111827;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.dashboard-chart-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    grid-column: 2;
+}
+
+.chart-data-btn {
+    padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
+    background: #f1f5f9;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: clamp(9px, 0.63vw, 12px);
+    font-weight: 500;
+    color: #374151;
+    transition: all 0.2s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.chart-data-btn:hover {
+    background: #e2e8f0;
+    border-color: #a5b4fc;
+}
+
+.chart-data-btn.active {
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.dashboard-chart-container {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    min-height: 400px;
+}
+
+@media (max-width: 1200px) {
+    .dashboard-kpi-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-chart-header {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        text-align: center;
+    }
+    
+    .dashboard-chart-header > div:first-child {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .dashboard-chart-buttons {
+        grid-column: 1;
+    }
+}
+
+.dashboard-date-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: clamp(10px, 1.5vw, 30px);
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+/* 日期范围选择器样式 */
+.date-range-picker {
+    display: flex;
+    align-items: center;
+    gap: clamp(4px, 0.42vw, 8px);
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    padding: clamp(4px, 0.42vw, 8px) clamp(8px, 0.83vw, 16px);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    min-width: clamp(140px, 12.5vw, 240px);
+    z-index: 1;
+}
+
+.date-range-picker:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.date-range-picker i {
+    color: #3b82f6;
+    font-size: clamp(8px, 0.74vw, 14px);
+    margin: 0 clamp(2px, 0.32vw, 6px);
+}
+
+.date-range-picker span {
+    color: #374151;
+    font-size: clamp(8px, 0.74vw, 14px);
+    font-weight: 500;
+}
+
+/* 增强的日期选择器样式 */
+.enhanced-date-picker {
+    display: flex;
+    align-items: center;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: clamp(4px, 0.42vw, 8px);
+    padding: clamp(2px, 0.31vw, 6px) clamp(0px, 0.21vw, 4px);
+    gap: 0px;
+    min-width: 100px;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.enhanced-date-picker:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.enhanced-date-picker:hover {
+    border-color: #9ca3af;
+}
+
+.enhanced-date-picker.month-only {
+    min-width: clamp(80px, 6.77vw, 130px);
+}
+
+
+.date-part {
+    position: relative;
+    cursor: pointer;
+    padding: 0px clamp(2px, 0.42vw, 8px);
+    border-radius: 4px;
+    transition: all 0.2s;
+    text-align: center;
+    user-select: none;
+    background: transparent;
+    border: 1px solid transparent;
+    font-size: clamp(8px, 0.74vw, 14px);
+    color: #374151;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.date-part:hover {
+    background-color: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.date-part.active {
+    background-color: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+.date-separator {
+    color: #9ca3af;
+    font-size: clamp(8px, 0.74vw, 14px);
+    font-weight: 500;
+    user-select: none;
+    margin: 0 2px;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.date-dropdown {
+    position: absolute;
+    top: 120%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    margin-top: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: none;
+}
+
+.date-dropdown.show {
+    display: block;
+    animation: dropdownFadeIn 0.2s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.year-grid, .month-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: clamp(0px, 0.21vw, 4px);
+    padding: clamp(2px, 0.36vw, 8px);
+}
+
+/* Select Year & Month：下拉与上方输入框同宽，无水平滚动条 */
+#month-date-picker .date-dropdown {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+#month-date-picker .year-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 10px 12px;
+}
+#month-date-picker .year-grid .date-option {
+    font-size: 11px;
+    padding: 8px 4px;
+    min-width: 0;
+    text-align: center;
+}
+
+.month-grid {
+    padding: clamp(4px, 0.42vw, 8px);
+}
+
+.day-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0px;
+    padding: 2px;
+}
+
+.date-option {
+    padding: clamp(1px, 0.1vw, 2px);
+    text-align: center;
+    cursor: pointer;
+    border-radius: clamp(4px, 0.31vw, 6px);
+    transition: all 0.2s;
+    font-size: clamp(6px, 0.63vw, 12px);
+    color: #374151;
+    background: transparent;
+    border: 1px solid transparent;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.date-option:hover {
+    background-color: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.date-option.selected {
+    background-color: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+.date-option.today.selected {
+    background-color: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+}
+
+.day-header {
+    padding: clamp(2px, 0.21vw, 4px);
+    text-align: center;
+    font-size: clamp(6px, 0.63vw, 12px);
+    color: #6b7280;
+    font-weight: 600;
+    font-family: 'Amaranth', sans-serif;
+}
+
+/* 分隔线 */
+.divider {
+    width: 1px;
+    height: 24px;
+    background-color: #3b82f6 !important;
+}
+
+/* 下拉菜单样式 */
+.dropdown {
+    position: relative;
+    display: inline-block;
+    width: clamp(90px, 8vw, 140px);
+}
+
+.dropdown-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(8px, 0.74vw, 14px);
+    gap: 6px;
+    width: 100%;
+    white-space: nowrap;
+}
+.dropdown-toggle #quick-select-text {
+    white-space: nowrap;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 2px solid #3b82f6;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    z-index: 1000;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: clamp(6px, 0.52vw, 10px) clamp(10px, 1.04vw, 20px);
+    border: none;
+    background: transparent;
+    color: #374151;
+    cursor: pointer;
+    font-size: clamp(8px, 0.74vw, 14px);
+    font-weight: 600;
+    text-align: left;
+    transition: background-color 0.2s;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.dropdown-item:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.dropdown-item:first-child {
+    border-radius: 6px 6px 0 0;
+}
+
+.dropdown-item:last-child {
+    border-radius: 0 0 6px 6px;
+}
+
+.btn {
+    padding: clamp(5px, 0.42vw, 8px) clamp(10px, 0.83vw, 16px);
+    border-radius: clamp(4px, 0.42vw, 8px);
+    border: none;
+    cursor: pointer;
+    font-size: clamp(8px, 0.73vw, 14px);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    text-decoration: none;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.dropdown .btn {
+    width: 100%;
+    justify-content: center;
+}
+
+/* 确保 sidebar 中的 logout button 文字居中 */
+.informationmenu-footer .logout-btn {
+    justify-content: center;
+    text-align: center;
+}
+
+.btn-secondary {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #2563eb;
+}
+
+.form-label {
+    display: block;
+    font-size: clamp(9px, 0.74vw, 14px);
+    font-weight: bold;
+    color: #000000ff;
+    margin-bottom: 8px;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.date-info {
+    font-size: clamp(8px, 0.74vw, 14px);
+    font-weight: bold;
+    color: #6b7280;
+    padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
+    background: rgba(255, 255, 255, 1);
+    border-radius: 6px;
+    font-family: 'Amaranth', sans-serif;
+}
+
+/* 日历弹窗样式 */
+.calendar-popup {
+    position: fixed;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    z-index: 99999;
+    padding: clamp(8px, 0.83vw, 16px);
+    min-width: clamp(140px, 12.5vw, 240px);
+    max-height: 350px;
+    overflow: visible;
+}
+
+.calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.calendar-nav-btn {
+    background: transparent;
+    border: 0px solid #d1d5db;
+    border-radius: 4px;
+    width: clamp(20px, 1.25vw, 24px);
+    height: clamp(20px, 1.25vw, 24px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.calendar-nav-btn:hover {
+    background-color: #f3f4f6;
+    border-color: #3b82f6;
+}
+
+.calendar-nav-btn i {
+    color: #374151;
+    font-size: clamp(7px, 0.57vw, 11px);
+}
+
+.calendar-month-year {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.calendar-month-year select {
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: clamp(2px, 0.21vw, 4px) clamp(4px, 0.31vw, 6px);
+    font-size: clamp(8px, 0.63vw, 12px);
+    font-weight: 600;
+    color: #000000ff;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.calendar-month-year select:hover {
+    border-color: #3b82f6;
+}
+
+.calendar-month-year select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 4px;
+}
+
+.calendar-weekday {
+    text-align: center;
+    font-size: clamp(8px, 0.63vw, 12px);
+    font-weight: 600;
+    color: #898989;
+    padding: clamp(2px, 0.21vw, 4px) 0;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0px;
+}
+
+.calendar-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: clamp(8px, 0.63vw, 12px);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #000000ff;
+    background: transparent;
+    border: 1px solid transparent;
+    position: relative;
+    padding: 4px;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.calendar-day:hover {
+    background-color: #f3f4f6;
+}
+
+.calendar-day.today {
+    border-color: #3b82f6;
+    font-weight: 600;
+}
+
+.calendar-day.selected {
+    background-color: #3b82f6;
+    color: white;
+    font-weight: 600;
+}
+
+.calendar-day.in-range {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #374151;
+    border-radius: 0px;
+}
+
+.calendar-day.start-date {
+    background-color: #3b82f6;
+    color: white;
+    border-radius: 6px 0 0 6px;
+}
+
+.calendar-day.end-date {
+    background-color: #3b82f6;
+    color: white;
+    border-radius: 0 6px 6px 0;
+}
+
+.calendar-day.start-date.end-date {
+    border-radius: 6px;
+}
+
+.calendar-day.start-date.selecting {
+    border-radius: 6px;
+}
+
+.calendar-day.preview-range {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #374151;
+    border-radius: 0px;
+}
+
+.calendar-day.preview-end {
+    background-color: rgba(59, 130, 246, 0.4);
+    color: #374151;
+    font-weight: 600;
+    border: 1px dashed #3b82f6;
+}
+
+.calendar-day.other-month {
+    color: #d1d5db;
+}
+
+.calendar-day.disabled {
+    color: #d1d5db;
+    cursor: not-allowed;
+}
+
+.calendar-day.disabled:hover {
+    background-color: transparent;
+}
+
+.dashboard-date-info {
+    font-size: clamp(8px, 0.74vw, 14px);
+    font-weight: bold;
+    color: #6b7280;
+    padding: clamp(3px, 0.3vw, 6px) clamp(6px, 0.63vw, 12px);
+    background: rgba(255, 255, 255, 1);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    border: 1px solid #e5e7eb;
+    font-family: 'Amaranth', sans-serif;
+}
+
+.dashboard-content {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(8px, 0.9vw, 14px);
+}
+
+body.dashboard-page {
+    overflow-y: auto;
+    min-height: 100vh;
+}
+
+html {
+    overflow-y: auto;
+    height: auto;
+}
+
+.text-green { color: #10b981; }
+.text-red { color: #ef4444; }
+.text-blue { color: #3b82f6; }

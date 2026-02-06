@@ -1,0 +1,166 @@
+/* account-list.php 页面内联样式 - 输入框、Link Account 模态等 */
+/* Input formatting - 统一管理输入框格式 */
+#add_account_id,
+#edit_account_id_field,
+#add_name,
+#edit_name,
+#add_remark,
+#edit_remark,
+#addCurrencyInput,
+#editCurrencyInput,
+#currencyCodeInput {
+    text-transform: uppercase;
+}
+/* 注意：searchInput 不使用 CSS text-transform，保持实际值的显示 */
+
+/* Account item compact hover styles (for linked accounts modal) */
+#linkAccountList .account-item-compact:hover {
+    background-color: #f0f8ff !important;
+    border-color: #1a237e !important;
+}
+
+#linkAccountList .account-item-compact input[type="checkbox"]:checked + label {
+    color: #1a237e;
+    font-weight: bold;
+}
+/* Link Account 模态：底部按钮固定，列表区无独立滚动条 */
+#linkAccountModal .account-modal-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+    overflow: hidden;
+}
+#linkAccountModal .link-account-modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-left: 2.1875rem;
+    padding-right: 1.25rem;
+}
+/* 红框区域固定：标题、药丸、说明、搜索不随列表滚动；搜索栏在蓝框位置、与下方列表右对齐 */
+#linkAccountModal .link-account-fixed-area {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding-left: 2.1875rem;
+    padding-right: 1.25rem;
+    padding-bottom: 8px;
+}
+#linkAccountModal .link-account-form-actions {
+    flex-shrink: 0;
+    border-top: 1px solid #e2e8f0;
+}
+/* 蓝框内账号列表：固定 3 列、间距一致、视觉舒适 */
+.link-account-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background-color: #ffffff;
+    padding: 12px 14px;
+}
+/* Link Account: pill buttons + description (comfortable spacing & size) */
+.link-type-section {
+    margin-top: 14px;
+    margin-bottom: 14px;
+}
+.link-type-pills {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+.link-type-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid #d1d5db;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+}
+.link-type-pill .link-type-radio {
+    position: absolute;
+    width: 0;
+    height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+.link-type-pill-check {
+    opacity: 0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+}
+.link-type-pill:has(.link-type-radio:checked) .link-type-pill-check {
+    opacity: 1;
+}
+.link-type-pill:hover {
+    background: #e5e7eb;
+    border-color: #9ca3af;
+}
+.link-type-pill:has(.link-type-radio:checked) {
+    background: linear-gradient(180deg, #7eb8ff 0%, #2563eb 100%);
+    border-color: #2563eb;
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+.link-type-desc {
+    margin: 8px 0 0 0;
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.5;
+    text-align: left;
+}
+/* 蓝框位置：搜索栏区域 */
+.link-account-search-wrap {
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    min-width: 260px;
+    margin-right: 20px;
+    margin-top: 32px;
+}
+.link-account-search-inner {
+    position: relative;
+    width: 100%;
+    max-width: 280px;
+}
+.link-account-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    color: #9ca3af;
+    pointer-events: none;
+}
+.link-account-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px 8px 38px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+}
+.link-account-search-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+.link-account-search-input::placeholder {
+    color: #9ca3af;
+}
