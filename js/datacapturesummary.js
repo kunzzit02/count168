@@ -1597,17 +1597,8 @@ function getCurrentProcessId() {
                     }
                     const currencySelect = document.getElementById('currency');
                     if (currencySelect) {
-                        currencySelect.addEventListener('change', function() {
-                            const opt = this.options[this.selectedIndex];
-                            const text = opt ? (opt.textContent || opt.text || '').trim() : '';
-                            const val = opt ? (opt.value || '').trim() : '';
-                            if (text && val) {
-                                console.log('Currency changed to:', text);
-                            }
-                            if (typeof updateEditFormulaSaveButtonState === 'function') {
-                                updateEditFormulaSaveButtonState();
-                            }
-                        });
+                        currencySelect.removeEventListener('change', _onCurrencySelectLog);
+                        currencySelect.addEventListener('change', _onCurrencySelectLog);
                     }
                     const formulaInput = document.getElementById('formula');
                     if (formulaInput) {
@@ -2205,6 +2196,21 @@ function getCurrentProcessId() {
             saveBtn.disabled = !accountValue || !currencyOk || !formulaValue;
         }
 
+        // Currency 下拉选择时立即打 log（与 "Currency set to MYR (prioritized)" 同风格），供多处复用
+        function _onCurrencySelectLog() {
+            const sel = document.getElementById('currency');
+            if (!sel) return;
+            const opt = sel.options[sel.selectedIndex];
+            const text = opt ? (opt.textContent || opt.text || '').trim() : '';
+            const val = opt ? (opt.value || '').trim() : '';
+            if (text && val) {
+                console.log('Currency set to', text, '(user selected)');
+            }
+            if (typeof updateEditFormulaSaveButtonState === 'function') {
+                updateEditFormulaSaveButtonState();
+            }
+        }
+
         // Load form data (currency and account) from database
         async function loadFormData() {
             try {
@@ -2376,6 +2382,9 @@ function getCurrentProcessId() {
                         if (typeof updateEditFormulaSaveButtonState === 'function') {
                             updateEditFormulaSaveButtonState();
                         }
+                        // 选择时立即打 log（与上面 "Currency set to MYR (prioritized)" 同风格）
+                        currencySelect.removeEventListener('change', _onCurrencySelectLog);
+                        currencySelect.addEventListener('change', _onCurrencySelectLog);
                     }
                 } else {
                     console.error('API returned error:', result.message || result.error);
@@ -6614,6 +6623,9 @@ function getCurrentProcessId() {
                 showNotification('Error', 'Please enter a formula', 'error');
                 return;
             }
+
+            // 与 loadCurrenciesForAccount 里 "Currency set to MYR (prioritized)" 同风格，点 Save 时打出当前选中的货币
+            console.log('Currency set to', currencyName, '(user selected)');
 
             // IMPORTANT: Always use the Id Product from the modal (the one that was set when the modal was opened)
             const processValue = document.getElementById('process').value;
