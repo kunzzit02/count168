@@ -2184,7 +2184,16 @@ function getCurrentProcessId() {
             if (!saveBtn) return;
             const accountButton = document.getElementById('account');
             const accountValue = accountButton ? getAccountId(accountButton) : null;
-            const currencyOk = typeof isCurrencyValidForSave === 'function' && isCurrencyValidForSave();
+            const currencySelect = document.getElementById('currency');
+            let currencyOk = false;
+            if (currencySelect) {
+                const currencyValue = (currencySelect.value != null) ? String(currencySelect.value).trim() : '';
+                const idx = currencySelect.selectedIndex;
+                const opt = (idx >= 0 && currencySelect.options[idx]) ? currencySelect.options[idx] : null;
+                const currencyText = (opt && opt.text) ? String(opt.text).trim() : '';
+                const isPlaceholder = /^select\s*curren/i.test(currencyText);
+                currencyOk = !!currencyValue && !isPlaceholder && !!currencyText;
+            }
             const formulaInput = document.getElementById('formula');
             const formulaValue = (formulaInput && formulaInput.value) ? String(formulaInput.value).trim() : '';
             saveBtn.disabled = !accountValue || !currencyOk || !formulaValue;
@@ -6545,30 +6554,23 @@ function getCurrentProcessId() {
             }
         }
 
-        // 判断当前选中的 Currency 是否有效（非「Select Currency」且 value 非空）
-        function isCurrencyValidForSave() {
-            const currencySelect = document.getElementById('currency');
-            if (!currencySelect) return false;
-            const selIdx = currencySelect.selectedIndex;
-            const selOpt = (selIdx >= 0 && currencySelect.options[selIdx]) ? currencySelect.options[selIdx] : null;
-            const currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
-            const currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
-            const isPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
-            return currencyVal !== '' && currencyVal !== '0' && !isPlaceholder;
-        }
-
         // Save Formula
         function saveFormula() {
-            // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，与未选 Account 时一致：弹「Please select an account」并 return
-            if (!isCurrencyValidForSave()) {
-                showNotification('Error', 'Please select an account', 'error');
+            // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，先弹通知再 return
+            const currencySelect = document.getElementById('currency');
+            if (!currencySelect) {
+                showNotification('Error', 'Please select a currency', 'error');
                 return;
             }
-            const currencySelect = document.getElementById('currency');
             const selIdx = currencySelect.selectedIndex;
             const selOpt = (selIdx >= 0 && currencySelect.options[selIdx]) ? currencySelect.options[selIdx] : null;
             const currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
             const currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
+            const isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
+            if (!currencyVal || isCurrencyPlaceholder) {
+                showNotification('Error', '请先选择 Currency 后再保存。Please select a currency.', 'error');
+                return;
+            }
 
             // 再校验 Account、Formula
             const accountButton = document.getElementById('account');
@@ -7189,16 +7191,12 @@ function getCurrentProcessId() {
                 // and should be preserved exactly as entered, not recalculated from Data Capture Table
                 rowData.last_source_value = formulaValue || '';
                 
-                // 二次校验：调用 save 前再次从 DOM 读取 Currency，与未选 Account 时一致：弹「Please select an account」并 return
-                if (!isCurrencyValidForSave()) {
-                    showNotification('Error', 'Please select an account', 'error');
-                    return;
-                }
-                const hasCurrencyForSave = (rowData.currency_id != null && String(rowData.currency_id).trim() !== '' && String(rowData.currency_id).trim() !== '0');
+                // 二次校验：Currency、Formula 任一项空则绝不调用 saveTemplateAsync
+                const hasCurrencyForSave = (rowData.currency_id != null && String(rowData.currency_id).trim() !== '');
                 const hasFormulaForSave = (rowData.formula_operators != null && String(rowData.formula_operators).trim() !== '') ||
                     (rowData.last_source_value != null && String(rowData.last_source_value).trim() !== '');
                 if (!hasCurrencyForSave || !hasFormulaForSave) {
-                    showNotification('Error', 'Please select an account', 'error');
+                    showNotification('Error', 'Currency and Formula are required. Cannot save.', 'error');
                     return;
                 }
                 
