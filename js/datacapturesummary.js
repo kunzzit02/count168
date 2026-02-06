@@ -6556,43 +6556,39 @@ function getCurrentProcessId() {
 
         // Save Formula
         function saveFormula() {
-            // --- 1. 先把所有要检查的元素值都拿到 ---
+            // 最先校验：Edit Formula 里 Currency 未选（Select Currency）则绝对不能 Save，先弹通知再 return
             const currencySelect = document.getElementById('currency');
-            const accountButton = document.getElementById('account');
-            const formulaInput = document.getElementById('formula');
-
-            // 获取 Currency 值
-            const selIdx = currencySelect ? currencySelect.selectedIndex : -1;
-            const selOpt = (selIdx >= 0) ? currencySelect.options[selIdx] : null;
-            const currencyVal = (selOpt && selOpt.value) ? String(selOpt.value).trim() : '';
+            if (!currencySelect) {
+                showNotification('Error', 'Please select a currency', 'error');
+                return;
+            }
+            const selIdx = currencySelect.selectedIndex;
+            const selOpt = (selIdx >= 0 && currencySelect.options[selIdx]) ? currencySelect.options[selIdx] : null;
+            const currencyVal = (selOpt && selOpt.value != null) ? String(selOpt.value).trim() : '';
             const currencyText = (selOpt && selOpt.text) ? String(selOpt.text).trim() : '';
-
-            // 获取 Account 和 Formula 值
-            const accountValue = accountButton ? getAccountId(accountButton) : null;
-            const formulaValue = (formulaInput && formulaInput.value) ? String(formulaInput.value).trim() : '';
-
-            // --- 2. 开始逐一校验 (你可以根据需要调整这三个 if 的顺序) ---
-
-            // 校验 A: Currency
-            const isCurrencyPlaceholder = (selIdx === 0 && currencyVal === '') || /^select/i.test(currencyText);
+            const isCurrencyPlaceholder = (selIdx === 0 && selOpt && selOpt.value === '') || /^select\s*curren/i.test(currencyText);
             if (!currencyVal || isCurrencyPlaceholder) {
-                showNotification('Error', '请选择 Currency', 'error');
-                return; // 如果为空，直接跳出函数
+                showNotification('Error', '请先选择 Currency 后再保存。Please select a currency.', 'error');
+                return;
             }
 
-            // 校验 B: Account
+            // 再校验 Account、Formula
+            const accountButton = document.getElementById('account');
+            const accountValue = accountButton ? getAccountId(accountButton) : null;
+            let currencyValue = currencyVal;
+            let currencyName = currencyText;
+            const formulaInput = document.getElementById('formula');
+            const formulaValue = (formulaInput && formulaInput.value != null) ? String(formulaInput.value || '').trim() : '';
+
             if (!accountValue) {
-                showNotification('Error', '请选择 Account', 'error');
-                return; // 如果为空，直接跳出函数
+                showNotification('Error', 'Please select an account', 'error');
+                return;
             }
-
-            // 校验 C: Formula
             if (!formulaValue) {
-                showNotification('Error', '请输入 Formula', 'error');
-                return; // 如果为空，直接跳出函数
+                showNotification('Error', 'Please enter a formula', 'error');
+                return;
             }
 
-            // --- 3. 所有校验通过后才继续执行后续代码 ---  
             // IMPORTANT: Always use the Id Product from the modal (the one that was set when the modal was opened)
             const processValue = document.getElementById('process').value;
             const accountId = getAccountText(accountButton); // Display text
