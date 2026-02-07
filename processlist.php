@@ -837,8 +837,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <div class="selected-profit-sharing-header"
                                     style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                                     <h3 style="margin: 0;">Selected Profit Sharing</h3>
-                                    <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()"
-                                        title="Add Profit Sharing">+</button>
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <button type="button" class="bank-add-btn" onclick="showAddAccountModal()"
+                                            title="Add New Account">+</button>
+                                        <button type="button" class="bank-add-btn" onclick="showAddProfitSharingModal()"
+                                            title="Add Profit Sharing">+</button>
+                                    </div>
                                 </div>
                                 <div class="selected-countries-list" id="selectedProfitSharingList">
                                     <div class="no-countries">No profit sharing selected</div>
