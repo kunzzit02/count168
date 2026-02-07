@@ -1285,6 +1285,17 @@ body.transaction-page .expiration-countdown-text {
     text-overflow: ellipsis;
     overflow: hidden;
 }
+.transaction-win-lose-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.transaction-radio-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
 
 /* Rate workflow layout */
 .rate-fields {
