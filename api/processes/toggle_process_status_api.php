@@ -69,26 +69,9 @@ try {
             exit;
         }
         $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');
-        $newDayEnd = $current['day_end'];
-        $hasDayEndUpdate = false;
-        if ($newStatus === 'inactive' && !empty($current['contract']) && !empty($newDayEnd)) {
-            $ext = 0;
-            if ($current['contract'] === '1+1') $ext = 1;
-            elseif ($current['contract'] === '1+2') $ext = 2;
-            elseif ($current['contract'] === '1+3') $ext = 3;
-            if ($ext > 0) {
-                try {
-                    $dt = new DateTime($newDayEnd);
-                    $dt->modify("+$ext month");
-                    $newDayEnd = $dt->format('Y-m-d');
-                    $hasDayEndUpdate = true;
-                } catch (Exception $e) { error_log("Date modification failed: " . $e->getMessage()); }
-            }
-        }
-        updateBankProcessStatus($pdo, $newStatus, $hasDayEndUpdate ? $newDayEnd : null, $id, $companyId);
-        $data = ['newStatus' => $newStatus];
-        if ($hasDayEndUpdate) $data['newDayEnd'] = $newDayEnd;
-        api_success($data, '状态更新成功');
+        // 1+1/1+2/1+3 的「额外 1/2/3 个月」不在切换为 inactive 时加进 day_end，只在 Accounting Due 做 Transaction 转为 active 时由 process_post_to_transaction_api 加进 day_start
+        updateBankProcessStatus($pdo, $newStatus, null, $id, $companyId);
+        api_success(['newStatus' => $newStatus], '状态更新成功');
         exit;
     }
 
