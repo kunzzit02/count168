@@ -153,7 +153,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         <option value="PAYMENT">PAYMENT</option>
                         <option value="RECEIVE">RECEIVE</option>
                         <option value="CLAIM">CLAIM</option>
-                        <option value="WIN/LOSE">WIN/LOSE</option>
+                        <option value="PROFIT">PROFIT</option>
                         <option value="RATE">RATE</option>
                     </select>
                 </div>
