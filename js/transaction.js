@@ -1998,6 +1998,7 @@ function handlePaymentOnlyFilter() {
 // ==================== 提交功能 ====================
 function submitAction() {
     const type = document.getElementById('transaction_type').value;
+    const effectiveType = (type === 'WIN/LOSE') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
     const isRate = type === RATE_TYPE_VALUE;
     
     const standardToAccountInput = document.getElementById('action_account_id');
@@ -2183,7 +2184,7 @@ function submitAction() {
             showNotification('Please select Currency', 'error');
             return;
         }
-        if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'].includes(type) && !fromAccountId) {
+        if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'].includes(effectiveType) && !fromAccountId) {
             showNotification('This transaction type requires From Account', 'error');
             return;
         }
@@ -2223,7 +2224,7 @@ function submitAction() {
     });
     
     const formData = new FormData();
-    formData.append('transaction_type', type);
+    formData.append('transaction_type', effectiveType);
     formData.append('account_id', accountId);
     formData.append('from_account_id', fromAccountId);
     formData.append('amount', amount);
@@ -2502,6 +2503,12 @@ function handleTypeToggle() {
         remarkGroup.style.display = isRate ? 'none' : '';
     }
     
+    const winLoseGroup = document.getElementById('win_lose_side_group');
+    const isWinLose = typeSel.value === 'WIN/LOSE';
+    if (winLoseGroup) {
+        winLoseGroup.style.display = isWinLose ? '' : 'none';
+    }
+    
     // 保持日期同步
     const standardDateInput = document.getElementById('transaction_date');
     const rateDateInput = document.getElementById('rate_transaction_date');
@@ -2515,7 +2522,7 @@ function handleTypeToggle() {
     
     if (!fromSel) return;
     
-    // CONTRA, PAYMENT, RECEIVE, CLAIM 需要显示 From 账户选择框（Rate 单独处理）
+    // CONTRA, PAYMENT, RECEIVE, CLAIM 需要显示 From 账户选择框（Rate、WIN/LOSE 单独处理）
     const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'].includes(typeSel.value);
     fromSel.style.display = (!isRate && needsFrom) ? '' : 'none';
     if (reverseBtn) {
