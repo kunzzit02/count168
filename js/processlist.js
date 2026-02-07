@@ -1084,13 +1084,31 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    const needInboxRefresh = selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function';
-                    const inboxPromise = needInboxRefresh ? loadAccountingInbox(true) : null;
                     const process = processes.find(p => p.id === processId);
                     if (process) {
                         process.status = result.newStatus;
                         if (result.newDayEnd) process.day_end = result.newDayEnd;
                     }
+                    const needInboxRefresh = selectedPermission === 'Bank' && result.newStatus === 'inactive';
+                    if (needInboxRefresh && process && typeof renderAccountingInbox === 'function') {
+                        var optimisticItem = {
+                            id: process.id,
+                            name: (process.name || process.supplier || process.bank || '').toString().trim() || '-',
+                            bank: (process.bank || '').toString().trim() || '-',
+                            day_start: process.day_start || null,
+                            contract: (process.contract || '').toString().trim() || '-',
+                            already_posted_today: false,
+                            is_manual_inactive: true
+                        };
+                        var existingList = Array.isArray(window.__accountingInboxList) ? window.__accountingInboxList : [];
+                        var merged = [optimisticItem];
+                        existingList.forEach(function (p) {
+                            if (p.id !== process.id) merged.push(p);
+                        });
+                        window.__accountingInboxList = merged;
+                        renderAccountingInbox(merged);
+                    }
+                    var inboxPromise = needInboxRefresh && typeof loadAccountingInbox === 'function' ? loadAccountingInbox(true) : null;
 
                     const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
 
