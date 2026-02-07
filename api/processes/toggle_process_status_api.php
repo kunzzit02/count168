@@ -86,6 +86,7 @@ try {
             exit;
         }
         $status = $current['status'];
+        $sinceDate = null;
         // inactive 时：本次改为 inactive 之后必须先做 Transaction，才能手动切回 active（每次都要先 transaction）
         if ($status === 'inactive') {
             $dtsModified = $current['dts_modified'] ?? null;
@@ -93,12 +94,23 @@ try {
                 api_error('只有通过 Accounting Due 的 Transaction 后，才能手动将状态改为 Active', 400);
                 exit;
             }
+            $ts = $dtsModified ? strtotime($dtsModified) : false;
+            $sinceDate = ($ts !== false) ? date('Y-m-d', $ts) : null;
             $newStatus = 'active';
         } else {
             $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');
         }
         // 1+1/1+2/1+3 的「额外 1/2/3 个月」不在切换为 inactive 时加进 day_end，只在 Accounting Due 做 Transaction 转为 active 时由 process_post_to_transaction_api 加进 day_start
         updateBankProcessStatus($pdo, $newStatus, null, $id, $companyId);
+        // 从 inactive 切回 active 时「消耗」一条 manual_inactive 入账记录，下次 inactive 必须再做一次 transaction 才能切回 active
+        if ($newStatus === 'active' && $sinceDate !== null) {
+            try {
+                $del = $pdo->prepare("DELETE FROM process_accounting_posted WHERE id = (SELECT id FROM (SELECT id FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = 'manual_inactive' AND posted_date >= ? ORDER BY posted_date ASC LIMIT 1) AS t)");
+                $del->execute([$companyId, $id, $sinceDate]);
+            } catch (Throwable $e) {
+                // 忽略删除失败，不影响切换结果
+            }
+        }
         api_success(['newStatus' => $newStatus], '状态更新成功');
         exit;
     }
