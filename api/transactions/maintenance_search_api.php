@@ -8,15 +8,51 @@ session_start();
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config.php';
 
+/**
+ * 获取当前用户有权限访问的公司列表（与 update_company_session_api 一致）
+ */
+function getMaintenanceUserCompanies(PDO $pdo, $userId, $userRole, $userType): array {
+    $userType = strtolower($userType ?? '');
+    $userRole = strtolower($userRole ?? '');
+    if ($userType === 'member') {
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT c.id, c.company_id
+            FROM company c
+            INNER JOIN account_company ac ON c.id = ac.company_id
+            WHERE ac.account_id = ?
+            ORDER BY c.company_id ASC
+        ");
+        $stmt->execute([$userId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    if ($userRole === 'owner') {
+        $ownerId = $userId;
+        $stmt = $pdo->prepare("SELECT id, company_id FROM company WHERE owner_id = ? ORDER BY company_id ASC");
+        $stmt->execute([$ownerId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT c.id, c.company_id
+        FROM company c
+        INNER JOIN user_company_map ucm ON c.id = ucm.company_id
+        WHERE ucm.user_id = ?
+        ORDER BY c.company_id ASC
+    ");
+    $stmt->execute([$userId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 try {
-    // 确定 company_id（支持 owner 指定，多公司切换）
+    // 确定 company_id（支持 owner 指定，多公司切换；非 owner 按「有权限的公司列表」校验，不强制与 session 一致，避免选 TEST 时跳回第一个）
     $company_id = null;
     if (isset($_GET['company_id']) && $_GET['company_id'] !== '') {
         $requestedCompanyId = (int)$_GET['company_id'];
         $userRole = strtolower($_SESSION['role'] ?? '');
-        
+        $userType = strtolower($_SESSION['user_type'] ?? '');
+        $userId = (int)($_SESSION['user_id'] ?? 0);
+        $ownerId = (int)($_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? 0);
+
         if ($userRole === 'owner') {
-            $ownerId = $_SESSION['owner_id'] ?? $_SESSION['user_id'] ?? null;
             if (!$ownerId) {
                 throw new Exception('缺少 Owner 信息');
             }
@@ -27,13 +63,19 @@ try {
             }
             $company_id = $requestedCompanyId;
         } else {
-            if (!isset($_SESSION['company_id'])) {
-                throw new Exception('缺少公司信息');
+            $userCompanies = getMaintenanceUserCompanies($pdo, $userId, $userRole, $userType);
+            $allowed = false;
+            foreach ($userCompanies as $c) {
+                if ((int)$c['id'] === $requestedCompanyId) {
+                    $allowed = true;
+                    break;
+                }
             }
-            if ($requestedCompanyId !== (int)$_SESSION['company_id']) {
+            if (!$allowed) {
                 throw new Exception('无权访问该公司');
             }
             $company_id = $requestedCompanyId;
+            $_SESSION['company_id'] = $requestedCompanyId;
         }
     } else {
         if (!isset($_SESSION['company_id'])) {

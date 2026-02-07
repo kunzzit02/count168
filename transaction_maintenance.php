@@ -240,15 +240,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                             container.appendChild(btn);
                         });
                         
-                        // 如果 session 中有 company_id，优先使用它；否则使用第一个
-                        if (!currentCompanyId) {
+                        // 仅在没有选中公司时使用第一个；已选中的公司（如 TEST）不跳回第一个
+                        if (!currentCompanyId && data.data.length > 0) {
                             currentCompanyId = data.data[0].id;
-                        } else {
-                            // 验证 session 中的 company_id 是否在列表中
-                            const exists = data.data.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                            if (!exists && data.data.length > 0) {
-                                currentCompanyId = data.data[0].id;
-                            }
                         }
                         
                         updateCompanyButtonsState();
