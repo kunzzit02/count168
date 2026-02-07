@@ -128,10 +128,14 @@
                         container.appendChild(btn);
                     });
 
-                    if (!currentCompanyId && data.data.length > 0) {
+                    if (!currentCompanyId) {
                         currentCompanyId = data.data[0].id;
+                    } else {
+                        const exists = data.data.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
+                        if (!exists && data.data.length > 0) {
+                            currentCompanyId = data.data[0].id;
+                        }
                     }
-                    // 已选中的公司（如 TEST）不因「不在列表首位」而跳回第一个，保持当前选中
 
                     updateCompanyButtonsState();
                     wrapper.style.display = data.data.length > 1 ? 'flex' : 'none';
