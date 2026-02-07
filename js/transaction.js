@@ -1998,7 +1998,7 @@ function handlePaymentOnlyFilter() {
 // ==================== 提交功能 ====================
 function submitAction() {
     const type = document.getElementById('transaction_type').value;
-    const effectiveType = (type === 'WIN/LOSE') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
+    const effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
     const isRate = type === RATE_TYPE_VALUE;
     
     const standardToAccountInput = document.getElementById('action_account_id');
@@ -2504,7 +2504,7 @@ function handleTypeToggle() {
     }
     
     const winLoseGroup = document.getElementById('win_lose_side_group');
-    const isWinLose = typeSel.value === 'WIN/LOSE';
+    const isWinLose = typeSel.value === 'PROFIT';
     if (winLoseGroup) {
         winLoseGroup.style.display = isWinLose ? '' : 'none';
     }
@@ -2522,7 +2522,7 @@ function handleTypeToggle() {
     
     if (!fromSel) return;
     
-    // CONTRA, PAYMENT, RECEIVE, CLAIM 需要显示 From 账户选择框（Rate、WIN/LOSE 单独处理）
+    // CONTRA, PAYMENT, RECEIVE, CLAIM 需要显示 From 账户选择框（Rate、PROFIT 单独处理）
     const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'].includes(typeSel.value);
     fromSel.style.display = (!isRate && needsFrom) ? '' : 'none';
     if (reverseBtn) {
