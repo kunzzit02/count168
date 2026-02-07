@@ -566,13 +566,9 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // WIN/LOSE（前端以 PROFIT 提交）：与 CONTRA 同格式；To Account 显示 PROFIT FROM {From}，From Account 显示 PROFIT TO {To}
+        // WIN/LOSE（前端以 PROFIT 提交）：与 CONTRA 同格式，Id Product 显示 PROFIT，Description 显示 PROFIT FROM {To Account}
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
-            if ($is_to_account) {
-                $description = 'PROFIT FROM ' . ($t['from_account_code'] ?: $t['to_account_code'] ?: 'N/A');
-            } else {
-                $description = 'PROFIT TO ' . ($t['to_account_code'] ?: 'N/A');
-            }
+            $description = 'PROFIT FROM ' . ($t['to_account_code'] ?: 'N/A');
         }
         
         // 如果是 CONTRA/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
