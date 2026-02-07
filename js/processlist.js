@@ -901,11 +901,13 @@
         }
 
         window.__accountingInboxList = [];
-        function loadAccountingInbox() {
+        /** @param {boolean} [noCache] - 为 true 时加 _t 防缓存，用于切换 inactive 后立即刷新 */
+        function loadAccountingInbox(noCache) {
             const urlStr = buildApiUrl('api/processes/process_accounting_inbox_api.php');
             const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             const u = new URL(urlStr);
             if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
+            if (noCache) u.searchParams.set('_t', String(Date.now()));
             return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
                 .then(r => r.json())
                 .then(data => {
@@ -1082,6 +1084,8 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    const needInboxRefresh = selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function';
+                    const inboxPromise = needInboxRefresh ? loadAccountingInbox(true) : null;
                     const process = processes.find(p => p.id === processId);
                     if (process) {
                         process.status = result.newStatus;
@@ -1151,10 +1155,7 @@
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
 
-                    // Bank：改为 inactive 后立即刷新 Accounting Due 徽章和列表，马上显示 1 和该行数据
-                    if (selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
-                        await loadAccountingInbox();
-                    }
+                    if (inboxPromise) await inboxPromise;
 
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Process status changed to ${statusText}`, 'success');
