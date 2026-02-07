@@ -1472,7 +1472,7 @@
                     // 鏇存柊鏈湴鏁版嵁
                     const account = accounts.find(acc => acc.id === accountId);
                     if (account) {
-                        account.status = result.newStatus;
+                        account.status = (result.newStatus || (result.data && result.data.newStatus));
                     }
                     
                     // 绔嬪嵆鏇存柊鐘舵€?badge 鐨勬樉绀?
@@ -1480,14 +1480,14 @@
                     if (card) {
                         const items = card.querySelectorAll('.account-card-item');
                         if (items.length > 5) {
-                            const statusClass = result.newStatus === 'active' ? 'account-status-active' : 'account-status-inactive';
+                            const statusClass = (result.newStatus || (result.data && result.data.newStatus)) === 'active' ? 'account-status-active' : 'account-status-inactive';
                             // Status 鏄 5 鍒楋紙绱㈠紩 5锛夛紝Alert 鏄 4 鍒楋紙绱㈠紩 4锛?
-                            items[5].innerHTML = `<span class="account-role-badge ${statusClass} account-status-clickable" onclick="toggleAccountStatus(${accountId}, '${result.newStatus}')" title="Click to toggle status">${result.newStatus.toUpperCase()}</span>`;
+                            items[5].innerHTML = `<span class="account-role-badge ${statusClass} account-status-clickable" onclick="toggleAccountStatus(${accountId}, '${result.newStatus || (result.data && result.data.newStatus)}')" title="Click to toggle status">${((result.newStatus || (result.data && result.data.newStatus)) || '').toUpperCase()}</span>`;
                             // 鏇存柊鍒犻櫎澶嶉€夋鏄剧ず锛欰CTIVE 涓嶆樉绀猴紝INACTIVE 鎵嶆樉绀?
                             const actionCell = items[8]; // Action 鍒?
                             if (actionCell) {
                                 const existingCheckbox = actionCell.querySelector('.account-row-checkbox');
-                                if (result.newStatus === 'active') {
+                                if ((result.newStatus || (result.data && result.data.newStatus)) === 'active') {
                                     if (existingCheckbox) existingCheckbox.remove();
                                 } else {
                                     if (!existingCheckbox) {
@@ -1508,7 +1508,7 @@
                         // showAll=true: 鏄剧ず鎵€鏈夎处鎴?
                         // showInactive=true: 鍙樉绀?inactive 璐︽埛
                         // showInactive=false: 鍙樉绀?active 璐︽埛
-                        const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
+                        const shouldShow = showAll ? true : (showInactive ? (result.newStatus || (result.data && result.data.newStatus)) === 'inactive' : (result.newStatus || (result.data && result.data.newStatus)) === 'active');
                         if (!shouldShow) {
                             // 濡傛灉涓嶅簲璇ユ樉绀猴紝浠?accounts 鏁扮粍涓Щ闄ゅ苟閲嶆柊娓叉煋
                             const accountIndex = accounts.findIndex(acc => acc.id === accountId);
@@ -1525,7 +1525,7 @@
                     updateDeleteButton();
                     updateSelectAllAccountsVisibility();
                     
-                    const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
+                    const statusText = (result.newStatus || (result.data && result.data.newStatus)) === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Account status changed to ${statusText}`, 'success');
                 } else {
                     showNotification(result.error || 'Status toggle failed', 'danger');
