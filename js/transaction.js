@@ -2502,12 +2502,6 @@ function handleTypeToggle() {
         remarkGroup.style.display = isRate ? 'none' : '';
     }
     
-    const winLoseGroup = document.getElementById('win_lose_side_group');
-    const isWinLose = typeSel.value === 'PROFIT';
-    if (winLoseGroup) {
-        winLoseGroup.style.display = isWinLose ? '' : 'none';
-    }
-    
     // 保持日期同步
     const standardDateInput = document.getElementById('transaction_date');
     const rateDateInput = document.getElementById('rate_transaction_date');

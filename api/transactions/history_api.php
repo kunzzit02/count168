@@ -566,6 +566,11 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
+        // WIN/LOSE（前端以 PROFIT 提交）：Id Product 显示 PROFIT，Description 显示 Profit From (To Account)
+        if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
+            $description = 'Profit From (' . ($t['to_account_code'] ?: 'N/A') . ')';
+        }
+        
         // 如果是 CONTRA/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
         if (in_array($t['transaction_type'], ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'RATE'])) {
             if (empty($t['description'])) {
@@ -649,6 +654,9 @@ try {
             $transactionCreatedBy = $t['created_by_owner_name'];
         }
         
+        // WIN/LOSE 在 Payment History 中 Id Product 显示为 PROFIT
+        $productDisplay = in_array($t['transaction_type'], ['WIN', 'LOSE']) ? 'PROFIT' : $t['transaction_type'];
+        
         $events[] = [
             'row_type' => 'transaction',
             'transaction_id' => $t['id'],
@@ -659,7 +667,7 @@ try {
             'cr_dr' => $cr_dr,
             'date' => date('d/m/Y', strtotime($t['transaction_date'])),
             'source' => $t['transaction_type'], // Source 显示交易类型
-            'product' => $t['transaction_type'],
+            'product' => $productDisplay,
             'currency' => $transactionCurrency,
             'percent' => '-', // Transactions 没有 percent
             'rate' => '-', // Transactions 没有 rate
