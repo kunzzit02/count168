@@ -901,13 +901,11 @@
         }
 
         window.__accountingInboxList = [];
-        /** @param {boolean} [noCache] - 为 true 时加 _t 防缓存，用于切换 inactive 后立即刷新 */
-        function loadAccountingInbox(noCache) {
+        function loadAccountingInbox() {
             const urlStr = buildApiUrl('api/processes/process_accounting_inbox_api.php');
             const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             const u = new URL(urlStr);
             if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
-            if (noCache) u.searchParams.set('_t', String(Date.now()));
             return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
                 .then(r => r.json())
                 .then(data => {
@@ -1089,26 +1087,6 @@
                         process.status = result.newStatus;
                         if (result.newDayEnd) process.day_end = result.newDayEnd;
                     }
-                    const needInboxRefresh = selectedPermission === 'Bank' && result.newStatus === 'inactive';
-                    if (needInboxRefresh && process && typeof renderAccountingInbox === 'function') {
-                        var optimisticItem = {
-                            id: process.id,
-                            name: (process.name || process.supplier || process.bank || '').toString().trim() || '-',
-                            bank: (process.bank || '').toString().trim() || '-',
-                            day_start: process.day_start || null,
-                            contract: (process.contract || '').toString().trim() || '-',
-                            already_posted_today: false,
-                            is_manual_inactive: true
-                        };
-                        var existingList = Array.isArray(window.__accountingInboxList) ? window.__accountingInboxList : [];
-                        var merged = [optimisticItem];
-                        existingList.forEach(function (p) {
-                            if (p.id !== process.id) merged.push(p);
-                        });
-                        window.__accountingInboxList = merged;
-                        renderAccountingInbox(merged);
-                    }
-                    var inboxPromise = needInboxRefresh && typeof loadAccountingInbox === 'function' ? loadAccountingInbox(true) : null;
 
                     const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
 
@@ -1173,7 +1151,10 @@
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
 
-                    if (inboxPromise) await inboxPromise;
+                    // Bank：改为 inactive 后立即刷新 Accounting Due 徽章和列表，马上显示 1 和该行数据
+                    if (selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
+                        await loadAccountingInbox();
+                    }
 
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Process status changed to ${statusText}`, 'success');
