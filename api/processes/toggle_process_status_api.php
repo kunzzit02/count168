@@ -16,20 +16,28 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 function getBankProcessCurrent(PDO $pdo, int $id, int $companyId): ?array {
-    $stmt = $pdo->prepare("SELECT status, contract, day_end FROM bank_process WHERE id = ? AND company_id = ?");
+    $stmt = $pdo->prepare("SELECT status, contract, day_end, dts_modified FROM bank_process WHERE id = ? AND company_id = ?");
     $stmt->execute([$id, $companyId]);
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
-/** 是否已以 manual_inactive 入账过（入账后才允许手动从 inactive 切回 active） */
-function hasManualInactivePosted(PDO $pdo, int $processId, int $companyId): bool {
+/** 本次 inactive 之后是否已做过 Transaction（只有本次 inactive 后已入账才允许手动切回 active，每次都要先 transaction） */
+function hasManualInactivePostedSince(PDO $pdo, int $processId, int $companyId, ?string $dtsModified): bool {
+    if ($dtsModified === null || $dtsModified === '') {
+        return false;
+    }
     try {
         $stmt = $pdo->query("SHOW COLUMNS FROM process_accounting_posted LIKE 'period_type'");
         if (!$stmt || $stmt->rowCount() === 0) {
             return false;
         }
-        $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = 'manual_inactive' LIMIT 1");
-        $stmt->execute([$companyId, $processId]);
+        $ts = strtotime($dtsModified);
+        if ($ts === false) {
+            return false;
+        }
+        $sinceDate = date('Y-m-d', $ts);
+        $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = 'manual_inactive' AND posted_date >= ? LIMIT 1");
+        $stmt->execute([$companyId, $processId, $sinceDate]);
         return (bool) $stmt->fetch();
     } catch (Throwable $e) {
         return false;
@@ -78,9 +86,10 @@ try {
             exit;
         }
         $status = $current['status'];
-        // inactive 时：未做过 Transaction（无 manual_inactive 入账记录）前不可手动切回 active；Transaction 后才允许手动切回 active
+        // inactive 时：本次改为 inactive 之后必须先做 Transaction，才能手动切回 active（每次都要先 transaction）
         if ($status === 'inactive') {
-            if (!hasManualInactivePosted($pdo, $id, $companyId)) {
+            $dtsModified = $current['dts_modified'] ?? null;
+            if (!hasManualInactivePostedSince($pdo, $id, $companyId, $dtsModified)) {
                 api_error('只有通过 Accounting Due 的 Transaction 后，才能手动将状态改为 Active', 400);
                 exit;
             }
