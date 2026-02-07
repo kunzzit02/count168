@@ -65,7 +65,7 @@ function hasBankProcessFrequencyColumn(PDO $pdo): bool
 function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFrequency): array
 {
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start" .
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.day_start, bp.contract" .
         ($hasFrequency ? ", bp.day_start_frequency" : "") . "
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'active'
@@ -79,7 +79,7 @@ function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFre
 /** 获取当前公司下 status=inactive 的 Bank Process（每次从 active 改为 inactive 都会进 Accounting Due，不限第几次） */
 function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId): array
 {
-    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit
+    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.contract
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'inactive'
             AND (bp.card_merchant_id IS NOT NULL OR bp.customer_id IS NOT NULL OR bp.profit_account_id IS NOT NULL)
@@ -237,6 +237,8 @@ try {
                 'name' => ($r['name'] ?? '') ?: ($r['bank'] ?? ''),
                 'bank' => $r['bank'] ?? '',
                 'country' => $r['country'] ?? '',
+                'day_start' => $dayStart,
+                'contract' => $r['contract'] ?? '',
                 'cost' => $partial['cost'],
                 'price' => $partial['price'],
                 'profit' => $partial['profit'],
@@ -296,6 +298,8 @@ try {
                 'name' => $r['name'] ?? '',
                 'bank' => $r['bank'] ?? '',
                 'country' => $r['country'] ?? '',
+                'day_start' => $r['day_start'] ?? null,
+                'contract' => $r['contract'] ?? '',
                 'cost' => $r['cost'] ?? 0,
                 'price' => $r['price'] ?? 0,
                 'profit' => $r['profit'] ?? 0,
@@ -314,6 +318,8 @@ try {
             'name' => $r['name'] ?? '',
             'bank' => $r['bank'] ?? '',
             'country' => $r['country'] ?? '',
+            'day_start' => $r['day_start'] ?? null,
+            'contract' => $r['contract'] ?? '',
             'cost' => $r['cost'] ?? 0,
             'price' => $r['price'] ?? 0,
             'profit' => $r['profit'] ?? 0,

@@ -930,7 +930,7 @@
             if (countModal) countModal.textContent = String(postableCount);
             if (selectAllCb) { selectAllCb.checked = postableCount > 0; selectAllCb.disabled = postableCount === 0; }
             if (count === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:10px 8px; color:#6b7280;">No processes due for accounting today.</td></tr>';
                 if (postBtn) postBtn.disabled = true;
                 return;
             }
@@ -942,12 +942,9 @@
                 const cbClass = 'process-accounting-inbox-row-cb';
                 const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : 'monthly');
                 const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
-                // 1st of every month 首月按比例：API 已返回 (原值/当月天数*剩余天数) 的 cost/price/profit；manual_inactive = 用户从 active 改为 inactive 后待入账
-                const costDisplay = row.cost != null ? Number(row.cost) : '-';
-                const priceDisplay = row.price != null ? Number(row.price) : '-';
-                const profitDisplay = row.profit != null ? Number(row.profit) : '-';
-                const typeDisplay = row.is_manual_inactive ? 'Manual (Inactive)' : (row.is_partial_first_month ? 'Remaining days' : 'Monthly');
-                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + costDisplay + '</td><td>' + priceDisplay + '</td><td>' + profitDisplay + '</td><td>' + escapeHtml(typeDisplay) + '</td></tr>';
+                const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
+                const contract = (row.contract || '').toString().trim() || '-';
+                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(startDate) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.bank || '-') + '</td><td>' + escapeHtml(contract) + '</td></tr>';
             }).join('');
             updateAccountingInboxPostButton();
             (function bindSelectAll() {
