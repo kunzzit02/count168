@@ -14,7 +14,19 @@
 
 session_start();
 header('Content-Type: application/json');
-require_once __DIR__ . '/../../config.php';
+
+try {
+    require_once __DIR__ . '/../../config.php';
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => '服务器初始化失败: ' . $e->getMessage(),
+        'data' => null,
+        'error' => $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 /**
  * 角色与权限工具
@@ -842,6 +854,14 @@ try {
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage(),
+        'data' => null,
+        'error' => $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => '服务器错误: ' . $e->getMessage(),
         'data' => null,
         'error' => $e->getMessage()
     ], JSON_UNESCAPED_UNICODE);
