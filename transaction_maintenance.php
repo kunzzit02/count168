@@ -240,15 +240,9 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                             container.appendChild(btn);
                         });
                         
-                        // 如果 session 中有 company_id，优先使用它；否则使用第一个
-                        if (!currentCompanyId) {
+                        // 仅在没有选中公司时使用第一个；在 TEST 公司时打开本页保持选 TEST，不自动选 C168
+                        if (!currentCompanyId && data.data.length > 0) {
                             currentCompanyId = data.data[0].id;
-                        } else {
-                            // 验证 session 中的 company_id 是否在列表中
-                            const exists = data.data.some(company => parseInt(company.id, 10) === parseInt(currentCompanyId, 10));
-                            if (!exists && data.data.length > 0) {
-                                currentCompanyId = data.data[0].id;
-                            }
                         }
                         
                         updateCompanyButtonsState();
@@ -1505,6 +1499,8 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     
     <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- 供 js/transaction_maintenance.js 读取：当前 session 公司，避免在 TEST 时打开本页被重置为 C168 -->
+    <script>window.TRANSACTION_MAINTENANCE = { currentCompanyId: <?php echo json_encode($session_company_id); ?> };</script>
     <script src="js/transaction_maintenance.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>
