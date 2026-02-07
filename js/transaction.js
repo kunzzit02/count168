@@ -2100,16 +2100,14 @@ function submitAction() {
         const toAccountIdValue = getAccountId(rateToAccountInput);
         
         // 获取 account_code（显示名称）用于 description
-        // 从选中的 option 中获取 data-account-code
+        // 从自定义下拉选单的 button 中获取 data-account-code
         let fromAccountCode = '';
         let toAccountCode = '';
         if (rateFromAccountInput) {
-            const selectedOption = rateFromAccountInput.options[rateFromAccountInput.selectedIndex];
-            fromAccountCode = selectedOption?.getAttribute('data-account-code') || '';
+            fromAccountCode = rateFromAccountInput.getAttribute('data-account-code') || '';
         }
         if (rateToAccountInput) {
-            const selectedOption = rateToAccountInput.options[rateToAccountInput.selectedIndex];
-            toAccountCode = selectedOption?.getAttribute('data-account-code') || '';
+            toAccountCode = rateToAccountInput.getAttribute('data-account-code') || '';
         }
         
         // 生成两条记录的 description（添加汇率信息）
