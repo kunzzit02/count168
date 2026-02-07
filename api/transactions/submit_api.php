@@ -177,11 +177,11 @@ try {
         }
     }
 
-    // WIN/LOSE（PROFIT）：与 CONTRA 一致，必填 From Account，使前后两个账户的 Payment History 都能显示（第一个 -xxx.xx，第二个 +xxx.xx）
-    // 验证 From Account（PAYMENT/RECEIVE/CONTRA/CLAIM/WIN/LOSE 需要，RATE 有特殊处理）
-    if (in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE'])) {
+    // WIN/LOSE（PROFIT）：允许存储 from_account_id，使前后两个账户的 Payment History 都能显示该笔交易（若数据库有触发器禁止，需删除该触发器）
+    // 验证 From Account（PAYMENT/RECEIVE/CONTRA/CLAIM 需要，RATE 有特殊处理）
+    if (in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'])) {
         if (!$from_account_id || $from_account_id <= 0) {
-            throw new Exception('PAYMENT/RECEIVE/CONTRA/CLAIM/PROFIT 交易必须选择 From Account');
+            throw new Exception('PAYMENT/RECEIVE/CONTRA/CLAIM 交易必须选择 From Account');
         }
         
         if ($from_account_id == $account_id) {

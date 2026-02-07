@@ -2001,14 +2001,14 @@ function submitAction() {
     const effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
     const isRate = type === RATE_TYPE_VALUE;
     
-    // 第一个按钮 = To Account，第二个按钮 = From Account（与 CONTRA/PROFIT 一致，第一个 -xxx.xx，第二个 +xxx.xx）
-    const standardToAccountInput = document.getElementById('action_account_from');
-    const standardFromAccountInput = document.getElementById('action_account_id');
+    const standardToAccountInput = document.getElementById('action_account_id');
+    const standardFromAccountInput = document.getElementById('action_account_from');
     const rateToAccountInput = document.getElementById('rate_account_to');
     const rateFromAccountInput = document.getElementById('rate_account_from');
 
-    const accountId = isRate ? getAccountId(rateToAccountInput) : getAccountId(standardToAccountInput);
-    const fromAccountId = isRate ? getAccountId(rateFromAccountInput) : getAccountId(standardFromAccountInput);
+    // PROFIT：第一个下拉为 To Account、第二个为 From Account，前后两个账户的 Payment History 都要显示
+    const accountId = isRate ? getAccountId(rateToAccountInput) : (type === 'PROFIT' ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput));
+    const fromAccountId = isRate ? getAccountId(rateFromAccountInput) : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput));
     
     const standardAmountInput = document.getElementById('action_amount');
     const rateCurrencyFromAmountInput = document.getElementById('rate_currency_from_amount');
@@ -2185,7 +2185,7 @@ function submitAction() {
             showNotification('Please select Currency', 'error');
             return;
         }
-        if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'WIN', 'LOSE'].includes(effectiveType) && !fromAccountId) {
+        if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'].includes(effectiveType) && !fromAccountId) {
             showNotification('This transaction type requires From Account', 'error');
             return;
         }

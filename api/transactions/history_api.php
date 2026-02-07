@@ -506,24 +506,14 @@ try {
         // Win/Loss 只包含 Data Capture，WIN/LOSE 交易移到 Cr/Dr
         switch ($t['transaction_type']) {
             case 'WIN':
-                // 与 CONTRA 一致：To Account +xxx.xx，From Account -xxx.xx
-                if ($is_internal_transfer) {
-                    $cr_dr = 0;
-                } elseif ($is_to_account) {
+                if (!$is_internal_transfer && $is_to_account) {
                     $cr_dr = $t['amount'];
-                } else {
-                    $cr_dr = -$t['amount'];
                 }
                 break;
                 
             case 'LOSE':
-                // 与 CONTRA 一致：To Account -xxx.xx，From Account +xxx.xx
-                if ($is_internal_transfer) {
-                    $cr_dr = 0;
-                } elseif ($is_to_account) {
+                if (!$is_internal_transfer && $is_to_account) {
                     $cr_dr = -$t['amount'];
-                } else {
-                    $cr_dr = $t['amount'];
                 }
                 break;
                 
@@ -886,21 +876,19 @@ function calculateBF($pdo, $account_id, $date_from, $company_id) {
     $stmt->execute([$company_id, $account_id, $date_from]);
     $bf += $stmt->fetchColumn();
     
-    // PAYMENT/RECEIVE/CONTRA/CLAIM/RATE/WIN/LOSE 影响 Cr/Dr（作为 From Account）
-    // WIN/LOSE（PROFIT）：From Account 与 CONTRA 一致，WIN 为 -amount，LOSE 为 +amount
+    // PAYMENT/RECEIVE/CONTRA/CLAIM/RATE 影响 Cr/Dr（作为 From Account）
+    // 注意：RATE 类型的 from_account_id 可能为 NULL（手续费记录），这些记录不会在这里被计算
     $sql = "SELECT 
                 COALESCE(SUM(CASE 
                     WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -amount
                     WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -amount
-                    WHEN transaction_type = 'WIN' THEN -amount
-                    WHEN transaction_type = 'LOSE' THEN amount
                     ELSE 0
                 END), 0) as cr_dr
             FROM transactions
             WHERE company_id = ?
               AND from_account_id = ?
               AND transaction_date < ?
-              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')"
+              AND transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
               . historyContraApprovedWhere($pdo, '');
     
     $stmt = $pdo->prepare($sql);
@@ -990,14 +978,12 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     $bf += $stmt->fetchColumn();
     
     // 3. 计算起始日期之前所有 Cr/Dr（作为 From Account，按 currency 过滤）
-    // WIN/LOSE（PROFIT）：From Account 与 CONTRA 一致，WIN 为 -amount，LOSE 为 +amount
+    // 注意：RATE 类型的 from_account_id 可能为 NULL（手续费记录），这些记录不会在这里被计算
     if ($has_transaction_currency) {
         $sql = "SELECT 
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -t.amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'WIN' THEN -t.amount
-                        WHEN transaction_type = 'LOSE' THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
@@ -1005,7 +991,7 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                   AND t.from_account_id = ?
                   AND t.currency_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')"
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')"
                   . historyContraApprovedWhere($pdo, 't');
         
         $stmt = $pdo->prepare($sql);
@@ -1015,15 +1001,13 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
                     COALESCE(SUM(CASE 
                         WHEN transaction_type IN ('PAYMENT', 'CONTRA', 'RATE') THEN -t.amount
                         WHEN transaction_type IN ('RECEIVE', 'CLAIM') THEN -t.amount
-                        WHEN transaction_type = 'WIN' THEN -t.amount
-                        WHEN transaction_type = 'LOSE' THEN t.amount
                         ELSE 0
                     END), 0) as cr_dr
                 FROM transactions t
                 WHERE t.company_id = ?
                   AND t.from_account_id = ?
                   AND t.transaction_date < ?
-                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE', 'WIN', 'LOSE')
+                  AND t.transaction_type IN ('PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM', 'RATE')
                   AND EXISTS (
                       SELECT 1
                       FROM data_capture_details dcd
