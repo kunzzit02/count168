@@ -76,14 +76,17 @@ function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFre
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/** 获取当前公司下 status=inactive 的 Bank Process（每次从 active 改为 inactive 都会进 Accounting Due，不限第几次） */
-function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId): array
+/** 获取当前公司下 status=inactive 且尚未在本轮做过 manual_inactive 入账的 Bank Process（入账后从 Accounting Due 消失，status 保持 inactive） */
+function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId, bool $hasPeriodType): array
 {
     $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.contract
             FROM bank_process bp
             WHERE bp.company_id = ? AND bp.status = 'inactive'
             AND (bp.card_merchant_id IS NOT NULL OR bp.customer_id IS NOT NULL OR bp.profit_account_id IS NOT NULL)
             AND (COALESCE(bp.cost,0) > 0 OR COALESCE(bp.price,0) > 0 OR COALESCE(bp.profit,0) > 0)";
+    if ($hasPeriodType) {
+        $sql .= " AND NOT EXISTS (SELECT 1 FROM process_accounting_posted pap WHERE pap.company_id = bp.company_id AND pap.process_id = bp.id AND pap.period_type = 'manual_inactive' AND pap.posted_date >= DATE(bp.dts_modified))";
+    }
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$companyId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -310,8 +313,8 @@ try {
         }
     }
 
-    // 3) 用户从 active 改为 inactive 的流程：直接进入 Accounting Due，待 Transaction 后自动变回 active 并更新下次日期
-    $inactivePending = fetchInactiveBankProcessesPendingTransaction($pdo, $company_id);
+    // 3) 用户从 active 改为 inactive 的流程：进入 Accounting Due；做完 Transaction 后该行从列表消失，status 保持 inactive
+    $inactivePending = fetchInactiveBankProcessesPendingTransaction($pdo, $company_id, $hasPeriodType);
     foreach ($inactivePending as $r) {
         $needToday[] = [
             'id' => (int) $r['id'],
