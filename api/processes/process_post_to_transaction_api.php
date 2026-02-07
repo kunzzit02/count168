@@ -399,22 +399,16 @@ try {
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
 
-        // manual_inactive 入账后：改为 active，该条会从 Accounting Due 消失；1+1/1+2/1+3 时给 day_end 加对应月数
+        // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（1+1 加 1 月，1+2 加 2 月，1+3 加 3 月）
         if ($periodType === 'manual_inactive') {
             $extraMonths = getExtraMonthsFromContract($p['contract'] ?? null);
             $dayEnd = $p['day_end'] ?? null;
             if ($extraMonths > 0 && $dayEnd !== null && $dayEnd !== '') {
                 $newDayEnd = addMonthsToDate($dayEnd, $extraMonths);
                 if ($newDayEnd !== null) {
-                    $upd = $pdo->prepare("UPDATE bank_process SET status = 'active', day_end = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?");
+                    $upd = $pdo->prepare("UPDATE bank_process SET day_end = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?");
                     $upd->execute([$newDayEnd, (int) $p['id'], $companyId]);
-                } else {
-                    $upd = $pdo->prepare("UPDATE bank_process SET status = 'active', dts_modified = NOW() WHERE id = ? AND company_id = ?");
-                    $upd->execute([(int) $p['id'], $companyId]);
                 }
-            } else {
-                $upd = $pdo->prepare("UPDATE bank_process SET status = 'active', dts_modified = NOW() WHERE id = ? AND company_id = ?");
-                $upd->execute([(int) $p['id'], $companyId]);
             }
         }
     }
