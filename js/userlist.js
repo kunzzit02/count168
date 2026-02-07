@@ -1851,36 +1851,37 @@ async function toggleUserStatus(userId, currentStatus, isOwnerShadow = false) {
         });
         
         const result = await response.json();
-        
-        if (result.success) {
+        const newStatus = (result.data && result.data.newStatus) || result.newStatus;
+
+        if (result.success && newStatus) {
             // 更新本地数据
             const card = document.querySelector(`.user-card[data-id="${userId}"]`);
             if (card) {
                 // 更新 data-status 属性
-                card.setAttribute('data-status', result.newStatus);
-                
+                card.setAttribute('data-status', newStatus);
+
                 // 立即更新状态 badge 的显示
                 const items = card.querySelectorAll('.card-item');
                 if (items.length > 5) {
-                    const statusClass = result.newStatus === 'active' ? 'status-active' : 'status-inactive';
-                    items[5].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleUserStatus(${userId}, '${result.newStatus}', ${isOwnerShadow})" title="Click to toggle status" style="cursor: pointer;">${result.newStatus.toUpperCase()}</span>`;
+                    const statusClass = newStatus === 'active' ? 'status-active' : 'status-inactive';
+                    items[5].innerHTML = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleUserStatus(${userId}, '${newStatus}', ${isOwnerShadow})" title="Click to toggle status" style="cursor: pointer;">${(newStatus || '').toUpperCase()}</span>`;
                 }
-                
+
                 // 更新 delete checkbox 显示：ACTIVE 不显示，INACTIVE 才显示
                 syncUserDeleteCheckbox(card);
             }
-            
+
             // 更新用户数据数组
             const userData = usersData.find(u => u.id == userId);
             if (userData) {
-                userData.status = result.newStatus;
+                userData.status = newStatus;
             }
-            
+
             // 重新应用过滤和分页
             filterUsers(); // 重新应用过滤（这会根据新的状态显示/隐藏行）
             updateDeleteButton(); // 更新删除按钮状态
-            
-            const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
+
+            const statusText = newStatus === 'active' ? 'activated' : 'deactivated';
             showAlert(`User status changed to ${statusText}`, 'success');
         } else {
             showAlert(result.error || '状态切换失败', 'danger');

@@ -49,7 +49,9 @@ try {
     }
     $newStatus = $current['status'] === 'active' ? 'inactive' : 'active';
     updateAccountStatus($pdo, $newStatus, $id);
-    api_success(['newStatus' => $newStatus], '状态更新成功');
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['success' => true, 'message' => '状态更新成功', 'data' => ['newStatus' => $newStatus], 'newStatus' => $newStatus], JSON_UNESCAPED_UNICODE);
+    exit;
 } catch (Exception $e) {
     api_error($e->getMessage(), 400);
 }
