@@ -1082,33 +1082,35 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    const newStatus = (result.data && result.data.newStatus !== undefined) ? result.data.newStatus : result.newStatus;
+                    const newDayEnd = (result.data && result.data.newDayEnd !== undefined) ? result.data.newDayEnd : result.newDayEnd;
                     const process = processes.find(p => p.id === processId);
                     if (process) {
-                        process.status = result.newStatus;
-                        if (result.newDayEnd) process.day_end = result.newDayEnd;
+                        process.status = newStatus;
+                        if (newDayEnd) process.day_end = newDayEnd;
                     }
 
-                    const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
+                    const shouldShow = showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
 
                     if (!shouldShow) {
                         const processIndex = processes.findIndex(p => p.id === processId);
                         if (processIndex > -1) processes.splice(processIndex, 1);
                         renderTable();
-                    } else if (result.newDayEnd) {
+                    } else if (newDayEnd) {
                         // If day_end changed, we must re-render to update the Date cell and Contract class logic
                         renderTable();
                     } else {
                         // Manual DOM update for simple status change
-                        const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
-                        const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                        const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
+                        const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
 
                         if (selectedPermission === 'Bank') {
                             const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                             const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
                             const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                                (result.newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+                                (newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                             if (row) {
-                                row.setAttribute('data-status', result.newStatus || '');
+                                row.setAttribute('data-status', newStatus || '');
                                 const cells = row.querySelectorAll('td');
                                 if (cells.length >= 15) {
                                     cells[12].innerHTML = statusBadge;
@@ -1125,7 +1127,7 @@
                                     if (actionCell) {
                                         const existingCheckbox = actionCell.querySelector('.row-checkbox');
                                         const existingMuted = actionCell.querySelector('.text-muted');
-                                        if (result.newStatus === 'active') {
+                                        if (newStatus === 'active') {
                                             if (existingCheckbox) existingCheckbox.remove();
                                             if (existingMuted) existingMuted.remove();
                                         } else {
@@ -1152,11 +1154,11 @@
                     updateSelectAllProcessesVisibility();
 
                     // Bank：改为 inactive 后立即刷新 Accounting Due 徽章和列表，马上显示 1 和该行数据
-                    if (selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
+                    if (selectedPermission === 'Bank' && newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
                         await loadAccountingInbox();
                     }
 
-                    const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
+                    const statusText = newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Process status changed to ${statusText}`, 'success');
                 } else {
                     showNotification(result.error || 'Status toggle failed', 'danger');
