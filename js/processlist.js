@@ -1012,7 +1012,6 @@
                 showNotification('Please select at least one process to post.', 'warning');
                 return;
             }
-            if (!confirm('Post ' + pairs.length + ' selected process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
             try {
                 const formData = new FormData();
                 pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
