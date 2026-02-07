@@ -42,7 +42,7 @@
 #### `before_transaction_insert`
 插入前验证：
 - ✅ amount 必须 > 0
-- ✅ WIN/LOSE 时 from_account_id 必须为 NULL
+- ✅ WIN/LOSE 时 from_account_id 可为 NULL 或非 NULL（若需前后两个账户的 Payment History 都显示 PROFIT，需允许 from_account_id；若触发器仍强制为 NULL，请删除或修改该条校验）
 - ✅ PAYMENT/RECEIVE/CONTRA 时 from_account_id 必须有值
 - ✅ from_account_id 和 account_id 不能相同
 
