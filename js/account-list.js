@@ -1460,7 +1460,8 @@
                 const formData = new FormData();
                 formData.append('id', accountId);
                 
-                const response = await fetch('/api/accounts/toggle_account_status_api.php', {
+                const toggleUrl = new URL('api/accounts/toggle_account_status_api.php', window.location.href);
+                const response = await fetch(toggleUrl, {
                     method: 'POST',
                     body: formData
                 });

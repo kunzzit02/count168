@@ -1,3 +1,11 @@
+// 构造 API 绝对 URL（与 processlist 一致，避免子目录部署时相对路径解析错误）
+function buildApiUrl(pathAndQuery) {
+    const pathname = window.location.pathname || '/';
+    const basePath = pathname.replace(/[^/]*$/, '') || '/';
+    const base = window.location.origin + basePath;
+    return new URL(pathAndQuery, base).href;
+}
+
 // 分页相关变量
 let currentPage = 1;
 let rowsPerPage = 15;
@@ -639,7 +647,7 @@ function toggleCompanyFieldVisibility() {
 
 // 加载 Company 列表用于 Modal
 function loadCompaniesForModal() {
-    return fetch('api/transactions/get_owner_companies_api.php')
+    return fetch(buildApiUrl('api/transactions/get_owner_companies_api.php'))
         .then(response => response.json())
         .then(data => {
             if (data.success && data.data.length > 0) {
@@ -868,7 +876,7 @@ function editUser(id, isOwnerShadow = false) {
     
     // 获取用户权限数据（只有非owner影子才获取）
     if (!isOwnerShadow) {
-        fetch('api/users/userlist_api.php', {
+        fetch(buildApiUrl('api/users/userlist_api.php'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1567,7 +1575,7 @@ function deleteSelected() {
     showConfirmModal(confirmMessage, function() {
         // 批量删除
         Promise.all(selectedIds.map(id =>
-            fetch('api/users/userlist_api.php', {
+            fetch(buildApiUrl('api/users/userlist_api.php'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1837,7 +1845,7 @@ async function toggleUserStatus(userId, currentStatus, isOwnerShadow = false) {
         const formData = new FormData();
         formData.append('id', userId);
         
-        const response = await fetch('api/users/toggle_status_api.php', {
+        const response = await fetch(buildApiUrl('api/users/toggle_status_api.php'), {
             method: 'POST',
             body: formData
         });
@@ -1980,7 +1988,7 @@ function updateRowNumbers() {
 async function switchUserListCompany(companyId, companyCode) {
     // 先更新 session
     try {
-        const response = await fetch(`api/session/update_company_session_api.php?company_id=${companyId}`);
+        const response = await fetch(buildApiUrl(`api/session/update_company_session_api.php?company_id=${companyId}`));
         const result = await response.json();
         if (!result.success) {
             console.error('更新 session 失败:', result.error);
@@ -2241,7 +2249,7 @@ document.getElementById('userForm').addEventListener('submit', function(e) {
     // 添加调试日志
     console.log('Submitting user data:', data);
     
-    fetch('api/users/userlist_api.php', {
+    fetch(buildApiUrl('api/users/userlist_api.php'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
