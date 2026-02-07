@@ -59,18 +59,18 @@ function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, f
     ];
 }
 
-/** 根据 id 列表获取 active 的 Bank Process（含 company/owner） */
+/** 根据 id 列表获取 Bank Process（含 company/owner），支持 active 与 inactive（Accounting Due 中 manual_inactive 可入账） */
 function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
 {
     if (empty($ids)) {
         return [];
     }
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start,
+    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.contract, bp.status,
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
-            WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND bp.status = 'active'";
+            WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND bp.status IN ('active','inactive')";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_merge($ids, [$companyId]));
     $byId = [];
@@ -78,6 +78,26 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
         $byId[(int) $row['id']] = $row;
     }
     return $byId;
+}
+
+/** 根据 contract 与当前 day_start 计算下次 day_start（用于 manual_inactive 入账后恢复 active 并更新日期） */
+function nextDayStartFromContract(?string $dayStart, ?string $contract): string
+{
+    $base = $dayStart && strtotime($dayStart) !== false ? $dayStart : date('Y-m-d');
+    $ts = strtotime($base);
+    if ($ts === false) {
+        return date('Y-m-d');
+    }
+    $months = 1;
+    if ($contract !== null && $contract !== '') {
+        if (preg_match('/^(\d+)\s*MONTHS?$/i', trim($contract), $m)) {
+            $months = (int) $m[1];
+        } elseif (preg_match('/^1\+(\d+)$/i', trim($contract), $m)) {
+            $months = 1 + (int) $m[1];
+        }
+    }
+    $next = strtotime("+{$months} month", $ts);
+    return $next !== false ? date('Y-m-d', $next) : date('Y-m-d');
 }
 
 /** 获取或创建 currency 的 id（按 code + company_id） */
@@ -170,9 +190,13 @@ try {
 
     $pairs = [];
     foreach ($ids as $i => $id) {
+        $pt = isset($periodTypes[$i]) ? trim($periodTypes[$i]) : 'monthly';
+        if ($pt !== 'partial_first_month' && $pt !== 'manual_inactive') {
+            $pt = 'monthly';
+        }
         $pairs[] = [
             'id' => (int) $id,
-            'period_type' => isset($periodTypes[$i]) && $periodTypes[$i] === 'partial_first_month' ? 'partial_first_month' : 'monthly',
+            'period_type' => $pt,
         ];
     }
     // Accounting Due 每行只入账一次：按 (process_id, period_type) 去重，避免重复提交导致同一笔数额乘多倍
@@ -200,7 +224,7 @@ try {
     $processesById = fetchBankProcessesByIds($pdo, $uniqueIds, $company_id);
     if (empty($processesById)) {
         http_response_code(400);
-        jsonResponse(false, '未找到可入账的 Process（仅处理当前公司下 active 的 Process）', null);
+        jsonResponse(false, '未找到可入账的 Process（仅处理当前公司下 active 或 Accounting Due 中的 Process）', null);
         exit;
     }
 
@@ -227,6 +251,7 @@ try {
             $price = $partial['price'];
             $profit = $partial['profit'];
         }
+        // manual_inactive：全额入账，不入首月按比例
 
         $processLabel = $p['name'] ?: ($p['bank'] . ' #' . $p['id']);
         $companyId = (int) $p['company_id'];
@@ -339,6 +364,13 @@ try {
         }
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
+
+        // manual_inactive 入账后：该行自动变回 active，并更新 day_start 为下一账期，之后按日期显示下一次需要 transaction 的账
+        if ($periodType === 'manual_inactive' && $has_period_type) {
+            $nextDayStart = nextDayStartFromContract($p['day_start'] ?? null, $p['contract'] ?? null);
+            $upd = $pdo->prepare("UPDATE bank_process SET status = 'active', day_start = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?");
+            $upd->execute([$nextDayStart, (int) $p['id'], $companyId]);
+        }
     }
 
     jsonResponse(true, "已入账，共生成 $createdCount 条交易记录。", ['created_count' => $createdCount]);

@@ -597,6 +597,7 @@
                 }
                 renderSelectedProfitSharing();
                 updateBankSubmitButtonState();
+                if (typeof updateBankProfitDisplay === 'function') updateBankProfitDisplay();
                 document.getElementById('addBankModal').style.display = 'block';
             } catch (error) {
                 console.error('Error opening bank edit modal:', error);
@@ -939,13 +940,13 @@
                 const cbDisabled = row.already_posted_today ? ' disabled' : '';
                 const cbChecked = row.already_posted_today ? '' : ' checked';
                 const cbClass = 'process-accounting-inbox-row-cb';
-                const periodType = row.is_partial_first_month ? 'partial_first_month' : 'monthly';
+                const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : 'monthly');
                 const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
-                // 1st of every month 首月按比例：API 已返回 (原值/当月天数*剩余天数) 的 cost/price/profit，列表与 Transaction 均显示该折算后数值
+                // 1st of every month 首月按比例：API 已返回 (原值/当月天数*剩余天数) 的 cost/price/profit；manual_inactive = 用户从 active 改为 inactive 后待入账
                 const costDisplay = row.cost != null ? Number(row.cost) : '-';
                 const priceDisplay = row.price != null ? Number(row.price) : '-';
                 const profitDisplay = row.profit != null ? Number(row.profit) : '-';
-                const typeDisplay = row.is_partial_first_month ? 'Remaining days' : 'Monthly';
+                const typeDisplay = row.is_manual_inactive ? 'Manual (Inactive)' : (row.is_partial_first_month ? 'Remaining days' : 'Monthly');
                 return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + costDisplay + '</td><td>' + priceDisplay + '</td><td>' + profitDisplay + '</td><td>' + escapeHtml(typeDisplay) + '</td></tr>';
             }).join('');
             updateAccountingInboxPostButton();
@@ -1152,6 +1153,11 @@
 
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
+
+                    // Bank：改为 inactive 后刷新 Accounting Due 徽章，使该行立即出现在 Accounting Due
+                    if (selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
+                        loadAccountingInbox();
+                    }
 
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Process status changed to ${statusText}`, 'success');
@@ -2055,6 +2061,9 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
                 const editId = document.getElementById('bank_edit_id').value;
                 const formData = new FormData(this);
+                // Profit 栏显示的是扣除 Profit Sharing 后的数额；提交时传 gross（Sell Price - Buy Price）供后端存储
+                const grossProfit = (parseFloat(document.getElementById('bank_price').value) || 0) - (parseFloat(document.getElementById('bank_cost').value) || 0);
+                formData.set('profit', grossProfit.toFixed(2));
                 formData.append('permission', 'Bank');
                 if (cardMerchantBtn && cardMerchantBtn.getAttribute('data-value')) {
                     formData.append('card_merchant_id', cardMerchantBtn.getAttribute('data-value'));
@@ -2830,22 +2839,14 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 initBankAccountSelect('bank_profit_account', 'bank_profit_account_dropdown');
                 updateBankAddButtonTitles();
 
-                // 设置 Profit 自动计算（只初始化一次）
+                // 设置 Profit 自动计算（只初始化一次）；有 Profit Sharing 时显示扣除后的数额
                 if (!bankProfitCalculatorsInitialized) {
                     const costInput = document.getElementById('bank_cost');
                     const priceInput = document.getElementById('bank_price');
                     const profitInput = document.getElementById('bank_profit');
-
                     if (costInput && priceInput && profitInput) {
-                        function calculateProfit() {
-                            const cost = parseFloat(costInput.value) || 0;
-                            const price = parseFloat(priceInput.value) || 0;
-                            const profit = price - cost;
-                            profitInput.value = profit.toFixed(2);
-                        }
-
-                        costInput.addEventListener('input', calculateProfit);
-                        priceInput.addEventListener('input', calculateProfit);
+                        costInput.addEventListener('input', updateBankProfitDisplay);
+                        priceInput.addEventListener('input', updateBankProfitDisplay);
                         bankProfitCalculatorsInitialized = true;
                     }
                 }
@@ -3783,6 +3784,25 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         // Selected Profit Sharing list (array of { accountId, accountText, amount })
         window.selectedProfitSharingEntries = [];
 
+        /** Profit 显示为扣除 Profit Sharing 后的数额（Sell Price - Buy Price - sum(PS)） */
+        function updateBankProfitDisplay() {
+            const costInput = document.getElementById('bank_cost');
+            const priceInput = document.getElementById('bank_price');
+            const profitInput = document.getElementById('bank_profit');
+            if (!costInput || !priceInput || !profitInput) return;
+            const cost = parseFloat(costInput.value) || 0;
+            const price = parseFloat(priceInput.value) || 0;
+            const gross = price - cost;
+            const entries = window.selectedProfitSharingEntries || [];
+            let sumPs = 0;
+            entries.forEach(function (e) {
+                const amt = parseFloat(e.amount);
+                if (!isNaN(amt)) sumPs += amt;
+            });
+            const net = Math.max(0, gross - sumPs);
+            profitInput.value = net.toFixed(2);
+        }
+
         function renderSelectedProfitSharing() {
             const container = document.getElementById('selectedProfitSharingList');
             const mainInput = document.getElementById('bank_profit_sharing');
@@ -3808,6 +3828,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             });
             if (mainInput) mainInput.value = parts.join(', ');
             if (typeof updateBankSubmitButtonState === 'function') updateBankSubmitButtonState();
+            if (typeof updateBankProfitDisplay === 'function') updateBankProfitDisplay();
         }
 
         function removeProfitSharingEntry(index) {
@@ -4223,7 +4244,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 });
 
                 const result = await response.json();
-                const permissions = result.success && result.permissions ? result.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                const permissions = result.success && result.data && result.data.permissions ? result.data.permissions : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
 
                 const permissionContainer = document.getElementById('process-list-permission-buttons');
                 permissionContainer.innerHTML = '';
