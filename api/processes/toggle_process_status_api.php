@@ -21,6 +21,21 @@ function getBankProcessCurrent(PDO $pdo, int $id, int $companyId): ?array {
     return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
+/** 是否已以 manual_inactive 入账过（入账后才允许手动从 inactive 切回 active） */
+function hasManualInactivePosted(PDO $pdo, int $processId, int $companyId): bool {
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM process_accounting_posted LIKE 'period_type'");
+        if (!$stmt || $stmt->rowCount() === 0) {
+            return false;
+        }
+        $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = 'manual_inactive' LIMIT 1");
+        $stmt->execute([$companyId, $processId]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function updateBankProcessStatus(PDO $pdo, string $newStatus, ?string $newDayEnd, int $id, int $companyId): void {
     if ($newDayEnd !== null) {
         $stmt = $pdo->prepare("UPDATE bank_process SET status = ?, day_end = ? WHERE id = ? AND company_id = ?");
@@ -63,12 +78,16 @@ try {
             exit;
         }
         $status = $current['status'];
-        // 不允许手动把 inactive 改为 active，只有通过 Accounting Due 的 Transaction 才能转为 active
+        // inactive 时：未做过 Transaction（无 manual_inactive 入账记录）前不可手动切回 active；Transaction 后才允许手动切回 active
         if ($status === 'inactive') {
-            api_error('只有通过 Accounting Due 的 Transaction 才能将状态改为 Active', 400);
-            exit;
+            if (!hasManualInactivePosted($pdo, $id, $companyId)) {
+                api_error('只有通过 Accounting Due 的 Transaction 后，才能手动将状态改为 Active', 400);
+                exit;
+            }
+            $newStatus = 'active';
+        } else {
+            $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');
         }
-        $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');
         // 1+1/1+2/1+3 的「额外 1/2/3 个月」不在切换为 inactive 时加进 day_end，只在 Accounting Due 做 Transaction 转为 active 时由 process_post_to_transaction_api 加进 day_start
         updateBankProcessStatus($pdo, $newStatus, null, $id, $companyId);
         api_success(['newStatus' => $newStatus], '状态更新成功');
