@@ -806,6 +806,18 @@
  .profit-sharing-with-add .bank-input {
     flex: 1;
 }
+/* Add Profit Sharing 弹窗：下拉不被遮挡，溢出可见且下拉在最上层 */
+#profitSharingModal .modal-content,
+#profitSharingModal .modal-body,
+#profitSharingModal #profitSharingForm {
+    overflow: visible;
+}
+#profitSharingModal .custom-select-wrapper {
+    position: relative;
+}
+#profitSharingModal .custom-select-dropdown {
+    z-index: 10001;
+}
  .bank-actions {
     grid-column: 1 / -1;
     display: flex;
