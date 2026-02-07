@@ -815,3 +815,8 @@
     padding-top: 20px;
     border-top: 1px solid #eee;
 }
+
+/* Add Account 弹窗在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
+#addAccountModal {
+    z-index: 10001;
+}
