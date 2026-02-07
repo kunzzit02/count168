@@ -422,12 +422,14 @@ try {
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
 
-        // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（1+1 加 1 月，1+2 加 2 月，1+3 加 3 月）
+        // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
         if ($periodType === 'manual_inactive') {
             $extraMonths = getExtraMonthsFromContract($p['contract'] ?? null);
             $dayEnd = $p['day_end'] ?? null;
-            if ($extraMonths > 0 && $dayEnd !== null && $dayEnd !== '') {
-                $newDayEnd = addMonthsToDate($dayEnd, $extraMonths);
+            $dayStart = $p['day_start'] ?? null;
+            $baseDate = ($dayEnd !== null && $dayEnd !== '') ? $dayEnd : $dayStart;
+            if ($extraMonths > 0 && $baseDate !== null && $baseDate !== '') {
+                $newDayEnd = addMonthsToDate($baseDate, $extraMonths);
                 if ($newDayEnd !== null) {
                     $upd = $pdo->prepare("UPDATE bank_process SET day_end = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?");
                     $upd->execute([$newDayEnd, (int) $p['id'], $companyId]);
