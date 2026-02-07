@@ -1109,13 +1109,15 @@ if ($current_user_id && count($user_companies) > 0) {
                             <div class="form-group">
                                 <label for="profit_sharing_account_btn">Account</label>
                                 <input type="hidden" id="profit_sharing_account_id" class="profit-sharing-account-id" name="account_id" value="">
-                                <div class="custom-select-wrapper">
-                                    <button type="button" class="custom-select-button profit-sharing-account-btn" id="profit_sharing_account_btn" data-placeholder="Select Account">Select Account</button>
-                                    <div class="custom-select-dropdown" id="profit_sharing_account_dropdown">
-                                        <div class="custom-select-search">
-                                            <input type="text" placeholder="Search account..." autocomplete="off">
+                                <div class="account-select-with-buttons">
+                                    <div class="custom-select-wrapper">
+                                        <button type="button" class="custom-select-button profit-sharing-account-btn" id="profit_sharing_account_btn" data-placeholder="Select Account">Select Account</button>
+                                        <div class="custom-select-dropdown" id="profit_sharing_account_dropdown">
+                                            <div class="custom-select-search">
+                                                <input type="text" placeholder="Search account..." autocomplete="off">
+                                            </div>
+                                            <div class="custom-select-options"></div>
                                         </div>
-                                        <div class="custom-select-options"></div>
                                     </div>
                                 </div>
                             </div>
