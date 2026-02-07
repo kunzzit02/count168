@@ -2522,8 +2522,8 @@ function handleTypeToggle() {
     
     if (!fromSel) return;
     
-    // CONTRA, PAYMENT, RECEIVE, CLAIM 需要显示 From 账户选择框（Rate、PROFIT 单独处理）
-    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'].includes(typeSel.value);
+    // CONTRA, PAYMENT, RECEIVE, CLAIM, PROFIT 显示 From 账户选择框（与红色框排版一致；PROFIT 提交时 From 可选）
+    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'PROFIT'].includes(typeSel.value);
     fromSel.style.display = (!isRate && needsFrom) ? '' : 'none';
     if (reverseBtn) {
         reverseBtn.style.display = (!isRate && needsFrom) ? '' : 'none';
