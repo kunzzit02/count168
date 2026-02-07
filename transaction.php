@@ -315,7 +315,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                     </label>
                     
                         <div class="transaction-action-btns">
-                        <button id="submit_btn" class="transaction-submit-btn" disabled>Submit</button>
+                        <button type="button" id="submit_btn" class="transaction-submit-btn" disabled>Submit</button>
                             <button id="action_search_btn" class="transaction-search-btn">Search</button>
                     </div>
                 </div>

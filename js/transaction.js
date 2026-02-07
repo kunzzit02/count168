@@ -2673,11 +2673,17 @@ function handleConfirmSubmit() {
     const submitBtn = document.getElementById('submit_btn');
     
     if (confirmCheckbox && submitBtn) {
+        // 根据复选框初始状态设置按钮是否可点
+        submitBtn.disabled = !confirmCheckbox.checked;
         confirmCheckbox.addEventListener('change', function() {
             submitBtn.disabled = !this.checked;
         });
-        submitBtn.addEventListener('click', function() {
-            if (!submitBtn.disabled) submitAction();
+        submitBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!submitBtn.disabled) {
+                submitAction();
+            }
         });
     }
 }
