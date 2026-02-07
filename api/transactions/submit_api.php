@@ -757,7 +757,7 @@ try {
             // 返回成功响应
             echo json_encode([
                 'success' => true,
-                'message' => 'RATE 交易提交成功，共创建 ' . count($transaction_ids) . ' 条记录',
+                'message' => 'RATE transaction submitted successfully, ' . count($transaction_ids) . ' record(s) created',
                 'data' => [
                     'transaction_ids' => $transaction_ids,
                     'transaction_type' => $transaction_type,
@@ -808,8 +808,8 @@ try {
         echo json_encode([
             'success' => true,
             'message' => $is_contra_pending
-                ? 'CONTRA 已提交，等待 Manager 以上批准后才会生效'
-                : '交易提交成功',
+                ? 'CONTRA submitted, pending Manager+ approval to take effect'
+                : 'Transaction submitted successfully',
             'data' => [
                 'transaction_id' => $transaction_id,
                 'transaction_type' => $transaction_type,
