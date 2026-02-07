@@ -177,6 +177,11 @@ try {
         }
     }
 
+    // WIN/LOSE 不允许有 From Account（数据库约束）；提交时强制置空
+    if (in_array($transaction_type, ['WIN', 'LOSE'])) {
+        $from_account_id = null;
+    }
+    
     // 验证 From Account（PAYMENT/RECEIVE/CONTRA/CLAIM 需要，RATE 有特殊处理）
     if (in_array($transaction_type, ['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'])) {
         if (!$from_account_id || $from_account_id <= 0) {
