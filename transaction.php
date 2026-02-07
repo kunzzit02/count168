@@ -157,13 +157,6 @@ $session_company_id = $_SESSION['company_id'] ?? null;
                         <option value="RATE">RATE</option>
                     </select>
                 </div>
-                <div id="win_lose_side_group" class="transaction-form-group" style="display: none;">
-                    <label class="transaction-label">Result</label>
-                    <div class="transaction-win-lose-row">
-                        <label class="transaction-radio-label"><input type="radio" name="win_lose_side" value="WIN" checked> Win</label>
-                        <label class="transaction-radio-label"><input type="radio" name="win_lose_side" value="LOSE"> Lose</label>
-                    </div>
-                </div>
                 
                 <div id="standard-transaction-fields">
                     <div class="transaction-form-group">
