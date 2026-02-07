@@ -365,12 +365,7 @@ try {
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
 
-        // manual_inactive 入账后：该行自动变回 active，并更新 day_start 为下一账期，之后按日期显示下一次需要 transaction 的账
-        if ($periodType === 'manual_inactive' && $has_period_type) {
-            $nextDayStart = nextDayStartFromContract($p['day_start'] ?? null, $p['contract'] ?? null);
-            $upd = $pdo->prepare("UPDATE bank_process SET status = 'active', day_start = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?");
-            $upd->execute([$nextDayStart, (int) $p['id'], $companyId]);
-        }
+        // manual_inactive 入账后：保持 inactive，不自动改回 active
     }
 
     jsonResponse(true, "已入账，共生成 $createdCount 条交易记录。", ['created_count' => $createdCount]);
