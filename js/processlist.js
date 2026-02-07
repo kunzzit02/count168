@@ -2833,6 +2833,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         // Load Bank Add Process Data (do not pre-fill Country dropdown; it only shows Selected from modal)
         async function loadAddBankProcessData() {
             try {
+                restoreSelectedCountriesFromStorage();
                 await loadBankAccounts();
                 initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
@@ -3103,11 +3104,43 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         // Country Selection Modal
         const DEFAULT_COUNTRIES = [];
         let availableCountriesList = [];
+        const SELECTED_COUNTRIES_STORAGE_KEY = 'processlist_selected_countries';
+
+        function restoreSelectedCountriesFromStorage() {
+            try {
+                const raw = localStorage.getItem(SELECTED_COUNTRIES_STORAGE_KEY);
+                if (!raw) return;
+                const arr = JSON.parse(raw);
+                if (!Array.isArray(arr) || arr.length === 0) return;
+                const list = arr.filter(function (x) { return typeof x === 'string' && (x || '').trim(); }).map(function (x) { return (x || '').trim(); });
+                if (list.length === 0) return;
+                window.selectedCountries = list;
+                const select = document.getElementById('bank_country');
+                if (select && list.length > 0) {
+                    select.innerHTML = '';
+                    const opt0 = document.createElement('option');
+                    opt0.value = '';
+                    opt0.textContent = 'Select Country';
+                    select.appendChild(opt0);
+                    list.forEach(function (name) {
+                        const n = (name || '').trim();
+                        if (!n) return;
+                        const opt = document.createElement('option');
+                        opt.value = n;
+                        opt.textContent = n;
+                        select.appendChild(opt);
+                    });
+                }
+            } catch (e) { /* ignore */ }
+        }
 
         async function showAddCountryModal() {
-            // 保留已选国家：不重置 window.selectedCountries，若为空则从当前下拉选项初始化，保证 Selected Countries 一直保留
+            // 保留已选国家：不重置 window.selectedCountries；若为空则先从 localStorage 恢复，再 fallback 到当前下拉
             if (!window.selectedCountries || !Array.isArray(window.selectedCountries)) {
                 window.selectedCountries = [];
+            }
+            if (window.selectedCountries.length === 0) {
+                restoreSelectedCountriesFromStorage();
             }
             if (window.selectedCountries.length === 0) {
                 const select = document.getElementById('bank_country');
@@ -3338,6 +3371,11 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             if (window.selectedCountries && window.selectedCountries.length > 0) {
                 select.value = window.selectedCountries[0] || '';
             }
+            try {
+                if (window.selectedCountries && window.selectedCountries.length > 0) {
+                    localStorage.setItem(SELECTED_COUNTRIES_STORAGE_KEY, JSON.stringify(window.selectedCountries));
+                }
+            } catch (e) { /* ignore */ }
             closeCountrySelectionModal();
         }
 
@@ -3849,6 +3887,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            restoreSelectedCountriesFromStorage();
             // Add Account modal: payment alert toggle
             document.querySelectorAll('input[name="add_payment_alert"]').forEach(radio => {
                 radio.addEventListener('change', function () { toggleAlertFieldsBank('add'); });
