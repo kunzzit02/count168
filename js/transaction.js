@@ -359,35 +359,17 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // 并行加载 currency 与账户列表，加快首屏
-        return Promise.all([
-            loadCompanyCurrencies(),
-            loadAccounts()
-        ]);
+        // 先加载 currency，一就绪就发起搜索（不等待账户列表），表格数据更快「直接显示」
+        return loadCompanyCurrencies();
     }).then(() => {
-        // 初始化自定义下拉选单
-        initCustomSelects();
-        console.log('✅ 初始数据加载完成，准备自动执行今日搜索');
-        console.log('🔍 初始化检查:', {
-            selectedCurrencies: selectedCurrencies,
-            showAllCurrencies: showAllCurrencies,
-            currencyListLength: currencyList.length
-        });
-        
-        // 检查是否有 currency 数据
+        // 有 currency 即触发搜索，账户下拉稍后由 loadAccounts + initCustomSelects 补全
         if (currencyList.length === 0) {
-            console.warn('⚠️ 没有 currency 数据，不执行搜索');
             showNotification('No currency available for current company', 'info');
-            return;
+            return loadAccounts().then(() => { initCustomSelects(); });
         }
-        
-        // 检查是否已选中 currency
         if (!showAllCurrencies && selectedCurrencies.length === 0) {
-            console.warn('⚠️ 初始化时 currency 未选中，短暂延迟后重试');
             setTimeout(() => {
-                if (!showAllCurrencies && selectedCurrencies.length === 0) {
-                    return;
-                }
+                if (!showAllCurrencies && selectedCurrencies.length === 0) return;
                 loadContraInbox();
                 searchTransactions();
             }, 80);
@@ -395,6 +377,10 @@ document.addEventListener('DOMContentLoaded', function() {
             loadContraInbox();
             searchTransactions();
         }
+        return loadAccounts().then(() => {
+            initCustomSelects();
+            console.log('✅ 初始数据加载完成');
+        });
     }).catch(error => {
         console.error('❌ 初始数据加载失败:', error);
         showNotification('Failed to load initial data', 'error');
@@ -1772,73 +1758,63 @@ function handleBalanceClick(balanceCell, isLeftTable) {
     }
 }
 
-// ==================== 填充表格 ====================
+// ==================== 填充表格（首屏优先渲染，其余渐进追加，实现「直接显示」）====================
+var FILL_TABLE_FIRST_PAINT_ROWS = 40;
+var FILL_TABLE_CHUNK_ROWS = 30;
+
 function fillTable(tbodyId, tableId, data) {
     const tbody = document.getElementById(tbodyId);
     const table = document.getElementById(tableId);
     tbody.innerHTML = '';
     
-    // 检查是否显示名称
     const showName = document.getElementById('show_name')?.checked || false;
-    
-    // 判断是左边还是右边的表格
     const isLeftTable = tableId === 'table_left';
     
-    // 更新表头的 Name 列显示状态
     const nameHeader = table.querySelector('thead th.transaction-name-column');
     const nameFooter = table.querySelector('tfoot td.transaction-name-column');
-    if (nameHeader) {
-        nameHeader.style.display = showName ? '' : 'none';
-    }
-    if (nameFooter) {
-        nameFooter.style.display = showName ? '' : 'none';
-    }
+    if (nameHeader) nameHeader.style.display = showName ? '' : 'none';
+    if (nameFooter) nameFooter.style.display = showName ? '' : 'none';
     
-    if (!data || data.length === 0) {
-        // 没有数据时，tbody 保持为空，只显示表头和总计行
-        return;
-    }
+    if (!data || data.length === 0) return;
     
-    data.forEach(row => {
+    function appendRow(row) {
         const tr = document.createElement('tr');
-        // 如果 is_alert 为 true，添加 alert class
         const alertClass = (row.is_alert == 1 || row.is_alert === true) ? ' transaction-alert-row' : '';
         tr.className = 'transaction-table-row' + alertClass;
-        
-        // 获取 role 对应的 CSS class
         const roleClass = getRoleClass(row.role || '');
-        const accountCellClass = roleClass 
-            ? `transaction-account-cell ${roleClass}` 
-            : 'transaction-account-cell';
-        
+        const accountCellClass = roleClass ? `transaction-account-cell ${roleClass}` : 'transaction-account-cell';
         tr.innerHTML = `
-            <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">
-                ${row.account_id}
-            </td>
+            <td class="${accountCellClass}" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-account-name="${row.account_name}" data-currency="${row.currency || ''}" style="cursor:pointer;">${row.account_id}</td>
             <td class="transaction-name-column" style="display: ${showName ? '' : 'none'};">${toUpperDisplay(row.account_name)}</td>
             <td>${formatNumber(row.bf)}</td>
             <td>${formatNumber(row.win_loss)}</td>
             <td>${formatNumber(row.cr_dr)}</td>
             <td class="transaction-balance-cell" data-account-id="${row.account_db_id}" data-account-code="${row.account_id}" data-balance="${row.balance}" data-currency="${row.currency || ''}" style="cursor:pointer;">${formatNumber(row.balance)}</td>
         `;
-        
-        // 点击账户单元格打开历史记录
         tr.querySelector('.transaction-account-cell').addEventListener('click', function() {
-            openHistoryModal(
-                this.getAttribute('data-account-id'),
-                this.getAttribute('data-account-code'),
-                this.getAttribute('data-account-name'),
-                this.getAttribute('data-currency')
-            );
+            openHistoryModal(this.getAttribute('data-account-id'), this.getAttribute('data-account-code'), this.getAttribute('data-account-name'), this.getAttribute('data-currency'));
         });
-        
-        // 点击 balance 单元格同步数据到表单
         tr.querySelector('.transaction-balance-cell').addEventListener('click', function() {
             handleBalanceClick(this, isLeftTable);
         });
-        
         tbody.appendChild(tr);
-    });
+    }
+    
+    var total = data.length;
+    if (total <= FILL_TABLE_FIRST_PAINT_ROWS) {
+        data.forEach(appendRow);
+        return;
+    }
+    // 先渲染首屏行，尽快「直接显示」
+    for (var i = 0; i < FILL_TABLE_FIRST_PAINT_ROWS; i++) appendRow(data[i]);
+    // 其余行分批用 rAF 追加，避免长时间阻塞主线程
+    var index = FILL_TABLE_FIRST_PAINT_ROWS;
+    function chunk() {
+        var end = Math.min(index + FILL_TABLE_CHUNK_ROWS, total);
+        for (; index < end; index++) appendRow(data[index]);
+        if (index < total) requestAnimationFrame(chunk);
+    }
+    requestAnimationFrame(chunk);
 }
 
 // ==================== 更新总和 ====================
