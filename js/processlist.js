@@ -3105,8 +3105,19 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         let availableCountriesList = [];
 
         async function showAddCountryModal() {
-            // Previously added countries go to Available only; Selected is empty by default.
-            window.selectedCountries = [];
+            // 保留已选国家：不重置 window.selectedCountries，若为空则从当前下拉选项初始化，保证 Selected Countries 一直保留
+            if (!window.selectedCountries || !Array.isArray(window.selectedCountries)) {
+                window.selectedCountries = [];
+            }
+            if (window.selectedCountries.length === 0) {
+                const select = document.getElementById('bank_country');
+                if (select && select.options) {
+                    for (let i = 0; i < select.options.length; i++) {
+                        const v = (select.options[i].value || '').trim();
+                        if (v && !window.selectedCountries.includes(v)) window.selectedCountries.push(v);
+                    }
+                }
+            }
             let allCountries = [];
             try {
                 const res = await fetch(buildApiUrl('api/processes/processlist_api.php?action=get_countries'));
@@ -3182,10 +3193,10 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const selectedList = document.getElementById('selectedCountriesInModal');
             if (!selectedList) return;
             selectedList.innerHTML = '';
-            const current = (document.getElementById('bank_country')?.value || '').trim();
             if (!window.selectedCountries) window.selectedCountries = [];
+            const current = (document.getElementById('bank_country')?.value || '').trim();
             if (current && !window.selectedCountries.includes(current)) {
-                window.selectedCountries = [current];
+                window.selectedCountries.push(current);
             }
             if (window.selectedCountries.length > 0) {
                 window.selectedCountries.forEach((name, idx) => {
