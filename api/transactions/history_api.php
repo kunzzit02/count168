@@ -1025,4 +1025,3 @@ function calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from, $com
     return $bf;
 }
 ?>
-
