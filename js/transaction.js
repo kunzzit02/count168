@@ -2006,7 +2006,8 @@ function submitAction() {
     const rateToAccountInput = document.getElementById('rate_account_to');
     const rateFromAccountInput = document.getElementById('rate_account_from');
 
-    const accountId = isRate ? getAccountId(rateToAccountInput) : getAccountId(standardToAccountInput);
+    // PROFIT：界面第一个下拉为 To Account，该账户要有 Payment History，故 account_id 取第一个下拉
+    const accountId = isRate ? getAccountId(rateToAccountInput) : (type === 'PROFIT' ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput));
     const fromAccountId = isRate ? getAccountId(rateFromAccountInput) : getAccountId(standardFromAccountInput);
     
     const standardAmountInput = document.getElementById('action_amount');
