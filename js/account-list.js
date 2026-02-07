@@ -598,7 +598,7 @@
                     // 鍒涘缓鍒犻櫎鎸夐挳锛堝缁堟樉绀猴級
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'currency-delete-btn';
-                    deleteBtn.innerHTML = '脳';
+                    deleteBtn.innerHTML = 'X';
                     deleteBtn.setAttribute('type', 'button');
                     deleteBtn.setAttribute('title', 'Delete currency permanently');
                     deleteBtn.addEventListener('click', (e) => {
