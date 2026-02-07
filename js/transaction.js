@@ -2484,7 +2484,6 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
 // ==================== 类型切换 ====================
 function handleTypeToggle() {
     const typeSel = document.getElementById('transaction_type');
-    const fromSel = document.getElementById('action_account_from');
     const reverseBtn = document.getElementById('account_reverse_btn');
     const standardFields = document.getElementById('standard-transaction-fields');
     const rateFields = document.getElementById('rate-transaction-fields');
@@ -2520,16 +2519,25 @@ function handleTypeToggle() {
         }
     }
     
-    if (!fromSel) return;
-    
-    // CONTRA, PAYMENT, RECEIVE, CLAIM 需要显示 From 账户选择框（Rate、PROFIT 单独处理）
-    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'].includes(typeSel.value);
-    fromSel.style.display = (!isRate && needsFrom) ? '' : 'none';
-    if (reverseBtn) {
-        reverseBtn.style.display = (!isRate && needsFrom) ? '' : 'none';
+    // 控制「From Account」与「Reverse」的显示（不隐藏 To Account，保证排版一致）
+    const accountInputs = document.querySelector('.transaction-account-inputs');
+    const fromAccountWrapper = document.getElementById('action_account_id')?.closest('.custom-select-wrapper');
+    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'PROFIT'].includes(typeSel.value);
+    const showFromAndReverse = !isRate && needsFrom;
+    if (fromAccountWrapper) {
+        fromAccountWrapper.style.display = showFromAndReverse ? '' : 'none';
     }
-    if (!needsFrom || isRate) {
-        fromSel.value = '';
+    if (reverseBtn) {
+        reverseBtn.style.display = showFromAndReverse ? '' : 'none';
+    }
+    if (!showFromAndReverse) {
+        const fromBtn = document.getElementById('action_account_id');
+        if (fromBtn) {
+            fromBtn.textContent = fromBtn.getAttribute('data-placeholder') || '--Select From Account--';
+            fromBtn.removeAttribute('data-value');
+            fromBtn.removeAttribute('data-account-code');
+            fromBtn.removeAttribute('data-currency');
+        }
     }
 }
 
