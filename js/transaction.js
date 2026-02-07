@@ -353,20 +353,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 如果 currentCompanyId 还是 null，等待一下再加载 currency
         if (!currentCompanyId) {
-            console.warn('⚠️ currentCompanyId 为 null，延迟加载 currency');
+            console.warn('⚠️ currentCompanyId 为 null，短暂延迟后加载 currency');
             return new Promise(resolve => {
-                setTimeout(() => {
-                    console.log('🔍 延迟后 currentCompanyId:', currentCompanyId);
-                    loadCompanyCurrencies().then(resolve);
-                }, 100);
+                setTimeout(() => loadCompanyCurrencies().then(resolve), 50);
             });
         }
         
-        // 加载 currency 列表（不设置默认选中，显示全部）
-        return loadCompanyCurrencies();
-    }).then(() => {
-        // 加载账户列表（如果没有选中 currency，则显示全部）
-        return loadAccounts();
+        // 并行加载 currency 与账户列表，加快首屏
+        return Promise.all([
+            loadCompanyCurrencies(),
+            loadAccounts()
+        ]);
     }).then(() => {
         // 初始化自定义下拉选单
         initCustomSelects();
@@ -386,21 +383,14 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 检查是否已选中 currency
         if (!showAllCurrencies && selectedCurrencies.length === 0) {
-            console.warn('⚠️ 初始化时 currency 未选中，延迟重试');
-            // 延迟一下，确保 currency 按钮已经创建并选中
+            console.warn('⚠️ 初始化时 currency 未选中，短暂延迟后重试');
             setTimeout(() => {
-                console.log('🔍 延迟后检查:', {
-                    selectedCurrencies: selectedCurrencies,
-                    showAllCurrencies: showAllCurrencies
-                });
                 if (!showAllCurrencies && selectedCurrencies.length === 0) {
-                    console.error('❌ 延迟后仍然没有选中 currency');
-                    // 不显示错误提示，因为用户可能还没有选择
                     return;
                 }
                 loadContraInbox();
                 searchTransactions();
-            }, 500);
+            }, 80);
         } else {
             loadContraInbox();
             searchTransactions();
@@ -1213,6 +1203,21 @@ function searchTransactions() {
     // 添加时间戳防止缓存
     url += '&_t=' + Date.now();
     
+    // 立即显示表格区域与加载状态，让用户感知到操作已响应
+    const tablesSection = document.querySelector('.transaction-tables-section');
+    const loadingEl = document.getElementById('transaction-tables-loading');
+    const defaultTables = document.getElementById('default-tables-container');
+    const groupedTables = document.getElementById('currency-grouped-tables-container');
+    if (tablesSection) {
+        tablesSection.style.display = 'flex';
+        tablesSection.style.flexDirection = 'column';
+    }
+    if (loadingEl) loadingEl.style.display = 'flex';
+    if (defaultTables) defaultTables.style.display = 'none';
+    if (groupedTables) groupedTables.style.display = 'none';
+    const summarySection = document.querySelector('.transaction-summary-section');
+    if (summarySection) summarySection.style.display = 'none';
+    
     fetch(url, {
         method: 'GET',
         cache: 'no-cache',
@@ -1222,6 +1227,7 @@ function searchTransactions() {
     })
         .then(response => response.json())
         .then(data => {
+            if (loadingEl) loadingEl.style.display = 'none';
             if (data.success) {
                 console.log('✅ 搜索成功:', data.data);
                 console.log('📊 数据统计:', {
@@ -1237,13 +1243,16 @@ function searchTransactions() {
                 
                 if (totalAccounts === 0) {
                     // 没有数据，隐藏表格区域
-                    document.querySelector('.transaction-tables-section').style.display = 'none';
-                    document.querySelector('.transaction-summary-section').style.display = 'none';
+                    if (tablesSection) tablesSection.style.display = 'none';
+                    if (summarySection) summarySection.style.display = 'none';
                     showNotification('Search completed but no data found. Please check date range, Currency filter, or confirm data has been submitted', 'info');
                 } else {
-                    // 有数据，显示表格区域
-                    document.querySelector('.transaction-tables-section').style.display = 'flex';
-                    document.querySelector('.transaction-summary-section').style.display = 'flex';
+                    // 有数据，显示表格区域（恢复 flex 布局，由 applyZeroBalanceFilterAndRender 显示对应容器）
+                    if (tablesSection) {
+                        tablesSection.style.display = 'flex';
+                        tablesSection.style.flexDirection = '';
+                    }
+                    if (summarySection) summarySection.style.display = 'flex';
                     
                     // 使用最新搜索结果，根据「Show 0 balance」状态在前端过滤并渲染
                     applyZeroBalanceFilterAndRender();
@@ -1252,10 +1261,13 @@ function searchTransactions() {
                 }
             } else {
                 console.error('❌ 搜索失败:', data.error);
+                if (tablesSection) tablesSection.style.display = 'none';
                 showNotification(data.error || 'Search failed', 'error');
             }
         })
         .catch(error => {
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (tablesSection) tablesSection.style.display = 'none';
             console.error('❌ 搜索失败:', error);
             showNotification('Search failed: ' + error.message, 'error');
         });

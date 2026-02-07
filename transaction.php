@@ -324,6 +324,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
         
         <!-- Tables Section -->
         <div class="transaction-tables-section" style="display: none;">
+            <div id="transaction-tables-loading" class="transaction-tables-loading" style="display: none;" aria-live="polite">Loading...</div>
             <!-- Default Tables (for specific currency selection) -->
             <div id="default-tables-container" style="display: flex; flex-direction: column; width: 100%;">
                 <!-- Currency Title -->

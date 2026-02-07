@@ -438,6 +438,29 @@ body.transaction-page {
     margin-bottom: 0;
 }
 
+.transaction-page .transaction-tables-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    width: 100%;
+    color: #6b7280;
+    font-size: 15px;
+}
+.transaction-page .transaction-tables-loading::before {
+    content: '';
+    width: 24px;
+    height: 24px;
+    margin-right: 10px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #002C49;
+    border-radius: 50%;
+    animation: transaction-loading-spin 0.7s linear infinite;
+}
+@keyframes transaction-loading-spin {
+    to { transform: rotate(360deg); }
+}
+
 .transaction-page .transaction-table-wrapper {
     flex: 1 1 0;
     min-width: 0;
