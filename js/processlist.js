@@ -2327,6 +2327,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         let currentEditAccountIdForBank = null;
 
         let bankAccountRoles = [];
+        /** Process List 的 Add Account 弹窗只用这 5 个 Role 选项（与 account-list 一致，但仅此 5 项） */
+        const BANK_ADD_ACCOUNT_ROLES = ['COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
         async function loadEditDataBank() {
             try {
                 const res = await fetch(buildApiUrl('api/editdata/editdata_api.php'));
@@ -2337,7 +2339,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const addRoleSelect = document.getElementById('add_role');
                 if (addRoleSelect) {
                     addRoleSelect.innerHTML = '<option value="">Select Role</option>';
-                    bankAccountRoles.forEach(code => {
+                    const rolesForAdd = BANK_ADD_ACCOUNT_ROLES;
+                    rolesForAdd.forEach(code => {
                         const opt = document.createElement('option');
                         opt.value = code;
                         opt.textContent = code;
@@ -2346,6 +2349,16 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
             } catch (e) {
                 console.error('loadEditDataBank', e);
+                const addRoleSelect = document.getElementById('add_role');
+                if (addRoleSelect) {
+                    addRoleSelect.innerHTML = '<option value="">Select Role</option>';
+                    BANK_ADD_ACCOUNT_ROLES.forEach(code => {
+                        const opt = document.createElement('option');
+                        opt.value = code;
+                        opt.textContent = code;
+                        addRoleSelect.appendChild(opt);
+                    });
+                }
             }
         }
 
@@ -3789,7 +3802,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const roleSelect = document.getElementById('edit_role');
                 if (roleSelect) {
                     roleSelect.innerHTML = '<option value="">Select Role</option>';
-                    const roles = bankAccountRoles.length ? bankAccountRoles : ['PROFIT', 'STAFF', 'OWNER'];
+                    const roles = bankAccountRoles.length ? bankAccountRoles : BANK_ADD_ACCOUNT_ROLES;
                     const accountRoleUpper = (account.role || '').trim().toUpperCase();
                     roles.forEach(code => {
                         const opt = document.createElement('option');
