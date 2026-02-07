@@ -940,13 +940,13 @@
                 const cbDisabled = row.already_posted_today ? ' disabled' : '';
                 const cbChecked = row.already_posted_today ? '' : ' checked';
                 const cbClass = 'process-accounting-inbox-row-cb';
-                const periodType = row.is_partial_first_month ? 'partial_first_month' : 'monthly';
+                const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : 'monthly');
                 const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
-                // 1st of every month 首月按比例：API 已返回 (原值/当月天数*剩余天数) 的 cost/price/profit，列表与 Transaction 均显示该折算后数值
+                // 1st of every month 首月按比例：API 已返回 (原值/当月天数*剩余天数) 的 cost/price/profit；manual_inactive = 用户从 active 改为 inactive 后待入账
                 const costDisplay = row.cost != null ? Number(row.cost) : '-';
                 const priceDisplay = row.price != null ? Number(row.price) : '-';
                 const profitDisplay = row.profit != null ? Number(row.profit) : '-';
-                const typeDisplay = row.is_partial_first_month ? 'Remaining days' : 'Monthly';
+                const typeDisplay = row.is_manual_inactive ? 'Manual (Inactive)' : (row.is_partial_first_month ? 'Remaining days' : 'Monthly');
                 return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.country || '-') + '</td><td>' + costDisplay + '</td><td>' + priceDisplay + '</td><td>' + profitDisplay + '</td><td>' + escapeHtml(typeDisplay) + '</td></tr>';
             }).join('');
             updateAccountingInboxPostButton();
@@ -1153,6 +1153,11 @@
 
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
+
+                    // Bank：改为 inactive 后刷新 Accounting Due 徽章，使该行立即出现在 Accounting Due
+                    if (selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
+                        loadAccountingInbox();
+                    }
 
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Process status changed to ${statusText}`, 'success');

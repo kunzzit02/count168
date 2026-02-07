@@ -76,6 +76,30 @@ function fetchActiveBankProcessesForInbox(PDO $pdo, int $companyId, bool $hasFre
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/** 获取当前公司下 status=inactive 且尚未以 manual_inactive 入账的 Bank Process（用户从 active 改为 inactive 后直接进 Accounting Due） */
+function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId): array
+{
+    $hasPeriodType = false;
+    try {
+        $hasPeriodType = tableHasColumn($pdo, 'process_accounting_posted', 'period_type');
+    } catch (Throwable $e) {
+        return [];
+    }
+    if (!$hasPeriodType) {
+        return [];
+    }
+    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit
+            FROM bank_process bp
+            LEFT JOIN process_accounting_posted pap ON pap.company_id = bp.company_id AND pap.process_id = bp.id AND pap.period_type = 'manual_inactive'
+            WHERE bp.company_id = ? AND bp.status = 'inactive'
+            AND (bp.card_merchant_id IS NOT NULL OR bp.customer_id IS NOT NULL OR bp.profit_account_id IS NOT NULL)
+            AND (COALESCE(bp.cost,0) > 0 OR COALESCE(bp.price,0) > 0 OR COALESCE(bp.profit,0) > 0)
+            AND pap.id IS NULL";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$companyId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 /** 检查首月按比例是否已入账 */
 function isPartialFirstMonthAlreadyPosted(PDO $pdo, int $companyId, int $processId): bool
 {
@@ -229,6 +253,7 @@ try {
                 'profit' => $partial['profit'],
                 'already_posted_today' => false,
                 'is_partial_first_month' => true,
+                'is_manual_inactive' => false,
             ];
         }
     }
@@ -287,8 +312,26 @@ try {
                 'profit' => $r['profit'] ?? 0,
                 'already_posted_today' => false,
                 'is_partial_first_month' => false,
+                'is_manual_inactive' => false,
             ];
         }
+    }
+
+    // 3) 用户从 active 改为 inactive 的流程：直接进入 Accounting Due，待 Transaction 后自动变回 active 并更新下次日期
+    $inactivePending = fetchInactiveBankProcessesPendingTransaction($pdo, $company_id);
+    foreach ($inactivePending as $r) {
+        $needToday[] = [
+            'id' => (int) $r['id'],
+            'name' => $r['name'] ?? '',
+            'bank' => $r['bank'] ?? '',
+            'country' => $r['country'] ?? '',
+            'cost' => $r['cost'] ?? 0,
+            'price' => $r['price'] ?? 0,
+            'profit' => $r['profit'] ?? 0,
+            'already_posted_today' => false,
+            'is_partial_first_month' => false,
+            'is_manual_inactive' => true,
+        ];
     }
 
     if (!empty($needToday)) {

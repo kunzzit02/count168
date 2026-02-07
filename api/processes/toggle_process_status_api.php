@@ -63,6 +63,11 @@ try {
             exit;
         }
         $status = $current['status'];
+        // 不允许手动把 inactive 改为 active，只有通过 Accounting Due 的 Transaction 才能转为 active
+        if ($status === 'inactive') {
+            api_error('只有通过 Accounting Due 的 Transaction 才能将状态改为 Active', 400);
+            exit;
+        }
         $newStatus = ($status === 'active') ? 'inactive' : (($status === 'waiting') ? 'active' : 'active');
         $newDayEnd = $current['day_end'];
         $hasDayEndUpdate = false;
