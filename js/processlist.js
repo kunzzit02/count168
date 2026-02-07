@@ -906,8 +906,7 @@
             const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             const u = new URL(urlStr);
             if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
-            u.searchParams.set('_t', String(Date.now()));
-            return fetch(u.toString(), { method: 'GET', cache: 'no-store' })
+            return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
                 .then(r => r.json())
                 .then(data => {
                     const list = (data && data.success && data.data) ? data.data : [];
@@ -1152,17 +1151,9 @@
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
 
-                    // Bank：改为 inactive 后立即更新 Accounting Due 徽章和列表（先设徽章为 1 再拉接口，确保马上显示）
-                    if (selectedPermission === 'Bank' && result.newStatus === 'inactive') {
-                        const countEl = document.getElementById('processAccountingInboxCount');
-                        const countEl2 = document.getElementById('processAccountingInboxCount2');
-                        const countModal = document.getElementById('processAccountingInboxCountModal');
-                        if (countEl) countEl.textContent = '1';
-                        if (countEl2) countEl2.textContent = '1';
-                        if (countModal) countModal.textContent = '1';
-                        if (typeof loadAccountingInbox === 'function') {
-                            await loadAccountingInbox();
-                        }
+                    // Bank：改为 inactive 后立即刷新 Accounting Due 徽章和列表，马上显示 1 和该行数据
+                    if (selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
+                        await loadAccountingInbox();
                     }
 
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
