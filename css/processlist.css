@@ -816,7 +816,11 @@
     border-top: 1px solid #eee;
 }
 
-/* Add Account 弹窗在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
+/* Add Account 弹窗优先级最高，在 Add Profit Sharing 之上显示（从 Profit Sharing 内点击 + 时） */
 #addAccountModal {
-    z-index: 10001;
+    z-index: 10002 !important;
+}
+/* Add Profit Sharing 弹窗层级低于 Add Account，避免盖住 Add Account */
+#profitSharingModal {
+    z-index: 10000;
 }
