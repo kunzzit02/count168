@@ -60,21 +60,27 @@ function partialFirstMonthAmounts(string $dayStart, float $cost, float $price, f
 }
 
 /** 根据 id 列表获取 Bank Process（含 company/owner），支持 active 与 inactive（Accounting Due 中 manual_inactive 可入账） */
-function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
+function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId, bool $hasFrequency = false): array
 {
     if (empty($ids)) {
         return [];
     }
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
-            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
-            FROM bank_process bp
+    $cols = "bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
+            bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id";
+    if ($hasFrequency) {
+        $cols .= ", bp.day_start_frequency";
+    }
+    $sql = "SELECT $cols FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
             WHERE bp.id IN ($placeholders) AND bp.company_id = ? AND bp.status IN ('active','inactive')";
     $stmt = $pdo->prepare($sql);
     $stmt->execute(array_merge($ids, [$companyId]));
     $byId = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        if (!$hasFrequency) {
+            $row['day_start_frequency'] = null;
+        }
         $byId[(int) $row['id']] = $row;
     }
     return $byId;
@@ -271,7 +277,8 @@ try {
     $created_by_user = $isOwner ? null : $_SESSION['user_id'];
 
     $uniqueIds = array_values(array_unique(array_column($pairs, 'id')));
-    $processesById = fetchBankProcessesByIds($pdo, $uniqueIds, $company_id);
+    $hasFrequencyCol = tableHasColumn($pdo, 'bank_process', 'day_start_frequency');
+    $processesById = fetchBankProcessesByIds($pdo, $uniqueIds, $company_id, $hasFrequencyCol);
     if (empty($processesById)) {
         http_response_code(400);
         jsonResponse(false, '未找到可入账的 Process（仅处理当前公司下 active 或 Accounting Due 中的 Process）', null);
@@ -422,9 +429,15 @@ try {
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
 
-        // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（1+1 加 1 月，1+2 加 2 月，1+3 加 3 月）
+        // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数；Frequency=Monthly 时像 1+1 一样加 1 月
         if ($periodType === 'manual_inactive') {
             $extraMonths = getExtraMonthsFromContract($p['contract'] ?? null);
+            if ($extraMonths === 0) {
+                $frequency = isset($p['day_start_frequency']) ? trim((string) $p['day_start_frequency']) : '';
+                if (strtolower($frequency) === 'monthly') {
+                    $extraMonths = 1;
+                }
+            }
             $dayEnd = $p['day_end'] ?? null;
             if ($extraMonths > 0 && $dayEnd !== null && $dayEnd !== '') {
                 $newDayEnd = addMonthsToDate($dayEnd, $extraMonths);
