@@ -468,48 +468,36 @@ if (!empty($target_account_ids)) {
         }
     }
     
-    // 计算每个 account + currency 组合的数据
+    // 批量预取 BF / Win/Loss / Cr/Dr，将 397×8 次查询降为约 10 次，显著缩短 search 耗时
+    $combo_pairs = array_map(function ($c) {
+        return [(int)$c['account']['id'], (int)$c['currency_id']];
+    }, $account_currency_combos);
+    $bf_map = fetchAllBFByCurrencyBatch($pdo, $combo_pairs, $date_from_db, $company_id);
+    $win_loss_map = fetchAllWinLossByCurrencyBatch($pdo, $combo_pairs, $date_from_db, $date_to_db, $company_id);
+    $cr_dr_map = fetchAllCrDrByCurrencyBatch($pdo, $combo_pairs, $date_from_db, $date_to_db, $company_id);
+    $has_winloss_in_range = $show_capture_only ? fetchHasWinLossInRangeBatch($pdo, $combo_pairs, $date_from_db, $date_to_db, $company_id) : [];
+
+    // 计算每个 account + currency 组合的数据（从预取 map 读取，不再逐条查库）
     $results = [];
-    
+
     foreach ($account_currency_combos as $combo) {
         $account = $combo['account'];
         $account_id = $account['id'];
         $currency_id = $combo['currency_id'];
         $currency_code = $combo['currency_code'];
-        
-        // 1. 计算 B/F (起始日期之前的所有累计余额，按 currency 过滤)
-        $bf = calculateBFByCurrency($pdo, $account_id, $currency_id, $date_from_db, $company_id);
-        
-        // 2. 计算 Win/Loss (日期范围内的 Data Capture + WIN/LOSE 交易，按 currency 过滤)
-        $win_loss = calculateWinLossByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
-        
-        // 3. 计算 Cr/Dr (日期范围内的 PAYMENT/RECEIVE/CONTRA 交易，按 Edit Formula 的 currency 过滤)
-        $cr_dr_result = calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from_db, $date_to_db, $company_id);
+        $key = $account_id . '_' . $currency_id;
+
+        $bf = isset($bf_map[$key]) ? (float)$bf_map[$key] : 0;
+        $win_loss = isset($win_loss_map[$key]) ? (float)$win_loss_map[$key] : 0;
+        $cr_dr_result = isset($cr_dr_map[$key]) ? $cr_dr_map[$key] : ['value' => 0, 'has_transactions' => false];
         $cr_dr = $cr_dr_result['value'];
         $has_crdr_transactions = $cr_dr_result['has_transactions'];
-        
-        // 如果选择了 "Show capture only"，只显示有 Win/Loss 数据且没有 Cr/Dr 数据的账户
+
         if ($show_capture_only) {
-            // 隐藏有 Cr/Dr 数据的账户（有 PAYMENT/RECEIVE/CONTRA/CLAIM 交易）
             if ($has_crdr_transactions) {
                 continue;
             }
-            // 检查是否有 Win/Loss 数据（在日期范围内有 data_capture 记录）
-            // 使用 Data Capture Summary Edit Formula 的 currency（dcd.currency_id），不读取 Data Capture 的 currency
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) 
-                FROM data_capture_details dcd
-                JOIN data_captures dc ON dcd.capture_id = dc.id
-                WHERE dcd.company_id = ?
-                  AND dc.company_id = ?
-                  AND CAST(dcd.account_id AS CHAR) = CAST(? AS CHAR)
-                  AND dcd.currency_id = ?
-                  AND dc.capture_date BETWEEN ? AND ?
-            ");
-            $stmt->execute([$company_id, $company_id, $account_id, $currency_id, $date_from_db, $date_to_db]);
-            $has_winloss_data = $stmt->fetchColumn() > 0;
-            
-            // 隐藏没有 Win/Loss 数据的账户
+            $has_winloss_data = !empty($has_winloss_in_range[$key]);
             if (!$has_winloss_data) {
                 continue;
             }
@@ -1223,6 +1211,280 @@ function calculateCrDrByCurrency($pdo, $account_id, $currency_id, $date_from, $d
         'value' => $cr_dr,
         'has_transactions' => $transaction_count > 0 || abs($cr_dr) > 0.01,
     ];
+}
+
+/**
+ * 批量计算 B/F：一次多组 (account_id, currency_id)，减少查询次数
+ */
+function fetchAllBFByCurrencyBatch(PDO $pdo, array $combo_pairs, string $date_from, int $company_id): array {
+    $map = [];
+    foreach ($combo_pairs as $p) {
+        $map[$p[0] . '_' . $p[1]] = 0.0;
+    }
+    if (empty($combo_pairs)) {
+        return $map;
+    }
+    $in_list = implode(',', array_map(function ($p) {
+        return '(' . (int)$p[0] . ',' . (int)$p[1] . ')';
+    }, $combo_pairs));
+
+    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+    $has_txn_currency = $stmt && $stmt->rowCount() > 0;
+
+    // 1) dcd 期前汇总
+    $sql = "SELECT dcd.account_id, dcd.currency_id, COALESCE(SUM(dcd.processed_amount), 0) AS total
+            FROM data_capture_details dcd
+            JOIN data_captures dc ON dcd.capture_id = dc.id
+            WHERE dcd.company_id = ? AND dc.company_id = ? AND dc.capture_date < ?
+              AND (dcd.account_id, dcd.currency_id) IN ($in_list)
+            GROUP BY dcd.account_id, dcd.currency_id";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$company_id, $company_id, $date_from]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $k = $row['account_id'] . '_' . $row['currency_id'];
+        if (isset($map[$k])) {
+            $map[$k] += (float)$row['total'];
+        }
+    }
+
+    // 2) transactions to_account 期前（有 currency_id 时）
+    if ($has_txn_currency) {
+        $sql = "SELECT t.account_id AS aid, t.currency_id AS cid,
+                COALESCE(SUM(CASE
+                    WHEN t.transaction_type IN ('RECEIVE','CONTRA','CLAIM') THEN t.amount
+                    WHEN t.transaction_type = 'PAYMENT' THEN t.amount
+                    WHEN t.transaction_type = 'WIN' THEN t.amount
+                    WHEN t.transaction_type = 'LOSE' THEN -t.amount
+                    ELSE 0 END), 0) AS total
+                FROM transactions t
+                WHERE t.company_id = ? AND t.transaction_date < ?
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE')
+                  AND (t.account_id, t.currency_id) IN ($in_list)"
+                . contraApprovedWhere($pdo, 't') . "
+                GROUP BY t.account_id, t.currency_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $date_from]);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $k = $row['aid'] . '_' . $row['cid'];
+            if (isset($map[$k])) {
+                $map[$k] += (float)$row['total'];
+            }
+        }
+    }
+
+    // 3) transactions from_account 期前
+    if ($has_txn_currency) {
+        $sql = "SELECT t.from_account_id AS aid, t.currency_id AS cid,
+                COALESCE(SUM(CASE
+                    WHEN t.transaction_type IN ('PAYMENT','CONTRA') THEN -t.amount
+                    WHEN t.transaction_type IN ('RECEIVE','CLAIM') THEN -t.amount
+                    ELSE 0 END), 0) AS total
+                FROM transactions t
+                WHERE t.company_id = ? AND t.from_account_id IS NOT NULL AND t.transaction_date < ?
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM')
+                  AND (t.from_account_id, t.currency_id) IN ($in_list)"
+                . contraApprovedWhere($pdo, 't') . "
+                GROUP BY t.from_account_id, t.currency_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $date_from]);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $k = $row['aid'] . '_' . $row['cid'];
+            if (isset($map[$k])) {
+                $map[$k] += (float)$row['total'];
+            }
+        }
+    }
+
+    // 4) transaction_entry RATE 期前
+    $sql = "SELECT e.account_id AS aid, e.currency_id AS cid, COALESCE(SUM(e.amount), 0) AS total
+            FROM transaction_entry e
+            JOIN transactions h ON e.header_id = h.id
+            WHERE h.company_id = ? AND e.company_id = ? AND h.transaction_type = 'RATE'
+              AND h.transaction_date < ?
+              AND (e.account_id, e.currency_id) IN ($in_list)
+            GROUP BY e.account_id, e.currency_id";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$company_id, $company_id, $date_from]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $k = $row['aid'] . '_' . $row['cid'];
+        if (isset($map[$k])) {
+            $map[$k] += (float)$row['total'];
+        }
+    }
+
+    return $map;
+}
+
+/**
+ * 批量计算 Win/Loss：日期范围内 dcd + WIN/LOSE(Process: %)
+ */
+function fetchAllWinLossByCurrencyBatch(PDO $pdo, array $combo_pairs, string $date_from, string $date_to, int $company_id): array {
+    $map = [];
+    foreach ($combo_pairs as $p) {
+        $map[$p[0] . '_' . $p[1]] = 0.0;
+    }
+    if (empty($combo_pairs)) {
+        return $map;
+    }
+    $in_list = implode(',', array_map(function ($p) {
+        return '(' . (int)$p[0] . ',' . (int)$p[1] . ')';
+    }, $combo_pairs));
+
+    $sql = "SELECT dcd.account_id, dcd.currency_id, COALESCE(SUM(dcd.processed_amount), 0) AS total
+            FROM data_capture_details dcd
+            JOIN data_captures dc ON dcd.capture_id = dc.id
+            WHERE dcd.company_id = ? AND dc.company_id = ?
+              AND dc.capture_date BETWEEN ? AND ?
+              AND (dcd.account_id, dcd.currency_id) IN ($in_list)
+            GROUP BY dcd.account_id, dcd.currency_id";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$company_id, $company_id, $date_from, $date_to]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $k = $row['account_id'] . '_' . $row['currency_id'];
+        if (isset($map[$k])) {
+            $map[$k] += (float)$row['total'];
+        }
+    }
+
+    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+    if ($stmt && $stmt->rowCount() > 0) {
+        $sql = "SELECT account_id AS aid, currency_id AS cid,
+                COALESCE(SUM(CASE WHEN transaction_type = 'WIN' THEN amount WHEN transaction_type = 'LOSE' THEN -amount ELSE 0 END), 0) AS total
+                FROM transactions
+                WHERE company_id = ? AND transaction_date BETWEEN ? AND ?
+                  AND currency_id IS NOT NULL AND transaction_type IN ('WIN','LOSE')
+                  AND (description LIKE 'Process: %')
+                  AND (account_id, currency_id) IN ($in_list)
+                GROUP BY account_id, currency_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $date_from, $date_to]);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $k = $row['aid'] . '_' . $row['cid'];
+            if (isset($map[$k])) {
+                $map[$k] += (float)$row['total'];
+            }
+        }
+    }
+    return $map;
+}
+
+/**
+ * 批量计算 Cr/Dr 及 has_transactions
+ */
+function fetchAllCrDrByCurrencyBatch(PDO $pdo, array $combo_pairs, string $date_from, string $date_to, int $company_id): array {
+    $map = [];
+    foreach ($combo_pairs as $p) {
+        $map[$p[0] . '_' . $p[1]] = ['value' => 0.0, 'has_transactions' => false];
+    }
+    if (empty($combo_pairs)) {
+        return $map;
+    }
+    $in_list = implode(',', array_map(function ($p) {
+        return '(' . (int)$p[0] . ',' . (int)$p[1] . ')';
+    }, $combo_pairs));
+
+    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
+    $has_currency_id = $stmt && $stmt->rowCount() > 0;
+    $contra_where = hasContraApprovalColumns($pdo) ? " AND (t.transaction_type <> 'CONTRA' OR t.approval_status = 'APPROVED')" : "";
+
+    if ($has_currency_id) {
+        // To Account 贡献
+        $sql = "SELECT t.account_id AS aid, t.currency_id AS cid,
+                COALESCE(SUM(CASE
+                    WHEN t.transaction_type IN ('RECEIVE','CONTRA','CLAIM') THEN t.amount
+                    WHEN t.transaction_type = 'PAYMENT' THEN t.amount
+                    WHEN t.transaction_type = 'WIN' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN t.amount
+                    WHEN t.transaction_type = 'LOSE' AND (t.description NOT LIKE 'Process: %' OR t.description IS NULL) THEN -t.amount
+                    ELSE 0 END), 0) AS v
+                FROM transactions t
+                WHERE t.company_id = ? AND t.transaction_date BETWEEN ? AND ?
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM','WIN','LOSE')
+                  AND (t.account_id, t.currency_id) IN ($in_list)
+                $contra_where
+                GROUP BY t.account_id, t.currency_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $date_from, $date_to]);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $k = $row['aid'] . '_' . $row['cid'];
+            if (isset($map[$k])) {
+                $map[$k]['value'] += (float)$row['v'];
+                $map[$k]['has_transactions'] = $map[$k]['has_transactions'] || (abs((float)$row['v']) > 0.01);
+            }
+        }
+        // From Account 贡献
+        $sql = "SELECT t.from_account_id AS aid, t.currency_id AS cid,
+                COALESCE(SUM(CASE
+                    WHEN t.transaction_type IN ('PAYMENT','CONTRA') THEN -t.amount
+                    WHEN t.transaction_type IN ('RECEIVE','CLAIM') THEN -t.amount
+                    ELSE 0 END), 0) AS v
+                FROM transactions t
+                WHERE t.company_id = ? AND t.transaction_date BETWEEN ? AND ?
+                  AND t.from_account_id IS NOT NULL
+                  AND t.transaction_type IN ('PAYMENT','RECEIVE','CONTRA','CLAIM')
+                  AND (t.from_account_id, t.currency_id) IN ($in_list)
+                $contra_where
+                GROUP BY t.from_account_id, t.currency_id";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$company_id, $date_from, $date_to]);
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $k = $row['aid'] . '_' . $row['cid'];
+            if (isset($map[$k])) {
+                $map[$k]['value'] += (float)$row['v'];
+                $map[$k]['has_transactions'] = $map[$k]['has_transactions'] || (abs((float)$row['v']) > 0.01);
+            }
+        }
+    }
+    // RATE 分录
+    $sql = "SELECT e.account_id AS aid, e.currency_id AS cid, COALESCE(SUM(e.amount), 0) AS v
+            FROM transaction_entry e
+            JOIN transactions h ON e.header_id = h.id
+            WHERE h.company_id = ? AND e.company_id = ? AND h.transaction_type = 'RATE'
+              AND h.transaction_date BETWEEN ? AND ?
+              AND (e.account_id, e.currency_id) IN ($in_list)
+            GROUP BY e.account_id, e.currency_id";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$company_id, $company_id, $date_from, $date_to]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $k = $row['aid'] . '_' . $row['cid'];
+        if (isset($map[$k])) {
+            $map[$k]['value'] += (float)$row['v'];
+            $map[$k]['has_transactions'] = $map[$k]['has_transactions'] || (abs((float)$row['v']) > 0.01);
+        }
+    }
+    foreach ($map as $k => $v) {
+        $map[$k]['has_transactions'] = $map[$k]['has_transactions'] || abs($map[$k]['value']) > 0.01;
+    }
+    return $map;
+}
+
+/**
+ * 批量判断 (account_id, currency_id) 在日期范围内是否有 Win/Loss 数据（用于 Show capture only）
+ */
+function fetchHasWinLossInRangeBatch(PDO $pdo, array $combo_pairs, string $date_from, string $date_to, int $company_id): array {
+    $map = [];
+    foreach ($combo_pairs as $p) {
+        $map[$p[0] . '_' . $p[1]] = false;
+    }
+    if (empty($combo_pairs)) {
+        return $map;
+    }
+    $in_list = implode(',', array_map(function ($p) {
+        return '(' . (int)$p[0] . ',' . (int)$p[1] . ')';
+    }, $combo_pairs));
+    $sql = "SELECT dcd.account_id, dcd.currency_id, 1 AS one
+            FROM data_capture_details dcd
+            JOIN data_captures dc ON dcd.capture_id = dc.id
+            WHERE dcd.company_id = ? AND dc.company_id = ?
+              AND dc.capture_date BETWEEN ? AND ?
+              AND (dcd.account_id, dcd.currency_id) IN ($in_list)
+            GROUP BY dcd.account_id, dcd.currency_id";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$company_id, $company_id, $date_from, $date_to]);
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $k = $row['account_id'] . '_' . $row['currency_id'];
+        $map[$k] = true;
+    }
+    return $map;
 }
 ?>
 
