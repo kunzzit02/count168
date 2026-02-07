@@ -66,7 +66,7 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
         return [];
     }
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.contract, bp.status,
+    $sql = "SELECT bp.id, bp.name, bp.bank, bp.country, bp.cost, bp.price, bp.profit, bp.day_start, bp.day_end, bp.contract, bp.status,
             bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.company_id, bp.profit_sharing, c.owner_id
             FROM bank_process bp
             LEFT JOIN company c ON bp.company_id = c.id
@@ -78,6 +78,40 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
         $byId[(int) $row['id']] = $row;
     }
     return $byId;
+}
+
+/** 1+1/1+2/1+3 的「额外月数」：1+1→1，1+2→2，1+3→3，其他 0（用于 manual_inactive 入账后给 day_end 加月） */
+function getExtraMonthsFromContract(?string $contract): int
+{
+    if ($contract === null || $contract === '') {
+        return 0;
+    }
+    $c = trim($contract);
+    if ($c === '1+1') {
+        return 1;
+    }
+    if ($c === '1+2') {
+        return 2;
+    }
+    if ($c === '1+3') {
+        return 3;
+    }
+    return 0;
+}
+
+/** 日期加 N 个月，返回 Y-m-d */
+function addMonthsToDate(?string $dateStr, int $months): ?string
+{
+    if ($dateStr === null || $dateStr === '' || $months <= 0) {
+        return $dateStr;
+    }
+    try {
+        $dt = new DateTime($dateStr);
+        $dt->modify("+{$months} month");
+        return $dt->format('Y-m-d');
+    } catch (Throwable $e) {
+        return $dateStr;
+    }
 }
 
 /** 根据 contract 与当前 day_start 计算下次 day_start（用于 manual_inactive 入账后恢复 active 并更新日期） */
@@ -365,7 +399,18 @@ try {
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
 
-        // manual_inactive 入账后：保持 inactive，不自动改回 active
+        // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（1+1 加 1 月，1+2 加 2 月，1+3 加 3 月）
+        if ($periodType === 'manual_inactive') {
+            $extraMonths = getExtraMonthsFromContract($p['contract'] ?? null);
+            $dayEnd = $p['day_end'] ?? null;
+            if ($extraMonths > 0 && $dayEnd !== null && $dayEnd !== '') {
+                $newDayEnd = addMonthsToDate($dayEnd, $extraMonths);
+                if ($newDayEnd !== null) {
+                    $upd = $pdo->prepare("UPDATE bank_process SET day_end = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?");
+                    $upd->execute([$newDayEnd, (int) $p['id'], $companyId]);
+                }
+            }
+        }
     }
 
     jsonResponse(true, "已入账，共生成 $createdCount 条交易记录。", ['created_count' => $createdCount]);
