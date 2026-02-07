@@ -901,11 +901,13 @@
         }
 
         window.__accountingInboxList = [];
-        function loadAccountingInbox() {
+        /** @param {boolean} [noCache] - 为 true 时加 _t 防缓存，用于切换 inactive 后立即刷新 */
+        function loadAccountingInbox(noCache) {
             const urlStr = buildApiUrl('api/processes/process_accounting_inbox_api.php');
             const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             const u = new URL(urlStr);
             if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
+            if (noCache) u.searchParams.set('_t', String(Date.now()));
             return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
                 .then(r => r.json())
                 .then(data => {
@@ -1082,6 +1084,8 @@
                 const result = await response.json();
 
                 if (result.success) {
+                    const needInboxRefresh = selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function';
+                    const inboxPromise = needInboxRefresh ? loadAccountingInbox(true) : null;
                     const process = processes.find(p => p.id === processId);
                     if (process) {
                         process.status = result.newStatus;
@@ -1151,10 +1155,7 @@
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
 
-                    // Bank：改为 inactive 后立即刷新 Accounting Due 徽章和列表，马上显示 1 和该行数据
-                    if (selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
-                        await loadAccountingInbox();
-                    }
+                    if (inboxPromise) await inboxPromise;
 
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Process status changed to ${statusText}`, 'success');
@@ -2768,13 +2769,14 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (!window.selectedProfitSharingEntries) window.selectedProfitSharingEntries = [];
                 let added = 0;
                 rows.forEach(function (row) {
-                    const accountSelect = row.querySelector('.profit-sharing-account');
+                    const accountHidden = row.querySelector('.profit-sharing-account-id');
+                    const accountBtn = row.querySelector('.profit-sharing-account-btn');
                     const amountInput = row.querySelector('.profit-sharing-amount');
-                    if (!accountSelect || !amountInput) return;
-                    const accountId = (accountSelect.value || '').trim();
+                    if (!amountInput) return;
+                    const accountId = (accountHidden && accountHidden.value) ? (accountHidden.value || '').trim() : '';
                     const rawAmount = (amountInput.value || '').trim();
                     if (!accountId || rawAmount === '') return;
-                    const accountText = accountSelect.options[accountSelect.selectedIndex] ? accountSelect.options[accountSelect.selectedIndex].text : '';
+                    const accountText = (accountBtn && accountBtn.textContent) ? accountBtn.textContent.trim() : '';
                     const num = parseFloat(rawAmount);
                     const amount = (isNaN(num) ? rawAmount : num.toFixed(2));
                     window.selectedProfitSharingEntries.push({ accountId: accountId, accountText: accountText, amount: amount });
@@ -3090,6 +3092,87 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             });
 
             // Close on outside click
+            document.addEventListener('click', (e) => {
+                if (!accountButton.contains(e.target) && !accountDropdown.contains(e.target)) {
+                    accountDropdown.style.display = 'none';
+                    isOpen = false;
+                }
+            });
+        }
+
+        // Profit Sharing Account select: custom dropdown with search (same as Supplier)
+        let profitSharingFirstRowInited = false;
+        function initProfitSharingAccountSelect(buttonId, dropdownId, hiddenInputId) {
+            const accountButton = document.getElementById(buttonId);
+            const accountDropdown = document.getElementById(dropdownId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const searchInput = accountDropdown?.querySelector('.custom-select-search input');
+            const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
+            if (!accountButton || !accountDropdown || !hiddenInput || !searchInput || !optionsContainer) return;
+            let isOpen = false;
+            const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
+            function loadAccounts() {
+                optionsContainer.innerHTML = '';
+                const filterLower = (searchInput.value || '').toLowerCase().trim();
+                let accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
+                accounts = accounts.filter(acc => (acc.role || '').toLowerCase() === 'profit');
+                const selectOpt = document.createElement('div');
+                selectOpt.className = 'custom-select-option';
+                selectOpt.setAttribute('data-value', '');
+                selectOpt.textContent = 'Select Account';
+                selectOpt.addEventListener('click', () => {
+                    accountButton.textContent = placeholderText;
+                    accountButton.setAttribute('data-value', '');
+                    hiddenInput.value = '';
+                    accountDropdown.style.display = 'none';
+                    isOpen = false;
+                });
+                optionsContainer.appendChild(selectOpt);
+                function getDisplayText(account) {
+                    return String(account.account_id ?? account.name ?? '').trim();
+                }
+                let filtered = accounts.filter(acc => {
+                    const t = getDisplayText(acc).toLowerCase();
+                    return !filterLower || t.includes(filterLower);
+                });
+                filtered = filtered.slice().sort((a, b) => getDisplayText(a).toLowerCase().localeCompare(getDisplayText(b).toLowerCase()));
+                if (filtered.length === 0) {
+                    const noResults = document.createElement('div');
+                    noResults.className = 'custom-select-no-results';
+                    noResults.textContent = 'No accounts found';
+                    optionsContainer.appendChild(noResults);
+                } else {
+                    filtered.forEach(account => {
+                        const opt = document.createElement('div');
+                        opt.className = 'custom-select-option';
+                        opt.setAttribute('data-value', account.id);
+                        opt.textContent = getDisplayText(account);
+                        opt.addEventListener('click', () => {
+                            accountButton.textContent = getDisplayText(account);
+                            accountButton.setAttribute('data-value', account.id);
+                            hiddenInput.value = String(account.id);
+                            accountDropdown.style.display = 'none';
+                            isOpen = false;
+                        });
+                        optionsContainer.appendChild(opt);
+                    });
+                }
+            }
+            loadAccounts();
+            searchInput.addEventListener('input', loadAccounts);
+            accountButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isOpen) {
+                    accountDropdown.style.display = 'none';
+                    isOpen = false;
+                } else {
+                    accountDropdown.style.display = 'block';
+                    isOpen = true;
+                    searchInput.value = '';
+                    loadAccounts();
+                    searchInput.focus();
+                }
+            });
             document.addEventListener('click', (e) => {
                 if (!accountButton.contains(e.target) && !accountDropdown.contains(e.target)) {
                     accountDropdown.style.display = 'none';
@@ -3764,29 +3847,21 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             });
         }
 
-        function populateProfitSharingAccountSelect(selectEl) {
-            if (!selectEl) return;
-            selectEl.innerHTML = '<option value="">Select Account</option>';
-            const accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
-            accounts.forEach(acc => {
-                const opt = document.createElement('option');
-                opt.value = acc.id;
-                opt.textContent = acc.account_id || acc.name || String(acc.id);
-                selectEl.appendChild(opt);
-            });
-        }
-
         function addProfitSharingRow() {
             const container = document.getElementById('profitSharingRowsContainer');
             if (!container) return;
+            const ts = Date.now();
+            const btnId = 'profit_sharing_account_btn_' + ts;
+            const dropdownId = 'profit_sharing_account_dropdown_' + ts;
+            const hiddenId = 'profit_sharing_account_id_' + ts;
+            const amountId = 'profit_sharing_amount_' + ts;
             const row = document.createElement('div');
             row.className = 'form-row bank-row-two-cols profit-sharing-row';
-            const selectId = 'profit_sharing_account_' + Date.now();
-            const amountId = 'profit_sharing_amount_' + Date.now();
-            row.innerHTML = '<div class="form-group"><label for="' + selectId + '">Account</label><select id="' + selectId + '" name="account_id" class="bank-select profit-sharing-account"><option value="">Select Account</option></select></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
+            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">Account</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="Select Account">Select Account</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div><div class="custom-select-options"></div></div></div></div></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
             container.appendChild(row);
-            const newSelect = row.querySelector('.profit-sharing-account');
-            populateProfitSharingAccountSelect(newSelect);
+            if (typeof initProfitSharingAccountSelect === 'function') {
+                initProfitSharingAccountSelect(btnId, dropdownId, hiddenId);
+            }
         }
 
         async function showAddProfitSharingModal() {
@@ -3798,10 +3873,16 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const rows = container.querySelectorAll('.profit-sharing-row');
                 for (let i = 1; i < rows.length; i++) rows[i].remove();
             }
-            const selectEl = document.getElementById('profit_sharing_account');
-            if (selectEl) {
-                populateProfitSharingAccountSelect(selectEl);
-                selectEl.value = '';
+            const accountBtn = document.getElementById('profit_sharing_account_btn');
+            const accountHidden = document.getElementById('profit_sharing_account_id');
+            if (accountBtn) {
+                accountBtn.textContent = accountBtn.getAttribute('data-placeholder') || 'Select Account';
+                accountBtn.setAttribute('data-value', '');
+            }
+            if (accountHidden) accountHidden.value = '';
+            if (!profitSharingFirstRowInited && typeof initProfitSharingAccountSelect === 'function') {
+                profitSharingFirstRowInited = true;
+                initProfitSharingAccountSelect('profit_sharing_account_btn', 'profit_sharing_account_dropdown', 'profit_sharing_account_id');
             }
             const amountEl = document.getElementById('profit_sharing_amount');
             if (amountEl) amountEl.value = '';
