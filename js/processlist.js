@@ -1151,9 +1151,9 @@
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
 
-                    // Bank：改为 inactive 后刷新 Accounting Due 徽章，使该行立即出现在 Accounting Due
+                    // Bank：改为 inactive 后立即刷新 Accounting Due 徽章和列表，马上显示 1 和该行数据
                     if (selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
-                        loadAccountingInbox();
+                        await loadAccountingInbox();
                     }
 
                     const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
