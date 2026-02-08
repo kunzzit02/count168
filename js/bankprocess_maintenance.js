@@ -61,8 +61,10 @@
         }
 
         let currentCompanyId = typeof window.currentCompanyId !== 'undefined' ? window.currentCompanyId : null;
+        let currentCompanyCode = '';
         let ownerCompanies = [];
         let selectedCurrency = null;
+        let selectedPermission = null;
 
         function loadOwnerCompanies() {
             const container = document.getElementById('company-buttons-container');
@@ -90,14 +92,19 @@
                                     currentCompanyId = data.data[0].id;
                                 }
                             }
+                            const cur = data.data.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
+                            currentCompanyCode = cur ? (cur.company_id || '') : '';
                             wrapper.style.display = 'flex';
                             activateCompanyButton(currentCompanyId);
                         } else {
                             currentCompanyId = data.data[0].id;
+                            const cur = data.data.find(c => parseInt(c.id, 10) === parseInt(currentCompanyId, 10));
+                            currentCompanyCode = cur ? (cur.company_id || '') : '';
                             wrapper.style.display = 'none';
                         }
                     } else {
                         ownerCompanies = [];
+                        currentCompanyCode = '';
                         wrapper.style.display = 'none';
                     }
                 })
@@ -132,7 +139,10 @@
                 console.error('更新 session 时出错:', error);
             }
             currentCompanyId = newCompanyId;
+            const newCompany = ownerCompanies.find(c => parseInt(c.id, 10) === parseInt(newCompanyId, 10));
+            currentCompanyCode = newCompany ? (newCompany.company_id || '') : '';
             activateCompanyButton(currentCompanyId);
+            loadPermissionButtons();
             loadCompanyCurrencies()
                 .then(() => {
                     const dateFrom = document.getElementById('date_from').value.trim();
@@ -202,6 +212,70 @@
             buttons.forEach(btn => {
                 const code = btn.dataset.currencyCode;
                 if (selectedCurrency === code) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // Category 权限（与 processlist.php 同步：同一 API + 同一 localStorage 键）
+        async function loadPermissionButtons() {
+            const filterEl = document.getElementById('bankprocess-permission-filter');
+            const containerEl = document.getElementById('bankprocess-permission-buttons');
+            if (!filterEl || !containerEl) return;
+            if (!currentCompanyCode) {
+                filterEl.style.display = 'none';
+                return;
+            }
+            try {
+                const response = await fetch('api/domain/domain_api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'get_company_permissions',
+                        company_id: currentCompanyCode
+                    })
+                });
+                const result = await response.json();
+                const permissions = result.success && result.data && result.data.permissions
+                    ? result.data.permissions
+                    : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                containerEl.innerHTML = '';
+                if (permissions.length > 0) {
+                    filterEl.style.display = 'flex';
+                    permissions.forEach(permission => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'maintenance-company-btn';
+                        btn.textContent = permission;
+                        btn.dataset.permission = permission;
+                        btn.onclick = () => switchPermission(permission);
+                        containerEl.appendChild(btn);
+                    });
+                    const savedPermission = localStorage.getItem(`selectedPermission_${currentCompanyCode}`);
+                    if (savedPermission && permissions.includes(savedPermission)) {
+                        switchPermission(savedPermission);
+                    } else if (permissions.length > 0 && !selectedPermission) {
+                        switchPermission(permissions[0]);
+                    }
+                } else {
+                    filterEl.style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Error loading permissions:', err);
+                filterEl.style.display = 'none';
+            }
+        }
+
+        function switchPermission(permission) {
+            selectedPermission = permission;
+            if (currentCompanyCode) {
+                localStorage.setItem(`selectedPermission_${currentCompanyCode}`, permission);
+            }
+            const buttons = document.querySelectorAll('#bankprocess-permission-buttons .maintenance-company-btn');
+            buttons.forEach(btn => {
+                if (btn.dataset.permission === permission) {
                     btn.classList.add('active');
                 } else {
                     btn.classList.remove('active');
@@ -433,7 +507,10 @@
             updateDeleteButtonState();
             loadOwnerCompanies()
                 .catch(() => {})
-                .then(() => loadCompanyCurrencies())
+                .then(() => {
+                    loadPermissionButtons();
+                    return loadCompanyCurrencies();
+                })
                 .catch(() => {})
                 .then(() => {
                     const dateFrom = document.getElementById('date_from').value.trim();

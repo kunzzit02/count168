@@ -30,6 +30,13 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <div class="container">
         <div class="maintenance-header">
             <h1>Maintenance - Bank process</h1>
+            <!-- Category 权限（与 processlist.php 同步） -->
+            <div id="bankprocess-permission-filter" class="maintenance-permission-filter-header" style="display: none;">
+                <span class="maintenance-company-label">Category:</span>
+                <div id="bankprocess-permission-buttons" class="maintenance-company-buttons">
+                    <!-- Permission buttons will be loaded dynamically -->
+                </div>
+            </div>
         </div>
         
         <!-- Search Section -->
