@@ -206,6 +206,13 @@ if (isset($_GET['logout'])) {
                             <!-- Company buttons will be dynamically added here -->
                         </div>
                     </div>
+                    <!-- Currency Buttons (below Company) -->
+                    <div id="currency-buttons-wrapper" class="transaction-company-filter" style="margin-top: 8px;">
+                        <span class="transaction-company-label">Currency:</span>
+                        <div id="currency-buttons-container" class="transaction-company-buttons">
+                            <!-- Currency buttons will be dynamically added here -->
+                        </div>
+                    </div>
                 </div>
             </div>
             

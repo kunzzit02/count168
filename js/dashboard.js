@@ -778,7 +778,8 @@ async function executeLoadData() {
     const checkParams = JSON.stringify({
         date_from: dateRange.startDate,
         date_to: dateRange.endDate,
-        company_id: window.companyId
+        company_id: window.companyId,
+        currency: window.dashboardCurrency || ''
     });
     if (lastRequestParams === checkParams) {
         return;
@@ -799,6 +800,9 @@ async function executeLoadData() {
                     date_to: dateRange.endDate,
                     company_id: window.companyId
                 });
+                if (window.dashboardCurrency) {
+                    queryParams.append('currency', window.dashboardCurrency);
+                }
                 
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒超时
@@ -862,7 +866,8 @@ async function loadData(immediate = false) {
     const currentParams = JSON.stringify({
         date_from: dateRange.startDate,
         date_to: dateRange.endDate,
-        company_id: window.companyId
+        company_id: window.companyId,
+        currency: window.dashboardCurrency || ''
     });
     if (lastRequestParams === currentParams) {
         return Promise.resolve();
@@ -1420,6 +1425,66 @@ function loadOwnerCompanies() {
         });
 }
 
+// ==================== Currency 选择（Company 下方） ====================
+window.dashboardCurrency = ''; // 空 = 全部币别
+
+function loadCurrencies() {
+    if (!window.companyId) {
+        const wrapper = document.getElementById('currency-buttons-wrapper');
+        if (wrapper) wrapper.style.display = 'none';
+        return Promise.resolve();
+    }
+    return fetch(buildApiUrl(`api/transactions/get_company_currencies_api.php?company_id=${window.companyId}`))
+        .then(response => response.json())
+        .then(data => {
+            const wrapper = document.getElementById('currency-buttons-wrapper');
+            const container = document.getElementById('currency-buttons-container');
+            if (!wrapper || !container) return;
+            container.innerHTML = '';
+            // All
+            const allBtn = document.createElement('button');
+            allBtn.className = 'transaction-company-btn' + (!window.dashboardCurrency ? ' active' : '');
+            allBtn.textContent = 'All';
+            allBtn.dataset.currency = '';
+            allBtn.addEventListener('click', function() { switchCurrency(''); });
+            container.appendChild(allBtn);
+            // 各币别
+            if (data.success && data.data && data.data.length > 0) {
+                data.data.forEach(c => {
+                    const btn = document.createElement('button');
+                    btn.className = 'transaction-company-btn' + (window.dashboardCurrency === (c.code || '').toUpperCase() ? ' active' : '');
+                    btn.textContent = (c.code || '').toUpperCase();
+                    btn.dataset.currency = (c.code || '').toUpperCase();
+                    btn.addEventListener('click', function() { switchCurrency((c.code || '').toUpperCase()); });
+                    container.appendChild(btn);
+                });
+            }
+            wrapper.style.display = 'flex';
+            return data;
+        })
+        .catch(error => {
+            console.error('加载 Currency 列表失败:', error);
+            const wrapper = document.getElementById('currency-buttons-wrapper');
+            if (wrapper) wrapper.style.display = 'none';
+            return { success: true, data: [] };
+        });
+}
+
+async function switchCurrency(currencyCode) {
+    window.dashboardCurrency = currencyCode || '';
+    const buttons = document.querySelectorAll('#currency-buttons-container .transaction-company-btn');
+    buttons.forEach(btn => {
+        const code = (btn.dataset.currency || '').toUpperCase();
+        if (code === (window.dashboardCurrency || '').toUpperCase()) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    lastRequestParams = null;
+    await loadData(true);
+}
+
 // ==================== 切换 Company ====================
 async function switchCompany(companyId, companyCode) {
     try {
@@ -1465,6 +1530,10 @@ async function switchCompany(companyId, companyCode) {
     });
     
     console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
+    
+    // 切换公司后重置币别为 All，并重新加载币别列表
+    window.dashboardCurrency = '';
+    await loadCurrencies();
         
         // 重置上次请求参数，允许重新加载
         lastRequestParams = null;
@@ -1636,6 +1705,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         initDatePickers();
         initChartDataButtons();
         await loadCompaniesPromise;
+        await loadCurrencies();
         // 确保日期范围已设置后再加载数据（首次加载立即请求，不等待防抖）
         if (dateRange.startDate && dateRange.endDate && window.companyId) {
             await loadData(true);

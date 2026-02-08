@@ -80,6 +80,12 @@ try {
     $date_from_db = $date_from;
     $date_to_db = $date_to;
     
+    // 可选：按币别筛选（传 currency 为 code，如 MYR、USD）
+    $filter_currency_code = null;
+    if (isset($_GET['currency']) && trim((string)$_GET['currency']) !== '') {
+        $filter_currency_code = strtoupper(trim((string)$_GET['currency']));
+    }
+    
     // 一次检测并缓存，避免循环内重复查询
     $hasTransactionCurrency = false;
     try {
@@ -186,6 +192,16 @@ try {
             // 与 Transaction Search API 一致：若无 dcd 且无 transactions 的 currency，不加入默认货币，直接跳过该账户（避免多算）
             if (empty($account_currencies)) {
                 continue;
+            }
+            
+            // 若请求中指定了 currency，只保留该币别
+            if ($filter_currency_code !== null) {
+                $account_currencies = array_values(array_filter($account_currencies, function ($ac) use ($filter_currency_code) {
+                    return strtoupper((string)($ac['currency_code'] ?? '')) === $filter_currency_code;
+                }));
+                if (empty($account_currencies)) {
+                    continue;
+                }
             }
             
             // 为每个 currency 计算余额
