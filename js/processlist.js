@@ -3227,13 +3227,21 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             } catch (e) { /* ignore */ }
         }
 
+        function persistSelectedCountriesToStorage() {
+            try {
+                if (window.selectedCountries && Array.isArray(window.selectedCountries) && window.selectedCountries.length > 0) {
+                    localStorage.setItem(SELECTED_COUNTRIES_STORAGE_KEY, JSON.stringify(window.selectedCountries));
+                } else {
+                    localStorage.removeItem(SELECTED_COUNTRIES_STORAGE_KEY);
+                }
+            } catch (e) { /* ignore */ }
+        }
+
         async function showAddCountryModal() {
-            // 保留已选国家：不重置 window.selectedCountries；若为空则先从 localStorage 恢复，再 fallback 到当前下拉
+            // 每次打开弹窗都先从 localStorage 恢复 Selected Countries，保证 5 分钟/10 分钟后或点击 + 后选项一致
+            restoreSelectedCountriesFromStorage();
             if (!window.selectedCountries || !Array.isArray(window.selectedCountries)) {
                 window.selectedCountries = [];
-            }
-            if (window.selectedCountries.length === 0) {
-                restoreSelectedCountriesFromStorage();
             }
             if (window.selectedCountries.length === 0) {
                 const select = document.getElementById('bank_country');
@@ -3352,6 +3360,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const item = checkbox.closest('.country-item');
             if (!window.selectedCountries) window.selectedCountries = [];
             if (!window.selectedCountries.includes(name)) window.selectedCountries.push(name);
+            persistSelectedCountriesToStorage();
             const selectedList = document.getElementById('selectedCountriesInModal');
             const placeholder = selectedList.querySelector('.no-countries');
             if (placeholder) placeholder.remove();
@@ -3368,6 +3377,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const idx = window.selectedCountries.indexOf(countryName);
                 if (idx > -1) window.selectedCountries.splice(idx, 1);
             }
+            persistSelectedCountriesToStorage();
             const selectedList = document.getElementById('selectedCountriesInModal');
             selectedList.querySelectorAll('.selected-country-modal-item').forEach(item => {
                 if (item.querySelector('span')?.textContent === countryName) item.remove();
@@ -3418,6 +3428,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const idx = window.selectedCountries.indexOf(name);
                 if (idx > -1) window.selectedCountries.splice(idx, 1);
             }
+            persistSelectedCountriesToStorage();
             document.getElementById('selectedCountriesInModal').querySelectorAll('.selected-country-modal-item').forEach(el => {
                 if (el.querySelector('span')?.textContent === name) el.remove();
             });
@@ -3464,11 +3475,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             if (window.selectedCountries && window.selectedCountries.length > 0) {
                 select.value = window.selectedCountries[0] || '';
             }
-            try {
-                if (window.selectedCountries && window.selectedCountries.length > 0) {
-                    localStorage.setItem(SELECTED_COUNTRIES_STORAGE_KEY, JSON.stringify(window.selectedCountries));
-                }
-            } catch (e) { /* ignore */ }
+            persistSelectedCountriesToStorage();
             closeCountrySelectionModal();
         }
 
