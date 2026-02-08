@@ -1364,12 +1364,61 @@ function closeCompanyExpirationModal() {
     document.getElementById('companyExpirationModal').style.display = 'none';
 }
 
-// 页面加载完成后初始化搜索功能
+// 页面加载完成后初始化搜索功能及表单提交
 document.addEventListener('DOMContentLoaded', function() {
     setupSearch();
     initializePagination();
     updateDeleteButton(); // 初始化删除按钮状态
     initializeCompanyClickHandlers(); // 初始化公司点击事件
+
+    // 必须在 DOM 就绪后绑定，否则 #domainForm 可能为 null（脚本在 head 中加载）
+    const domainForm = document.getElementById('domainForm');
+    if (domainForm) {
+        domainForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            data.action = isEditMode ? 'update' : 'create';
+
+            // Remove password if empty during edit
+            if (isEditMode && !data.password) {
+                delete data.password;
+            }
+
+            // 移除空的二级密码（编辑模式，如果用户没有修改）
+            if (isEditMode && !data.secondary_password) {
+                delete data.secondary_password;
+            }
+
+            fetch('api/domain/domain_api.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(isEditMode ? 'Owner updated successfully!' : 'Owner created successfully!');
+                    closeModal();
+
+                    if (isEditMode) {
+                        updateDomainCard(data.data);
+                    } else {
+                        addDomainCard(data.data);
+                    }
+                } else {
+                    showAlert(data.message || 'Operation failed', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while saving owner', 'danger');
+            });
+        });
+    }
 });
 
 // Close modal when clicking outside
@@ -1378,56 +1427,11 @@ window.onclick = function(event) {
     if (event.target === companyExpModal) {
         closeCompanyExpirationModal();
     }
-    
+
     const companyExpDateModal = document.getElementById('companyExpDateModal');
     if (event.target === companyExpDateModal) {
         closeCompanyExpDateModal();
     }
 }
-
-document.getElementById('domainForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const formData = new FormData(this);
-    const data = Object.fromEntries(formData.entries());
-    data.action = isEditMode ? 'update' : 'create';
-    
-    // Remove password if empty during edit
-    if (isEditMode && !data.password) {
-        delete data.password;
-    }
-    
-    // 移除空的二级密码（编辑模式，如果用户没有修改）
-    if (isEditMode && !data.secondary_password) {
-        delete data.secondary_password;
-    }
-    
-    fetch('api/domain/domain_api.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert(isEditMode ? 'Owner updated successfully!' : 'Owner created successfully!');
-            closeModal();
-            
-            if (isEditMode) {
-                updateDomainCard(data.data);
-            } else {
-                addDomainCard(data.data);
-            }
-        } else {
-            showAlert(data.message || 'Operation failed', 'danger');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('An error occurred while saving owner', 'danger');
-    });
-});
 
 // Hover color now only shows while hovered and resets on mouse leave
