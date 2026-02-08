@@ -80,7 +80,7 @@ try {
         window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
         window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;
     </script>
-    <script src="js/domain.js"></script>
+    <script src="js/domain.js?v=<?php echo file_exists('js/domain.js') ? filemtime('js/domain.js') : time(); ?>"></script>
 </head>
 <body>
     <div id="notificationContainer" class="notification-container"></div>
