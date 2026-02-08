@@ -940,7 +940,8 @@ function updateDashboard(data) {
                 const capitalEl = document.getElementById('capital-value');
                 const expensesEl = document.getElementById('expenses-value');
                 const profitEl = document.getElementById('profit-value');
-                if (capitalEl) capitalEl.textContent = formatCurrency(data.capital);
+                // 左边「Profit」卡片 = Transaction Payment 里 Profit 的总额（Total Balance）
+                if (capitalEl) capitalEl.textContent = formatCurrency(data.profit);
                 if (expensesEl) expensesEl.textContent = formatCurrency(data.expenses);
                 if (profitEl) profitEl.textContent = formatCurrency(data.profit);
                 const chartDateRangeEl = document.getElementById('chart-date-range');
