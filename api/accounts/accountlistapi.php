@@ -67,7 +67,7 @@ function validateCompanyAccess(PDO $pdo, int $company_id): void {
     }
 }
 
-function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, bool $showInactive, bool $showAll, ?array $accountIdFilter): array {
+function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, bool $showInactive, bool $showAll, ?array $accountIdFilter, ?array $rolesFilter = null): array {
     $sql = "SELECT DISTINCT a.id, a.account_id, a.name, a.status, a.last_login, a.role,
             COALESCE(a.payment_alert, 0) AS payment_alert,
             a.alert_day, a.alert_day AS alert_type, a.alert_specific_date, a.alert_specific_date AS alert_start_date,
@@ -76,6 +76,12 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
             INNER JOIN account_company ac ON a.id = ac.account_id
             WHERE ac.company_id = ?";
     $params = [$company_id];
+
+    if ($rolesFilter !== null && !empty($rolesFilter)) {
+        $placeholders = implode(',', array_fill(0, count($rolesFilter), '?'));
+        $sql .= " AND a.role IN ($placeholders)";
+        $params = array_merge($params, $rolesFilter);
+    }
 
     if ($accountIdFilter !== null) {
         if (empty($accountIdFilter)) {
@@ -104,7 +110,7 @@ function fetchAccountsForCompany(PDO $pdo, int $company_id, string $searchTerm, 
         $sql .= " AND a.status = 'active'";
     }
 
-    $sql .= " ORDER BY id ASC";
+    $sql .= " ORDER BY a.account_id ASC";
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -174,11 +180,19 @@ try {
     $showInactive = isset($_GET['showInactive']) ? filter_var($_GET['showInactive'], FILTER_VALIDATE_BOOLEAN) : false;
     $showAll = isset($_GET['showAll']) ? filter_var($_GET['showAll'], FILTER_VALIDATE_BOOLEAN) : false;
 
+    $rolesFilter = null;
+    if (isset($_GET['roles']) && $_GET['roles'] !== '') {
+        $rolesFilter = array_map('trim', explode(',', $_GET['roles']));
+        $rolesFilter = array_values(array_filter($rolesFilter, function ($r) {
+            return $r !== '';
+        }));
+    }
+
     $current_user_role = $_SESSION['role'] ?? '';
     $accountIdFilter = getAccountPermissionFilterForCompany($pdo, $company_id, $current_user_role);
     $userAccountPermissions = getCurrentUserAccountPermissions($pdo, $company_id);
 
-    $accounts = fetchAccountsForCompany($pdo, $company_id, $searchTerm, $showInactive, $showAll, $accountIdFilter);
+    $accounts = fetchAccountsForCompany($pdo, $company_id, $searchTerm, $showInactive, $showAll, $accountIdFilter, $rolesFilter);
     $accounts = computeAlertStatus($accounts);
 
     echo json_encode([
