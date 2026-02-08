@@ -1998,7 +1998,6 @@ function handlePaymentOnlyFilter() {
 // ==================== 提交功能 ====================
 function submitAction() {
     const type = document.getElementById('transaction_type').value;
-    const effectiveType = (type === 'PROFIT') ? (document.querySelector('input[name="win_lose_side"]:checked')?.value || 'WIN') : type;
     const isRate = type === RATE_TYPE_VALUE;
     
     const standardToAccountInput = document.getElementById('action_account_id');
@@ -2006,9 +2005,8 @@ function submitAction() {
     const rateToAccountInput = document.getElementById('rate_account_to');
     const rateFromAccountInput = document.getElementById('rate_account_from');
 
-    // PROFIT：第一个下拉为 To Account、第二个为 From Account，前后两个账户的 Payment History 都要显示
-    const accountId = isRate ? getAccountId(rateToAccountInput) : (type === 'PROFIT' ? getAccountId(standardFromAccountInput) : getAccountId(standardToAccountInput));
-    const fromAccountId = isRate ? getAccountId(rateFromAccountInput) : (type === 'PROFIT' ? getAccountId(standardToAccountInput) : getAccountId(standardFromAccountInput));
+    const accountId = isRate ? getAccountId(rateToAccountInput) : getAccountId(standardToAccountInput);
+    const fromAccountId = isRate ? getAccountId(rateFromAccountInput) : getAccountId(standardFromAccountInput);
     
     const standardAmountInput = document.getElementById('action_amount');
     const rateCurrencyFromAmountInput = document.getElementById('rate_currency_from_amount');
@@ -2185,7 +2183,7 @@ function submitAction() {
             showNotification('Please select Currency', 'error');
             return;
         }
-        if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'].includes(effectiveType) && !fromAccountId) {
+        if (['PAYMENT', 'RECEIVE', 'CONTRA', 'CLAIM'].includes(type) && !fromAccountId) {
             showNotification('This transaction type requires From Account', 'error');
             return;
         }
@@ -2225,7 +2223,7 @@ function submitAction() {
     });
     
     const formData = new FormData();
-    formData.append('transaction_type', effectiveType);
+    formData.append('transaction_type', type);
     formData.append('account_id', accountId);
     formData.append('from_account_id', fromAccountId);
     formData.append('amount', amount);
@@ -2485,6 +2483,7 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
 // ==================== 类型切换 ====================
 function handleTypeToggle() {
     const typeSel = document.getElementById('transaction_type');
+    const fromSel = document.getElementById('action_account_from');
     const reverseBtn = document.getElementById('account_reverse_btn');
     const standardFields = document.getElementById('standard-transaction-fields');
     const rateFields = document.getElementById('rate-transaction-fields');
@@ -2514,25 +2513,16 @@ function handleTypeToggle() {
         }
     }
     
-    // 控制「From Account」与「Reverse」的显示（不隐藏 To Account，保证排版一致）
-    const accountInputs = document.querySelector('.transaction-account-inputs');
-    const fromAccountWrapper = document.getElementById('action_account_id')?.closest('.custom-select-wrapper');
-    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'PROFIT'].includes(typeSel.value);
-    const showFromAndReverse = !isRate && needsFrom;
-    if (fromAccountWrapper) {
-        fromAccountWrapper.style.display = showFromAndReverse ? '' : 'none';
-    }
+    if (!fromSel) return;
+    
+    // CONTRA, PAYMENT, RECEIVE, CLAIM 需要显示 From 账户选择框（Rate 单独处理）
+    const needsFrom = ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'].includes(typeSel.value);
+    fromSel.style.display = (!isRate && needsFrom) ? '' : 'none';
     if (reverseBtn) {
-        reverseBtn.style.display = showFromAndReverse ? '' : 'none';
+        reverseBtn.style.display = (!isRate && needsFrom) ? '' : 'none';
     }
-    if (!showFromAndReverse) {
-        const fromBtn = document.getElementById('action_account_id');
-        if (fromBtn) {
-            fromBtn.textContent = fromBtn.getAttribute('data-placeholder') || '--Select From Account--';
-            fromBtn.removeAttribute('data-value');
-            fromBtn.removeAttribute('data-account-code');
-            fromBtn.removeAttribute('data-currency');
-        }
+    if (!needsFrom || isRate) {
+        fromSel.value = '';
     }
 }
 
