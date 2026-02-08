@@ -167,6 +167,11 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
             $ids = array_column($needToday, 'id');
             $monthlyPostedIds = getMonthlyPostedIdsForDate($pdo, $companyId, $today, $ids);
             foreach ($needToday as &$item) {
+                // manual_inactive 行不按 monthly/partial 标记已入账，否则会误标为已入账导致无法勾选 Transaction
+                if (!empty($item['is_manual_inactive'])) {
+                    $item['already_posted_today'] = false;
+                    continue;
+                }
                 $item['already_posted_today'] = !empty($item['is_partial_first_month'])
                     ? in_array((int) $item['id'], $partialPostedIds, true)
                     : in_array((int) $item['id'], $monthlyPostedIds, true);
@@ -175,6 +180,10 @@ function markAlreadyPostedOnNeedToday(PDO $pdo, array &$needToday, int $companyI
             $ids = array_column($needToday, 'id');
             $postedIds = getPostedProcessIdsForDate($pdo, $companyId, $today, $ids);
             foreach ($needToday as &$item) {
+                if (!empty($item['is_manual_inactive'])) {
+                    $item['already_posted_today'] = false;
+                    continue;
+                }
                 $item['already_posted_today'] = in_array((int) $item['id'], $postedIds, true);
             }
         }

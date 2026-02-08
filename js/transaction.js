@@ -2444,7 +2444,6 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
                     }
                     
                     // 格式化数字列（如果不是 '-'）
-                    const winLoss = row.win_loss === '-' ? '-' : formatNumber(row.win_loss);
                     const crDr = row.cr_dr === '-' ? '-' : formatNumber(row.cr_dr);
                     const balance = row.balance === '-' ? '-' : formatNumber(row.balance);
                     const remarkValue = getHistoryRemark(row);
@@ -2453,13 +2452,14 @@ function openHistoryModal(accountId, accountCode, accountName, rowCurrency) {
                         ? `<td class="transaction-history-col-description text-uppercase">${descriptionDisplay}</td>
                            <td class="transaction-history-col-remark text-uppercase">${remarkValue}</td>`
                         : `<td class="transaction-history-col-remark text-uppercase">${remarkValue}</td>`;
+                    // Bank process 历史：显示 Card Owner，不显示 Id Product / Win-Loss / Profit
+                    const cardOwnerDisplay = row.card_owner != null && row.card_owner !== '' ? row.card_owner : (row.product || '-');
                     
                     tr.innerHTML = `
                         <td class="transaction-history-col-date">${row.date}</td>
-                        <td class="transaction-history-col-product">${row.product || '-'}</td>
+                        <td class="transaction-history-col-product">${String(cardOwnerDisplay).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')}</td>
                         <td class="transaction-history-col-currency">${row.currency || '-'}</td>
                         <td class="transaction-history-col-rate">${row.rate || '-'}</td>
-                        <td class="transaction-history-col-winloss">${winLoss}</td>
                         <td class="transaction-history-col-crdr">${crDr}</td>
                         <td class="transaction-history-col-balance">${balance}</td>
                         ${descriptionCells}

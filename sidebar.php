@@ -446,6 +446,9 @@ if ($companyId) {
                             <a href="formula_maintenance.php" class="submenu-item">
                                 <span>Formula</span>
                             </a>
+                            <a href="bankprocess_maintenance.php" class="submenu-item">
+                                <span>Bank process</span>
+                            </a>
                         </div>
                     </div>
                 </div>

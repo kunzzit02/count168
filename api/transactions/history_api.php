@@ -260,7 +260,8 @@ try {
                         dcd.currency_id,
                         dcd.rate,
                         c.code as currency_code,
-                        COALESCE(u.login_id, o.owner_code) as capture_created_by
+                        COALESCE(u.login_id, o.owner_code) as capture_created_by,
+                        a_cm.name as card_owner_name
                     FROM data_capture_details dcd
                     JOIN data_captures dc ON dcd.capture_id = dc.id
                     JOIN currency c ON dcd.currency_id = c.id
@@ -268,6 +269,8 @@ try {
                     LEFT JOIN owner o ON dc.user_type = 'owner' AND dc.created_by = o.id
                     JOIN process p ON dc.process_id = p.id
                     LEFT JOIN description d ON p.description_id = d.id
+                    LEFT JOIN bank_process bp ON dc.process_id = bp.id
+                    LEFT JOIN account a_cm ON bp.card_merchant_id = a_cm.id
                     WHERE dcd.company_id = ?
                       AND dc.company_id = ?
                       AND CAST(dcd.account_id AS CHAR) IN (" . implode(',', array_fill(0, count($account_ids), '?')) . ")
@@ -290,6 +293,8 @@ try {
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'currency_id'");
     $has_currency_id = $stmt->rowCount() > 0;
     $has_approval_status = historyHasContraApprovalColumns($pdo);
+    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
+    $has_source_bank_process_id = $stmt->rowCount() > 0;
     
     $sql = "SELECT 
                 t.id,
@@ -316,6 +321,11 @@ try {
     if ($has_approval_status) {
         $sql .= ", t.approval_status";
     }
+    if ($has_source_bank_process_id) {
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name";
+        // 用于 Bank process 历史：按入账类型显示 description（Remaining days / Monthly / Inactive），不显示 PROFIT FROM
+        $sql .= ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type";
+    }
     
     $sql .= " FROM transactions t
             LEFT JOIN user u ON t.created_by = u.id
@@ -327,6 +337,9 @@ try {
     // 如果表有 currency_id 字段，JOIN currency 表
     if ($has_currency_id) {
         $sql .= " LEFT JOIN currency c ON t.currency_id = c.id";
+    }
+    if ($has_source_bank_process_id) {
+        $sql .= " LEFT JOIN bank_process bp_t ON t.source_bank_process_id = bp_t.id LEFT JOIN account a_cm_t ON bp_t.card_merchant_id = a_cm_t.id";
     }
     
     $ph = implode(',', array_fill(0, count($account_ids), '?'));
@@ -393,6 +406,8 @@ try {
         'row_type' => 'bf',
         'date' => 'B/F',
         'source' => '-',
+        'product' => '-',
+        'card_owner' => '-',
         'currency' => $bfCurrency,
         'percent' => '-',
         'rate' => '-',
@@ -482,6 +497,7 @@ try {
             'date' => date('d/m/Y', strtotime($capture['capture_date'])),
             'source' => $capture['transaction_type'] ?? 'DATA_CAPTURE',
             'product' => $product ?: '-',
+            'card_owner' => !empty($capture['card_owner_name']) ? trim($capture['card_owner_name']) : '-',
             'currency' => $capture['currency_code'] ?? $bfCurrency,
             'percent' => $percent ?: '-',
             'rate' => $rate ?: '-',
@@ -566,6 +582,20 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
+        // WIN/LOSE（Bank process 入账）：按入账类型显示，加 "bill" 表示收费/账单
+        if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
+            $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
+            if ($periodType === 'partial_first_month') {
+                $description = 'Remaining days bill';
+            } elseif ($periodType === 'manual_inactive') {
+                $description = 'Inactive bill';
+            } elseif ($periodType === 'monthly' || $periodType === '') {
+                $description = 'Monthly bill';
+            } else {
+                $description = 'Monthly bill';
+            }
+        }
+        
         // 如果是 CONTRA/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
         if (in_array($t['transaction_type'], ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM', 'RATE'])) {
             if (empty($t['description'])) {
@@ -649,6 +679,9 @@ try {
             $transactionCreatedBy = $t['created_by_owner_name'];
         }
         
+        // Bank process 历史中该行显示 Card Owner（持卡人），不显示 Id Product/PROFIT
+        $cardOwner = ($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-';
+        
         $events[] = [
             'row_type' => 'transaction',
             'transaction_id' => $t['id'],
@@ -658,11 +691,12 @@ try {
             'win_loss' => $win_loss,
             'cr_dr' => $cr_dr,
             'date' => date('d/m/Y', strtotime($t['transaction_date'])),
-            'source' => $t['transaction_type'], // Source 显示交易类型
+            'source' => $t['transaction_type'],
             'product' => $t['transaction_type'],
+            'card_owner' => $cardOwner,
             'currency' => $transactionCurrency,
-            'percent' => '-', // Transactions 没有 percent
-            'rate' => '-', // Transactions 没有 rate
+            'percent' => '-',
+            'rate' => '-',
             'description' => $description,
             'sms' => $t['sms'] ?: '-',
             'created_by' => $transactionCreatedBy
@@ -742,9 +776,10 @@ try {
             'date' => date('d/m/Y', strtotime($row['transaction_date'])),
             'source' => 'RATE',
             'product' => mapEntryTypeToProduct($row['entry_type']),
+            'card_owner' => '-',
             'currency' => $transactionCurrency,
             'percent' => '-',
-            'rate' => '-', // RATE transactions 没有 rate（rate 只在 data_capture_details 中）
+            'rate' => '-',
             'description' => $description,
             'sms' => $row['sms'] ?: '-',
             'remark' => null,
@@ -769,6 +804,7 @@ try {
             'date' => $event['date'],
             'source' => $event['source'] ?? '-',
             'product' => $event['product'] ?? '-',
+            'card_owner' => $event['card_owner'] ?? '-',
             'currency' => $displayCurrency,
             'percent' => $event['percent'] ?? '-',
             'rate' => $event['rate'] ?? '-',

@@ -80,6 +80,22 @@ function fetchBankProcessesByIds(PDO $pdo, array $ids, int $companyId): array
     return $byId;
 }
 
+/** manual_inactive 入账时按 Contract 的金额倍数：1+2→2，1+3→3，1+1 或其他→1（Buy Price / Sell Price / Profit Sharing 均乘此倍数） */
+function getManualInactiveMultiplierFromContract(?string $contract): int
+{
+    if ($contract === null || $contract === '') {
+        return 1;
+    }
+    $c = trim($contract);
+    if ($c === '1+2') {
+        return 2;
+    }
+    if ($c === '1+3') {
+        return 3;
+    }
+    return 1;
+}
+
 /** 1+1/1+2/1+3 的「额外月数」：1+1→1，1+2→2，1+3→3，其他 0（用于 manual_inactive 入账后给 day_end 加月） */
 function getExtraMonthsFromContract(?string $contract): int
 {
@@ -285,7 +301,13 @@ try {
             $price = $partial['price'];
             $profit = $partial['profit'];
         }
-        // manual_inactive：全额入账，不入首月按比例
+        // manual_inactive：1+2 时 Buy Price / Sell Price / Profit 乘 2，1+3 时乘 3，再入账
+        if ($periodType === 'manual_inactive') {
+            $mult = getManualInactiveMultiplierFromContract($p['contract'] ?? null);
+            $cost = round($cost * $mult, 2);
+            $price = round($price * $mult, 2);
+            $profit = round($profit * $mult, 2);
+        }
 
         $processLabel = $p['name'] ?: ($p['bank'] . ' #' . $p['id']);
         $companyId = (int) $p['company_id'];
@@ -369,10 +391,11 @@ try {
         $profitSharingEntries = parseProfitSharingString($p['profit_sharing'] ?? '');
         $profitSharingResolved = [];
         $totalPs = 0;
+        $psMult = ($periodType === 'manual_inactive') ? getManualInactiveMultiplierFromContract($p['contract'] ?? null) : 1;
         foreach ($profitSharingEntries as $entry) {
             $accId = resolveAccountIdByText($pdo, $companyId, $entry['account_text']);
             if ($accId !== null && $entry['amount'] > 0) {
-                $proratedAmount = round($entry['amount'] * $psRatio, 2);
+                $proratedAmount = round($entry['amount'] * $psRatio * $psMult, 2);
                 if ($proratedAmount > 0) {
                     $profitSharingResolved[] = ['account_id' => $accId, 'amount' => $proratedAmount, 'account_text' => $entry['account_text']];
                     $totalPs += $proratedAmount;
@@ -399,12 +422,14 @@ try {
 
         recordProcessAccountingPosted($pdo, $companyId, (int) $p['id'], $transactionDate, $periodType, $has_period_type);
 
-        // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（1+1 加 1 月，1+2 加 2 月，1+3 加 3 月）
+        // manual_inactive 入账后：保持 inactive；1+1/1+2/1+3 时给 day_end 加对应月数（与 Frequency 无关，1st of every month 与 monthly 行为一致，仅算账日不同）
         if ($periodType === 'manual_inactive') {
             $extraMonths = getExtraMonthsFromContract($p['contract'] ?? null);
             $dayEnd = $p['day_end'] ?? null;
-            if ($extraMonths > 0 && $dayEnd !== null && $dayEnd !== '') {
-                $newDayEnd = addMonthsToDate($dayEnd, $extraMonths);
+            $dayStart = $p['day_start'] ?? null;
+            $baseDate = ($dayEnd !== null && $dayEnd !== '') ? $dayEnd : $dayStart;
+            if ($extraMonths > 0 && $baseDate !== null && $baseDate !== '') {
+                $newDayEnd = addMonthsToDate($baseDate, $extraMonths);
                 if ($newDayEnd !== null) {
                     $upd = $pdo->prepare("UPDATE bank_process SET day_end = ?, dts_modified = NOW() WHERE id = ? AND company_id = ?");
                     $upd->execute([$newDayEnd, (int) $p['id'], $companyId]);

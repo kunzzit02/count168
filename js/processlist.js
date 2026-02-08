@@ -392,7 +392,7 @@
                 window.selectedProfitSharingEntries = [];
                 loadAddBankProcessData().then(async () => {
                     const countryEl = document.getElementById('bank_country');
-                    await loadBanksByCountry(countryEl ? countryEl.value : '');
+                    applySelectedBanksToDropdown(countryEl ? countryEl.value : '');
                     renderSelectedProfitSharing();
                     document.getElementById('addBankModal').style.display = 'block';
                     updateBankSubmitButtonState();
@@ -527,18 +527,21 @@
                         countrySelect.appendChild(opt);
                     }
                     countrySelect.value = process.country;
-                    await loadBanksByCountry(process.country);
+                    // 编辑时：若当前 process.bank 不在该 Country 的 Selected Banks 中则临时加入，再刷新下拉
+                    if (process.bank && (process.bank || '').trim()) {
+                        if (!window.selectedBanksByCountry) window.selectedBanksByCountry = {};
+                        const arr = window.selectedBanksByCountry[process.country] || [];
+                        if (arr.indexOf(process.bank) < 0) {
+                            window.selectedBanksByCountry[process.country] = arr.concat([process.bank]);
+                            persistSelectedBanksByCountryToStorage();
+                        }
+                    }
+                    applySelectedBanksToDropdown(process.country);
                 } else {
                     countrySelect.value = '';
-                    await loadBanksByCountry('');
+                    applySelectedBanksToDropdown('');
                 }
                 if (process.bank) {
-                    if (!Array.from(bankSelect.options).some(o => o.value === process.bank)) {
-                        const opt = document.createElement('option');
-                        opt.value = process.bank;
-                        opt.textContent = process.bank;
-                        bankSelect.appendChild(opt);
-                    }
                     bankSelect.value = process.bank;
                 } else {
                     bankSelect.value = '';
@@ -901,13 +904,11 @@
         }
 
         window.__accountingInboxList = [];
-        /** @param {boolean} [noCache] - 为 true 时加 _t 防缓存，用于切换 inactive 后立即刷新 */
-        function loadAccountingInbox(noCache) {
+        function loadAccountingInbox() {
             const urlStr = buildApiUrl('api/processes/process_accounting_inbox_api.php');
             const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
             const u = new URL(urlStr);
             if (currentCompanyId) u.searchParams.set('company_id', currentCompanyId);
-            if (noCache) u.searchParams.set('_t', String(Date.now()));
             return fetch(u.toString(), { method: 'GET', cache: 'no-cache' })
                 .then(r => r.json())
                 .then(data => {
@@ -1014,7 +1015,6 @@
                 showNotification('Please select at least one process to post.', 'warning');
                 return;
             }
-            if (!confirm('Post ' + pairs.length + ' selected process(es) to Transaction?\n\nBuy Price → Supplier\nSell Price → Customer\nProfit → Company')) return;
             try {
                 const formData = new FormData();
                 pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
@@ -1084,35 +1084,35 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    const needInboxRefresh = selectedPermission === 'Bank' && result.newStatus === 'inactive' && typeof loadAccountingInbox === 'function';
-                    const inboxPromise = needInboxRefresh ? loadAccountingInbox(true) : null;
+                    const newStatus = (result.data && result.data.newStatus !== undefined) ? result.data.newStatus : result.newStatus;
+                    const newDayEnd = (result.data && result.data.newDayEnd !== undefined) ? result.data.newDayEnd : result.newDayEnd;
                     const process = processes.find(p => p.id === processId);
                     if (process) {
-                        process.status = result.newStatus;
-                        if (result.newDayEnd) process.day_end = result.newDayEnd;
+                        process.status = newStatus;
+                        if (newDayEnd) process.day_end = newDayEnd;
                     }
 
-                    const shouldShow = showAll ? true : (showInactive ? result.newStatus === 'inactive' : result.newStatus === 'active');
+                    const shouldShow = showAll ? true : (showInactive ? newStatus === 'inactive' : newStatus === 'active');
 
                     if (!shouldShow) {
                         const processIndex = processes.findIndex(p => p.id === processId);
                         if (processIndex > -1) processes.splice(processIndex, 1);
                         renderTable();
-                    } else if (result.newDayEnd) {
+                    } else if (newDayEnd) {
                         // If day_end changed, we must re-render to update the Date cell and Contract class logic
                         renderTable();
                     } else {
                         // Manual DOM update for simple status change
-                        const statusClass = result.newStatus === 'active' ? 'status-active' : (result.newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
-                        const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${result.newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml(result.newStatus.toUpperCase())}</span>`;
+                        const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
+                        const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
 
                         if (selectedPermission === 'Bank') {
                             const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
                             const hasTx = row ? row.getAttribute('data-has-transactions') === '1' : false;
                             const bankActionCellHtml = '<button class="edit-btn" onclick="editProcess(' + processId + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
-                                (result.newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
+                                (newStatus === 'active' ? '' : (hasTx ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + processId + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                             if (row) {
-                                row.setAttribute('data-status', result.newStatus || '');
+                                row.setAttribute('data-status', newStatus || '');
                                 const cells = row.querySelectorAll('td');
                                 if (cells.length >= 15) {
                                     cells[12].innerHTML = statusBadge;
@@ -1129,7 +1129,7 @@
                                     if (actionCell) {
                                         const existingCheckbox = actionCell.querySelector('.row-checkbox');
                                         const existingMuted = actionCell.querySelector('.text-muted');
-                                        if (result.newStatus === 'active') {
+                                        if (newStatus === 'active') {
                                             if (existingCheckbox) existingCheckbox.remove();
                                             if (existingMuted) existingMuted.remove();
                                         } else {
@@ -1155,9 +1155,12 @@
                     updateDeleteButton();
                     updateSelectAllProcessesVisibility();
 
-                    if (inboxPromise) await inboxPromise;
+                    // Bank：改为 inactive 后立即刷新 Accounting Due 徽章和列表，马上显示 1 和该行数据
+                    if (selectedPermission === 'Bank' && newStatus === 'inactive' && typeof loadAccountingInbox === 'function') {
+                        await loadAccountingInbox();
+                    }
 
-                    const statusText = result.newStatus === 'active' ? 'activated' : 'deactivated';
+                    const statusText = newStatus === 'active' ? 'activated' : 'deactivated';
                     showNotification(`Process status changed to ${statusText}`, 'success');
                 } else {
                     showNotification(result.error || 'Status toggle failed', 'danger');
@@ -2327,6 +2330,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         let currentEditAccountIdForBank = null;
 
         let bankAccountRoles = [];
+        /** Process List 的 Add Account 弹窗只用这 5 个 Role 选项（与 account-list 一致，但仅此 5 项） */
+        const BANK_ADD_ACCOUNT_ROLES = ['COMPANY', 'STAFF', 'UPLINE', 'AGENT', 'MEMBER'];
         async function loadEditDataBank() {
             try {
                 const res = await fetch(buildApiUrl('api/editdata/editdata_api.php'));
@@ -2337,7 +2342,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const addRoleSelect = document.getElementById('add_role');
                 if (addRoleSelect) {
                     addRoleSelect.innerHTML = '<option value="">Select Role</option>';
-                    bankAccountRoles.forEach(code => {
+                    const rolesForAdd = BANK_ADD_ACCOUNT_ROLES;
+                    rolesForAdd.forEach(code => {
                         const opt = document.createElement('option');
                         opt.value = code;
                         opt.textContent = code;
@@ -2346,6 +2352,16 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 }
             } catch (e) {
                 console.error('loadEditDataBank', e);
+                const addRoleSelect = document.getElementById('add_role');
+                if (addRoleSelect) {
+                    addRoleSelect.innerHTML = '<option value="">Select Role</option>';
+                    BANK_ADD_ACCOUNT_ROLES.forEach(code => {
+                        const opt = document.createElement('option');
+                        opt.value = code;
+                        opt.textContent = code;
+                        addRoleSelect.appendChild(opt);
+                    });
+                }
             }
         }
 
@@ -2833,6 +2849,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         async function loadAddBankProcessData() {
             try {
                 restoreSelectedCountriesFromStorage();
+                restoreSelectedBanksByCountryFromStorage();
+                if (!window.selectedBanksByCountry || typeof window.selectedBanksByCountry !== 'object') window.selectedBanksByCountry = {};
                 await loadBankAccounts();
                 initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
@@ -2888,12 +2906,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
         }
 
-        // Country 变更时刷新 Bank 下拉，并清空 Bank 若不在新列表中
+        // Country 变更时：Bank 下拉只显示当前 Country 的 Selected Banks（不调用接口）
         (function () {
             const countrySelect = document.getElementById('bank_country');
             if (countrySelect) {
                 countrySelect.addEventListener('change', function () {
-                    loadBanksByCountry(this.value);
+                    applySelectedBanksToDropdown(this.value);
                 });
             }
         })();
@@ -3214,13 +3232,21 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             } catch (e) { /* ignore */ }
         }
 
+        function persistSelectedCountriesToStorage() {
+            try {
+                if (window.selectedCountries && Array.isArray(window.selectedCountries) && window.selectedCountries.length > 0) {
+                    localStorage.setItem(SELECTED_COUNTRIES_STORAGE_KEY, JSON.stringify(window.selectedCountries));
+                } else {
+                    localStorage.removeItem(SELECTED_COUNTRIES_STORAGE_KEY);
+                }
+            } catch (e) { /* ignore */ }
+        }
+
         async function showAddCountryModal() {
-            // 保留已选国家：不重置 window.selectedCountries；若为空则先从 localStorage 恢复，再 fallback 到当前下拉
+            // 每次打开弹窗都先从 localStorage 恢复 Selected Countries，保证 5 分钟/10 分钟后或点击 + 后选项一致
+            restoreSelectedCountriesFromStorage();
             if (!window.selectedCountries || !Array.isArray(window.selectedCountries)) {
                 window.selectedCountries = [];
-            }
-            if (window.selectedCountries.length === 0) {
-                restoreSelectedCountriesFromStorage();
             }
             if (window.selectedCountries.length === 0) {
                 const select = document.getElementById('bank_country');
@@ -3339,6 +3365,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const item = checkbox.closest('.country-item');
             if (!window.selectedCountries) window.selectedCountries = [];
             if (!window.selectedCountries.includes(name)) window.selectedCountries.push(name);
+            persistSelectedCountriesToStorage();
             const selectedList = document.getElementById('selectedCountriesInModal');
             const placeholder = selectedList.querySelector('.no-countries');
             if (placeholder) placeholder.remove();
@@ -3355,6 +3382,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const idx = window.selectedCountries.indexOf(countryName);
                 if (idx > -1) window.selectedCountries.splice(idx, 1);
             }
+            persistSelectedCountriesToStorage();
             const selectedList = document.getElementById('selectedCountriesInModal');
             selectedList.querySelectorAll('.selected-country-modal-item').forEach(item => {
                 if (item.querySelector('span')?.textContent === countryName) item.remove();
@@ -3405,6 +3433,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const idx = window.selectedCountries.indexOf(name);
                 if (idx > -1) window.selectedCountries.splice(idx, 1);
             }
+            persistSelectedCountriesToStorage();
             document.getElementById('selectedCountriesInModal').querySelectorAll('.selected-country-modal-item').forEach(el => {
                 if (el.querySelector('span')?.textContent === name) el.remove();
             });
@@ -3451,17 +3480,63 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             if (window.selectedCountries && window.selectedCountries.length > 0) {
                 select.value = window.selectedCountries[0] || '';
             }
-            try {
-                if (window.selectedCountries && window.selectedCountries.length > 0) {
-                    localStorage.setItem(SELECTED_COUNTRIES_STORAGE_KEY, JSON.stringify(window.selectedCountries));
-                }
-            } catch (e) { /* ignore */ }
+            persistSelectedCountriesToStorage();
             closeCountrySelectionModal();
         }
 
-        // Bank Selection Modal
+        // Bank Selection Modal（Bank 下拉只显示当前 Country 的 Selected Banks，按 Country 分别存储）
         const DEFAULT_BANKS = [];
         let availableBanksList = [];
+        const SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY = 'processlist_selected_banks_by_country';
+
+        function restoreSelectedBanksByCountryFromStorage() {
+            try {
+                const raw = localStorage.getItem(SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY);
+                if (!raw) return;
+                const obj = JSON.parse(raw);
+                if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                    window.selectedBanksByCountry = obj;
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        function persistSelectedBanksByCountryToStorage() {
+            try {
+                if (window.selectedBanksByCountry && typeof window.selectedBanksByCountry === 'object') {
+                    localStorage.setItem(SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY, JSON.stringify(window.selectedBanksByCountry));
+                } else {
+                    localStorage.removeItem(SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY);
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        /** 仅用当前 Country 的 Selected Banks 填充 Bank 下拉，不调用接口 */
+        function applySelectedBanksToDropdown(country) {
+            const select = document.getElementById('bank_bank');
+            if (!select) return;
+            const currentBank = (select.value || '').trim();
+            select.innerHTML = '';
+            const opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = 'Select Bank';
+            select.appendChild(opt0);
+            const c = (country || '').trim();
+            const list = (window.selectedBanksByCountry && window.selectedBanksByCountry[c]) ? window.selectedBanksByCountry[c] : [];
+            if (Array.isArray(list) && list.length > 0) {
+                list.forEach(function (b) {
+                    const n = (b || '').trim();
+                    if (!n) return;
+                    const opt = document.createElement('option');
+                    opt.value = n;
+                    opt.textContent = n;
+                    select.appendChild(opt);
+                });
+                if (currentBank && list.indexOf(currentBank) >= 0) select.value = currentBank;
+                else select.value = '';
+            } else {
+                select.value = '';
+            }
+        }
 
         async function showAddBankModal() {
             const countrySelect = document.getElementById('bank_country');
@@ -3470,9 +3545,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 showNotification('Please select Country first', 'danger');
                 return;
             }
-            await loadBanksByCountry(country);
-            // Previously added banks go to Available only; Selected is empty by default.
-            window.selectedBanks = [];
+            // Selected Banks 从当前 Country 的已选列表恢复；Available 由 loadExistingBanks 按接口拉取
+            window.selectedBanks = (window.selectedBanksByCountry && window.selectedBanksByCountry[country]) ? window.selectedBanksByCountry[country].slice() : [];
             await loadExistingBanks(country);
             updateSelectedBanksInModal();
             const modal = document.getElementById('bankSelectionModal');
@@ -3681,7 +3755,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         async function confirmBanks() {
             const countrySelect = document.getElementById('bank_country');
             const country = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
-            const banksToSave = [].concat(window.selectedBanks || [], availableBanksList || []);
+            const selectedList = (window.selectedBanks || []).map(function (n) { return (n || '').trim(); }).filter(Boolean);
+            const banksToSave = [].concat(selectedList, availableBanksList || []);
             const uniqueBanks = [...new Set(banksToSave.map(function (n) { return (n || '').trim(); }).filter(Boolean))];
             if (country && uniqueBanks.length > 0) {
                 try {
@@ -3693,22 +3768,15 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     if (!result.success) console.warn('save_country_banks', result.error);
                 } catch (e) { console.warn('save_country_banks', e); }
             }
+            // 按 Country 保存 Selected Banks，并只用品项更新 Bank 下拉
+            if (country) {
+                if (!window.selectedBanksByCountry) window.selectedBanksByCountry = {};
+                window.selectedBanksByCountry[country] = selectedList.slice();
+                persistSelectedBanksByCountryToStorage();
+            }
             const select = document.getElementById('bank_bank');
             if (!select) { closeBankSelectionModal(); return; }
-            const existing = new Set();
-            for (let i = 0; i < select.options.length; i++) {
-                const v = (select.options[i].value || '').trim();
-                if (v) existing.add(v);
-            }
-            uniqueBanks.length && uniqueBanks.forEach(function (n) {
-                if (!existing.has(n)) {
-                    const opt = document.createElement('option');
-                    opt.value = n;
-                    opt.textContent = n;
-                    select.appendChild(opt);
-                    existing.add(n);
-                }
-            });
+            applySelectedBanksToDropdown(country);
             if (window.selectedBanks && window.selectedBanks.length > 0) {
                 select.value = window.selectedBanks[0] || '';
             }
@@ -3789,7 +3857,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 const roleSelect = document.getElementById('edit_role');
                 if (roleSelect) {
                     roleSelect.innerHTML = '<option value="">Select Role</option>';
-                    const roles = bankAccountRoles.length ? bankAccountRoles : ['PROFIT', 'STAFF', 'OWNER'];
+                    const roles = bankAccountRoles.length ? bankAccountRoles : BANK_ADD_ACCOUNT_ROLES;
                     const accountRoleUpper = (account.role || '').trim().toUpperCase();
                     roles.forEach(code => {
                         const opt = document.createElement('option');
@@ -3857,7 +3925,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const amountId = 'profit_sharing_amount_' + ts;
             const row = document.createElement('div');
             row.className = 'form-row bank-row-two-cols profit-sharing-row';
-            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">Account</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="Select Account">Select Account</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div><div class="custom-select-options"></div></div></div></div></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
+            row.innerHTML = '<div class="form-group"><label for="' + btnId + '">Account</label><input type="hidden" id="' + hiddenId + '" class="profit-sharing-account-id" name="account_id" value=""><div class="account-select-with-buttons"><div class="custom-select-wrapper"><button type="button" class="custom-select-button profit-sharing-account-btn" id="' + btnId + '" data-placeholder="Select Account">Select Account</button><div class="custom-select-dropdown" id="' + dropdownId + '"><div class="custom-select-search"><input type="text" placeholder="Search account..." autocomplete="off"></div><div class="custom-select-options"></div></div></div></div><button type="button" class="bank-add-btn" onclick="showAddAccountModal()" title="Add New Account">+</button></div></div><div class="form-group"><label for="' + amountId + '">Amount</label><input type="number" id="' + amountId + '" name="amount" class="bank-input profit-sharing-amount" placeholder="Enter amount" step="0.01" min="0"></div>';
             container.appendChild(row);
             if (typeof initProfitSharingAccountSelect === 'function') {
                 initProfitSharingAccountSelect(btnId, dropdownId, hiddenId);
