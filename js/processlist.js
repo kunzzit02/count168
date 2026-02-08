@@ -392,7 +392,7 @@
                 window.selectedProfitSharingEntries = [];
                 loadAddBankProcessData().then(async () => {
                     const countryEl = document.getElementById('bank_country');
-                    await loadBanksByCountry(countryEl ? countryEl.value : '');
+                    applySelectedBanksToDropdown(countryEl ? countryEl.value : '');
                     renderSelectedProfitSharing();
                     document.getElementById('addBankModal').style.display = 'block';
                     updateBankSubmitButtonState();
@@ -527,18 +527,21 @@
                         countrySelect.appendChild(opt);
                     }
                     countrySelect.value = process.country;
-                    await loadBanksByCountry(process.country);
+                    // 编辑时：若当前 process.bank 不在该 Country 的 Selected Banks 中则临时加入，再刷新下拉
+                    if (process.bank && (process.bank || '').trim()) {
+                        if (!window.selectedBanksByCountry) window.selectedBanksByCountry = {};
+                        const arr = window.selectedBanksByCountry[process.country] || [];
+                        if (arr.indexOf(process.bank) < 0) {
+                            window.selectedBanksByCountry[process.country] = arr.concat([process.bank]);
+                            persistSelectedBanksByCountryToStorage();
+                        }
+                    }
+                    applySelectedBanksToDropdown(process.country);
                 } else {
                     countrySelect.value = '';
-                    await loadBanksByCountry('');
+                    applySelectedBanksToDropdown('');
                 }
                 if (process.bank) {
-                    if (!Array.from(bankSelect.options).some(o => o.value === process.bank)) {
-                        const opt = document.createElement('option');
-                        opt.value = process.bank;
-                        opt.textContent = process.bank;
-                        bankSelect.appendChild(opt);
-                    }
                     bankSelect.value = process.bank;
                 } else {
                     bankSelect.value = '';
@@ -2846,6 +2849,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         async function loadAddBankProcessData() {
             try {
                 restoreSelectedCountriesFromStorage();
+                restoreSelectedBanksByCountryFromStorage();
+                if (!window.selectedBanksByCountry || typeof window.selectedBanksByCountry !== 'object') window.selectedBanksByCountry = {};
                 await loadBankAccounts();
                 initBankAccountSelect('bank_card_merchant', 'bank_card_merchant_dropdown');
                 initBankAccountSelect('bank_customer', 'bank_customer_dropdown');
@@ -2901,12 +2906,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
         }
 
-        // Country 变更时刷新 Bank 下拉，并清空 Bank 若不在新列表中
+        // Country 变更时：Bank 下拉只显示当前 Country 的 Selected Banks（不调用接口）
         (function () {
             const countrySelect = document.getElementById('bank_country');
             if (countrySelect) {
                 countrySelect.addEventListener('change', function () {
-                    loadBanksByCountry(this.value);
+                    applySelectedBanksToDropdown(this.value);
                 });
             }
         })();
@@ -3479,9 +3484,59 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             closeCountrySelectionModal();
         }
 
-        // Bank Selection Modal
+        // Bank Selection Modal（Bank 下拉只显示当前 Country 的 Selected Banks，按 Country 分别存储）
         const DEFAULT_BANKS = [];
         let availableBanksList = [];
+        const SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY = 'processlist_selected_banks_by_country';
+
+        function restoreSelectedBanksByCountryFromStorage() {
+            try {
+                const raw = localStorage.getItem(SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY);
+                if (!raw) return;
+                const obj = JSON.parse(raw);
+                if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+                    window.selectedBanksByCountry = obj;
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        function persistSelectedBanksByCountryToStorage() {
+            try {
+                if (window.selectedBanksByCountry && typeof window.selectedBanksByCountry === 'object') {
+                    localStorage.setItem(SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY, JSON.stringify(window.selectedBanksByCountry));
+                } else {
+                    localStorage.removeItem(SELECTED_BANKS_BY_COUNTRY_STORAGE_KEY);
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        /** 仅用当前 Country 的 Selected Banks 填充 Bank 下拉，不调用接口 */
+        function applySelectedBanksToDropdown(country) {
+            const select = document.getElementById('bank_bank');
+            if (!select) return;
+            const currentBank = (select.value || '').trim();
+            select.innerHTML = '';
+            const opt0 = document.createElement('option');
+            opt0.value = '';
+            opt0.textContent = 'Select Bank';
+            select.appendChild(opt0);
+            const c = (country || '').trim();
+            const list = (window.selectedBanksByCountry && window.selectedBanksByCountry[c]) ? window.selectedBanksByCountry[c] : [];
+            if (Array.isArray(list) && list.length > 0) {
+                list.forEach(function (b) {
+                    const n = (b || '').trim();
+                    if (!n) return;
+                    const opt = document.createElement('option');
+                    opt.value = n;
+                    opt.textContent = n;
+                    select.appendChild(opt);
+                });
+                if (currentBank && list.indexOf(currentBank) >= 0) select.value = currentBank;
+                else select.value = '';
+            } else {
+                select.value = '';
+            }
+        }
 
         async function showAddBankModal() {
             const countrySelect = document.getElementById('bank_country');
@@ -3490,9 +3545,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 showNotification('Please select Country first', 'danger');
                 return;
             }
-            await loadBanksByCountry(country);
-            // Previously added banks go to Available only; Selected is empty by default.
-            window.selectedBanks = [];
+            // Selected Banks 从当前 Country 的已选列表恢复；Available 由 loadExistingBanks 按接口拉取
+            window.selectedBanks = (window.selectedBanksByCountry && window.selectedBanksByCountry[country]) ? window.selectedBanksByCountry[country].slice() : [];
             await loadExistingBanks(country);
             updateSelectedBanksInModal();
             const modal = document.getElementById('bankSelectionModal');
@@ -3701,7 +3755,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
         async function confirmBanks() {
             const countrySelect = document.getElementById('bank_country');
             const country = (countrySelect && countrySelect.value) ? String(countrySelect.value).trim() : '';
-            const banksToSave = [].concat(window.selectedBanks || [], availableBanksList || []);
+            const selectedList = (window.selectedBanks || []).map(function (n) { return (n || '').trim(); }).filter(Boolean);
+            const banksToSave = [].concat(selectedList, availableBanksList || []);
             const uniqueBanks = [...new Set(banksToSave.map(function (n) { return (n || '').trim(); }).filter(Boolean))];
             if (country && uniqueBanks.length > 0) {
                 try {
@@ -3713,22 +3768,15 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     if (!result.success) console.warn('save_country_banks', result.error);
                 } catch (e) { console.warn('save_country_banks', e); }
             }
+            // 按 Country 保存 Selected Banks，并只用品项更新 Bank 下拉
+            if (country) {
+                if (!window.selectedBanksByCountry) window.selectedBanksByCountry = {};
+                window.selectedBanksByCountry[country] = selectedList.slice();
+                persistSelectedBanksByCountryToStorage();
+            }
             const select = document.getElementById('bank_bank');
             if (!select) { closeBankSelectionModal(); return; }
-            const existing = new Set();
-            for (let i = 0; i < select.options.length; i++) {
-                const v = (select.options[i].value || '').trim();
-                if (v) existing.add(v);
-            }
-            uniqueBanks.length && uniqueBanks.forEach(function (n) {
-                if (!existing.has(n)) {
-                    const opt = document.createElement('option');
-                    opt.value = n;
-                    opt.textContent = n;
-                    select.appendChild(opt);
-                    existing.add(n);
-                }
-            });
+            applySelectedBanksToDropdown(country);
             if (window.selectedBanks && window.selectedBanks.length > 0) {
                 select.value = window.selectedBanks[0] || '';
             }
