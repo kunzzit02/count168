@@ -1426,7 +1426,7 @@ function loadOwnerCompanies() {
 }
 
 // ==================== Currency 选择（Company 下方） ====================
-window.dashboardCurrency = ''; // 空 = 全部币别
+window.dashboardCurrency = 'MYR'; // 默认选择 MYR
 
 function loadCurrencies() {
     if (!window.companyId) {
@@ -1524,8 +1524,8 @@ async function switchCompany(companyId, companyCode) {
     
     console.log('✅ 切换到 Company:', companyCode, 'ID:', companyId);
     
-    // 切换公司后重置币别为 All，并重新加载币别列表
-    window.dashboardCurrency = '';
+    // 切换公司后默认选 MYR，并重新加载币别列表
+    window.dashboardCurrency = 'MYR';
     await loadCurrencies();
         
         // 重置上次请求参数，允许重新加载
