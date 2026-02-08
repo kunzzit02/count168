@@ -1441,14 +1441,7 @@ function loadCurrencies() {
             const container = document.getElementById('currency-buttons-container');
             if (!wrapper || !container) return;
             container.innerHTML = '';
-            // All
-            const allBtn = document.createElement('button');
-            allBtn.className = 'transaction-company-btn' + (!window.dashboardCurrency ? ' active' : '');
-            allBtn.textContent = 'All';
-            allBtn.dataset.currency = '';
-            allBtn.addEventListener('click', function() { switchCurrency(''); });
-            container.appendChild(allBtn);
-            // 各币别
+            // 各币别（不显示 All 按钮）
             if (data.success && data.data && data.data.length > 0) {
                 data.data.forEach(c => {
                     const btn = document.createElement('button');
