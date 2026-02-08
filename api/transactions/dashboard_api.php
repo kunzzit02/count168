@@ -319,7 +319,7 @@ try {
         ];
     }
     
-    // Profit 直接使用所有 role 为 'PROFIT' 的账户总和
+    // Profit（仪表板 NET PROFIT 卡片）= 所有 Role 为 PROFIT 的账户余额总和
     echo json_encode([
         'success' => true,
         'data' => [

@@ -229,7 +229,7 @@ if (isset($_GET['logout'])) {
                     <div class="kpi-value" id="expenses-value">0</div>
                     </div>
                     
-                    <!-- Profit (显示为 NET PROFIT) -->
+                    <!-- Profit (显示为 NET PROFIT)：数值 = 所有 Role 为 PROFIT 的账户余额总和 -->
                 <div class="dashboard-kpi-card">
                                 <div class="icon text-green">
                                     <i class="fas fa-chart-line"></i>
