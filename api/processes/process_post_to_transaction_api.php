@@ -281,6 +281,7 @@ try {
     $has_currency_id = tableHasColumn($pdo, 'transactions', 'currency_id');
     $has_approval_status = tableHasColumn($pdo, 'transactions', 'approval_status');
     $has_source_bank_process_id = tableHasColumn($pdo, 'transactions', 'source_bank_process_id');
+    $has_source_bank_process_period_type = tableHasColumn($pdo, 'transactions', 'source_bank_process_period_type');
     $has_period_type = tableHasColumn($pdo, 'process_accounting_posted', 'period_type');
     $transactionDate = date('Y-m-d');
     $createdCount = 0;
@@ -343,6 +344,9 @@ try {
         }
         if ($has_source_bank_process_id) {
             $baseTxn['source_bank_process_id'] = (int) $p['id'];
+        }
+        if ($has_source_bank_process_period_type) {
+            $baseTxn['source_bank_process_period_type'] = $periodType;
         }
         if ($has_approval_status) {
             $baseTxn['approval_status'] = 'APPROVED';

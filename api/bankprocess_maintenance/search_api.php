@@ -117,14 +117,22 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
         return [];
     }
 
-    // period_type 用于 Bank process description：与 transaction history 一致（Remaining days bill / Inactive bill / Monthly bill）
-    $hasPapTable = false;
+    // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（与 history 一致，避免同一天 monthly/inactive 互相覆盖）
+    $hasPeriodTypeCol = false;
     try {
-        $hasPapTable = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'")->rowCount() > 0;
+        $hasPeriodTypeCol = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'")->rowCount() > 0;
     } catch (PDOException $e) {}
-    $periodTypeSelect = $hasPapTable
-        ? ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type"
-        : ", NULL AS period_type";
+    if ($hasPeriodTypeCol) {
+        $periodTypeSelect = ", t.source_bank_process_period_type AS period_type";
+    } else {
+        $hasPapTable = false;
+        try {
+            $hasPapTable = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'")->rowCount() > 0;
+        } catch (PDOException $e) {}
+        $periodTypeSelect = $hasPapTable
+            ? ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type"
+            : ", NULL AS period_type";
+    }
 
     $sql = "SELECT
                 t.id,

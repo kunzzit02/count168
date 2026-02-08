@@ -295,6 +295,8 @@ try {
     $has_approval_status = historyHasContraApprovalColumns($pdo);
     $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_id'");
     $has_source_bank_process_id = $stmt->rowCount() > 0;
+    $stmt = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'source_bank_process_period_type'");
+    $has_source_bank_process_period_type = $stmt->rowCount() > 0;
     
     $sql = "SELECT 
                 t.id,
@@ -323,8 +325,12 @@ try {
     }
     if ($has_source_bank_process_id) {
         $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name";
-        // 用于 Bank process 历史：按入账类型显示 description（Remaining days / Monthly / Inactive），不显示 PROFIT FROM
-        $sql .= ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type";
+        // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
+        if ($has_source_bank_process_period_type) {
+            $sql .= ", t.source_bank_process_period_type AS period_type";
+        } else {
+            $sql .= ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type";
+        }
     }
     
     $sql .= " FROM transactions t
