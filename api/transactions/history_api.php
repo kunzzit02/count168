@@ -323,6 +323,8 @@ try {
     }
     if ($has_source_bank_process_id) {
         $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name";
+        // 用于 Bank process 历史：按入账类型显示 description（Remaining days / Monthly / Inactive），不显示 PROFIT FROM
+        $sql .= ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type";
     }
     
     $sql .= " FROM transactions t
@@ -580,9 +582,18 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // WIN/LOSE（前端以 PROFIT 提交）：与 CONTRA 同格式，Id Product 显示 PROFIT，Description 显示 PROFIT FROM {To Account}
+        // WIN/LOSE（Bank process 入账）：不写 PROFIT FROM，改为按入账类型显示 Remaining days / Monthly / Inactive
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
-            $description = 'PROFIT FROM ' . ($t['to_account_code'] ?: 'N/A');
+            $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
+            if ($periodType === 'partial_first_month') {
+                $description = 'Remaining days';
+            } elseif ($periodType === 'manual_inactive') {
+                $description = 'Inactive';
+            } elseif ($periodType === 'monthly' || $periodType === '') {
+                $description = 'Monthly';
+            } else {
+                $description = 'Monthly';
+            }
         }
         
         // 如果是 CONTRA/PAYMENT/RECEIVE/CLAIM/RATE，根据当前查看的账户调整 description
