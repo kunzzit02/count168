@@ -2983,7 +2983,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             }
         }
 
-        // Load accounts for Bank form
+        // Load accounts for Bank form（仅 role: company, staff, upline, agent, member；四类 Select Account 共用同一列表与顺序）
+        const BANK_ACCOUNT_ROLES = 'company,staff,upline,agent,member';
         async function loadBankAccounts() {
             try {
                 const currentCompanyId = (typeof window.PROCESSLIST_COMPANY_ID !== 'undefined' ? window.PROCESSLIST_COMPANY_ID : null);
@@ -2991,6 +2992,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (currentCompanyId) {
                     url.searchParams.set('company_id', currentCompanyId);
                 }
+                url.searchParams.set('roles', BANK_ACCOUNT_ROLES);
 
                 const response = await fetch(url.toString());
                 const result = await response.json();
@@ -3018,17 +3020,13 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
 
             let isOpen = false;
 
-            // Load accounts into dropdown (Profit Account: only role === 'profit')
+            // Load accounts into dropdown（API 已按 role 过滤为 company/staff/upline/agent/member，四类下拉共用同一列表与顺序）
             const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
-            const isProfitAccountSelect = (buttonId === 'bank_profit_account');
             function loadAccounts() {
                 optionsContainer.innerHTML = '';
                 // Always read filter from this dropdown's search input so search matches what user sees
                 const filterLower = (searchInput.value || '').toLowerCase().trim();
                 let accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
-                if (isProfitAccountSelect) {
-                    accounts = accounts.filter(acc => (acc.role || '').toLowerCase() === 'profit');
-                }
 
                 // Always add "Select Account" as first option so user can clear selection
                 {
@@ -3133,7 +3131,6 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 optionsContainer.innerHTML = '';
                 const filterLower = (searchInput.value || '').toLowerCase().trim();
                 let accounts = Array.isArray(window.bankAccounts) ? window.bankAccounts : [];
-                accounts = accounts.filter(acc => (acc.role || '').toLowerCase() === 'profit');
                 const selectOpt = document.createElement('div');
                 selectOpt.className = 'custom-select-option';
                 selectOpt.setAttribute('data-value', '');
