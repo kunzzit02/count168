@@ -178,23 +178,14 @@ try {
                                 ];
                             }
                         }
-                } catch (PDOException $e) {
-                    // 忽略错误
+            } catch (PDOException $e) {
+                // 忽略错误
                 }
             }
             
-            // 如果没有找到 currency，使用默认 currency（如果有）
+            // 与 Transaction Search API 一致：若无 dcd 且无 transactions 的 currency，不加入默认货币，直接跳过该账户（避免多算）
             if (empty($account_currencies)) {
-                // 尝试获取公司的默认 currency
-                $default_currency_stmt = $pdo->prepare("SELECT id, UPPER(code) AS code FROM currency WHERE company_id = ? LIMIT 1");
-                $default_currency_stmt->execute([$company_id]);
-                $default_currency = $default_currency_stmt->fetch(PDO::FETCH_ASSOC);
-                if ($default_currency) {
-                    $account_currencies[] = [
-                        'currency_id' => $default_currency['id'],
-                        'currency_code' => $default_currency['code']
-                    ];
-                }
+                continue;
             }
             
             // 为每个 currency 计算余额
