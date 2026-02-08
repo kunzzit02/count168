@@ -1380,67 +1380,49 @@ document.addEventListener('DOMContentLoaded', function() {
     initializePagination();
     updateDeleteButton(); // 初始化删除按钮状态
     initializeCompanyClickHandlers(); // 初始化公司点击事件
+
+    // 等 DOM 就绪后再绑定表单提交，避免 domainForm 尚未渲染时为 null 报错
+    const domainForm = document.getElementById('domainForm');
+    if (domainForm) {
+        domainForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            // 提交前用当前内存中的公司列表同步隐藏域，确保新加的公司和到期日修改一定会被提交
+            document.getElementById('companies').value = JSON.stringify(selectedCompanies);
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData.entries());
+            data.action = isEditMode ? 'update' : 'create';
+            if (isEditMode && !data.password) delete data.password;
+            if (isEditMode && !data.secondary_password) delete data.secondary_password;
+            fetch('api/domain/domain_api.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(isEditMode ? 'Owner updated successfully!' : 'Owner created successfully!');
+                    closeModal();
+                    if (isEditMode) updateDomainCard(data.data);
+                    else addDomainCard(data.data);
+                } else {
+                    showAlert(data.message || 'Operation failed', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('An error occurred while saving owner', 'danger');
+            });
+        });
+    }
 });
 
 // Close modal when clicking outside
 window.onclick = function(event) {
     const companyExpModal = document.getElementById('companyExpirationModal');
-    if (event.target === companyExpModal) {
-        closeCompanyExpirationModal();
-    }
-    
+    if (event.target === companyExpModal) closeCompanyExpirationModal();
     const companyExpDateModal = document.getElementById('companyExpDateModal');
-    if (event.target === companyExpDateModal) {
-        closeCompanyExpDateModal();
-    }
+    if (event.target === companyExpDateModal) closeCompanyExpDateModal();
 }
-
-document.getElementById('domainForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    // 提交前用当前内存中的公司列表同步隐藏域，确保新加的公司和到期日修改一定会被提交
-    document.getElementById('companies').value = JSON.stringify(selectedCompanies);
-    
-    const formData = new FormData(this);
-    const data = Object.fromEntries(formData.entries());
-    data.action = isEditMode ? 'update' : 'create';
-    
-    // Remove password if empty during edit
-    if (isEditMode && !data.password) {
-        delete data.password;
-    }
-    
-    // 移除空的二级密码（编辑模式，如果用户没有修改）
-    if (isEditMode && !data.secondary_password) {
-        delete data.secondary_password;
-    }
-    
-    fetch('api/domain/domain_api.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showAlert(isEditMode ? 'Owner updated successfully!' : 'Owner created successfully!');
-            closeModal();
-            
-            if (isEditMode) {
-                updateDomainCard(data.data);
-            } else {
-                addDomainCard(data.data);
-            }
-        } else {
-            showAlert(data.message || 'Operation failed', 'danger');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showAlert('An error occurred while saving owner', 'danger');
-    });
-});
 
 // Hover color now only shows while hovered and resets on mouse leave
