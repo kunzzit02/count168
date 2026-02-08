@@ -948,7 +948,9 @@ function updateDashboard(data) {
                 // 左边「Profit」卡片 = Transaction Payment 里 Profit 的总额（Total Balance）
                 if (capitalEl) capitalEl.textContent = formatCurrency(data.profit);
                 if (expensesEl) expensesEl.textContent = formatCurrency(data.expenses);
-                if (profitEl) profitEl.textContent = formatCurrency(data.profit);
+                // 右边「NET PROFIT」卡片 = Profit - Expenses
+                const netProfit = (parseFloat(data.profit) || 0) - (parseFloat(data.expenses) || 0);
+                if (profitEl) profitEl.textContent = formatCurrency(netProfit);
                 const chartDateRangeEl = document.getElementById('chart-date-range');
                 if (chartDateRangeEl && data.date_range) {
                     chartDateRangeEl.textContent =
