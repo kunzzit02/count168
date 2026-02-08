@@ -382,6 +382,11 @@ h1 {
     text-align: center;
 }
 
+/* 与 transaction history 一致：description / remark 大写显示 */
+.text-uppercase {
+    text-transform: uppercase;
+}
+
 #select_all_bankprocess {
     cursor: pointer;
 }

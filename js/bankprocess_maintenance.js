@@ -42,6 +42,15 @@
                 .replace(/'/g, '&#39;');
         }
 
+        // 与 transaction history 一致：description 转大写显示
+        function toUpperDisplay(value) {
+            if (value === null || value === undefined) {
+                return '-';
+            }
+            const str = String(value).trim();
+            return str ? str.toUpperCase() : '-';
+        }
+
         function formatNumber(num) {
             const number = parseFloat(num);
             if (isNaN(number)) return '0.00';
@@ -270,9 +279,8 @@
                 const accountDisplay = row.account ? escapeHtml(row.account) : '-';
                 const fromDisplay = row.from_account && row.from_account !== '-' ? escapeHtml(row.from_account) : '-';
                 const currencyDisplay = row.currency ? escapeHtml(row.currency) : '-';
-                const safeDescription = escapeHtml(row.description || '');
-                const remarkUpper = row.remark ? row.remark.toUpperCase() : '';
-                const safeRemark = escapeHtml(remarkUpper);
+                const descriptionDisplay = escapeHtml(toUpperDisplay(row.description));
+                const remarkDisplay = escapeHtml(toUpperDisplay(row.remark));
                 const createdByDisplay = row.created_by ? escapeHtml(row.created_by) : '-';
                 tr.setAttribute('data-transaction-id', row.transaction_id);
                 tr.innerHTML = `
@@ -282,8 +290,8 @@
                     <td class="maintenance-table-cell">${fromDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-currency">${currencyDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-amount">${formatNumber(row.amount)}</td>
-                    <td class="maintenance-table-cell">${safeDescription || '-'}</td>
-                    <td class="maintenance-table-cell">${safeRemark || '-'}</td>
+                    <td class="maintenance-table-cell text-uppercase">${descriptionDisplay}</td>
+                    <td class="maintenance-table-cell text-uppercase">${remarkDisplay}</td>
                     <td class="maintenance-table-cell">${createdByDisplay}</td>
                     <td class="maintenance-table-cell maintenance-cell-checkbox">
                         <input type="checkbox" class="maintenance-row-checkbox" data-transaction-id="${row.transaction_id}" onchange="updateDeleteButtonState()">

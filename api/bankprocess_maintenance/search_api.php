@@ -117,6 +117,15 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
         return [];
     }
 
+    // period_type 用于 Bank process description：与 transaction history 一致（Remaining days bill / Inactive bill / Monthly bill）
+    $hasPapTable = false;
+    try {
+        $hasPapTable = $pdo->query("SHOW TABLES LIKE 'process_accounting_posted'")->rowCount() > 0;
+    } catch (PDOException $e) {}
+    $periodTypeSelect = $hasPapTable
+        ? ", (SELECT pap.period_type FROM process_accounting_posted pap WHERE pap.company_id = t.company_id AND pap.process_id = t.source_bank_process_id AND pap.posted_date = DATE(t.transaction_date) LIMIT 1) AS period_type"
+        : ", NULL AS period_type";
+
     $sql = "SELECT
                 t.id,
                 DATE_FORMAT(t.transaction_date, '%d/%m/%Y') AS transaction_date,
@@ -127,6 +136,7 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
                 from_acc.account_id AS from_account_code, from_acc.name AS from_account_name,
                 {$schema['selectCurrency']},
                 u.login_id AS created_by_login, o.owner_code AS created_by_owner
+                $periodTypeSelect
             FROM transactions t
             JOIN account to_acc ON t.account_id = to_acc.id
             LEFT JOIN account from_acc ON t.from_account_id = from_acc.id
@@ -150,12 +160,27 @@ function fetchBankProcessTransactions(PDO $pdo, $company_id, $date_from_db, $dat
 
 /**
  * 将一行转换为统一输出项
+ * Description 与 transaction history 一致：WIN/LOSE（Bank process）按 period_type 显示 Remaining days bill / Inactive bill / Monthly bill
  */
 function rowToItem(array $row) {
     $description = $row['description'] ?? '';
-    if (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
+
+    // WIN/LOSE（Bank process 入账）：与 history_api 一致，按入账类型显示
+    if (in_array($row['transaction_type'] ?? '', ['WIN', 'LOSE'])) {
+        $periodType = isset($row['period_type']) ? trim((string) $row['period_type']) : '';
+        if ($periodType === 'partial_first_month') {
+            $description = 'Remaining days bill';
+        } elseif ($periodType === 'manual_inactive') {
+            $description = 'Inactive bill';
+        } elseif ($periodType === 'monthly' || $periodType === '') {
+            $description = 'Monthly bill';
+        } else {
+            $description = 'Monthly bill';
+        }
+    } elseif (empty($description) && in_array($row['transaction_type'] ?? '', ['CONTRA', 'PAYMENT', 'RECEIVE', 'CLAIM'])) {
         $description = ($row['transaction_type'] ?? '') . ' FROM ' . ($row['from_account_code'] ?? 'N/A');
     }
+
     $createdBy = !empty($row['created_by_login']) ? $row['created_by_login'] : ($row['created_by_owner'] ?? '-');
     return [
         'transaction_id' => (int) $row['id'],
@@ -164,7 +189,7 @@ function rowToItem(array $row) {
         'from_account' => $row['from_account_code'] ?? '-',
         'currency' => $row['currency_code'] ?? '-',
         'amount' => (float) $row['amount'],
-        'description' => $description,
+        'description' => $description ?: '-',
         'remark' => $row['remark'] ?? '',
         'dts_created' => $row['dts_created'] ?? '',
         'created_by' => $createdBy,
