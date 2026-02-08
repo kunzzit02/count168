@@ -824,27 +824,29 @@
 #profitSharingModal {
     z-index: 10000;
 }
-/* 弹窗及内容区允许溢出，避免 Account 下拉被裁切（覆盖 processCSS 的 overflow: hidden） */
-#profitSharingModal.modal {
-    overflow: visible !important;
-}
+/* 弹窗及到下拉之间的所有祖先都允许溢出，让 Account 下拉可以溢出弹窗显示（覆盖 processCSS 的 overflow: hidden） */
+#profitSharingModal.modal,
 #profitSharingModal .modal-content,
-#profitSharingModal .modal-body {
+#profitSharingModal .modal-header,
+#profitSharingModal .modal-body,
+#profitSharingModal .bank-form,
+#profitSharingModal #profitSharingRowsContainer,
+#profitSharingModal .form-row,
+#profitSharingModal .form-group,
+#profitSharingModal .account-select-with-buttons,
+#profitSharingModal .custom-select-wrapper {
     overflow: visible !important;
 }
-/* Add Profit Sharing 内 Account 下拉改为向上展开，避免被弹窗底部裁切 */
+/* 下拉可向下溢出弹窗，不设 max-height 裁切，选项区内部滚动 */
 #profitSharingModal .custom-select-wrapper {
     position: relative;
 }
 #profitSharingModal .custom-select-dropdown {
-    top: auto !important;
-    bottom: 100% !important;
-    margin-top: 0 !important;
-    margin-bottom: 2px !important;
-    max-height: min(280px, 50vh) !important;
+    max-height: none !important;
     overflow: visible !important;
+    z-index: 10001;
 }
 #profitSharingModal .custom-select-options {
-    max-height: min(220px, 40vh);
+    max-height: 280px;
     overflow-y: auto;
 }
