@@ -324,7 +324,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -685,8 +685,8 @@ try {
             $transactionCreatedBy = $t['created_by_owner_name'];
         }
         
-        // Bank process 历史中该行显示 Card Owner（持卡人），不显示 Id Product/PROFIT
-        $cardOwner = ($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-';
+        // Bank process 历史中 Id Product 列显示 Add Process 的 Name（bank_process.name）
+        $cardOwner = ($has_source_bank_process_id && !empty($t['bank_process_name'])) ? trim($t['bank_process_name']) : (($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-');
         
         $events[] = [
             'row_type' => 'transaction',
