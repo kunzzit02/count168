@@ -582,17 +582,17 @@ try {
         // 动态调整 description
         $description = $t['description'] ?: '-';
         
-        // WIN/LOSE（Bank process 入账）：不写 PROFIT FROM，改为按入账类型显示 Remaining days / Monthly / Inactive
+        // WIN/LOSE（Bank process 入账）：按入账类型显示，加 "bill" 表示收费/账单
         if (in_array($t['transaction_type'], ['WIN', 'LOSE'])) {
             $periodType = isset($t['period_type']) ? trim((string)$t['period_type']) : '';
             if ($periodType === 'partial_first_month') {
-                $description = 'Remaining days';
+                $description = 'Remaining days bill';
             } elseif ($periodType === 'manual_inactive') {
-                $description = 'Inactive';
+                $description = 'Inactive bill';
             } elseif ($periodType === 'monthly' || $periodType === '') {
-                $description = 'Monthly';
+                $description = 'Monthly bill';
             } else {
-                $description = 'Monthly';
+                $description = 'Monthly bill';
             }
         }
         
