@@ -211,12 +211,12 @@ if (isset($_GET['logout'])) {
             
             <!-- KPI卡片区域 -->
                 <div class="dashboard-kpi-grid">
-                    <!-- Capital -->
+                    <!-- Capital (显示为 Profit) -->
                 <div class="dashboard-kpi-card">
                                 <div class="icon text-blue">
                                     <i class="fas fa-wallet"></i>
                                 </div>
-                    <div class="kpi-label">Capital</div>
+                    <div class="kpi-label">Profit</div>
                     <div class="kpi-value" id="capital-value">0</div>
                     </div>
                     
@@ -229,12 +229,12 @@ if (isset($_GET['logout'])) {
                     <div class="kpi-value" id="expenses-value">0</div>
                     </div>
                     
-                    <!-- Profit -->
+                    <!-- Profit (显示为 NET PROFIT) -->
                 <div class="dashboard-kpi-card">
                                 <div class="icon text-green">
                                     <i class="fas fa-chart-line"></i>
                                 </div>
-                    <div class="kpi-label">Profit</div>
+                    <div class="kpi-label">NET PROFIT</div>
                     <div class="kpi-value" id="profit-value">0</div>
                                 </div>
                             </div>
