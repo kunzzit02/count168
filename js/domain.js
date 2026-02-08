@@ -11,6 +11,8 @@ let allRows = [];
 // Companies管理变量 - 现在存储对象数组 {company_id, expiration_date}
 let selectedCompanies = [];
 let tempCompanies = [];
+// 编辑域时：若用户在 get_companies 返回前已通过「管理公司」确认过，则不再用接口结果覆盖，避免丢失新加的公司和到期日修改
+let userHasModifiedCompaniesInThisEdit = false;
 
 // 计算到期日期
 // startDate: 可选的起始日期（YYYY-MM-DD格式），如果提供则从该日期开始计算，否则从今天开始
@@ -758,6 +760,8 @@ function updateCompanyDisplay() {
 }
 
 function confirmCompanies() {
+    // 标记用户已在本轮编辑中修改过公司列表，避免稍后返回的 get_companies 结果覆盖
+    userHasModifiedCompaniesInThisEdit = true;
     // 排序后再保存：C168放在第一个，其他按字母顺序
     const sortedCompanies = [...tempCompanies].sort((a, b) => {
         const aId = a.company_id.toUpperCase();
@@ -937,6 +941,9 @@ function editDomain(id) {
     document.getElementById('name').value = items[2].textContent;
     document.getElementById('email').value = items[3].textContent;
     
+    // 本轮编辑尚未在「管理公司」里确认过，允许用接口结果填充
+    userHasModifiedCompaniesInThisEdit = false;
+    
     // 从 API 获取完整的公司信息（包括到期日期）
     fetch(`api/domain/domain_api.php`, {
         method: 'POST',
@@ -950,6 +957,8 @@ function editDomain(id) {
     })
         .then(response => response.json())
         .then(data => {
+            // 若用户已在此前通过「管理公司」确认过，不再用接口结果覆盖，避免丢失新加的公司和到期日修改
+            if (userHasModifiedCompaniesInThisEdit) return;
             if (data.success && data.data && data.data.companies) {
                 selectedCompanies = data.data.companies.map(c => ({
                     company_id: c.company_id,
@@ -964,6 +973,7 @@ function editDomain(id) {
             }
         })
         .catch(error => {
+            if (userHasModifiedCompaniesInThisEdit) return;
             console.error('Error loading companies:', error);
             selectedCompanies = [];
             updateSelectedCompaniesDisplay();
@@ -1387,6 +1397,9 @@ window.onclick = function(event) {
 
 document.getElementById('domainForm').addEventListener('submit', function(e) {
     e.preventDefault();
+    
+    // 提交前用当前内存中的公司列表同步隐藏域，确保新加的公司和到期日修改一定会被提交
+    document.getElementById('companies').value = JSON.stringify(selectedCompanies);
     
     const formData = new FormData(this);
     const data = Object.fromEntries(formData.entries());
