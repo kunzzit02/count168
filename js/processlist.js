@@ -3127,6 +3127,36 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             if (!accountButton || !accountDropdown || !hiddenInput || !searchInput || !optionsContainer) return;
             let isOpen = false;
             const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
+            const isInProfitSharingModal = accountDropdown.closest('#profitSharingModal');
+            let dropdownOriginalParent = null;
+            let dropdownOriginalNextSibling = null;
+
+            function positionDropdownToBody() {
+                if (!isInProfitSharingModal) return;
+                const rect = accountButton.getBoundingClientRect();
+                dropdownOriginalParent = accountDropdown.parentNode;
+                dropdownOriginalNextSibling = accountDropdown.nextSibling;
+                document.body.appendChild(accountDropdown);
+                accountDropdown.style.position = 'fixed';
+                accountDropdown.style.left = rect.left + 'px';
+                accountDropdown.style.top = (rect.bottom + 2) + 'px';
+                accountDropdown.style.width = Math.max(rect.width, 200) + 'px';
+                accountDropdown.style.minWidth = Math.max(rect.width, 200) + 'px';
+                accountDropdown.style.zIndex = '10001';
+            }
+            function restoreDropdownToModal() {
+                if (!isInProfitSharingModal || !dropdownOriginalParent) return;
+                dropdownOriginalParent.insertBefore(accountDropdown, dropdownOriginalNextSibling);
+                accountDropdown.style.position = '';
+                accountDropdown.style.left = '';
+                accountDropdown.style.top = '';
+                accountDropdown.style.width = '';
+                accountDropdown.style.minWidth = '';
+                accountDropdown.style.zIndex = '';
+                dropdownOriginalParent = null;
+                dropdownOriginalNextSibling = null;
+            }
+
             function loadAccounts() {
                 optionsContainer.innerHTML = '';
                 const filterLower = (searchInput.value || '').toLowerCase().trim();
@@ -3139,6 +3169,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     accountButton.textContent = placeholderText;
                     accountButton.setAttribute('data-value', '');
                     hiddenInput.value = '';
+                    restoreDropdownToModal();
                     accountDropdown.style.display = 'none';
                     isOpen = false;
                 });
@@ -3166,6 +3197,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                             accountButton.textContent = getDisplayText(account);
                             accountButton.setAttribute('data-value', account.id);
                             hiddenInput.value = String(account.id);
+                            restoreDropdownToModal();
                             accountDropdown.style.display = 'none';
                             isOpen = false;
                         });
@@ -3178,9 +3210,11 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             accountButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (isOpen) {
+                    restoreDropdownToModal();
                     accountDropdown.style.display = 'none';
                     isOpen = false;
                 } else {
+                    if (isInProfitSharingModal) positionDropdownToBody();
                     accountDropdown.style.display = 'block';
                     isOpen = true;
                     searchInput.value = '';
@@ -3190,6 +3224,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             });
             document.addEventListener('click', (e) => {
                 if (!accountButton.contains(e.target) && !accountDropdown.contains(e.target)) {
+                    restoreDropdownToModal();
                     accountDropdown.style.display = 'none';
                     isOpen = false;
                 }
