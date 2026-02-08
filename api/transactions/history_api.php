@@ -261,7 +261,7 @@ try {
                         dcd.rate,
                         c.code as currency_code,
                         COALESCE(u.login_id, o.owner_code) as capture_created_by,
-                        COALESCE(a_cm.name, a_cm.account_id) as card_owner_name
+                        a_cm.name as card_owner_name
                     FROM data_capture_details dcd
                     JOIN data_captures dc ON dcd.capture_id = dc.id
                     JOIN currency c ON dcd.currency_id = c.id
@@ -324,7 +324,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, COALESCE(a_cm_t.name, a_cm_t.account_id) as card_owner_name";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -503,7 +503,7 @@ try {
             'date' => date('d/m/Y', strtotime($capture['capture_date'])),
             'source' => $capture['transaction_type'] ?? 'DATA_CAPTURE',
             'product' => $product ?: '-',
-            'card_owner' => (isset($capture['card_owner_name']) && (string)$capture['card_owner_name'] !== '') ? trim((string)$capture['card_owner_name']) : '-',
+            'card_owner' => !empty($capture['card_owner_name']) ? trim($capture['card_owner_name']) : '-',
             'currency' => $capture['currency_code'] ?? $bfCurrency,
             'percent' => $percent ?: '-',
             'rate' => $rate ?: '-',
@@ -685,11 +685,8 @@ try {
             $transactionCreatedBy = $t['created_by_owner_name'];
         }
         
-        // Card Owner 列只显示持卡人数据（account name 或 account_id），无则 '-'
-        $cardOwner = '-';
-        if ($has_source_bank_process_id && isset($t['card_owner_name']) && (string)$t['card_owner_name'] !== '') {
-            $cardOwner = trim((string)$t['card_owner_name']);
-        }
+        // Bank process 历史中该行显示 Card Owner（持卡人），不显示 Id Product/PROFIT
+        $cardOwner = ($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-';
         
         $events[] = [
             'row_type' => 'transaction',
