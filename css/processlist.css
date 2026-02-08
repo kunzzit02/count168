@@ -824,18 +824,25 @@
 #profitSharingModal {
     z-index: 10000;
 }
-/* 弹窗及内容区允许溢出，避免 Account 下拉被底部裁切 */
+/* 弹窗及内容区允许溢出，避免 Account 下拉被裁切（覆盖 processCSS 的 overflow: hidden） */
 #profitSharingModal.modal {
-    overflow: visible;
+    overflow: visible !important;
 }
 #profitSharingModal .modal-content,
 #profitSharingModal .modal-body {
-    overflow: visible;
+    overflow: visible !important;
 }
-/* 下拉选项区域限制高度并在内部滚动，保证在视窗内完整显示 */
+/* Add Profit Sharing 内 Account 下拉改为向上展开，避免被弹窗底部裁切 */
+#profitSharingModal .custom-select-wrapper {
+    position: relative;
+}
 #profitSharingModal .custom-select-dropdown {
-    max-height: min(280px, 50vh);
-    overflow: visible;
+    top: auto !important;
+    bottom: 100% !important;
+    margin-top: 0 !important;
+    margin-bottom: 2px !important;
+    max-height: min(280px, 50vh) !important;
+    overflow: visible !important;
 }
 #profitSharingModal .custom-select-options {
     max-height: min(220px, 40vh);
