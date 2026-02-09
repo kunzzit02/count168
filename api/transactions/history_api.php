@@ -685,11 +685,8 @@ try {
             $transactionCreatedBy = $t['created_by_owner_name'];
         }
         
-        // Id Product 列：仅 bank process 交易显示 card owner；contra/其他保持显示 id product（交易无 id product 则显示 '-'）
+        // Bank process 历史中 Id Product 列显示 Add Process 的 Name（bank_process.name）
         $cardOwner = ($has_source_bank_process_id && !empty($t['bank_process_name'])) ? trim($t['bank_process_name']) : (($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-');
-        $idProductForDisplay = ($has_source_bank_process_id && !empty($t['source_bank_process_id']) && $cardOwner !== '-')
-            ? $cardOwner
-            : '-';
         
         $events[] = [
             'row_type' => 'transaction',
@@ -701,7 +698,7 @@ try {
             'cr_dr' => $cr_dr,
             'date' => date('d/m/Y', strtotime($t['transaction_date'])),
             'source' => $t['transaction_type'],
-            'product' => $idProductForDisplay,
+            'product' => $t['transaction_type'],
             'card_owner' => $cardOwner,
             'currency' => $transactionCurrency,
             'percent' => '-',
