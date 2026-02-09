@@ -508,7 +508,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 <th>Card Owner</th>
                                 <th>Bank</th>
                                 <th>Contract</th>
-                                <th style="width:80px;"><input type="checkbox" id="processAccountingInboxDeleteSelectAll" title="Select all for delete" class="process-accounting-inbox-delete-cb"> Delete</th>
+                                <th style="width:80px;">Delete <input type="checkbox" id="processAccountingInboxDeleteSelectAll" title="Select all for delete" class="process-accounting-inbox-delete-cb"></th>
                             </tr>
                         </thead>
                         <tbody id="processAccountingInboxTbody"></tbody>
