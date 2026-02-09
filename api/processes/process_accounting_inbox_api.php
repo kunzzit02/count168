@@ -86,25 +86,25 @@ function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId, 
             AND (bp.card_merchant_id IS NOT NULL OR bp.customer_id IS NOT NULL OR bp.profit_account_id IS NOT NULL)
             AND (COALESCE(bp.cost,0) > 0 OR COALESCE(bp.price,0) > 0 OR COALESCE(bp.profit,0) > 0)";
     if ($hasPeriodType) {
-        $sql .= " AND NOT EXISTS (SELECT 1 FROM process_accounting_posted pap WHERE pap.company_id = bp.company_id AND pap.process_id = bp.id AND pap.period_type = 'manual_inactive' AND pap.posted_date >= DATE(bp.dts_modified))";
+        $sql .= " AND NOT EXISTS (SELECT 1 FROM process_accounting_posted pap WHERE pap.company_id = bp.company_id AND pap.process_id = bp.id AND pap.period_type IN ('manual_inactive','manual_inactive_skipped') AND pap.posted_date >= DATE(bp.dts_modified))";
     }
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$companyId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/** 检查首月按比例是否已入账 */
+/** 检查首月按比例是否已入账或已跳过 */
 function isPartialFirstMonthAlreadyPosted(PDO $pdo, int $companyId, int $processId): bool
 {
-    $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type = 'partial_first_month' LIMIT 1");
+    $stmt = $pdo->prepare("SELECT 1 FROM process_accounting_posted WHERE company_id = ? AND process_id = ? AND period_type IN ('partial_first_month','partial_first_month_skipped') LIMIT 1");
     $stmt->execute([$companyId, $processId]);
     return (bool) $stmt->fetch();
 }
 
-/** 获取已入账「首月按比例」的 process_id 列表 */
+/** 获取已入账或已跳过「首月按比例」的 process_id 列表 */
 function getPartialFirstMonthPostedIds(PDO $pdo, int $companyId): array
 {
-    $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND period_type = 'partial_first_month'");
+    $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND period_type IN ('partial_first_month','partial_first_month_skipped')");
     $stmt->execute([$companyId]);
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
@@ -116,7 +116,7 @@ function getMonthlyPostedIdsForDate(PDO $pdo, int $companyId, string $date, arra
         return [];
     }
     $placeholders = implode(',', array_fill(0, count($processIds), '?'));
-    $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND posted_date = ? AND process_id IN ($placeholders) AND (period_type = 'monthly' OR period_type IS NULL OR period_type = '')");
+    $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND posted_date = ? AND process_id IN ($placeholders) AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '')");
     $stmt->execute(array_merge([$companyId, $date], $processIds));
     return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
 }
@@ -135,7 +135,7 @@ function getMonthlyEverPostedIds(PDO $pdo, int $companyId): array
             $stmt->execute([$companyId]);
             return array_map('intval', array_unique($stmt->fetchAll(PDO::FETCH_COLUMN)));
         }
-        $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND (period_type = 'monthly' OR period_type IS NULL OR period_type = '')");
+        $stmt = $pdo->prepare("SELECT process_id FROM process_accounting_posted WHERE company_id = ? AND (period_type IN ('monthly','monthly_skipped') OR period_type IS NULL OR period_type = '')");
         $stmt->execute([$companyId]);
         return array_map('intval', array_unique($stmt->fetchAll(PDO::FETCH_COLUMN)));
     } catch (Throwable $e) {

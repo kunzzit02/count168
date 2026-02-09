@@ -1071,38 +1071,41 @@
             }
         }
 
+        // 从待入账列表移除选中的行（不进行入账、不删 Process，仅让该行从 Accounting Due 消失）
         async function deleteAccountingInboxSelected() {
             const tbody = document.getElementById('processAccountingInboxTbody');
             if (!tbody) return;
             const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
-            const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id, 10)).filter(id => !isNaN(id));
-            if (ids.length === 0) {
-                showNotification('Please select at least one process to delete.', 'warning');
+            const pairs = Array.from(checked).map(cb => {
+                const tr = cb.closest('tr');
+                const id = parseInt(cb.dataset.id, 10);
+                const periodType = (tr && tr.getAttribute('data-period-type')) || 'monthly';
+                return { id, periodType };
+            }).filter(p => !isNaN(p.id));
+            if (pairs.length === 0) {
+                showNotification('请至少勾选一行要从待入账列表移除', 'warning');
                 return;
             }
-            const msg = ids.length === 1
-                ? 'Are you sure you want to delete this process? This action cannot be undone.'
-                : 'Are you sure you want to delete ' + ids.length + ' processes? This action cannot be undone.';
+            const msg = pairs.length === 1
+                ? '确定不进行这笔入账？该行将从待入账列表移除，Process 数据不变。'
+                : '确定不进行这 ' + pairs.length + ' 笔入账？选中的行将从待入账列表移除，Process 数据不变。';
             if (!confirm(msg)) return;
             const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
-            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Deleting...'; }
+            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Removing...'; }
             try {
-                const response = await fetch(buildApiUrl('api/processes/delete_processes_api.php'), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: ids, permission: 'Bank' })
-                });
+                const formData = new FormData();
+                pairs.forEach(p => { formData.append('ids[]', p.id); formData.append('period_types[]', p.periodType); });
+                const response = await fetch(buildApiUrl('api/processes/dismiss_accounting_due_api.php'), { method: 'POST', body: formData });
                 const result = await response.json();
-                if (result.success && result.data && typeof result.data.deleted === 'number') {
-                    showNotification(result.data.deleted === 1 ? '1 process deleted successfully' : result.data.deleted + ' processes deleted successfully', 'success');
+                if (result.success) {
+                    showNotification(result.message || '已从待入账列表移除', 'success');
                     loadAccountingInbox();
-                    if (typeof fetchProcesses === 'function') fetchProcesses();
                 } else {
-                    showNotification(result.message || result.error || (result.data && result.data.error) || 'Delete failed', 'danger');
+                    showNotification(result.message || result.error || '移除失败', 'danger');
                 }
             } catch (err) {
-                console.error('Delete error:', err);
-                showNotification('Delete failed: ' + (err.message || 'Network error'), 'danger');
+                console.error('Dismiss error:', err);
+                showNotification('请求失败: ' + (err.message || 'Network error'), 'danger');
             } finally {
                 if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; updateAccountingInboxDeleteButton(); }
             }
