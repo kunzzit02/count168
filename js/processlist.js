@@ -243,7 +243,11 @@
                 const cost = dashIfEmpty(process.cost);
                 const price = dashIfEmpty(process.price);
                 const profit = dashIfEmpty(process.profit);
-                const statusBadge = '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
+                const shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
+                const cannotSwitchBack = process.status === 'inactive' && shortTermContracts.indexOf(contract) !== -1;
+                const statusBadge = cannotSwitchBack
+                    ? '<span class="role-badge ' + statusClass + '" title="短期合同 Inactive 后不可再激活" style="cursor: not-allowed; opacity: 0.8;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>'
+                    : '<span class="role-badge ' + statusClass + ' status-clickable" onclick="toggleProcessStatus(' + process.id + ', \'' + process.status + '\')" title="Click to toggle status" style="cursor: pointer;">' + escapeHtml((process.status || '').toUpperCase()) + '</span>';
                 const actionCell = '<button class="edit-btn" onclick="editProcess(' + process.id + ')" aria-label="Edit" title="Edit"><img src="images/edit.svg" alt="Edit" /></button>' +
                     (process.status === 'active' ? '' : (process.has_transactions ? '' : '<input type="checkbox" class="row-checkbox bank-checkbox" data-id="' + process.id + '" title="Select for deletion" onchange="updateDeleteButton(); updatePostToTransactionButton();" style="margin-left: 10px;">'));
                 const tr = document.createElement('tr');
@@ -1104,7 +1108,13 @@
                     } else {
                         // Manual DOM update for simple status change
                         const statusClass = newStatus === 'active' ? 'status-active' : (newStatus === 'waiting' ? 'status-waiting' : 'status-inactive');
-                        const statusBadge = `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
+                        const process = processes.find(p => p.id === processId);
+                        const contractNorm = process && process.contract ? (contractMap[process.contract] || process.contract) : '';
+                        const shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
+                        const cannotSwitchBack = selectedPermission === 'Bank' && newStatus === 'inactive' && shortTermContracts.indexOf(contractNorm) !== -1;
+                        const statusBadge = cannotSwitchBack
+                            ? `<span class="role-badge ${statusClass}" title="短期合同 Inactive 后不可再激活" style="cursor: not-allowed; opacity: 0.8;">${escapeHtml((newStatus || '').toUpperCase())}</span>`
+                            : `<span class="role-badge ${statusClass} status-clickable" onclick="toggleProcessStatus(${processId}, '${newStatus}')" title="Click to toggle status" style="cursor: pointer;">${escapeHtml((newStatus || '').toUpperCase())}</span>`;
 
                         if (selectedPermission === 'Bank') {
                             const row = document.querySelector('#bankTableBody tr[data-id="' + processId + '"]');
