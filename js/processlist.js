@@ -2114,11 +2114,49 @@
             });
         }
 
+        /** Bank Add Process：必填项未填时标红，返回是否全部已填 */
+        function markBankRequiredFieldsError() {
+            const ids = ['bank_country', 'bank_bank', 'bank_type', 'bank_name', 'bank_cost', 'bank_price', 'bank_contract'];
+            const btnIds = ['bank_card_merchant', 'bank_customer', 'bank_profit_account'];
+            let allFilled = true;
+            ids.forEach(function (id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const val = (el.value || '').trim();
+                if (!val) {
+                    el.classList.add('bank-field-error');
+                    allFilled = false;
+                } else {
+                    el.classList.remove('bank-field-error');
+                }
+            });
+            btnIds.forEach(function (id) {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                const val = btn.getAttribute('data-value') || '';
+                if (!val) {
+                    btn.classList.add('bank-field-error');
+                    allFilled = false;
+                } else {
+                    btn.classList.remove('bank-field-error');
+                }
+            });
+            return allFilled;
+        }
+
+        function clearBankFieldError(el) {
+            if (el) el.classList.remove('bank-field-error');
+        }
+
         // 处理 Bank Add/Edit Process 表单提交（Edit 时走 update_process）
         const addBankProcessForm = document.getElementById('addBankProcessForm');
         if (addBankProcessForm) {
             addBankProcessForm.addEventListener('submit', async function (e) {
                 e.preventDefault();
+                if (!markBankRequiredFieldsError()) {
+                    showNotification('Please fill in all required fields. Only Insurance and Profit Sharing are optional.', 'danger');
+                    return;
+                }
                 const country = (document.getElementById('bank_country') && document.getElementById('bank_country').value || '').trim();
                 const bank = (document.getElementById('bank_bank') && document.getElementById('bank_bank').value || '').trim();
                 const type = (document.getElementById('bank_type') && document.getElementById('bank_type').value || '').trim();
@@ -2133,7 +2171,6 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             const customer = customerBtn && customerBtn.getAttribute('data-value');
             const profitAccount = profitAccountBtn && profitAccountBtn.getAttribute('data-value');
             if (!country || !bank || !type || !name || !cost || !price || !contract || !cardMerchant || !customer || !profitAccount) {
-                    showNotification('Please fill in all required fields. Only Insurance and Profit Sharing are optional.', 'danger');
                     return;
                 }
                 const editId = document.getElementById('bank_edit_id').value;
@@ -3260,6 +3297,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                             accountButton.textContent = getDisplayText(account);
                             accountButton.setAttribute('data-value', account.id);
                             closeThisDropdown();
+                            if (typeof clearBankFieldError === 'function') clearBankFieldError(accountButton);
                             updateBankAddButtonTitles();
                             if (typeof updateBankSubmitButtonState === 'function') updateBankSubmitButtonState();
                         });
@@ -4339,12 +4377,12 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 });
             }
 
-            // Bank Add/Edit 表单：必填项变化时更新 Add Process 按钮可用状态
+            // Bank Add/Edit 表单：必填项变化时更新 Add Process 按钮可用状态，并清除该格子的红色
             ['bank_country', 'bank_bank', 'bank_type', 'bank_name', 'bank_day_start', 'bank_cost', 'bank_price', 'bank_contract'].forEach(function (id) {
                 const el = document.getElementById(id);
                 if (el) {
-                    el.addEventListener('input', updateBankSubmitButtonState);
-                    el.addEventListener('change', updateBankSubmitButtonState);
+                    el.addEventListener('input', function () { clearBankFieldError(el); updateBankSubmitButtonState(); });
+                    el.addEventListener('change', function () { clearBankFieldError(el); updateBankSubmitButtonState(); });
                 }
             });
 
