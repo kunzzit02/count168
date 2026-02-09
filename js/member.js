@@ -606,23 +606,13 @@
                     const history = data.data?.history || [];
                     if (singleRequest) {
                         const grouped = {};
-                        const order = [];
                         history.forEach(row => {
                             const c = (row.currency || '-').trim();
-                            if (!grouped[c]) {
-                                grouped[c] = [];
-                                order.push(c);
-                            }
+                            if (!grouped[c]) grouped[c] = [];
                             grouped[c].push(row);
                         });
-                        // 按 targetCurrencies 顺序排列，未出现的币别放最后
-                        const orderSet = new Set(order);
-                        targetCurrencies.forEach(code => {
-                            if (orderSet.has(code)) orderSet.delete(code);
-                        });
-                        const finalOrder = targetCurrencies.filter(c => (grouped[c] && grouped[c].length));
-                        order.forEach(c => { if (finalOrder.indexOf(c) === -1) finalOrder.push(c); });
-                        renderHistoryTable({ grouped, order: finalOrder.length ? finalOrder : order });
+                        // All 时显示全部货币的 table，按 targetCurrencies 顺序；无数据的币别也显示空表
+                        renderHistoryTable({ grouped, order: targetCurrencies });
                     } else {
                         const grouped = {};
                         targetCurrencies.forEach(code => {
