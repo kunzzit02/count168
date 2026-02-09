@@ -125,6 +125,22 @@ if ($companyId) {
         $expiration_status = 'normal';
     }
 }
+
+// 获取当前公司是否开启 Gambling 权限（无 Gambling 则不显示侧边栏 Data Capture）
+$companyHasGambling = false;
+if ($companyId) {
+    try {
+        $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+        $stmt->execute([$companyId]);
+        $permsJson = $stmt->fetchColumn();
+        if ($permsJson) {
+            $companyPerms = json_decode($permsJson, true);
+            $companyHasGambling = is_array($companyPerms) && in_array('Gambling', $companyPerms);
+        }
+    } catch (PDOException $e) {
+        error_log("获取公司权限失败: " . $e->getMessage());
+    }
+}
 ?>
 <!--
 ================================================================================
@@ -372,8 +388,8 @@ if ($companyId) {
             </div>
             <?php endif; ?>
 
-            <!-- Data Capture Section -->
-            <?php if (empty($permissions) || in_array('datacapture', $permissions)): ?>
+            <!-- Data Capture Section：仅当用户有 datacapture 权限且当前公司有 Gambling 权限时显示 -->
+            <?php if ((empty($permissions) || in_array('datacapture', $permissions)) && $companyHasGambling): ?>
             <div class="informationmenu-section">
                 <div class="informationmenu-section-title" data-page="datacapture.php" onclick="window.location.href='datacapture.php'">
                     <svg class="section-icon" fill="currentColor" viewBox="0 0 24 24">
