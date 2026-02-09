@@ -283,6 +283,10 @@
                     btn.classList.remove('active');
                 }
             });
+            const titleEl = document.getElementById('maintenance-page-title');
+            if (titleEl) {
+                titleEl.textContent = 'Maintenance - ' + (permission || 'Process');
+            }
         }
 
         function searchData() {

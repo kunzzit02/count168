@@ -29,7 +29,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
 <body>
     <div class="container">
         <div class="maintenance-header">
-            <h1>Maintenance - Process</h1>
+            <h1 id="maintenance-page-title">Maintenance - Process</h1>
             <!-- Category 权限（与 processlist.php 同步） -->
             <div id="bankprocess-permission-filter" class="maintenance-permission-filter-header" style="display: none;">
                 <span class="maintenance-company-label">Category:</span>
