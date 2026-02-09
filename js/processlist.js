@@ -3102,6 +3102,13 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 dropdownOriginalParent = null;
                 dropdownOriginalNextSibling = null;
             }
+            function closeThisDropdown() {
+                restoreDropdownToModal();
+                accountDropdown.style.display = 'none';
+                accountDropdown.classList.remove('custom-select-dropdown-above');
+                isOpen = false;
+            }
+            accountDropdown._bankAccountClose = closeThisDropdown;
 
             // Load accounts into dropdown（API 已按 role 过滤为 company/staff/upline/agent/member，四类下拉共用同一列表与顺序）
             const placeholderText = accountButton.getAttribute('data-placeholder') || 'Select Account';
@@ -3120,9 +3127,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                     selectOpt.addEventListener('click', () => {
                         accountButton.textContent = placeholderText;
                         accountButton.setAttribute('data-value', '');
-                        restoreDropdownToModal();
-                        accountDropdown.style.display = 'none';
-                        isOpen = false;
+                        closeThisDropdown();
                         updateBankAddButtonTitles();
                         if (typeof updateBankSubmitButtonState === 'function') updateBankSubmitButtonState();
                     });
@@ -3158,9 +3163,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                         option.addEventListener('click', () => {
                             accountButton.textContent = getDisplayText(account);
                             accountButton.setAttribute('data-value', account.id);
-                            restoreDropdownToModal();
-                            accountDropdown.style.display = 'none';
-                            isOpen = false;
+                            closeThisDropdown();
                             updateBankAddButtonTitles();
                             if (typeof updateBankSubmitButtonState === 'function') updateBankSubmitButtonState();
                         });
@@ -3181,11 +3184,15 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             accountButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (isOpen) {
-                    restoreDropdownToModal();
-                    accountDropdown.style.display = 'none';
-                    accountDropdown.classList.remove('custom-select-dropdown-above');
-                    isOpen = false;
+                    closeThisDropdown();
                 } else {
+                    // 打开当前前先收起其他两个账户下拉（Supplier/Customer/Company 互斥）
+                    const allBankDropdownIds = ['bank_card_merchant_dropdown', 'bank_customer_dropdown', 'bank_profit_account_dropdown'];
+                    allBankDropdownIds.forEach(function (id) {
+                        if (id === dropdownId) return;
+                        const other = document.getElementById(id);
+                        if (other && other._bankAccountClose) other._bankAccountClose();
+                    });
                     accountDropdown.style.display = 'block';
                     isOpen = true;
                     searchInput.value = '';
@@ -3215,10 +3222,7 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
             // Close on outside click
             document.addEventListener('click', (e) => {
                 if (!accountButton.contains(e.target) && !accountDropdown.contains(e.target)) {
-                    restoreDropdownToModal();
-                    accountDropdown.style.display = 'none';
-                    accountDropdown.classList.remove('custom-select-dropdown-above');
-                    isOpen = false;
+                    closeThisDropdown();
                 }
             });
         }
