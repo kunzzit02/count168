@@ -864,15 +864,12 @@ if ($current_user_id && count($user_companies) > 0) {
                                         class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Remark: full width -->
-                    <div class="bank-form-row" style="width: 100%; margin-top: 12px;">
-                        <div class="form-group" style="width: 100%;">
-                            <label for="bank_remark">Remark</label>
-                            <input type="text" id="bank_remark" name="remark" placeholder="Enter remark"
-                                class="bank-input" autocomplete="off" style="width: 100%;">
+                            <!-- Remark：红框位置，在 Contract/Insurance 下方、右侧单元格内 -->
+                            <div class="form-group" style="margin-top: 12px;">
+                                <label for="bank_remark">Remark</label>
+                                <input type="text" id="bank_remark" name="remark" placeholder="Enter remark"
+                                    class="bank-input" autocomplete="off" style="width: 100%;">
+                            </div>
                         </div>
                     </div>
 
