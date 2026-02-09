@@ -193,7 +193,7 @@
             }).join('');
 
             tbody.innerHTML = '';
-            const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1+1', '1+2': '1+2', '1+3': '1+3' };
+            const contractMap = { '1': '1 MONTH', '1 month': '1 MONTH', '2': '2 MONTHS', '2 months': '2 MONTHS', '3': '3 MONTHS', '3 months': '3 MONTHS', '6': '6 MONTHS', '6 months': '6 MONTHS', '1+1': '1 month + 1 month', '1+2': '1 month + 2 months', '1+3': '1 month + 3 months' };
             const todayStr = new Date().toISOString().slice(0, 10);
             function getContractStateClass(dayStart, dayEnd) {
                 if (!dayStart && !dayEnd) return '';
@@ -950,8 +950,9 @@
                 const periodType = row.is_manual_inactive ? 'manual_inactive' : (row.is_partial_first_month ? 'partial_first_month' : 'monthly');
                 const cbHtml = '<input type="checkbox" class="' + cbClass + '" data-id="' + row.id + '"' + cbDisabled + cbChecked + ' onchange="updateAccountingInboxPostButton()">';
                 const startDate = (row.day_start || row.start_date || '').toString().trim() || '-';
-                const contract = (row.contract || '').toString().trim() || '-';
-                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(startDate) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.bank || '-') + '</td><td>' + escapeHtml(contract) + '</td></tr>';
+                const contractRaw = (row.contract || '').toString().trim() || '-';
+                const contractDisplay = ({ '1+1': '1 month + 1 month', '1+2': '1 month + 2 months', '1+3': '1 month + 3 months' })[contractRaw] || contractRaw;
+                return '<tr' + rowClass + ' data-id="' + row.id + '" data-period-type="' + periodType + '"><td>' + cbHtml + '</td><td>' + (idx + 1) + '</td><td>' + escapeHtml(startDate) + '</td><td>' + escapeHtml(name) + '</td><td>' + escapeHtml(row.bank || '-') + '</td><td>' + escapeHtml(contractDisplay) + '</td></tr>';
             }).join('');
             updateAccountingInboxPostButton();
             (function bindSelectAll() {
