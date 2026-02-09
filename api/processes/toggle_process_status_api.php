@@ -86,9 +86,15 @@ try {
             exit;
         }
         $status = $current['status'];
+        $contract = isset($current['contract']) ? trim((string) $current['contract']) : '';
+        $shortTermContracts = ['1 MONTH', '2 MONTHS', '3 MONTHS', '6 MONTHS'];
         $sinceDate = null;
-        // inactive 时：本次改为 inactive 之后必须先做 Transaction，才能手动切回 active（每次都要先 transaction）
+        // inactive 时：1/2/3/6 months 不允许切回 active；1+1/1+2/1+3 须先做 Transaction 才能切回 active
         if ($status === 'inactive') {
+            if (in_array($contract, $shortTermContracts, true)) {
+                api_error('短期合同（1/2/3/6 个月）切换为 Inactive 后不可再切换回 Active', 400);
+                exit;
+            }
             $dtsModified = $current['dts_modified'] ?? null;
             if (!hasManualInactivePostedSince($pdo, $id, $companyId, $dtsModified)) {
                 api_error('只有通过 Accounting Due 的 Transaction 后，才能手动将状态改为 Active', 400);
