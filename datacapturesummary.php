@@ -291,7 +291,7 @@ $company_id = $_SESSION['company_id'] ?? null;
     <script>
         window.DATACAPTURESUMMARY_COMPANY_ID = <?php echo json_encode($company_id); ?>;
     </script>
-    <script src="js/datacapturesummary.js?v=3"></script>
+    <script src="js/datacapturesummary.js?v=4"></script>
     
 </body>
 </html>
