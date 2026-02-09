@@ -747,7 +747,7 @@ if ($current_user_id && count($user_companies) > 0) {
                                 </div>
                                 <div class="form-group">
                                     <label for="bank_name">Card Owner</label>
-                                    <input type="text" id="bank_name" name="name" placeholder="Enter card owner"
+                                    <input type="text" id="bank_name" name="name" placeholder="Enter Card Owner"
                                         class="bank-input" oninput="this.value=this.value.toUpperCase()" required>
                                 </div>
                             </div>
@@ -855,9 +855,9 @@ if ($current_user_id && count($user_companies) > 0) {
                                         <option value="2 MONTHS">2 MONTHS</option>
                                         <option value="3 MONTHS">3 MONTHS</option>
                                         <option value="6 MONTHS">6 MONTHS</option>
-                                        <option value="1+1">1 month + 1 month</option>
-                                        <option value="1+2">1 month + 2 months</option>
-                                        <option value="1+3">1 month + 3 months</option>
+                                        <option value="1+1">1 MONTH + 1 MONTH</option>
+                                        <option value="1+2">1 MONTH + 2 MONTHS</option>
+                                        <option value="1+3">1 MONTH + 3 MONTHS</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
