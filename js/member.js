@@ -699,10 +699,14 @@
                     closingBalance = normalizeNumber(row.balance);
                 }
 
+                // Id Product：与 Transaction Payment 一致，bank process 显示 card_owner（如 Process #125），否则显示 product
+                const idProductDisplay = row.is_bank_process_transaction ? (row.card_owner || '-') : (row.product || '-');
+                const idProductEscaped = String(idProductDisplay).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
                 rowsHtml.push(`
                     <tr class="transaction-table-row ${row.row_type === 'bf' ? 'member-bf-row' : ''}">
                         <td class="transaction-history-col-date">${row.date || '-'}</td>
-                        <td class="transaction-history-col-product">${row.product || '-'}</td>
+                        <td class="transaction-history-col-product">${idProductEscaped}</td>
                         <td class="transaction-history-col-currency">${row.currency || '-'}</td>
                         <td class="transaction-history-col-rate">${row.rate || '-'}</td>
                         <td class="transaction-history-col-winloss">${winLoss}</td>
