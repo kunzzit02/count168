@@ -2,6 +2,10 @@
 // 使用统一的session检查
 require_once 'session_check.php';
 
+// 强制浏览器使用最新 JS/CSS，避免旧缓存导致 permission/Expiration Date 行为异常
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+
 // 检查当前登录用户是否为 owner/admin 且与 c168 相关
 $user_id      = $_SESSION['user_id']  ?? null;
 $user_role    = strtolower($_SESSION['role'] ?? '');
@@ -75,7 +79,7 @@ try {
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
-    <link rel="stylesheet" href="css/domain.css">
+    <link rel="stylesheet" href="css/domain.css?v=<?php echo file_exists('css/domain.css') ? filemtime('css/domain.css') : time(); ?>">
     <script>
         window.DOMAIN_HAS_C168_CONTEXT = <?php echo $hasC168Context ? 'true' : 'false'; ?>;
         window.DOMAIN_IS_OWNER_OR_ADMIN = <?php echo $isOwnerOrAdmin ? 'true' : 'false'; ?>;

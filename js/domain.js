@@ -496,7 +496,7 @@ function closeCompanyExpDateModal() {
     currentEditingCompanyId = null;
 }
 
-// 更新到期日期显示（在弹窗中）
+// 更新到期日期显示（在弹窗中）；同时同步到 company，避免勾选/取消 permission 时丢失到期日
 function updateExpDateDisplay() {
     if (!currentEditingCompanyId) return;
     
@@ -509,15 +509,16 @@ function updateExpDateDisplay() {
     let expDate = null;
     if (period) {
         if (company.isExtending) {
-            // 续上时间：从原始到期日期开始计算
             const originalDate = company.originalExpirationDate || null;
             expDate = calculateExpirationDate(period, originalDate);
         } else {
-            // 新添加或重置：使用选择的开始日期
             const baseDate = startDate || new Date().toISOString().split('T')[0];
             expDate = calculateExpirationDate(period, baseDate);
         }
     }
+    
+    company.expiration_date = expDate || null;
+    company.selectedPeriod = period || null;
     
     const displayElement = document.getElementById('expDateDisplay');
     if (expDate) {
