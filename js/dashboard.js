@@ -1443,7 +1443,7 @@ function loadCurrencies() {
             const container = document.getElementById('currency-buttons-container');
             if (!wrapper || !container) return;
             container.innerHTML = '';
-            // 各币别（不显示 All 按钮）
+            // 有 currency 才显示；没有则隐藏整个 Currency 区域
             if (data.success && data.data && data.data.length > 0) {
                 data.data.forEach(c => {
                     const btn = document.createElement('button');
@@ -1453,8 +1453,10 @@ function loadCurrencies() {
                     btn.addEventListener('click', function() { switchCurrency((c.code || '').toUpperCase()); });
                     container.appendChild(btn);
                 });
+                wrapper.style.display = 'flex';
+            } else {
+                wrapper.style.display = 'none';
             }
-            wrapper.style.display = 'flex';
             return data;
         })
         .catch(error => {
