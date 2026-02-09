@@ -5724,29 +5724,43 @@ function getCurrentProcessId() {
         function populateFormWithData(data) {
             // Wait for form to be fully loaded
             setTimeout(async () => {
-                if (data.account) {
+                if (data.account || data.accountDbId) {
                     const accountButton = document.getElementById('account');
                     const accountDropdown = document.getElementById('account_dropdown');
                     const optionsContainer = accountDropdown?.querySelector('.custom-select-options');
                     if (accountButton && optionsContainer) {
-                        // Find and select the matching account
                         let selectedAccountId = null;
                         const options = optionsContainer.querySelectorAll('.custom-select-option');
-                        for (let option of options) {
-                            if (option.textContent === data.account) {
-                                selectedAccountId = option.getAttribute('data-value');
-                                accountButton.textContent = option.textContent;
+                        // Find and select the matching account：优先用 data-account-id，否则用 display 文本
+                        if (data.accountDbId) {
+                            const optById = optionsContainer.querySelector(`.custom-select-option[data-value="${data.accountDbId}"]`);
+                            if (optById) {
+                                selectedAccountId = data.accountDbId;
+                                accountButton.textContent = optById.textContent;
                                 accountButton.setAttribute('data-value', selectedAccountId);
-                                // Update selected state
                                 options.forEach(opt => opt.classList.remove('selected'));
-                                option.classList.add('selected');
-                                break;
+                                optById.classList.add('selected');
+                            }
+                        }
+                        if (!selectedAccountId) {
+                            for (let option of options) {
+                                if (option.textContent === data.account) {
+                                    selectedAccountId = option.getAttribute('data-value');
+                                    accountButton.textContent = option.textContent;
+                                    accountButton.setAttribute('data-value', selectedAccountId);
+                                    options.forEach(opt => opt.classList.remove('selected'));
+                                    option.classList.add('selected');
+                                    break;
+                                }
                             }
                         }
                         
-                        // Load currencies for the selected account，传入行里已设置的 data.currency 以优先选中
+                        // Load currencies for the selected account，传入行里已设置的 currency（优先 currencyDbId 再 currency code）
                         if (selectedAccountId) {
-                            await loadCurrenciesForAccount(selectedAccountId, data.currency);
+                            const preferredCurrency = (data.currencyDbId != null && String(data.currencyDbId).trim() !== '')
+                                ? String(data.currencyDbId).trim()
+                                : (data.currency != null ? String(data.currency).trim() : '');
+                            await loadCurrenciesForAccount(selectedAccountId, preferredCurrency);
                             if (typeof updateEditFormulaSaveButtonState === 'function') {
                                 updateEditFormulaSaveButtonState();
                             }
@@ -10820,6 +10834,8 @@ function getCurrentProcessId() {
                 accountValue = (accountText === '+' || accountCell.querySelector('.add-account-btn')) ? '' : accountText;
             }
             const currencyValue = cells[3] ? cells[3].textContent.trim().replace(/[()]/g, '') : ''; // Currency is index 3
+            const currencyDbId = cells[3] ? (cells[3].getAttribute('data-currency-id') || '') : '';
+            const accountDbId = accountCell ? (accountCell.getAttribute('data-account-id') || '') : '';
             // Batch Selection column removed - always false
             const batchSelectionValue = false;
             
@@ -11025,7 +11041,9 @@ function getCurrentProcessId() {
             // Show the Edit Formula form with pre-populated data
             showEditFormulaForm(processValue, false, {
                 account: accountValue,
+                accountDbId: accountDbId,
                 currency: currencyValue,
+                currencyDbId: currencyDbId,
                 batchSelection: batchSelectionValue,
                 source: sourceValue,
                 sourcePercent: sourcePercentValue,
