@@ -2330,9 +2330,10 @@ function getCurrentProcessId() {
         }
 
         // Load currencies for a specific account
-        async function loadCurrenciesForAccount(accountId) {
+        // preferredCurrency: 可选，已设置的货币（code 如 "JPY" 或 currency_id），优先选中该项，不强制默认 MYR
+        async function loadCurrenciesForAccount(accountId, preferredCurrency) {
             try {
-                console.log('Loading currencies for account:', accountId);
+                console.log('Loading currencies for account:', accountId, 'preferredCurrency:', preferredCurrency);
                 
                 const currentCompanyId = (typeof window.DATACAPTURESUMMARY_COMPANY_ID !== 'undefined' ? window.DATACAPTURESUMMARY_COMPANY_ID : null);
                 const url = `api/accounts/account_currency_api.php?action=get_account_currencies&account_id=${accountId}`;
@@ -2362,17 +2363,28 @@ function getCurrentProcessId() {
                                 currencySelect.appendChild(option);
                             });
                             
-                            // 只要账户有 MYR 选项就优先选 MYR；否则选第一项
+                            // 若传入已设置的 preferredCurrency，优先选中该项；否则再默认 MYR 或第一项
                             if (currencySelect.options.length > 1) {
-                                const myrOption = Array.from(currencySelect.options).find(opt =>
-                                    (opt.textContent || '').trim().toUpperCase() === 'MYR'
-                                );
-                                if (myrOption) {
-                                    currencySelect.value = myrOption.value;
-                                    console.log('Currency set to MYR (prioritized)');
+                                const preferred = preferredCurrency != null ? String(preferredCurrency).trim() : '';
+                                const preferredMatch = preferred && Array.from(currencySelect.options).find(opt => {
+                                    const code = (opt.textContent || '').trim().toUpperCase();
+                                    const val = (opt.value || '').toString();
+                                    return code === preferred.toUpperCase() || val === preferred;
+                                });
+                                if (preferredMatch) {
+                                    currencySelect.value = preferredMatch.value;
+                                    console.log('Currency set to already set value:', preferredMatch.textContent);
                                 } else {
-                                    currencySelect.selectedIndex = 1;
-                                    console.log('Auto-selected first currency:', currencySelect.options[1].textContent);
+                                    const myrOption = Array.from(currencySelect.options).find(opt =>
+                                        (opt.textContent || '').trim().toUpperCase() === 'MYR'
+                                    );
+                                    if (myrOption) {
+                                        currencySelect.value = myrOption.value;
+                                        console.log('Currency set to MYR (default)');
+                                    } else {
+                                        currencySelect.selectedIndex = 1;
+                                        console.log('Auto-selected first currency:', currencySelect.options[1].textContent);
+                                    }
                                 }
                             }
                         } else {
@@ -5732,43 +5744,12 @@ function getCurrentProcessId() {
                             }
                         }
                         
-                        // Load currencies for the selected account
+                        // Load currencies for the selected account，传入行里已设置的 data.currency 以优先选中
                         if (selectedAccountId) {
-                            await loadCurrenciesForAccount(selectedAccountId);
-                            
-                            // 若账户有 MYR，已由 loadCurrenciesForAccount 优先选 MYR，不再用 data.currency 覆盖
-                            // 仅当账户没有 MYR 时，才用行里保存的 data.currency
-                            setTimeout(() => {
-                                const currencySelect = document.getElementById('currency');
-                                if (!currencySelect || !data.currency) {
-                                    if (typeof updateEditFormulaSaveButtonState === 'function') {
-                                        updateEditFormulaSaveButtonState();
-                                    }
-                                    return;
-                                }
-                                const hasMyr = Array.from(currencySelect.options).some(opt =>
-                                    (opt.textContent || '').trim().toUpperCase() === 'MYR'
-                                );
-                                if (hasMyr) {
-                                    if (typeof updateEditFormulaSaveButtonState === 'function') {
-                                        updateEditFormulaSaveButtonState();
-                                    }
-                                    return; // 有 MYR 时保持已选的 MYR
-                                }
-                                for (let option of currencySelect.options) {
-                                    if ((option.textContent || '').trim() === (data.currency || '').trim()) {
-                                        option.selected = true;
-                                        console.log('Selected currency from data:', data.currency);
-                                        if (typeof updateEditFormulaSaveButtonState === 'function') {
-                                            updateEditFormulaSaveButtonState();
-                                        }
-                                        return;
-                                    }
-                                }
-                                if (typeof updateEditFormulaSaveButtonState === 'function') {
-                                    updateEditFormulaSaveButtonState();
-                                }
-                            }, 100);
+                            await loadCurrenciesForAccount(selectedAccountId, data.currency);
+                            if (typeof updateEditFormulaSaveButtonState === 'function') {
+                                updateEditFormulaSaveButtonState();
+                            }
                         }
                     }
                 }
