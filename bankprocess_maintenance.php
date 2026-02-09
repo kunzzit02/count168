@@ -20,7 +20,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
     <link rel="stylesheet" href="css/accountCSS.css?v=<?php echo time(); ?>" />
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <title>Bank Process Maintenance</title>
+    <title>Process Maintenance</title>
     <link rel="stylesheet" href="css/bankprocess_maintenance.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
@@ -29,7 +29,7 @@ $session_company_id = $_SESSION['company_id'] ?? null;
 <body>
     <div class="container">
         <div class="maintenance-header">
-            <h1>Maintenance - Bank process</h1>
+            <h1>Maintenance - Process</h1>
             <!-- Category 权限（与 processlist.php 同步） -->
             <div id="bankprocess-permission-filter" class="maintenance-permission-filter-header" style="display: none;">
                 <span class="maintenance-company-label">Category:</span>
