@@ -2115,6 +2115,8 @@
                 if (!result.success) {
                     console.error('Failed to update session:', result.message);
                     // 鍗充娇 API 澶辫触锛屼篃缁х画鍒锋柊椤甸潰锛圥HP 绔細澶勭悊锛?
+                } else if (result.data && typeof result.data.has_gambling !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('companyChanged', { detail: { hasGambling: result.data.has_gambling === true } }));
                 }
             } catch (error) {
                 console.error('Error updating session:', error);

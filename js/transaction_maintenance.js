@@ -164,6 +164,8 @@
             const result = await response.json();
             if (!result.success) {
                 console.error('更新 session 失败:', result.error);
+            } else if (result.data && typeof result.data.has_gambling !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('companyChanged', { detail: { hasGambling: result.data.has_gambling === true } }));
             }
         } catch (error) {
             console.error('更新 session 时出错:', error);

@@ -398,16 +398,18 @@
             
             // 先更新 session
             try {
-                const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
-                const result = await response.json();
-                if (!result.success) {
-                    console.error('更新 session 失败:', result.error);
-                    // 即使 API 失败，也继续更新前端状态
-                }
-            } catch (error) {
-                console.error('更新 session 时出错:', error);
+            const response = await fetch(`/api/session/update_company_session_api.php?company_id=${companyId}`);
+            const result = await response.json();
+            if (!result.success) {
+                console.error('更新 session 失败:', result.error);
                 // 即使 API 失败，也继续更新前端状态
+            } else if (result.data && typeof result.data.has_gambling !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('companyChanged', { detail: { hasGambling: result.data.has_gambling === true } }));
             }
+        } catch (error) {
+            console.error('更新 session 时出错:', error);
+            // 即使 API 失败，也继续更新前端状态
+        }
             
             currentCompanyId = companyId;
             updateCompanyButtonsState();

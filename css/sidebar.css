@@ -409,6 +409,11 @@
     margin: 0;
 }
 
+/* 切换公司后由 JS 控制显示/隐藏 Data Capture */
+.informationmenu-section.sidebar-datacapture-hidden {
+    display: none !important;
+}
+
 .informationmenu-section-title {
     padding: clamp(8px, 0.83vw, 16px) clamp(12px, 1.04vw, 20px);
     font-size: clamp(10px, 0.84vw, 16px);

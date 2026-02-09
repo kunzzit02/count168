@@ -4632,6 +4632,8 @@ const cost = (document.getElementById('bank_cost') && document.getElementById('b
                 if (!result.success) {
                     console.error('Failed to update session:', result.error);
                     // 即使 API 失败，也继续刷新页面（PHP 端会处理）
+                } else if (result.data && typeof result.data.has_gambling !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('companyChanged', { detail: { hasGambling: result.data.has_gambling === true } }));
                 }
             } catch (error) {
                 console.error('Error updating session:', error);

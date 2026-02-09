@@ -97,6 +97,9 @@
                         if (!data.success) {
                             throw new Error(data.error || 'Failed to switch company');
                         }
+                        if (data.data && typeof data.data.has_gambling !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('companyChanged', { detail: { hasGambling: data.data.has_gambling === true } }));
+                        }
                         memberConfig.companyId = companyId;
 
                         // 更新按钮选中状态

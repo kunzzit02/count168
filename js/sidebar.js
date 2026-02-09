@@ -277,6 +277,18 @@
     window.closeNotificationPanel = closeNotificationPanel;
     window.updateExpirationCountdown = updateExpirationCountdown;
 
+    // 切换公司后立即更新侧边栏 Data Capture 显示（根据新公司是否有 Gambling 权限）
+    function updateSidebarDataCaptureVisibility(hasGambling) {
+        var section = document.getElementById('sidebar-datacapture-section');
+        if (!section) return;
+        if (hasGambling) {
+            section.classList.remove('sidebar-datacapture-hidden');
+        } else {
+            section.classList.add('sidebar-datacapture-hidden');
+        }
+    }
+    window.updateSidebarDataCaptureVisibility = updateSidebarDataCaptureVisibility;
+
     function init() {
         sidebar = document.querySelector('.informationmenu');
         overlay = document.querySelector('.informationmenu-overlay');
@@ -293,6 +305,12 @@
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') closeSidebar();
+        });
+
+        // 任意页面切换公司后派发此事件，侧边栏立即显示/隐藏 Data Capture
+        window.addEventListener('companyChanged', function(e) {
+            var hasGambling = e.detail && e.detail.hasGambling === true;
+            updateSidebarDataCaptureVisibility(hasGambling);
         });
 
         document.querySelectorAll('.informationmenu-section-title').forEach(function(title) {
