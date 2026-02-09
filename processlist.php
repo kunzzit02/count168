@@ -864,8 +864,8 @@ if ($current_user_id && count($user_companies) > 0) {
                                         class="bank-input" inputmode="decimal" autocomplete="off">
                                 </div>
                             </div>
-                            <!-- Remark：红框位置，在 Contract/Insurance 下方、右侧单元格内 -->
-                            <div class="form-group" style="margin-top: 12px;">
+                            <!-- Remark：底部与 Selected Profit Sharing 框对齐 -->
+                            <div class="form-group bank-remark-wrap" style="margin-top: 12px;">
                                 <label for="bank_remark">Remark</label>
                                 <input type="text" id="bank_remark" name="remark" placeholder="Enter remark"
                                     class="bank-input" autocomplete="off" style="width: 100%;">
