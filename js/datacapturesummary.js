@@ -691,9 +691,10 @@ function getCurrentProcessId() {
                     row.setAttribute('data-row-index', String(originalRowIndex));
                     row.setAttribute('data-product-type', 'main');
                     
-                    // Id Product column (merged main and sub)
+                    // Id Product column (merged main and sub) - title 用于悬停显示完整 id_product
                     const idProductCell = document.createElement('td');
                     idProductCell.textContent = value;
+                    if (value) idProductCell.setAttribute('title', value);
                     idProductCell.className = 'id-product';
                     idProductCell.setAttribute('data-main-product', value);
                     idProductCell.setAttribute('data-sub-product', '');
@@ -12843,8 +12844,10 @@ function getCurrentProcessId() {
                         cells[0].setAttribute('data-main-product', idProductText);
                     }
                     
-                    // Update merged cell text
-                    cells[0].textContent = mergeProductValues(productValues.main, productValues.sub);
+                    // Update merged cell text 并设置 title 以便悬停显示完整 id_product
+                    const mergedText = mergeProductValues(productValues.main, productValues.sub);
+                    cells[0].textContent = mergedText;
+                    if (mergedText) cells[0].setAttribute('title', mergedText);
                     // cells[0].style.backgroundColor = '#e8f5e8'; // Removed
                 }
                 
@@ -13205,8 +13208,9 @@ async function autoPopulateSummaryRowsFromTemplates(idProducts) {
                 if (existingRowIndex && existingRowIndex !== '' && existingRowIndex !== '999999') {
                     const existingIndexNum = Number(existingRowIndex);
                     if (!isNaN(existingIndexNum) && existingIndexNum >= 0 && existingIndexNum < 999999) {
-                        // Row already has a valid row_index, preserve it to maintain initial order
-                        console.log('Preserved existing row_index:', existingRowIndex, 'for id_product:', summaryIdProduct);
+                        // Row already has a valid row_index, preserve it to maintain initial order（分两行输出避免控制台截断长 id_product）
+                        console.log('Preserved existing row_index:', existingRowIndex);
+                        console.log('  id_product:', summaryIdProduct);
                         return; // Keep existing row_index - don't recalculate
                     }
                 }

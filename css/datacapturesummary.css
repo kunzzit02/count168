@@ -365,9 +365,12 @@ body {
         }
         
         /* Set specific widths for Summary Table columns only */
-        #summaryTable th:nth-child(1), /* Id Product (merged) */
+        #summaryTable th:nth-child(1), /* Id Product (merged) - 加宽并允许换行，避免长 id_product 显示不完整 */
         #summaryTable td:nth-child(1) {
-            width: 6%;
+            width: 18%;
+            min-width: 120px;
+            white-space: normal;
+            word-break: break-word;
         }
         
         #summaryTable th:nth-child(2), /* Account */
@@ -505,6 +508,12 @@ body {
             box-shadow: inset 0 0 0 1px #2196f3;
         }
 
+        /* Id Product 列允许换行，完整显示长名称（覆盖全局 nowrap） */
+        #summaryTable td:nth-child(1) {
+            white-space: normal !important;
+            word-break: break-word;
+        }
+        
         /* Id Product Main and Sub cell styling */
         .main-id-product {
             text-align: left;
