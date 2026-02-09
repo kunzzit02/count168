@@ -87,7 +87,6 @@ function fetchInactiveBankProcessesPendingTransaction(PDO $pdo, int $companyId, 
             AND (COALESCE(bp.cost,0) > 0 OR COALESCE(bp.price,0) > 0 OR COALESCE(bp.profit,0) > 0)";
     if ($hasPeriodType) {
         $sql .= " AND NOT EXISTS (SELECT 1 FROM process_accounting_posted pap WHERE pap.company_id = bp.company_id AND pap.process_id = bp.id AND pap.period_type = 'manual_inactive' AND pap.posted_date >= DATE(bp.dts_modified))";
-        $sql .= " AND NOT EXISTS (SELECT 1 FROM process_accounting_posted pap2 WHERE pap2.company_id = bp.company_id AND pap2.process_id = bp.id AND pap2.period_type = 'manual_inactive_dismissed' AND pap2.posted_date >= DATE(bp.dts_modified))";
     }
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$companyId]);

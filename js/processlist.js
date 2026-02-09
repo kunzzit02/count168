@@ -1077,33 +1077,32 @@
             const checked = tbody.querySelectorAll('.process-accounting-inbox-delete-cb:checked');
             const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id, 10)).filter(id => !isNaN(id));
             if (ids.length === 0) {
-                showNotification('Please select at least one item to remove from Accounting Due.', 'warning');
+                showNotification('Please select at least one process to delete.', 'warning');
                 return;
             }
             const msg = ids.length === 1
-                ? 'Remove this row from Accounting Due? (Only removes from the list; Process and transactions are not deleted.)'
-                : 'Remove ' + ids.length + ' rows from Accounting Due? (Only removes from the list; Process and transactions are not deleted.)';
+                ? 'Are you sure you want to delete this process? This action cannot be undone.'
+                : 'Are you sure you want to delete ' + ids.length + ' processes? This action cannot be undone.';
             if (!confirm(msg)) return;
             const deleteBtn = document.getElementById('processAccountingInboxDeleteBtn');
-            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Removing...'; }
+            if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.textContent = 'Deleting...'; }
             try {
-                const response = await fetch(buildApiUrl('api/processes/dismiss_accounting_due_api.php'), {
+                const response = await fetch(buildApiUrl('api/processes/delete_processes_api.php'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ids: ids })
+                    body: JSON.stringify({ ids: ids, permission: 'Bank' })
                 });
                 const result = await response.json();
-                if (result.success && result.data && typeof result.data.dismissed === 'number') {
-                    const n = result.data.dismissed;
-                    showNotification(n === 1 ? '1 item removed from Accounting Due' : n + ' items removed from Accounting Due', 'success');
+                if (result.success && result.data && typeof result.data.deleted === 'number') {
+                    showNotification(result.data.deleted === 1 ? '1 process deleted successfully' : result.data.deleted + ' processes deleted successfully', 'success');
                     loadAccountingInbox();
                     if (typeof fetchProcesses === 'function') fetchProcesses();
                 } else {
-                    showNotification(result.message || result.error || (result.data && result.data.error) || 'Remove failed', 'danger');
+                    showNotification(result.message || result.error || (result.data && result.data.error) || 'Delete failed', 'danger');
                 }
             } catch (err) {
-                console.error('Dismiss accounting due error:', err);
-                showNotification('Remove failed: ' + (err.message || 'Network error'), 'danger');
+                console.error('Delete error:', err);
+                showNotification('Delete failed: ' + (err.message || 'Network error'), 'danger');
             } finally {
                 if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.textContent = 'Delete'; updateAccountingInboxDeleteButton(); }
             }
