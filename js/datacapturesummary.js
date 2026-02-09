@@ -2158,10 +2158,23 @@ function getCurrentProcessId() {
             });
             
             // Listen to change event (for updating other logic)
+            // 编辑已有行且当前选中的仍是该行账户时：用行上已设置的 currency，避免被默认 MYR 覆盖；用户改选其他账户时用默认
             accountButton.addEventListener('change', async function() {
                 const accountId = getAccountId(this);
                 if (accountId) {
-                    await loadCurrenciesForAccount(accountId);
+                    let preferredCurrency = undefined;
+                    if (window.isEditMode && window.currentEditRow) {
+                        const cells = window.currentEditRow.querySelectorAll('td');
+                        const rowAccountId = cells[1] && cells[1].getAttribute('data-account-id');
+                        if (rowAccountId && String(accountId) === String(rowAccountId)) {
+                            const currencyCell = cells[3];
+                            if (currencyCell) {
+                                preferredCurrency = currencyCell.getAttribute('data-currency-id') || currencyCell.textContent.trim().replace(/[()]/g, '') || '';
+                                if (preferredCurrency) preferredCurrency = String(preferredCurrency).trim();
+                            }
+                        }
+                    }
+                    await loadCurrenciesForAccount(accountId, preferredCurrency || undefined);
                 } else {
                     // Reset currency dropdown if no account selected
                     const currencySelect = document.getElementById('currency');
