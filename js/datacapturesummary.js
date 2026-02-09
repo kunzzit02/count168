@@ -393,11 +393,12 @@ function getCurrentProcessId() {
                 }
             }
             
-            // Display currency
+            // Display currency（先按 process 显示；若有 Summary 行带货币则用首行货币覆盖，使页头与行内一致如 JPY）
             const currencyEl = document.getElementById('processInfoCurrency');
             if (currencyEl) {
                 currencyEl.textContent = processData.currencyName || processData.currency || '-';
             }
+            updateHeaderCurrencyFromSummaryTable();
             
             // Display remark
             const remarkEl = document.getElementById('processInfoRemark');
@@ -407,6 +408,24 @@ function getCurrentProcessId() {
             
             // Show the container
             processInfoContainer.style.display = 'block';
+        }
+        
+        // 根据 Summary 表首行货币更新页头 Currency，使 DATA CAPTURE SUMMARY 的 Currency 与行内一致（如 JPY）
+        function updateHeaderCurrencyFromSummaryTable() {
+            const currencyEl = document.getElementById('processInfoCurrency');
+            const summaryTableBody = document.getElementById('summaryTableBody');
+            if (!currencyEl || !summaryTableBody) return;
+            const rows = summaryTableBody.querySelectorAll('tr');
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].querySelectorAll('td');
+                if (cells[3]) {
+                    const text = (cells[3].textContent || '').trim().replace(/[()]/g, '').trim();
+                    if (text) {
+                        currencyEl.textContent = text;
+                        return;
+                    }
+                }
+            }
         }
         
         // Hide loading state and show content
@@ -13022,6 +13041,9 @@ function getCurrentProcessId() {
                 row.removeAttribute('data-parent-id-product');
             
             updateProcessedAmountTotal();
+            if (typeof updateHeaderCurrencyFromSummaryTable === 'function') {
+                updateHeaderCurrencyFromSummaryTable();
+            }
             }
         }
 
