@@ -833,6 +833,8 @@ async function switchCompany(companyId, companyCode) {
         if (!result.success) {
             console.error('更新 session 失败:', result.error);
             // 即使 API 失败，也继续更新前端状态
+        } else if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
+            window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
         }
     } catch (error) {
         console.error('更新 session 时出错:', error);

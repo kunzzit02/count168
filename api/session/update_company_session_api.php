@@ -90,7 +90,25 @@ try {
     }
 
     $_SESSION['company_id'] = $requested_company_id;
-    jsonResponse(true, 'Company 已更新', ['company_id' => $requested_company_id]);
+
+    // 返回当前公司是否有 Gambling 权限，供侧边栏即时显示/隐藏 Data Capture
+    $has_gambling = false;
+    try {
+        $stmt = $pdo->prepare("SELECT permissions FROM company WHERE id = ?");
+        $stmt->execute([$requested_company_id]);
+        $permsJson = $stmt->fetchColumn();
+        if ($permsJson) {
+            $perms = json_decode($permsJson, true);
+            $has_gambling = is_array($perms) && in_array('Gambling', $perms);
+        }
+    } catch (PDOException $e) {
+        error_log("获取公司权限失败: " . $e->getMessage());
+    }
+
+    jsonResponse(true, 'Company 已更新', [
+        'company_id' => $requested_company_id,
+        'has_gambling' => $has_gambling
+    ]);
 } catch (Exception $e) {
     jsonResponse(false, $e->getMessage(), null, 500);
 }

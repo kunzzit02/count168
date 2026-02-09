@@ -1502,6 +1502,9 @@ async function switchCompany(companyId, companyCode) {
         if (!result.success) {
                 throw new Error(result.error || '更新 session 失败');
         }
+        if (typeof window.updateSidebarDataCaptureVisibility === 'function' && result.data && result.data.has_gambling !== undefined) {
+            window.updateSidebarDataCaptureVisibility(result.data.has_gambling);
+        }
     } catch (error) {
             if (error.name === 'AbortError') {
                 console.error('更新 session 超时');

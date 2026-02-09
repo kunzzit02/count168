@@ -264,6 +264,12 @@
         }
     }
 
+    // 切换公司后由各页调用，即时显示/隐藏侧边栏 Data Capture（根据该公司是否有 Gambling 权限）
+    function updateSidebarDataCaptureVisibility(hasGambling) {
+        var el = document.getElementById('sidebar-datacapture-section');
+        if (el) el.style.display = hasGambling ? '' : 'none';
+    }
+
     // 暴露给 HTML onclick 和 PHP 初始化脚本
     window.closeSidebar = closeSidebar;
     window.toggleSidebar = closeSidebar;
@@ -276,6 +282,7 @@
     window.toggleNotificationPanel = toggleNotificationPanel;
     window.closeNotificationPanel = closeNotificationPanel;
     window.updateExpirationCountdown = updateExpirationCountdown;
+    window.updateSidebarDataCaptureVisibility = updateSidebarDataCaptureVisibility;
 
     function init() {
         sidebar = document.querySelector('.informationmenu');
