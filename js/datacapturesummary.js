@@ -6113,6 +6113,10 @@ function getCurrentProcessId() {
                         inputMethodSelect.value = data.inputMethod;
                     }
                 }
+                // 预填完成后刷新 Save 按钮：无任何更改时也应可以 Save（Account/Currency/Formula 已填即启用）
+                if (typeof updateEditFormulaSaveButtonState === 'function') {
+                    updateEditFormulaSaveButtonState();
+                }
             }, 100);
         }
 
