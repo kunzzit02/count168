@@ -5779,9 +5779,17 @@ function getCurrentProcessId() {
                         
                         // Load currencies for the selected account，传入行里已设置的 currency（优先 currencyDbId 再 currency code）
                         if (selectedAccountId) {
-                            const preferredCurrency = (data.currencyDbId != null && String(data.currencyDbId).trim() !== '')
+                            let preferredCurrency = (data.currencyDbId != null && String(data.currencyDbId).trim() !== '')
                                 ? String(data.currencyDbId).trim()
                                 : (data.currency != null ? String(data.currency).trim() : '');
+                            // 兜底：编辑模式下若 data 里没有货币，从当前编辑行取，避免被默认 MYR 覆盖
+                            if ((!preferredCurrency || String(preferredCurrency).trim() === '') && window.isEditMode && window.currentEditRow) {
+                                const cells = window.currentEditRow.querySelectorAll('td');
+                                if (cells[3]) {
+                                    const fromRow = cells[3].getAttribute('data-currency-id') || cells[3].textContent.trim().replace(/[()]/g, '') || '';
+                                    if (fromRow) preferredCurrency = String(fromRow).trim();
+                                }
+                            }
                             await loadCurrenciesForAccount(selectedAccountId, preferredCurrency);
                             if (typeof updateEditFormulaSaveButtonState === 'function') {
                                 updateEditFormulaSaveButtonState();
