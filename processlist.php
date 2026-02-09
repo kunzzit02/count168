@@ -211,7 +211,7 @@ if ($current_user_id && count($user_companies) > 0) {
     <link rel="stylesheet" href="css/sidebar.css">
     <script src="js/sidebar.js?v=<?php echo time(); ?>"></script>
     <?php include 'sidebar.php'; ?>
-    <link rel="stylesheet" href="css/processlist.css">
+    <link rel="stylesheet" href="css/processlist.css?v=<?php echo time(); ?>">
 </head>
 
 <body class="process-page">
