@@ -672,7 +672,7 @@ function getBankProcess() {
         }
         $stmt = $pdo->prepare("SELECT 
                 bp.id, bp.country, bp.bank, bp.type, bp.name,
-                bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance,
+                bp.card_merchant_id, bp.customer_id, bp.profit_account_id, bp.contract, bp.insurance, bp.remark,
                 bp.cost, bp.price, bp.profit, bp.profit_sharing, bp.day_start, bp.day_start_frequency, bp.day_end, bp.status,
                 bp.dts_modified, bp.dts_created,
                 a_cm.name as card_merchant_name, a_cust.account_id as customer_account, a_cust.name as customer_name,
@@ -704,6 +704,7 @@ function getBankProcess() {
             'customer_account' => $process['customer_account'] ?? '',
             'contract' => $process['contract'],
             'insurance' => $process['insurance'],
+            'remark' => $process['remark'] ?? '',
             'cost' => $process['cost'],
             'price' => $process['price'],
             'profit' => $process['profit'],
@@ -753,6 +754,7 @@ function updateBankProcess() {
         $profit_account_id = !empty($_POST['profit_account_id']) ? (int)$_POST['profit_account_id'] : null;
         $contract = $_POST['contract'] ?? null;
         $insurance = isset($_POST['insurance']) && $_POST['insurance'] !== '' ? (float)$_POST['insurance'] : null;
+        $remark = trim($_POST['remark'] ?? '');
         $cost = isset($_POST['cost']) && $_POST['cost'] !== '' ? (float)$_POST['cost'] : null;
         $price = isset($_POST['price']) && $_POST['price'] !== '' ? (float)$_POST['price'] : null;
         $profit = isset($_POST['profit']) && $_POST['profit'] !== '' ? (float)$_POST['profit'] : null;
@@ -774,12 +776,12 @@ function updateBankProcess() {
         $currentUserId = $isOwner ? null : getCurrentUserId($pdo);
         $stmt = $pdo->prepare("UPDATE bank_process SET 
             country=?, bank=?, type=?, name=?, card_merchant_id=?, customer_id=?, profit_account_id=?,
-            contract=?, insurance=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_start_frequency=?, day_end=?, status=?,
+            contract=?, insurance=?, remark=?, cost=?, price=?, profit=?, profit_sharing=?, day_start=?, day_start_frequency=?, day_end=?, status=?,
             dts_modified=NOW(), modified_by=?, modified_by_type=?, modified_by_owner_id=?
             WHERE id=? AND company_id=?");
         $stmt->execute([
             $country, $bank, $type, $name, $card_merchant_id, $customer_id, $profit_account_id,
-            $contract, $insurance, $cost, $price, $profit, $profit_sharing, $day_start, $day_start_frequency, $day_end, $status,
+            $contract, $insurance, $remark, $cost, $price, $profit, $profit_sharing, $day_start, $day_start_frequency, $day_end, $status,
             $currentUserId, $modifiedByType, $modifiedByOwnerId, $id, $currentCompanyId
         ]);
         if ($country !== '' && $bank !== '') {

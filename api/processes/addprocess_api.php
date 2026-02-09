@@ -260,14 +260,14 @@ function insertBankProcess(PDO $pdo, array $params): int {
     $stmt = $pdo->prepare("
         INSERT INTO bank_process (
             company_id, country, bank, type, name, card_merchant_id, customer_id, profit_account_id,
-            contract, insurance, cost, price, profit, profit_sharing, day_start, day_start_frequency, day_end, status,
+            contract, insurance, remark, cost, price, profit, profit_sharing, day_start, day_start_frequency, day_end, status,
             created_by, created_by_type, created_by_owner_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
     ");
     $stmt->execute([
         $params['company_id'], $params['country'], $params['bank'], $params['type'], $params['name'],
         $params['card_merchant_id'], $params['customer_id'], $params['profit_account_id'],
-        $params['contract'], $params['insurance'], $params['cost'], $params['price'], $params['profit'],
+        $params['contract'], $params['insurance'], $params['remark'], $params['cost'], $params['price'], $params['profit'],
         $params['profit_sharing'], $params['day_start'], $params['day_start_frequency'], $params['day_end'],
         $params['created_by'], $params['created_by_type'], $params['created_by_owner_id']
     ]);
@@ -440,6 +440,7 @@ try {
             'profit_account_id' => (isset($_POST['profit_account_id']) && $_POST['profit_account_id'] !== '') ? (int)$_POST['profit_account_id'] : null,
             'contract' => trim($_POST['contract'] ?? ''),
             'insurance' => (isset($_POST['insurance']) && $_POST['insurance'] !== '') ? (float)$_POST['insurance'] : null,
+            'remark' => trim($_POST['remark'] ?? ''),
             'cost' => (isset($_POST['cost']) && $_POST['cost'] !== '') ? (float)$_POST['cost'] : null,
             'price' => (isset($_POST['price']) && $_POST['price'] !== '') ? (float)$_POST['price'] : null,
             'profit' => (isset($_POST['profit']) && $_POST['profit'] !== '') ? (float)$_POST['profit'] : null,

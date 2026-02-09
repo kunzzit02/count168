@@ -867,6 +867,15 @@ if ($current_user_id && count($user_companies) > 0) {
                         </div>
                     </div>
 
+                    <!-- Remark: full width -->
+                    <div class="bank-form-row" style="width: 100%; margin-top: 12px;">
+                        <div class="form-group" style="width: 100%;">
+                            <label for="bank_remark">Remark</label>
+                            <input type="text" id="bank_remark" name="remark" placeholder="Enter remark"
+                                class="bank-input" autocomplete="off" style="width: 100%;">
+                        </div>
+                    </div>
+
                     <!-- Actions: span full width -->
                     <div class="form-actions bank-actions">
                         <button type="submit" class="btn btn-save" id="bankSubmitBtn" disabled>Add Process</button>

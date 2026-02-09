@@ -578,6 +578,8 @@
                 }
                 document.getElementById('bank_contract').value = process.contract || '';
                 document.getElementById('bank_insurance').value = process.insurance != null && process.insurance !== '' ? process.insurance : '';
+                const bankRemarkEl = document.getElementById('bank_remark');
+                if (bankRemarkEl) bankRemarkEl.value = (process.remark != null && process.remark !== undefined) ? process.remark : '';
                 document.getElementById('bank_cost').value = process.cost != null && process.cost !== '' ? process.cost : '';
                 document.getElementById('bank_price').value = process.price != null && process.price !== '' ? process.price : '';
                 document.getElementById('bank_profit').value = process.profit != null && process.profit !== '' ? process.profit : '';
