@@ -1,4 +1,4 @@
-﻿body.dashboard-page {
+body.dashboard-page {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     margin: 0;
     padding: 0;
@@ -19,7 +19,7 @@
 .dashboard-container {
     max-width: none;
     margin: 0;
-    padding: 8px clamp(20px, 2.08vw, 40px) 8px clamp(180px, 14.06vw, 270px);
+    padding: clamp(8px, 1vw, 12px) clamp(12px, 1.5vw, 40px) clamp(8px, 1vw, 12px) clamp(180px, 14.06vw, 270px);
     width: 100%;
     min-height: 100vh;
     box-sizing: border-box;
@@ -31,7 +31,7 @@
     text-align: left;
     margin-top: 0;
     margin-bottom: clamp(6px, 0.5vw, 10px);
-    font-size: clamp(22px, 1.8vw, 32px);
+    font-size: clamp(20px, 1.8vw, 32px);
     font-family: 'Amaranth';
     font-weight: 500;
     letter-spacing: -0.025em;
@@ -43,7 +43,7 @@
     align-items: center;
     gap: clamp(8px, 0.83vw, 16px);
     flex-wrap: wrap;
-    margin-top: 10px;
+    margin-top: clamp(8px, 1vw, 10px);
 }
 .transaction-company-label {
     font-weight: bold;
@@ -59,12 +59,12 @@
     align-items: center;
 }
 .transaction-company-btn {
-    padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
+    padding: clamp(6px, 0.5vw, 10px) clamp(12px, 1vw, 16px);
     background: #f1f5f9;
     border: 1px solid #d0d7de;
     border-radius: 999px;
     cursor: pointer;
-    font-size: clamp(9px, 0.63vw, 12px);
+    font-size: clamp(10px, 0.7vw, 12px);
     transition: all 0.2s ease;
     color: #1f2937;
     font-weight: 600;
@@ -90,18 +90,18 @@
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    padding: clamp(8px, 0.7vw, 14px);
+    padding: clamp(8px, 1vw, 16px);
 }
 
 .dashboard-card-body {
-    padding: clamp(8px, 0.6vw, 12px) clamp(12px, 1vw, 18px);
+    padding: clamp(8px, 1vw, 12px) clamp(12px, 1vw, 18px);
 }
 
-/* KPI卡片网格 - 水平排列 */
+/* KPI卡片网格 - 水平排列，iPad 起最小列宽 160px */
 .dashboard-kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: clamp(12px, 1.04vw, 20px);
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: clamp(12px, 1.5vw, 20px);
 }
 
 .dashboard-kpi-card {
@@ -173,12 +173,12 @@
 }
 
 .chart-data-btn {
-    padding: clamp(3px, 0.31vw, 6px) clamp(10px, 0.83vw, 16px);
+    padding: clamp(6px, 0.5vw, 10px) clamp(10px, 0.83vw, 16px);
     background: #f1f5f9;
     border: 1px solid #d0d7de;
     border-radius: 6px;
     cursor: pointer;
-    font-size: clamp(9px, 0.63vw, 12px);
+    font-size: clamp(10px, 0.7vw, 12px);
     font-weight: 500;
     color: #374151;
     transition: all 0.2s ease;
@@ -200,13 +200,13 @@
 .dashboard-chart-container {
     position: relative;
     width: 100%;
-    height: 400px;
-    min-height: 400px;
+    height: clamp(280px, 35vw, 420px);
+    min-height: clamp(280px, 35vw, 420px);
 }
 
 @media (max-width: 1200px) {
     .dashboard-kpi-grid {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     }
 }
 
@@ -232,7 +232,7 @@
     flex-wrap: wrap;
     gap: clamp(10px, 1.5vw, 30px);
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: clamp(6px, 0.8vw, 8px);
 }
 
 /* 日期范围选择器样式 */
@@ -243,11 +243,11 @@
     background: white;
     border: 1px solid #d1d5db;
     border-radius: clamp(4px, 0.42vw, 8px);
-    padding: clamp(4px, 0.42vw, 8px) clamp(8px, 0.83vw, 16px);
+    padding: clamp(6px, 0.5vw, 8px) clamp(8px, 0.83vw, 16px);
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
-    min-width: clamp(140px, 12.5vw, 240px);
+    min-width: clamp(120px, 12vw, 240px);
     z-index: 1;
 }
 
@@ -258,13 +258,13 @@
 
 .date-range-picker i {
     color: #3b82f6;
-    font-size: clamp(8px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.74vw, 14px);
     margin: 0 clamp(2px, 0.32vw, 6px);
 }
 
 .date-range-picker span {
     color: #374151;
-    font-size: clamp(8px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.74vw, 14px);
     font-weight: 500;
 }
 
@@ -299,14 +299,14 @@
 .date-part {
     position: relative;
     cursor: pointer;
-    padding: 0px clamp(2px, 0.42vw, 8px);
+    padding: 0px clamp(4px, 0.42vw, 8px);
     border-radius: 4px;
     transition: all 0.2s;
     text-align: center;
     user-select: none;
     background: transparent;
     border: 1px solid transparent;
-    font-size: clamp(8px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.74vw, 14px);
     color: #374151;
     font-family: 'Amaranth', sans-serif;
 }
@@ -324,7 +324,7 @@
 
 .date-separator {
     color: #9ca3af;
-    font-size: clamp(8px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.74vw, 14px);
     font-weight: 500;
     user-select: none;
     margin: 0 2px;
@@ -401,12 +401,12 @@
 }
 
 .date-option {
-    padding: clamp(1px, 0.1vw, 2px);
+    padding: clamp(2px, 0.2vw, 4px);
     text-align: center;
     cursor: pointer;
     border-radius: clamp(4px, 0.31vw, 6px);
     transition: all 0.2s;
-    font-size: clamp(6px, 0.63vw, 12px);
+    font-size: clamp(8px, 0.63vw, 12px);
     color: #374151;
     background: transparent;
     border: 1px solid transparent;
@@ -433,7 +433,7 @@
 .day-header {
     padding: clamp(2px, 0.21vw, 4px);
     text-align: center;
-    font-size: clamp(6px, 0.63vw, 12px);
+    font-size: clamp(8px, 0.63vw, 12px);
     color: #6b7280;
     font-weight: 600;
     font-family: 'Amaranth', sans-serif;
@@ -450,15 +450,15 @@
 .dropdown {
     position: relative;
     display: inline-block;
-    width: clamp(90px, 8vw, 140px);
+    width: clamp(100px, 8vw, 140px);
 }
 
 .dropdown-toggle {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(8px, 0.74vw, 14px);
-    gap: 6px;
+    font-size: clamp(9px, 0.74vw, 14px);
+    gap: clamp(4px, 0.5vw, 6px);
     width: 100%;
     white-space: nowrap;
 }
@@ -492,7 +492,7 @@
     background: transparent;
     color: #374151;
     cursor: pointer;
-    font-size: clamp(8px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.74vw, 14px);
     font-weight: 600;
     text-align: left;
     transition: background-color 0.2s;
@@ -512,14 +512,14 @@
 }
 
 .btn {
-    padding: clamp(5px, 0.42vw, 8px) clamp(10px, 0.83vw, 16px);
+    padding: clamp(6px, 0.5vw, 8px) clamp(10px, 0.83vw, 16px);
     border-radius: clamp(4px, 0.42vw, 8px);
     border: none;
     cursor: pointer;
-    font-size: clamp(8px, 0.73vw, 14px);
+    font-size: clamp(9px, 0.73vw, 14px);
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: clamp(4px, 0.6vw, 8px);
     transition: all 0.2s;
     text-decoration: none;
     font-family: 'Amaranth', sans-serif;
@@ -547,15 +547,15 @@
 
 .form-label {
     display: block;
-    font-size: clamp(9px, 0.74vw, 14px);
+    font-size: clamp(10px, 0.75vw, 14px);
     font-weight: bold;
     color: #000000ff;
-    margin-bottom: 8px;
+    margin-bottom: clamp(4px, 0.5vw, 8px);
     font-family: 'Amaranth', sans-serif;
 }
 
 .date-info {
-    font-size: clamp(8px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.74vw, 14px);
     font-weight: bold;
     color: #6b7280;
     padding: clamp(4px, 0.42vw, 8px) clamp(6px, 0.63vw, 12px);
@@ -589,8 +589,8 @@
     background: transparent;
     border: 0px solid #d1d5db;
     border-radius: 4px;
-    width: clamp(20px, 1.25vw, 24px);
-    height: clamp(20px, 1.25vw, 24px);
+    width: clamp(24px, 1.25vw, 28px);
+    height: clamp(24px, 1.25vw, 28px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -605,7 +605,7 @@
 
 .calendar-nav-btn i {
     color: #374151;
-    font-size: clamp(7px, 0.57vw, 11px);
+    font-size: clamp(9px, 0.57vw, 11px);
 }
 
 .calendar-month-year {
@@ -617,8 +617,8 @@
 .calendar-month-year select {
     border: 1px solid #d1d5db;
     border-radius: 4px;
-    padding: clamp(2px, 0.21vw, 4px) clamp(4px, 0.31vw, 6px);
-    font-size: clamp(8px, 0.63vw, 12px);
+    padding: clamp(4px, 0.3vw, 6px) clamp(6px, 0.4vw, 8px);
+    font-size: clamp(9px, 0.63vw, 12px);
     font-weight: 600;
     color: #000000ff;
     background: white;
@@ -646,7 +646,7 @@
 
 .calendar-weekday {
     text-align: center;
-    font-size: clamp(8px, 0.63vw, 12px);
+    font-size: clamp(9px, 0.63vw, 12px);
     font-weight: 600;
     color: #898989;
     padding: clamp(2px, 0.21vw, 4px) 0;
@@ -665,7 +665,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    font-size: clamp(8px, 0.63vw, 12px);
+    font-size: clamp(9px, 0.63vw, 12px);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
@@ -673,7 +673,7 @@
     background: transparent;
     border: 1px solid transparent;
     position: relative;
-    padding: 4px;
+    padding: clamp(2px, 0.3vw, 4px);
     font-family: 'Amaranth', sans-serif;
 }
 
@@ -745,13 +745,13 @@
 }
 
 .dashboard-date-info {
-    font-size: clamp(8px, 0.74vw, 14px);
+    font-size: clamp(9px, 0.74vw, 14px);
     font-weight: bold;
     color: #6b7280;
-    padding: clamp(3px, 0.3vw, 6px) clamp(6px, 0.63vw, 12px);
+    padding: clamp(4px, 0.4vw, 6px) clamp(6px, 0.63vw, 12px);
     background: rgba(255, 255, 255, 1);
     border-radius: 6px;
-    margin-bottom: 8px;
+    margin-bottom: clamp(4px, 0.5vw, 8px);
     border: 1px solid #e5e7eb;
     font-family: 'Amaranth', sans-serif;
 }
