@@ -324,7 +324,7 @@ try {
         $sql .= ", t.approval_status";
     }
     if ($has_source_bank_process_id) {
-        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name";
+        $sql .= ", t.source_bank_process_id, a_cm_t.name as card_owner_name, bp_t.name as bank_process_name, bp_t.bank as bank_process_bank, bp_t.country as bank_process_country";
         // 每笔交易单独存 period_type 时优先用列，否则用 pap 子查询（避免同一天 monthly/inactive 互相覆盖）
         if ($has_source_bank_process_period_type) {
             $sql .= ", t.source_bank_process_period_type AS period_type";
@@ -693,8 +693,23 @@ try {
             $transactionCreatedBy = $t['created_by_owner_name'];
         }
         
-        // Bank process 历史中 Id Product 列显示 Add Process 的 Name（bank_process.name）；仅 bank process 交易显示 card_owner，其余显示 id product
-        $cardOwner = ($has_source_bank_process_id && !empty($t['bank_process_name'])) ? trim($t['bank_process_name']) : (($has_source_bank_process_id && !empty($t['card_owner_name'])) ? trim($t['card_owner_name']) : '-');
+        // Bank process 历史中 Id Product 列显示 Card Owner：优先 bank_process.name，其次 Supplier 账户名，再其次 bank (country)，最后 Process #id
+        $cardOwner = '-';
+        if ($has_source_bank_process_id && !empty($t['source_bank_process_id'])) {
+            if (!empty($t['bank_process_name'])) {
+                $cardOwner = trim($t['bank_process_name']);
+            } elseif (!empty($t['card_owner_name'])) {
+                $cardOwner = trim($t['card_owner_name']);
+            } else {
+                $bankPart = isset($t['bank_process_bank']) ? trim((string)$t['bank_process_bank']) : '';
+                $countryPart = isset($t['bank_process_country']) ? trim((string)$t['bank_process_country']) : '';
+                if ($bankPart !== '' || $countryPart !== '') {
+                    $cardOwner = trim($bankPart . ' ' . $countryPart);
+                } else {
+                    $cardOwner = 'Process #' . (int)$t['source_bank_process_id'];
+                }
+            }
+        }
         
         $events[] = [
             'row_type' => 'transaction',
