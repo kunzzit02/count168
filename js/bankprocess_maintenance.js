@@ -238,9 +238,11 @@
                     })
                 });
                 const result = await response.json();
-                const permissions = result.success && result.data && result.data.permissions
+                let permissions = result.success && result.data && result.data.permissions
                     ? result.data.permissions
                     : ['Gambling', 'Bank', 'Loan', 'Rate', 'Money'];
+                // 本页不显示 Gambling，与 domain 权限无关
+                permissions = permissions.filter(p => p !== 'Gambling');
                 containerEl.innerHTML = '';
                 if (permissions.length > 0) {
                     filterEl.style.display = 'flex';
@@ -256,7 +258,7 @@
                     const savedPermission = localStorage.getItem(`selectedPermission_${currentCompanyCode}`);
                     if (savedPermission && permissions.includes(savedPermission)) {
                         switchPermission(savedPermission);
-                    } else if (permissions.length > 0 && !selectedPermission) {
+                    } else if (permissions.length > 0) {
                         switchPermission(permissions[0]);
                     }
                 } else {
